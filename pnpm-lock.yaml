@@ -152,6 +152,15 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/api-types:
+    devDependencies:
+      "@texawave-erp/config":
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/config:
     dependencies:
       "@eslint/js":
@@ -167,6 +176,15 @@ importers:
         specifier: ^8.70.0
         version: 8.70.0(eslint@10.10.0(jiti@2.7.0))(typescript@6.0.3)
     devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/core:
+    devDependencies:
+      "@texawave-erp/config":
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: 6.0.3
         version: 6.0.3
