@@ -1,0 +1,12 @@
+{
+  "name": "@texawave-erp/ui-kit",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "exports": {
+    "./theme.css": "./src/theme.css"
+  },
+  "devDependencies": {
+    "@texawave-erp/config": "workspace:*"
+  }
+}
