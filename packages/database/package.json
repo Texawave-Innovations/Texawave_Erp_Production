@@ -1,0 +1,16 @@
+{
+  "name": "@texawave-erp/database",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@texawave-erp/config": "workspace:*",
+    "dotenv": "^18.0.0",
+    "prisma": "^6.0.0",
+    "typescript": "6.0.3"
+  }
+}
