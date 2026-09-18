@@ -13,18 +13,12 @@ importers:
       "@commitlint/config-conventional":
         specifier: ^21.2.2
         version: 21.2.2
-      "@eslint/js":
-        specifier: ^9.39.5
-        version: 9.39.5
+      "@texawave-erp/config":
+        specifier: workspace:^
+        version: link:packages/config
       eslint:
         specifier: ^10.10.0
         version: 10.10.0(jiti@2.6.1)
-      eslint-config-prettier:
-        specifier: ^9.1.2
-        version: 9.1.2(eslint@10.10.0(jiti@2.6.1))
-      globals:
-        specifier: ^15.15.0
-        version: 15.15.0
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -40,9 +34,6 @@ importers:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-      typescript-eslint:
-        specifier: ^8.70.0
-        version: 8.70.0(eslint@10.10.0(jiti@2.6.1))(typescript@6.0.3)
 
   packages/config:
     dependencies:
