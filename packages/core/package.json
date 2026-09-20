@@ -9,8 +9,13 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@texawave-erp/api-types": "workspace:*",
+    "zod": "^4.6.5"
+  },
   "devDependencies": {
     "@texawave-erp/config": "workspace:*",
+    "@types/node": "^24.0.0",
     "typescript": "6.0.3"
   }
 }

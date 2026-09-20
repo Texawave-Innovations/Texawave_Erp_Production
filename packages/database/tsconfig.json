@@ -3,8 +3,15 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "noEmit": true
+    "noEmit": true,
+    // Prisma's generated client re-exports anonymous classes with #private
+    // fields (generated/prisma/internal/prismaNamespace.ts) that TS can't
+    // emit a .d.ts for (TS4094) — irrelevant here since this package is
+    // consumed as source within the monorepo, not published as a compiled
+    // package, so no .d.ts output is needed.
+    "declaration": false,
+    "declarationMap": false
   },
-  "include": ["prisma.config.ts"],
+  "include": ["prisma.config.ts", "src", "prisma/seed.ts"],
   "exclude": ["node_modules", "generated"]
 }

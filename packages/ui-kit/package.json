@@ -4,9 +4,24 @@
   "private": true,
   "license": "UNLICENSED",
   "exports": {
-    "./theme.css": "./src/theme.css"
+    "./theme.css": "./src/theme.css",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
   },
   "devDependencies": {
-    "@texawave-erp/config": "workspace:*"
+    "@texawave-erp/config": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "6.0.3"
   }
 }

@@ -2,7 +2,12 @@
   "extends": "../config/tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    // "core" is framework-agnostic (no React/Next), but it does use
+    // near-universal runtime APIs (fetch, URL, Response) that ship in both
+    // browsers and modern Node — hence "dom" here, not a UI framework lib.
+    "lib": ["ES2022", "dom"],
+    "types": ["node"]
   },
   "include": ["src"]
 }

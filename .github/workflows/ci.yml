@@ -6,6 +6,41 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    # Postgres/Redis so apps/api's e2e suite (tenancy/permissions/auth — see
+    # apps/api/test/reference-tags.e2e-spec.ts) can run for real, not just
+    # typecheck. Credentials here are throwaway CI-only values, not secrets.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: texawave
+          POSTGRES_PASSWORD: texawave
+          POSTGRES_DB: texawave_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U texawave -d texawave_erp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: "postgresql://texawave:texawave@localhost:5432/texawave_erp?schema=public"
+      REDIS_URL: "redis://localhost:6379"
+      # CI-only throwaway value — never the real secret, and never used
+      # outside this ephemeral runner.
+      JWT_SECRET: "ci-only-not-a-real-secret-do-not-reuse-1234567890"
+      NODE_ENV: test
+      LOG_LEVEL: warn
+      CORS_ORIGIN: "http://localhost:3001"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,5 +57,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint, typecheck, and test
-        run: pnpm exec turbo lint typecheck test
+      - name: Apply database migrations
+        run: pnpm --filter @texawave-erp/database exec prisma migrate deploy
+
+      - name: Lint, typecheck, test, and build
+        run: pnpm exec turbo run lint typecheck test build
+
+      - name: Backend e2e tests (auth/tenancy/permissions)
+        run: pnpm --filter api test:e2e
+
+  # Browser e2e (Playwright) is intentionally NOT in this job yet — it needs
+  # a running apps/api + seeded data + apps/ui dev/build server, which is
+  # more setup than this workflow currently does. Run
+  # `pnpm --filter ui test:e2e` locally against a real backend before a PR
+  # that touches an authenticated UI flow (see Docs/CODING_STANDARDS.md §17).

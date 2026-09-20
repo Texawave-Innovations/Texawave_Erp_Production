@@ -1,15 +1,137 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// TexaWave ERP — Prisma schema.
+// Single source of truth for the data model (Docs/ARCHITECTURE.md §5). Only
+// platform tables exist so far (auth/tenancy/RBAC) plus one fixture table
+// (`Tag`) backing the reference feature — see
+// apps/api/src/modules/_reference/tags/. Business-module tables are not part
+// of this foundation work.
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// "prisma-client-js" (the classic generator), not the newer "prisma-client"
+// TS-native generator: the newer one emits raw .ts with no build step of its
+// own, which only a TS-aware runtime (tsx/ts-node/vitest) can load — plain
+// `node` (used by `start:prod`, and by any tool further down the chain that
+// runs compiled output) fails with ERR_UNKNOWN_FILE_EXTENSION on it. The
+// classic generator emits ready-to-run compiled JS + .d.ts, so every
+// consumer in this repo (vitest, swc/tsc-built apps/api, plain node) can
+// load it uniformly with zero extra build step here.
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+/// The tenant root. TexaWave is the vendor; each client is a row here
+/// (Docs/ARCHITECTURE.md — Multi-tenancy decision).
+model Organization {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users User[]
+  roles Role[]
+  tags  Tag[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  email          String
+  passwordHash   String    @map("password_hash")
+  fullName       String    @map("full_name")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  userRoles    UserRole[]
+
+  // Email only needs to be unique WITHIN an organization — the same person's
+  // email can legitimately appear at two different client organizations.
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@map("users")
+}
+
+/// Global catalog, seeded once. Permission strings: `<module>.<entity>.<action>`
+/// (Docs/CODING_STANDARDS.md §2).
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  code        String @unique
+  description String
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+/// Roles are per-organization — each client can shape its own roles against
+/// the global permission catalog.
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// FIXTURE table backing the reference feature
+/// (apps/api/src/modules/_reference/tags/) — demonstrates the §5.1 baseline
+/// columns end to end. Not a real business concept; delete when a real module
+/// needs the pattern spot and this is no longer needed as a teaching example.
+model Tag {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  colorToken     String    @default("gray") @map("color_token")
+  customFields   Json      @default("{}") @map("custom_fields")
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("tags")
 }
