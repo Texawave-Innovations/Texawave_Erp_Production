@@ -1,9 +1,13 @@
 // TexaWave ERP — Prisma schema.
 // Single source of truth for the data model (Docs/ARCHITECTURE.md §5). Only
-// platform tables exist so far (auth/tenancy/RBAC) plus one fixture table
-// (`Tag`) backing the reference feature — see
+// platform tables exist so far (auth/tenancy/RBAC/teams) plus one fixture
+// table (`Tag`) backing the reference feature — see
 // apps/api/src/modules/_reference/tags/. Business-module tables are not part
 // of this foundation work.
+//
+// Primary keys are auto-incrementing `Int`, not UUID (Docs/ARCHITECTURE.md
+// §5.1 / Docs/CODING_STANDARDS.md §2) — `BigInt` is reserved for
+// `audit_logs`/`status_history` only, neither of which exists yet.
 
 // "prisma-client-js" (the classic generator), not the newer "prisma-client"
 // TS-native generator: the newer one emits raw .ts with no build step of its
@@ -23,26 +27,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// The tenant root. TexaWave is the vendor; each client is a row here
-/// (Docs/ARCHITECTURE.md — Multi-tenancy decision).
+/// The tenant root. Single-organization, internal-only app — one row,
+/// seeded once (Docs/ARCHITECTURE.md — Multi-tenancy decision). Kept on
+/// every tenant table for schema consistency even though it's a constant,
+/// not a live dimension.
 model Organization {
-  id        String    @id @default(uuid()) @db.Uuid
+  id        Int       @id @default(autoincrement())
   name      String
   slug      String    @unique
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users User[]
-  roles Role[]
-  tags  Tag[]
+  users           User[]
+  roles           Role[]
+  tags            Tag[]
+  teams           Team[]
+  userTeamAccess  UserTeamAccess[]
 
   @@map("organizations")
 }
 
 model User {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
   email          String
   passwordHash   String    @map("password_hash")
   fullName       String    @map("full_name")
@@ -51,8 +59,10 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  userRoles    UserRole[]
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  userRoles      UserRole[]
+  ledTeams       Team[]           @relation("TeamLead")
+  teamAccess     UserTeamAccess[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -62,9 +72,10 @@ model User {
 }
 
 /// Global catalog, seeded once. Permission strings: `<module>.<entity>.<action>`
-/// (Docs/CODING_STANDARDS.md §2).
+/// or `<module>.<entity>.<action>.<scope>` for anything team-scoped, `scope`
+/// being `own`|`team`|`all` (Docs/CODING_STANDARDS.md §2).
 model Permission {
-  id          String @id @default(uuid()) @db.Uuid
+  id          Int    @id @default(autoincrement())
   code        String @unique
   description String
 
@@ -76,8 +87,8 @@ model Permission {
 /// Roles are per-organization — each client can shape its own roles against
 /// the global permission catalog.
 model Role {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
   name           String
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -92,8 +103,8 @@ model Role {
 }
 
 model RolePermission {
-  roleId       String @map("role_id") @db.Uuid
-  permissionId String @map("permission_id") @db.Uuid
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -103,8 +114,8 @@ model RolePermission {
 }
 
 model UserRole {
-  userId String @map("user_id") @db.Uuid
-  roleId String @map("role_id") @db.Uuid
+  userId Int @map("user_id")
+  roleId Int @map("role_id")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -113,18 +124,72 @@ model UserRole {
   @@map("user_roles")
 }
 
+/// Teams — the real access boundary for HR/team-scoped data
+/// (Docs/ARCHITECTURE.md §5.5, §7A). Seed rows (Software/Mechanical/
+/// Electrical) come from packages/database/prisma/seed.ts, not a migration
+/// data statement.
+model Team {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  code           String
+  leadUserId     Int?      @map("lead_user_id")
+  customFields   Json      @default("{}") @map("custom_fields")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  lead         User?            @relation("TeamLead", fields: [leadUserId], references: [id])
+  userAccess   UserTeamAccess[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("teams")
+}
+
+/// User↔team membership. Most users: one row, their own team, `isLead:
+/// false`. A team lead: one row, their team, `isLead: true`. HR/Admin: no
+/// rows needed — they hold a `.all`-scoped permission and bypass the team
+/// filter entirely (Docs/ARCHITECTURE.md §5.5, Docs/CODING_STANDARDS.md
+/// §10a).
+model UserTeamAccess {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  userId         Int       @map("user_id")
+  teamId         Int       @map("team_id")
+  isLead         Boolean   @default(false) @map("is_lead")
+  customFields   Json      @default("{}") @map("custom_fields")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+  @@index([organizationId])
+  @@index([teamId])
+  @@map("user_team_access")
+}
+
 /// FIXTURE table backing the reference feature
 /// (apps/api/src/modules/_reference/tags/) — demonstrates the §5.1 baseline
 /// columns end to end. Not a real business concept; delete when a real module
 /// needs the pattern spot and this is no longer needed as a teaching example.
 model Tag {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
   name           String
   colorToken     String    @default("gray") @map("color_token")
   customFields   Json      @default("{}") @map("custom_fields")
-  createdBy      String?   @map("created_by") @db.Uuid
-  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
