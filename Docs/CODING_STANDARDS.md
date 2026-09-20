@@ -2,6 +2,7 @@
 
 **For every contributor.** If you're adding a file and you're not sure where it goes, this doc answers that before you ask. Companion docs: `ARCHITECTURE.md` (system design, data model, module boundaries), `DESIGN_SYSTEM.md` (tokens, component contracts) — this doc is about _how we write code inside that architecture_.
 
+**Scope:** internal-only, single-org app — see `ARCHITECTURE.md`'s Scope line. Team-based access (`.own`/`.team`/`.all` permission suffixes, `TeamScopeGuard`) sits alongside `@OrgScoped()` below, one level down. Primary keys are auto-incrementing integers, not UUIDs — every `id`/FK type in this doc's examples reflects that.
 **Owner:** repository maintainers — assign a named owner/team before business-module work begins.
 **Last verified:** 2026-09-18, against the actual repository state.
 **Status:** §1–§9, §12–§13 describe target conventions being actively built out (see `apps/api/src`, `apps/ui/src` for current state). §10 (`@OrgScoped`) and §11 (cross-module coordination) were rewritten on this date to fix examples that didn't compile / had a scope-override hole — see git history for the prior text if you need it.
@@ -40,18 +41,19 @@ texawave-erp/
 
 ## 2. Naming conventions
 
-| What                                       | Convention                                    | Example                                                   |
-| ------------------------------------------ | --------------------------------------------- | --------------------------------------------------------- |
-| Folders (features/modules)                 | kebab-case                                    | `sales-orders/`, `delivery-challans/`                     |
-| NestJS files                               | kebab-case + type suffix                      | `sales-orders.controller.ts`, `create-sales-order.dto.ts` |
-| React components                           | PascalCase file = PascalCase export           | `InvoiceTable.tsx`                                        |
-| Component folders (ui-kit primitives)      | kebab-case folder, `index.tsx` inside         | `components/date-picker/index.tsx`                        |
-| Hooks                                      | camelCase, `use` prefix                       | `useInvoices.ts`                                          |
-| Prisma models                              | PascalCase singular                           | `model SalesOrder { ... }`                                |
-| DB table/column names (via `@@map`/`@map`) | snake_case                                    | `sales_orders`, `organization_id`                         |
-| Branches                                   | `<type>/<ticket-or-slug>`                     | `feat/sales-invoice-crud`                                 |
-| Commits                                    | Conventional Commits (enforced by commitlint) | `feat(sales): add invoice status transitions`             |
-| Permission strings                         | `<module>.<entity>.<action>`                  | `sales.invoice.approve`                                   |
+| What                                       | Convention                                                                                                                                         | Example                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Folders (features/modules)                 | kebab-case                                                                                                                                         | `sales-orders/`, `delivery-challans/`                                |
+| NestJS files                               | kebab-case + type suffix                                                                                                                           | `sales-orders.controller.ts`, `create-sales-order.dto.ts`            |
+| React components                           | PascalCase file = PascalCase export                                                                                                                | `InvoiceTable.tsx`                                                   |
+| Component folders (ui-kit primitives)      | kebab-case folder, `index.tsx` inside                                                                                                              | `components/date-picker/index.tsx`                                   |
+| Hooks                                      | camelCase, `use` prefix                                                                                                                            | `useInvoices.ts`                                                     |
+| Prisma models                              | PascalCase singular                                                                                                                                | `model SalesOrder { ... }`                                           |
+| DB table/column names (via `@@map`/`@map`) | snake_case                                                                                                                                         | `sales_orders`, `organization_id`                                    |
+| Branches                                   | `<type>/<ticket-or-slug>`                                                                                                                          | `feat/sales-invoice-crud`                                            |
+| Commits                                    | Conventional Commits (enforced by commitlint)                                                                                                      | `feat(sales): add invoice status transitions`                        |
+| Permission strings                         | `<module>.<entity>.<action>.<scope>` — `<scope>` is `own`\|`team`\|`all` for anything team-scoped (HR), omitted for modules with no team dimension | `hr.employee.read.team`, `settings.role.update`                      |
+| Primary/foreign keys                       | `Int @id @default(autoincrement())` (Prisma), `bigint` for `audit_logs`/`status_history` only — never `uuid`/`String`                              | `model Employee { id Int @id @default(autoincrement()) teamId Int }` |
 
 ---
 
@@ -200,7 +202,7 @@ Every repository method that reads/writes tenant data must be scoped by `organiz
 ```ts
 // common/tenancy/org-scope.ts
 export interface OrgScope {
-  organizationId: string;
+  organizationId: number; // constant (always the single seeded org) — kept for pattern consistency
 }
 
 // common/decorators/org-scoped.decorator.ts
@@ -217,8 +219,8 @@ export function OrgScoped() {
     descriptor.value = function (scope: OrgScope, ...rest: unknown[]) {
       if (
         !scope ||
-        typeof scope.organizationId !== "string" ||
-        scope.organizationId.length === 0
+        typeof scope.organizationId !== "number" ||
+        !Number.isInteger(scope.organizationId)
       ) {
         throw new Error(
           `${propertyKey} was called without a valid OrgScope — this is a coding-standards violation, not a business error`,
@@ -256,6 +258,72 @@ findAll(filter?: SalesOrderFilter) {
 Why this replaces the earlier draft: the previous example showed a call site (`findMany(filter)`) that didn't match the declared signature (`findMany(scope, filter)`) — that doesn't compile, and "the decorator injects the first argument" was never implemented anywhere. The corrected pattern keeps the TypeScript signature honest (what you see is what's called), pushes scope resolution to the service layer (where the request context actually lives via `TenantContextService`, see ARCHITECTURE.md §6), and uses `@OrgScoped()` purely as a defense-in-depth runtime assertion plus the `tenantWhere()` helper to close the override hole. **This decorator is a safety net, not a substitute for code review** — a reviewer still needs to confirm a new repository method both has `@OrgScoped()` and takes `scope` as its first parameter; nothing prevents a developer from writing an unscoped method entirely.
 
 Reference implementation: `apps/api/src/common/tenancy/` (the pure `OrgScope` type + `tenantWhere()` + the `@OrgScoped()` decorator) and `apps/api/src/platform/tenancy/` (the real `TenantContextService` + `TenancyInterceptor` that populate it from the request's JWT via `nestjs-cls`) — see `apps/api/src/modules/_reference/tags/` for the whole pattern wired end to end.
+
+---
+
+## 10a. `@TeamScoped()` — the real access boundary in this app
+
+Same shape as `@OrgScoped()` above, one level down, and the actual thing enforcing "team leads see their team, HR/Admin see everyone." Where `@OrgScoped()` is now a formality (single constant org), `@TeamScoped()` is where a mistake actually leaks data between Software/Mechanical/Electrical.
+
+```ts
+// common/tenancy/team-scope.ts
+export type TeamAccessLevel = "own" | "team" | "all";
+
+export interface TeamScope {
+  level: TeamAccessLevel;
+  userId: number;
+  teamIds: number[]; // resolved from user_team_access at request time; empty for "all"
+}
+
+// common/decorators/team-scoped.decorator.ts — same runtime-guard shape as OrgScoped()
+export function TeamScoped() {
+  return function (
+    _target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    const original = descriptor.value;
+    descriptor.value = function (scope: TeamScope, ...rest: unknown[]) {
+      if (!scope || !["own", "team", "all"].includes(scope.level)) {
+        throw new Error(
+          `${propertyKey} was called without a valid TeamScope — this is a coding-standards violation, not a business error`,
+        );
+      }
+      return original.call(this, scope, ...rest);
+    };
+    return descriptor;
+  };
+}
+
+// common/tenancy/team-where.ts — builds the Prisma filter for the resolved level
+export function teamWhere<F extends object>(scope: TeamScope, filter?: F) {
+  if (scope.level === "all") return { ...filter };
+  if (scope.level === "team")
+    return { ...filter, teamId: { in: scope.teamIds } };
+  return { ...filter, userId: scope.userId }; // "own"
+}
+```
+
+```ts
+// employees.repository.ts
+@TeamScoped()
+findMany(scope: TeamScope, filter?: EmployeeFilter) {
+  return this.prisma.employee.findMany({ where: teamWhere(scope, filter) });
+}
+
+// employees.service.ts — resolves the caller's level from their permission set,
+// same layering as OrgScope: repositories never read CLS/permissions themselves
+findAll(filter?: EmployeeFilter) {
+  const scope = this.teamContext.resolveScope("hr.employee.read"); // checks .own/.team/.all in that order
+  return this.employeesRepository.findMany(scope, filter);
+}
+```
+
+`TeamContextService.resolveScope(permissionPrefix)` checks the caller's resolved permission set (same Redis-cached set `PermissionsGuard` uses) for `<prefix>.all`, then `<prefix>.team`, then `<prefix>.own`, and returns the **most permissive one they hold** — never guess or default to `.all`. For `.team`, it queries `user_team_access` for the caller's `teamId`s at request time (or reads them off a resolved-permissions cache alongside the permission set, mirroring how `PermissionsGuard` already caches per-user data) rather than trusting a client-supplied team ID.
+
+Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-building helper, not magic. A reviewer still checks that a new HR repository method both has `@TeamScoped()` and takes `scope` as its first parameter.
+
+**PR checklist addition specific to HR/Team work:** any new `hr.*`/`employee_self_service.*` permission string needs all three scope variants seeded (`.own`, `.team`, `.all`) even if only one is used today — adding `.team` later, after roles already reference `.all`, is a data migration on `role_permissions`; seeding all three up front is free.
 
 ---
 
@@ -360,6 +428,8 @@ One documented pattern, so every feature doesn't reinvent its own fetch/auth/err
 - [ ] No cross-module import of another module's repository — use `EventEmitter2`, or a module's own exported public service for a necessary synchronous read (§11).
 - [ ] Every new tenant table has the §5.1 baseline columns (see `ARCHITECTURE.md`).
 - [ ] Every repository method touching tenant data is `@OrgScoped()`, with `scope` as its first, explicit parameter.
+- [ ] Every repository method touching HR/team data is `@TeamScoped()` (§10a), with all three permission-scope variants (`.own`/`.team`/`.all`) seeded even if only one is used yet.
+- [ ] New table's `id` and every FK referencing it use `Int @id @default(autoincrement())` (or `BigInt` for `audit_logs`/`status_history` only) — never `uuid`/`String`.
 - [ ] Business-rule failures throw a `BusinessException` subclass, not a raw error.
 - [ ] New/changed screens cover the states in `Docs/DESIGN_SYSTEM.md` §3 (loading, empty, error-with-retry, permission-denied, save-in-progress, validation, preserved-on-failure).
 - [ ] Tests added per §14; nothing skipped without a comment explaining why.
