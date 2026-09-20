@@ -21,8 +21,8 @@ describe("reference tags (e2e)", () => {
   let app: INestApplication<Server>;
   let prisma: PrismaService;
 
-  let orgA: { id: string; slug: string };
-  let orgB: { id: string; slug: string };
+  let orgA: { id: number; slug: string };
+  let orgB: { id: number; slug: string };
   let tokenA: string;
   let tokenB: string;
   let readOnlyToken: string;
@@ -58,9 +58,9 @@ describe("reference tags (e2e)", () => {
     });
 
     async function makeUser(
-      orgId: string,
+      orgId: number,
       email: string,
-      permissionIds: string[],
+      permissionIds: number[],
     ) {
       const role = await prisma.role.create({
         data: {
@@ -167,7 +167,7 @@ describe("reference tags (e2e)", () => {
       .send({ name: "Urgent", colorToken: "error" })
       .expect(201);
     const created = (
-      createResponse.body as { data: { id: string; name: string } }
+      createResponse.body as { data: { id: number; name: string } }
     ).data;
     expect(created.name).toBe("Urgent");
 
@@ -176,7 +176,7 @@ describe("reference tags (e2e)", () => {
       .set("Authorization", `Bearer ${tokenA}`)
       .expect(200);
     const list = listResponse.body as {
-      data: Array<{ id: string }>;
+      data: Array<{ id: number }>;
       meta: { page: number; limit: number; total: number; totalPages: number };
     };
     expect(list.data.some((t) => t.id === created.id)).toBe(true);
@@ -221,14 +221,14 @@ describe("reference tags (e2e)", () => {
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ name: "Org A only" })
       .expect(201);
-    const tagId = (createResponse.body as { data: { id: string } }).data.id;
+    const tagId = (createResponse.body as { data: { id: number } }).data.id;
 
     // Not in org B's list.
     const listAsB = await request(app.getHttpServer())
       .get("/reference/tags?limit=100")
       .set("Authorization", `Bearer ${tokenB}`)
       .expect(200);
-    const idsForB = (listAsB.body as { data: Array<{ id: string }> }).data.map(
+    const idsForB = (listAsB.body as { data: Array<{ id: number }> }).data.map(
       (t) => t.id,
     );
     expect(idsForB).not.toContain(tagId);

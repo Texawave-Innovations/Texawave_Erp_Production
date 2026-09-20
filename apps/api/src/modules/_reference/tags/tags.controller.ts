@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
 } from "@nestjs/common";
@@ -37,7 +38,7 @@ export class TagsController {
 
   @Get(":id")
   @RequirePermission("reference.tags.read")
-  findOne(@Param("id") id: string) {
+  findOne(@Param("id", ParseIntPipe) id: number) {
     return this.tags.findOne(id);
   }
 
@@ -49,14 +50,14 @@ export class TagsController {
 
   @Patch(":id")
   @RequirePermission("reference.tags.write")
-  update(@Param("id") id: string, @Body() dto: UpdateTagDto) {
+  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateTagDto) {
     return this.tags.update(id, dto);
   }
 
   @Delete(":id")
   @RequirePermission("reference.tags.write")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("id") id: string) {
+  remove(@Param("id", ParseIntPipe) id: number) {
     return this.tags.remove(id);
   }
 }

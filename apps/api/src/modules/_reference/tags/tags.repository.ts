@@ -50,7 +50,7 @@ export class TagsRepository {
   }
 
   @OrgScoped()
-  findOne(scope: OrgScope, id: string) {
+  findOne(scope: OrgScope, id: number) {
     return this.prisma.tag.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
     });
@@ -64,7 +64,7 @@ export class TagsRepository {
   }
 
   @OrgScoped()
-  create(scope: OrgScope, dto: CreateTagDto, createdBy: string) {
+  create(scope: OrgScope, dto: CreateTagDto, createdBy: number) {
     return this.prisma.tag.create({
       data: {
         ...dto,
@@ -79,9 +79,9 @@ export class TagsRepository {
   @OrgScoped()
   async update(
     scope: OrgScope,
-    id: string,
+    id: number,
     dto: UpdateTagDto,
-    updatedBy: string,
+    updatedBy: number,
   ) {
     const { customFields, ...rest } = dto;
     const result = await this.prisma.tag.updateMany({
@@ -101,7 +101,7 @@ export class TagsRepository {
   }
 
   @OrgScoped()
-  async softDelete(scope: OrgScope, id: string, deletedBy: string) {
+  async softDelete(scope: OrgScope, id: number, deletedBy: number) {
     const result = await this.prisma.tag.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: { deletedAt: new Date(), updatedBy: deletedBy },

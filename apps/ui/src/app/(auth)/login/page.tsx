@@ -12,7 +12,9 @@ export default function LoginPage() {
   const router = useRouter();
   const setOrganization = useAuthStore((s) => s.setOrganization);
 
-  const [organizationSlug, setOrganizationSlug] = useState("demo");
+  const [organizationSlug, setOrganizationSlug] = useState(
+    "texawave-innovations",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function LoginPage() {
         email,
         password,
       });
-      setOrganization({ organizationId: "", organizationSlug });
+      setOrganization({ organizationId: 0, organizationSlug });
       applyAuthTokens(data);
       router.push("/reference/tags");
     } catch (err) {
