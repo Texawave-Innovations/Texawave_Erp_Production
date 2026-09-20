@@ -1,0 +1,42 @@
+# Code owners for the sensitive shared paths named in CLAUDE.md's "needs
+# review before merge" list (Docs/CODING_STANDARDS.md §17 has the full
+# review/repository-settings context).
+#
+# IMPORTANT — this file alone does NOT enforce review. GitHub only requires
+# code-owner approval when "Require review from Code Owners" is also turned
+# on for the `main` branch protection rule (repository Settings > Branches).
+# That toggle is outside this repo's files — someone with admin access has
+# to enable it; this file has no effect until they do.
+#
+# @Texawave-Innovations below is the only verified GitHub identity in this
+# repo's own history (see `git log`) — it's a placeholder default owner, not
+# a considered ownership decision. Replace it with the real
+# team/individual(s) who should review each path before turning on
+# enforcement; do not leave it as a single account's responsibility for
+# every sensitive path long-term.
+
+# Fallback for anything not matched below.
+*                                   @Texawave-Innovations
+
+# Canonical standards — changing these changes what every future PR is
+# judged against.
+/CLAUDE.md                         @Texawave-Innovations
+/Docs/                             @Texawave-Innovations
+
+# Shared architecture / package boundaries.
+/packages/config/                  @Texawave-Innovations
+/packages/core/                    @Texawave-Innovations
+/packages/api-types/               @Texawave-Innovations
+/packages/ui-kit/                  @Texawave-Innovations
+/packages/database/                @Texawave-Innovations
+
+# Backend auth/tenancy/platform.
+/apps/api/src/platform/            @Texawave-Innovations
+/apps/api/src/common/              @Texawave-Innovations
+/apps/api/src/shared/              @Texawave-Innovations
+
+# CI/CD and enforcement config.
+/.github/                          @Texawave-Innovations
+/eslint.config.js                  @Texawave-Innovations
+/turbo.json                        @Texawave-Innovations
+/CODEOWNERS                        @Texawave-Innovations

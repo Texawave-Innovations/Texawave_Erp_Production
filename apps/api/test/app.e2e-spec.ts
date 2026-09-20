@@ -17,10 +17,14 @@ describe("AppController (e2e)", () => {
   });
 
   it("/ (GET)", () => {
+    // Wrapped in the { data } envelope by the global ResponseInterceptor
+    // (Docs/CODING_STANDARDS.md §9) — this route predates that interceptor
+    // and was updated to expect it rather than opting out with
+    // @RawResponse(), since there's no reason for it to be an exception.
     return request(app.getHttpServer())
       .get("/")
       .expect(200)
-      .expect("Hello World!");
+      .expect({ data: "Hello World!" });
   });
 
   afterEach(async () => {

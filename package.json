@@ -10,6 +10,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "scaffold:module": "node scripts/scaffold-module.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
