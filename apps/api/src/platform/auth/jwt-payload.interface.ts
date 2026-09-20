@@ -1,12 +1,12 @@
 export interface AccessTokenPayload {
-  sub: string;
-  organizationId: string;
-  roleIds: string[];
+  sub: number;
+  organizationId: number;
+  roleIds: number[];
   type: "access";
 }
 
 export interface RefreshTokenPayload {
-  sub: string;
+  sub: number;
   jti: string;
   type: "refresh";
 }

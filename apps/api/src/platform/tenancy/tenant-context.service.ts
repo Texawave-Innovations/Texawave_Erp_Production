@@ -17,8 +17,8 @@ export class TenantContextService {
   constructor(private readonly cls: ClsService) {}
 
   getOrgScope(): OrgScope {
-    const organizationId = this.cls.get<string>("organizationId");
-    if (!organizationId) {
+    const organizationId = this.cls.get<number>("organizationId");
+    if (organizationId === undefined || organizationId === null) {
       throw new Error(
         "TenantContextService.getOrgScope() called with no organization in context — " +
           "this route is either public or missing an auth guard.",
@@ -27,9 +27,9 @@ export class TenantContextService {
     return { organizationId };
   }
 
-  getUserId(): string {
-    const userId = this.cls.get<string>("userId");
-    if (!userId) {
+  getUserId(): number {
+    const userId = this.cls.get<number>("userId");
+    if (userId === undefined || userId === null) {
       throw new Error(
         "TenantContextService.getUserId() called with no user in context.",
       );
@@ -37,8 +37,8 @@ export class TenantContextService {
     return userId;
   }
 
-  getRoleIds(): string[] {
-    return this.cls.get<string[]>("roleIds") ?? [];
+  getRoleIds(): number[] {
+    return this.cls.get<number[]>("roleIds") ?? [];
   }
 
   getCorrelationId(): string | undefined {

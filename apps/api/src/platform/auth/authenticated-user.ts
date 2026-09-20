@@ -3,7 +3,7 @@
  * resolved separately (cached in Redis, see platform/roles-permissions) so
  * the token stays small and revocable without reissuing it. */
 export interface AuthenticatedUser {
-  userId: string;
-  organizationId: string;
-  roleIds: string[];
+  userId: number;
+  organizationId: number;
+  roleIds: number[];
 }

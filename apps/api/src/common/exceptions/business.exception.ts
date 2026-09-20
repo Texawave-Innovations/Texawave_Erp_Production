@@ -16,7 +16,7 @@ export abstract class BusinessException extends HttpException {
 }
 
 export class ResourceNotFoundException extends BusinessException {
-  constructor(resource: string, identifier: string) {
+  constructor(resource: string, identifier: string | number) {
     super(
       `${resource} not found: ${identifier}`,
       HttpStatus.NOT_FOUND,

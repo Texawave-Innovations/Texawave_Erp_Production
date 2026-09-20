@@ -5,7 +5,7 @@ import { PermissionsRepository } from "./permissions.repository.js";
 
 const CACHE_TTL_SECONDS = 15 * 60;
 
-function cacheKey(userId: string): string {
+function cacheKey(userId: number): string {
   return `permissions:${userId}`;
 }
 
@@ -22,7 +22,7 @@ export class PermissionsService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async getPermissionsForUser(userId: string): Promise<string[]> {
+  async getPermissionsForUser(userId: number): Promise<string[]> {
     const cached = await this.redis.get(cacheKey(userId));
     if (cached) {
       return JSON.parse(cached) as string[];
@@ -37,14 +37,14 @@ export class PermissionsService {
     return codes;
   }
 
-  async invalidate(userId: string): Promise<void> {
+  async invalidate(userId: number): Promise<void> {
     await this.redis.del(cacheKey(userId));
   }
 
   /** Not cached — role IDs are only read at login/refresh to stamp the JWT,
    * not on every request (every request instead re-checks the cached
    * PERMISSION set, see `getPermissionsForUser`). */
-  getRoleIdsForUser(userId: string): Promise<string[]> {
+  getRoleIdsForUser(userId: number): Promise<number[]> {
     return this.repository.findRoleIdsForUser(userId);
   }
 }
