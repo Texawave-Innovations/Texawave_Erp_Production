@@ -8,7 +8,7 @@
  * serializable and structurally comparable.
  */
 export function orgScopedKey(
-  organizationId: string,
+  organizationId: number,
   // `object` rather than `Record<string, unknown>` deliberately — the
   // latter requires an explicit index signature to structurally match,
   // which rejects perfectly normal named interfaces (e.g. a query-filter

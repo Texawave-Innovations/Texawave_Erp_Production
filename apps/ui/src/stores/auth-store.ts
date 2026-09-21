@@ -3,11 +3,11 @@ import { create } from "zustand";
 export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  organizationId: string | null;
+  organizationId: number | null;
   organizationSlug: string | null;
   setTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
   setOrganization: (organization: {
-    organizationId: string;
+    organizationId: number;
     organizationSlug: string;
   }) => void;
   clear: () => void;

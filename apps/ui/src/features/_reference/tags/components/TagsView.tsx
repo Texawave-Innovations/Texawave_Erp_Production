@@ -132,7 +132,7 @@ export function TagsView() {
               },
             ]}
             rows={tags}
-            getRowKey={(tag) => tag.id}
+            getRowKey={(tag) => String(tag.id)}
           />
           <Pagination
             page={meta.page}

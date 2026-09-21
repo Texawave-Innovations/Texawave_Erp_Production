@@ -12,13 +12,13 @@ export const TAG_COLOR_TOKENS = [
 export type TagColorToken = (typeof TAG_COLOR_TOKENS)[number];
 
 export interface Tag {
-  id: string;
-  organizationId: string;
+  id: number;
+  organizationId: number;
   name: string;
   colorToken: TagColorToken;
   customFields: Record<string, unknown>;
-  createdBy: string | null;
-  updatedBy: string | null;
+  createdBy: number | null;
+  updatedBy: number | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

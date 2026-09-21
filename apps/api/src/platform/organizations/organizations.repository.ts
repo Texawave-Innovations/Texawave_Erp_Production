@@ -17,7 +17,7 @@ export class OrganizationsRepository {
     });
   }
 
-  findById(id: string) {
+  findById(id: number) {
     return this.prisma.organization.findUnique({
       where: { id, deletedAt: null },
     });

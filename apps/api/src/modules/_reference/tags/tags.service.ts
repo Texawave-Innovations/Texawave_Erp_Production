@@ -34,7 +34,7 @@ export class TagsService {
     );
   }
 
-  async findOne(id: string) {
+  async findOne(id: number) {
     const scope = this.tenantContext.getOrgScope();
     const tag = await this.repository.findOne(scope, id);
     if (!tag) {
@@ -54,7 +54,7 @@ export class TagsService {
     return this.repository.create(scope, dto, this.tenantContext.getUserId());
   }
 
-  async update(id: string, dto: UpdateTagDto) {
+  async update(id: number, dto: UpdateTagDto) {
     const scope = this.tenantContext.getOrgScope();
     const updated = await this.repository.update(
       scope,
@@ -68,7 +68,7 @@ export class TagsService {
     return updated;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const scope = this.tenantContext.getOrgScope();
     const deleted = await this.repository.softDelete(
       scope,

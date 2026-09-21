@@ -14,7 +14,7 @@ export const apiClient = new ApiClient({
  * decode-jwt.ts — display/cache-key use only, never a security decision). */
 export function applyAuthTokens(tokens: AuthTokens): void {
   useAuthStore.getState().setTokens(tokens);
-  const payload = decodeJwtPayload<{ organizationId: string }>(
+  const payload = decodeJwtPayload<{ organizationId: number }>(
     tokens.accessToken,
   );
   if (payload) {

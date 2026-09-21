@@ -18,7 +18,7 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
-function refreshKey(userId: string, jti: string): string {
+function refreshKey(userId: number, jti: string): string {
   return `refresh:${userId}:${jti}`;
 }
 
@@ -102,19 +102,19 @@ export class AuthService {
     // Rotate: the old refresh token is single-use.
     await this.redis.del(refreshKey(payload.sub, payload.jti));
 
-    const user = await this.users.findById(
-      { organizationId: stillValid },
-      payload.sub,
-    );
+    // Redis always returns stored values as strings — the organizationId
+    // was stored as a number (issueTokens below) and must be parsed back.
+    const organizationId = Number(stillValid);
+    const user = await this.users.findById({ organizationId }, payload.sub);
     if (!user) {
       throw new UnauthorizedException("User no longer exists");
     }
 
     const roleIds = await this.permissions.getRoleIdsForUser(user.id);
-    return this.issueTokens(user.id, stillValid, roleIds);
+    return this.issueTokens(user.id, organizationId, roleIds);
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: number): Promise<void> {
     const keys = await this.redis.keys(refreshKey(userId, "*"));
     if (keys.length > 0) {
       await this.redis.del(...keys);
@@ -123,9 +123,9 @@ export class AuthService {
   }
 
   private async issueTokens(
-    userId: string,
-    organizationId: string,
-    roleIds: string[],
+    userId: number,
+    organizationId: number,
+    roleIds: number[],
   ): Promise<AuthTokens> {
     const accessPayload: AccessTokenPayload = {
       sub: userId,

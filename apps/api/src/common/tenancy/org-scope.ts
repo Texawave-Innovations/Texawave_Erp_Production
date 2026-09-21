@@ -3,5 +3,5 @@
  * `@OrgScoped()` does not inject this rather than requiring it as an explicit
  * parameter. */
 export interface OrgScope {
-  organizationId: string;
+  organizationId: number;
 }

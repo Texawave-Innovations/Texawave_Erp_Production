@@ -21,7 +21,7 @@ export function listTags(
   ) as Promise<PaginatedEnvelope<Tag>>;
 }
 
-export async function getTag(id: string): Promise<Tag> {
+export async function getTag(id: number): Promise<Tag> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<Tag>(`/reference/tags/${id}`),
   );
@@ -36,7 +36,7 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
 }
 
 export async function updateTag(
-  id: string,
+  id: number,
   input: UpdateTagInput,
 ): Promise<Tag> {
   const { data } = await withAuthRetry(() =>
@@ -45,6 +45,6 @@ export async function updateTag(
   return data;
 }
 
-export async function deleteTag(id: string): Promise<void> {
+export async function deleteTag(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete<void>(`/reference/tags/${id}`));
 }

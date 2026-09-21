@@ -24,8 +24,8 @@ export function OrgScoped() {
     ) {
       if (
         !scope ||
-        typeof scope.organizationId !== "string" ||
-        scope.organizationId.length === 0
+        typeof scope.organizationId !== "number" ||
+        !Number.isInteger(scope.organizationId)
       ) {
         throw new Error(
           `${propertyKey} was called without a valid OrgScope as its first argument — ` +

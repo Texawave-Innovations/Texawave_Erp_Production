@@ -18,7 +18,7 @@ export class UsersRepository {
   }
 
   @OrgScoped()
-  findById(scope: OrgScope, userId: string) {
+  findById(scope: OrgScope, userId: number) {
     return this.prisma.user.findFirst({
       where: {
         id: userId,

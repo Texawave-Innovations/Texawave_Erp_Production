@@ -4,15 +4,15 @@ import { expect, test } from "@playwright/test";
  * Real-browser proof that the reference feature works end to end through
  * the actual UI (not just via API calls) — login, the response envelope
  * unwrapped correctly, a create-tag round trip, and the empty/loading state
- * disappearing once data loads. Uses the seeded demo user
+ * disappearing once data loads. Uses the seeded Super Admin user
  * (packages/database/prisma/seed.ts) — run `pnpm --filter database seed`
  * against a running dev DB first.
  */
 test("signs in and creates a reference tag", async ({ page }) => {
   await page.goto("/login");
 
-  await page.getByLabel("Organization").fill("demo");
-  await page.getByLabel("Email").fill("admin@demo.local");
+  await page.getByLabel("Organization").fill("texawave-innovations");
+  await page.getByLabel("Email").fill("admin@texawave.com");
   await page.getByLabel("Password").fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
 
@@ -36,13 +36,15 @@ test("rejects a bad login and lets the user retry without losing the organizatio
   page,
 }) => {
   await page.goto("/login");
-  await page.getByLabel("Organization").fill("demo");
-  await page.getByLabel("Email").fill("admin@demo.local");
+  await page.getByLabel("Organization").fill("texawave-innovations");
+  await page.getByLabel("Email").fill("admin@texawave.com");
   await page.getByLabel("Password").fill("wrong-password");
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.getByText("Sign-in failed")).toBeVisible();
   // Preserve entered values on failure (Docs/DESIGN_SYSTEM.md).
-  await expect(page.getByLabel("Organization")).toHaveValue("demo");
-  await expect(page.getByLabel("Email")).toHaveValue("admin@demo.local");
+  await expect(page.getByLabel("Organization")).toHaveValue(
+    "texawave-innovations",
+  );
+  await expect(page.getByLabel("Email")).toHaveValue("admin@texawave.com");
 });

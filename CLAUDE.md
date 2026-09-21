@@ -26,6 +26,9 @@ Each has one job; don't duplicate a rule from one into another or into this file
 - Never weaken lint rules, TypeScript strictness, tests, or CI just to make a check pass. If a rule is genuinely wrong for a real case, that's a documented exception (see `Docs/CODING_STANDARDS.md` §15) with a comment explaining why, reviewed like any other standards change — not a blanket disable.
 - Never claim a test suite, lint run, or build passed without actually having run it in this session. Paste the command and outcome.
 - Update the relevant canonical doc in the same change when you introduce or change a convention — a new pattern without a doc update is half-done.
+- Never scope HR data by `@OrgScoped()` alone — use `@TeamScoped()` (Docs/CODING_STANDARDS.md §10a). `@OrgScoped()` is a formality in this single-org app; `@TeamScoped()` is the actual boundary between Software/Mechanical/Electrical.
+- Never use `uuid()`/`String` for a new table's `id` — `Int @id @default(autoincrement())`, `BigInt` only for `audit_logs`/`status_history` (Docs/ARCHITECTURE.md §5.1).
+- Sales/Purchases/Finance/Inventory/Vault/Projects are paused, not removed — don't delete their folders or tables while doing HR work.
 
 ## Commands
 

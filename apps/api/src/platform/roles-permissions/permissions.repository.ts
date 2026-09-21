@@ -9,7 +9,7 @@ export class PermissionsRepository {
    * user's roles/permissions live entirely within their own organization by
    * construction (Role.organizationId), so there is no cross-tenant surface
    * here to guard against. */
-  async findPermissionCodesForUser(userId: string): Promise<string[]> {
+  async findPermissionCodesForUser(userId: number): Promise<string[]> {
     const rolePermissions = await this.prisma.rolePermission.findMany({
       where: { role: { userRoles: { some: { userId } } } },
       select: { permission: { select: { code: true } } },
@@ -17,7 +17,7 @@ export class PermissionsRepository {
     return [...new Set(rolePermissions.map((rp) => rp.permission.code))];
   }
 
-  async findRoleIdsForUser(userId: string): Promise<string[]> {
+  async findRoleIdsForUser(userId: number): Promise<number[]> {
     const userRoles = await this.prisma.userRole.findMany({
       where: { userId },
       select: { roleId: true },

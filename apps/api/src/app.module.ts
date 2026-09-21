@@ -19,15 +19,23 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     // Order matters for a few of these: ConfigModule first (everything else
     // reads env), LoggerModule early (its pino-http middleware needs to be
     // in place before requests are handled), then infra (Prisma/Redis),
-    // then platform (tenancy/auth/permissions — auth depends on
+    // then platform (auth/permissions/tenancy — auth depends on
     // Prisma/Redis), then business modules last.
+    //
+    // AuthModule (and RolesPermissionsModule, which it already imports)
+    // must be listed before TenancyModule: Nest collects global APP_GUARD
+    // providers in module-discovery order, and TenancyModule now also
+    // imports RolesPermissionsModule (for TeamContextService,
+    // Docs/CODING_STANDARDS.md §10a). If TenancyModule were discovered
+    // first, PermissionsGuard would be registered before JwtAuthGuard,
+    // running permission checks before authentication has even run.
     ConfigModule,
     LoggerModule,
     PrismaModule,
     RedisModule,
-    TenancyModule,
     AuthModule,
     RolesPermissionsModule,
+    TenancyModule,
     HealthModule,
     TagsModule,
   ],
