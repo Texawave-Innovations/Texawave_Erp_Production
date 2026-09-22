@@ -1,5 +1,9 @@
 # TexaWave ERP — Instructions for Claude / any contributor
 
+**Adding a new module?** Start with [`Docs/HOW_TO_ADD_A_MODULE.md`](Docs/HOW_TO_ADD_A_MODULE.md)
+— the concrete backend/frontend file-by-file walkthrough, before/after `@OrgScoped()`/
+`@TeamScoped()`/`@RequirePermission()` usage, and the pre-PR checklist.
+
 **Owner:** repository maintainers — assign a named owner/team before business-module work begins.
 **Last verified:** 2026-09-18.
 **Status:** This file is the entry point. The three canonical documents it links to are the source of truth for everything else — if this file and one of them ever disagree, the canonical doc wins and this file has a bug; fix this file, don't silently follow it.
