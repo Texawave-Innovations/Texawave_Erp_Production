@@ -57,6 +57,47 @@ texawave-erp/
 
 ---
 
+## 2a. Permission naming convention
+
+Frozen pattern (the §2 table's "Permission strings" row is the short version — this is the full
+one, with real examples): `<module>.<entity>.<action>`, with `.<scope>` appended **only** when
+the entity is team-scoped data (§10a) — `<scope>` is exactly one of `own`/`team`/`all`, omitted
+entirely for anything with no team dimension.
+
+Seeded in `packages/database/prisma/seed.ts`, checked by `PermissionsGuard`
+(`apps/api/src/platform/roles-permissions/permissions.guard.ts`), referenced via
+`@RequirePermission()` on a controller method (§10, §10a).
+
+**Real examples, pulled from `seed.ts` as it stands today:**
+
+- `reference.tags.read` / `reference.tags.write` — the fixture module has no team dimension, so
+  no `.scope` suffix. `write` covers create/update/delete for this entity; the catalog isn't
+  split further because nothing in this app currently needs create, update, and delete
+  distinguished as separate grants.
+- `hr.employee.read.own` / `.team` / `.all` — HR is team-scoped, so all three variants are
+  seeded up front even before every variant is granted to a role (§10a PR checklist).
+- `hr.leave.approve.own` / `.team` / `.all` — `<action>` isn't limited to CRUD verbs; `approve`
+  is exactly as valid as `read`/`write` when that's the actual operation being gated.
+- `hr.payroll.read.own` / `.team` / `.all` — `Docs/ARCHITECTURE.md` §10's "payroll reads get
+  audit-logged too" rule is enforced by the `AuditInterceptor`, not by the permission string —
+  the string itself stays a plain `read`.
+
+**Rules:**
+
+- Lowercase, dot-separated, no ad-hoc abbreviations (`hr`, not `human-resources`; `reference`,
+  not `ref`) — a new module's prefix is its folder name under `apps/api/src/modules/`.
+- `<action>` is a single verb (`read`, `write`, `approve`, ...), never a compound
+  (`read-write`, `manage`). Add a new verb when a route needs one rather than overloading an
+  existing one.
+- `<scope>` is exactly `own`, `team`, or `all` — never `mine`/`any`/`self`/a team name — and is
+  **omitted entirely**, not set to `.all`, for a permission with no team dimension.
+- No violations exist in the current catalog as of this doc's last verification — every string
+  in `seed.ts` and every `@RequirePermission()` call site already matches this pattern. If you
+  add a permission that doesn't fit it, that's a bug in the new string, not a reason to add a
+  second pattern.
+
+---
+
 ## 3. Backend module standard (NestJS)
 
 Every feature module — no exceptions, no "just this once it's simpler inline":
