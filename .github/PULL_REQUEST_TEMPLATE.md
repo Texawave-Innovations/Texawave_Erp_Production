@@ -30,3 +30,11 @@
 ## Anything left incomplete or known-broken
 
 <!-- Say so explicitly rather than letting a reviewer discover it. "None" is a fine answer. -->
+
+---
+
+**Note for repo admins, not contributors:** this template and `.github/workflows/ci.yml` don't
+by themselves block a merge — GitHub's branch protection settings (Settings > Branches, on
+`main`) must separately require the `CI / checks` status check (and Code Owner review) to pass
+before merge is allowed. That's outside this repo's files; see
+`Docs/CODING_STANDARDS.md` §17.

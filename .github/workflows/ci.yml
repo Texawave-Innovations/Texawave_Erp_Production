@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    branches: [main]
 
 jobs:
   checks:
@@ -34,6 +35,11 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: "postgresql://texawave:texawave@localhost:5432/texawave_erp?schema=public"
+      # A separate, empty database on the same service container — used only
+      # by the migration-drift check below (`prisma migrate diff` needs a
+      # shadow database to replay `prisma/migrations` into and compare
+      # against schema.prisma). Never used by the app or the e2e suite.
+      SHADOW_DATABASE_URL: "postgresql://texawave:texawave@localhost:5432/texawave_erp_shadow?schema=public"
       REDIS_URL: "redis://localhost:6379"
       # CI-only throwaway value — never the real secret, and never used
       # outside this ephemeral runner.
@@ -56,6 +62,24 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Create shadow database for migration-drift check
+        run: |
+          PGPASSWORD=texawave psql -h localhost -U texawave -d postgres \
+            -c "CREATE DATABASE texawave_erp_shadow;"
+
+      - name: Check schema.prisma and migrations/ haven't drifted
+        # Fails the build if someone edited schema.prisma without running
+        # `prisma migrate dev` to generate/commit a matching migration file
+        # (Docs/CODING_STANDARDS.md §17 — database migrations need review,
+        # and this is what actually enforces "the migration file matches the
+        # schema" rather than trusting that by convention).
+        run: |
+          pnpm --filter @texawave-erp/database exec prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code
 
       - name: Apply database migrations
         run: pnpm --filter @texawave-erp/database exec prisma migrate deploy
