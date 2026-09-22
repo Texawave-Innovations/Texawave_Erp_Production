@@ -186,12 +186,20 @@ apps/ui/src/
 id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 organization_id  bigint NOT NULL REFERENCES organizations(id),   -- constant single row, kept for schema consistency
 custom_fields    jsonb NOT NULL DEFAULT '{}',
+is_active        boolean NOT NULL DEFAULT true,   -- disabled-but-present; distinct from deleted_at below
 created_by       bigint REFERENCES users(id),
 updated_by       bigint REFERENCES users(id),
 created_at       timestamptz NOT NULL DEFAULT now(),
 updated_at       timestamptz NOT NULL DEFAULT now(),
 deleted_at       timestamptz            -- soft delete, never hard-delete business records
 ```
+
+**`is_active` vs. `deleted_at`:** these are two different "off" states, not one dressed up as the
+other. `deleted_at` set = the record is gone as far as the app is concerned (soft-deleted, kept
+only for audit/recovery). `is_active: false` = the record still exists and is still a valid
+reference (a deactivated `Role`, a disabled `Organization`) but is currently switched off — e.g.
+a deactivated role should still show up in an audit trail of who once held it, which a deleted row
+wouldn't cleanly support. Every table gets `is_active`, even ones with no UI path to flip it yet.
 
 In Prisma: `id Int @id @default(autoincrement())` (or `BigInt` — see the note below on which one). All foreign keys across the schema follow the same type as the table they reference — never mix `Int`/`BigInt` FK types with the PK they point to.
 
@@ -395,3 +403,16 @@ full doc pass folds them into the sections above.
   `Team`s (e.g. a single "Engineering" department over Software + Electrical); don't build RBAC
   or UI logic that assumes today's 1:1 mapping is permanent. Making `departmentId` required is a
   future migration once real department data exists to backfill against.
+
+- **2026-09-22 — `is_active` added to the §5.1 baseline, retrofitted onto every existing table.**
+  Previously only `User` had it, ad hoc; it's now part of the documented baseline every table
+  gets, alongside `created_by`/`updated_by`/`created_at`/`updated_at` (most tables already had
+  those four). One deliberate exception to the usual "pivot tables don't need audit columns"
+  instinct: `RolePermission`/`UserRole` (the permission-grant and role-assignment join tables)
+  got the _full_ baseline, not just `is_active` — the row IS the grant record ("who granted this
+  permission to this role, and when"), and `is_active` lets a grant be revoked/restored without
+  losing that history (see `apps/api/src/modules/settings/roles/`, which manages this). Landed
+  alongside a starter `settings.role.read`/`settings.role.write` permission pair and the removal
+  of the previously-seeded speculative `hr.*` permission catalog (`packages/database/prisma/seed.ts`)
+  — the HR module now defines its own catalog when it's actually built, rather than inheriting a
+  pre-guess.

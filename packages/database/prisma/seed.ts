@@ -1,10 +1,12 @@
 // Local-dev seed only — NOT run in CI, NOT a migration. Creates the single
 // "Texawave Innovations" organization, its three teams (Docs/ARCHITECTURE.md
-// §5.5), the HR permission catalog (.own/.team/.all variants —
-// Docs/CODING_STANDARDS.md §10a) plus the reference-feature permissions, a
-// "Super Admin" role granted every permission, and one Super Admin user with
-// no team assignment (Super Admin uses `.all` scope, bypassing team
-// filtering entirely).
+// §5.5), the starter permission catalog (reference-feature + settings/roles
+// permissions — no HR permissions here; the HR module defines its own
+// catalog, including the `.own`/`.team`/`.all` scope variants per
+// Docs/CODING_STANDARDS.md §10a, when it's actually built), a "Super Admin"
+// role granted every permission, and one Super Admin user with no team
+// assignment (Super Admin uses `.all`-scoped permissions where they exist,
+// bypassing team filtering entirely).
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../generated/prisma/client.js";
 
@@ -19,20 +21,6 @@ const TEAMS = [
   { name: "Electrical", code: "EL" },
 ] as const;
 
-// Starter HR permission catalog — real entities/actions get filled in as
-// the HR module itself is built; this seeds the `.own`/`.team`/`.all`
-// pattern (Docs/CODING_STANDARDS.md §10a PR checklist: all three variants
-// get seeded up front, even if only one is used today).
-const HR_SCOPED_PERMISSIONS = [
-  { entity: "employee", action: "read" },
-  { entity: "employee", action: "write" },
-  { entity: "attendance", action: "read" },
-  { entity: "attendance", action: "write" },
-  { entity: "leave", action: "approve" },
-  { entity: "payroll", action: "read" },
-] as const;
-const SCOPES = ["own", "team", "all"] as const;
-
 const REFERENCE_PERMISSIONS = [
   { code: "reference.tags.read", description: "View reference tags" },
   {
@@ -41,14 +29,18 @@ const REFERENCE_PERMISSIONS = [
   },
 ];
 
-function hrPermissions(): Array<{ code: string; description: string }> {
-  return HR_SCOPED_PERMISSIONS.flatMap(({ entity, action }) =>
-    SCOPES.map((scope) => ({
-      code: `hr.${entity}.${action}.${scope}`,
-      description: `${scope === "all" ? "Any" : scope === "team" ? "Own team's" : "Own"} ${entity} ${action}`,
-    })),
-  );
-}
+// Gates apps/api/src/modules/settings/roles/ — no `.scope` suffix, not
+// team-scoped data (Docs/CODING_STANDARDS.md §2a).
+const SETTINGS_PERMISSIONS = [
+  {
+    code: "settings.role.read",
+    description: "View roles and their permissions",
+  },
+  {
+    code: "settings.role.write",
+    description: "Create/rename roles and assign/revoke their permissions",
+  },
+];
 
 async function main() {
   const org = await prisma.organization.upsert({
@@ -88,7 +80,7 @@ async function main() {
     teams.set(team.code, row);
   }
 
-  const allPermissionDefs = [...REFERENCE_PERMISSIONS, ...hrPermissions()];
+  const allPermissionDefs = [...REFERENCE_PERMISSIONS, ...SETTINGS_PERMISSIONS];
   for (const permission of allPermissionDefs) {
     await prisma.permission.upsert({
       where: { code: permission.code },
