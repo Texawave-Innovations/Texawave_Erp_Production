@@ -354,6 +354,11 @@ cp apps/ui/.env.example apps/ui/.env.local
 docker compose up -d postgres redis                 # matches DATABASE_URL/REDIS_URL above
 pnpm install --frozen-lockfile
 pnpm --filter database exec prisma migrate deploy   # or migrate:dev while iterating on the schema
+pnpm --filter database generate            # migrate deploy does NOT auto-generate the client the
+                                            # way migrate dev does — skip this and every
+                                            # `prisma.<model>.*` call below is `undefined`,
+                                            # surfacing as "Cannot read properties of undefined
+                                            # (reading 'upsert')" from seed.ts or anywhere else
 pnpm --filter database seed                # creates the single "Texawave Innovations" org, three teams
                                             # (Software/Mechanical/Electrical), and a Super Admin user —
                                             # see the seed script for the actual dev credentials, LOCAL DEV ONLY
