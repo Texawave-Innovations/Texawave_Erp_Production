@@ -52,12 +52,14 @@ If this is your first PR here (this section is for you, Afzal/Ganesh):
   and always commit the migration file it generates under
   `packages/database/prisma/migrations/`.
 - **Branch naming.** This repo's commitlint config (`commitlint.config.js`) enforces a fixed
-  commit **type** enum (`feat`/`fix`/`chore`/`docs`/`refactor`/`test`) but does not currently
-  enforce a scope enum — `scope-empty` just requires _some_ non-empty scope, any string. Branch
-  names follow `Docs/CODING_STANDARDS.md` §2's already-documented `<type>/<ticket-or-slug>`
-  convention (e.g. `feat/employee-crud`, `fix/leave-approval-scope-bug`) — match your PR's
-  commit type, and use a short kebab-case slug describing the change if you don't have a ticket
-  number yet.
+  commit **type** enum (`feat`/`fix`/`chore`/`docs`/`refactor`/`test`) and, as of this section, a
+  fixed commit **scope** enum too (`Docs/CODING_STANDARDS.md` §2 has the full list) — lower-case
+  only, no made-up scopes. Branch names follow the same `<type>/<ticket-or-slug>` convention
+  (e.g. `feat/password-reset-flow`, `fix/leave-approval-scope-bug`) — match your PR's commit
+  type, and use a short kebab-case slug describing the change if you don't have a ticket number
+  yet. Your commit scope doesn't have to literally appear in the branch name, but it does have
+  to be one of the enum values — check `Docs/CODING_STANDARDS.md` §2 before you pick one, and if
+  none of them fit, that's a signal to raise it, not to invent one and let commitlint reject it.
 
 ## Commands
 

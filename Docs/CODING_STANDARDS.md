@@ -50,10 +50,25 @@ texawave-erp/
 | Hooks                                      | camelCase, `use` prefix                                                                                                                            | `useInvoices.ts`                                                     |
 | Prisma models                              | PascalCase singular                                                                                                                                | `model SalesOrder { ... }`                                           |
 | DB table/column names (via `@@map`/`@map`) | snake_case                                                                                                                                         | `sales_orders`, `organization_id`                                    |
-| Branches                                   | `<type>/<ticket-or-slug>`                                                                                                                          | `feat/sales-invoice-crud`                                            |
-| Commits                                    | Conventional Commits (enforced by commitlint)                                                                                                      | `feat(sales): add invoice status transitions`                        |
+| Branches                                   | `<type>/<ticket-or-slug>` — `<type>` matches the commit type you'll use                                                                            | `feat/password-reset-flow`                                           |
+| Commits                                    | Conventional Commits (enforced by commitlint) — scope is required and must be one of the frozen `scope-enum` list below, lower-case only           | `feat(auth): add password reset flow`                                |
 | Permission strings                         | `<module>.<entity>.<action>.<scope>` — `<scope>` is `own`\|`team`\|`all` for anything team-scoped (HR), omitted for modules with no team dimension | `hr.employee.read.team`, `settings.role.update`                      |
 | Primary/foreign keys                       | `Int @id @default(autoincrement())` (Prisma), `bigint` for `audit_logs`/`status_history` only — never `uuid`/`String`                              | `model Employee { id Int @id @default(autoincrement()) teamId Int }` |
+
+**Commit scope enum** (`commitlint.config.js`'s `scope-enum`, level 2/error, plus `scope-case:
+lower-case` — `fix(Auth): ...` fails exactly like `fix(nonsense): ...`):
+
+```
+api, ui, ui-kit, database, platform, reference,        # apps/* and packages/* already in use
+docs, ci, config, infra,                                # cross-cutting/tooling, already in use
+apps, packages, repo,                                   # Phase 0 bootstrap only — historical, don't reuse
+auth, rbac, tenancy, organizations, users, roles,        # anticipated — Epic 1/2 (login, RBAC, menu)
+permissions, departments, teams, menu, deps
+```
+
+Adding a new scope is a PR to `commitlint.config.js` **on its own** — it's shared tooling
+config (root `CLAUDE.md`'s "needs review before merge" list), not something to expand silently
+inside an unrelated feature PR just because you needed one more scope today.
 
 ---
 
