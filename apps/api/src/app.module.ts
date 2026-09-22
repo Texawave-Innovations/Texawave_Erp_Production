@@ -7,6 +7,7 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor.
 import { LoggerModule } from "./common/logger/logger.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
+import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
@@ -38,6 +39,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     TenancyModule,
     HealthModule,
     TagsModule,
+    RolesModule,
   ],
   controllers: [AppController],
   providers: [

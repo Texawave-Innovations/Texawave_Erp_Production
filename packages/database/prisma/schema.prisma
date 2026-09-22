@@ -35,6 +35,9 @@ model Organization {
   id        Int       @id @default(autoincrement())
   name      String
   slug      String    @unique
+  isActive  Boolean   @default(true) @map("is_active")
+  createdBy Int?      @map("created_by")
+  updatedBy Int?      @map("updated_by")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -56,6 +59,8 @@ model User {
   passwordHash   String    @map("password_hash")
   fullName       String    @map("full_name")
   isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
@@ -76,9 +81,14 @@ model User {
 /// or `<module>.<entity>.<action>.<scope>` for anything team-scoped, `scope`
 /// being `own`|`team`|`all` (Docs/CODING_STANDARDS.md §2).
 model Permission {
-  id          Int    @id @default(autoincrement())
-  code        String @unique
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
   description String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   Int?     @map("created_by")
+  updatedBy   Int?     @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   rolePermissions RolePermission[]
 
@@ -91,6 +101,9 @@ model Role {
   id             Int      @id @default(autoincrement())
   organizationId Int      @map("organization_id")
   name           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdBy      Int?     @map("created_by")
+  updatedBy      Int?     @map("updated_by")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -103,9 +116,19 @@ model Role {
   @@map("roles")
 }
 
+/// Unlike most join tables, this one carries the full §5.1 audit baseline
+/// deliberately: the row IS the permission-grant record — "who granted this
+/// permission to this role, and when" — and `isActive` lets a grant be
+/// revoked/restored without losing that history (never hard-deleted; see
+/// apps/api/src/modules/settings/roles/roles.repository.ts).
 model RolePermission {
-  roleId       Int @map("role_id")
-  permissionId Int @map("permission_id")
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdBy    Int?     @map("created_by")
+  updatedBy    Int?     @map("updated_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -114,9 +137,17 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+/// Same rationale as `RolePermission` — the row is the role-assignment
+/// record, so it keeps the full audit baseline rather than being treated as
+/// a throwaway pivot table.
 model UserRole {
-  userId Int @map("user_id")
-  roleId Int @map("role_id")
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdBy Int?     @map("created_by")
+  updatedBy Int?     @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -136,6 +167,7 @@ model Department {
   organizationId Int       @map("organization_id")
   name           String
   customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -162,6 +194,7 @@ model Team {
   code           String
   leadUserId     Int?      @map("lead_user_id")
   customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -191,6 +224,7 @@ model UserTeamAccess {
   teamId         Int       @map("team_id")
   isLead         Boolean   @default(false) @map("is_lead")
   customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -217,6 +251,7 @@ model Tag {
   name           String
   colorToken     String    @default("gray") @map("color_token")
   customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at")
