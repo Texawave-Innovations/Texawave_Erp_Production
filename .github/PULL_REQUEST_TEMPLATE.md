@@ -5,6 +5,7 @@
 ## Scope check
 
 - [ ] This PR does what it says and nothing more — no unrelated refactors, renames, or "while I was in there" cleanup bundled in.
+- [ ] One module per PR — a second module, or an unrelated fix, is a separate PR.
 - [ ] If it touches a shared/sensitive path (new dependency, `packages/*` boundary, `apps/api/src/platform` or `common`/`shared`, `packages/ui-kit` tokens/components, CI/lint config), that's called out below, not left for the reviewer to notice.
 
 ## Validation performed
@@ -12,8 +13,8 @@
 <!-- Exact commands run and their actual outcome — not "should pass." -->
 
 - [ ] `pnpm exec turbo run lint typecheck test build`
-- [ ] Backend e2e (`pnpm --filter api test:e2e`), if this touches auth/tenancy/permissions or a module's data access
-- [ ] Browser e2e (`pnpm --filter ui test:e2e`), if this touches an authenticated UI flow
+- [ ] Backend e2e (`pnpm --filter api test:e2e`), added/updated **before** requesting review if this touches auth/tenancy/permissions or a module's data access — see [`Docs/HOW_TO_ADD_A_MODULE.md`](../Docs/HOW_TO_ADD_A_MODULE.md)'s checklist
+- [ ] Browser e2e (`pnpm --filter ui test:e2e`), added/updated **before** requesting review if this touches an authenticated UI flow
 - [ ] Manually exercised in a browser at mobile + desktop width, light + dark, if this is a UI change
 
 ## Docs/CODING_STANDARDS.md checklist
@@ -24,6 +25,7 @@
 - [ ] No direct Prisma call outside a `*.repository.ts` file.
 - [ ] Every repository method touching tenant data is `@OrgScoped()`, `scope` as the first explicit parameter.
 - [ ] No cross-module import of another module's repository.
+- [ ] Schema change committed as a migration (`pnpm --filter database exec prisma migrate dev`) — never `prisma db push`. CI's migration-drift check fails otherwise.
 - [ ] Tests added/updated; nothing skipped without a comment explaining why.
 - [ ] No new bare `eslint-disable`/`@ts-ignore` — every one has a `-- reason: ...` description.
 

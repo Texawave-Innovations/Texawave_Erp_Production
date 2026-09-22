@@ -34,6 +34,31 @@ Each has one job; don't duplicate a rule from one into another or into this file
 - Never use `uuid()`/`String` for a new table's `id` — `Int @id @default(autoincrement())`, `BigInt` only for `audit_logs`/`status_history` (Docs/ARCHITECTURE.md §5.1).
 - Sales/Purchases/Finance/Inventory/Vault/Projects are paused, not removed — don't delete their folders or tables while doing HR work.
 
+## Working on this repo for the first time
+
+If this is your first PR here (this section is for you, Afzal/Ganesh):
+
+- **One module per PR.** Don't bundle a second module, an unrelated refactor, or a drive-by fix
+  into the same PR — a reviewer should be able to tell what a PR does from its title alone. If
+  you find a real bug in something else while working, open a separate PR for it.
+- **An e2e test is required before you request review, not something you add after review
+  comments ask for it.** Backend: `apps/api/test/<name>.e2e-spec.ts` for anything touching
+  auth/tenancy/permissions/data access. Frontend: `apps/ui/e2e/<name>.spec.ts` for any new
+  authenticated UI flow. See the checklist at the bottom of
+  [`Docs/HOW_TO_ADD_A_MODULE.md`](Docs/HOW_TO_ADD_A_MODULE.md) for the full pre-PR list.
+- **No `prisma db push`, ever.** It writes schema changes straight to the database with no
+  migration file, so there's nothing to commit, nothing for CI's migration-drift check to see,
+  and nothing for a reviewer to read. Always `pnpm --filter database exec prisma migrate dev`,
+  and always commit the migration file it generates under
+  `packages/database/prisma/migrations/`.
+- **Branch naming.** This repo's commitlint config (`commitlint.config.js`) enforces a fixed
+  commit **type** enum (`feat`/`fix`/`chore`/`docs`/`refactor`/`test`) but does not currently
+  enforce a scope enum — `scope-empty` just requires _some_ non-empty scope, any string. Branch
+  names follow `Docs/CODING_STANDARDS.md` §2's already-documented `<type>/<ticket-or-slug>`
+  convention (e.g. `feat/employee-crud`, `fix/leave-approval-scope-bug`) — match your PR's
+  commit type, and use a short kebab-case slug describing the change if you don't have a ticket
+  number yet.
+
 ## Commands
 
 ```bash
