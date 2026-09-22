@@ -258,7 +258,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 ### 5.6 Table inventory by module
 
-**Platform** — `organizations` (single row), `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `teams`, `user_team_access`, `statuses`, `document_sequences`, `audit_logs`, `status_history`, `attachments`, `approvals`, `approval_workflows`, `approval_steps`, `comments`
+**Platform** — `organizations` (single row), `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `departments`, `teams`, `user_team_access`, `statuses`, `document_sequences`, `audit_logs`, `status_history`, `attachments`, `approvals`, `approval_workflows`, `approval_steps`, `comments`
 
 **Master Data** — `items`, `item_categories`, `units_of_measure`, `warehouses`, `chart_of_accounts`, `finance_heads`, `departments`, `designations`, `shifts`, `sales_terms`, `tax_codes`
 
@@ -362,3 +362,21 @@ Then `apps/ui`'s `NEXT_PUBLIC_API_URL` (see `.env.example`) must point at wherev
 - **Payslip/salary reads get audit-logged, not just writes.** `hr.payroll.read.*` is exactly the kind of access that gets scrutinized after the fact — log the read, not only the mutation.
 - **PII (Aadhar/PAN/bank account) gets real, narrowly-permissioned columns or its own table** (`employee_sensitive_info`, gated by `hr.employee_sensitive.read.all` only) — never `custom_fields`. Compliance review looks for exactly this separation.
 - **GPS/attendance raw location data is the one deliberate exception to "never hard-delete."** State a retention window for raw check-in coordinates (derive attendance status, then age the raw trail out) rather than keeping it indefinitely by the same rule that governs business records.
+
+---
+
+## 11. Changelog
+
+Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
+full doc pass folds them into the sections above.
+
+- **2026-09-22 — `Department` added above `Team`.** `departments` table (`id`, `organizationId`,
+  §5.1 baseline) with `teams.department_id` (nullable `Int`, FK to `departments.id`,
+  `onDelete: SetNull`). Landed ahead of the RBAC module (Afzal/Ganesh's upcoming work) so it can
+  build against a real `Department` relation instead of retrofitting one later. Deliberately
+  **not required and not backfilled** in this change — `packages/database/prisma/seed.ts`
+  creates one `Department` per seeded `Team` (1:1) purely so local dev data stays coherent, not
+  because that's the intended final shape. The real shape is one `Department` owning multiple
+  `Team`s (e.g. a single "Engineering" department over Software + Electrical); don't build RBAC
+  or UI logic that assumes today's 1:1 mapping is permanent. Making `departmentId` required is a
+  future migration once real department data exists to backfill against.

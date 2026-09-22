@@ -43,6 +43,7 @@ model Organization {
   roles           Role[]
   tags            Tag[]
   teams           Team[]
+  departments     Department[]
   userTeamAccess  UserTeamAccess[]
 
   @@map("organizations")
@@ -124,6 +125,31 @@ model UserRole {
   @@map("user_roles")
 }
 
+/// Sits above Team — see Docs/ARCHITECTURE.md §11 (Changelog, 2026-09-22)
+/// for why this landed now, ahead of the RBAC module, so RBAC can build on
+/// it rather than retrofit it later. `Team.departmentId` is nullable and NOT
+/// required/backfilled yet — don't treat every Team as having a Department
+/// until a follow-up migration makes it required and this comment is
+/// removed.
+model Department {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  customFields   Json      @default("{}") @map("custom_fields")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  teams        Team[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
 /// Teams — the real access boundary for HR/team-scoped data
 /// (Docs/ARCHITECTURE.md §5.5, §7A). Seed rows (Software/Mechanical/
 /// Electrical) come from packages/database/prisma/seed.ts, not a migration
@@ -131,6 +157,7 @@ model UserRole {
 model Team {
   id             Int       @id @default(autoincrement())
   organizationId Int       @map("organization_id")
+  departmentId   Int?      @map("department_id")
   name           String
   code           String
   leadUserId     Int?      @map("lead_user_id")
@@ -142,11 +169,13 @@ model Team {
   deletedAt      DateTime? @map("deleted_at")
 
   organization Organization     @relation(fields: [organizationId], references: [id])
+  department   Department?      @relation(fields: [departmentId], references: [id])
   lead         User?            @relation("TeamLead", fields: [leadUserId], references: [id])
   userAccess   UserTeamAccess[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
+  @@index([departmentId])
   @@map("teams")
 }
 

@@ -59,12 +59,31 @@ async function main() {
 
   const teams = new Map<string, { id: number }>();
   for (const team of TEAMS) {
+    // One Department per Team, 1:1 — a placeholder so local dev data stays
+    // coherent now that `teams.department_id` exists (Docs/ARCHITECTURE.md
+    // §11 changelog, 2026-09-22), NOT the intended final shape: a real
+    // Department will eventually own multiple Teams (e.g. one "Engineering"
+    // department over Software + Electrical). Don't build against this
+    // being permanently 1:1.
+    const department = await prisma.department.upsert({
+      where: {
+        organizationId_name: { organizationId: org.id, name: team.name },
+      },
+      update: {},
+      create: { organizationId: org.id, name: team.name },
+    });
+
     const row = await prisma.team.upsert({
       where: {
         organizationId_code: { organizationId: org.id, code: team.code },
       },
-      update: { name: team.name },
-      create: { organizationId: org.id, name: team.name, code: team.code },
+      update: { name: team.name, departmentId: department.id },
+      create: {
+        organizationId: org.id,
+        name: team.name,
+        code: team.code,
+        departmentId: department.id,
+      },
     });
     teams.set(team.code, row);
   }
