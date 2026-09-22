@@ -126,6 +126,17 @@ export class ApiClient {
     return this.request<T>(path, { ...options, method: "PATCH", body });
   }
 
+  /** For a full-replace endpoint (e.g. "set this role's granted permission
+   * set to exactly this list") — distinct from `patch`, which is a partial
+   * update. */
+  async put<T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<RequestOptions, "method" | "body">,
+  ): Promise<ApiEnvelope<T>> {
+    return this.request<T>(path, { ...options, method: "PUT", body });
+  }
+
   async delete<T>(
     path: string,
     options?: Omit<RequestOptions, "method" | "body">,
