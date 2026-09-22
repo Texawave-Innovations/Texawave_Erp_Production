@@ -4,7 +4,7 @@ import { z } from "zod";
  * Typed, validated environment (Docs/CODING_STANDARDS.md / Phase 6). Fails
  * fast at startup with a clear message instead of a runtime `undefined` a
  * hundred requests later. Every var the app actually reads must be declared
- * here — see .env.example at the repo root for the full list with comments.
+ * here — see apps/api/.env.example for the full list with comments.
  */
 export const envSchema = z.object({
   NODE_ENV: z

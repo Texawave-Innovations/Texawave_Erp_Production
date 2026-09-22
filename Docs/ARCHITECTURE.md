@@ -330,9 +330,20 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 
 ## 9. Local environment
 
+Three example files, one per consumer — copy each to where it's actually read from, not just
+the repo root:
+
+- `.env.example` (repo root) → `.env` (repo root) — shared/infra vars (`DATABASE_URL`,
+  `REDIS_URL`) that `docker-compose.yml` and `packages/database` read directly.
+- `apps/api/.env.example` → `apps/api/.env` — every var `apps/api` reads, validated at startup
+  by `apps/api/src/config/env.validation.ts` (zod); fill in a real `JWT_SECRET` at minimum.
+- `apps/ui/.env.example` → `apps/ui/.env.local` (or `.env`) — `NEXT_PUBLIC_*` vars only.
+
 ```bash
-cp .env.example .env                      # then fill in JWT_SECRET at minimum
-docker compose up -d postgres redis       # matches the DATABASE_URL/REDIS_URL in .env.example
+cp .env.example .env                                # repo root — for docker-compose
+cp apps/api/.env.example apps/api/.env               # then fill in a real JWT_SECRET
+cp apps/ui/.env.example apps/ui/.env.local
+docker compose up -d postgres redis                 # matches DATABASE_URL/REDIS_URL above
 pnpm install --frozen-lockfile
 pnpm --filter database exec prisma migrate deploy   # or migrate:dev while iterating on the schema
 pnpm --filter database seed                # creates the single "Texawave Innovations" org, three teams
@@ -342,9 +353,13 @@ pnpm --filter api start:dev                # NestJS on :3000 (nest-cli.json uses
 pnpm --filter ui dev                       # Next.js on :3000 too by default; pass -p if you need to change it
 ```
 
-Then `apps/ui`'s `NEXT_PUBLIC_API_URL` (see `.env.example`) must point at wherever `apps/api` is actually listening, and `apps/api`'s `CORS_ORIGIN` must match wherever `apps/ui` is actually listening — the two default ports collide (both default to 3000), so run one of them on a different port explicitly (e.g. `pnpm --filter ui dev -- -p 3001`) and keep both env vars in sync with whatever you chose.
+Then `apps/ui`'s `NEXT_PUBLIC_API_URL` (`apps/ui/.env.example`) must point at wherever `apps/api`
+is actually listening, and `apps/api`'s `CORS_ORIGIN` (`apps/api/.env.example`) must match
+wherever `apps/ui` is actually listening — the two default ports collide (both default to 3000),
+so run one of them on a different port explicitly (e.g. `pnpm --filter ui dev -- -p 3001`) and
+keep both env vars in sync with whatever you chose.
 
-**If `docker compose up` fails with a port already in use:** something else on your machine already has 5432 or 6379 — a system-wide Postgres/Redis install, or another project's containers. Don't stop an unrelated container to free the port; instead run this repo's Postgres/Redis on different host ports (edit the `ports:` mapping in `docker-compose.yml` locally, don't commit that) and update `DATABASE_URL`/`REDIS_URL` in your own `.env` to match.
+**If `docker compose up` fails with a port already in use:** something else on your machine already has 5432 or 6379 — a system-wide Postgres/Redis install, or another project's containers. Don't stop an unrelated container to free the port; instead run this repo's Postgres/Redis on different host ports (edit the `ports:` mapping in `docker-compose.yml` locally, don't commit that) and update `DATABASE_URL`/`REDIS_URL` in both your root `.env` and `apps/api/.env` to match (and `packages/database/.env`, if you run Prisma commands from that package directly).
 
 **Why `apps/api`'s `nest-cli.json` specifies `"builder": "swc"`:** plain `tsc`-then-`node` (the default) fails at runtime with `ERR_UNKNOWN_FILE_EXTENSION` on `packages/database`'s workspace import, because Node's ESM loader can't resolve a `.js`-extension import to a same-named `.ts` file without a transpiling loader in front of it. SWC produces real runtime-loadable output; don't remove the `builder: "swc"` line to "simplify" the config without re-verifying `node dist/main.js` still boots.
 
