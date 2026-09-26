@@ -65,10 +65,11 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-  userRoles      UserRole[]
-  ledTeams       Team[]           @relation("TeamLead")
-  teamAccess     UserTeamAccess[]
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  userRoles           UserRole[]
+  ledTeams            Team[]               @relation("TeamLead")
+  teamAccess          UserTeamAccess[]
+  passwordResetTokens PasswordResetToken[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -239,6 +240,28 @@ model UserTeamAccess {
   @@index([organizationId])
   @@index([teamId])
   @@map("user_team_access")
+}
+
+/// Password-reset flow. Not org/team-scoped — looked up directly by
+/// tokenHash, same way Redis refresh-token keys aren't org-scoped either.
+/// Only the hash is ever persisted; the raw token is emailed to the user and
+/// never stored (Docs' auth story — never store a directly-usable secret).
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdBy Int?      @map("created_by")
+  updatedBy Int?      @map("updated_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 /// FIXTURE table backing the reference feature
