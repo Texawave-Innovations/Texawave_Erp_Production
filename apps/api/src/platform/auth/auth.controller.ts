@@ -1,9 +1,11 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Post, UseGuards } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "./authenticated-user.js";
 import { AuthService, type AuthTokens } from "./auth.service.js";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto.js";
 import { LoginDto } from "./dto/login.dto.js";
 import { RefreshDto } from "./dto/refresh.dto.js";
 
@@ -29,6 +31,23 @@ export class AuthController {
   })
   refresh(@Body() dto: RefreshDto): Promise<AuthTokens> {
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ "forgot-password": { limit: 20, ttl: 15 * 60 * 1000 } })
+  @Post("forgot-password")
+  @ApiOperation({
+    summary:
+      "Request a password reset link. Always returns the same response, " +
+      "whether or not the account exists. Rate-limited per IP (20/15min) " +
+      "and per email (3/15min).",
+  })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    await this.auth.forgotPassword(dto.organizationSlug, dto.email);
+    return { message: "If that account exists, a reset link has been sent." };
   }
 
   @Post("logout")

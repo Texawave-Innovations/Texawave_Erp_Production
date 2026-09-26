@@ -1,8 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
+import { ThrottlerException } from "@nestjs/throttler";
 import type { Redis } from "ioredis";
 import { REDIS_CLIENT } from "../../shared/redis/redis.constants.js";
 import { OrganizationsRepository } from "../organizations/organizations.repository.js";
@@ -12,6 +13,8 @@ import type {
   AccessTokenPayload,
   RefreshTokenPayload,
 } from "./jwt-payload.interface.js";
+import { MailerService } from "./mailer.service.js";
+import { PasswordResetTokensRepository } from "./password-reset-tokens.repository.js";
 
 export interface AuthTokens {
   accessToken: string;
@@ -23,11 +26,13 @@ function refreshKey(userId: number, jti: string): string {
 }
 
 /**
- * Deliberately minimal: login, refresh, logout only — no signup or password
- * reset (those are business-facing flows, out of scope for this
- * foundation). JWT payload carries `userId, organizationId, roleIds`
- * (Docs/ARCHITECTURE.md §6 point 1); refresh tokens live in Redis keyed
- * `refresh:{userId}:{jti}` for O(1) revocation on logout.
+ * Login, refresh, logout, forgot-password — no signup yet (a separate,
+ * still out-of-scope business-facing flow). JWT payload carries
+ * `userId, organizationId, roleIds` (Docs/ARCHITECTURE.md §6 point 1);
+ * refresh tokens live in Redis keyed `refresh:{userId}:{jti}` for O(1)
+ * revocation on logout. Password-reset tokens live in Postgres
+ * (`PasswordResetToken`), not Redis — they need to survive past a single
+ * TTL-bound lookup and be queryable by hash from the reset-confirm step.
  */
 @Injectable()
 export class AuthService {
@@ -37,6 +42,8 @@ export class AuthService {
     private readonly permissions: PermissionsService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mailer: MailerService,
+    private readonly passwordResetTokens: PasswordResetTokensRepository,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -75,6 +82,53 @@ export class AuthService {
     const roleIds = await this.permissions.getRoleIdsForUser(user.id);
 
     return this.issueTokens(user.id, organization.id, roleIds);
+  }
+
+  /**
+   * Always resolves the same way regardless of whether the org/email/user
+   * exists — the caller (controller) always returns the same 200 response
+   * no matter what happens in here. Never let a caught error, an early
+   * return, or a timing difference leak whether an account exists
+   * (user-enumeration).
+   */
+  async forgotPassword(organizationSlug: string, email: string): Promise<void> {
+    // Per-email limit, on top of the per-IP one on the route
+    // (@Throttle on AuthController.forgotPassword). Applied before any
+    // existence check and with the same threshold for every email string —
+    // a nonexistent email trips it exactly like a real one, so it can't be
+    // used to probe which emails exist.
+    const attemptsKey = `password-reset-attempts:${email.toLowerCase()}`;
+    const attempts = await this.redis.incr(attemptsKey);
+    if (attempts === 1) {
+      await this.redis.expire(attemptsKey, 15 * 60);
+    }
+    if (attempts > 3) {
+      throw new ThrottlerException(
+        "Too many password reset requests for this email. Try again later.",
+      );
+    }
+
+    const organization = await this.organizations.findBySlug(organizationSlug);
+    const user = organization
+      ? await this.users.findByEmail({ organizationId: organization.id }, email)
+      : null;
+
+    if (!user || !user.isActive) {
+      return;
+    }
+
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = await bcrypt.hash(rawToken, 10);
+    const ttlMinutes = this.config.getOrThrow<number>(
+      "PASSWORD_RESET_TOKEN_TTL_MINUTES",
+    );
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60_000);
+
+    await this.passwordResetTokens.create(user.id, tokenHash, expiresAt);
+
+    const baseUrl = this.config.getOrThrow<string>("APP_BASE_URL");
+    const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
+    await this.mailer.sendPasswordResetEmail(user.email, resetUrl);
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {

@@ -31,6 +31,13 @@ export const envSchema = z.object({
     .default(30 * 24 * 60 * 60),
 
   CORS_ORIGIN: z.string().default("http://localhost:3001"),
+
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30),
+  APP_BASE_URL: z.url().default("http://localhost:3001"),
 });
 
 export type Env = z.infer<typeof envSchema>;
