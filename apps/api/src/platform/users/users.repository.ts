@@ -27,4 +27,15 @@ export class UsersRepository {
       },
     });
   }
+
+  /** Reset-password: `scope` comes from the user row already loaded via the
+   * matched PasswordResetToken (platform/auth), not from an authenticated
+   * request — same shape as `findByEmail` above. */
+  @OrgScoped()
+  updatePasswordHash(scope: OrgScope, userId: number, passwordHash: string) {
+    return this.prisma.user.updateMany({
+      where: { id: userId, organizationId: scope.organizationId },
+      data: { passwordHash },
+    });
+  }
 }

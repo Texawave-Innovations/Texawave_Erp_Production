@@ -22,12 +22,14 @@ import { PasswordResetTokensRepository } from "./password-reset-tokens.repositor
     OrganizationsModule,
     UsersModule,
     RolesPermissionsModule,
-    // Scoped to forgot-password only (@UseGuards(ThrottlerGuard) on that one
-    // route) — not registered as a global APP_GUARD, so login/refresh/logout
-    // are untouched. Per-IP; per-email limiting is a separate Redis check in
-    // AuthService itself, since this package only tracks by request IP.
+    // Scoped to forgot-password/reset-password only (@UseGuards(ThrottlerGuard)
+    // on those two routes) — not registered as a global APP_GUARD, so
+    // login/refresh/logout are untouched. Per-IP; per-email limiting for
+    // forgot-password is a separate Redis check in AuthService itself, since
+    // this package only tracks by request IP.
     ThrottlerModule.forRoot([
       { name: "forgot-password", ttl: 15 * 60 * 1000, limit: 20 },
+      { name: "reset-password", ttl: 15 * 60 * 1000, limit: 20 },
     ]),
   ],
   controllers: [AuthController],

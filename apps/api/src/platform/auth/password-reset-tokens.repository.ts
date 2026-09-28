@@ -15,4 +15,26 @@ export class PasswordResetTokensRepository {
       data: { userId, tokenHash, expiresAt },
     });
   }
+
+  /**
+   * There is no index to look a raw token up by directly — only its bcrypt
+   * hash was ever stored. The candidate set is unused, unexpired rows
+   * (small: TTL-bound and single-use), and the caller `bcrypt.compare()`s
+   * the raw token against each one's `tokenHash` to find the match.
+   * Includes `user` so the caller has `organizationId`/`isActive` without a
+   * second lookup.
+   */
+  findValidCandidates(now: Date) {
+    return this.prisma.passwordResetToken.findMany({
+      where: { usedAt: null, expiresAt: { gt: now } },
+      include: { user: true },
+    });
+  }
+
+  markUsed(id: number, usedAt: Date) {
+    return this.prisma.passwordResetToken.update({
+      where: { id },
+      data: { usedAt },
+    });
+  }
 }

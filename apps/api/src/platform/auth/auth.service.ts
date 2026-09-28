@@ -1,5 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -36,6 +41,8 @@ function refreshKey(userId: number, jti: string): string {
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly organizations: OrganizationsRepository,
     private readonly users: UsersRepository,
@@ -131,6 +138,57 @@ export class AuthService {
     await this.mailer.sendPasswordResetEmail(user.email, resetUrl);
   }
 
+  /**
+   * Never reveals *why* a token failed (invalid / expired / already used) —
+   * always the same generic error, logged server-side only (Docs' auth
+   * story non-negotiable). On success: kills every other active session by
+   * revoking all of the user's refresh tokens, same as `logout()`.
+   *
+   * No `$transaction` here — this codebase has no existing transaction
+   * pattern (see Docs/CODING_STANDARDS.md), and introducing one is a
+   * deliberate architectural decision, not something to fold into this
+   * feature. Instead the two writes are ordered so the unsafe half of the
+   * failure window is avoided: the token is marked used *before* the
+   * password is updated. If the process dies in between, the worst case is
+   * a wasted token (self-healing — the user just requests a new one), never
+   * a reusable token or a silently-failed password change.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const now = new Date();
+    const candidates = await this.passwordResetTokens.findValidCandidates(now);
+
+    let match: (typeof candidates)[number] | null = null;
+    for (const candidate of candidates) {
+      if (await bcrypt.compare(token, candidate.tokenHash)) {
+        match = candidate;
+        break;
+      }
+    }
+
+    if (!match) {
+      this.logger.warn("Password reset failed: no matching valid token");
+      throw new UnauthorizedException("Invalid or expired reset link");
+    }
+    if (!match.user.isActive) {
+      this.logger.warn(
+        `Password reset failed: user ${match.userId} is inactive`,
+      );
+      throw new UnauthorizedException("Invalid or expired reset link");
+    }
+
+    await this.passwordResetTokens.markUsed(match.id, now);
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.users.updatePasswordHash(
+      { organizationId: match.user.organizationId },
+      match.userId,
+      passwordHash,
+    );
+
+    await this.revokeAllRefreshTokens(match.userId);
+    await this.permissions.invalidate(match.userId);
+  }
+
   async refresh(refreshToken: string): Promise<AuthTokens> {
     let payload: RefreshTokenPayload;
     try {
@@ -169,11 +227,17 @@ export class AuthService {
   }
 
   async logout(userId: number): Promise<void> {
+    await this.revokeAllRefreshTokens(userId);
+    await this.permissions.invalidate(userId);
+  }
+
+  /** Shared by `logout()` and `resetPassword()` — both need to kill every
+   * active session for a user. */
+  private async revokeAllRefreshTokens(userId: number): Promise<void> {
     const keys = await this.redis.keys(refreshKey(userId, "*"));
     if (keys.length > 0) {
       await this.redis.del(...keys);
     }
-    await this.permissions.invalidate(userId);
   }
 
   private async issueTokens(

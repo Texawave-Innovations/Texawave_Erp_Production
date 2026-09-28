@@ -8,6 +8,7 @@ import { AuthService, type AuthTokens } from "./auth.service.js";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto.js";
 import { LoginDto } from "./dto/login.dto.js";
 import { RefreshDto } from "./dto/refresh.dto.js";
+import { ResetPasswordDto } from "./dto/reset-password.dto.js";
 
 @ApiTags("auth")
 @Controller("auth")
@@ -48,6 +49,23 @@ export class AuthController {
   ): Promise<{ message: string }> {
     await this.auth.forgotPassword(dto.organizationSlug, dto.email);
     return { message: "If that account exists, a reset link has been sent." };
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ "reset-password": { limit: 20, ttl: 15 * 60 * 1000 } })
+  @Post("reset-password")
+  @ApiOperation({
+    summary:
+      "Reset password using a token from the forgot-password email. " +
+      "Always returns the same generic error for an invalid, expired, or " +
+      "already-used token. Invalidates every other active session on success.",
+  })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    await this.auth.resetPassword(dto.token, dto.newPassword);
+    return { message: "Password has been reset." };
   }
 
   @Post("logout")
