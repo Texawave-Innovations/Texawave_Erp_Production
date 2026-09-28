@@ -122,6 +122,37 @@ export class AuthService {
     await this.permissions.invalidate(userId);
   }
 
+  async getMe(
+    userId: number,
+    organizationId: number,
+  ): Promise<{
+    userId: number;
+    organizationId: number;
+    email: string;
+    fullName: string;
+    roleIds: number[];
+    permissions: string[];
+  }> {
+    const user = await this.users.findById({ organizationId }, userId);
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    const [roleIds, permissions] = await Promise.all([
+      this.permissions.getRoleIdsForUser(userId),
+      this.permissions.getPermissionsForUser(userId),
+    ]);
+
+    return {
+      userId: user.id,
+      organizationId: user.organizationId,
+      email: user.email,
+      fullName: user.fullName,
+      roleIds,
+      permissions,
+    };
+  }
+
   private async issueTokens(
     userId: number,
     organizationId: number,

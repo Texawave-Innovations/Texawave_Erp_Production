@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
@@ -29,6 +29,14 @@ export class AuthController {
   })
   refresh(@Body() dto: RefreshDto): Promise<AuthTokens> {
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Get("me")
+  @ApiOperation({
+    summary: "Get current authenticated user info, role IDs, and permissions",
+  })
+  getMe(@CurrentUser() user: AuthenticatedUser) {
+    return this.auth.getMe(user.userId, user.organizationId);
   }
 
   @Post("logout")

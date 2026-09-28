@@ -11,3 +11,12 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
 }
+
+export interface MeUser {
+  userId: number;
+  organizationId: number;
+  email: string;
+  fullName: string;
+  roleIds: number[];
+  permissions: string[];
+}
