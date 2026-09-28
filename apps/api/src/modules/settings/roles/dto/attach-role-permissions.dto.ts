@@ -19,7 +19,7 @@ export function IsValidPermissionCode(validationOptions?: ValidationOptions) {
       name: "isValidPermissionCode",
       target: object.constructor,
       propertyName: propertyName,
-      options: validationOptions,
+      options: validationOptions ?? {},
       validator: {
         validate(value: unknown) {
           if (typeof value !== "string") return false;
