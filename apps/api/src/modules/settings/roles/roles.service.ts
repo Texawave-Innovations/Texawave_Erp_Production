@@ -8,6 +8,7 @@ import {
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { PermissionsService } from "../../../platform/roles-permissions/permissions.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
+import type { AttachRolePermissionsDto } from "./dto/attach-role-permissions.dto.js";
 import type { CreateRoleDto } from "./dto/create-role.dto.js";
 import type { QueryRoleDto } from "./dto/query-role.dto.js";
 import type { SetRolePermissionsDto } from "./dto/set-role-permissions.dto.js";
@@ -86,6 +87,32 @@ export class RolesService {
       scope,
       id,
       dto.permissionIds,
+      updatedBy,
+    );
+    if (!ok) {
+      throw new ResourceNotFoundException("Role", id);
+    }
+    await this.invalidateUsersForRole(scope, id);
+    return this.repository.findOneWithPermissions(scope, id);
+  }
+
+  async attachPermissions(id: number, dto: AttachRolePermissionsDto) {
+    const scope = this.tenantContext.getOrgScope();
+    const updatedBy = this.tenantContext.getUserId();
+
+    const idsFromCodes = await this.repository.resolvePermissionCodes([
+      ...(dto.permissions ?? []),
+      ...(dto.permissionCodes ?? []),
+    ]);
+
+    const allPermissionIds = [
+      ...new Set([...(dto.permissionIds ?? []), ...idsFromCodes]),
+    ];
+
+    const ok = await this.repository.attachPermissions(
+      scope,
+      id,
+      allPermissionIds,
       updatedBy,
     );
     if (!ok) {

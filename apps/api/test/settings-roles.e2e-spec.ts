@@ -298,4 +298,57 @@ describe("settings roles (e2e)", () => {
       .send({ name: "Fine", notADeclaredField: true })
       .expect(400);
   });
+
+  it("POST /roles/:id/permissions attaches permissions and returns updated permission set", async () => {
+    const createRes = await request(app.getHttpServer())
+      .post("/roles")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ name: "Role for POST Permissions" })
+      .expect(201);
+    const roleId = (createRes.body as { data: { id: number } }).data.id;
+
+    // Attach permissions using valid CODING_STANDARDS.md §2a permission strings
+    const attachRes = await request(app.getHttpServer())
+      .post(`/roles/${roleId}/permissions`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ permissions: ["settings.role.read"] })
+      .expect(201);
+
+    const data = (
+      attachRes.body as {
+        data: { permissions: Array<{ code: string }> };
+      }
+    ).data;
+    expect(data.permissions.map((p) => p.code)).toContain("settings.role.read");
+  });
+
+  it("POST /roles/:id/permissions rejects invalid permission string violating §2a naming convention", async () => {
+    const createRes = await request(app.getHttpServer())
+      .post("/roles")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ name: "Role for Invalid Validation" })
+      .expect(201);
+    const roleId = (createRes.body as { data: { id: number } }).data.id;
+
+    // "invalid-format" and "hr.employee.manage" (compound/manage verb) are rejected
+    await request(app.getHttpServer())
+      .post(`/roles/${roleId}/permissions`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ permissions: ["invalid-format"] })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/roles/${roleId}/permissions`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ permissions: ["hr.employee.manage"] })
+      .expect(400);
+  });
+
+  it("POST /roles/:id/permissions rejects unpermitted user with 403", async () => {
+    await request(app.getHttpServer())
+      .post("/roles/1/permissions")
+      .set("Authorization", `Bearer ${readOnlyToken}`)
+      .send({ permissions: ["settings.role.read"] })
+      .expect(403);
+  });
 });
