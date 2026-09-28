@@ -126,9 +126,9 @@ describe("MenuService", () => {
     const menu = await service.getMyMenu(42);
 
     expect(menu).toHaveLength(1);
-    expect(menu[0].code).toBe("admin");
-    expect(menu[0].children).toHaveLength(1);
-    expect(menu[0].children[0].code).toBe("admin-departments");
+    expect(menu[0]?.code).toBe("admin");
+    expect(menu[0]?.children).toHaveLength(1);
+    expect(menu[0]?.children[0]?.code).toBe("admin-departments");
   });
 
   it("create() rejects duplicate menu code with ResourceConflictException", async () => {

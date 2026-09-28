@@ -34,13 +34,13 @@ export interface MenuTreeNode {
 export interface CreateMenuItemInput {
   code: string;
   label: string;
-  path?: string;
-  icon?: string;
-  order?: number;
-  parentId?: number;
-  permission?: string;
-  isActive?: boolean;
-  customFields?: Record<string, unknown>;
+  path?: string | null | undefined;
+  icon?: string | null | undefined;
+  order?: number | undefined;
+  parentId?: number | null | undefined;
+  permission?: string | null | undefined;
+  isActive?: boolean | undefined;
+  customFields?: Record<string, unknown> | undefined;
 }
 
 export type UpdateMenuItemInput = Partial<CreateMenuItemInput>;
