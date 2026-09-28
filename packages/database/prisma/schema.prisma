@@ -48,6 +48,7 @@ model Organization {
   teams           Team[]
   departments     Department[]
   userTeamAccess  UserTeamAccess[]
+  menuItems       MenuItem[]
 
   @@map("organizations")
 }
@@ -263,4 +264,34 @@ model Tag {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("tags")
+}
+
+/// Navigation menu item model — filtered by resolved permissions server-side
+/// (Docs/ARCHITECTURE.md §4, §6). Parent-child hierarchy supported.
+model MenuItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  label          String
+  path           String?
+  icon           String?
+  order          Int       @default(0)
+  parentId       Int?      @map("parent_id")
+  permission     String?   // Permission code required to view this item (null = accessible by all authenticated users)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  parent       MenuItem?    @relation("MenuHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children     MenuItem[]   @relation("MenuHierarchy")
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([parentId])
+  @@map("menu_items")
 }

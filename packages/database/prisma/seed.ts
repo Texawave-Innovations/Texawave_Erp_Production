@@ -29,8 +29,6 @@ const REFERENCE_PERMISSIONS = [
   },
 ];
 
-// Gates apps/api/src/modules/settings/roles/ — no `.scope` suffix, not
-// team-scoped data (Docs/CODING_STANDARDS.md §2a).
 const SETTINGS_PERMISSIONS = [
   {
     code: "settings.role.read",
@@ -39,6 +37,39 @@ const SETTINGS_PERMISSIONS = [
   {
     code: "settings.role.write",
     description: "Create/rename roles and assign/revoke their permissions",
+  },
+];
+
+const DEPARTMENTS_PERMISSIONS = [
+  {
+    code: "departments.department.read",
+    description: "View departments",
+  },
+  {
+    code: "departments.department.write",
+    description: "Create/update/delete departments",
+  },
+];
+
+const USERS_PERMISSIONS = [
+  {
+    code: "users.user.read",
+    description: "View users and their assignments",
+  },
+  {
+    code: "users.user.write",
+    description: "Create/update users and assign roles or teams",
+  },
+];
+
+const MENU_PERMISSIONS = [
+  {
+    code: "menu.item.read",
+    description: "View navigation menu items",
+  },
+  {
+    code: "menu.item.write",
+    description: "Create/update/delete navigation menu items",
   },
 ];
 
@@ -80,12 +111,107 @@ async function main() {
     teams.set(team.code, row);
   }
 
-  const allPermissionDefs = [...REFERENCE_PERMISSIONS, ...SETTINGS_PERMISSIONS];
+  const allPermissionDefs = [
+    ...REFERENCE_PERMISSIONS,
+    ...SETTINGS_PERMISSIONS,
+    ...DEPARTMENTS_PERMISSIONS,
+    ...USERS_PERMISSIONS,
+    ...MENU_PERMISSIONS,
+  ];
   for (const permission of allPermissionDefs) {
     await prisma.permission.upsert({
       where: { code: permission.code },
       update: { description: permission.description },
       create: permission,
+    });
+  }
+
+  // Seed default menu items
+  const adminParent = await prisma.menuItem.upsert({
+    where: {
+      organizationId_code: { organizationId: org.id, code: "admin" },
+    },
+    update: { label: "Admin", order: 10 },
+    create: {
+      organizationId: org.id,
+      code: "admin",
+      label: "Admin",
+      order: 10,
+    },
+  });
+
+  const defaultMenuItems = [
+    {
+      code: "dashboard",
+      label: "Dashboard",
+      path: "/",
+      order: 1,
+      parentId: null,
+      permission: null,
+    },
+    {
+      code: "reference-tags",
+      label: "Reference Tags",
+      path: "/reference/tags",
+      order: 2,
+      parentId: null,
+      permission: "reference.tags.read",
+    },
+    {
+      code: "admin-departments",
+      label: "Departments",
+      path: "/admin/departments",
+      order: 1,
+      parentId: adminParent.id,
+      permission: "departments.department.read",
+    },
+    {
+      code: "admin-roles",
+      label: "Roles",
+      path: "/admin/roles",
+      order: 2,
+      parentId: adminParent.id,
+      permission: "settings.role.read",
+    },
+    {
+      code: "admin-users",
+      label: "Users",
+      path: "/admin/users",
+      order: 3,
+      parentId: adminParent.id,
+      permission: "users.user.read",
+    },
+    {
+      code: "admin-menu",
+      label: "Navigation Menu",
+      path: "/admin/menu",
+      order: 4,
+      parentId: adminParent.id,
+      permission: "menu.item.read",
+    },
+  ];
+
+  for (const item of defaultMenuItems) {
+    await prisma.menuItem.upsert({
+      where: {
+        organizationId_code: { organizationId: org.id, code: item.code },
+      },
+      update: {
+        label: item.label,
+        path: item.path,
+        order: item.order,
+        parentId: item.parentId,
+        permission: item.permission,
+      },
+      create: {
+        organizationId: org.id,
+        code: item.code,
+        label: item.label,
+        path: item.path,
+        order: item.order,
+        parentId: item.parentId,
+        permission: item.permission,
+      },
     });
   }
 
