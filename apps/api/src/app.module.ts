@@ -13,6 +13,7 @@ import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
 import { TenancyModule } from "./platform/tenancy/tenancy.module.js";
+import { UsersModule } from "./platform/users/users.module.js";
 import { PrismaModule } from "./shared/prisma/prisma.module.js";
 import { RedisModule } from "./shared/redis/redis.module.js";
 
@@ -42,6 +43,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     TagsModule,
     RolesModule,
     DepartmentsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
