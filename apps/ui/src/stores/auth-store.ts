@@ -1,15 +1,27 @@
 import { create } from "zustand";
 
+export interface AuthUser {
+  userId: number;
+  organizationId: number;
+  email: string;
+  fullName: string;
+  roleIds: number[];
+}
+
 export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   organizationId: number | null;
   organizationSlug: string | null;
+  user: AuthUser | null;
+  permissions: string[];
   setTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
   setOrganization: (organization: {
     organizationId: number;
     organizationSlug: string;
   }) => void;
+  setUser: (user: AuthUser | null) => void;
+  setPermissions: (permissions: string[]) => void;
   clear: () => void;
 }
 
@@ -34,15 +46,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshToken: null,
   organizationId: null,
   organizationSlug: null,
+  user: null,
+  permissions: [],
   setTokens: ({ accessToken, refreshToken }) =>
     set({ accessToken, refreshToken }),
   setOrganization: ({ organizationId, organizationSlug }) =>
     set({ organizationId, organizationSlug }),
+  setUser: (user) => set({ user }),
+  setPermissions: (permissions) => set({ permissions }),
   clear: () =>
     set({
       accessToken: null,
       refreshToken: null,
       organizationId: null,
       organizationSlug: null,
+      user: null,
+      permissions: [],
     }),
 }));
