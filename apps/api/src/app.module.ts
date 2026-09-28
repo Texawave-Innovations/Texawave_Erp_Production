@@ -6,6 +6,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor.js";
 import { LoggerModule } from "./common/logger/logger.module.js";
 import { ConfigModule } from "./config/config.module.js";
+import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
@@ -40,6 +41,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     HealthModule,
     TagsModule,
     RolesModule,
+    DepartmentsModule,
   ],
   controllers: [AppController],
   providers: [
