@@ -75,7 +75,7 @@ describe("UsersService", () => {
     const result = await service.assignRoles(10, { roleIds: [1, 2] });
     expect(repository.assignRoles).toHaveBeenCalledWith(SCOPE, 10, [1, 2], 42);
     expect(permissions.invalidate).toHaveBeenCalledWith(10);
-    expect(result.id).toBe(10);
+    expect(result?.id).toBe(10);
   });
 
   it("assignTeams() throws BadRequestException if any team is outside org", async () => {

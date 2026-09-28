@@ -166,11 +166,12 @@ export class UsersService {
       throw new ResourceNotFoundException("User", id);
     }
 
-    const assignments =
+    const assignments = (
       dto.teams ??
       (dto.teamIds
         ? dto.teamIds.map((teamId) => ({ teamId, isLead: false }))
-        : []);
+        : [])
+    ).map((a) => ({ teamId: a.teamId, isLead: a.isLead ?? false }));
 
     if (assignments.length > 0) {
       const teamIds = assignments.map((a) => a.teamId);

@@ -140,8 +140,8 @@ export class UsersRepository {
         email: data.email,
         fullName: data.fullName,
         passwordHash: data.passwordHash,
-        createdBy,
-        updatedBy: createdBy,
+        createdBy: createdBy ?? null,
+        updatedBy: createdBy ?? null,
       },
       select: USER_SELECT,
     });
@@ -166,7 +166,7 @@ export class UsersRepository {
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: {
         ...data,
-        updatedBy,
+        updatedBy: updatedBy ?? null,
       },
     });
     if (result.count === 0) return null;
@@ -177,7 +177,7 @@ export class UsersRepository {
   async softDelete(scope: OrgScope, id: number, deletedBy?: number) {
     const result = await this.prisma.user.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
-      data: { deletedAt: new Date(), updatedBy: deletedBy },
+      data: { deletedAt: new Date(), updatedBy: deletedBy ?? null },
     });
     return result.count > 0;
   }
