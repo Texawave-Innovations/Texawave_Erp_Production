@@ -82,6 +82,9 @@ importers:
       nestjs-pino:
         specifier: ^5.2.0
         version: 5.2.0(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.0.3)(pino-http@11.0.0)(pino@10.3.1)(rxjs@7.8.2)
+      nodemailer:
+        specifier: ^10.0.12
+        version: 10.0.12
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -134,6 +137,9 @@ importers:
       "@types/node":
         specifier: ^24.0.0
         version: 24.13.5
+      "@types/nodemailer":
+        specifier: ^8.0.2
+        version: 8.0.2
       "@types/passport-jwt":
         specifier: ^4.0.1
         version: 4.0.1
@@ -3560,6 +3566,12 @@ packages:
     resolution:
       {
         integrity: sha512-VqGJBMCtdhqkBUCcBLvywI0NJ+KLuVzgNnlBUNFOQjqVxzo2lxLUNg1DSey8+u2u6ktswSAxg+s68QLzWHNOuA==,
+      }
+
+  "@types/nodemailer@8.0.2":
+    resolution:
+      {
+        integrity: sha512-c7M5ox8p0nEOfbJ2E9Qcmt8/QCu/VzsiAhzBiZbvky2PhKZDHpKB3sQHBM5MEZNkCfBOaS6S9//AGPRTNB7IaA==,
       }
 
   "@types/passport-jwt@4.0.1":
@@ -8087,6 +8099,13 @@ packages:
       }
     engines: { node: ">=18" }
 
+  nodemailer@10.0.12:
+    resolution:
+      {
+        integrity: sha512-PQ46oNbNMuH/Sno7B5IWIU9etytwrO0xdTFvWXpIQFRXhBAXtzD48243AS+BCbQQTPD8y3fqUrgLn0tSo77gvg==,
+      }
+    engines: { node: ">=20.0.0" }
+
   normalize-url@8.1.1:
     resolution:
       {
@@ -12603,6 +12622,10 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
+  "@types/nodemailer@8.0.2":
+    dependencies:
+      "@types/node": 24.13.5
+
   "@types/passport-jwt@4.0.1":
     dependencies:
       "@types/jsonwebtoken": 9.0.10
@@ -15609,6 +15632,8 @@ snapshots:
   node-int64@0.4.0: {}
 
   node-releases@2.0.56: {}
+
+  nodemailer@10.0.12: {}
 
   normalize-url@8.1.1: {}
 

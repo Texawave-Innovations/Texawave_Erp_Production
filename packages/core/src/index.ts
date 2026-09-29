@@ -4,3 +4,4 @@ export * from "./api/client";
 export * from "./query/query-keys";
 export * from "./schemas/tag.schema";
 export * from "./schemas/role.schema";
+export * from "./schemas/auth.schema";
