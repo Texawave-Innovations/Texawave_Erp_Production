@@ -64,6 +64,7 @@ docs, ci, config, infra,                                # cross-cutting/tooling,
 apps, packages, repo,                                   # Phase 0 bootstrap only — historical, don't reuse
 auth, rbac, tenancy, organizations, users, roles,        # anticipated — Epic 1/2 (login, RBAC, menu)
 permissions, departments, teams, menu, deps
+hr, employees, attendance                                # business modules — HR → Attendance backend
 ```
 
 Adding a new scope is a PR to `commitlint.config.js` **on its own** — it's shared tooling
