@@ -66,7 +66,7 @@ If this is your first PR here (this section is for you, Afzal/Ganesh):
 ```bash
 pnpm install --frozen-lockfile              # fresh checkout
 pnpm exec turbo run lint typecheck test build   # what CI runs
-pnpm --filter api test:e2e                  # backend e2e (needs postgres+redis running — see Docs/ARCHITECTURE.md §9)
+pnpm --filter api test:e2e                  # backend e2e (needs postgres+redis; REFUSES to run unless pointed at a disposable DB + non-zero Redis index — see apps/api/test/README.md)
 pnpm --filter ui test:e2e                   # browser e2e, Playwright (needs `pnpm --filter ui exec playwright install` once, plus api+ui both running against a seeded db)
 pnpm --filter database exec prisma migrate dev   # apply/create a migration (needs docker-compose postgres running)
 pnpm scaffold:module <kebab-case-name>      # generate a new module's skeleton from the reference pattern — see Docs/CODING_STANDARDS.md §16
