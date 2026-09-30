@@ -8,3 +8,4 @@ export * from "./schemas/role.schema";
 export * from "./schemas/department.schema";
 export * from "./schemas/user.schema";
 export * from "./schemas/menu.schema";
+export * from "./schemas/auth.schema";

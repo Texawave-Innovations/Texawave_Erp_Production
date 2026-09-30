@@ -31,6 +31,21 @@ export const envSchema = z.object({
     .default(30 * 24 * 60 * 60),
 
   CORS_ORIGIN: z.string().default("http://localhost:3001"),
+
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30),
+  APP_BASE_URL: z.url().default("http://localhost:3001"),
+
+  // Optional: when unset, MailerService falls back to logging the reset link
+  // instead of sending it — keeps local dev/e2e working without real Gmail
+  // credentials (see apps/api/src/platform/auth/mailer.service.ts).
+  // GMAIL_APP_PASSWORD is a 16-char App Password (Google Account > Security >
+  // App passwords), never the account's real login password.
+  GMAIL_USER: z.string().optional(),
+  GMAIL_APP_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Merriweather } from "next/font/google";
+import { Nunito_Sans, JetBrains_Mono, Merriweather } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const inter = Inter({
-  variable: "--font-inter",
+const nunitoSans = Nunito_Sans({
+  variable: "--font-nunito-sans",
   subsets: ["latin"],
 });
 
@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${merriweather.variable} h-full antialiased`}
+      className={`${nunitoSans.variable} ${jetbrainsMono.variable} ${merriweather.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
