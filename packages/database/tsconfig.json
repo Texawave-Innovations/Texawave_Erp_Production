@@ -12,6 +12,11 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["prisma.config.ts", "src", "prisma/seed.ts"],
+  "include": [
+    "prisma.config.ts",
+    "src",
+    "prisma/seed.ts",
+    "prisma/permissions"
+  ],
   "exclude": ["node_modules", "generated"]
 }

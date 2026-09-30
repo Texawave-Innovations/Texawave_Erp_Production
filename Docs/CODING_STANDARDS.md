@@ -80,11 +80,13 @@ one, with real examples): `<module>.<entity>.<action>`, with `.<scope>` appended
 the entity is team-scoped data (§10a) — `<scope>` is exactly one of `own`/`team`/`all`, omitted
 entirely for anything with no team dimension.
 
-Seeded in `packages/database/prisma/seed.ts`, checked by `PermissionsGuard`
+Declared in `packages/database/prisma/permissions/catalog.ts` (synced to every environment by
+`pnpm --filter @texawave-erp/database permissions:sync`, not just the local seed — see the README
+next to it; `permissions:check` validates naming/scope completeness and runs in `test`), checked by `PermissionsGuard`
 (`apps/api/src/platform/roles-permissions/permissions.guard.ts`), referenced via
 `@RequirePermission()` on a controller method (§10, §10a).
 
-**Real examples, pulled from `seed.ts` as it stands today:**
+**Real examples, pulled from the catalogue as it stands today:**
 
 - `reference.tags.read` / `reference.tags.write` — the fixture module has no team dimension, so
   no `.scope` suffix. `write` covers create/update/delete for this entity; the catalog isn't
@@ -108,7 +110,8 @@ Seeded in `packages/database/prisma/seed.ts`, checked by `PermissionsGuard`
 - `<scope>` is exactly `own`, `team`, or `all` — never `mine`/`any`/`self`/a team name — and is
   **omitted entirely**, not set to `.all`, for a permission with no team dimension.
 - No violations exist in the current catalog as of this doc's last verification — every string
-  in `seed.ts` and every `@RequirePermission()` call site already matches this pattern. If you
+  in `catalog.ts` and every `@RequirePermission()` call site already matches this pattern (the
+  catalogue side is enforced by `prisma/permissions/validate.ts`). If you
   add a permission that doesn't fit it, that's a bug in the new string, not a reason to add a
   second pattern.
 

@@ -1,14 +1,14 @@
 // Local-dev seed only — NOT run in CI, NOT a migration. Creates the single
 // "Texawave Innovations" organization, its three teams (Docs/ARCHITECTURE.md
-// §5.5), the starter permission catalog (reference-feature + settings/roles
-// permissions — no HR permissions here; the HR module defines its own
-// catalog, including the `.own`/`.team`/`.all` scope variants per
-// Docs/CODING_STANDARDS.md §10a, when it's actually built), a "Super Admin"
+// §5.5), the permission catalogue (prisma/permissions/catalog.ts — synced by
+// the same code every environment uses, so this seed can't drift from
+// staging/production), a "Super Admin"
 // role granted every permission, and one Super Admin user with no team
 // assignment (Super Admin uses `.all`-scoped permissions where they exist,
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { syncPermissions } from "./permissions/sync.js";
 
 const prisma = new PrismaClient();
 
@@ -20,27 +20,6 @@ const TEAMS = [
   { name: "Mechanical", code: "ME" },
   { name: "Electrical", code: "EL" },
 ] as const;
-
-const REFERENCE_PERMISSIONS = [
-  { code: "reference.tags.read", description: "View reference tags" },
-  {
-    code: "reference.tags.write",
-    description: "Create/update/delete reference tags",
-  },
-];
-
-// Gates apps/api/src/modules/settings/roles/ — no `.scope` suffix, not
-// team-scoped data (Docs/CODING_STANDARDS.md §2a).
-const SETTINGS_PERMISSIONS = [
-  {
-    code: "settings.role.read",
-    description: "View roles and their permissions",
-  },
-  {
-    code: "settings.role.write",
-    description: "Create/rename roles and assign/revoke their permissions",
-  },
-];
 
 async function main() {
   const org = await prisma.organization.upsert({
@@ -80,14 +59,10 @@ async function main() {
     teams.set(team.code, row);
   }
 
-  const allPermissionDefs = [...REFERENCE_PERMISSIONS, ...SETTINGS_PERMISSIONS];
-  for (const permission of allPermissionDefs) {
-    await prisma.permission.upsert({
-      where: { code: permission.code },
-      update: { description: permission.description },
-      create: permission,
-    });
-  }
+  // The permission catalogue lives in prisma/permissions/catalog.ts and is
+  // what every environment (not just this local seed) is synced to via
+  // `pnpm --filter @texawave-erp/database permissions:sync`.
+  await syncPermissions(prisma);
 
   const superAdminRole = await prisma.role.upsert({
     where: {

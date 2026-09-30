@@ -32,8 +32,8 @@ feature folder — this is deliberate; it never silently clobbers work in progre
 - Create a Prisma model. You add that to `packages/database/prisma/schema.prisma` yourself and
   run the migration.
 - Pick or seed a permission string. Every generated controller route carries
-  `@RequirePermission("TODO.permission")` — a real string is your decision, seeded in
-  `packages/database/prisma/seed.ts`.
+  `@RequirePermission("TODO.permission")` — a real string is your decision, declared in
+  `packages/database/prisma/permissions/catalog.ts`.
 - Wire the new module into `apps/api/src/app.module.ts`. A half-generated module is never
   silently live; you import it yourself once it actually does something.
 - Fill in real wire types in `packages/api-types`, or write real tests. Every generated file
@@ -251,7 +251,8 @@ Never call both for the same method; a table is one or the other.
 
 **Permission string reminder** (`Docs/CODING_STANDARDS.md` §10a PR checklist): any new
 `hr.*`/`employee_self_service.*` permission gets all three scope variants
-(`.own`/`.team`/`.all`) seeded in `seed.ts` up front, even if only one is wired to a role today —
+(`.own`/`.team`/`.all`) declared in `catalog.ts` up front (use `scopedPermission()`, which expands
+all three), even if only one is wired to a role today —
 see `Docs/CODING_STANDARDS.md`'s "Permission Naming Convention" section for the full pattern and
 real examples.
 
@@ -269,8 +270,10 @@ real examples.
 - [ ] DTO validation — every field on every DTO has a `class-validator` decorator; unknown
       fields are rejected (global `ValidationPipe` already does this — verify with a test, don't
       just assume).
-- [ ] Permission strings added to `seed.ts` (all three `.own`/`.team`/`.all` variants if the data
-      is team-scoped) and granted to the relevant role(s).
+- [ ] Permission strings added to `packages/database/prisma/permissions/catalog.ts` (all three
+      `.own`/`.team`/`.all` variants if the data is team-scoped — `scopedPermission()` does this),
+      `pnpm --filter @texawave-erp/database permissions:sync` run locally, and granted to the
+      relevant role(s) through Settings → Roles.
 - [ ] Backend unit tests (`<name>.service.spec.ts`) for real business-rule behavior, not
       `expect(service).toBeDefined()`.
 - [ ] New module imported into `apps/api/src/app.module.ts` (the scaffold script deliberately
