@@ -329,6 +329,7 @@ export type TeamAccessLevel = "own" | "team" | "all";
 export interface TeamScope {
   level: TeamAccessLevel;
   userId: number;
+  organizationId: number; // teamWhere() ALWAYS adds it, so a team-scoped query is tenant-safe by construction
   teamIds: number[]; // resolved from user_team_access at request time; empty for "all"
 }
 
@@ -352,13 +353,15 @@ export function TeamScoped() {
   };
 }
 
-// common/tenancy/team-where.ts — builds the Prisma filter for the resolved level
-export function teamWhere<F extends object>(scope: TeamScope, filter?: F) {
-  if (scope.level === "all") return { ...filter };
-  if (scope.level === "team")
-    return { ...filter, teamId: { in: scope.teamIds } };
-  return { ...filter, userId: scope.userId }; // "own"
-}
+// common/tenancy/team-where.ts — builds the Prisma filter for the resolved level.
+// The scope clause is AND-ed with the caller's filter (never spread over it), so a
+// caller-supplied teamId/userId narrows within their scope and can't replace or widen it.
+// Returns `{ AND: [filter, scopeClause] }` (just `{ AND: [filter] }` for "all").
+export function teamWhere(
+  scope: TeamScope,
+  filter?: object,
+  fields?: { teamField?: string; ownerField?: string }, // default "teamId" / "userId"; dotted paths allowed
+): { AND: object[] };
 ```
 
 ```ts
@@ -368,15 +371,23 @@ findMany(scope: TeamScope, filter?: EmployeeFilter) {
   return this.prisma.employee.findMany({ where: teamWhere(scope, filter) });
 }
 
+// A table keyed through a relation (attendance/leave rows carry employee_id, not team_id/user_id)
+// names the path instead of duplicating the helper:
+//   teamWhere(scope, filter, { teamField: "employee.teamId", ownerField: "employee.userId" })
+
 // employees.service.ts — resolves the caller's level from their permission set,
 // same layering as OrgScope: repositories never read CLS/permissions themselves
-findAll(filter?: EmployeeFilter) {
-  const scope = this.teamContext.resolveScope("hr.employee.read"); // checks .own/.team/.all in that order
+async findAll(filter?: EmployeeFilter) {
+  const scope = await this.teamContext.resolveScope("hr.employee.read"); // async; checks .all/.team/.own in that order
   return this.employeesRepository.findMany(scope, filter);
 }
 ```
 
-`TeamContextService.resolveScope(permissionPrefix)` checks the caller's resolved permission set (same Redis-cached set `PermissionsGuard` uses) for `<prefix>.all`, then `<prefix>.team`, then `<prefix>.own`, and returns the **most permissive one they hold** — never guess or default to `.all`. For `.team`, it queries `user_team_access` for the caller's `teamId`s at request time (or reads them off a resolved-permissions cache alongside the permission set, mirroring how `PermissionsGuard` already caches per-user data) rather than trusting a client-supplied team ID.
+`TeamContextService.resolveScope(permissionPrefix)` checks the caller's resolved permission set (same Redis-cached set `PermissionsGuard` uses) for `<prefix>.all`, then `<prefix>.team`, then `<prefix>.own`, and returns the **most permissive one they hold** — never guess or default to `.all`; if they hold none it throws `ForbiddenException` (403). For `.team`, it queries `user_team_access` for the caller's `teamId`s at request time (not cached, so revoking a membership takes effect on the next request) rather than trusting a client-supplied team ID. Only memberships that are `isActive`, not soft-deleted, in the caller's organization and on a team that is itself active and not deleted count.
+
+**Data reached through another row** (leave requests, attendance — keyed by `employee_id`, not `team_id`/`user_id`): pass a field path, `teamWhere(scope, filter, { teamField: "employee.teamId", ownerField: "employee.userId" })`. A table that points at an employee OR a team (shift assignments) cannot be expressed with one path and needs its own scope clause — see `modules/hr/shift-assignments/shift-assignment-scope.ts` and its tests.
+
+**Guarding the route: `@RequireScopedPermission()`.** `@RequirePermission("hr.employee.read.team")` is an _exact_ match, so it would reject an `.all` holder (HR) — wrong for a route every scope level may call. A team-scoped route uses `@RequireScopedPermission("hr.employee.read")` (the prefix, no suffix), which admits a caller holding **any** of `.own`/`.team`/`.all`; the guard only decides "may reach the route", and `resolveScope()` + `teamWhere()` then decide which rows. A prefix that already ends in a scope suffix throws when the module loads. Keep `@RequirePermission()` for entities with no team dimension and for one-off exact grants (e.g. `hr.employee.approve.all`); if a route carries both decorators, both must be satisfied. Proven end-to-end in `apps/api/test/team-scope.e2e-spec.ts`.
 
 Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-building helper, not magic. A reviewer still checks that a new HR repository method both has `@TeamScoped()` and takes `scope` as its first parameter.
 

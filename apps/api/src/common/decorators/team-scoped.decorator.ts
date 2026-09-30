@@ -23,6 +23,11 @@ export function TeamScoped() {
           `${propertyKey} was called without a valid TeamScope — this is a coding-standards violation, not a business error`,
         );
       }
+      if (!Number.isInteger(scope.organizationId)) {
+        throw new Error(
+          `${propertyKey} was called with a TeamScope that has no organizationId — this is a coding-standards violation, not a business error`,
+        );
+      }
       return original.call(this, scope, ...rest);
     };
     return descriptor;

@@ -170,11 +170,12 @@ colliding with anyone else's.
 These three operate at **different layers** — mixing them up (e.g. expecting `@OrgScoped()` on a
 controller) is the most common mistake when copying the reference pattern into a real module:
 
-| Decorator              | Layer      | What it does                                                                         |
-| ---------------------- | ---------- | ------------------------------------------------------------------------------------ |
-| `@RequirePermission()` | controller | declares the permission string `PermissionsGuard` checks before the handler runs     |
-| `@OrgScoped()`         | repository | runtime assertion that the method's first param is a valid `OrgScope`                |
-| `@TeamScoped()`        | repository | same, for `TeamScope` — HR/team-boundary data only (`Docs/CODING_STANDARDS.md` §10a) |
+| Decorator                    | Layer      | What it does                                                                           |
+| ---------------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| `@RequirePermission()`       | controller | declares the EXACT permission string `PermissionsGuard` checks before the handler runs |
+| `@RequireScopedPermission()` | controller | team-scoped data: admits a caller holding any of `<prefix>.own`/`.team`/`.all`         |
+| `@OrgScoped()`               | repository | runtime assertion that the method's first param is a valid `OrgScope`                  |
+| `@TeamScoped()`              | repository | same, for `TeamScope` — HR/team-boundary data only (`Docs/CODING_STANDARDS.md` §10a)   |
 
 `tags` only needs `@OrgScoped()` (it isn't team-scoped data). A real HR module needs both
 `@RequirePermission()` **and** `@TeamScoped()` together. Before/after for a hypothetical
@@ -210,7 +211,7 @@ export class EmployeesRepository {
 @Controller("employees")
 export class EmployeesController {
   @Get()
-  @RequirePermission("hr.employee.read.team") // checked by PermissionsGuard before the handler runs
+  @RequireScopedPermission("hr.employee.read") // admits .own/.team/.all holders; the service narrows the rows
   findAll(@Paginate(QueryEmployeeDto) pagination: QueryEmployeeDto) {
     return this.employees.findAll(pagination); // no scope logic here — the service resolves it
   }
@@ -223,9 +224,9 @@ export class EmployeesService {
     private readonly teamContext: TeamContextService,
   ) {}
 
-  findAll(pagination: PaginationDto) {
-    // resolves the caller's .own/.team/.all level from their permission set
-    const scope = this.teamContext.resolveScope("hr.employee.read");
+  async findAll(pagination: PaginationDto) {
+    // resolves the caller's .own/.team/.all level from their permission set (async)
+    const scope = await this.teamContext.resolveScope("hr.employee.read");
     return this.repository.findMany(scope, pagination);
   }
 }
@@ -235,7 +236,7 @@ export class EmployeesRepository {
   @TeamScoped() // runtime guard: throws if called without a valid TeamScope
   findMany(scope: TeamScope, pagination: PaginationDto) {
     return this.prisma.employee.findMany({
-      where: teamWhere(scope, { deletedAt: null }), // scope always wins the merge
+      where: teamWhere(scope, { deletedAt: null }), // scope is AND-ed with the filter — it can narrow, never widen
       skip: pagination.skip,
       take: pagination.limit,
     });
