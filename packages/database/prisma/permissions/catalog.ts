@@ -53,6 +53,12 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "settings.role.write",
     description: "Create/rename roles and assign/revoke their permissions",
   },
+
+  // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
+  {
+    code: "audit.log.read",
+    description: "Browse the organization's audit trail",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [];

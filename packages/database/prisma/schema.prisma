@@ -42,12 +42,13 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users           User[]
-  roles           Role[]
-  tags            Tag[]
-  teams           Team[]
-  departments     Department[]
-  userTeamAccess  UserTeamAccess[]
+  users          User[]
+  roles          Role[]
+  tags           Tag[]
+  teams          Team[]
+  departments    Department[]
+  userTeamAccess UserTeamAccess[]
+  auditLogs      AuditLog[]
 
   @@map("organizations")
 }
@@ -65,10 +66,11 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-  userRoles      UserRole[]
-  ledTeams       Team[]           @relation("TeamLead")
-  teamAccess     UserTeamAccess[]
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  userRoles    UserRole[]
+  ledTeams     Team[]           @relation("TeamLead")
+  teamAccess   UserTeamAccess[]
+  auditLogs    AuditLog[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -264,3 +266,43 @@ model Tag {
   @@index([organizationId])
   @@map("tags")
 }
+
+/// APPEND-ONLY audit trail (apps/api/src/platform/audit, reports/AUDIT_PLATFORM_DESIGN.md).
+/// Deliberate exception to the §5.1 baseline: no updated_at / deleted_at /
+/// is_active / updated_by, because this table must never be edited or
+/// soft-deleted. The migration installs triggers that reject UPDATE, DELETE
+/// and TRUNCATE. `before`/`after` are allow-listed snapshots with secrets
+/// stripped by the writer (audit-redaction.ts) — never raw rows.
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  actorUserId    Int?     @map("actor_user_id")
+  /// user | system (CHECK in the migration); a system actor has no user id.
+  actorType      String   @default("user") @map("actor_type")
+  entityType     String   @map("entity_type")
+  entityId       BigInt   @map("entity_id")
+  action         String
+  before         Json?
+  after          Json?
+  reason         String?
+  ip             String?  @db.VarChar(64)
+  correlationId  String?  @map("correlation_id")
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, entityType, entityId, id(sort: Desc)], map: "audit_logs_entity_history_idx")
+  @@index([organizationId, actorUserId, id(sort: Desc)], map: "audit_logs_actor_idx")
+  @@index([organizationId, at], map: "audit_logs_at_idx")
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Leave (apps/api/src/modules/hr/leave-types, hr/leave-requests)
+// ---------------------------------------------------------------------------
+// Scope is deliberately narrow: types, requests, approve/reject, history.
+// NOT modelled because the business has not approved the rules: leave
+// balances, accrual, carry-forward, half-days, cancellation/withdrawal
+// (reports/HR_IMPLEMENTATION_READINESS.md §3.7, L-1/L-2). No leave types are
+// seeded — the list of types is business data.
