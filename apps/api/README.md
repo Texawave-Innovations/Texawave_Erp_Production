@@ -57,6 +57,28 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+Email: admin@texawave.com
+Password: ChangeMe123!
+
+cd "d:\New folder\Texawave_Erp_Production"
+
+# 1. Databases start (Docker Desktop odikkanum)
+
+docker compose up -d
+
+# 2. API + UI rendum start (terminal 1)
+
+pnpm dev
+
+# 3. Prisma Studio, DB paakkanum-na mattum (terminal 2)
+
+pnpm --filter database exec prisma studio
+
+Service URL
+UI http://localhost:3001
+API http://localhost:3000
+Prisma Studio http://localhost:5555
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
