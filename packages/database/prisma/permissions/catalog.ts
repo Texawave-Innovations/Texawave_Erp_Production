@@ -72,6 +72,33 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/update/deactivate work locations",
   },
 
+  // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
+  // seeded as .own/.team/.all together. Team leads get read.team only by
+  // default; write.team exists but is granted to no role without approval.
+  // .own write is reserved (self-service edits are not built).
+  ...scopedPermission("hr.employee.read", "View employees"),
+  ...scopedPermission("hr.employee.write", "Create/edit employees"),
+  // Organization-wide administrative actions — deliberately not team-scoped.
+  {
+    code: "hr.employee_status.write",
+    description:
+      "Change employment status (activate, deactivate, resign, terminate)",
+  },
+  {
+    code: "hr.employee_status.correct",
+    description:
+      "Correct a RESIGNED/TERMINATED status (audited, reason mandatory)",
+  },
+  {
+    code: "hr.employee_account.write",
+    description: "Link/unlink an employee to a login account",
+  },
+  // apps/api/src/modules/employee-self-service — own record only.
+  {
+    code: "employee_self_service.profile.read",
+    description: "View my own employee record",
+  },
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",

@@ -52,6 +52,9 @@ model Organization {
   designations   Designation[]
   employmentTypes EmploymentType[]
   workLocations  WorkLocation[]
+  employees       Employee[]
+  employeeStatusHistory EmployeeStatusHistory[]
+  documentSequences DocumentSequence[]
 
   @@map("organizations")
 }
@@ -74,6 +77,8 @@ model User {
   ledTeams     Team[]           @relation("TeamLead")
   teamAccess   UserTeamAccess[]
   auditLogs    AuditLog[]
+  employee     Employee?
+  statusChanges EmployeeStatusHistory[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -181,6 +186,7 @@ model Department {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   teams        Team[]
+  employees    Employee[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -210,6 +216,7 @@ model Team {
   department   Department?      @relation(fields: [departmentId], references: [id])
   lead         User?            @relation("TeamLead", fields: [leadUserId], references: [id])
   userAccess   UserTeamAccess[]
+  employees    Employee[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -323,6 +330,7 @@ model Designation {
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  employees    Employee[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -351,6 +359,7 @@ model EmploymentType {
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  employees    Employee[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -375,10 +384,125 @@ model WorkLocation {
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  employees    Employee[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("work_locations")
+}
+
+// ---------------------------------------------------------------------------
+// Employees (apps/api/src/modules/hr/employees)
+// ---------------------------------------------------------------------------
+
+/// Per-organization counters for human-readable document numbers
+/// (Docs/ARCHITECTURE.md §5.3). Employee codes use doc_type = 'employee',
+/// prefix 'EMP-', padding 6 → EMP-000001. The counter row is locked by the
+/// UPDATE that increments it, inside the same transaction that inserts the
+/// employee: concurrent creators queue on that row lock, and a rolled-back
+/// create also rolls back its number (no gaps, no duplicates).
+model DocumentSequence {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  docType        String    @map("doc_type")
+  prefix         String
+  padding        Int       @default(6)
+  /// The NEXT number to hand out.
+  nextNumber     Int       @default(1) @map("next_number")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, docType])
+  @@map("document_sequences")
+}
+
+/// The person record every HR/attendance/leave table points at. Always keyed
+/// by `id`, never by employee_code (the human label).
+///
+/// It stores NO credentials: a login is a `users` row, linked 1:1 through the
+/// optional, unique `user_id`. `status` is ACTIVE / INACTIVE / RESIGNED /
+/// TERMINATED (CHECK in the migration); RESIGNED and TERMINATED are terminal
+/// except through the audited correction workflow. `is_active` mirrors
+/// `status = 'ACTIVE'` (CHECK). `version` is an optimistic-lock counter.
+/// Invariants Prisma cannot express (status/exit-date consistency, immutable
+/// code and organization, reporting-line cycles) are in the migration.
+model Employee {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  employeeCode     String    @map("employee_code")
+  userId           Int?      @unique @map("user_id")
+  fullName         String    @map("full_name")
+  workEmail        String?   @map("work_email")
+  phone            String?
+  teamId           Int       @map("team_id")
+  departmentId     Int?      @map("department_id")
+  designationId    Int       @map("designation_id")
+  employmentTypeId Int       @map("employment_type_id")
+  workLocationId   Int?      @map("work_location_id")
+  reportsToId      Int?      @map("reports_to_id")
+  status           String    @default("ACTIVE")
+  dateOfJoining    DateTime  @map("date_of_joining") @db.Date
+  dateOfExit       DateTime? @map("date_of_exit") @db.Date
+  exitReason       String?   @map("exit_reason")
+  version          Int       @default(1)
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization            @relation(fields: [organizationId], references: [id])
+  user           User?                   @relation(fields: [userId], references: [id])
+  team           Team                    @relation(fields: [teamId], references: [id])
+  department     Department?             @relation(fields: [departmentId], references: [id])
+  designation    Designation             @relation(fields: [designationId], references: [id])
+  employmentType EmploymentType          @relation(fields: [employmentTypeId], references: [id])
+  workLocation   WorkLocation?           @relation(fields: [workLocationId], references: [id])
+  reportsTo      Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
+  directReports  Employee[]              @relation("ReportingLine")
+  statusHistory  EmployeeStatusHistory[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId, status])
+  @@index([organizationId, teamId])
+  @@index([organizationId, departmentId])
+  @@index([organizationId, designationId])
+  @@index([organizationId, employmentTypeId])
+  @@index([organizationId, reportsToId])
+  @@map("employees")
+}
+
+/// Append-only business record of every status change (and of the employee's
+/// creation, from_status NULL). Complements — does not replace — the audit
+/// trail: this is what HR/attendance/payroll query; audit_logs is forensics.
+model EmployeeStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @map("employee_id")
+  fromStatus     String?  @map("from_status")
+  toStatus       String   @map("to_status")
+  /// transition | correction (CHECK in the migration)
+  changeType     String   @default("transition") @map("change_type")
+  effectiveDate  DateTime @map("effective_date") @db.Date
+  reason         String?
+  changedBy      Int      @map("changed_by")
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  changer      User         @relation(fields: [changedBy], references: [id])
+
+  @@index([organizationId, employeeId, id(sort: Desc)], map: "employee_status_history_employee_idx")
+  @@map("employee_status_history")
 }
 
 // ---------------------------------------------------------------------------
