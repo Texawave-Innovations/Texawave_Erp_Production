@@ -9,6 +9,9 @@ import { ConfigModule } from "./config/config.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
+import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
+import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
+import { LeaveTypesModule } from "./modules/hr/leave-types/leave-types.module.js";
 import { CalendarModule } from "./modules/hr/calendar/calendar.module.js";
 import { HolidaysModule } from "./modules/hr/holidays/holidays.module.js";
 import { WeeklyOffRulesModule } from "./modules/hr/weekly-off-rules/weekly-off-rules.module.js";
@@ -61,7 +64,10 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     HolidaysModule,
     WeeklyOffRulesModule,
     CalendarModule,
+    LeaveTypesModule,
+    LeaveRequestsModule,
     ProfileModule,
+    MyLeaveRequestsModule,
   ],
   controllers: [AppController],
   providers: [

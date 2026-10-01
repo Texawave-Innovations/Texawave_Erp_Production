@@ -10,7 +10,8 @@ import { PrismaService } from "../src/shared/prisma/prisma.service.js";
 import { REDIS_CLIENT } from "../src/shared/redis/redis.constants.js";
 
 /**
- * HR master data — designations, employment types, work locations. The modules are generated from one template, so one parameterized spec proves
+ * HR master data — designations, employment types, work locations and leave
+ * types. The modules are generated from one template, so one parameterized spec proves
  * the same guarantees for each: permissions, validation, transactional audit,
  * conflict handling (including a real concurrent race), organization
  * isolation, and the deactivate/activate lifecycle.
@@ -39,6 +40,12 @@ const KINDS: Kind[] = [
     route: "work-locations",
     entityType: "work_location",
     perm: "master.work_location",
+  },
+  {
+    route: "leave-types",
+    path: "/hr/leave-types",
+    entityType: "leave_type",
+    perm: "hr.leave_type",
   },
 ];
 
@@ -162,6 +169,9 @@ describe("HR master data (e2e)", () => {
       where: { organizationId: { in: orgIds } },
     });
     await prisma.workLocation.deleteMany({
+      where: { organizationId: { in: orgIds } },
+    });
+    await prisma.leaveType.deleteMany({
       where: { organizationId: { in: orgIds } },
     });
     await prisma.userRole.deleteMany({

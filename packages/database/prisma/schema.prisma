@@ -58,6 +58,8 @@ model Organization {
   shifts           Shift[]
   shiftAssignments ShiftAssignment[]
   holidays         Holiday[]
+  leaveTypes       LeaveType[]
+  leaveRequests    LeaveRequest[]
   weeklyOffRules   WeeklyOffRule[]
 
   @@map("organizations")
@@ -83,6 +85,8 @@ model User {
   auditLogs    AuditLog[]
   employee     Employee?
   statusChanges EmployeeStatusHistory[]
+  leaveRequested LeaveRequest[] @relation("LeaveRequester")
+  leaveDecided   LeaveRequest[] @relation("LeaveDecider")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -479,6 +483,7 @@ model Employee {
   directReports  Employee[]              @relation("ReportingLine")
   statusHistory  EmployeeStatusHistory[]
   shiftAssignments ShiftAssignment[]
+  leaveRequests LeaveRequest[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -668,3 +673,68 @@ model WeeklyOffRule {
 // balances, accrual, carry-forward, half-days, cancellation/withdrawal
 // (reports/HR_IMPLEMENTATION_READINESS.md §3.7, L-1/L-2). No leave types are
 // seeded — the list of types is business data.
+
+model LeaveType {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  requests     LeaveRequest[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("leave_types")
+}
+
+/// A request for leave over an inclusive date range (whole days only).
+///
+/// Lifecycle: PENDING → APPROVED | REJECTED, both terminal. Once decided a
+/// request never changes — enforced by a trigger, together with immutability
+/// of everything the employee submitted. Whoever decides is recorded
+/// (`decided_by`/`decided_at`), a rejection must carry a note (CHECK), and the
+/// employee's own user can never be the decider (maker-checker: enforced by
+/// the service and proven by tests — a CHECK cannot see that relationship).
+/// An exclusion constraint forbids two PENDING/APPROVED requests of one
+/// employee covering a common day.
+model LeaveRequest {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  leaveTypeId    Int       @map("leave_type_id")
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime  @map("end_date") @db.Date
+  reason         String
+  status         String    @default("PENDING")
+  requestedBy    Int       @map("requested_by")
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?   @map("decision_note")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  requester    User         @relation("LeaveRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("LeaveDecider", fields: [decidedBy], references: [id])
+
+  @@index([organizationId, employeeId, startDate])
+  @@index([organizationId, status])
+  @@index([organizationId, leaveTypeId])
+  @@map("leave_requests")
+}

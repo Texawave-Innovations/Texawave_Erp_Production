@@ -8,6 +8,7 @@
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { DEFAULT_ROLES } from "./permissions/default-roles.js";
 import { syncPermissions } from "./permissions/sync.js";
 
 const prisma = new PrismaClient();
@@ -100,6 +101,33 @@ async function main() {
       update: {},
       create: { organizationId: org.id, ...type },
     });
+  }
+
+  // Starter HR roles for local dev (prisma/permissions/default-roles.ts).
+  // ADDITIVE: grants what is listed, never removes a grant an administrator
+  // added, and `update: {}` means a grant an administrator REVOKED stays
+  // revoked. Team Lead is read-only by default (pinned by a test).
+  for (const definition of DEFAULT_ROLES) {
+    const role = await prisma.role.upsert({
+      where: {
+        organizationId_name: { organizationId: org.id, name: definition.name },
+      },
+      update: {},
+      create: { organizationId: org.id, name: definition.name },
+    });
+    const permissions = await prisma.permission.findMany({
+      where: { code: { in: [...definition.permissions] } },
+      select: { id: true },
+    });
+    for (const permission of permissions) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: { roleId: role.id, permissionId: permission.id },
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: permission.id },
+      });
+    }
   }
 
   const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);

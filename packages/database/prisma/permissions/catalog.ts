@@ -99,6 +99,20 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/end/void weekly-off rules",
   },
 
+  // apps/api/src/modules/hr/leave-types — organization-wide reference data.
+  { code: "hr.leave_type.read", description: "View leave types" },
+  {
+    code: "hr.leave_type.write",
+    description: "Create/update/deactivate leave types",
+  },
+
+  // apps/api/src/modules/hr/leave-requests — team-scoped. Deciding is its own
+  // permission; hr.leave.approve.own is reserved (nobody may decide their own
+  // request), and who among team leads/HR approves is an open decision, so
+  // approve.team is granted to no role by default.
+  ...scopedPermission("hr.leave_request.read", "View leave requests"),
+  ...scopedPermission("hr.leave.approve", "Approve or reject leave requests"),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.
@@ -124,6 +138,14 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "employee_self_service.profile.read",
     description: "View my own employee record",
+  },
+  {
+    code: "employee_self_service.leave_request.read",
+    description: "View my own leave requests",
+  },
+  {
+    code: "employee_self_service.leave_request.create",
+    description: "Request leave for myself",
   },
 
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
