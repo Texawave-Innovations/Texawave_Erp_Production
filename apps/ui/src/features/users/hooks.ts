@@ -8,8 +8,9 @@ import type {
   UpdateUserInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
+import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
   assignUserRoles,
   assignUserTeams,
@@ -43,69 +44,35 @@ export function useUser(id: number | undefined) {
 }
 
 export function useCreateUser() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: (input: CreateUserInput) => createUser(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "users"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["users"], (input: CreateUserInput) =>
+    createUser(input),
+  );
 }
 
 export function useUpdateUser() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: UpdateUserInput }) =>
+  return useOrgScopedMutation(
+    ["users"],
+    ({ id, input }: { id: number; input: UpdateUserInput }) =>
       updateUser(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "users"),
-      });
-    },
-  });
+  );
 }
 
 export function useDeleteUser() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: (id: number) => deleteUser(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "users"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["users"], (id: number) => deleteUser(id));
 }
 
 export function useAssignUserRoles() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: AssignUserRolesInput }) =>
+  return useOrgScopedMutation(
+    ["users"],
+    ({ id, input }: { id: number; input: AssignUserRolesInput }) =>
       assignUserRoles(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "users"),
-      });
-    },
-  });
+  );
 }
 
 export function useAssignUserTeams() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: AssignUserTeamsInput }) =>
+  return useOrgScopedMutation(
+    ["users"],
+    ({ id, input }: { id: number; input: AssignUserTeamsInput }) =>
       assignUserTeams(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "users"),
-      });
-    },
-  });
+  );
 }

@@ -6,8 +6,9 @@ import type {
   UpdateMenuItemInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
+import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
   createMenuItem,
   deleteMenuItem,
@@ -54,44 +55,19 @@ export function useMenuItem(id: number | undefined) {
 }
 
 export function useCreateMenuItem() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-
-  return useMutation({
-    mutationFn: (input: CreateMenuItemInput) => createMenuItem(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "menu"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["menu"], (input: CreateMenuItemInput) =>
+    createMenuItem(input),
+  );
 }
 
 export function useUpdateMenuItem() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-
-  return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: UpdateMenuItemInput }) =>
+  return useOrgScopedMutation(
+    ["menu"],
+    ({ id, input }: { id: number; input: UpdateMenuItemInput }) =>
       updateMenuItem(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "menu"),
-      });
-    },
-  });
+  );
 }
 
 export function useDeleteMenuItem() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-
-  return useMutation({
-    mutationFn: (id: number) => deleteMenuItem(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "menu"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["menu"], (id: number) => deleteMenuItem(id));
 }

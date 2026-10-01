@@ -88,7 +88,7 @@ export default function LoginPage() {
             labelAction={
               <Link
                 href="/forgot-password"
-                className="text-theme-sm text-brand-500 hover:underline"
+                className="text-theme-sm text-brand-800 hover:underline"
               >
                 Forgot your password?
               </Link>

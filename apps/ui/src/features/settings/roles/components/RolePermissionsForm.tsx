@@ -121,7 +121,7 @@ export function RolePermissionsForm({
               key={group}
               className="flex flex-col gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-800"
             >
-              <span className="text-theme-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+              <span className="text-theme-xs font-bold uppercase tracking-wider text-brand-800 dark:text-brand-400">
                 {group}
               </span>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">

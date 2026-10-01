@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  Alert,
-  Button,
-  Checkbox,
-  Skeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, Checkbox, Skeleton, useToast } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { useRoles } from "@/features/settings/roles/hooks";
 import { useAssignUserRoles } from "../hooks";
+import { AssignModalActions } from "./AssignModalActions";
 
 export interface AssignRolesModalProps {
   userId: number;
@@ -106,23 +101,12 @@ export function AssignRolesModal({
         </div>
       )}
 
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onClose}
-          disabled={assignMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          loading={assignMutation.isPending}
-          onClick={() => void handleSave()}
-        >
-          Save roles
-        </Button>
-      </div>
+      <AssignModalActions
+        saveLabel="Save roles"
+        saving={assignMutation.isPending}
+        onCancel={onClose}
+        onSave={() => void handleSave()}
+      />
     </div>
   );
 }

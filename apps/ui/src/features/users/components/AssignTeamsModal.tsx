@@ -1,7 +1,8 @@
 "use client";
 
-import { Button, Checkbox, useToast } from "@texawave-erp/ui-kit";
+import { Checkbox, useToast } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { AssignModalActions } from "./AssignModalActions";
 import { useAssignUserTeams } from "../hooks";
 
 // Default teams defined in seed/architecture
@@ -112,23 +113,12 @@ export function AssignTeamsModal({
         })}
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onClose}
-          disabled={assignMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          loading={assignMutation.isPending}
-          onClick={() => void handleSave()}
-        >
-          Save teams
-        </Button>
-      </div>
+      <AssignModalActions
+        saveLabel="Save teams"
+        saving={assignMutation.isPending}
+        onCancel={onClose}
+        onSave={() => void handleSave()}
+      />
     </div>
   );
 }

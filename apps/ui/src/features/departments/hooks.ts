@@ -6,8 +6,9 @@ import type {
   UpdateDepartmentInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
+import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
   createDepartment,
   deleteDepartment,
@@ -47,41 +48,21 @@ export function useDepartment(id: number | undefined) {
 }
 
 export function useCreateDepartment() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: (input: CreateDepartmentInput) => createDepartment(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "departments"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["departments"], (input: CreateDepartmentInput) =>
+    createDepartment(input),
+  );
 }
 
 export function useUpdateDepartment() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: UpdateDepartmentInput }) =>
+  return useOrgScopedMutation(
+    ["departments"],
+    ({ id, input }: { id: number; input: UpdateDepartmentInput }) =>
       updateDepartment(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "departments"),
-      });
-    },
-  });
+  );
 }
 
 export function useDeleteDepartment() {
-  const queryClient = useQueryClient();
-  const organizationId = useAuthStore((s) => s.organizationId);
-  return useMutation({
-    mutationFn: (id: number) => deleteDepartment(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "departments"),
-      });
-    },
-  });
+  return useOrgScopedMutation(["departments"], (id: number) =>
+    deleteDepartment(id),
+  );
 }

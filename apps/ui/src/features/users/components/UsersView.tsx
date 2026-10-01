@@ -153,7 +153,7 @@ export function UsersView() {
                       u.roles.map((r) => (
                         <span
                           key={r.id}
-                          className="inline-flex items-center rounded-md bg-brand-50 px-2 py-0.5 text-theme-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                          className="inline-flex items-center rounded-md bg-brand-50 px-2 py-0.5 text-theme-xs font-medium text-brand-800 dark:bg-brand-950 dark:text-brand-300"
                         >
                           {r.name}
                         </span>

@@ -31,7 +31,7 @@ function SidebarItem({ item, currentPath }: SidebarItemProps) {
           onClick={() => setIsOpen((prev) => !prev)}
           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-theme-sm font-medium transition-colors ${
             isActive
-              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+              ? "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-300"
               : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
           }`}
         >
@@ -73,7 +73,7 @@ function SidebarItem({ item, currentPath }: SidebarItemProps) {
       href={item.path ?? "#"}
       className={`flex items-center gap-2 rounded-lg px-3 py-2 text-theme-sm font-medium transition-colors ${
         isDirectActive
-          ? "bg-brand-500 text-white font-semibold shadow-xs"
+          ? "bg-brand-500 text-gray-900 font-semibold shadow-xs"
           : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
       }`}
     >
