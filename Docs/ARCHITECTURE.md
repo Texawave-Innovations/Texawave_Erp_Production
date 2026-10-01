@@ -303,10 +303,10 @@ Every arrow is a foreign key, not a copy of data.
 
 ## 6. Multi-Tenancy & RBAC enforcement (concretely)
 
-1. **JWT payload** carries `userId`, `organizationId` (constant), `teamId`, `roleIds`.
+1. **JWT payload** carries `sub` (the user id), `organizationId`, `roleIds` and `type` — **not** `teamId` or `employeeId`. Team scope is resolved per request (`TeamContextService`, from `user_team_access`), and "who is this user as an employee" per request through the `employees.user_id` mapping (`EmployeeQueryService.getCurrentEmployee()`); neither is ever read from the token or the request body.
 2. **`TenancyInterceptor`** populates the CLS context from the JWT — kept for schema/pattern consistency even though `organizationId` never varies today.
 3. **`TeamScopeGuard`**, the actual access boundary now: resolves whether the caller's permission set is `.own`/`.team`/`.all`-scoped (§5.5) and filters the repository query accordingly via `user_team_access`. Postgres RLS is **not built** — with a single organization there's no cross-tenant leak to defend against at the DB layer; team-scoping is application-layer only, same rigor as the old `@OrgScoped()` pattern but one level down.
-4. **Permissions**: seed strings like `hr.employee.read.team`, `hr.payroll.read.all`. `role_permissions` maps roles to these. `@RequirePermission('hr.employee.read.team')` decorator + guard checks the JWT's resolved permission set (computed at login, cached in Redis, invalidated on role change).
+4. **Permissions**: seed strings like `hr.employee.read.team`, `hr.payroll.read.all`. `role_permissions` maps roles to these. `@RequireScopedPermission('hr.employee.read')` (any of `.own`/`.team`/`.all`; `@RequirePermission` is an EXACT match) decorator + guard checks the JWT's resolved permission set (computed at login, cached in Redis, invalidated on role change).
 5. **New module later** = new permission strings, seeded against relevant roles. No schema change to `organizations`, `roles`/`permissions`/`role_permissions`, or the tenancy layer required.
 
 ---
@@ -324,7 +324,7 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 ## 8. Build order (Phase 1 onward)
 
 1. Prisma schema — platform layer (§5.6's Platform list + §5.1 baseline, with `bigint`/`Int` identity PKs) plus `teams`/`user_team_access`/`employees`. First migration, seed the single org + Software/Mechanical/Electrical teams + a Super Admin role.
-2. `platform/auth` end-to-end (login, refresh, password reset), argon2, JWT + Redis refresh, `platform/tenancy`.
+2. `platform/auth` end-to-end (login, refresh, password reset), bcrypt password hashing (argon2 was the plan; the implementation and seed use `bcrypt`), JWT + Redis refresh, `platform/tenancy`.
 3. RBAC + team-scope skeleton — seed roles/permissions with the `.own`/`.team`/`.all` suffix pattern, `PermissionsGuard` + `@RequirePermission()`, `TeamScopeGuard`. Prove both on one dummy protected route — including a negative test (a team-lead-scoped user correctly denied/filtered on another team's data), not just that login works.
 4. Master Data, trimmed to what HR needs now (`departments`, `designations`, `shifts`, `leave_types`) — the rest of Master Data's table list stays documented for when Sales/Purchases/Finance resume, not built yet.
 5. HR module, full stack: employees, attendance, leaves, payroll, payslips.
@@ -421,3 +421,20 @@ full doc pass folds them into the sections above.
   of the previously-seeded speculative `hr.*` permission catalog (`packages/database/prisma/seed.ts`)
   — the HR module now defines its own catalog when it's actually built, rather than inheriting a
   pre-guess.
+
+- **2026-09-30 — HR backend (audit platform, master data, employees, shifts, calendar, leave).**
+  Eleven migrations now ship; the six HR-related ones add `audit_logs` (append-only, `BigInt`,
+  DB triggers reject UPDATE/DELETE/TRUNCATE — a deliberate exception to the §5.1 baseline columns),
+  `designations`, `employment_types`, `work_locations`, `document_sequences`, `employees`,
+  `employee_status_history` (append-only), `shifts`, `shift_assignments`, `holidays`,
+  `weekly_off_rules`, `leave_types`, `leave_requests`. Decisions recorded here, not silently
+  in code: (1) **statuses are `text` + `CHECK`** (ACTIVE/INACTIVE/RESIGNED/TERMINATED), not the
+  §5.2 `statuses` lookup table, and status history is an HR table, not the generic
+  `status_history`; (2) **new tables use `timestamptz`** (`@db.Timestamptz(6)`) and `DATE` for
+  business dates — the older tables remain `TIMESTAMP(3)`; (3) invariants Prisma cannot express
+  (CHECKs, partial/expression unique indexes, GiST exclusion constraints for no-overlap,
+  triggers) live as commented raw SQL in the migrations and do not trip the CI drift check;
+  (4) **`@nestjs/event-emitter` was not added** — HR needs only synchronous, transactional
+  coordination (audit rows are written in the same transaction as the change); (5) `user_team_access`
+  is **not** derived from `employees.team_id` — an employee's team never silently grants
+  team-lead access. Full contract: `Docs/HR_API.md`.
