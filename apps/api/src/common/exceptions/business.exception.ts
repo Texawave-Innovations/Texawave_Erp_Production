@@ -61,3 +61,12 @@ export class VersionConflictException extends BusinessException {
     );
   }
 }
+
+/** A conflict with existing data that is a domain rule, not a duplicate key
+ * (409) — e.g. a shift assignment overlapping another. A stable `errorCode`
+ * lets clients tell it apart from a plain `RESOURCE_CONFLICT`. */
+export class BusinessRuleConflictException extends BusinessException {
+  constructor(message: string, errorCode: string) {
+    super(message, HttpStatus.CONFLICT, errorCode);
+  }
+}

@@ -9,6 +9,8 @@ import { ConfigModule } from "./config/config.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
+import { ShiftAssignmentsModule } from "./modules/hr/shift-assignments/shift-assignments.module.js";
+import { ShiftsModule } from "./modules/master-data/shifts/shifts.module.js";
 import { DesignationsModule } from "./modules/master-data/designations/designations.module.js";
 import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
 import { WorkLocationsModule } from "./modules/master-data/work-locations/work-locations.module.js";
@@ -50,7 +52,9 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     DesignationsModule,
     EmploymentTypesModule,
     WorkLocationsModule,
+    ShiftsModule,
     EmployeesModule,
+    ShiftAssignmentsModule,
     ProfileModule,
   ],
   controllers: [AppController],

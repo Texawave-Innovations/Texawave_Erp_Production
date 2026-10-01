@@ -55,6 +55,8 @@ model Organization {
   employees       Employee[]
   employeeStatusHistory EmployeeStatusHistory[]
   documentSequences DocumentSequence[]
+  shifts           Shift[]
+  shiftAssignments ShiftAssignment[]
 
   @@map("organizations")
 }
@@ -217,6 +219,7 @@ model Team {
   lead         User?            @relation("TeamLead", fields: [leadUserId], references: [id])
   userAccess   UserTeamAccess[]
   employees    Employee[]
+  shiftAssignments ShiftAssignment[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -470,6 +473,7 @@ model Employee {
   reportsTo      Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
   directReports  Employee[]              @relation("ReportingLine")
   statusHistory  EmployeeStatusHistory[]
+  shiftAssignments ShiftAssignment[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -503,6 +507,84 @@ model EmployeeStatusHistory {
 
   @@index([organizationId, employeeId, id(sort: Desc)], map: "employee_status_history_employee_idx")
   @@map("employee_status_history")
+}
+
+// ---------------------------------------------------------------------------
+// Shifts (apps/api/src/modules/master-data/shifts, hr/shift-assignments)
+// ---------------------------------------------------------------------------
+
+/// A working-time template. Times are wall-clock "HH:MM" strings (no time
+/// zone — the business time zone is an Attendance decision) with CHECKs in the
+/// migration. `is_overnight` is DERIVED by the API (end earlier than start
+/// means the shift crosses midnight) and enforced by a CHECK. `working_minutes`
+/// is the expected working duration and can never exceed the span between
+/// start and end.
+///
+/// Deliberately NOT here: break length, grace period, half-day or overtime
+/// thresholds. They are unapproved attendance policy
+/// (reports/HR_IMPLEMENTATION_READINESS.md §3.7 S-1); adding a nullable column
+/// later is trivial, guessing a default is not.
+model Shift {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  startTime      String    @map("start_time") @db.VarChar(5)
+  endTime        String    @map("end_time") @db.VarChar(5)
+  isOvernight    Boolean   @map("is_overnight")
+  workingMinutes Int       @map("working_minutes")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  assignments  ShiftAssignment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("shifts")
+}
+
+/// Which shift an employee — or, as a default, a whole team — works over a
+/// date range. Assignments are never overwritten: a change of shift ends the
+/// old assignment and creates a new one, so history is kept. A mistaken
+/// assignment is VOIDED (`is_active = false`), not deleted.
+///
+/// Exactly one of `employee_id` / `team_id` is set (CHECK). An exclusion
+/// constraint per target (in the migration) forbids two active assignments
+/// whose inclusive date ranges overlap — concurrency-safe, unlike a
+/// check-then-insert in application code. `effective_to` NULL = open-ended.
+model ShiftAssignment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  shiftId        Int       @map("shift_id")
+  employeeId     Int?      @map("employee_id")
+  teamId         Int?      @map("team_id")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  reason         String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  shift        Shift        @relation(fields: [shiftId], references: [id])
+  employee     Employee?    @relation(fields: [employeeId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+
+  @@index([organizationId, shiftId])
+  @@index([organizationId, employeeId, effectiveFrom])
+  @@index([organizationId, teamId, effectiveFrom])
+  @@map("shift_assignments")
 }
 
 // ---------------------------------------------------------------------------

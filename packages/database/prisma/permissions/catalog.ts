@@ -72,6 +72,20 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/update/deactivate work locations",
   },
 
+  { code: "master.shift.read", description: "View shifts" },
+  {
+    code: "master.shift.write",
+    description: "Create/update/deactivate shifts",
+  },
+
+  // apps/api/src/modules/hr/shift-assignments — team-scoped. write.own is
+  // reserved: employees cannot choose their own shift.
+  ...scopedPermission("hr.shift_assignment.read", "View shift assignments"),
+  ...scopedPermission(
+    "hr.shift_assignment.write",
+    "Assign/end/void shift assignments",
+  ),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.
