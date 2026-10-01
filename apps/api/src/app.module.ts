@@ -6,6 +6,8 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor.js";
 import { LoggerModule } from "./common/logger/logger.module.js";
 import { ConfigModule } from "./config/config.module.js";
+import { DepartmentsModule } from "./modules/departments/departments.module.js";
+import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
@@ -26,6 +28,7 @@ import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
 import { TenancyModule } from "./platform/tenancy/tenancy.module.js";
+import { UsersModule } from "./platform/users/users.module.js";
 import { PrismaModule } from "./shared/prisma/prisma.module.js";
 import { RedisModule } from "./shared/redis/redis.module.js";
 
@@ -68,6 +71,9 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     LeaveRequestsModule,
     ProfileModule,
     MyLeaveRequestsModule,
+    DepartmentsModule,
+    UsersModule,
+    MenuModule,
   ],
   controllers: [AppController],
   providers: [

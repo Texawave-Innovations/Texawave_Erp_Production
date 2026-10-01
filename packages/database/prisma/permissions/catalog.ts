@@ -54,6 +54,29 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/rename roles and assign/revoke their permissions",
   },
 
+  // IAM data (departments, users, menu) — org-scoped, no team dimension.
+  // apps/api/src/modules/departments
+  { code: "departments.department.read", description: "View departments" },
+  {
+    code: "departments.department.write",
+    description: "Create/update/delete departments",
+  },
+  // apps/api/src/platform/users
+  {
+    code: "users.user.read",
+    description: "View users and their assignments",
+  },
+  {
+    code: "users.user.write",
+    description: "Create/update users and assign roles or teams",
+  },
+  // apps/api/src/modules/menu
+  { code: "menu.item.read", description: "View navigation menu items" },
+  {
+    code: "menu.item.write",
+    description: "Create/update/delete navigation menu items",
+  },
+
   // apps/api/src/modules/master-data/* — organization-wide reference data, no
   // team dimension. `write` covers create/update/activate/deactivate.
   { code: "master.designation.read", description: "View designations" },

@@ -180,6 +180,75 @@ export class RolesRepository {
     return true;
   }
 
+  /** Not org-scoped — maps codes against the global permission catalog
+   * (Docs/CODING_STANDARDS.md §2a). */
+  async resolvePermissionCodes(codes: string[]): Promise<number[]> {
+    if (codes.length === 0) return [];
+    const permissions = await this.prisma.permission.findMany({
+      where: { code: { in: codes }, isActive: true },
+      select: { id: true },
+    });
+    return permissions.map((p) => p.id);
+  }
+
+  @OrgScoped()
+  async attachPermissions(
+    scope: OrgScope,
+    roleId: number,
+    permissionIds: number[],
+    updatedBy: number,
+  ): Promise<boolean> {
+    const role = await this.prisma.role.findFirst({
+      where: tenantWhere(scope, { id: roleId }),
+    });
+    if (!role) {
+      return false;
+    }
+
+    const catalog = await this.prisma.permission.findMany({
+      where: { id: { in: permissionIds }, isActive: true },
+      select: { id: true },
+    });
+    const validIds = new Set(catalog.map((p) => p.id));
+
+    const existing = await this.prisma.rolePermission.findMany({
+      where: { roleId },
+      select: { permissionId: true, isActive: true },
+    });
+    const existingMap = new Map(
+      existing.map((rp) => [rp.permissionId, rp.isActive]),
+    );
+
+    const toCreate: number[] = [];
+    const toReactivate: number[] = [];
+
+    for (const id of validIds) {
+      if (!existingMap.has(id)) {
+        toCreate.push(id);
+      } else if (existingMap.get(id) === false) {
+        toReactivate.push(id);
+      }
+    }
+
+    await this.prisma.$transaction([
+      ...toCreate.map((permissionId) =>
+        this.prisma.rolePermission.create({
+          data: { roleId, permissionId, createdBy: updatedBy, updatedBy },
+        }),
+      ),
+      ...(toReactivate.length > 0
+        ? [
+            this.prisma.rolePermission.updateMany({
+              where: { roleId, permissionId: { in: toReactivate } },
+              data: { isActive: true, updatedBy },
+            }),
+          ]
+        : []),
+    ]);
+
+    return true;
+  }
+
   /** Not org-scoped — the catalog is global, seeded once
    * (Docs/CODING_STANDARDS.md §2a). */
   findPermissionCatalog() {

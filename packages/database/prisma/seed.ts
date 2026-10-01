@@ -65,6 +65,95 @@ async function main() {
   // `pnpm --filter @texawave-erp/database permissions:sync`.
   await syncPermissions(prisma);
 
+  // Seed default menu items
+  const adminParent = await prisma.menuItem.upsert({
+    where: {
+      organizationId_code: { organizationId: org.id, code: "admin" },
+    },
+    update: { label: "Admin", order: 10 },
+    create: {
+      organizationId: org.id,
+      code: "admin",
+      label: "Admin",
+      order: 10,
+    },
+  });
+
+  const defaultMenuItems = [
+    {
+      code: "dashboard",
+      label: "Dashboard",
+      path: "/",
+      order: 1,
+      parentId: null,
+      permission: null,
+    },
+    {
+      code: "reference-tags",
+      label: "Reference Tags",
+      path: "/reference/tags",
+      order: 2,
+      parentId: null,
+      permission: "reference.tags.read",
+    },
+    {
+      code: "admin-departments",
+      label: "Departments",
+      path: "/admin/departments",
+      order: 1,
+      parentId: adminParent.id,
+      permission: "departments.department.read",
+    },
+    {
+      code: "admin-roles",
+      label: "Roles",
+      path: "/admin/roles",
+      order: 2,
+      parentId: adminParent.id,
+      permission: "settings.role.read",
+    },
+    {
+      code: "admin-users",
+      label: "Users",
+      path: "/admin/users",
+      order: 3,
+      parentId: adminParent.id,
+      permission: "users.user.read",
+    },
+    {
+      code: "admin-menu",
+      label: "Navigation Menu",
+      path: "/admin/menu",
+      order: 4,
+      parentId: adminParent.id,
+      permission: "menu.item.read",
+    },
+  ];
+
+  for (const item of defaultMenuItems) {
+    await prisma.menuItem.upsert({
+      where: {
+        organizationId_code: { organizationId: org.id, code: item.code },
+      },
+      update: {
+        label: item.label,
+        path: item.path,
+        order: item.order,
+        parentId: item.parentId,
+        permission: item.permission,
+      },
+      create: {
+        organizationId: org.id,
+        code: item.code,
+        label: item.label,
+        path: item.path,
+        order: item.order,
+        parentId: item.parentId,
+        permission: item.permission,
+      },
+    });
+  }
+
   const superAdminRole = await prisma.role.upsert({
     where: {
       organizationId_name: { organizationId: org.id, name: "Super Admin" },

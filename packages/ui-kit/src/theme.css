@@ -1,4 +1,10 @@
 @import "tailwindcss";
+/* Consuming apps only scan their own src/ by default — this package lives
+   outside that tree (packages/ui-kit), so without this directive Tailwind's
+   automatic content scanner never sees its component class names and
+   silently drops them from the compiled CSS (only classes that happen to
+   also appear literally somewhere in the app's own source survive). */
+@source "./components";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -6,19 +12,19 @@
   --color-white: #ffffff;
   --color-black: #101828;
 
-  /* Brand (primary) */
-  --color-brand-25: #f2f7fc;
-  --color-brand-50: #e1edf8;
-  --color-brand-100: #c3daf0;
-  --color-brand-200: #96bfe1;
-  --color-brand-300: #60a5fa;
-  --color-brand-400: #3b82f6;
-  --color-brand-500: #0f4c81;
-  --color-brand-600: #0d4270;
-  --color-brand-700: #0b3860;
-  --color-brand-800: #092e4f;
-  --color-brand-900: #07243e;
-  --color-brand-950: #05192d;
+  /* Brand (primary) — Restrained Enterprise ERP (Docs/DESIGN_SYSTEM.md §0) */
+  --color-brand-25: #f5fbf5;
+  --color-brand-50: #e4f2e5;
+  --color-brand-100: #d3ecd5;
+  --color-brand-200: #a6dcab;
+  --color-brand-300: #6fc478;
+  --color-brand-400: #33d94a;
+  --color-brand-500: #06ba32;
+  --color-brand-600: #05a22c;
+  --color-brand-700: #048b25;
+  --color-brand-800: #036e1d;
+  --color-brand-900: #025415;
+  --color-brand-950: #013a0e;
 
   /* Neutral (gray) */
   --color-gray-25: #fcfcfd;
@@ -85,7 +91,7 @@
   --color-chart-5: #0ba5ec;
 
   /* Fonts */
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-nunito-sans);
   --font-mono: var(--font-jetbrains-mono);
   --font-serif: var(--font-merriweather);
 
@@ -121,7 +127,7 @@
   --shadow-theme-xl:
     0px 20px 24px -4px rgba(16, 24, 40, 0.08),
     0px 8px 8px -4px rgba(16, 24, 40, 0.03);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(15, 76, 129, 0.12);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(6, 186, 50, 0.12);
 }
 
 .dark {
@@ -134,5 +140,5 @@
     0px 12px 16px -4px rgba(0, 0, 0, 0.3), 0px 4px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-theme-xl:
     0px 20px 24px -4px rgba(0, 0, 0, 0.3), 0px 8px 8px -4px rgba(0, 0, 0, 0.2);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(59, 130, 246, 0.16);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(75, 226, 86, 0.16);
 }
