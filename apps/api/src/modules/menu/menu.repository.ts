@@ -66,10 +66,14 @@ export class MenuRepository {
     });
   }
 
+  /** Deliberately includes soft-deleted rows: `(organizationId, code)` is a
+   * DB-level unique key, so a deleted item still reserves its code. Without
+   * this a re-create passes the service's conflict check and then fails the
+   * insert with a raw unique-violation (500) instead of a 409. */
   @OrgScoped()
   findByCode(scope: OrgScope, code: string) {
     return this.prisma.menuItem.findFirst({
-      where: tenantWhere(scope, { code, deletedAt: null }),
+      where: tenantWhere(scope, { code }),
     });
   }
 

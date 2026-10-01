@@ -180,6 +180,8 @@ export class RolesRepository {
     return true;
   }
 
+  /** Not org-scoped — maps codes against the global permission catalog
+   * (Docs/CODING_STANDARDS.md §2a). */
   async resolvePermissionCodes(codes: string[]): Promise<number[]> {
     if (codes.length === 0) return [];
     const permissions = await this.prisma.permission.findMany({

@@ -19,11 +19,12 @@ import { UpdateRoleDto } from "./dto/update-role.dto.js";
 import { RolesService } from "./roles.service.js";
 
 /**
- * Role → permission assignment, supporting both `/roles` and legacy `/settings/roles`.
- * Permission strings (`settings.role.read`/`settings.role.write`) gate these endpoints.
+ * Role → permission assignment. Single canonical path (`/settings/roles`);
+ * permission strings (`settings.role.read`/`settings.role.write`) gate these
+ * endpoints.
  */
-@ApiTags("roles")
-@Controller(["roles", "settings/roles"])
+@ApiTags("settings-roles")
+@Controller("settings/roles")
 export class RolesController {
   constructor(private readonly roles: RolesService) {}
 
@@ -79,8 +80,8 @@ export class RolesController {
   }
 }
 
-@ApiTags("permissions")
-@Controller(["permissions", "settings/permissions"])
+@ApiTags("settings-roles")
+@Controller("settings/permissions")
 export class PermissionsCatalogController {
   constructor(private readonly roles: RolesService) {}
 

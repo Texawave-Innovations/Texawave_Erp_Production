@@ -197,4 +197,24 @@ describe("menu (e2e)", () => {
     expect(fullItems.some((i) => i.code === "public-dashboard")).toBe(true);
     expect(fullItems.some((i) => i.code === "restricted-security")).toBe(true);
   });
+
+  it("returns 409 (not 500) when re-creating the code of a deleted menu item", async () => {
+    const created = await request(app.getHttpServer())
+      .post("/menu/items")
+      .set("Authorization", `Bearer ${fullAccessToken}`)
+      .send({ code: "reserved-after-delete", label: "Temp" })
+      .expect(201);
+    const id = (created.body as { data: { id: number } }).data.id;
+
+    await request(app.getHttpServer())
+      .delete(`/menu/items/${id}`)
+      .set("Authorization", `Bearer ${fullAccessToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .post("/menu/items")
+      .set("Authorization", `Bearer ${fullAccessToken}`)
+      .send({ code: "reserved-after-delete", label: "Temp again" })
+      .expect(409);
+  });
 });

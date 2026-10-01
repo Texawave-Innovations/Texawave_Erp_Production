@@ -301,7 +301,7 @@ describe("settings roles (e2e)", () => {
 
   it("POST /roles/:id/permissions attaches permissions and returns updated permission set", async () => {
     const createRes = await request(app.getHttpServer())
-      .post("/roles")
+      .post("/settings/roles")
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ name: "Role for POST Permissions" })
       .expect(201);
@@ -309,7 +309,7 @@ describe("settings roles (e2e)", () => {
 
     // Attach permissions using valid CODING_STANDARDS.md §2a permission strings
     const attachRes = await request(app.getHttpServer())
-      .post(`/roles/${roleId}/permissions`)
+      .post(`/settings/roles/${roleId}/permissions`)
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ permissions: ["settings.role.read"] })
       .expect(201);
@@ -324,7 +324,7 @@ describe("settings roles (e2e)", () => {
 
   it("POST /roles/:id/permissions rejects invalid permission string violating §2a naming convention", async () => {
     const createRes = await request(app.getHttpServer())
-      .post("/roles")
+      .post("/settings/roles")
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ name: "Role for Invalid Validation" })
       .expect(201);
@@ -332,13 +332,13 @@ describe("settings roles (e2e)", () => {
 
     // "invalid-format" and "hr.employee.manage" (compound/manage verb) are rejected
     await request(app.getHttpServer())
-      .post(`/roles/${roleId}/permissions`)
+      .post(`/settings/roles/${roleId}/permissions`)
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ permissions: ["invalid-format"] })
       .expect(400);
 
     await request(app.getHttpServer())
-      .post(`/roles/${roleId}/permissions`)
+      .post(`/settings/roles/${roleId}/permissions`)
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ permissions: ["hr.employee.manage"] })
       .expect(400);
@@ -346,7 +346,7 @@ describe("settings roles (e2e)", () => {
 
   it("POST /roles/:id/permissions rejects unpermitted user with 403", async () => {
     await request(app.getHttpServer())
-      .post("/roles/1/permissions")
+      .post("/settings/roles/1/permissions")
       .set("Authorization", `Bearer ${readOnlyToken}`)
       .send({ permissions: ["settings.role.read"] })
       .expect(403);

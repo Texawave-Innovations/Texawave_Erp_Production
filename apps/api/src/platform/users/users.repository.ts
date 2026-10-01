@@ -48,6 +48,11 @@ const USER_SELECT = {
   },
 } as const;
 
+/**
+ * IAM data — `@OrgScoped()` only, deliberately not `@TeamScoped()`: access is
+ * gated by `users.user.*` permissions, not team membership
+ * (Docs/CODING_STANDARDS.md §10a).
+ */
 @Injectable()
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
