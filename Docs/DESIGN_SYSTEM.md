@@ -12,7 +12,7 @@
 
 ## 0. Rebrand record — "Restrained Enterprise ERP"
 
-Source: `stitch_classic_green_erp_typography.zip` → `restrained_enterprise_erp/DESIGN.md`. Brand & style intent: Corporate Modern + Content-Driven Editorial Minimalism, aimed at enterprise operators/financial controllers doing long high-density ledger sessions — disciplined, low-decoration, calm.
+Source: the Stitch export `stitch_classic_green_erp_typography.zip` → `restrained_enterprise_erp/DESIGN.md`. The zip is no longer in the working tree (design assets don't belong at the repo root); it remains in git history, added in commit `377b3b1` (`git show 377b3b1:stitch_classic_green_erp_typography.zip > out.zip`). Brand & style intent: Corporate Modern + Content-Driven Editorial Minimalism, aimed at enterprise operators/financial controllers doing long high-density ledger sessions — disciplined, low-decoration, calm.
 
 **Adopted (live in `packages/ui-kit/src/theme.css`):**
 
@@ -167,4 +167,5 @@ Every screen that fetches or mutates data must account for all of these — the 
 - Every error/status message that should be announced uses `role="alert"` (errors) or `role="status"` (neutral updates) — see `Alert`, `ErrorState`, `FormField`'s error paragraph, `ToastProvider`'s live region.
 - Focus management for dialogs comes from the native `<dialog>` element, not hand-rolled.
 - **How this is actually checked today:** the Playwright e2e test (`apps/ui/e2e/reference-tags.spec.ts`) exercises the login-and-create-tag flow exclusively through `getByRole`/`getByLabel` locators — those only resolve when the accessible name/role tree is correct, so a broken `aria-label` or missing `<label>` fails the test, not just a manual audit. **Not yet added:** an automated axe-core/`@axe-core/playwright` scan — a reasonable next step, not implemented in this foundation pass.
-- **Not yet verified:** color contrast ratios against WCAG AA for every token pairing in §1.1 — the pairings follow a consistent `-50`/`-700` (light) and `-950`/`-300` (dark) pattern that's a reasonable starting point, but no automated contrast check has been run.
+- **Brand-green contrast (checked 2026-10-01, WCAG relative-luminance formula):** `brand-500` (`#06ba32`) is only 2.6:1 against white, so it is never used behind white text or as light-mode link/body text. Primary `Button` and the active sidebar item pair `brand-500` with `gray-900` text (6.8:1); text links use `brand-800` on white (6.5:1); `brand-50`-tinted badges use `brand-800` text (5.6:1); the `Checkbox` fill uses `brand-600` (3.4:1 against white, above the 3:1 non-text minimum). Don't put white text on `brand-500`/`-600`, or `brand-700` text on a `brand-50` surface (3.8:1), without re-running the numbers.
+- **Not yet verified:** color contrast ratios against WCAG AA for the remaining token pairings in §1.1 — the pairings follow a consistent `-50`/`-700` (light) and `-950`/`-300` (dark) pattern that's a reasonable starting point, but no automated contrast check has been run.
