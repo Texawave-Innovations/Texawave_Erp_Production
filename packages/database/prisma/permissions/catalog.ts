@@ -54,6 +54,24 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/rename roles and assign/revoke their permissions",
   },
 
+  // apps/api/src/modules/master-data/* — organization-wide reference data, no
+  // team dimension. `write` covers create/update/activate/deactivate.
+  { code: "master.designation.read", description: "View designations" },
+  {
+    code: "master.designation.write",
+    description: "Create/update/deactivate designations",
+  },
+  { code: "master.employment_type.read", description: "View employment types" },
+  {
+    code: "master.employment_type.write",
+    description: "Create/update/deactivate employment types",
+  },
+  { code: "master.work_location.read", description: "View work locations" },
+  {
+    code: "master.work_location.write",
+    description: "Create/update/deactivate work locations",
+  },
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",

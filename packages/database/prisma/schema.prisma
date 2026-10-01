@@ -49,6 +49,9 @@ model Organization {
   departments    Department[]
   userTeamAccess UserTeamAccess[]
   auditLogs      AuditLog[]
+  designations   Designation[]
+  employmentTypes EmploymentType[]
+  workLocations  WorkLocation[]
 
   @@map("organizations")
 }
@@ -296,6 +299,86 @@ model AuditLog {
   @@index([organizationId, actorUserId, id(sort: Desc)], map: "audit_logs_actor_idx")
   @@index([organizationId, at], map: "audit_logs_at_idx")
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// HR master data (apps/api/src/modules/master-data/*). Business tables follow
+// the §5.1 baseline; timestamps are `timestamptz` (Docs/ARCHITECTURE.md §5.1)
+// and codes are stored upper-case. Rows are deactivated (`is_active = false`),
+// never deleted: historical employee/leave records keep pointing at them.
+// ---------------------------------------------------------------------------
+
+model Designation {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("designations")
+}
+
+/// Master data, not an enum: the approved starting set (Permanent, Contract,
+/// Temporary, Intern) is inserted by the migration, and HR may add more.
+/// `probation_days` / `notice_days` are NULLABLE and deliberately NOT read by
+/// any code path yet — whether probation/notice rules exist is an open
+/// business decision (reports/HR_IMPLEMENTATION_READINESS.md §3.1).
+model EmploymentType {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  probationDays  Int?      @map("probation_days")
+  noticeDays     Int?      @map("notice_days")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("employment_types")
+}
+
+/// Where an employee works / a holiday applies. Optional everywhere it is
+/// referenced. Added because the brief asks for location scope; the old ERP
+/// has no location master, so this stays minimal.
+model WorkLocation {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("work_locations")
 }
 
 // ---------------------------------------------------------------------------

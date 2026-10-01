@@ -83,6 +83,25 @@ async function main() {
     })),
   });
 
+  // The approved employment types. (The HR migration inserts them for
+  // organizations that already exist; this covers an organization created
+  // afterwards, e.g. a fresh dev database.) Insert-only: never overwrites an
+  // edited row. Probation/notice stay NULL — those rules are not approved.
+  for (const type of [
+    { code: "PERMANENT", name: "Permanent" },
+    { code: "CONTRACT", name: "Contract" },
+    { code: "TEMPORARY", name: "Temporary" },
+    { code: "INTERN", name: "Intern" },
+  ]) {
+    await prisma.employmentType.upsert({
+      where: {
+        organizationId_code: { organizationId: org.id, code: type.code },
+      },
+      update: {},
+      create: { organizationId: org.id, ...type },
+    });
+  }
+
   const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
   const superAdminUser = await prisma.user.upsert({
     where: {
