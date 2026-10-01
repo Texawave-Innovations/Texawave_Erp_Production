@@ -11,6 +11,11 @@ export interface FormFieldProps {
   error?: string | undefined;
   hint?: string;
   required?: boolean;
+  /**
+   * Optional trailing content rendered on the same row as the label (e.g. a
+   * "Forgot your password?" link next to a Password field's label).
+   */
+  labelAction?: React.ReactNode;
   children: (fieldProps: {
     id: string;
     "aria-describedby": string | undefined;
@@ -30,6 +35,7 @@ export function FormField({
   error,
   hint,
   required,
+  labelAction,
   children,
 }: FormFieldProps) {
   const generatedId = useId();
@@ -40,13 +46,16 @@ export function FormField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={id}
-        className="text-theme-sm font-medium text-gray-700 dark:text-white/90"
-      >
-        {label}
-        {required ? <span className="ml-0.5 text-error-500">*</span> : null}
-      </label>
+      <div className="flex items-center justify-between gap-2">
+        <label
+          htmlFor={id}
+          className="text-theme-sm font-medium text-gray-700 dark:text-white/90"
+        >
+          {label}
+          {required ? <span className="ml-0.5 text-error-500">*</span> : null}
+        </label>
+        {labelAction}
+      </div>
       {children({
         id,
         "aria-describedby": describedBy,

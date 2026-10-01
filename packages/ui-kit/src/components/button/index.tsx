@@ -15,7 +15,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // literals": never interpolate a variant into a class name string.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-500 text-white hover:bg-brand-600 focus-visible:outline-brand-500 dark:bg-brand-400 dark:hover:bg-brand-300 dark:text-gray-900",
+    "bg-brand-500 text-gray-900 hover:bg-brand-600 focus-visible:outline-brand-500 dark:bg-brand-400 dark:hover:bg-brand-300 dark:text-gray-900",
   secondary:
     "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800",
   ghost:

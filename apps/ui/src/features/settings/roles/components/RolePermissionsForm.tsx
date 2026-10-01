@@ -115,30 +115,37 @@ export function RolePermissionsForm({
           The permission catalog is empty — nothing to assign yet.
         </p>
       ) : (
-        <div className="flex max-h-96 flex-col gap-4 overflow-y-auto">
+        <div className="flex max-h-96 flex-col gap-6 overflow-y-auto pr-1">
           {[...groups.entries()].map(([group, permissions]) => (
-            <div key={group} className="flex flex-col gap-2">
-              <span className="text-theme-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+            <div
+              key={group}
+              className="flex flex-col gap-3 rounded-lg border border-gray-100 p-3 dark:border-gray-800"
+            >
+              <span className="text-theme-xs font-bold uppercase tracking-wider text-brand-800 dark:text-brand-400">
                 {group}
               </span>
-              {permissions.map((permission) => (
-                <label
-                  key={permission.id}
-                  className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300"
-                >
-                  <Checkbox
-                    checked={effectiveSelected.has(permission.id)}
-                    onChange={() => toggle(permission.id)}
-                    disabled={setPermissions.isPending}
-                  />
-                  <span>
-                    {actionLabel(permission.code)}
-                    <span className="ml-2 text-gray-400 dark:text-gray-500">
-                      {permission.description}
-                    </span>
-                  </span>
-                </label>
-              ))}
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {permissions.map((permission) => (
+                  <label
+                    key={permission.id}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-md p-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  >
+                    <Checkbox
+                      checked={effectiveSelected.has(permission.id)}
+                      onChange={() => toggle(permission.id)}
+                      disabled={setPermissions.isPending}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-theme-sm font-medium text-gray-900 dark:text-gray-100">
+                        {actionLabel(permission.code)}
+                      </span>
+                      <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                        {permission.description}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
           ))}
         </div>

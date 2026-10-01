@@ -4,6 +4,8 @@ import { Button } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { DynamicSidebar } from "@/components/DynamicSidebar";
+import { useMe } from "@/hooks/usePermission";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -26,6 +28,9 @@ export default function DashboardLayout({
   const queryClient = useQueryClient();
   const accessToken = useAuthStore((s) => s.accessToken);
   const clear = useAuthStore((s) => s.clear);
+
+  // Prime the current user's profile and permissions
+  useMe();
 
   async function handleSignOut() {
     // Best-effort: revoke server-side refresh tokens too, but don't block
@@ -57,7 +62,10 @@ export default function DashboardLayout({
           Sign out
         </Button>
       </header>
-      <main className="flex-1 p-6">{children}</main>
+      <div className="flex flex-1 overflow-hidden">
+        <DynamicSidebar />
+        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      </div>
     </div>
   );
 }

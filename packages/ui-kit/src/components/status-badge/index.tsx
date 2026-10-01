@@ -11,7 +11,7 @@ export interface StatusBadgeProps {
 
 // Complete literal map — see Docs/DESIGN_SYSTEM.md "Tailwind class literals".
 const COLOR_CLASSES: Record<StatusColorToken, string> = {
-  brand: "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
+  brand: "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-300",
   gray: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   success:
     "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",

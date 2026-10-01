@@ -3,6 +3,7 @@
 import type { AuthTokens } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import { Alert, Button, Card, FormField, Input } from "@texawave-erp/ui-kit";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiClient, applyAuthTokens } from "@/lib/api-client";
@@ -51,9 +52,12 @@ export default function LoginPage() {
   return (
     <div className="flex flex-1 items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
       <Card className="w-full max-w-sm">
-        <h1 className="mb-6 text-theme-xl font-semibold text-gray-900 dark:text-white/90">
+        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
           Sign in
         </h1>
+        <p className="mt-1 mb-6 text-theme-sm text-gray-500 dark:text-gray-400">
+          Enter your organization and email below to sign in to your account.
+        </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormField label="Organization">
             {(fieldProps) => (
@@ -71,6 +75,7 @@ export default function LoginPage() {
               <Input
                 {...fieldProps}
                 type="email"
+                placeholder="you@texawave.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
@@ -78,11 +83,22 @@ export default function LoginPage() {
               />
             )}
           </FormField>
-          <FormField label="Password">
+          <FormField
+            label="Password"
+            labelAction={
+              <Link
+                href="/forgot-password"
+                className="text-theme-sm text-brand-800 hover:underline"
+              >
+                Forgot your password?
+              </Link>
+            }
+          >
             {(fieldProps) => (
               <Input
                 {...fieldProps}
                 type="password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={submitting}
