@@ -86,6 +86,19 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Assign/end/void shift assignments",
   ),
 
+  // apps/api/src/modules/hr/holidays, weekly-off-rules — organization-wide
+  // calendar data (every employee may read it), so no team dimension.
+  { code: "hr.holiday.read", description: "View the holiday calendar" },
+  {
+    code: "hr.holiday.write",
+    description: "Create/update/deactivate holidays",
+  },
+  { code: "hr.weekly_off.read", description: "View weekly-off rules" },
+  {
+    code: "hr.weekly_off.write",
+    description: "Create/end/void weekly-off rules",
+  },
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.

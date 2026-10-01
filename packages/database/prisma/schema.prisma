@@ -57,6 +57,8 @@ model Organization {
   documentSequences DocumentSequence[]
   shifts           Shift[]
   shiftAssignments ShiftAssignment[]
+  holidays         Holiday[]
+  weeklyOffRules   WeeklyOffRule[]
 
   @@map("organizations")
 }
@@ -220,6 +222,7 @@ model Team {
   userAccess   UserTeamAccess[]
   employees    Employee[]
   shiftAssignments ShiftAssignment[]
+  weeklyOffRules WeeklyOffRule[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -388,6 +391,8 @@ model WorkLocation {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employees    Employee[]
+  holidays       Holiday[]
+  weeklyOffRules WeeklyOffRule[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -585,6 +590,74 @@ model ShiftAssignment {
   @@index([organizationId, employeeId, effectiveFrom])
   @@index([organizationId, teamId, effectiveFrom])
   @@map("shift_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// HR calendar (apps/api/src/modules/hr/holidays, weekly-off-rules, calendar)
+// ---------------------------------------------------------------------------
+
+/// A non-working date for the organization, or — when `work_location_id` is set
+/// — only for that location. The date and the scope are immutable; a wrong
+/// entry is deactivated (kept for history) and re-entered. At most one active
+/// holiday per date per scope (partial unique indexes in the migration).
+model Holiday {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  holidayDate    DateTime  @map("holiday_date") @db.Date
+  name           String
+  description    String?
+  workLocationId Int?      @map("work_location_id")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id])
+
+  @@index([organizationId, holidayDate])
+  @@map("holidays")
+}
+
+/// Which weekdays are non-working, for whom, and over which dates. NOTHING is
+/// assumed and nothing is seeded — in particular Sunday is not special: a
+/// weekly off exists only if someone creates a rule. Scope is the whole
+/// organization (both ids NULL), one location, or one team (never both).
+/// `days_of_week` uses ISO numbering (1 = Monday … 7 = Sunday).
+///
+/// Rules are never edited in place: a change ends the old rule and creates a
+/// new one, so which days were off on any past date stays answerable; a
+/// mistake is voided (`is_active = false`). An exclusion constraint forbids two
+/// active rules of the SAME scope covering a common day. Which of several
+/// applicable scopes wins (org vs location vs team) is an unresolved policy
+/// question and is deliberately NOT decided here.
+model WeeklyOffRule {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  description    String?
+  daysOfWeek     Int[]     @map("days_of_week")
+  workLocationId Int?      @map("work_location_id")
+  teamId         Int?      @map("team_id")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id])
+  team         Team?         @relation(fields: [teamId], references: [id])
+
+  @@index([organizationId, effectiveFrom])
+  @@map("weekly_off_rules")
 }
 
 // ---------------------------------------------------------------------------
