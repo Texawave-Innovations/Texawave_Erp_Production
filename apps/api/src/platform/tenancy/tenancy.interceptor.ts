@@ -30,6 +30,9 @@ export class TenancyInterceptor implements NestInterceptor {
       .getRequest<Request & { id?: string; user?: AuthenticatedUser }>();
 
     this.cls.set("correlationId", request.id ?? randomUUID());
+    // Recorded on audit rows. Behind a reverse proxy this is only the real
+    // client address if Express `trust proxy` is configured (it is not yet).
+    this.cls.set("ip", request.ip);
 
     if (request.user) {
       this.cls.set("organizationId", request.user.organizationId);

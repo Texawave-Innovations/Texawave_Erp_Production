@@ -1,14 +1,15 @@
 // Local-dev seed only — NOT run in CI, NOT a migration. Creates the single
 // "Texawave Innovations" organization, its three teams (Docs/ARCHITECTURE.md
-// §5.5), the starter permission catalog (reference-feature + settings/roles
-// permissions — no HR permissions here; the HR module defines its own
-// catalog, including the `.own`/`.team`/`.all` scope variants per
-// Docs/CODING_STANDARDS.md §10a, when it's actually built), a "Super Admin"
+// §5.5), the permission catalogue (prisma/permissions/catalog.ts — synced by
+// the same code every environment uses, so this seed can't drift from
+// staging/production), a "Super Admin"
 // role granted every permission, and one Super Admin user with no team
 // assignment (Super Admin uses `.all`-scoped permissions where they exist,
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { DEFAULT_ROLES } from "./permissions/default-roles.js";
+import { syncPermissions } from "./permissions/sync.js";
 
 const prisma = new PrismaClient();
 
@@ -20,58 +21,6 @@ const TEAMS = [
   { name: "Mechanical", code: "ME" },
   { name: "Electrical", code: "EL" },
 ] as const;
-
-const REFERENCE_PERMISSIONS = [
-  { code: "reference.tags.read", description: "View reference tags" },
-  {
-    code: "reference.tags.write",
-    description: "Create/update/delete reference tags",
-  },
-];
-
-const SETTINGS_PERMISSIONS = [
-  {
-    code: "settings.role.read",
-    description: "View roles and their permissions",
-  },
-  {
-    code: "settings.role.write",
-    description: "Create/rename roles and assign/revoke their permissions",
-  },
-];
-
-const DEPARTMENTS_PERMISSIONS = [
-  {
-    code: "departments.department.read",
-    description: "View departments",
-  },
-  {
-    code: "departments.department.write",
-    description: "Create/update/delete departments",
-  },
-];
-
-const USERS_PERMISSIONS = [
-  {
-    code: "users.user.read",
-    description: "View users and their assignments",
-  },
-  {
-    code: "users.user.write",
-    description: "Create/update users and assign roles or teams",
-  },
-];
-
-const MENU_PERMISSIONS = [
-  {
-    code: "menu.item.read",
-    description: "View navigation menu items",
-  },
-  {
-    code: "menu.item.write",
-    description: "Create/update/delete navigation menu items",
-  },
-];
 
 async function main() {
   const org = await prisma.organization.upsert({
@@ -111,20 +60,10 @@ async function main() {
     teams.set(team.code, row);
   }
 
-  const allPermissionDefs = [
-    ...REFERENCE_PERMISSIONS,
-    ...SETTINGS_PERMISSIONS,
-    ...DEPARTMENTS_PERMISSIONS,
-    ...USERS_PERMISSIONS,
-    ...MENU_PERMISSIONS,
-  ];
-  for (const permission of allPermissionDefs) {
-    await prisma.permission.upsert({
-      where: { code: permission.code },
-      update: { description: permission.description },
-      create: permission,
-    });
-  }
+  // The permission catalogue lives in prisma/permissions/catalog.ts and is
+  // what every environment (not just this local seed) is synced to via
+  // `pnpm --filter @texawave-erp/database permissions:sync`.
+  await syncPermissions(prisma);
 
   // Seed default menu items
   const adminParent = await prisma.menuItem.upsert({
@@ -233,6 +172,52 @@ async function main() {
       permissionId: permission.id,
     })),
   });
+
+  // The approved employment types. (The HR migration inserts them for
+  // organizations that already exist; this covers an organization created
+  // afterwards, e.g. a fresh dev database.) Insert-only: never overwrites an
+  // edited row. Probation/notice stay NULL — those rules are not approved.
+  for (const type of [
+    { code: "PERMANENT", name: "Permanent" },
+    { code: "CONTRACT", name: "Contract" },
+    { code: "TEMPORARY", name: "Temporary" },
+    { code: "INTERN", name: "Intern" },
+  ]) {
+    await prisma.employmentType.upsert({
+      where: {
+        organizationId_code: { organizationId: org.id, code: type.code },
+      },
+      update: {},
+      create: { organizationId: org.id, ...type },
+    });
+  }
+
+  // Starter HR roles for local dev (prisma/permissions/default-roles.ts).
+  // ADDITIVE: grants what is listed, never removes a grant an administrator
+  // added, and `update: {}` means a grant an administrator REVOKED stays
+  // revoked. Team Lead is read-only by default (pinned by a test).
+  for (const definition of DEFAULT_ROLES) {
+    const role = await prisma.role.upsert({
+      where: {
+        organizationId_name: { organizationId: org.id, name: definition.name },
+      },
+      update: {},
+      create: { organizationId: org.id, name: definition.name },
+    });
+    const permissions = await prisma.permission.findMany({
+      where: { code: { in: [...definition.permissions] } },
+      select: { id: true },
+    });
+    for (const permission of permissions) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: { roleId: role.id, permissionId: permission.id },
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: permission.id },
+      });
+    }
+  }
 
   const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
   const superAdminUser = await prisma.user.upsert({

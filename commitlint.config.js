@@ -49,6 +49,10 @@ module.exports = {
         "teams",
         "menu",
         "deps",
+        // Business-module scopes for the HR → Attendance backend work.
+        "hr",
+        "employees",
+        "attendance",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

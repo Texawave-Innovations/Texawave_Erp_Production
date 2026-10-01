@@ -9,7 +9,21 @@ import { ConfigModule } from "./config/config.module.js";
 import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
+import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
+import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
+import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
+import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
+import { LeaveTypesModule } from "./modules/hr/leave-types/leave-types.module.js";
+import { CalendarModule } from "./modules/hr/calendar/calendar.module.js";
+import { HolidaysModule } from "./modules/hr/holidays/holidays.module.js";
+import { WeeklyOffRulesModule } from "./modules/hr/weekly-off-rules/weekly-off-rules.module.js";
+import { ShiftAssignmentsModule } from "./modules/hr/shift-assignments/shift-assignments.module.js";
+import { ShiftsModule } from "./modules/master-data/shifts/shifts.module.js";
+import { DesignationsModule } from "./modules/master-data/designations/designations.module.js";
+import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
+import { WorkLocationsModule } from "./modules/master-data/work-locations/work-locations.module.js";
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
+import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
@@ -40,9 +54,23 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     AuthModule,
     RolesPermissionsModule,
     TenancyModule,
+    AuditModule,
     HealthModule,
     TagsModule,
     RolesModule,
+    DesignationsModule,
+    EmploymentTypesModule,
+    WorkLocationsModule,
+    ShiftsModule,
+    EmployeesModule,
+    ShiftAssignmentsModule,
+    HolidaysModule,
+    WeeklyOffRulesModule,
+    CalendarModule,
+    LeaveTypesModule,
+    LeaveRequestsModule,
+    ProfileModule,
+    MyLeaveRequestsModule,
     DepartmentsModule,
     UsersModule,
     MenuModule,

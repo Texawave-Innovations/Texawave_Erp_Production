@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { ClsService } from "nestjs-cls";
 import type {
   TeamAccessLevel,
@@ -30,7 +30,8 @@ export class TeamContextService {
 
   async resolveScope(permissionPrefix: string): Promise<TeamScope> {
     const userId = this.cls.get<number>("userId");
-    if (!userId) {
+    const organizationId = this.cls.get<number>("organizationId");
+    if (!userId || !organizationId) {
       throw new Error(
         "TeamContextService.resolveScope() called with no user in context — " +
           "this route is either public or missing an auth guard.",
@@ -41,18 +42,34 @@ export class TeamContextService {
     const level = this.resolveLevel(permissionPrefix, granted);
 
     if (level === "all") {
-      return { level, userId, teamIds: [] };
+      return { level, userId, organizationId, teamIds: [] };
     }
 
     if (level === "team") {
+      // Same revocation semantics as role grants: `isActive: false` disables
+      // a membership without deleting it, so it must not count here. The
+      // organization and the team's own state are pinned too — a membership
+      // row alone never grants access to another organization's or a
+      // deactivated/deleted team's data.
       const access = await this.prisma.userTeamAccess.findMany({
-        where: { userId, deletedAt: null },
+        where: {
+          userId,
+          organizationId,
+          isActive: true,
+          deletedAt: null,
+          team: { organizationId, isActive: true, deletedAt: null },
+        },
         select: { teamId: true },
       });
-      return { level, userId, teamIds: access.map((row) => row.teamId) };
+      return {
+        level,
+        userId,
+        organizationId,
+        teamIds: access.map((row) => row.teamId),
+      };
     }
 
-    return { level: "own", userId, teamIds: [] };
+    return { level: "own", userId, organizationId, teamIds: [] };
   }
 
   private resolveLevel(
@@ -62,9 +79,11 @@ export class TeamContextService {
     if (granted.includes(`${permissionPrefix}.all`)) return "all";
     if (granted.includes(`${permissionPrefix}.team`)) return "team";
     if (granted.includes(`${permissionPrefix}.own`)) return "own";
-    throw new Error(
-      `Caller holds none of ${permissionPrefix}.own/.team/.all — this route should already ` +
-        "have been rejected by PermissionsGuard before resolveScope() was called.",
+    // Normally unreachable behind @RequireScopedPermission(), but a route that
+    // forgot it (or a prefix that doesn't match the decorator's) must fail as
+    // an authorization error — 403, never a 500 and never a default scope.
+    throw new ForbiddenException(
+      `Missing permission: ${permissionPrefix}.own, ${permissionPrefix}.team or ${permissionPrefix}.all`,
     );
   }
 }

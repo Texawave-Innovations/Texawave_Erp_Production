@@ -1,0 +1,221 @@
+# Scratch stack 'scratch/hr-stack' — files per commit (generated from git, base 73bbb16)
+# Excluded (your own edits, untouched, NOT in any commit): apps/api/README.md, apps/api/package.json, apps/ui/package.json
+
+## 1  21c43d9 fix(database): drop stale updated_at defaults  [1 files]
+  A  packages/database/prisma/migrations/20260930092410_drop_updated_at_defaults/migration.sql
+
+## 2  b6a4634 chore(config): add hr, employees, attendance commit scopes  [2 files]
+  M  Docs/CODING_STANDARDS.md
+  M  commitlint.config.js
+
+## 3  8dacf3f test(api): refuse e2e runs against a shared database or Redis  [6 files]
+  M  CLAUDE.md
+  A  apps/api/test/README.md
+  A  apps/api/test/support/e2e-guard.spec.ts
+  A  apps/api/test/support/e2e-guard.ts
+  A  apps/api/test/support/e2e-setup.ts
+  M  apps/api/vitest.config.e2e.ts
+
+## 4  7b87030 feat(platform): scoped permission guard and team-scope proof  [14 files]
+  M  Docs/CODING_STANDARDS.md
+  M  Docs/HOW_TO_ADD_A_MODULE.md
+  A  apps/api/src/common/decorators/require-permission.decorator.spec.ts
+  M  apps/api/src/common/decorators/require-permission.decorator.ts
+  A  apps/api/src/common/decorators/team-scoped.decorator.spec.ts
+  M  apps/api/src/common/decorators/team-scoped.decorator.ts
+  M  apps/api/src/common/tenancy/team-scope.ts
+  A  apps/api/src/common/tenancy/team-where.spec.ts
+  M  apps/api/src/common/tenancy/team-where.ts
+  A  apps/api/src/platform/roles-permissions/permissions.guard.spec.ts
+  M  apps/api/src/platform/roles-permissions/permissions.guard.ts
+  A  apps/api/src/platform/tenancy/team-context.service.spec.ts
+  M  apps/api/src/platform/tenancy/team-context.service.ts
+  A  apps/api/test/team-scope.e2e-spec.ts
+
+## 5  8d2c118 feat(database): permission catalogue and non-destructive sync  [13 files]
+  M  Docs/CODING_STANDARDS.md
+  M  Docs/HOW_TO_ADD_A_MODULE.md
+  M  packages/database/package.json
+  A  packages/database/prisma/permissions/README.md
+  A  packages/database/prisma/permissions/catalog.ts
+  A  packages/database/prisma/permissions/sync-cli.ts
+  A  packages/database/prisma/permissions/sync.db.test.ts
+  A  packages/database/prisma/permissions/sync.test.ts
+  A  packages/database/prisma/permissions/sync.ts
+  A  packages/database/prisma/permissions/validate.test.ts
+  A  packages/database/prisma/permissions/validate.ts
+  M  packages/database/prisma/seed.ts
+  M  packages/database/tsconfig.json
+
+## 6  47e8c2d feat(platform): audit platform with append-only audit_logs  [15 files]
+  M  apps/api/src/app.module.ts
+  A  apps/api/src/platform/audit/audit-query.service.ts
+  A  apps/api/src/platform/audit/audit-redaction.spec.ts
+  A  apps/api/src/platform/audit/audit-redaction.ts
+  A  apps/api/src/platform/audit/audit-writer.spec.ts
+  A  apps/api/src/platform/audit/audit-writer.ts
+  A  apps/api/src/platform/audit/audit.controller.ts
+  A  apps/api/src/platform/audit/audit.module.ts
+  A  apps/api/src/platform/audit/audit.repository.ts
+  A  apps/api/src/platform/audit/dto/query-audit-log.dto.ts
+  M  apps/api/src/platform/tenancy/tenancy.interceptor.ts
+  A  apps/api/test/audit.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930095406_add_audit_logs/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  M  packages/database/prisma/schema.prisma
+
+## 7  88f2efb feat(hr): master data for designations, employment types and work locations  [34 files]
+  M  apps/api/src/app.module.ts
+  A  apps/api/src/common/database/db-errors.spec.ts
+  A  apps/api/src/common/database/db-errors.ts
+  A  apps/api/src/common/dto/transforms.ts
+  M  apps/api/src/common/exceptions/business.exception.ts
+  A  apps/api/src/modules/master-data/designations/designations.controller.ts
+  A  apps/api/src/modules/master-data/designations/designations.module.ts
+  A  apps/api/src/modules/master-data/designations/designations.repository.ts
+  A  apps/api/src/modules/master-data/designations/designations.service.spec.ts
+  A  apps/api/src/modules/master-data/designations/designations.service.ts
+  A  apps/api/src/modules/master-data/designations/dto/create-designation.dto.ts
+  A  apps/api/src/modules/master-data/designations/dto/query-designation.dto.ts
+  A  apps/api/src/modules/master-data/designations/dto/update-designation.dto.ts
+  A  apps/api/src/modules/master-data/employment-types/dto/create-employment-type.dto.ts
+  A  apps/api/src/modules/master-data/employment-types/dto/query-employment-type.dto.ts
+  A  apps/api/src/modules/master-data/employment-types/dto/update-employment-type.dto.ts
+  A  apps/api/src/modules/master-data/employment-types/employment-types.controller.ts
+  A  apps/api/src/modules/master-data/employment-types/employment-types.module.ts
+  A  apps/api/src/modules/master-data/employment-types/employment-types.repository.ts
+  A  apps/api/src/modules/master-data/employment-types/employment-types.service.spec.ts
+  A  apps/api/src/modules/master-data/employment-types/employment-types.service.ts
+  A  apps/api/src/modules/master-data/work-locations/dto/create-work-location.dto.ts
+  A  apps/api/src/modules/master-data/work-locations/dto/query-work-location.dto.ts
+  A  apps/api/src/modules/master-data/work-locations/dto/update-work-location.dto.ts
+  A  apps/api/src/modules/master-data/work-locations/work-locations.controller.ts
+  A  apps/api/src/modules/master-data/work-locations/work-locations.module.ts
+  A  apps/api/src/modules/master-data/work-locations/work-locations.repository.ts
+  A  apps/api/src/modules/master-data/work-locations/work-locations.service.spec.ts
+  A  apps/api/src/modules/master-data/work-locations/work-locations.service.ts
+  A  apps/api/test/master-data.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930100136_add_hr_master_data/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  M  packages/database/prisma/schema.prisma
+  M  packages/database/prisma/seed.ts
+
+## 8  2bb3eeb feat(employees): employees, lifecycle, user mapping and self-service profile  [33 files]
+  M  apps/api/src/app.module.ts
+  A  apps/api/src/common/dates/date-only.spec.ts
+  A  apps/api/src/common/dates/date-only.ts
+  A  apps/api/src/modules/employee-self-service/profile/profile.controller.ts
+  A  apps/api/src/modules/employee-self-service/profile/profile.module.ts
+  A  apps/api/src/modules/employee-self-service/profile/profile.service.ts
+  A  apps/api/src/modules/hr/employees/dto/create-employee.dto.ts
+  A  apps/api/src/modules/hr/employees/dto/employee-transforms.ts
+  A  apps/api/src/modules/hr/employees/dto/lifecycle.dto.ts
+  A  apps/api/src/modules/hr/employees/dto/query-employee.dto.ts
+  A  apps/api/src/modules/hr/employees/dto/update-employee.dto.ts
+  A  apps/api/src/modules/hr/employees/employee-code.ts
+  A  apps/api/src/modules/hr/employees/employee-lifecycle.controller.ts
+  A  apps/api/src/modules/hr/employees/employee-lifecycle.repository.ts
+  A  apps/api/src/modules/hr/employees/employee-lifecycle.service.spec.ts
+  A  apps/api/src/modules/hr/employees/employee-lifecycle.service.ts
+  A  apps/api/src/modules/hr/employees/employee-lock.ts
+  A  apps/api/src/modules/hr/employees/employee-mappers.spec.ts
+  A  apps/api/src/modules/hr/employees/employee-mappers.ts
+  A  apps/api/src/modules/hr/employees/employee-query.service.ts
+  A  apps/api/src/modules/hr/employees/employee-references.ts
+  A  apps/api/src/modules/hr/employees/employee-status.policy.spec.ts
+  A  apps/api/src/modules/hr/employees/employee-status.policy.ts
+  A  apps/api/src/modules/hr/employees/employee.exceptions.ts
+  A  apps/api/src/modules/hr/employees/employees.controller.ts
+  A  apps/api/src/modules/hr/employees/employees.module.ts
+  A  apps/api/src/modules/hr/employees/employees.repository.ts
+  A  apps/api/src/modules/hr/employees/employees.service.spec.ts
+  A  apps/api/src/modules/hr/employees/employees.service.ts
+  A  apps/api/test/hr-employees.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930101132_add_hr_employees/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  M  packages/database/prisma/schema.prisma
+
+## 9  e0cae92 feat(hr): shifts and shift assignments  [24 files]
+  M  apps/api/src/app.module.ts
+  M  apps/api/src/common/exceptions/business.exception.ts
+  A  apps/api/src/modules/hr/shift-assignments/dto/shift-assignment.dto.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignment-scope.spec.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignment-scope.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignments.controller.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignments.module.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignments.repository.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-assignments.service.ts
+  A  apps/api/src/modules/hr/shift-assignments/shift-query.service.ts
+  A  apps/api/src/modules/master-data/shifts/dto/create-shift.dto.ts
+  A  apps/api/src/modules/master-data/shifts/dto/query-shift.dto.ts
+  A  apps/api/src/modules/master-data/shifts/dto/update-shift.dto.ts
+  A  apps/api/src/modules/master-data/shifts/shift-time.spec.ts
+  A  apps/api/src/modules/master-data/shifts/shift-time.ts
+  A  apps/api/src/modules/master-data/shifts/shifts.controller.ts
+  A  apps/api/src/modules/master-data/shifts/shifts.module.ts
+  A  apps/api/src/modules/master-data/shifts/shifts.repository.ts
+  A  apps/api/src/modules/master-data/shifts/shifts.service.spec.ts
+  A  apps/api/src/modules/master-data/shifts/shifts.service.ts
+  A  apps/api/test/hr-shifts.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930102756_add_hr_shifts/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  M  packages/database/prisma/schema.prisma
+
+## 10  66c6bfa feat(hr): holiday and weekly-off calendar  [19 files]
+  M  apps/api/src/app.module.ts
+  A  apps/api/src/modules/hr/calendar/calendar.controller.ts
+  A  apps/api/src/modules/hr/calendar/calendar.module.ts
+  A  apps/api/src/modules/hr/calendar/calendar.repository.ts
+  A  apps/api/src/modules/hr/calendar/calendar.service.ts
+  A  apps/api/src/modules/hr/holidays/dto/holiday.dto.ts
+  A  apps/api/src/modules/hr/holidays/holidays.controller.ts
+  A  apps/api/src/modules/hr/holidays/holidays.module.ts
+  A  apps/api/src/modules/hr/holidays/holidays.repository.ts
+  A  apps/api/src/modules/hr/holidays/holidays.service.ts
+  A  apps/api/src/modules/hr/weekly-off-rules/dto/weekly-off-rule.dto.ts
+  A  apps/api/src/modules/hr/weekly-off-rules/weekly-off-rules.controller.ts
+  A  apps/api/src/modules/hr/weekly-off-rules/weekly-off-rules.module.ts
+  A  apps/api/src/modules/hr/weekly-off-rules/weekly-off-rules.repository.ts
+  A  apps/api/src/modules/hr/weekly-off-rules/weekly-off-rules.service.ts
+  A  apps/api/test/hr-calendar.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930104120_add_hr_calendar/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  M  packages/database/prisma/schema.prisma
+
+## 11  e011fb7 feat(hr): leave types and leave requests  [24 files]
+  M  apps/api/src/app.module.ts
+  A  apps/api/src/modules/employee-self-service/leave-requests/my-leave-requests.controller.ts
+  A  apps/api/src/modules/employee-self-service/leave-requests/my-leave-requests.module.ts
+  A  apps/api/src/modules/hr/leave-requests/dto/leave-request.dto.ts
+  A  apps/api/src/modules/hr/leave-requests/leave-requests.controller.ts
+  A  apps/api/src/modules/hr/leave-requests/leave-requests.module.ts
+  A  apps/api/src/modules/hr/leave-requests/leave-requests.repository.ts
+  A  apps/api/src/modules/hr/leave-requests/leave-requests.service.ts
+  A  apps/api/src/modules/hr/leave-types/dto/create-leave-type.dto.ts
+  A  apps/api/src/modules/hr/leave-types/dto/query-leave-type.dto.ts
+  A  apps/api/src/modules/hr/leave-types/dto/update-leave-type.dto.ts
+  A  apps/api/src/modules/hr/leave-types/leave-types.controller.ts
+  A  apps/api/src/modules/hr/leave-types/leave-types.module.ts
+  A  apps/api/src/modules/hr/leave-types/leave-types.repository.ts
+  A  apps/api/src/modules/hr/leave-types/leave-types.service.spec.ts
+  A  apps/api/src/modules/hr/leave-types/leave-types.service.ts
+  A  apps/api/test/hr-leave.e2e-spec.ts
+  M  apps/api/test/master-data.e2e-spec.ts
+  A  packages/database/prisma/migrations/20260930105114_add_hr_leave/migration.sql
+  M  packages/database/prisma/permissions/catalog.ts
+  A  packages/database/prisma/permissions/default-roles.test.ts
+  A  packages/database/prisma/permissions/default-roles.ts
+  M  packages/database/prisma/schema.prisma
+  M  packages/database/prisma/seed.ts
+
+## 12  6bdf267 docs(docs): add hr api contract, architecture updates and technical reports  [6 files]
+  M  Docs/ARCHITECTURE.md
+  A  Docs/HR_API.md
+  A  reports/AUDIT_PLATFORM_DESIGN.md
+  A  reports/HR_BACKEND_COMPLETION_REPORT.md
+  A  reports/HR_IMPLEMENTATION_READINESS.md
+  A  reports/HR_MODULE_REPOSITORY_ANALYSIS.md
+
+## 13  f418a2c fix(api): run e2e spec files serially  [1 files]
+  M  apps/api/vitest.config.e2e.ts
+

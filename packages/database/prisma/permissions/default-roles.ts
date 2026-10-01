@@ -1,0 +1,79 @@
+// Starting roles for LOCAL DEV (seed.ts). Roles are per-organization data that
+// administrators manage in Settings → Roles — production does not get roles
+// from here; it gets the permissions themselves from catalog.ts. These
+// definitions exist so a fresh dev database has realistic HR roles, and so the
+// approved defaults are pinned by a test (default-roles.test.ts):
+//
+//  - Team Lead is READ-ONLY. It holds no write, approve, status or account
+//    permission (decision: "team leads are read-only by default; do not grant
+//    employee write permissions without approval").
+//  - Nobody but Super Admin holds `hr.employee_status.correct` (the audited
+//    correction of a RESIGNED/TERMINATED status).
+//  - `.team`-scoped write/approve permissions are granted to no role: who
+//    among team leads approves leave, and whether team leads may edit
+//    employees, are open decisions.
+//
+// Seeding is ADDITIVE: it grants what is listed here and never removes a
+// grant an administrator added (see seed.ts).
+export interface DefaultRole {
+  name: string;
+  description: string;
+  permissions: readonly string[];
+}
+
+export const DEFAULT_ROLES: readonly DefaultRole[] = [
+  {
+    name: "HR Manager",
+    description: "Runs HR across all teams. Cannot correct a terminal status.",
+    permissions: [
+      "master.designation.read",
+      "master.designation.write",
+      "master.employment_type.read",
+      "master.employment_type.write",
+      "master.work_location.read",
+      "master.work_location.write",
+      "master.shift.read",
+      "master.shift.write",
+      "hr.employee.read.all",
+      "hr.employee.write.all",
+      "hr.employee_status.write",
+      "hr.employee_account.write",
+      "hr.shift_assignment.read.all",
+      "hr.shift_assignment.write.all",
+      "hr.holiday.read",
+      "hr.holiday.write",
+      "hr.weekly_off.read",
+      "hr.weekly_off.write",
+      "hr.leave_type.read",
+      "hr.leave_type.write",
+      "hr.leave_request.read.all",
+      "hr.leave.approve.all",
+      "audit.log.read",
+    ],
+  },
+  {
+    name: "Team Lead",
+    description: "Read-only view of their own team (by default).",
+    permissions: [
+      "hr.employee.read.team",
+      "hr.shift_assignment.read.team",
+      "hr.leave_request.read.team",
+      "hr.holiday.read",
+      "hr.weekly_off.read",
+      "hr.leave_type.read",
+    ],
+  },
+  {
+    name: "Employee",
+    description:
+      "Self-service: own profile and own leave; may read the calendar.",
+    permissions: [
+      "employee_self_service.profile.read",
+      "employee_self_service.leave_request.read",
+      "employee_self_service.leave_request.create",
+      "hr.shift_assignment.read.own",
+      "hr.holiday.read",
+      "hr.leave_type.read",
+    ],
+  },
+] as const;

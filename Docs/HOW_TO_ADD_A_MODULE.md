@@ -32,8 +32,8 @@ feature folder — this is deliberate; it never silently clobbers work in progre
 - Create a Prisma model. You add that to `packages/database/prisma/schema.prisma` yourself and
   run the migration.
 - Pick or seed a permission string. Every generated controller route carries
-  `@RequirePermission("TODO.permission")` — a real string is your decision, seeded in
-  `packages/database/prisma/seed.ts`.
+  `@RequirePermission("TODO.permission")` — a real string is your decision, declared in
+  `packages/database/prisma/permissions/catalog.ts`.
 - Wire the new module into `apps/api/src/app.module.ts`. A half-generated module is never
   silently live; you import it yourself once it actually does something.
 - Fill in real wire types in `packages/api-types`, or write real tests. Every generated file
@@ -170,11 +170,12 @@ colliding with anyone else's.
 These three operate at **different layers** — mixing them up (e.g. expecting `@OrgScoped()` on a
 controller) is the most common mistake when copying the reference pattern into a real module:
 
-| Decorator              | Layer      | What it does                                                                         |
-| ---------------------- | ---------- | ------------------------------------------------------------------------------------ |
-| `@RequirePermission()` | controller | declares the permission string `PermissionsGuard` checks before the handler runs     |
-| `@OrgScoped()`         | repository | runtime assertion that the method's first param is a valid `OrgScope`                |
-| `@TeamScoped()`        | repository | same, for `TeamScope` — HR/team-boundary data only (`Docs/CODING_STANDARDS.md` §10a) |
+| Decorator                    | Layer      | What it does                                                                           |
+| ---------------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| `@RequirePermission()`       | controller | declares the EXACT permission string `PermissionsGuard` checks before the handler runs |
+| `@RequireScopedPermission()` | controller | team-scoped data: admits a caller holding any of `<prefix>.own`/`.team`/`.all`         |
+| `@OrgScoped()`               | repository | runtime assertion that the method's first param is a valid `OrgScope`                  |
+| `@TeamScoped()`              | repository | same, for `TeamScope` — HR/team-boundary data only (`Docs/CODING_STANDARDS.md` §10a)   |
 
 `tags` only needs `@OrgScoped()` (it isn't team-scoped data). A real HR module needs both
 `@RequirePermission()` **and** `@TeamScoped()` together. Before/after for a hypothetical
@@ -210,7 +211,7 @@ export class EmployeesRepository {
 @Controller("employees")
 export class EmployeesController {
   @Get()
-  @RequirePermission("hr.employee.read.team") // checked by PermissionsGuard before the handler runs
+  @RequireScopedPermission("hr.employee.read") // admits .own/.team/.all holders; the service narrows the rows
   findAll(@Paginate(QueryEmployeeDto) pagination: QueryEmployeeDto) {
     return this.employees.findAll(pagination); // no scope logic here — the service resolves it
   }
@@ -223,9 +224,9 @@ export class EmployeesService {
     private readonly teamContext: TeamContextService,
   ) {}
 
-  findAll(pagination: PaginationDto) {
-    // resolves the caller's .own/.team/.all level from their permission set
-    const scope = this.teamContext.resolveScope("hr.employee.read");
+  async findAll(pagination: PaginationDto) {
+    // resolves the caller's .own/.team/.all level from their permission set (async)
+    const scope = await this.teamContext.resolveScope("hr.employee.read");
     return this.repository.findMany(scope, pagination);
   }
 }
@@ -235,7 +236,7 @@ export class EmployeesRepository {
   @TeamScoped() // runtime guard: throws if called without a valid TeamScope
   findMany(scope: TeamScope, pagination: PaginationDto) {
     return this.prisma.employee.findMany({
-      where: teamWhere(scope, { deletedAt: null }), // scope always wins the merge
+      where: teamWhere(scope, { deletedAt: null }), // scope is AND-ed with the filter — it can narrow, never widen
       skip: pagination.skip,
       take: pagination.limit,
     });
@@ -250,7 +251,8 @@ Never call both for the same method; a table is one or the other.
 
 **Permission string reminder** (`Docs/CODING_STANDARDS.md` §10a PR checklist): any new
 `hr.*`/`employee_self_service.*` permission gets all three scope variants
-(`.own`/`.team`/`.all`) seeded in `seed.ts` up front, even if only one is wired to a role today —
+(`.own`/`.team`/`.all`) declared in `catalog.ts` up front (use `scopedPermission()`, which expands
+all three), even if only one is wired to a role today —
 see `Docs/CODING_STANDARDS.md`'s "Permission Naming Convention" section for the full pattern and
 real examples.
 
@@ -268,8 +270,10 @@ real examples.
 - [ ] DTO validation — every field on every DTO has a `class-validator` decorator; unknown
       fields are rejected (global `ValidationPipe` already does this — verify with a test, don't
       just assume).
-- [ ] Permission strings added to `seed.ts` (all three `.own`/`.team`/`.all` variants if the data
-      is team-scoped) and granted to the relevant role(s).
+- [ ] Permission strings added to `packages/database/prisma/permissions/catalog.ts` (all three
+      `.own`/`.team`/`.all` variants if the data is team-scoped — `scopedPermission()` does this),
+      `pnpm --filter @texawave-erp/database permissions:sync` run locally, and granted to the
+      relevant role(s) through Settings → Roles.
 - [ ] Backend unit tests (`<name>.service.spec.ts`) for real business-rule behavior, not
       `expect(service).toBeDefined()`.
 - [ ] New module imported into `apps/api/src/app.module.ts` (the scaffold script deliberately

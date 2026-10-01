@@ -64,6 +64,7 @@ docs, ci, config, infra,                                # cross-cutting/tooling,
 apps, packages, repo,                                   # Phase 0 bootstrap only — historical, don't reuse
 auth, rbac, tenancy, organizations, users, roles,        # anticipated — Epic 1/2 (login, RBAC, menu)
 permissions, departments, teams, menu, deps
+hr, employees, attendance                                # business modules — HR → Attendance backend
 ```
 
 Adding a new scope is a PR to `commitlint.config.js` **on its own** — it's shared tooling
@@ -79,11 +80,13 @@ one, with real examples): `<module>.<entity>.<action>`, with `.<scope>` appended
 the entity is team-scoped data (§10a) — `<scope>` is exactly one of `own`/`team`/`all`, omitted
 entirely for anything with no team dimension.
 
-Seeded in `packages/database/prisma/seed.ts`, checked by `PermissionsGuard`
+Declared in `packages/database/prisma/permissions/catalog.ts` (synced to every environment by
+`pnpm --filter @texawave-erp/database permissions:sync`, not just the local seed — see the README
+next to it; `permissions:check` validates naming/scope completeness and runs in `test`), checked by `PermissionsGuard`
 (`apps/api/src/platform/roles-permissions/permissions.guard.ts`), referenced via
 `@RequirePermission()` on a controller method (§10, §10a).
 
-**Real examples, pulled from `seed.ts` as it stands today:**
+**Real examples, pulled from the catalogue as it stands today:**
 
 - `reference.tags.read` / `reference.tags.write` — the fixture module has no team dimension, so
   no `.scope` suffix. `write` covers create/update/delete for this entity; the catalog isn't
@@ -107,7 +110,8 @@ Seeded in `packages/database/prisma/seed.ts`, checked by `PermissionsGuard`
 - `<scope>` is exactly `own`, `team`, or `all` — never `mine`/`any`/`self`/a team name — and is
   **omitted entirely**, not set to `.all`, for a permission with no team dimension.
 - No violations exist in the current catalog as of this doc's last verification — every string
-  in `seed.ts` and every `@RequirePermission()` call site already matches this pattern. If you
+  in `catalog.ts` and every `@RequirePermission()` call site already matches this pattern (the
+  catalogue side is enforced by `prisma/permissions/validate.ts`). If you
   add a permission that doesn't fit it, that's a bug in the new string, not a reason to add a
   second pattern.
 
@@ -135,6 +139,7 @@ sales-orders/
 - **Controller**: routing, request/response shape, validation pipe, guards. No business logic.
 - **Service**: business rules. Depends on the repository via constructor injection, never a direct Prisma import.
 - **Repository**: the _only_ place `PrismaService` is called. Finding `this.prisma.salesOrder.*` inside a service is a standards violation — move it to the repository. Apply `@OrgScoped()` (§10) to every repository method that reads/writes tenant data.
+- **Code-and-name master data** (`apps/api/src/modules/master-data/*`: designations, employment types, work locations, shifts) extends `master-data/shared/master-data.repository.ts` and `master-data.service.ts` instead of copying them. A new master-data module supplies only its Prisma delegate, audit snapshot and noun, plus the `prepareCreate`/`prepareUpdate`/`assertCanDeactivate` hooks if it has entity-specific rules (see `shifts`). Don't fork the base for one module's quirk — add a hook.
 - **Entities**: mandatory only when the response shape differs from the Prisma model (hiding `password_hash`, flattening a relation); returning the Prisma model as-is is fine otherwise.
 - `apps/api/src/shared/` is for _injectable infra providers_ used by 2+ modules — `PrismaService`, the Redis client provider, the email/notification adapter, the encryption service. These are real NestJS providers with a DI token, importable via `SharedModule`.
 - `apps/api/src/common/` is _framework-pipeline primitives with no external I/O and no DI-managed state of their own_ — filters, interceptors (except the tenancy one, see below), decorators (`@OrgScoped()`, `@Paginate()`, `@RawResponse()`), the `OrgScope` type + `tenantWhere()` pure helper (`common/tenancy/`), shared DTO base classes, constants, exception classes.
@@ -331,6 +336,7 @@ export type TeamAccessLevel = "own" | "team" | "all";
 export interface TeamScope {
   level: TeamAccessLevel;
   userId: number;
+  organizationId: number; // teamWhere() ALWAYS adds it, so a team-scoped query is tenant-safe by construction
   teamIds: number[]; // resolved from user_team_access at request time; empty for "all"
 }
 
@@ -354,13 +360,15 @@ export function TeamScoped() {
   };
 }
 
-// common/tenancy/team-where.ts — builds the Prisma filter for the resolved level
-export function teamWhere<F extends object>(scope: TeamScope, filter?: F) {
-  if (scope.level === "all") return { ...filter };
-  if (scope.level === "team")
-    return { ...filter, teamId: { in: scope.teamIds } };
-  return { ...filter, userId: scope.userId }; // "own"
-}
+// common/tenancy/team-where.ts — builds the Prisma filter for the resolved level.
+// The scope clause is AND-ed with the caller's filter (never spread over it), so a
+// caller-supplied teamId/userId narrows within their scope and can't replace or widen it.
+// Returns `{ AND: [filter, scopeClause] }` (just `{ AND: [filter] }` for "all").
+export function teamWhere(
+  scope: TeamScope,
+  filter?: object,
+  fields?: { teamField?: string; ownerField?: string }, // default "teamId" / "userId"; dotted paths allowed
+): { AND: object[] };
 ```
 
 ```ts
@@ -370,15 +378,23 @@ findMany(scope: TeamScope, filter?: EmployeeFilter) {
   return this.prisma.employee.findMany({ where: teamWhere(scope, filter) });
 }
 
+// A table keyed through a relation (attendance/leave rows carry employee_id, not team_id/user_id)
+// names the path instead of duplicating the helper:
+//   teamWhere(scope, filter, { teamField: "employee.teamId", ownerField: "employee.userId" })
+
 // employees.service.ts — resolves the caller's level from their permission set,
 // same layering as OrgScope: repositories never read CLS/permissions themselves
-findAll(filter?: EmployeeFilter) {
-  const scope = this.teamContext.resolveScope("hr.employee.read"); // checks .own/.team/.all in that order
+async findAll(filter?: EmployeeFilter) {
+  const scope = await this.teamContext.resolveScope("hr.employee.read"); // async; checks .all/.team/.own in that order
   return this.employeesRepository.findMany(scope, filter);
 }
 ```
 
-`TeamContextService.resolveScope(permissionPrefix)` checks the caller's resolved permission set (same Redis-cached set `PermissionsGuard` uses) for `<prefix>.all`, then `<prefix>.team`, then `<prefix>.own`, and returns the **most permissive one they hold** — never guess or default to `.all`. For `.team`, it queries `user_team_access` for the caller's `teamId`s at request time (or reads them off a resolved-permissions cache alongside the permission set, mirroring how `PermissionsGuard` already caches per-user data) rather than trusting a client-supplied team ID.
+`TeamContextService.resolveScope(permissionPrefix)` checks the caller's resolved permission set (same Redis-cached set `PermissionsGuard` uses) for `<prefix>.all`, then `<prefix>.team`, then `<prefix>.own`, and returns the **most permissive one they hold** — never guess or default to `.all`; if they hold none it throws `ForbiddenException` (403). For `.team`, it queries `user_team_access` for the caller's `teamId`s at request time (not cached, so revoking a membership takes effect on the next request) rather than trusting a client-supplied team ID. Only memberships that are `isActive`, not soft-deleted, in the caller's organization and on a team that is itself active and not deleted count.
+
+**Data reached through another row** (leave requests, attendance — keyed by `employee_id`, not `team_id`/`user_id`): pass a field path, `teamWhere(scope, filter, { teamField: "employee.teamId", ownerField: "employee.userId" })`. A table that points at an employee OR a team (shift assignments) cannot be expressed with one path and needs its own scope clause — see `modules/hr/shift-assignments/shift-assignment-scope.ts` and its tests.
+
+**Guarding the route: `@RequireScopedPermission()`.** `@RequirePermission("hr.employee.read.team")` is an _exact_ match, so it would reject an `.all` holder (HR) — wrong for a route every scope level may call. A team-scoped route uses `@RequireScopedPermission("hr.employee.read")` (the prefix, no suffix), which admits a caller holding **any** of `.own`/`.team`/`.all`; the guard only decides "may reach the route", and `resolveScope()` + `teamWhere()` then decide which rows. A prefix that already ends in a scope suffix throws when the module loads. Keep `@RequirePermission()` for entities with no team dimension and for one-off exact grants (e.g. `hr.employee.approve.all`); if a route carries both decorators, both must be satisfied. Proven end-to-end in `apps/api/test/team-scope.e2e-spec.ts`.
 
 Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-building helper, not magic. A reviewer still checks that a new HR repository method both has `@TeamScoped()` and takes `scope` as its first parameter.
 

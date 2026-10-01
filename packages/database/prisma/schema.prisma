@@ -42,13 +42,26 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users           User[]
-  roles           Role[]
-  tags            Tag[]
-  teams           Team[]
-  departments     Department[]
-  userTeamAccess  UserTeamAccess[]
-  menuItems       MenuItem[]
+  users                 User[]
+  roles                 Role[]
+  tags                  Tag[]
+  teams                 Team[]
+  departments           Department[]
+  userTeamAccess        UserTeamAccess[]
+  auditLogs             AuditLog[]
+  designations          Designation[]
+  employmentTypes       EmploymentType[]
+  workLocations         WorkLocation[]
+  employees             Employee[]
+  employeeStatusHistory EmployeeStatusHistory[]
+  documentSequences     DocumentSequence[]
+  shifts                Shift[]
+  shiftAssignments      ShiftAssignment[]
+  holidays              Holiday[]
+  leaveTypes            LeaveType[]
+  leaveRequests         LeaveRequest[]
+  weeklyOffRules        WeeklyOffRule[]
+  menuItems             MenuItem[]
 
   @@map("organizations")
 }
@@ -66,10 +79,15 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization        Organization         @relation(fields: [organizationId], references: [id])
+  organization        Organization            @relation(fields: [organizationId], references: [id])
   userRoles           UserRole[]
-  ledTeams            Team[]               @relation("TeamLead")
+  ledTeams            Team[]                  @relation("TeamLead")
   teamAccess          UserTeamAccess[]
+  auditLogs           AuditLog[]
+  employee            Employee?
+  statusChanges       EmployeeStatusHistory[]
+  leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
+  leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
   passwordResetTokens PasswordResetToken[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
@@ -178,6 +196,7 @@ model Department {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   teams        Team[]
+  employees    Employee[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -203,10 +222,13 @@ model Team {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  department   Department?      @relation(fields: [departmentId], references: [id])
-  lead         User?            @relation("TeamLead", fields: [leadUserId], references: [id])
-  userAccess   UserTeamAccess[]
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  department       Department?       @relation(fields: [departmentId], references: [id])
+  lead             User?             @relation("TeamLead", fields: [leadUserId], references: [id])
+  userAccess       UserTeamAccess[]
+  employees        Employee[]
+  shiftAssignments ShiftAssignment[]
+  weeklyOffRules   WeeklyOffRule[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -300,7 +322,7 @@ model MenuItem {
   icon           String?
   order          Int       @default(0)
   parentId       Int?      @map("parent_id")
-  permission     String?   // Permission code required to view this item (null = accessible by all authenticated users)
+  permission     String? // Permission code required to view this item (null = accessible by all authenticated users)
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -317,4 +339,456 @@ model MenuItem {
   @@index([organizationId])
   @@index([parentId])
   @@map("menu_items")
+}
+
+/// APPEND-ONLY audit trail (apps/api/src/platform/audit, reports/AUDIT_PLATFORM_DESIGN.md).
+/// Deliberate exception to the §5.1 baseline: no updated_at / deleted_at /
+/// is_active / updated_by, because this table must never be edited or
+/// soft-deleted. The migration installs triggers that reject UPDATE, DELETE
+/// and TRUNCATE. `before`/`after` are allow-listed snapshots with secrets
+/// stripped by the writer (audit-redaction.ts) — never raw rows.
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  actorUserId    Int?     @map("actor_user_id")
+  /// user | system (CHECK in the migration); a system actor has no user id.
+  actorType      String   @default("user") @map("actor_type")
+  entityType     String   @map("entity_type")
+  entityId       BigInt   @map("entity_id")
+  action         String
+  before         Json?
+  after          Json?
+  reason         String?
+  ip             String?  @db.VarChar(64)
+  correlationId  String?  @map("correlation_id")
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, entityType, entityId, id(sort: Desc)], map: "audit_logs_entity_history_idx")
+  @@index([organizationId, actorUserId, id(sort: Desc)], map: "audit_logs_actor_idx")
+  @@index([organizationId, at], map: "audit_logs_at_idx")
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// HR master data (apps/api/src/modules/master-data/*). Business tables follow
+// the §5.1 baseline; timestamps are `timestamptz` (Docs/ARCHITECTURE.md §5.1)
+// and codes are stored upper-case. Rows are deactivated (`is_active = false`),
+// never deleted: historical employee/leave records keep pointing at them.
+// ---------------------------------------------------------------------------
+
+model Designation {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employees    Employee[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("designations")
+}
+
+/// Master data, not an enum: the approved starting set (Permanent, Contract,
+/// Temporary, Intern) is inserted by the migration, and HR may add more.
+/// `probation_days` / `notice_days` are NULLABLE and deliberately NOT read by
+/// any code path yet — whether probation/notice rules exist is an open
+/// business decision (reports/HR_IMPLEMENTATION_READINESS.md §3.1).
+model EmploymentType {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  probationDays  Int?      @map("probation_days")
+  noticeDays     Int?      @map("notice_days")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employees    Employee[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("employment_types")
+}
+
+/// Where an employee works / a holiday applies. Optional everywhere it is
+/// referenced. Added because the brief asks for location scope; the old ERP
+/// has no location master, so this stays minimal.
+model WorkLocation {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  employees      Employee[]
+  holidays       Holiday[]
+  weeklyOffRules WeeklyOffRule[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("work_locations")
+}
+
+// ---------------------------------------------------------------------------
+// Employees (apps/api/src/modules/hr/employees)
+// ---------------------------------------------------------------------------
+
+/// Per-organization counters for human-readable document numbers
+/// (Docs/ARCHITECTURE.md §5.3). Employee codes use doc_type = 'employee',
+/// prefix 'EMP-', padding 6 → EMP-000001. The counter row is locked by the
+/// UPDATE that increments it, inside the same transaction that inserts the
+/// employee: concurrent creators queue on that row lock, and a rolled-back
+/// create also rolls back its number (no gaps, no duplicates).
+model DocumentSequence {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  docType        String    @map("doc_type")
+  prefix         String
+  padding        Int       @default(6)
+  /// The NEXT number to hand out.
+  nextNumber     Int       @default(1) @map("next_number")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, docType])
+  @@map("document_sequences")
+}
+
+/// The person record every HR/attendance/leave table points at. Always keyed
+/// by `id`, never by employee_code (the human label).
+///
+/// It stores NO credentials: a login is a `users` row, linked 1:1 through the
+/// optional, unique `user_id`. `status` is ACTIVE / INACTIVE / RESIGNED /
+/// TERMINATED (CHECK in the migration); RESIGNED and TERMINATED are terminal
+/// except through the audited correction workflow. `is_active` mirrors
+/// `status = 'ACTIVE'` (CHECK). `version` is an optimistic-lock counter.
+/// Invariants Prisma cannot express (status/exit-date consistency, immutable
+/// code and organization, reporting-line cycles) are in the migration.
+model Employee {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  employeeCode     String    @map("employee_code")
+  userId           Int?      @unique @map("user_id")
+  fullName         String    @map("full_name")
+  workEmail        String?   @map("work_email")
+  phone            String?
+  teamId           Int       @map("team_id")
+  departmentId     Int?      @map("department_id")
+  designationId    Int       @map("designation_id")
+  employmentTypeId Int       @map("employment_type_id")
+  workLocationId   Int?      @map("work_location_id")
+  reportsToId      Int?      @map("reports_to_id")
+  status           String    @default("ACTIVE")
+  dateOfJoining    DateTime  @map("date_of_joining") @db.Date
+  dateOfExit       DateTime? @map("date_of_exit") @db.Date
+  exitReason       String?   @map("exit_reason")
+  version          Int       @default(1)
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization            @relation(fields: [organizationId], references: [id])
+  user             User?                   @relation(fields: [userId], references: [id])
+  team             Team                    @relation(fields: [teamId], references: [id])
+  department       Department?             @relation(fields: [departmentId], references: [id])
+  designation      Designation             @relation(fields: [designationId], references: [id])
+  employmentType   EmploymentType          @relation(fields: [employmentTypeId], references: [id])
+  workLocation     WorkLocation?           @relation(fields: [workLocationId], references: [id])
+  reportsTo        Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
+  directReports    Employee[]              @relation("ReportingLine")
+  statusHistory    EmployeeStatusHistory[]
+  shiftAssignments ShiftAssignment[]
+  leaveRequests    LeaveRequest[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId, status])
+  @@index([organizationId, teamId])
+  @@index([organizationId, departmentId])
+  @@index([organizationId, designationId])
+  @@index([organizationId, employmentTypeId])
+  @@index([organizationId, reportsToId])
+  @@map("employees")
+}
+
+/// Append-only business record of every status change (and of the employee's
+/// creation, from_status NULL). Complements — does not replace — the audit
+/// trail: this is what HR/attendance/payroll query; audit_logs is forensics.
+model EmployeeStatusHistory {
+  id             BigInt   @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @map("employee_id")
+  fromStatus     String?  @map("from_status")
+  toStatus       String   @map("to_status")
+  /// transition | correction (CHECK in the migration)
+  changeType     String   @default("transition") @map("change_type")
+  effectiveDate  DateTime @map("effective_date") @db.Date
+  reason         String?
+  changedBy      Int      @map("changed_by")
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  changer      User         @relation(fields: [changedBy], references: [id])
+
+  @@index([organizationId, employeeId, id(sort: Desc)], map: "employee_status_history_employee_idx")
+  @@map("employee_status_history")
+}
+
+// ---------------------------------------------------------------------------
+// Shifts (apps/api/src/modules/master-data/shifts, hr/shift-assignments)
+// ---------------------------------------------------------------------------
+
+/// A working-time template. Times are wall-clock "HH:MM" strings (no time
+/// zone — the business time zone is an Attendance decision) with CHECKs in the
+/// migration. `is_overnight` is DERIVED by the API (end earlier than start
+/// means the shift crosses midnight) and enforced by a CHECK. `working_minutes`
+/// is the expected working duration and can never exceed the span between
+/// start and end.
+///
+/// Deliberately NOT here: break length, grace period, half-day or overtime
+/// thresholds. They are unapproved attendance policy
+/// (reports/HR_IMPLEMENTATION_READINESS.md §3.7 S-1); adding a nullable column
+/// later is trivial, guessing a default is not.
+model Shift {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  startTime      String    @map("start_time") @db.VarChar(5)
+  endTime        String    @map("end_time") @db.VarChar(5)
+  isOvernight    Boolean   @map("is_overnight")
+  workingMinutes Int       @map("working_minutes")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  assignments  ShiftAssignment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("shifts")
+}
+
+/// Which shift an employee — or, as a default, a whole team — works over a
+/// date range. Assignments are never overwritten: a change of shift ends the
+/// old assignment and creates a new one, so history is kept. A mistaken
+/// assignment is VOIDED (`is_active = false`), not deleted.
+///
+/// Exactly one of `employee_id` / `team_id` is set (CHECK). An exclusion
+/// constraint per target (in the migration) forbids two active assignments
+/// whose inclusive date ranges overlap — concurrency-safe, unlike a
+/// check-then-insert in application code. `effective_to` NULL = open-ended.
+model ShiftAssignment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  shiftId        Int       @map("shift_id")
+  employeeId     Int?      @map("employee_id")
+  teamId         Int?      @map("team_id")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  reason         String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  shift        Shift        @relation(fields: [shiftId], references: [id])
+  employee     Employee?    @relation(fields: [employeeId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+
+  @@index([organizationId, shiftId])
+  @@index([organizationId, employeeId, effectiveFrom])
+  @@index([organizationId, teamId, effectiveFrom])
+  @@map("shift_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// HR calendar (apps/api/src/modules/hr/holidays, weekly-off-rules, calendar)
+// ---------------------------------------------------------------------------
+
+/// A non-working date for the organization, or — when `work_location_id` is set
+/// — only for that location. The date and the scope are immutable; a wrong
+/// entry is deactivated (kept for history) and re-entered. At most one active
+/// holiday per date per scope (partial unique indexes in the migration).
+model Holiday {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  holidayDate    DateTime  @map("holiday_date") @db.Date
+  name           String
+  description    String?
+  workLocationId Int?      @map("work_location_id")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id])
+
+  @@index([organizationId, holidayDate])
+  @@map("holidays")
+}
+
+/// Which weekdays are non-working, for whom, and over which dates. NOTHING is
+/// assumed and nothing is seeded — in particular Sunday is not special: a
+/// weekly off exists only if someone creates a rule. Scope is the whole
+/// organization (both ids NULL), one location, or one team (never both).
+/// `days_of_week` uses ISO numbering (1 = Monday … 7 = Sunday).
+///
+/// Rules are never edited in place: a change ends the old rule and creates a
+/// new one, so which days were off on any past date stays answerable; a
+/// mistake is voided (`is_active = false`). An exclusion constraint forbids two
+/// active rules of the SAME scope covering a common day. Which of several
+/// applicable scopes wins (org vs location vs team) is an unresolved policy
+/// question and is deliberately NOT decided here.
+model WeeklyOffRule {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  description    String?
+  daysOfWeek     Int[]     @map("days_of_week")
+  workLocationId Int?      @map("work_location_id")
+  teamId         Int?      @map("team_id")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id])
+  team         Team?         @relation(fields: [teamId], references: [id])
+
+  @@index([organizationId, effectiveFrom])
+  @@map("weekly_off_rules")
+}
+
+// ---------------------------------------------------------------------------
+// Leave (apps/api/src/modules/hr/leave-types, hr/leave-requests)
+// ---------------------------------------------------------------------------
+// Scope is deliberately narrow: types, requests, approve/reject, history.
+// NOT modelled because the business has not approved the rules: leave
+// balances, accrual, carry-forward, half-days, cancellation/withdrawal
+// (reports/HR_IMPLEMENTATION_READINESS.md §3.7, L-1/L-2). No leave types are
+// seeded — the list of types is business data.
+
+model LeaveType {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  requests     LeaveRequest[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("leave_types")
+}
+
+/// A request for leave over an inclusive date range (whole days only).
+///
+/// Lifecycle: PENDING → APPROVED | REJECTED, both terminal. Once decided a
+/// request never changes — enforced by a trigger, together with immutability
+/// of everything the employee submitted. Whoever decides is recorded
+/// (`decided_by`/`decided_at`), a rejection must carry a note (CHECK), and the
+/// employee's own user can never be the decider (maker-checker: enforced by
+/// the service and proven by tests — a CHECK cannot see that relationship).
+/// An exclusion constraint forbids two PENDING/APPROVED requests of one
+/// employee covering a common day.
+model LeaveRequest {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  leaveTypeId    Int       @map("leave_type_id")
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime  @map("end_date") @db.Date
+  reason         String
+  status         String    @default("PENDING")
+  requestedBy    Int       @map("requested_by")
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?   @map("decision_note")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  requester    User         @relation("LeaveRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("LeaveDecider", fields: [decidedBy], references: [id])
+
+  @@index([organizationId, employeeId, startDate])
+  @@index([organizationId, status])
+  @@index([organizationId, leaveTypeId])
+  @@map("leave_requests")
 }

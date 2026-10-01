@@ -30,3 +30,43 @@ export class ResourceConflictException extends BusinessException {
     super(message, HttpStatus.CONFLICT, "RESOURCE_CONFLICT");
   }
 }
+
+/** A request that is well-formed but breaks a business rule (422) — e.g. an
+ * overlapping shift assignment, a date range that ends before it starts. Give
+ * each rule its own stable `errorCode` so clients and tests can branch on it. */
+export class BusinessRuleViolationException extends BusinessException {
+  constructor(message: string, errorCode: string) {
+    super(message, HttpStatus.UNPROCESSABLE_ENTITY, errorCode);
+  }
+}
+
+/** A state-machine move that is not allowed from the current state (422). */
+export class InvalidStateTransitionException extends BusinessException {
+  constructor(entity: string, from: string, to: string, detail?: string) {
+    super(
+      `${entity} cannot move from ${from} to ${to}${detail ? `: ${detail}` : ""}`,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      "INVALID_STATE_TRANSITION",
+    );
+  }
+}
+
+/** Optimistic-lock failure: the row changed since the client read it (409). */
+export class VersionConflictException extends BusinessException {
+  constructor(resource: string) {
+    super(
+      `${resource} was modified by someone else — reload and retry`,
+      HttpStatus.CONFLICT,
+      "VERSION_CONFLICT",
+    );
+  }
+}
+
+/** A conflict with existing data that is a domain rule, not a duplicate key
+ * (409) — e.g. a shift assignment overlapping another. A stable `errorCode`
+ * lets clients tell it apart from a plain `RESOURCE_CONFLICT`. */
+export class BusinessRuleConflictException extends BusinessException {
+  constructor(message: string, errorCode: string) {
+    super(message, HttpStatus.CONFLICT, errorCode);
+  }
+}
