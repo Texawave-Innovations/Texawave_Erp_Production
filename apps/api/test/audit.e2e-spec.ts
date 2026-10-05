@@ -283,7 +283,7 @@ describe("audit platform (e2e)", () => {
         }),
       ).rejects.toThrow(/append-only/);
       await expect(
-        prisma.$executeRaw`UPDATE audit_logs SET reason = 'x' WHERE id = ${rowId}`,
+        prisma.$executeRaw`UPDATE platform.audit_logs SET reason = 'x' WHERE id = ${rowId}`,
       ).rejects.toThrow(/append-only/);
     });
 
@@ -292,13 +292,13 @@ describe("audit platform (e2e)", () => {
         prisma.auditLog.delete({ where: { id: rowId } }),
       ).rejects.toThrow(/append-only/);
       await expect(
-        prisma.$executeRaw`DELETE FROM audit_logs WHERE id = ${rowId}`,
+        prisma.$executeRaw`DELETE FROM platform.audit_logs WHERE id = ${rowId}`,
       ).rejects.toThrow(/append-only/);
     });
 
     it("rejects TRUNCATE", async () => {
       await expect(
-        prisma.$executeRawUnsafe("TRUNCATE TABLE audit_logs"),
+        prisma.$executeRawUnsafe("TRUNCATE TABLE platform.audit_logs"),
       ).rejects.toThrow(/append-only/);
     });
 

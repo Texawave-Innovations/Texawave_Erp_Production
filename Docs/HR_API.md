@@ -134,9 +134,30 @@ Rules:
 - ⚠ Overlap prevention: two PENDING/APPROVED requests of one employee may not share a day (exclusion constraint); REJECTED ones do not block. Only an **ACTIVE** employee can request; the start cannot precede joining.
 - **Not implemented (unapproved):** balances, accrual, carry-forward, half-days, cancellation/withdrawal, HR submitting on someone's behalf, approval chains.
 
+### Recruitment — revision letters (`modules/hr/revision-letters`)
+
+Legacy: Recruitment → Revision Letter (`RevisionLetter.tsx`). Table `hr.revision_letters`. Backend only.
+
+| Method & path                    | Permission                   | Notes                                                                                                                                                                                    |
+| -------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/revision-letters`       | `hr.revision_letter.read` ▲  | `?employeeId`, `page`, `limit`, `order` (default newest first); pagination meta                                                                                                          |
+| GET `/hr/revision-letters/:id`   | `hr.revision_letter.read` ▲  | 404 outside scope                                                                                                                                                                        |
+| POST `/hr/revision-letters`      | `hr.revision_letter.write` ▲ | `{employeeId, designation, location?, letterDate?, effectiveDate?, basic?, da?, hra?, ca?, signatoryName?, signatoryDesignation?}` → **201**; issues `documentNo` and status `GENERATED` |
+| PATCH `/hr/revision-letters/:id` | `hr.revision_letter.write` ▲ | any of the fields above except `employeeId` (400); `documentNo` is never changed                                                                                                         |
+
+- **Employee-linked:** `employeeId` is required (legacy is only reachable per employee). The employee must be inside the caller's scope; otherwise **422 `INVALID_EMPLOYEE`**, the same as an unknown id, so ids cannot be probed.
+- **Identity from the record:** `employeeName` is copied from the employee's full name and cannot be sent by the client.
+- **Defaults (legacy form prefills, applied only when the create request omits them):** `location` = `Chennai`; `letterDate` = today (UTC); `effectiveDate` = 1st of next month; components = `0`; signatory = `Amanullah Khan` / `Co-Founder`.
+- **Money:** the four components are the stored truth, each `≥ 0`, at most 2 dp, below 10¹⁰. `grossMonthly = basic + da + hra + ca`; `grossAnnual = grossMonthly × 12`, both derived and exact (`Decimal`). The legacy 35/15/30/20 split is a UI convenience and is **not** enforced here.
+- **Document number:** `TW/HR/REV/{FY}/{NNN}` with FY from the issuing date (April–March). Issued from `platform.document_sequences` (doc type `hr_revision_letter_{FY}`) under a row lock in the same transaction, so concurrent issues never share a number and a rolled-back issue gives its number back.
+- **Status:** `GENERATED` only (DB CHECK). Legacy never assigns any other value.
+- **Issuing a letter does not change the employee's stored salary** (legacy behaviour).
+- **Team scope:** `.team`/`.all` readers and writers reach letters through the employee's `team_id`; `.own` **write** is refused (403) — writing is reserved, never granted to self.
+- **Not implemented (legacy has no such thing, or it is undecided):** delete (legacy has a delete; the platform rule is "no DELETE route" — decision pending), approval/signing, signature and seal images (no file storage exists yet), document rendering/PDF, an employee salary write-back, share/e-mail/WhatsApp actions, a link to offer letters (legacy has none).
+
 ---
 
-## 3. Permission catalogue (43 codes; `packages/database/prisma/permissions/catalog.ts`)
+## 3. Permission catalogue (73 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
@@ -147,6 +168,7 @@ Synced to every environment by `pnpm --filter @texawave-erp/database permissions
 | Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                              |
 | Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                       |
 | Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`      |
+| Recruitment  | `hr.revision_letter.{read,write}.{own,team,all}`                                                               |
 | Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                               |
 | Audit        | `audit.log.read`                                                                                               |
 
@@ -161,7 +183,7 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` (Recruitment). ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.

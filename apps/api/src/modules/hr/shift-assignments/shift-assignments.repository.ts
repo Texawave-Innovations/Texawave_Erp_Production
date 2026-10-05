@@ -457,7 +457,7 @@ export class ShiftAssignmentsRepository {
     id: number,
   ) {
     await tx.$queryRaw`
-      SELECT id FROM shift_assignments
+      SELECT id FROM hr.shift_assignments
        WHERE id = ${id} AND organization_id = ${organizationId} FOR UPDATE`;
   }
 

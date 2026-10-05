@@ -13,6 +13,8 @@ import { ProfileModule } from "./modules/employee-self-service/profile/profile.m
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
 import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
 import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
+import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
+import { RevisionLettersModule } from "./modules/hr/revision-letters/revision-letters.module.js";
 import { LeaveTypesModule } from "./modules/hr/leave-types/leave-types.module.js";
 import { CalendarModule } from "./modules/hr/calendar/calendar.module.js";
 import { HolidaysModule } from "./modules/hr/holidays/holidays.module.js";
@@ -69,6 +71,8 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CalendarModule,
     LeaveTypesModule,
     LeaveRequestsModule,
+    AttendanceModule,
+    RevisionLettersModule,
     ProfileModule,
     MyLeaveRequestsModule,
     DepartmentsModule,

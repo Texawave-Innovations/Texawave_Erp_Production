@@ -317,7 +317,7 @@ export class LeaveRequestsRepository {
   ): Promise<LeaveRequestView | null> {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`
-        SELECT id FROM leave_requests
+        SELECT id FROM hr.leave_requests
          WHERE id = ${id} AND organization_id = ${scope.organizationId} FOR UPDATE`;
       const before = await tx.leaveRequest.findFirst({
         where: teamWhere(scope, { id, deletedAt: null }, VIA_EMPLOYEE),

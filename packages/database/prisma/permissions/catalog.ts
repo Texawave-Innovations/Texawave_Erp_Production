@@ -136,6 +136,40 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ...scopedPermission("hr.leave_request.read", "View leave requests"),
   ...scopedPermission("hr.leave.approve", "Approve or reject leave requests"),
 
+  // apps/api/src/modules/hr/attendance — team-scoped (an employee's day is
+  // reached through the employee). attendance.write.own and
+  // attendance_correction.approve.own are reserved: nobody may edit or decide
+  // their own attendance; approve.team/write.team are granted to no role by
+  // default, the same open decision as leave approval.
+  ...scopedPermission("hr.attendance.read", "View attendance records"),
+  ...scopedPermission(
+    "hr.attendance.write",
+    "Manually edit attendance records (HR)",
+  ),
+  ...scopedPermission(
+    "hr.attendance_correction.read",
+    "View attendance correction requests",
+  ),
+  ...scopedPermission(
+    "hr.attendance_correction.approve",
+    "Approve or reject attendance correction requests",
+  ),
+  ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
+
+  // apps/api/src/modules/hr/revision-letters — employee-linked (a letter is
+  // always issued to an existing employee), so team-scoped through the
+  // employee. write.own is reserved: nobody issues or edits a revision letter
+  // for themselves. Who among team leads may see or issue these is an open
+  // decision, so write.team/read.team are granted to no role by default.
+  ...scopedPermission(
+    "hr.revision_letter.read",
+    "View salary revision letters",
+  ),
+  ...scopedPermission(
+    "hr.revision_letter.write",
+    "Issue and edit salary revision letters",
+  ),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.
@@ -169,6 +203,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "employee_self_service.leave_request.create",
     description: "Request leave for myself",
+  },
+  {
+    code: "employee_self_service.attendance.punch",
+    description: "Check in and check out for myself",
+  },
+  {
+    code: "employee_self_service.attendance.read",
+    description: "View my own attendance",
+  },
+  {
+    code: "employee_self_service.attendance_correction.create",
+    description: "Request a correction to my own attendance",
   },
 
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).

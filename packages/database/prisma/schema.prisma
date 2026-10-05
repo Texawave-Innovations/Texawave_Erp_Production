@@ -22,9 +22,18 @@ generator client {
   output   = "../generated/prisma"
 }
 
+// Postgres schema-per-module split (Docs/PLATFORM_SCHEMA_SPLIT_PLAN.md). Every
+// model below MUST carry an @@schema(...) — Prisma's multiSchema mode is
+// all-or-nothing once `schemas` is set here (Prisma 6.19: multiSchema is GA,
+// not a previewFeature — listing it as one is deprecated, confirmed by a
+// `prisma generate` warning during this rehearsal). scm/crm/finance are
+// deliberately NOT listed yet: Prisma requires every listed schema to be used
+// by at least one model, so a future module's schema name is added here only
+// when that module gets its first model (plan §2) — never pre-created empty.
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["platform", "hr"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -62,8 +71,12 @@ model Organization {
   leaveRequests         LeaveRequest[]
   weeklyOffRules        WeeklyOffRule[]
   menuItems             MenuItem[]
+  attendanceRecords     AttendanceRecord[]
+  attendanceCorrections AttendanceCorrection[]
+  revisionLetters       RevisionLetter[]
 
   @@map("organizations")
+  @@schema("platform")
 }
 
 model User {
@@ -88,6 +101,8 @@ model User {
   statusChanges       EmployeeStatusHistory[]
   leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
+  attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
+  attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
   passwordResetTokens PasswordResetToken[]
 
   // Email only needs to be unique WITHIN an organization — the same person's
@@ -95,6 +110,7 @@ model User {
   @@unique([organizationId, email])
   @@index([organizationId])
   @@map("users")
+  @@schema("platform")
 }
 
 /// Global catalog, seeded once. Permission strings: `<module>.<entity>.<action>`
@@ -113,6 +129,7 @@ model Permission {
   rolePermissions RolePermission[]
 
   @@map("permissions")
+  @@schema("platform")
 }
 
 /// Roles are per-organization — each client can shape its own roles against
@@ -134,6 +151,7 @@ model Role {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("roles")
+  @@schema("platform")
 }
 
 /// Unlike most join tables, this one carries the full §5.1 audit baseline
@@ -155,6 +173,7 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
+  @@schema("platform")
 }
 
 /// Same rationale as `RolePermission` — the row is the role-assignment
@@ -174,6 +193,7 @@ model UserRole {
 
   @@id([userId, roleId])
   @@map("user_roles")
+  @@schema("platform")
 }
 
 /// Sits above Team — see Docs/ARCHITECTURE.md §11 (Changelog, 2026-09-22)
@@ -201,6 +221,7 @@ model Department {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("departments")
+  @@schema("platform")
 }
 
 /// Teams — the real access boundary for HR/team-scoped data
@@ -234,6 +255,7 @@ model Team {
   @@index([organizationId])
   @@index([departmentId])
   @@map("teams")
+  @@schema("platform")
 }
 
 /// User↔team membership. Most users: one row, their own team, `isLead:
@@ -263,6 +285,7 @@ model UserTeamAccess {
   @@index([organizationId])
   @@index([teamId])
   @@map("user_team_access")
+  @@schema("platform")
 }
 
 /// Password-reset flow. Not org/team-scoped — looked up directly by
@@ -285,6 +308,7 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+  @@schema("platform")
 }
 
 /// FIXTURE table backing the reference feature
@@ -309,6 +333,7 @@ model Tag {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("tags")
+  @@schema("platform")
 }
 
 /// Navigation menu item model — filtered by resolved permissions server-side
@@ -339,6 +364,7 @@ model MenuItem {
   @@index([organizationId])
   @@index([parentId])
   @@map("menu_items")
+  @@schema("platform")
 }
 
 /// APPEND-ONLY audit trail (apps/api/src/platform/audit, reports/AUDIT_PLATFORM_DESIGN.md).
@@ -370,6 +396,7 @@ model AuditLog {
   @@index([organizationId, actorUserId, id(sort: Desc)], map: "audit_logs_actor_idx")
   @@index([organizationId, at], map: "audit_logs_at_idx")
   @@map("audit_logs")
+  @@schema("platform")
 }
 
 // ---------------------------------------------------------------------------
@@ -399,6 +426,7 @@ model Designation {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("designations")
+  @@schema("hr")
 }
 
 /// Master data, not an enum: the approved starting set (Permanent, Contract,
@@ -428,6 +456,7 @@ model EmploymentType {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("employment_types")
+  @@schema("hr")
 }
 
 /// Where an employee works / a holiday applies. Optional everywhere it is
@@ -455,6 +484,7 @@ model WorkLocation {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("work_locations")
+  @@schema("hr")
 }
 
 // ---------------------------------------------------------------------------
@@ -487,6 +517,7 @@ model DocumentSequence {
 
   @@unique([organizationId, docType])
   @@map("document_sequences")
+  @@schema("platform")
 }
 
 /// The person record every HR/attendance/leave table points at. Always keyed
@@ -538,6 +569,9 @@ model Employee {
   statusHistory    EmployeeStatusHistory[]
   shiftAssignments ShiftAssignment[]
   leaveRequests    LeaveRequest[]
+  revisionLetters  RevisionLetter[]
+  attendanceRecords   AttendanceRecord[]
+  attendanceCorrections AttendanceCorrection[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -547,6 +581,7 @@ model Employee {
   @@index([organizationId, employmentTypeId])
   @@index([organizationId, reportsToId])
   @@map("employees")
+  @@schema("hr")
 }
 
 /// Append-only business record of every status change (and of the employee's
@@ -571,6 +606,7 @@ model EmployeeStatusHistory {
 
   @@index([organizationId, employeeId, id(sort: Desc)], map: "employee_status_history_employee_idx")
   @@map("employee_status_history")
+  @@schema("hr")
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +648,7 @@ model Shift {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("shifts")
+  @@schema("hr")
 }
 
 /// Which shift an employee — or, as a default, a whole team — works over a
@@ -649,6 +686,7 @@ model ShiftAssignment {
   @@index([organizationId, employeeId, effectiveFrom])
   @@index([organizationId, teamId, effectiveFrom])
   @@map("shift_assignments")
+  @@schema("hr")
 }
 
 // ---------------------------------------------------------------------------
@@ -679,6 +717,7 @@ model Holiday {
 
   @@index([organizationId, holidayDate])
   @@map("holidays")
+  @@schema("hr")
 }
 
 /// Which weekdays are non-working, for whom, and over which dates. NOTHING is
@@ -717,6 +756,7 @@ model WeeklyOffRule {
 
   @@index([organizationId, effectiveFrom])
   @@map("weekly_off_rules")
+  @@schema("hr")
 }
 
 // ---------------------------------------------------------------------------
@@ -748,6 +788,7 @@ model LeaveType {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@map("leave_types")
+  @@schema("hr")
 }
 
 /// A request for leave over an inclusive date range (whole days only).
@@ -791,4 +832,140 @@ model LeaveRequest {
   @@index([organizationId, status])
   @@index([organizationId, leaveTypeId])
   @@map("leave_requests")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Attendance (apps/api/src/modules/hr/attendance) — an HR submodule; its
+// tables live in the hr schema. Derived hours/overtime/shortfall are NOT
+// stored: they are computed on read by attendance-calculation.service.ts.
+// ---------------------------------------------------------------------------
+
+/// One row per employee per Asia/Kolkata calendar day that has punches, an
+/// HR-set status, or a correction. `status` is only what was explicitly set
+/// (PRESENT | ABSENT | HALF_DAY, CHECK in the migration); NULL means nothing
+/// was stored. An unmarked day is never persisted as absent.
+model AttendanceRecord {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  attendanceDate DateTime  @map("attendance_date") @db.Date
+  status         String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  employee     Employee                @relation(fields: [employeeId], references: [id])
+  sessions     AttendanceSession[]
+  corrections  AttendanceCorrection[]
+
+  @@unique([organizationId, employeeId, attendanceDate])
+  @@index([organizationId, attendanceDate])
+  @@map("attendance_records")
+  @@schema("hr")
+}
+
+/// One punch pair. `check_in_at` / `check_out_at` are server-set (or set by an
+/// approved correction / HR edit, recorded in `source`). At most one open
+/// session per record and per employee is enforced by partial unique indexes
+/// and the check-in advisory lock (migration).
+model AttendanceSession {
+  id                 Int       @id @default(autoincrement())
+  attendanceRecordId Int       @map("attendance_record_id")
+  checkInAt          DateTime  @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt         DateTime? @map("check_out_at") @db.Timestamptz(6)
+  /// SELF | HR | CORRECTION (CHECK in the migration)
+  source             String
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  record AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceRecordId, checkInAt])
+  @@map("attendance_sessions")
+  @@schema("hr")
+}
+
+/// A request to correct a day's punches. Lifecycle: SUBMITTED → APPROVED |
+/// REJECTED, both terminal. Decision fields are written only by a conditional
+/// update (status = SUBMITTED), so a decision can happen exactly once.
+model AttendanceCorrection {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  employeeId         Int       @map("employee_id")
+  attendanceRecordId Int?      @map("attendance_record_id")
+  attendanceDate     DateTime  @map("attendance_date") @db.Date
+  /// MISSED_CHECK_IN | MISSED_CHECK_OUT | INCORRECT_TIME | LATE_ARRIVAL | EARLY_DEPARTURE
+  correctionType     String    @map("correction_type")
+  requestedCheckInAt  DateTime? @map("requested_check_in_at") @db.Timestamptz(6)
+  requestedCheckOutAt DateTime? @map("requested_check_out_at") @db.Timestamptz(6)
+  reason             String
+  status             String    @default("SUBMITTED")
+  requestedBy        Int       @map("requested_by")
+  decidedBy          Int?      @map("decided_by")
+  decidedAt          DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote       String?   @map("decision_note")
+  customFields       Json      @default("{}") @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  record       AttendanceRecord?  @relation(fields: [attendanceRecordId], references: [id])
+  requester    User               @relation("AttendanceCorrectionRequester", fields: [requestedBy], references: [id])
+  decider      User?              @relation("AttendanceCorrectionDecider", fields: [decidedBy], references: [id])
+
+  @@index([organizationId, employeeId, attendanceDate])
+  @@index([organizationId, status])
+  @@map("attendance_corrections")
+  @@schema("hr")
+}
+
+/// Salary revision letter issued to an existing employee (legacy RTDB
+/// `revisionLetters`, Recruitment → Revision Letter). Always employee-linked,
+/// so it is team-scoped THROUGH `employee`. `status` is GENERATED only: the
+/// legacy app never assigns any other value. The four salary components are
+/// the stored truth; gross is derived. Issuing a letter does NOT change the
+/// employee's stored salary. `document_no` is issued once from the per-FY
+/// `platform.document_sequences` counter and is never changed.
+model RevisionLetter {
+  id                   Int      @id @default(autoincrement())
+  organizationId       Int      @map("organization_id")
+  employeeId           Int      @map("employee_id")
+  documentNo           String   @map("document_no")
+  employeeName         String   @map("employee_name")
+  designation          String
+  location             String
+  letterDate           DateTime @map("letter_date") @db.Date
+  effectiveDate        DateTime @map("effective_date") @db.Date
+  basic                Decimal  @db.Decimal(12, 2)
+  da                   Decimal  @db.Decimal(12, 2)
+  hra                  Decimal  @db.Decimal(12, 2)
+  ca                   Decimal  @db.Decimal(12, 2)
+  signatoryName        String   @map("signatory_name")
+  signatoryDesignation String   @map("signatory_designation")
+  status               String   @default("GENERATED")
+  createdBy            Int?     @map("created_by")
+  updatedBy            Int?     @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([organizationId, documentNo])
+  @@index([organizationId, employeeId])
+  @@map("revision_letters")
+  @@schema("hr")
 }
