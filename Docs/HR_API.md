@@ -201,7 +201,27 @@ Salary amounts (revision and offer letters) are not written to the audit trail. 
 
 ---
 
-## 3. Permission catalogue (77 codes; `packages/database/prisma/permissions/catalog.ts`)
+### Profiles (`modules/hr/profiles`)
+
+Legacy: `Profile.tsx`, `EmployeeProfileView.tsx`, `BankDetails.tsx`, `EmployeeForm.tsx`; full discovery in `HR_LEGACY_PARITY.md` §11. Tables `hr.employee_profiles` (personal, non-sensitive) and `hr.employee_sensitive_info` (PAN, Aadhaar, ESI, PF, bank). Backend only. Name, contact, joining date and placement are read from the employee record and are not duplicated.
+
+| Method & path                       | Permission                    | Notes                                                                                                           |
+| ----------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/employees/:id/profile`     | `hr.employee_profile.read` ▲  | employee summary + profile; 404 outside scope                                                                   |
+| PATCH `/hr/employees/:id/profile`   | `hr.employee_profile.write` ▲ | partial: omitted fields unchanged, `null` clears; creates the profile on first save; `.own` write refused (403) |
+| GET `/hr/employees/:id/sensitive`   | `hr.employee_sensitive.read`  | PAN, Aadhaar, ESI, PF, bank fields. **Audited read** (`read_sensitive`), written before the data is returned    |
+| PATCH `/hr/employees/:id/sensitive` | `hr.employee_sensitive.write` | partial, same semantics; formats enforced (below)                                                               |
+
+- **Profile fields:** `title`, `dateOfBirth`, `gender`, `maritalStatus`, `bloodGroup`, `languages` (≤ 10, normalised: trimmed, case-insensitive de-duplicated), `fatherName`, `motherName`, `spouseName`, `emergencyContact {name, phone, relation}`, `presentAddress` and `permanentAddress` (`{address, area?, district?, city, state, pincode, country?}`), `isFresher`, `experienceYears` (0–60, one decimal place), `previousCompany`, `previousRole`.
+- **Sensitive fields and formats:** `panNumber` `AAAAA9999A`; `aadhaarNumber` 12 digits; `esiNumber` 10–17 digits; `pfNumber` 5–30 characters; `bankName`, `bankBranch` 2–100 characters; `bankAccountNo` 6–20 digits; `bankIfsc` `AAAA0XXXXXX`. **Legacy had no format checks; these are production guards.**
+- **Unknown fields are refused (400)**, including `status`, `monthlySalary`, `allowances` and any salary or activation field. Those are not profile data.
+- **Scope:** the profile is team-scoped through the employee (`.own` reads own record; `.team` and `.all` read and write within scope; out of scope is 404). The sensitive record is organization-wide, with no own or team variants. Holders of the profile permission cannot read sensitive data without the sensitive permission.
+- **Audit:** `employee_profile` (`create`/`update`) and `employee_sensitive_info` (`create`/`update`) record **changed field names only** (`changedFields`), never values. `read_sensitive` is written in the same transaction before values are returned: no audit row, no data.
+- **Not implemented (conflicts or out of scope; see `HR_LEGACY_PARITY.md` §11.5–11.6):** employee self-submission of profile or bank details (legacy writes these live with no HR gate); onboarding approval that sets salary and `status: Active`; family phone numbers; documents and photo; the client-side CSV and XLSX exports.
+
+---
+
+## 3. Permission catalogue (85 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
@@ -212,6 +232,7 @@ Synced to every environment by `pnpm --filter @texawave-erp/database permissions
 | Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
 | Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
 | Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
+| Profiles     | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
 | Recruitment  | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
 | Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                                                                                      |
 | Audit        | `audit.log.read`                                                                                                                                                      |
@@ -227,7 +248,7 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment; all in schema `hr`). ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.

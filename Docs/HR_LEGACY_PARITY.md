@@ -617,3 +617,103 @@ Counts were verified against the test runs recorded in the completion report.
 - **U6 Revision scope for team leads** — `read.team`/`write.team` are granted to no default role (same open decision as leave and attendance).
 - **R4 (applied, owner review recommended)** — salary is withheld from the audit trail (§10.5). Whether HR Manager should also see amounts through audit, and whether offer amounts need their own permission (`hr.offer_letter` currently covers the whole record), is a policy question for the owner.
 - **Interview/offer org-wide exception** — documented here and in `HR_API.md`. `Docs/CODING_STANDARDS.md` §10a was not edited; the owner should decide whether to record the exception there.
+
+---
+
+## 11. Profiles — legacy discovery and implementation status
+
+**Scope (per the brief):** HR → Profiles only. Legacy: `BankDetails.tsx`, `Profile.tsx`, `EmployeeProfileView.tsx`, with the field evidence from `EmployeeForm.tsx` (HR create/edit) and `employee/SelfOnboarding.tsx` (employee self-submission). Not discovered further.
+
+### 11.1 Legacy sources (read-only, `D:\New folder\TexaWave_ERP`)
+
+| File                                           | Role                                                                                    | Storage                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `src/modules/hr/Profile.tsx` (370)             | Directory: all employees, search, department filter, XLSX "Export Master Data"          | RTDB `hr/employees` (read)                                              |
+| `src/modules/hr/EmployeeProfileView.tsx` (734) | Full profile page; **Approve Onboarding & Set Salary** modal                            | RTDB `hr/employees/{id}` (read + write); `logEmployeeAudit`             |
+| `src/modules/hr/BankDetails.tsx` (130)         | Read-only bank and statutory table; CSV export                                          | RTDB `hr/employees` (read)                                              |
+| `src/modules/hr/EmployeeForm.tsx`              | HR create/edit form for the same fields                                                 | RTDB `hr/employees`                                                     |
+| `src/modules/employee/SelfOnboarding.tsx`      | Employee self-submits personal, family, address, experience, bank and statutory details | RTDB `hr/employees/{key}` and `users/{key}` (write); `logEmployeeAudit` |
+
+### 11.2 Verified fields
+
+**Personal:** title, name, initial, dob (`dateOfBirth`), gender, marital status, blood group, languages (list).
+**Family:** father name, mother name, spouse name (SelfOnboarding also captures father/mother/spouse phone numbers; the profile view does not show them — **unresolved**, not implemented).
+**Emergency contact:** name, phone, relationship.
+**Addresses (two, same shape):** `address`, `area`, `district`, `city`, `state`, `pincode`, `country`; `sameAsCurrentAddress` flag at submission.
+**Experience:** fresher flag, total years (legacy mixes `'0'` strings and numbers), previous company, previous role.
+**Sensitive identifiers:** PAN, Aadhaar, ESI number, PF number, bank name, bank account number, IFSC, branch.
+**Not profile (out of scope):** salary (`monthlySalary`, `salary.*`, `allowances`, `pfApplicable`, `esiApplicable`), status (`Active`), `onboardingStatus`, document URLs, profile photo, `officeType`, `referredBy`.
+
+### 11.3 Read and write behaviour
+
+- **Reads:** `Profile.tsx` and `BankDetails.tsx` read the whole `hr/employees` collection client-side and filter in memory. No server-side scope or permission. `EmployeeProfileView` reads one record.
+- **Writes, legacy:**
+  1. HR create/edit (`EmployeeForm.tsx`) writes the profile fields, including PAN, Aadhaar and bank, to the employee record. Legacy has no approval step.
+  2. **Approve Onboarding** (`EmployeeProfileView.tsx`) writes `monthlySalary`, `allowances`, `salary`, `pfApplicable`, `esiApplicable`, `onboardingStatus: 'Onboarding Complete'`, **`status: 'Active'`**, and audits the action.
+  3. **Self-onboarding** (`SelfOnboarding.tsx`) writes all profile and sensitive fields to the employee's own record with `onboardingStatus: 'Details Submitted'`, and also writes `onboardingStatus` and `phone` to `users/{key}`. The audit text says "for HR review", but the write is live: there is **no review gate**.
+- **Validation:** legacy has a step-by-step form with client-side checks only. No server validation exists.
+- **Audit:** `logEmployeeAudit` (free text, client-side), not transactional, values included.
+
+### 11.4 Production equivalent
+
+| Legacy field group                                                      | Production                                                                                                              | Decision                                                                             |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Name, email, phone, joining date, department, team, designation, status | `hr.employees` (`fullName`, `workEmail`, `phone`, `dateOfJoining`, `teamId`, `departmentId`, `designationId`, `status`) | **Reused.** Not duplicated.                                                          |
+| Personal, family, emergency, addresses, experience                      | none                                                                                                                    | **New table** `hr.employee_profiles` (1:1 employee)                                  |
+| PAN, Aadhaar, ESI, PF, bank                                             | none (`HR_API.md` §6: "employee sensitive-PII table" not built)                                                         | **New table** `hr.employee_sensitive_info` (1:1 employee), per `ARCHITECTURE.md` §10 |
+| Self-service profile                                                    | `GET /self-service/profile` (read of the employee row only)                                                             | Unchanged                                                                            |
+| Salary, pay components                                                  | none (payroll not built)                                                                                                | **Excluded**                                                                         |
+| Activation (`status: Active`, `onboardingStatus`)                       | lifecycle service exists (`status` transitions); **activation/password setup not built**                                | **Excluded**                                                                         |
+
+### 11.5 Conflicts with HR security rules (reported; not implemented)
+
+1. **Self-service write of bank and identity data without an HR gate** (`SelfOnboarding.tsx`). Changing one's own bank account controls where salary is paid, so it needs HR approval before it takes effect. Production's rule (`ARCHITECTURE.md` §10, `HR_MODULE_REPOSITORY_ANALYSIS.md`) is that PII changes are narrowly permissioned and audited. **Not implemented.** Owner decision: whether employee self-service may submit sensitive details at all, and whether they are staged for HR approval.
+2. **Approve Onboarding sets salary and activates the employee** in one unaudited-by-design write. Salary is payroll's domain, and activation is an unbuilt lifecycle decision. **Not implemented.**
+
+### 11.6 Missing legacy functionality (not built)
+
+- Self-service submission (conflict 1).
+- Onboarding approval, salary setting and activation (conflict 2).
+- Family-member phone numbers (captured by SelfOnboarding, not shown anywhere).
+- Documents, profile photo (Documents feature, not started).
+- Bank-details CSV export and the masters export (client-side, unaudited in legacy). Production exports are not part of this phase.
+
+### 11.7 Unresolved rules
+
+- **P1** Whether sensitive details are self-editable at all (conflict 1).
+- **P2** Who may read sensitive details: `hr.employee_sensitive.read` only, per the architecture. Confirm HR Manager should hold it by default.
+- **P3** Whether sensitive values are masked on read. Legacy shows them in full. This implementation returns them to holders of the sensitive permission, audited.
+- **P4** `officeType`, `referredBy` meaning and whether they belong to profile.
+- **P5** Experience representation (legacy mixes strings and numbers; implemented as a decimal in years).
+- **P6** Encryption at rest for sensitive columns. Not implemented; the architecture asks for narrow permissions and audit, not encryption.
+
+### 11.8 Implementation status
+
+**Built (backend):** the personal profile (`hr.employee_profiles`) and the sensitive record (`hr.employee_sensitive_info`), with HR read and partial update routes. Scope, permissions and audit as in `Docs/HR_API.md`.
+
+**Built as legacy, with production guards:** partial updates, explicit `null` to clear, and language normalisation. Legacy had no server-side validation, so the formats listed in `HR_API.md` (PAN, Aadhaar, ESI, bank account, IFSC, pincode, phone, experience range) are **new production rules**, not legacy behaviour.
+
+**Migrations:** `20261005100611_add_hr_employee_profiles` (generated; creates two tables and their foreign keys, no drops); `20261005100630_employee_profile_checks` (experience range and address shape).
+
+**Reused, not duplicated:** name, email, phone, joining date, department, team, designation, status all stay on `hr.employees`.
+
+**Permissions:** `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped). `hr.employee_sensitive.{read,write}` (exact, organization-wide). HR Manager holds all four. Employee and Team Lead hold none by default (see §11.9).
+
+**Tests:** unit 15 (`profiles.rules.spec.ts` 5, `profiles.service.spec.ts` 10); E2E 44 (`apps/api/test/hr-profiles.e2e-spec.ts`), covering the scope matrix, organization isolation in both directions, the sensitive-permission boundary, validation, partial and clearing semantics, audit (field names only; reads audited), DB persistence and DB constraints.
+
+### 11.9 Decisions and open rules (this phase)
+
+- **Sensitive reads return values** to holders of `hr.employee_sensitive.read`, audited (P3). Masking is not applied, to match legacy.
+- **HR Manager holds the sensitive permissions by default** (P2). Owner decision to confirm.
+- **Team Lead does not hold profile reads by default.** Legacy's team-lead visibility of profile data is not evidenced, so no grant was invented. Owner decision.
+- **Own-level profile write is refused.** Self-submission is a reported conflict (§11.5), not built.
+- **Organization-wide sensitive boundary** is an exception to the normal team-scope rule, in the same way as Interview and Offer Letter (`HR_API.md`). `Docs/CODING_STANDARDS.md` §10a was not edited.
+- **Encryption at rest** for sensitive columns is not implemented (P6).
+
+### 11.10 Still unresolved
+
+- P1 self-submission of sensitive details (conflict §11.5.1).
+- Salary and onboarding approval/activation (conflict §11.5.2): payroll and lifecycle owners must decide where they go.
+- P4 `officeType` and `referredBy`.
+- Family-member phone numbers.
+- Documents and photo.

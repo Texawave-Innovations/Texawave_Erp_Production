@@ -76,6 +76,8 @@ model Organization {
   revisionLetters       RevisionLetter[]
   interviews            Interview[]
   offerLetters          OfferLetter[]
+  employeeProfiles      EmployeeProfile[]
+  employeeSensitiveInfos EmployeeSensitiveInfo[]
 
   @@map("organizations")
   @@schema("platform")
@@ -572,6 +574,8 @@ model Employee {
   shiftAssignments ShiftAssignment[]
   leaveRequests    LeaveRequest[]
   revisionLetters  RevisionLetter[]
+  profile          EmployeeProfile?
+  sensitiveInfo    EmployeeSensitiveInfo?
   attendanceRecords   AttendanceRecord[]
   attendanceCorrections AttendanceCorrection[]
 
@@ -1045,5 +1049,75 @@ model OfferLetter {
   @@index([organizationId, joiningDate])
   @@index([organizationId, candidateName])
   @@map("offer_letters")
+  @@schema("hr")
+}
+
+/// Employee profile details that are personal but not sensitive (legacy
+/// `EmployeeForm.tsx`, `EmployeeProfileView.tsx`, `SelfOnboarding.tsx`). One row
+/// per employee, created on first save. Name, contact, joining date and
+/// organisational placement stay on `employees`; they are not duplicated here.
+/// Addresses are JSON objects validated by the API (`{address, area, district,
+/// city, state, pincode, country}`).
+model EmployeeProfile {
+  id                        Int       @id @default(autoincrement())
+  organizationId            Int       @map("organization_id")
+  employeeId                Int       @unique @map("employee_id")
+  title                     String?
+  dateOfBirth               DateTime? @map("date_of_birth") @db.Date
+  gender                    String?
+  maritalStatus             String?   @map("marital_status")
+  bloodGroup                String?   @map("blood_group")
+  languages                 String[]  @default([])
+  fatherName                String?   @map("father_name")
+  motherName                String?   @map("mother_name")
+  spouseName                String?   @map("spouse_name")
+  emergencyContactName      String?   @map("emergency_contact_name")
+  emergencyContactPhone     String?   @map("emergency_contact_phone")
+  emergencyContactRelation  String?   @map("emergency_contact_relation")
+  presentAddress            Json?     @map("present_address")
+  permanentAddress          Json?     @map("permanent_address")
+  isFresher                 Boolean   @default(false) @map("is_fresher")
+  experienceYears           Decimal?  @map("experience_years") @db.Decimal(4, 1)
+  previousCompany           String?   @map("previous_company")
+  previousRole              String?   @map("previous_role")
+  createdBy                 Int?      @map("created_by")
+  updatedBy                 Int?      @map("updated_by")
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId])
+  @@map("employee_profiles")
+  @@schema("hr")
+}
+
+/// Sensitive identifiers and bank details (PAN, Aadhaar, ESI, PF, bank account)
+/// in their OWN table, per ARCHITECTURE.md §10. Readable and writable only with
+/// `hr.employee_sensitive.{read,write}.all`. Reads are audited before the
+/// response is returned; writes audit the changed field NAMES, never values.
+model EmployeeSensitiveInfo {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @unique @map("employee_id")
+  panNumber      String?  @map("pan_number")
+  aadhaarNumber  String?  @map("aadhaar_number")
+  esiNumber      String?  @map("esi_number")
+  pfNumber       String?  @map("pf_number")
+  bankName       String?  @map("bank_name")
+  bankBranch     String?  @map("bank_branch")
+  bankAccountNo  String?  @map("bank_account_no")
+  bankIfsc       String?  @map("bank_ifsc")
+  createdBy      Int?     @map("created_by")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId])
+  @@map("employee_sensitive_info")
   @@schema("hr")
 }

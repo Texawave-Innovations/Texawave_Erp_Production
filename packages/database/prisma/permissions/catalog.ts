@@ -156,6 +156,24 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
 
+  // apps/api/src/modules/hr/profiles — profile details are employee-linked, so
+  // team-scoped through the employee. write.own is reserved: nobody edits their
+  // own profile through HR routes (self-submission is not built; see
+  // Docs/HR_LEGACY_PARITY.md §11.5).
+  ...scopedPermission("hr.employee_profile.read", "View employee profiles"),
+  ...scopedPermission("hr.employee_profile.write", "Edit employee profiles"),
+  // Sensitive identifiers and bank details (ARCHITECTURE.md §10). Organization-
+  // wide by design; no team dimension, so no own/team/all suffix (see CODING_STANDARDS §2a). Reads are audited.
+  {
+    code: "hr.employee_sensitive.read",
+    description:
+      "View sensitive employee identifiers and bank details (audited)",
+  },
+  {
+    code: "hr.employee_sensitive.write",
+    description: "Create/edit sensitive employee identifiers and bank details",
+  },
+
   // apps/api/src/modules/hr/interviews, offer-letters — EXPLICIT, DOCUMENTED
   // EXCEPTION to the HR team-scope rule (Docs/HR_API.md, Recruitment). Legacy
   // stores no employee or team owner for these records, so there is nothing
