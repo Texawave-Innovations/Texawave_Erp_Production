@@ -11,6 +11,7 @@ import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
+import { OrgChartModule } from "./modules/hr/org-chart/org-chart.module.js";
 import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
 import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
 import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
@@ -68,6 +69,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     WorkLocationsModule,
     ShiftsModule,
     EmployeesModule,
+    OrgChartModule,
     ShiftAssignmentsModule,
     HolidaysModule,
     WeeklyOffRulesModule,

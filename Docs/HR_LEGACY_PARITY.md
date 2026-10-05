@@ -216,6 +216,24 @@ Each entry follows the 16-point template. Items marked _(not audited)_ were not 
 15. **Unresolved:** D10 (vacant slots); whether department rename must cascade (legacy does; production stores department by FK, so no cascade needed — deviation).
 16. **Recommendation:** implement the read API and direct-reports API now. Defer slots until D10.
 
+**Implementation status (decided and built; read-only, no schema change):**
+
+- **Status: Implemented.** Backend module `apps/api/src/modules/hr/org-chart/`; registered in `app.module.ts`. No UI, no migration, no audit rows.
+- **Endpoints as built:**
+  - `GET /hr/org-chart` with `departmentId?` (added: legacy's per-department view), `rootEmployeeId?` (subtree), `depth?` (1–10, default 10, root level included). Returns a nested forest. Each node carries `directReportCount`; a node cut off by `depth` has `children: []` and a non-zero count, which is the expand signal.
+  - `GET /hr/employees/:id/direct-reports`. Returns a sorted array, not paginated.
+- **Permissions (decision):** existing `hr.employee.read` with `own`/`team`/`all` via `@RequireScopedPermission`. No new permission, no catalogue change. Org Chart is **not** globally visible to match the legacy UI; an `own`-only user sees an empty chart.
+- **Employee visibility (decision):** only `status = ACTIVE` and not soft-deleted. `INACTIVE`, `RESIGNED`, and `TERMINATED` are hidden. A visible employee whose manager is hidden (or out of scope) becomes a top-level node, so the manager's identity is not leaked.
+- **Tree rules:** the tree is built from `Employee.reportsToId` only. A reporting line is followed only if the manager is visible, is not the employee, and the chain above reaches the top without looping. Otherwise the employee is a root. Siblings and roots are ordered by `fullName`, then `id`. Legacy had no explicit order; this is a production choice.
+- **Scope rule:** `teamWhere()` applies to each employee's own `teamId`. A team-scoped reader therefore sees only their teams' members, and a report in another team is hidden, which cuts that branch. Legacy had no team scope.
+- **Response fields:** `id`, `employeeCode`, `fullName`, `reportsToId`, `designation`, `department`, `team`, `directReportCount`, `children`. No contact details or compensation.
+- **Deviations from legacy (intentional):**
+  - Cross-department reporting is allowed. Legacy blocked it in the UI only. The `departmentId` filter cuts such reports from a department view, as legacy did.
+  - Department data is the platform `Department` FK, not the legacy string or `orgDepartments` list.
+  - Legacy's name-based `reportingTo` fallback is not needed, because production stores the manager as a foreign key.
+- **Still open:** D10 (vacant slots, `orgSlots`) is not implemented and remains deferred.
+- **Performance note:** the tree is built in memory from one query per request over visible members. Revisit if the organization grows large.
+
 ### 3.7 Loans (`Loans.tsx` 1616 lines, `LoanBox.tsx` 733 lines)
 
 Covered in §2.5. Additional audit:
