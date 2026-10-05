@@ -154,23 +154,67 @@ Legacy: Recruitment → Revision Letter (`RevisionLetter.tsx`). Table `hr.revisi
 - **Issuing a letter does not change the employee's stored salary** (legacy behaviour).
 - **Team scope:** `.team`/`.all` readers and writers reach letters through the employee's `team_id`; `.own` **write** is refused (403) — writing is reserved, never granted to self.
 - **Not implemented (legacy has no such thing, or it is undecided):** delete (legacy has a delete; the platform rule is "no DELETE route" — decision pending), approval/signing, signature and seal images (no file storage exists yet), document rendering/PDF, an employee salary write-back, share/e-mail/WhatsApp actions, a link to offer letters (legacy has none).
+- **Salary audit rule (R4):** the audit trail never records salary amounts. An `update` records the changed field **names** in `changedFields`. The amounts are readable only through the `hr.revision_letter` read permission, never through the generic `audit.log.read`.
+
+### Recruitment — interview schedule (`modules/hr/interviews`)
+
+Legacy: Recruitment → Interview Schedule (`InterviewSchedule.tsx`). Table `hr.interviews`. Backend only.
+
+**Explicit exception to the HR team-scope rule.** Legacy stores no employee or team owner for an interview, so there is nothing to scope by. Access is organization-wide and exact-name (`hr.interview.read` / `hr.interview.write`, no `.own/.team/.all`). Not granted to Employee or Team Lead by default. Organization isolation still applies to every route.
+
+| Method & path                     | Permission           | Notes                                                                                                                                                 |
+| --------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/interviews`              | `hr.interview.read`  | `?search` (case-insensitive over candidate, role, interviewer), `?status`, `page`, `limit`, `order`; newest interview date first                      |
+| GET `/hr/interviews/:id`          | `hr.interview.read`  | 404 outside the organization                                                                                                                          |
+| POST `/hr/interviews`             | `hr.interview.write` | `{candidateName, roleTitle, interviewerName, interviewDate, interviewTime, mode?, notes?}` → **201**; starts `SCHEDULED`; `mode` defaults to `ONLINE` |
+| PATCH `/hr/interviews/:id/status` | `hr.interview.write` | `{status}` → **200**. Any of the five values, from any value, including the current one (legacy has no transition guard)                              |
+
+- **Values:** `status` ∈ `SCHEDULED · COMPLETED · SELECTED · REJECTED · NO_SHOW`; `mode` ∈ `ONLINE · IN_PERSON · PHONE`. Stored uppercase; both enforced by CHECK constraints in the database.
+- **Free text, as legacy:** `candidateName` and `interviewerName` are typed text (2–120). There is no candidate or employee id, and the interviewer is not an employee reference.
+- **Time:** `interviewTime` is `HH:MM` (24-hour), checked by the API and by a CHECK constraint.
+- **Not implemented (legacy has no such thing):** reschedule, editing any field after creation, delete (legacy has a delete, but the platform forbids DELETE routes — decision pending), candidate pipeline or stages, interviewer-to-employee linking, notifications.
+- **Audit:** `create` (snapshot: role, date, time, mode, status — candidate and interviewer names are personal data and are left out) and `status_change` (before/after status), each in the same transaction, with the actor from the JWT.
+
+### Recruitment — offer letters (`modules/hr/offer-letters`)
+
+Legacy: Recruitment → Offer Letter (`OfferLetter.tsx`, `OfferLetterTemplate.ts`). Table `hr.offer_letters`. Backend only.
+
+**Same explicit org-wide exception as interviews:** `hr.offer_letter.read` / `hr.offer_letter.write`, exact-name, not granted to Employee or Team Lead by default.
+
+| Method & path                 | Permission              | Notes                                                                                                                                                                                            |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET `/hr/offer-letters`       | `hr.offer_letter.read`  | `?search` (candidate or role), `page`, `limit`, `order`; newest first                                                                                                                            |
+| GET `/hr/offer-letters/:id`   | `hr.offer_letter.read`  | 404 outside the organization                                                                                                                                                                     |
+| POST `/hr/offer-letters`      | `hr.offer_letter.write` | `{candidateName, role, joiningDate, location?, reportingManager?, offerDate?, offerValidityDate?, basic?, da?, hra?, ca?, workSchedule*?, signatory*?, company*?}` → **201**; status `GENERATED` |
+| PATCH `/hr/offer-letters/:id` | `hr.offer_letter.write` | any field above except status (400); only the fields sent are written; overwrites in place, as legacy does                                                                                       |
+
+- **Full snapshot:** the record holds the complete form — work schedule (Mon–Fri, Sat, Sun), signatory, company email/phone/website/address, the four salary components, and the derived monthly and annual gross (`grossMonthly = basic+da+hra+ca`, `grossAnnual = ×12`, exact).
+- **Prefills, applied only when a create request omits them** (legacy form defaults): location `Chennai`; reporting manager `Mr. Nithyanandan Ramaraj`; `offerDate` today (UTC); `offerValidityDate` today + 7 days (legacy computes it from today); work schedule `10:00 AM – 7:00 PM` / `Week Off`; signatory `Amanullah Khan` / `Co-Founder`; the Texawave contact constants; components `0`.
+- **Status is GENERATED only.** Legacy declares `Sent` and `Accepted` but never assigns them, so they are not implemented. There is no status route; a status field in a body is refused (400). The database CHECK also allows only `GENERATED`.
+- **No employee reference** (legacy's `:id` route only prefills and never saves a link) and **no link to revision letters** (legacy has none).
+- **Not implemented:** signature and seal images (no file storage exists yet), PDF/HTML rendering and sharing (Gmail, WhatsApp, mail), delete (same decision as interviews), `Sent`/`Accepted` transitions.
+- **Audit (R4):** `create` snapshot holds the role, location, the three dates and status. It does **not** hold the candidate name or any salary amount. `update` holds the changed field **names** (`changedFields`), never values.
+
+### Recruitment — salary sensitivity (R4)
+
+Salary amounts (revision and offer letters) are not written to the audit trail. The platform's `audit.log.read` is a generic permission and must not expose salary by accident. Amounts are visible only through the record's own read permission (`hr.revision_letter.read` team-scoped, `hr.offer_letter.read` organization-wide). No new global audit permission was introduced.
 
 ---
 
-## 3. Permission catalogue (73 codes; `packages/database/prisma/permissions/catalog.ts`)
+## 3. Permission catalogue (77 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
-| Area         | Codes                                                                                                          |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| Master data  | `master.{designation,employment_type,work_location,shift}.{read,write}`                                        |
-| Employees    | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write` |
-| Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                              |
-| Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                       |
-| Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`      |
-| Recruitment  | `hr.revision_letter.{read,write}.{own,team,all}`                                                               |
-| Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                               |
-| Audit        | `audit.log.read`                                                                                               |
+| Area         | Codes                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master data  | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                               |
+| Employees    | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                        |
+| Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
+| Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
+| Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
+| Recruitment  | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
+| Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                                                                                      |
+| Audit        | `audit.log.read`                                                                                                                                                      |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
 `hr.shift_assignment.write.own`, `hr.leave.approve.own`. Default dev roles (`default-roles.ts`, pinned by a
@@ -183,7 +227,7 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests` · `revision_letters` (Recruitment). ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment; all in schema `hr`). ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.

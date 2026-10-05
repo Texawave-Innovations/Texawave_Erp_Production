@@ -96,6 +96,13 @@ export function toRevisionLetterView(
 
 /** Allow-listed audit snapshot. Salary components are kept: an audit trail of
  * a salary change is the point of it. Free text is not duplicated here. */
+/**
+ * R4 (Docs/HR_LEGACY_PARITY.md §10.5): salary amounts are NOT written to the
+ * audit trail. `audit.log.read` is a generic platform permission and must not
+ * expose salary by accident. The audit records that a salary component changed
+ * (its NAME, in `changedFields`), never the amount. Use the `hr.revision_letter`
+ * read permission to see amounts.
+ */
 function snapshot(row: RevisionLetterRow) {
   return {
     employeeId: row.employeeId,
@@ -104,10 +111,6 @@ function snapshot(row: RevisionLetterRow) {
     location: row.location,
     letterDate: formatDateOnly(row.letterDate),
     effectiveDate: formatDateOnly(row.effectiveDate),
-    basic: money(row.basic),
-    da: money(row.da),
-    hra: money(row.hra),
-    ca: money(row.ca),
     signatoryName: row.signatoryName,
     signatoryDesignation: row.signatoryDesignation,
     status: row.status,
@@ -333,7 +336,7 @@ export class RevisionLettersRepository {
         entityId: id,
         action: "update",
         before: snapshot(before),
-        after: snapshot(after),
+        after: { ...snapshot(after), changedFields: Object.keys(patch).sort() },
       });
       return toRevisionLetterView(after);
     });

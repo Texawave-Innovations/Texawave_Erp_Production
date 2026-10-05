@@ -524,9 +524,9 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 
 ## 10. Recruitment — implementation status
 
-**Scope (per the brief):** Recruitment = the three legacy record types only (Interview Schedule, Offer Letter, Revision Letter). No candidate, requisition, application, stage or ATS entity was built.
+**Scope (per the brief):** Recruitment = the three legacy record types only: Interview Schedule, Offer Letter, Revision Letter. No candidate, requisition, application, stage or ATS entity was built.
 
-**Result: partial.** Revision Letter is implemented end-to-end on the backend. Interview Schedule and Offer Letter are **blocked** on one permission/scope decision (below) and were not implemented.
+**Result: complete for the three legacy record types**, backend only. Interview and Offer were unblocked by the owner's decision in §10.3. Revision Letter was kept as built, with one security correction (R4, §10.5).
 
 ### 10.1 Legacy sources (read-only, `D:\New folder\TexaWave_ERP`)
 
@@ -540,84 +540,80 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 
 ### 10.2 Verified legacy behaviour
 
-**Revision Letter (implemented):**
+**Revision Letter.** Reached from an employee picker; the form prefills from the employee and writes `employeeRecordId`, `employeeCode`, `employeeName`, `designation`. Fields: `documentNo`, `letterDate`, `effectiveDate` (default 1st of next month), `location` (default `Chennai`), `basic/da/hra/ca`, signatory name/designation (defaults `Amanullah Khan` / `Co-Founder`), company contact constants, signature and seal images. Document number `TW/HR/REV/{FY}/{NNN}`, FY April–March, counter = max existing + 1, computed in the browser; assigned once, kept on edit. Status is written as `Generated` only. Edit overwrites in place. Delete per record and per employee. Monthly = `basic+da+hra+ca`; annual = ×12. Issuing does **not** write to `hr/employees`.
 
-- Reached from an employee picker (`RevisionLetterEmployees.tsx`); the form prefills from the employee (`hr/employees`) and writes `employeeRecordId`, `employeeCode`, `employeeName`, `designation`.
-- Fields: `documentNo`, `letterDate`, `effectiveDate` (default 1st of next month), `location` (default `Chennai`), `basic/da/hra/ca`, signatory name/designation (defaults `Amanullah Khan` / `Co-Founder`), company contact constants, signature and seal images (data URLs).
-- Document number: `TW/HR/REV/{FY}/{NNN}`, FY April–March, counter = max existing + 1, computed in the browser (`generateNextDocumentNo`). Assigned once; kept on edit.
-- Statuses: `status` is written as `Generated` only. Edit overwrites the record in place (`set`). Delete per record (history menu) and per employee (picker row).
-- Monthly = `basic+da+hra+ca`; annual = ×12. Issuing a letter **does not** write to `hr/employees`.
+**Offer Letter.** Saved as a full snapshot of form inputs with `status: 'Generated'` only; `Sent`/`Accepted` are declared in the type but never assigned (dead). Edit overwrites. Delete via the actions menu. The candidate is free text. The saved record has **no employee reference**: the `:id` route only prefills and is not persisted. No link to revision letters.
 
-**Offer Letter (not implemented — blocked):**
+**Interview Schedule.** Free-text candidate, role, interviewer, date, time, mode (`online|in_person|phone`), notes. Status is `scheduled` on create and may be set to any of `scheduled|completed|selected|rejected|no_show` with no transition guard (every transition is a plain `update`). Only status changes; there is **no reschedule and no edit** of date, time or other fields. Delete exists. No candidate or interviewer id.
 
-- Saved as a full snapshot of form inputs with `status: 'Generated'` only; `Sent`/`Accepted` are declared in the type but never assigned (dead). Edit overwrites. Delete via the actions menu.
-- Candidate is free text. The saved record has **no employee reference**: the `:id` route only prefills and is not persisted.
-- No link to revision letters.
+**Dead read.** `HRDashboard.tsx` reads `hr/recruitment/candidates`; nothing in the legacy repo writes it (§1 F4). Not used.
 
-**Interview Schedule (not implemented — blocked):**
+### 10.3 Decision — Interview and Offer scope (owner, applied)
 
-- Free-text candidate, role, interviewer, date, time, mode (`online|in_person|phone`), notes.
-- Status is `scheduled` on create and may be set to any of `scheduled|completed|selected|rejected|no_show` with no transition guard (every transition is a plain `update`). Only status changes; there is **no reschedule and no edit** of date, time or other fields. Delete exists.
-- No candidate or interviewer id.
-
-**Dead read:** `HRDashboard.tsx` reads `hr/recruitment/candidates`; nothing in the legacy repo writes it (see §1 F4). Not used.
-
-### 10.3 Blocking decision — Interview and Offer scope
-
-`CLAUDE.md` and `Docs/CODING_STANDARDS.md` §10a: HR data must not be scoped by `@OrgScoped()` alone. Interview and offer records have **no team and no employee** to scope by. The only organization-wide precedent (`hr.holiday.*`) is a calendar every employee reads; offer rows carry candidate salary, which is not that case. Choosing the permission and scope model is the owner's decision, so these two were not built. Options for the owner:
-
-1. `hr.interview.{read,write}` and `hr.offer_letter.{read,write}`, exact-name, org-wide, with a documented exception to §10a (the holiday precedent), or
-2. a scope tied to the interviewer/owning team, which the legacy data does not carry.
-
-Also open: **R4** (who may see offer and revision salary) — see §5.
+Legacy stores no employee or team owner for Interview or Offer records, so the team-scope rule has nothing to scope by. Per the owner's decision, both are implemented as **explicit organization-wide, exact-name permissions**: `hr.interview.read|write` and `hr.offer_letter.read|write`. This is a documented exception to `CLAUDE.md` / `Docs/CODING_STANDARDS.md` §10a. Access is still authenticated, organization-isolated, restricted to roles granted these permissions, and audited. They are not granted to Employee or Team Lead by default; HR Manager holds them.
 
 ### 10.4 What was built
 
-| Item                  | Production artefact                                                                                                                                                                          |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity                | `RevisionLetter` → `hr.revision_letters` (schema `hr`)                                                                                                                                       |
-| Migrations            | `20261005091018_add_hr_revision_letters` (generated by `prisma migrate dev`); `20261005091037_revision_letter_checks` (CHECKs Prisma cannot express: `status = 'GENERATED'`, components ≥ 0) |
-| Indexes / constraints | `UNIQUE (organization_id, document_no)`; index `(organization_id, employee_id)`; FKs to `platform.organizations` and `hr.employees`                                                          |
-| Document counter      | reuses `platform.document_sequences` (doc type `hr_revision_letter_{FY}`), same lock model as `issueEmployeeCode`                                                                            |
-| Module                | `apps/api/src/modules/hr/revision-letters/` — controller, service, repository, `revision-letters.rules.ts` (pure), DTOs                                                                      |
-| Routes                | `GET/POST /hr/revision-letters`, `GET/PATCH /hr/revision-letters/:id` (see `Docs/HR_API.md`)                                                                                                 |
-| Permissions           | `hr.revision_letter.{read,write}.{own,team,all}` in `catalog.ts`; HR Manager gets `.all` in `default-roles.ts`                                                                               |
-| Wiring                | `RevisionLettersModule` imported in `app.module.ts`                                                                                                                                          |
+| Item             | Production artefact                                                                                                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entities         | `RevisionLetter` → `hr.revision_letters`; `Interview` → `hr.interviews`; `OfferLetter` → `hr.offer_letters` (all schema `hr`)                                                                                                 |
+| Migrations       | `20261005091018_add_hr_revision_letters`; `20261005091037_revision_letter_checks`; `20261005094302_add_hr_recruitment_interviews_offers`; `20261005094318_recruitment_checks`                                                 |
+| Constraints      | Revision: `UNIQUE (organization_id, document_no)`, status `GENERATED`, components ≥ 0. Interview: status ∈ five legacy values, mode ∈ three legacy values, time `HH:MM`. Offer: status `GENERATED`, components ≥ 0            |
+| Document counter | Revision reuses `platform.document_sequences` (doc type `hr_revision_letter_{FY}`), same lock model as `issueEmployeeCode`                                                                                                    |
+| Modules          | `apps/api/src/modules/hr/revision-letters/`, `interviews/`, `offer-letters/` — controller, service, repository, DTOs; revision and offer also have pure `*.rules.ts`                                                          |
+| Routes           | see `Docs/HR_API.md` (Recruitment sections)                                                                                                                                                                                   |
+| Permissions      | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped); `hr.interview.{read,write}` and `hr.offer_letter.{read,write}` (org-wide, exact name). HR Manager holds `.all` for revision and all four org-wide permissions |
+| Wiring           | `RevisionLettersModule`, `InterviewsModule`, `OfferLettersModule` imported in `app.module.ts`                                                                                                                                 |
 
-### 10.5 Scope and audit
+### 10.5 Scope, audit and R4 (salary sensitivity)
 
-- **Scope:** team-scoped through the employee (`teamWhere(scope, …, { teamField: "employee.teamId", ownerField: "employee.userId" })`). Out of scope = **404** on read/edit; **422 `INVALID_EMPLOYEE`** on create for an employee outside scope (identical to an unknown id).
-- **`.own` write** → 403 (reserved). **`.own` read** → own letters only.
-- **Audit:** `entity_type = revision_letter`; actions `create` and `update`; before/after allow-listed snapshots, written in the same transaction as the change; actor from the JWT. Free text is not in the snapshot. **Salary components are in the snapshot**, so anyone with `audit.log.read` can see them (see R4).
-- **Edit semantics:** legacy overwrites in place. Production also overwrites in place, and the audit `before`/`after` gives the history. This follows legacy; the earlier §3.2 suggestion of append-only versions is **not** adopted, pending an owner decision.
+- **Revision scope:** team-scoped through the employee. Out of scope = **404** on read/edit; **422 `INVALID_EMPLOYEE`** on create for an employee outside scope. `.own` write → 403 (reserved).
+- **Interview and offer scope:** organization-wide by explicit permission (§10.3). Organization isolation: another organization gets **404** and sees nothing in lists.
+- **Audit:** `entity_type` ∈ `revision_letter`, `interview`, `offer_letter`; actions `create`, `update` (interview: `status_change`). Written in the same transaction as the change; actor from the JWT.
+- **R4 — decision and rule:** salary amounts are **not** written to the audit trail, for revision or offer letters. `audit.log.read` is a generic platform permission; it must not expose salary by accident. The audit records:
+  - on create: non-salary terms only (ids, dates, role/designation, status);
+  - on update: the changed field **names** in `changedFields` (for example `["ca", "designation"]`), never values.
+
+  Amounts remain readable through the record's own permission (`hr.revision_letter.read` team-scoped; `hr.offer_letter.read` organization-wide). The global audit framework and its permission model were not changed. This is the narrowest rule available in the existing architecture. It also keeps candidate names out of the trail (personal data), as leave reasons already are.
+
+- **Edit semantics:** legacy overwrites in place. Production also overwrites in place; the audit's field-name list shows what changed. Append-only versions (suggested in §3.2) are **not** adopted.
 
 ### 10.6 Deviations and omissions from legacy (deliberate)
 
-| Legacy                                              | Production                    | Reason                                                                                                                   |
-| --------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Delete a revision letter (history menu / picker)    | **Not built**                 | Platform rule: no DELETE route exists (`HR_API.md` §1). Changing it is an architecture decision. Pending owner decision. |
-| Signature and seal images (data URLs in the record) | **Not stored**                | No file storage exists in production (D1).                                                                               |
-| PDF / HTML render, share by Gmail/WhatsApp/mail     | **Not built**                 | Backend only (brief). Rendering location is open (D4).                                                                   |
-| Company contact constants on each record            | **Not stored**                | Constants in legacy code; signatory name/designation are stored.                                                         |
-| Salary split 35/15/30/20 from an amount             | **Not enforced**              | The UI convenience is not a backend rule; components are stored as given.                                                |
-| Client-supplied employee name                       | **Derived from the employee** | Identity comes from the record, not from free text.                                                                      |
-| `Sent` / `Accepted` statuses                        | **Not built**                 | Unreachable in legacy (R2). Status is `GENERATED` only.                                                                  |
+| Legacy                                                       | Production                                                                                  | Reason                                                                                                           |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Delete (interview, offer, revision; history menu / picker)   | **Not built**                                                                               | Platform rule: no DELETE route (`HR_API.md` §1). Owner decision pending.                                         |
+| Interview reschedule / field edit                            | **Not built**                                                                               | Legacy has no such action (only status changes).                                                                 |
+| Signature and seal images (data URLs in the record)          | **Not stored**                                                                              | No file storage exists in production (D1).                                                                       |
+| PDF / HTML render, share by Gmail/WhatsApp/mail              | **Not built**                                                                               | Backend only (brief). Rendering location is open (D4).                                                           |
+| Company contact constants on each record                     | **Not stored as a per-record snapshot** for revision; **stored** for offers (full snapshot) | Offer legacy record holds the full form; revision legacy holds constants that are not user-editable in the form. |
+| Salary split 35/15/30/20 from an amount                      | **Not enforced**                                                                            | UI convenience; components stored as given.                                                                      |
+| Client-supplied employee name (revision)                     | **Derived from the employee**                                                               | Identity from the record.                                                                                        |
+| Offer `Sent` / `Accepted`; revision and offer status changes | **Not built**                                                                               | Unreachable in legacy (R2). `GENERATED` only, enforced by CHECK.                                                 |
+| Interview: free-text status any-to-any                       | **Built as legacy**                                                                         | Legacy has no guard; no invented transition rule.                                                                |
+| Offer `:id` prefill saved as employee reference              | **Not saved**                                                                               | Legacy does not persist it.                                                                                      |
 
 ### 10.7 Tests
 
-| Layer          | File                                            | Count | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------- | ----------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Unit — rules   | `revision-letters.rules.spec.ts`                | 12    | FY boundaries (31 Mar / 1 Apr), numbering format, default effective date (Dec rollover), exact decimal gross                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Unit — service | `revision-letters.service.spec.ts`              | 8     | scope resolution; `.own` write refused before any write; legacy defaults applied only on create; explicit values win; partial update sends only named fields; not-found                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| E2E            | `apps/api/test/hr-revision-letters.e2e-spec.ts` | 40    | 401/403 matrix; create with defaults; persistence in `hr`; create audit row; overrides; **6 concurrent issues → unique, contiguous numbers**; 422 unknown and cross-org employee; 400 validation (10 cases incl. unknown fields and overflow); rejected request writes nothing; all/team/own scope; team lead 404 outside team; list filter, pagination, 404; no delete route; edit recalculates gross, keeps document number, rejects employee/documentNo change; update audit before/after; cross-org edit 404 with no change; DB CHECK rejects a non-GENERATED status and a negative component; DB unique rejects a duplicate document number |
+| Layer                    | File                                            | Count | What it proves                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | ----------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit — revision rules    | `revision-letters.rules.spec.ts`                | 12    | FY boundaries, numbering format, default effective date, exact decimal gross                                                                                                                                                                                                                                                                                  |
+| Unit — revision service  | `revision-letters.service.spec.ts`              | 8     | scope; `.own` write refused; legacy defaults only on create; partial update sends only named fields; not-found                                                                                                                                                                                                                                                |
+| Unit — interview service | `interviews.service.spec.ts`                    | 6     | ONLINE default; notes null when empty; status passed through incl. current value; not-found; filter forwarding                                                                                                                                                                                                                                                |
+| Unit — offer rules       | `offer-letters.rules.spec.ts`                   | 4     | validity = offer date + 7 days across month and year boundaries                                                                                                                                                                                                                                                                                               |
+| Unit — offer service     | `offer-letters.service.spec.ts`                 | 5     | every prefill applied; supplied values win; partial update never touches status; not-found                                                                                                                                                                                                                                                                    |
+| E2E — revision           | `apps/api/test/hr-revision-letters.e2e-spec.ts` | 40    | 401/403 matrix; create and defaults; persistence; audit with **no salary amounts**; 6 concurrent issues → unique contiguous numbers; 422 unknown and cross-org; validation; all/team/own scope; list, pagination, 404; no delete; edit recalculates gross, keeps number, changedFields only; DB CHECK and unique                                              |
+| E2E — interview          | `apps/api/test/hr-interviews.e2e-spec.ts`       | 31    | 401/403 incl. team lead; org-wide permission; create with ONLINE default; persistence; audit without candidate name; 10 validation cases; search and status filter; any-to-any status incl. same value; one audit row per change with before/after; org isolation 404; no edit/delete route; DB CHECK on status, mode, time                                   |
+| E2E — offer              | `apps/api/test/hr-offer-letters.e2e-spec.ts`    | 31    | 401/403 incl. team lead; prefills and full snapshot; no employee/revision reference; persistence; audit with **no candidate name and no amounts**; 11 validation cases incl. status refused; edit recalculates; status cannot change and no status route; update audit with field names only; isolation; search; no delete; DB CHECK on status and components |
 
-Verification commands and results are recorded in the completion report for this change.
+Counts were verified against the test runs recorded in the completion report.
 
 ### 10.8 Unresolved
 
-- **U1 Interview/Offer scope** — §10.3. Blocks both records.
-- **U2 Delete** — legacy has it; platform forbids it; undecided.
-- **U3 Revision approval/signing** — none in legacy; none built.
+- **U2 Delete** — legacy has it on all three records; platform forbids DELETE routes; undecided.
+- **U3 Revision and offer approval / signing** — none in legacy; none built.
 - **U4 Document rendering and images** — D1 (storage) and D4 (rendering location).
-- **U5 Office/time-zone of "today"** — defaults use the server's UTC date; legacy used the browser's local date. For India (UTC+5:30) a letter created shortly after midnight IST gets the previous day's `letterDate` and possibly the previous financial year's number. Needs a decision.
-- **U6 Revision scope for team leads** — `read.team`/`write.team` are granted to no default role (same open decision as leave/attendance).
+- **U5 "Today" time zone** — defaults use the server's UTC date; legacy used the browser's local date. For India (UTC+5:30) a record created shortly after midnight IST gets the previous day's date and possibly the previous financial year's revision number. Needs a decision.
+- **U6 Revision scope for team leads** — `read.team`/`write.team` are granted to no default role (same open decision as leave and attendance).
+- **R4 (applied, owner review recommended)** — salary is withheld from the audit trail (§10.5). Whether HR Manager should also see amounts through audit, and whether offer amounts need their own permission (`hr.offer_letter` currently covers the whole record), is a policy question for the owner.
+- **Interview/offer org-wide exception** — documented here and in `HR_API.md`. `Docs/CODING_STANDARDS.md` §10a was not edited; the owner should decide whether to record the exception there.

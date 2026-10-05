@@ -325,9 +325,12 @@ describe("HR revision letters (e2e)", () => {
       expect(audit.after).toMatchObject({
         employeeId: emp.a1,
         documentNo: letter.documentNo,
-        basic: "35000.00",
         status: "GENERATED",
       });
+      // R4: salary amounts never reach the audit trail.
+      expect(JSON.stringify(audit.after)).not.toMatch(
+        /35000|15000|30000|20000/,
+      );
     });
 
     it("honours values the request supplies in place of the defaults", async () => {
@@ -573,13 +576,16 @@ describe("HR revision letters (e2e)", () => {
       });
       expect(audit.actorUserId).toBe(userIds.hrAll);
       expect(audit.before).toMatchObject({
-        ca: "20000.00",
         designation: "Senior Software Engineer",
       });
       expect(audit.after).toMatchObject({
-        ca: "25000.00",
         designation: "Principal Engineer",
+        changedFields: ["ca", "designation"],
       });
+      // R4: the amounts themselves are not recorded, only the field names.
+      expect(JSON.stringify([audit.before, audit.after])).not.toMatch(
+        /20000|25000/,
+      );
     });
 
     it("persists the edit", async () => {

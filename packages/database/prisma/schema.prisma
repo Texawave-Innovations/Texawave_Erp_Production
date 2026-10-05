@@ -74,6 +74,8 @@ model Organization {
   attendanceRecords     AttendanceRecord[]
   attendanceCorrections AttendanceCorrection[]
   revisionLetters       RevisionLetter[]
+  interviews            Interview[]
+  offerLetters          OfferLetter[]
 
   @@map("organizations")
   @@schema("platform")
@@ -967,5 +969,81 @@ model RevisionLetter {
   @@unique([organizationId, documentNo])
   @@index([organizationId, employeeId])
   @@map("revision_letters")
+  @@schema("hr")
+}
+
+/// Interview schedule entry (legacy RTDB `interviewSchedule`, Recruitment →
+/// Interview Schedule). Candidate and interviewer are FREE TEXT, as legacy
+/// stores them: there is no candidate or employee reference, so there is no
+/// owner to scope by. Access is an explicit org-wide permission (HR_API.md).
+/// Only `status` changes after creation; legacy has no reschedule or edit.
+/// Legacy values map to SCHEDULED/COMPLETED/SELECTED/REJECTED/NO_SHOW and
+/// ONLINE/IN_PERSON/PHONE. Both are enforced by CHECK constraints.
+model Interview {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  candidateName   String   @map("candidate_name")
+  roleTitle       String   @map("role_title")
+  interviewerName String   @map("interviewer_name")
+  interviewDate   DateTime @map("interview_date") @db.Date
+  /// Wall-clock time as `HH:MM`, the form legacy stores.
+  interviewTime   String   @map("interview_time") @db.VarChar(5)
+  mode            String
+  status          String   @default("SCHEDULED")
+  notes           String?
+  createdBy       Int?     @map("created_by")
+  updatedBy       Int?     @map("updated_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, interviewDate])
+  @@index([organizationId, status])
+  @@map("interviews")
+  @@schema("hr")
+}
+
+/// Offer letter (legacy RTDB `offerLetters`, Recruitment → Offer Letter). A
+/// full snapshot of the form inputs. Candidate is free text. There is NO
+/// employee reference (legacy's :id route only prefills and is never saved)
+/// and NO link to revision letters. Legacy declares Sent/Accepted but never
+/// assigns them, so status is GENERATED only (CHECK). Access is an explicit
+/// org-wide permission. Signature and seal images are not stored (no file
+/// storage exists yet).
+model OfferLetter {
+  id                   Int      @id @default(autoincrement())
+  organizationId       Int      @map("organization_id")
+  candidateName        String   @map("candidate_name")
+  role                 String
+  location             String
+  reportingManager     String   @map("reporting_manager")
+  offerDate            DateTime @map("offer_date") @db.Date
+  joiningDate          DateTime @map("joining_date") @db.Date
+  offerValidityDate    DateTime @map("offer_validity_date") @db.Date
+  basic                Decimal  @db.Decimal(12, 2)
+  da                   Decimal  @db.Decimal(12, 2)
+  hra                  Decimal  @db.Decimal(12, 2)
+  ca                   Decimal  @db.Decimal(12, 2)
+  workScheduleMonFri   String   @map("work_schedule_mon_fri")
+  workScheduleSat      String   @map("work_schedule_sat")
+  workScheduleSun      String   @map("work_schedule_sun")
+  signatoryName        String   @map("signatory_name")
+  signatoryDesignation String   @map("signatory_designation")
+  companyEmail         String   @map("company_email")
+  companyPhone         String   @map("company_phone")
+  companyWebsite       String   @map("company_website")
+  companyAddress       String   @map("company_address")
+  status               String   @default("GENERATED")
+  createdBy            Int?     @map("created_by")
+  updatedBy            Int?     @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, joiningDate])
+  @@index([organizationId, candidateName])
+  @@map("offer_letters")
   @@schema("hr")
 }

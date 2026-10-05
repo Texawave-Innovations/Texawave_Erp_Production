@@ -156,6 +156,22 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
 
+  // apps/api/src/modules/hr/interviews, offer-letters — EXPLICIT, DOCUMENTED
+  // EXCEPTION to the HR team-scope rule (Docs/HR_API.md, Recruitment). Legacy
+  // stores no employee or team owner for these records, so there is nothing
+  // to scope by: each permission is organization-wide and exact-name, with no
+  // .own/.team/.all variants. Not granted to Employee or Team Lead by default.
+  { code: "hr.interview.read", description: "View the interview schedule" },
+  {
+    code: "hr.interview.write",
+    description: "Schedule interviews and change their status",
+  },
+  { code: "hr.offer_letter.read", description: "View offer letters" },
+  {
+    code: "hr.offer_letter.write",
+    description: "Generate and edit offer letters",
+  },
+
   // apps/api/src/modules/hr/revision-letters — employee-linked (a letter is
   // always issued to an existing employee), so team-scoped through the
   // employee. write.own is reserved: nobody issues or edits a revision letter

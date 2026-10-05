@@ -23,7 +23,7 @@ import { Trim } from "../../../../common/dto/transforms.js";
 const MAX_COMPONENT = 9_999_999_999.99;
 
 /** Money field: a rupee amount with at most 2 dp, never negative. */
-function ComponentAmount() {
+export function ComponentAmount() {
   return applyDecorators(
     Type(() => Number),
     IsNumber({ allowNaN: false, allowInfinity: false, maxDecimalPlaces: 2 }),
