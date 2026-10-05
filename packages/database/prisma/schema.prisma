@@ -71,6 +71,7 @@ model Organization {
   holidays              Holiday[]
   leaveTypes            LeaveType[]
   leaveRequests         LeaveRequest[]
+  workLogs              WorkLog[]
   weeklyOffRules        WeeklyOffRule[]
   menuItems             MenuItem[]
   attendanceRecords     AttendanceRecord[]
@@ -107,6 +108,8 @@ model User {
   statusChanges       EmployeeStatusHistory[]
   leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
+  workLogsRequested   WorkLog[]               @relation("WorkLogRequester")
+  workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
   attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
   attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
   passwordResetTokens PasswordResetToken[]
@@ -576,6 +579,7 @@ model Employee {
   statusHistory    EmployeeStatusHistory[]
   shiftAssignments ShiftAssignment[]
   leaveRequests    LeaveRequest[]
+  workLogs         WorkLog[]
   revisionLetters  RevisionLetter[]
   profile          EmployeeProfile?
   sensitiveInfo    EmployeeSensitiveInfo?
@@ -841,6 +845,37 @@ model LeaveRequest {
   @@index([organizationId, status])
   @@index([organizationId, leaveTypeId])
   @@map("leave_requests")
+  @@schema("hr")
+}
+
+/// Daily task-time submission (legacy `hr/timeLogs`). Independent of
+/// attendance: hours are typed by the employee, never derived from punches.
+/// Approval is by the employee's reporting manager (`Employee.reportsToId`).
+model WorkLog {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @map("employee_id")
+  workDate        DateTime  @map("work_date") @db.Date
+  taskDescription String    @map("task_description")
+  hoursWorked     Decimal   @map("hours_worked") @db.Decimal(5, 2)
+  status          String    @default("PENDING")
+  requestedBy     Int       @map("requested_by")
+  decidedBy       Int?      @map("decided_by")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote    String?   @map("decision_note")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  requester    User         @relation("WorkLogRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("WorkLogDecider", fields: [decidedBy], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, employeeId, workDate])
+  @@index([organizationId, status])
+  @@map("work_logs")
   @@schema("hr")
 }
 

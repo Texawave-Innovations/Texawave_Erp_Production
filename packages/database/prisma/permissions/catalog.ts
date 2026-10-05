@@ -273,6 +273,25 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Request a correction to my own attendance",
   },
 
+  // apps/api/src/modules/employee-self-service/work-logs — own records only.
+  {
+    code: "employee_self_service.work_log.create",
+    description: "Submit a work log for myself",
+  },
+  {
+    code: "employee_self_service.work_log.read",
+    description: "View my own work logs",
+  },
+
+  // apps/api/src/modules/hr/work-logs — team-scoped read; approval is by the
+  // employee's reporting manager (Employee.reportsToId), not by team, so the
+  // approve permission carries no scope suffix.
+  ...scopedPermission("hr.work_log.read", "View work logs"),
+  {
+    code: "hr.work_log.approve",
+    description: "Approve or reject work logs of my direct reports",
+  },
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",
