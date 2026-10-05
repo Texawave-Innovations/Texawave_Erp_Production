@@ -9,6 +9,7 @@ import {
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
+import { LocationPrivilegeService } from "../location-privilege/location-privilege.service.js";
 import { AttendanceDayContextRepository } from "./attendance-day-context.repository.js";
 import { AttendanceRangeTooLargeException } from "./attendance.exceptions.js";
 import {
@@ -49,14 +50,17 @@ export class AttendanceService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly locationPrivilege: LocationPrivilegeService,
   ) {}
 
   // ---- self-service -------------------------------------------------------
 
   /** The server stamps the instant and the IST business date. The client
-   * supplies neither. */
+   * supplies neither. The location gate runs before any write, so a denied
+   * punch leaves no trace. */
   async checkIn() {
     const employee = await this.employees.getCurrentEmployee();
+    await this.locationPrivilege.assertPunchAllowed(employee.id);
     const now = new Date();
     const attendanceDate = istDateOf(now);
     const result = await this.repository.checkIn(
@@ -71,6 +75,7 @@ export class AttendanceService {
 
   async checkOut() {
     const employee = await this.employees.getCurrentEmployee();
+    await this.locationPrivilege.assertPunchAllowed(employee.id);
     const now = new Date();
     const result = await this.repository.checkOut(
       this.tenantContext.getOrgScope(),

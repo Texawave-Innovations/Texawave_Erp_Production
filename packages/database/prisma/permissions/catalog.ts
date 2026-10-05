@@ -156,6 +156,28 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
 
+  // apps/api/src/modules/hr/location-privilege — organization-wide. Legacy has
+  // no team dimension for location privilege (Docs/HR_LEGACY_PARITY.md §12),
+  // so no scope variants are invented. The service refuses a change to the
+  // caller's own privilege.
+  {
+    code: "hr.location_privilege.read",
+    description: "View employee location privileges",
+  },
+  {
+    code: "hr.location_privilege.write",
+    description: "Change employee location privileges (HR)",
+  },
+  // Organization-wide office network list. Not employee data, so no scope.
+  {
+    code: "hr.office_network.read",
+    description: "View office network addresses",
+  },
+  {
+    code: "hr.office_network.write",
+    description: "Add or deactivate office network addresses",
+  },
+
   // apps/api/src/modules/hr/profiles — profile details are employee-linked, so
   // team-scoped through the employee. write.own is reserved: nobody edits their
   // own profile through HR routes (self-submission is not built; see

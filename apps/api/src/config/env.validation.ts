@@ -32,6 +32,12 @@ export const envSchema = z.object({
 
   CORS_ORIGIN: z.string().default("http://localhost:3001"),
 
+  // How many reverse-proxy hops sit in front of the API. 0 = trust the socket
+  // address only (the safe default). Set it to the real hop count in each
+  // deployment. Too high lets a client forge X-Forwarded-For and pass the
+  // office-network check.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
     .number()
     .int()

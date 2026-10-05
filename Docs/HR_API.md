@@ -201,6 +201,27 @@ Salary amounts (revision and offer letters) are not written to the audit trail. 
 
 ---
 
+### Location Privilege (`modules/hr/location-privilege`)
+
+Legacy: `Shifts.tsx` (the screen is titled "Location Privilege"), `attendanceService.ts` (the check-in gate), `EmployeePortalLayout.tsx` (the portal gate). Full discovery in `HR_LEGACY_PARITY.md` §4. Tables `hr.employee_location_privileges` and `hr.office_network_addresses`. Backend only.
+
+| Method & path                               | Permission                    | Notes                                                                                                                                                                                                            |
+| ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/location-privileges/employees/:id` | `hr.location_privilege.read`  | `{employeeId, mode, source: explicit\|unset, updatedAt}`. A never-set employee reports `mode: null`, `source: unset` (not gated). 404 outside scope                                                              |
+| PUT `/hr/location-privileges/employees/:id` | `hr.location_privilege.write` | body `{mode: "OFFICE" \| "REMOTE"}`. Refused (403) when the target is the caller's own employee record. 404 outside the organization. Returns `changed: false` (and writes nothing) when the mode is already set |
+| GET `/hr/office-networks`                   | `hr.office_network.read`      | The organization's office addresses, active and inactive                                                                                                                                                         |
+| POST `/hr/office-networks`                  | `hr.office_network.write`     | body `{ipAddress, label?}` → **201**. `ipAddress` must be an IPv4 or IPv6 literal (`::ffff:` is normalised to IPv4). Duplicate → 409                                                                             |
+| PATCH `/hr/office-networks/:id`             | `hr.office_network.write`     | body `{isActive}`. Addresses are deactivated, never deleted. 404 outside the organization                                                                                                                        |
+
+- **What the setting controls:** only the attendance check-in and check-out punch (`POST /hr/attendance/check-in` and `/check-out`). **Opt-in:** only an explicit `OFFICE` row is gated. `OFFICE` requires the caller's address to match an **active** entry in `hr.office_network_addresses`. `REMOTE` and a never-set employee (no row) skip that check, so check-in is unchanged for everyone HR has not classified. Nothing else changes. Portal access is **not** gated by this setting (see the parity doc §4).
+- **Denied punch:** `403 LOCATION_NOT_ALLOWED`. The check runs before any write, so a denied punch creates no record and no session. Denied attempts are not audited, because nothing changed.
+- **Fail-closed rules:** an OFFICE employee is denied when the client address is unknown, when no active office address exists, or when the address does not match. The client address is `request.ip`, which honours `X-Forwarded-For` only for the number of hops set by `TRUST_PROXY_HOPS` (default 0, socket address only).
+- **Scope:** organization-wide. Legacy has no team dimension, so no team or own variants are granted (Docs/HR_LEGACY_PARITY.md §12.2). Changing your own employee record is refused (403) whatever permissions you hold. The office-address routes are organization-wide, not employee data, so they carry no scope.
+- **Audit:** `employee_location_privilege` (`create`/`update`) records the before and after `mode`. `office_network_address` (`create`/`update`) records the address and `isActive`. Writes are in the same transaction as their audit row. A no-op write writes no audit row.
+- **Not built (open decisions, `HR_LEGACY_PARITY.md` §4 and §6):** portal device gating, CIDR ranges, any employee self-service request to change the setting, and any change to the Firebase security rules that legacy relied on.
+
+---
+
 ### Profiles (`modules/hr/profiles`)
 
 Legacy: `Profile.tsx`, `EmployeeProfileView.tsx`, `BankDetails.tsx`, `EmployeeForm.tsx`; full discovery in `HR_LEGACY_PARITY.md` §11. Tables `hr.employee_profiles` (personal, non-sensitive) and `hr.employee_sensitive_info` (PAN, Aadhaar, ESI, PF, bank). Backend only. Name, contact, joining date and placement are read from the employee record and are not duplicated.
@@ -221,21 +242,22 @@ Legacy: `Profile.tsx`, `EmployeeProfileView.tsx`, `BankDetails.tsx`, `EmployeeFo
 
 ---
 
-## 3. Permission catalogue (85 codes; `packages/database/prisma/permissions/catalog.ts`)
+## 3. Permission catalogue (89 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
-| Area         | Codes                                                                                                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Master data  | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                               |
-| Employees    | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                        |
-| Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
-| Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
-| Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
-| Profiles     | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
-| Recruitment  | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
-| Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                                                                                      |
-| Audit        | `audit.log.read`                                                                                                                                                      |
+| Area               | Codes                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                               |
+| Employees          | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                        |
+| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
+| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
+| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
+| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
+| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
+| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                          |
+| Self-service       | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                                                                                      |
+| Audit              | `audit.log.read`                                                                                                                                                      |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
 `hr.shift_assignment.write.own`, `hr.leave.approve.own`. Default dev roles (`default-roles.ts`, pinned by a
@@ -248,7 +270,7 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.
@@ -274,18 +296,19 @@ shift break/grace/overtime policy · weekly-off precedence · probation/notice e
 
 ## 8. Error codes
 
-| HTTP      | `error`                                                                                                                                                                                              | Meaning                                                                      |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 404       | `RESOURCE_NOT_FOUND`                                                                                                                                                                                 | not found **or outside your organization/scope**                             |
-| 409       | `RESOURCE_CONFLICT`                                                                                                                                                                                  | duplicate code/name/e-mail/login link, shift still assigned                  |
-| 409       | `VERSION_CONFLICT`                                                                                                                                                                                   | stale employee `version`                                                     |
-| 409       | `SHIFT_ASSIGNMENT_OVERLAP` · `WEEKLY_OFF_OVERLAP` · `LEAVE_OVERLAP` · `HOLIDAY_DATE_TAKEN`                                                                                                           | overlap/date rules (message names the clash)                                 |
-| 422       | `INVALID_STATE_TRANSITION`                                                                                                                                                                           | status/decision not allowed from here (incl. terminal states, decided leave) |
-| 422       | `INVALID_TEAM · INVALID_DEPARTMENT · INVALID_DESIGNATION · INVALID_EMPLOYMENT_TYPE · INVALID_WORK_LOCATION · INVALID_MANAGER · INVALID_USER · INVALID_SHIFT · INVALID_EMPLOYEE · INVALID_LEAVE_TYPE` | referenced record missing, inactive, or another organization's               |
-| 422       | `REPORTING_LINE_CYCLE · JOINING_AFTER_EXIT · EFFECTIVE_DATE_BEFORE_JOINING · EMPLOYEE_HAS_LEFT · EMPLOYEE_NOT_ACTIVE`                                                                                | employee lifecycle rules                                                     |
-| 422       | `SHIFT_TIME_INVALID · SHIFT_WORKING_MINUTES_INVALID · ASSIGNMENT_TARGET_INVALID · ASSIGNMENT_DATES_INVALID · ASSIGNMENT_BEFORE_JOINING · ASSIGNMENT_CANNOT_EXTEND · ASSIGNMENT_VOIDED`               | shifts/assignments                                                           |
-| 422       | `WEEKLY_OFF_SCOPE_INVALID · WEEKLY_OFF_DATES_INVALID · WEEKLY_OFF_CANNOT_EXTEND · WEEKLY_OFF_VOIDED`                                                                                                 | weekly-off rules                                                             |
-| 422       | `LEAVE_DATES_INVALID · LEAVE_BEFORE_JOINING`                                                                                                                                                         | leave                                                                        |
-| 403       | `NOT_AN_EMPLOYEE` · `SELF_APPROVAL_FORBIDDEN`                                                                                                                                                        | self-service without a linked employee / deciding your own leave             |
-| 400       | (validation)                                                                                                                                                                                         | malformed body/query, unknown body field                                     |
-| 401 / 403 |                                                                                                                                                                                                      | no token / missing permission                                                |
+| HTTP      | `error`                                                                                                                                                                                              | Meaning                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 404       | `RESOURCE_NOT_FOUND`                                                                                                                                                                                 | not found **or outside your organization/scope**                                     |
+| 409       | `RESOURCE_CONFLICT`                                                                                                                                                                                  | duplicate code/name/e-mail/login link, shift still assigned                          |
+| 409       | `VERSION_CONFLICT`                                                                                                                                                                                   | stale employee `version`                                                             |
+| 409       | `SHIFT_ASSIGNMENT_OVERLAP` · `WEEKLY_OFF_OVERLAP` · `LEAVE_OVERLAP` · `HOLIDAY_DATE_TAKEN`                                                                                                           | overlap/date rules (message names the clash)                                         |
+| 422       | `INVALID_STATE_TRANSITION`                                                                                                                                                                           | status/decision not allowed from here (incl. terminal states, decided leave)         |
+| 422       | `INVALID_TEAM · INVALID_DEPARTMENT · INVALID_DESIGNATION · INVALID_EMPLOYMENT_TYPE · INVALID_WORK_LOCATION · INVALID_MANAGER · INVALID_USER · INVALID_SHIFT · INVALID_EMPLOYEE · INVALID_LEAVE_TYPE` | referenced record missing, inactive, or another organization's                       |
+| 422       | `REPORTING_LINE_CYCLE · JOINING_AFTER_EXIT · EFFECTIVE_DATE_BEFORE_JOINING · EMPLOYEE_HAS_LEFT · EMPLOYEE_NOT_ACTIVE`                                                                                | employee lifecycle rules                                                             |
+| 422       | `SHIFT_TIME_INVALID · SHIFT_WORKING_MINUTES_INVALID · ASSIGNMENT_TARGET_INVALID · ASSIGNMENT_DATES_INVALID · ASSIGNMENT_BEFORE_JOINING · ASSIGNMENT_CANNOT_EXTEND · ASSIGNMENT_VOIDED`               | shifts/assignments                                                                   |
+| 422       | `WEEKLY_OFF_SCOPE_INVALID · WEEKLY_OFF_DATES_INVALID · WEEKLY_OFF_CANNOT_EXTEND · WEEKLY_OFF_VOIDED`                                                                                                 | weekly-off rules                                                                     |
+| 422       | `LEAVE_DATES_INVALID · LEAVE_BEFORE_JOINING`                                                                                                                                                         | leave                                                                                |
+| 403       | `NOT_AN_EMPLOYEE` · `SELF_APPROVAL_FORBIDDEN`                                                                                                                                                        | self-service without a linked employee / deciding your own leave                     |
+| 403       | `LOCATION_NOT_ALLOWED`                                                                                                                                                                               | attendance punch from outside the office network while OFFICE-mode (nothing written) |
+| 400       | (validation)                                                                                                                                                                                         | malformed body/query, unknown body field                                             |
+| 401 / 403 |                                                                                                                                                                                                      | no token / missing permission                                                        |

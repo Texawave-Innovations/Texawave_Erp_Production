@@ -61,6 +61,8 @@ model Organization {
   designations          Designation[]
   employmentTypes       EmploymentType[]
   workLocations         WorkLocation[]
+  locationPrivileges    EmployeeLocationPrivilege[]
+  officeNetworkAddresses OfficeNetworkAddress[]
   employees             Employee[]
   employeeStatusHistory EmployeeStatusHistory[]
   documentSequences     DocumentSequence[]
@@ -568,6 +570,7 @@ model Employee {
   designation      Designation             @relation(fields: [designationId], references: [id])
   employmentType   EmploymentType          @relation(fields: [employmentTypeId], references: [id])
   workLocation     WorkLocation?           @relation(fields: [workLocationId], references: [id])
+  locationPrivilege EmployeeLocationPrivilege?
   reportsTo        Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
   directReports    Employee[]              @relation("ReportingLine")
   statusHistory    EmployeeStatusHistory[]
@@ -1119,5 +1122,50 @@ model EmployeeSensitiveInfo {
 
   @@index([organizationId])
   @@map("employee_sensitive_info")
+  @@schema("hr")
+}
+
+/// Per-employee network policy for attendance check-in/out (Location
+/// Privilege). A missing row means OFFICE, the strict default, matching the
+/// legacy `hr/locationPrivilege` rule where an unset value means 'office'.
+/// REMOTE exempts the punch from the office-network check. It does not change
+/// any other access.
+model EmployeeLocationPrivilege {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @unique @map("employee_id")
+  /// OFFICE | REMOTE (CHECK in the migration)
+  mode           String
+  createdBy      Int?     @map("created_by")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId])
+  @@map("employee_location_privileges")
+  @@schema("hr")
+}
+
+/// A public IP that counts as the office network for OFFICE-mode punches.
+/// Rows are deactivated, never deleted (no DELETE route exists anywhere).
+model OfficeNetworkAddress {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  /// IPv4 or IPv6 literal, exact match. No CIDR support in this version.
+  ipAddress      String   @map("ip_address") @db.VarChar(45)
+  label          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdBy      Int?     @map("created_by")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, ipAddress])
+  @@map("office_network_addresses")
   @@schema("hr")
 }

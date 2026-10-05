@@ -447,7 +447,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 
 **Org chart (§3.6):** D10 vacant slots (`orgSlots`) needed?
 
-**Location privilege (§4):** D18 confirm that `remote` exempts the Wi-Fi check and that portal gating is wanted in production.
+**Location privilege (§4):** D18 **resolved**: the setting controls attendance punches only, the office list is organization data, and the portal is not gated. Open items are in §12.5.
 
 **Cross-cutting:** D7 notification channel (none in production); D6 salary and bank-field permission; D4 offer/revision rendering location.
 
@@ -490,7 +490,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 | Work logs                        | **Ready after D9**                                              | Approver rule.                                  |
 | Org chart (read, direct reports) | **Ready**                                                       | Uses existing `reportsToId`.                    |
 | Org chart (vacant slots)         | **Blocked** on D10                                              |                                                 |
-| Location privilege               | **Blocked** on D18                                              | Semantics verified; portal meaning to confirm.  |
+| Location privilege               | **Ready** (D18 resolved; see §12)                               | Attendance punch gate; portal not gated.        |
 | Loans (request, approve, ledger) | **Ready**                                                       |                                                 |
 | Loans (EMI credit)               | **Blocked** on payroll                                          |                                                 |
 | Exit requests (lifecycle)        | **Ready** with E1 default                                       |                                                 |
@@ -717,3 +717,60 @@ Counts were verified against the test runs recorded in the completion report.
 - P4 `officeType` and `referredBy`.
 - Family-member phone numbers.
 - Documents and photo.
+
+---
+
+## 12. Location Privilege (`modules/hr/location-privilege`)
+
+Scope fixed by the owner: attendance punch only. Portal access is not gated (see 12.3).
+
+### 12.1 Legacy behavior (verified in source, read-only)
+
+Files: `TexaWave_ERP/src/modules/hr/Shifts.tsx` (the screen is titled "Location Privilege"; the file name is misleading. There is no shift screen in the legacy app), `src/services/attendanceService.ts` lines 91–216 (check-in gate), `src/modules/employee/EmployeePortalLayout.tsx` lines 87–120 (portal gate), `src/modules/employee/EmployeeDashboard.tsx` (live "Remote" badge), `src/App.tsx` lines 558–600 (a separate app-wide desktop-only gate that does not read this setting).
+
+- **Storage:** Firebase `hr/locationPrivilege/{employeeKey}` with value `'office' | 'remote'`. Unset means `'office'`. The key is the `hr/employees` push key, which is `user.firebaseKey` after login.
+- **Who sets it:** the HR screen, with no per-employee self-service. Whether Firebase security rules stop an employee writing this path directly was **not verified**.
+- **Check-in and check-out (`attendanceService.ts`):** `'office'` requires the caller's public IP, from ipify, to equal a hardcoded `OFFICE_PUBLIC_IPS = ['115.96.5.24']`. Otherwise it throws "You must be connected to the office Wi-Fi…" and writes nothing. If the IP lookup fails, it throws "Could not verify your network". `'remote'` skips the check. GPS is captured and never checked.
+- **Portal (`EmployeePortalLayout.tsx`):** `'office'` on a device detected as mobile (user-agent, touch and screen-size heuristics) shows "Desktop Access Only". `'remote'` allows mobile. A read error blocks. This is a client-side page gate.
+- **Mismatch in legacy:** the screen's copy says Office = "Desktop only" and Remote = "Mobile allowed", which describes the portal gate. The attendance gate is a network rule the screen never mentions. A desktop employee at home is blocked from check-in while their portal works.
+- **Not present in legacy:** team or organization scope, an audit trail, and any server-side enforcement.
+
+### 12.2 Decisions (owner, applied)
+
+| #    | Question                         | Decision                                                                                                                                                                                                                                                       |
+| ---- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D18a | What does the setting control?   | **Attendance check-in and check-out only.** The portal is not gated.                                                                                                                                                                                           |
+| D18b | Where does the office list live? | **Organization setting** in `hr.office_network_addresses`, managed through the API with audit. The hardcoded `115.96.5.24` is not carried over as data.                                                                                                        |
+| D18c | How is the client address read?  | `request.ip` through `TRUST_PROXY_HOPS` (env, default 0). **The production hop count is an open item** (12.5).                                                                                                                                                 |
+| D18e | What permission scope applies?   | **Organization-wide.** `hr.location_privilege.read` and `.write` have no own, team or all variants, because legacy has no team dimension and no scope is invented. The service refuses a change to the caller's own employee record.                           |
+| D18d | What does an unset employee get? | **Not gated (opt-in).** Legacy treated unset as `office`. Applying that in production would block every check-in until the office address is registered, and existing attendance tests would fail. Owner chose opt-in. Only an explicit `OFFICE` row is gated. |
+
+### 12.3 Production behavior
+
+- `hr.employee_location_privileges`: one row per employee, `mode` in `OFFICE | REMOTE` (CHECK). No row means unset: no restriction (D18d). Organization-wide (no team dimension in legacy; see 12.2).
+- `hr.office_network_addresses`: per organization, exact IPv4 or IPv6 match, unique per `(organization_id, ip_address)`, deactivated and never deleted.
+- The gate is `LocationPrivilegeService.assertPunchAllowed`, called from `AttendanceService.checkIn` and `checkOut` before any write. A missing row or `REMOTE` returns at once. `OFFICE` needs the request IP on the active list, and is denied with `403 LOCATION_NOT_ALLOWED` otherwise. The denial is fail-closed for an OFFICE employee: unknown IP, empty list, or no match.
+- The attendance calculation, sessions, corrections and reports are unchanged. The gate only decides whether a punch may start.
+- The client IP is `request.ip`, the same value the audit writer records. `main.ts` sets `trust proxy` to `TRUST_PROXY_HOPS`.
+
+### 12.4 Deliberate differences from legacy
+
+- The office list is data, not a constant. It can hold several addresses and is audited.
+- Denied attempts are **not** audited. No state changed, and the audit trail records writes only.
+- Denial happens before the duplicate-punch guard. Legacy's order is the same.
+- Changing your own employee record is refused (403) whatever permissions you hold.
+- The server enforces the rule. Legacy enforced it in the browser.
+
+### 12.5 Open items (blocking production cutover)
+
+- **Office IP is not seeded.** Until HR registers the office address (legacy `115.96.5.24`) through `POST /hr/office-networks`, every employee explicitly set to OFFICE is denied check-in. Unset employees are unaffected. Seeding it is an operational step, not part of this change.
+- **`TRUST_PROXY_HOPS` must be set to the real hop count** for the deployment. At 0, a request behind a proxy carries the proxy's address, so office check-ins fail closed. Too high lets a client forge `X-Forwarded-For` and pass the check.
+- Portal device gating (legacy's "Desktop Access Only") is **not built**. Whether it is wanted is a separate decision.
+- Whether Firebase security rules protected `hr/locationPrivilege` from employee writes was not verified. Irrelevant to production, which has no Firebase path.
+- The `Employee.attendanceLocationMode` enum proposed in the §4 cross-check table is **not** used. The setting is a separate table, which keeps the employee record untouched.
+
+### 12.6 Tests
+
+- Unit: `office-network.spec.ts` (IP normalization and matching, fail-closed cases) and `location-privilege.service.spec.ts` (REMOTE vs OFFICE gate, denial cases, own-scope refusal, out-of-scope 404, default vs explicit reads).
+- E2E: `apps/api/test/hr-location-privilege.e2e-spec.ts` (23 tests): authorization, team scope, organization isolation, the punch gate with a denied punch that leaves no session, office-list validation and duplicates, audit rows, and no-op writes.
+- Regression: the full API unit suite and the full backend E2E suite.

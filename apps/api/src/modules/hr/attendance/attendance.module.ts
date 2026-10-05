@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { EmployeesModule } from "../employees/employees.module.js";
+import { LocationPrivilegeModule } from "../location-privilege/location-privilege.module.js";
 import { AttendanceController } from "./attendance.controller.js";
 import { AttendanceDayContextRepository } from "./attendance-day-context.repository.js";
 import { AttendanceRepository } from "./attendance.repository.js";
@@ -21,7 +22,7 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
  * registered before `hr/attendance/:id`, so a literal path such as
  * `/corrections` is never read as an id. */
 @Module({
-  imports: [EmployeesModule],
+  imports: [EmployeesModule, LocationPrivilegeModule],
   controllers: [
     AttendanceCorrectionsController,
     AttendanceReportsController,
