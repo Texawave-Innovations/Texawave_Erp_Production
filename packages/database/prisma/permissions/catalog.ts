@@ -292,6 +292,30 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Approve or reject work logs of my direct reports",
   },
 
+  // apps/api/src/modules/hr/tasks — team-scoped by the ASSIGNEE's team. There is
+  // no separate approve permission: in legacy the same admin who assigns a
+  // task approves or reopens it, so approval rides on the write scope.
+  ...scopedPermission("hr.task.read", "View tasks"),
+  ...scopedPermission(
+    "hr.task.write",
+    "Assign, reassign, update status, approve and reopen tasks",
+  ),
+
+  // apps/api/src/modules/employee-self-service/tasks — own tasks only.
+  {
+    code: "employee_self_service.task.read",
+    description: "View tasks assigned to me or created by me",
+  },
+  {
+    code: "employee_self_service.task.create",
+    description:
+      "Create a task for myself (optionally request admin attention)",
+  },
+  {
+    code: "employee_self_service.task.update_status",
+    description: "Update the status of my own tasks until admin approval",
+  },
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",

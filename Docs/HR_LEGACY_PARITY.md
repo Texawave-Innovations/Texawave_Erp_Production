@@ -290,7 +290,7 @@ Covered in §2.5. Additional audit:
 12. **Scope:** `.own` (assignee), `.team` (assignee in caller's team), `.all`.
 13. **Dependencies:** Employee (assignee/creator), Notification (F6).
 14. **Confirmed rules:** four statuses; four priorities; overdue definition; `done` requires admin approval to count as complete (observed: `adminApproved` gates the "approved" filter).
-15. **Unresolved:** T2 whether `cancelled` can be reversed; T3 whether only admin may cancel; T4 whether employee may reopen a `done` task; T5 whether `dueDate` is required (legacy enforces it in the UI).
+15. **Resolved from source (see [HR_TASK_ASSIGNMENT.md](HR_TASK_ASSIGNMENT.md) §9):** T2 `cancelled` is reversible (admin dropdown); T3 only admin may cancel (no employee control); T4 employee may reopen a `done` task while unapproved (checkbox); T5 `dueDate` is required on both forms. Implementation status and remaining open items are in that document.
 16. **Recommendation:** implement dedicated `hr_task` tables now. This is not blocked.
 
 ### 3.10 Employee Tickets (`AdminTickets.tsx` 519 lines; `employee/RaiseTicket.tsx` 715 lines)
@@ -453,7 +453,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 
 **Exit (§3.8):** E1 transition map; E2 whether `completed` deactivates the employee (legacy does not); E3 notice-period policy; E4 clearance and asset return (no evidence); E5 final settlement (no evidence).
 
-**Tasks (§3.9):** T1 **reuse vs dedicated** (decided in §6, pending confirmation); T2 reversal of `cancelled`; T3 who may cancel; T4 employee reopening `done`; T5 is `dueDate` mandatory.
+**Tasks (§3.9):** T1 **reuse vs dedicated** (decided in §6, pending confirmation); T2–T5 **resolved from legacy source**, see [HR_TASK_ASSIGNMENT.md](HR_TASK_ASSIGNMENT.md) §9.
 
 **Tickets (§3.10):** K1 category list; K2 employee editing after `in_progress`; K3 reopening `closed`; K4 SLA (none); K5 attachments.
 

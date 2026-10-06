@@ -73,6 +73,7 @@ model Organization {
   leaveRequests         LeaveRequest[]
   leaveEntitlements     LeaveEntitlement[]
   workLogs              WorkLog[]
+  tasks                 Task[]
   weeklyOffRules        WeeklyOffRule[]
   menuItems             MenuItem[]
   attendanceRecords     AttendanceRecord[]
@@ -111,6 +112,8 @@ model User {
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
   workLogsRequested   WorkLog[]               @relation("WorkLogRequester")
   workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
+  tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
+  tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
   attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
   attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
   passwordResetTokens PasswordResetToken[]
@@ -582,6 +585,8 @@ model Employee {
   leaveRequests    LeaveRequest[]
   leaveEntitlements LeaveEntitlement[]
   workLogs         WorkLog[]
+  tasksAssigned    Task[]            @relation("TaskAssignee")
+  tasksCreated     Task[]            @relation("TaskCreatedBy")
   revisionLetters  RevisionLetter[]
   profile          EmployeeProfile?
   sensitiveInfo    EmployeeSensitiveInfo?
@@ -891,6 +896,52 @@ model WorkLog {
   @@index([organizationId, employeeId, workDate])
   @@index([organizationId, status])
   @@map("work_logs")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Task Assignment (apps/api/src/modules/hr/tasks) — dedicated HR tasks, NOT
+// the paused projects/tasks design (Docs/ARCHITECTURE.md §5): HR tasks have
+// no project, carry priority, and go through an admin-approval step on
+// completion. See Docs/HR_LEGACY_PARITY.md §3.9/§6 for the reuse decision.
+// ---------------------------------------------------------------------------
+
+/// One task, admin-assigned to an employee or self-created by one. `status`
+/// is the four legacy values; `adminApproved` is only meaningful once
+/// `status = DONE` (the decision-consistency check enforces this). A task is
+/// never deleted (none in legacy) — cancellation is the closest equivalent
+/// and, like every other status, is reversible by whoever can write tasks.
+model Task {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  title              String
+  description        String?
+  assigneeId         Int       @map("assignee_id")
+  assignedByUserId   Int       @map("assigned_by_user_id")
+  createdByEmployeeId Int?     @map("created_by_employee_id")
+  dueDate            DateTime  @map("due_date") @db.Date
+  priority           String    @default("MEDIUM")
+  status             String    @default("PENDING")
+  isEmployeeCreated  Boolean   @default(false) @map("is_employee_created")
+  requestToAdmin     Boolean   @default(false) @map("request_to_admin")
+  adminApproved      Boolean   @default(false) @map("admin_approved")
+  approvedByUserId   Int?      @map("approved_by_user_id")
+  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  assignee        Employee     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignedByUser  User         @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
+  createdByEmployee Employee?  @relation("TaskCreatedBy", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
+  approvedByUser  User?        @relation("TaskApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, assigneeId, status])
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@map("tasks")
   @@schema("hr")
 }
 
