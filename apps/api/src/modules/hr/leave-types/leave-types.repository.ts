@@ -28,6 +28,9 @@ function snapshot(row: LeaveTypeRow) {
     name: row.name,
     description: row.description,
     isActive: row.isActive,
+    isPaid: row.isPaid,
+    annualEntitlement: row.annualEntitlement.toNumber(),
+    carryForwardLimit: row.carryForwardLimit.toNumber(),
   };
 }
 
@@ -146,7 +149,10 @@ export class LeaveTypesRepository {
         )) {
           if (raw === undefined) continue;
           const value = key === "description" && raw === "" ? null : raw;
-          if ((before as Record<string, unknown>)[key] !== value) {
+          const current = (before as Record<string, unknown>)[key];
+          const comparable =
+            current instanceof Prisma.Decimal ? current.toNumber() : current;
+          if (comparable !== value) {
             changed[key] = value;
           }
         }

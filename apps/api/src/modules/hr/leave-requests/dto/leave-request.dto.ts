@@ -3,22 +3,30 @@ import { Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
+  Max,
   Min,
 } from "class-validator";
 import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim } from "../../../../common/dto/transforms.js";
+import {
+  DAY_PORTIONS,
+  type DayPortion,
+  LEAVE_STATUSES,
+  type LeaveStatus,
+} from "../leave-domain.js";
 
-export const LEAVE_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
-export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
+export { DAY_PORTIONS, LEAVE_STATUSES };
+export type { DayPortion, LeaveStatus };
 
 /**
- * Whole days only (half-days are unapproved policy). There is deliberately NO
- * `employeeId`: a submission is always for the authenticated user's own
- * employee record, resolved server-side from the JWT.
+ * There is deliberately NO `employeeId`: a submission is always for the
+ * authenticated user's own employee record, resolved server-side from the JWT.
+ * A half-day (FIRST_HALF / SECOND_HALF) must name a single date.
  */
 export class CreateLeaveRequestDto {
   @ApiProperty()
@@ -41,6 +49,15 @@ export class CreateLeaveRequestDto {
   @IsDateOnly()
   endDate!: string;
 
+  @ApiPropertyOptional({
+    enum: DAY_PORTIONS,
+    default: "FULL",
+    description: "Half-days require startDate = endDate",
+  })
+  @IsOptional()
+  @IsIn(DAY_PORTIONS)
+  dayPortion?: DayPortion;
+
   @ApiProperty({
     description: "Why — visible to whoever may read/approve the request",
   })
@@ -48,6 +65,15 @@ export class CreateLeaveRequestDto {
   @IsString()
   @Length(3, 500)
   reason!: string;
+}
+
+export class CancelLeaveRequestDto {
+  @ApiPropertyOptional({ description: "Optional note for the record" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(3, 500)
+  note?: string;
 }
 
 export class ApproveLeaveRequestDto {
@@ -65,6 +91,44 @@ export class RejectLeaveRequestDto {
   @IsString()
   @Length(3, 500)
   note!: string;
+}
+
+export class SetLeaveEntitlementDto {
+  @ApiProperty({
+    example: 12,
+    nullable: true,
+    description:
+      "Annual days for this employee, leave type and year. null removes the override so the leave type default applies again.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(366)
+  annualEntitlement!: number | null;
+}
+
+export class LeaveBalanceQueryDto {
+  @ApiPropertyOptional({
+    description: "Balance year. Defaults to the current year.",
+    example: 2026,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2200)
+  year?: number;
+}
+
+export class HrLeaveBalanceQueryDto extends LeaveBalanceQueryDto {
+  @ApiProperty({
+    description: "Employee whose balances to read (within your scope)",
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  employeeId!: number;
 }
 
 export const LEAVE_SORT_FIELDS = ["startDate", "createdAt", "status"] as const;

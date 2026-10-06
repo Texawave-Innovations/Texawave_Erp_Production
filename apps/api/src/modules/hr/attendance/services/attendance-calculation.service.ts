@@ -44,6 +44,8 @@ export interface CalendarFlags {
   holiday: boolean;
   weeklyOff: boolean;
   onLeave: boolean;
+  /** Exactly one half of the day is approved leave; the other half is worked. */
+  halfDayLeave?: boolean;
 }
 
 export interface PunchSession {
@@ -142,6 +144,19 @@ export class AttendanceCalculationService {
         workedMinutes: actual,
         overtimeMinutes: 0,
         shortfallMinutes: 0,
+      };
+    }
+
+    if (input.calendar.halfDayLeave) {
+      // One half is leave, so the day is a half day: the same fixed half-target
+      // allocation a stored HALF_DAY gets. Without a target the punches stand.
+      const worked = target === null ? actual : Math.floor(target / 2);
+      return {
+        ...base,
+        status: "HALF_DAY",
+        workedMinutes: worked,
+        overtimeMinutes: 0,
+        shortfallMinutes: target === null ? 0 : target - worked,
       };
     }
 

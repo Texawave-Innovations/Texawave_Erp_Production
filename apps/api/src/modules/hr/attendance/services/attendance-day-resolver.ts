@@ -39,7 +39,12 @@ export interface DayContext {
     effectiveFrom: string;
     effectiveTo: string | null;
   }[];
-  approvedLeaves: { employeeId: number; startDate: string; endDate: string }[];
+  approvedLeaves: {
+    employeeId: number;
+    startDate: string;
+    endDate: string;
+    dayPortion?: "FULL" | "FIRST_HALF" | "SECOND_HALF";
+  }[];
   shiftAssignments: {
     employeeId: number | null;
     teamId: number | null;
@@ -78,15 +83,22 @@ export function resolveCalendar(
         h.workLocationId === employee.workLocationId),
   );
 
+  const covering = ctx.approvedLeaves.filter(
+    (l) =>
+      l.employeeId === employee.id && l.startDate <= date && l.endDate >= date,
+  );
+  // A full-day leave, or both halves of the date, is a full day on leave.
+  // Exactly one half is a half-day leave; the other half is worked.
+  const full = covering.some((l) => (l.dayPortion ?? "FULL") === "FULL");
+  const firstHalf = covering.some((l) => l.dayPortion === "FIRST_HALF");
+  const secondHalf = covering.some((l) => l.dayPortion === "SECOND_HALF");
+  const onLeave = full || (firstHalf && secondHalf);
+
   return {
     holiday,
     weeklyOff: isWeeklyOff(ctx, employee, date),
-    onLeave: ctx.approvedLeaves.some(
-      (l) =>
-        l.employeeId === employee.id &&
-        l.startDate <= date &&
-        l.endDate >= date,
-    ),
+    onLeave,
+    halfDayLeave: !onLeave && (firstHalf || secondHalf),
   };
 }
 

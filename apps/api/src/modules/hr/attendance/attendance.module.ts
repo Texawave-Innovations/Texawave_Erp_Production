@@ -42,6 +42,10 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
     // The single in-process scheduler that runs auto-checkout (see its header).
     AttendanceAutoCheckoutScheduler,
   ],
-  exports: [AttendanceService, AttendanceAutoCheckoutService],
+  exports: [
+    AttendanceService,
+    AttendanceAutoCheckoutService,
+    AttendanceDayContextRepository,
+  ],
 })
 export class AttendanceModule {}

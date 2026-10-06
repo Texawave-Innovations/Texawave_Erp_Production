@@ -75,7 +75,12 @@ export class AttendanceDayContextRepository {
           startDate: { lte: toDate },
           endDate: { gte: fromDate },
         }),
-        select: { employeeId: true, startDate: true, endDate: true },
+        select: {
+          employeeId: true,
+          startDate: true,
+          endDate: true,
+          dayPortion: true,
+        },
       }),
       this.prisma.shiftAssignment.findMany({
         where: tenantWhere(scope, {
@@ -118,6 +123,7 @@ export class AttendanceDayContextRepository {
         employeeId: l.employeeId,
         startDate: formatDateOnly(l.startDate),
         endDate: formatDateOnly(l.endDate),
+        dayPortion: l.dayPortion as "FULL" | "FIRST_HALF" | "SECOND_HALF",
       })),
       shiftAssignments: assignments.map((a) => ({
         employeeId: a.employeeId,

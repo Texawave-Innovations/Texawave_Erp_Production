@@ -71,6 +71,7 @@ model Organization {
   holidays              Holiday[]
   leaveTypes            LeaveType[]
   leaveRequests         LeaveRequest[]
+  leaveEntitlements     LeaveEntitlement[]
   workLogs              WorkLog[]
   weeklyOffRules        WeeklyOffRule[]
   menuItems             MenuItem[]
@@ -579,6 +580,7 @@ model Employee {
   statusHistory    EmployeeStatusHistory[]
   shiftAssignments ShiftAssignment[]
   leaveRequests    LeaveRequest[]
+  leaveEntitlements LeaveEntitlement[]
   workLogs         WorkLog[]
   revisionLetters  RevisionLetter[]
   profile          EmployeeProfile?
@@ -787,6 +789,12 @@ model LeaveType {
   code           String
   name           String
   description    String?
+  /** Paid leave draws on the balance; unpaid leave is not balance-limited. */
+  isPaid            Boolean  @default(true) @map("is_paid")
+  /** Default annual entitlement in days, accrued monthly (annual / 12 per month). */
+  annualEntitlement Decimal  @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
+  /** Unused days carried into the next year are capped at this value. */
+  carryForwardLimit Decimal  @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -797,6 +805,7 @@ model LeaveType {
 
   organization Organization   @relation(fields: [organizationId], references: [id])
   requests     LeaveRequest[]
+  entitlements LeaveEntitlement[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -821,8 +830,14 @@ model LeaveRequest {
   leaveTypeId    Int       @map("leave_type_id")
   startDate      DateTime  @map("start_date") @db.Date
   endDate        DateTime  @map("end_date") @db.Date
+  /** FULL, FIRST_HALF or SECOND_HALF (halves only on a single date). */
+  dayPortion     String    @default("FULL") @map("day_portion")
+  /** Working days consumed: weekly-offs and holidays excluded; half = 0.5. */
+  leaveDays      Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
   reason         String
   status         String    @default("PENDING")
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancellationNote String?   @map("cancellation_note")
   requestedBy    Int       @map("requested_by")
   decidedBy      Int?      @map("decided_by")
   decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
@@ -889,6 +904,30 @@ model WorkLog {
 /// HR-set status, or a correction. `status` is only what was explicitly set
 /// (PRESENT | ABSENT | HALF_DAY, CHECK in the migration); NULL means nothing
 /// was stored. An unmarked day is never persisted as absent.
+/// Per-employee annual entitlement override for one leave type and year.
+/// Absent row = the leave type's default `annualEntitlement` applies.
+model LeaveEntitlement {
+  id                Int      @id @default(autoincrement())
+  organizationId    Int      @map("organization_id")
+  employeeId        Int      @map("employee_id")
+  leaveTypeId       Int      @map("leave_type_id")
+  year              Int
+  annualEntitlement Decimal  @map("annual_entitlement") @db.Decimal(5, 1)
+  createdBy         Int?     @map("created_by")
+  updatedBy         Int?     @map("updated_by")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([organizationId, employeeId])
+  @@map("leave_entitlements")
+  @@schema("hr")
+}
+
 model AttendanceRecord {
   id             Int       @id @default(autoincrement())
   organizationId Int       @map("organization_id")

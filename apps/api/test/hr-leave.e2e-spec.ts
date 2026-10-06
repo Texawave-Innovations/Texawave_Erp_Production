@@ -13,8 +13,10 @@ import { REDIS_CLIENT } from "../src/shared/redis/redis.constants.js";
  * Leave: types (covered in master-data.e2e-spec) and requests — self-service
  * submission for the authenticated user's own employee, date validation,
  * overlap prevention, approve/reject with maker-checker, final decisions,
- * scope, isolation, immutability and audit. Balances, accrual, half-days and
- * cancellation are NOT implemented (unapproved) and are asserted absent.
+ * scope, isolation, immutability and audit. Balances, half-days, cancellation
+ * and resubmission are covered in hr-leave-policy.e2e-spec.ts. The CASUAL
+ * fixture carries a deliberately generous entitlement so these flows exercise
+ * overlap, scope and approval rather than the balance limit.
  */
 interface Body<T> {
   data: T;
@@ -141,13 +143,11 @@ describe("HR leave requests (e2e)", () => {
         data: { organizationId: org.id, userId: user.id, teamId },
       });
     }
-    const login = await request(app.getHttpServer())
-      .post("/auth/login")
-      .send({
-        organizationSlug: org.slug,
-        email: user.email,
-        password: "Password123!",
-      });
+    const login = await request(app.getHttpServer()).post("/auth/login").send({
+      organizationSlug: org.slug,
+      email: user.email,
+      password: "Password123!",
+    });
     expect(login.status).toBe(201);
     tokens[key] = (
       login.body as Body<{ accessToken: string }>
@@ -228,12 +228,26 @@ describe("HR leave requests (e2e)", () => {
     ).id;
     casual = (
       await prisma.leaveType.create({
-        data: { organizationId: orgA.id, code: "CASUAL", name: "Casual" },
+        data: {
+          organizationId: orgA.id,
+          code: "CASUAL",
+          name: "Casual",
+          isPaid: true,
+          annualEntitlement: 366,
+          carryForwardLimit: 366,
+        },
       })
     ).id;
     sick = (
       await prisma.leaveType.create({
-        data: { organizationId: orgA.id, code: "SICK", name: "Sick" },
+        data: {
+          organizationId: orgA.id,
+          code: "SICK",
+          name: "Sick",
+          isPaid: true,
+          annualEntitlement: 366,
+          carryForwardLimit: 366,
+        },
       })
     ).id;
     inactiveType = (
@@ -431,7 +445,7 @@ describe("HR leave requests (e2e)", () => {
       ["a non-ISO date", { endDate: "01/05/2027" }],
       ["a non-numeric leave type", { leaveTypeId: "casual" }],
       ["a client-supplied status", { status: "APPROVED" }],
-      ["a half-day flag (unapproved policy)", { halfDay: true }],
+      ["an unknown half-day flag", { halfDay: true }],
       ["a client-supplied organizationId", { organizationId: 9 }],
     ])("400 for %s", async (_l, over) => {
       await submit("empA", {
@@ -506,7 +520,7 @@ describe("HR leave requests (e2e)", () => {
       ).toBe("EMPLOYEE_NOT_ACTIVE");
     });
 
-    it("has no balance, accrual, half-day, edit, cancel or delete surface (unapproved policy)", async () => {
+    it("has no edit or delete surface (immutable history)", async () => {
       const l = await mkLeave("empA", {
         startDate: "2029-01-04",
         endDate: "2029-01-04",
@@ -520,9 +534,6 @@ describe("HR leave requests (e2e)", () => {
         .delete(`/self-service/leave-requests/${l.id}`)
         .set(auth("empA"))
         .expect(404);
-      await post("empA", `/self-service/leave-requests/${l.id}/cancel`).expect(
-        404,
-      );
       await request(app.getHttpServer())
         .patch(`/hr/leave-requests/${l.id}`)
         .set(auth("hrAll"))
@@ -532,9 +543,6 @@ describe("HR leave requests (e2e)", () => {
         .delete(`/hr/leave-requests/${l.id}`)
         .set(auth("hrAll"))
         .expect(404);
-      await post("hrAll", `/hr/leave-requests/${l.id}/cancel`).expect(404);
-      await get("empA", "/self-service/leave-balances").expect(404);
-      await get("hrAll", "/hr/leave-balances").expect(404);
     });
   });
 
@@ -1030,7 +1038,7 @@ describe("HR leave requests (e2e)", () => {
 
     it("statuses, date order and a non-blank reason are enforced", async () => {
       await expect(
-        prisma.leaveRequest.create({ data: row({ status: "CANCELLED" }) }),
+        prisma.leaveRequest.create({ data: row({ status: "WITHDRAWN" }) }),
       ).rejects.toThrow(
         /leave_requests_status_check|leave_requests_decision_consistency_check/,
       );
@@ -1077,7 +1085,7 @@ describe("HR leave requests (e2e)", () => {
             endDate: new Date("2090-01-13T00:00:00Z"),
           }),
         }),
-      ).rejects.toThrow(/leave_requests_employee_no_overlap/);
+      ).rejects.toThrow(/leave_requests_employee_no_full_day_overlap/);
       await prisma.leaveRequest.create({
         data: row({
           status: "REJECTED",
