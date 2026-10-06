@@ -147,7 +147,11 @@ export function HrDashboardView() {
   const maxAbsence = Math.max(...lookback.days.map((d) => d.absences), 1);
 
   return (
-    <div className="space-y-6 pb-12" role="main" aria-label="HR dashboard">
+    <div
+      className="mx-auto w-full max-w-7xl space-y-6 pb-12"
+      role="main"
+      aria-label="HR dashboard"
+    >
       {/* Hero */}
       <header className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 p-6 text-white shadow-theme-md md:flex-row md:items-center md:justify-between">
         <div>

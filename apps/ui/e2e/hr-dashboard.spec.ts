@@ -441,27 +441,100 @@ async function horizontalOverflow(page: Page): Promise<number> {
   );
 }
 
-test("has no horizontal overflow from 640px up", async ({ page }) => {
+const VIEWPORTS = [
+  { width: 375, height: 812 },
+  { width: 390, height: 844 },
+  { width: 640, height: 800 },
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+];
+
+test("has no horizontal overflow at every target viewport", async ({
+  page,
+}) => {
   await signIn(page, { permissions: HR_PERMS });
   await openDashboardFromSidebar(page);
-  for (const width of [640, 768, 1024, 1366, 1440, 1920]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const viewport of VIEWPORTS) {
+    await page.setViewportSize(viewport);
     await page.waitForTimeout(150);
     expect(
       await horizontalOverflow(page),
-      `overflow at ${width}px`,
+      `overflow at ${viewport.width}px`,
     ).toBeLessThanOrEqual(0);
   }
 });
 
-// Known gap, not a dashboard bug: DashboardLayout pins DynamicSidebar at w-64 (256px) with no
-// mobile collapse, so at 375px the main column is ~119px wide. Tracked as a shell change that
-// needs review (it touches shared layout). The dashboard content itself fits when the sidebar is hidden.
-test.fixme("has no horizontal overflow at 375px (blocked by fixed sidebar in shell)", async ({
+test("mobile drawer: sidebar is hidden until opened, then navigates and closes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page, { permissions: HR_PERMS });
+
+  const sidebar = page.locator("#app-sidebar");
+  const toggle = page.getByRole("button", { name: "Open navigation" });
+  await expect(toggle).toBeVisible();
+  await expect(sidebar).toBeHidden();
+
+  await toggle.click();
+  await expect(sidebar).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close navigation" }).first(),
+  ).toBeVisible();
+
+  await sidebar.getByRole("link", { name: "HR" }).click();
+  await expect(page).toHaveURL(/\/hr\/dashboard/);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: /Good (morning|afternoon|evening)/,
+    }),
+  ).toBeVisible();
+  await expect(sidebar).toBeHidden();
+});
+
+test("mobile drawer closes on Escape and when the overlay is tapped", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await signIn(page, { permissions: HR_PERMS });
+  const sidebar = page.locator("#app-sidebar");
+
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(sidebar).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sidebar).toBeHidden();
+
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(sidebar).toBeVisible();
+  await page
+    .locator("button.fixed.inset-0")
+    .click({ position: { x: 360, y: 400 } });
+  await expect(sidebar).toBeHidden();
+});
+
+test("desktop keeps the sidebar visible with no drawer toggle", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, { permissions: HR_PERMS });
   await openDashboardFromSidebar(page);
-  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  await expect(page.locator("#app-sidebar")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open navigation" }),
+  ).toBeHidden();
+});
+
+test("content is capped on very wide screens instead of stretching", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await signIn(page, { permissions: HR_PERMS });
+  await openDashboardFromSidebar(page);
+  const width = await page
+    .locator('[aria-label="HR dashboard"]')
+    .evaluate((el) => el.getBoundingClientRect().width);
+  expect(width).toBeLessThanOrEqual(1280);
 });

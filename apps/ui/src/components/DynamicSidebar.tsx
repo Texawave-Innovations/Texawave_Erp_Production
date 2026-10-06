@@ -83,13 +83,38 @@ function SidebarItem({ item, currentPath }: SidebarItemProps) {
   );
 }
 
-export function DynamicSidebar() {
+/**
+ * Below `lg` (1024px) the sidebar is an off-canvas drawer that the header
+ * button opens; from `lg` up it is the fixed column it has always been, so
+ * desktop is unchanged. Literal class strings only (CODING_STANDARDS §12).
+ */
+function sidebarClass(open: boolean): string {
+  return [
+    "fixed inset-y-0 left-0 z-40 w-64 border-r border-gray-200 bg-white transition-transform duration-200 ease-out dark:border-gray-800 dark:bg-gray-900",
+    "lg:static lg:z-auto lg:flex-shrink-0 lg:translate-x-0 lg:transition-none",
+    open ? "translate-x-0" : "invisible -translate-x-full lg:visible",
+  ].join(" ");
+}
+
+export function DynamicSidebar({
+  open,
+  onNavigate,
+}: {
+  open: boolean;
+  onNavigate: () => void;
+}) {
   const pathname = usePathname();
   const menuQuery = useMyMenu();
 
+  // Following any link closes the drawer on small screens. Keyboard activation
+  // also fires a click on the anchor, so this covers both paths.
+  const onAsideClick = (e: React.MouseEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest("a")) onNavigate();
+  };
+
   if (menuQuery.isPending) {
     return (
-      <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <aside id="app-sidebar" className={`${sidebarClass(open)} p-4`}>
         <div className="flex flex-col gap-3">
           <Skeleton className="h-8 w-3/4" />
           <Skeleton className="h-6 w-full" />
@@ -103,7 +128,10 @@ export function DynamicSidebar() {
 
   if (menuQuery.isError) {
     return (
-      <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white p-4 text-theme-xs text-error-600 dark:border-gray-800 dark:bg-gray-900">
+      <aside
+        id="app-sidebar"
+        className={`${sidebarClass(open)} p-4 text-theme-xs text-error-600`}
+      >
         Could not load navigation.
       </aside>
     );
@@ -112,7 +140,11 @@ export function DynamicSidebar() {
   const items = menuQuery.data ?? [];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <aside
+      id="app-sidebar"
+      className={sidebarClass(open)}
+      onClick={onAsideClick}
+    >
       <div className="flex h-full flex-col justify-between p-4">
         <nav className="flex flex-col gap-1.5 overflow-y-auto">
           {items.length === 0 ? (
