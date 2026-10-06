@@ -326,6 +326,25 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
       "Edit my own open ticket and reply on tickets HR raised for me",
   },
 
+  // apps/api/src/modules/hr/expense-claims — team-scoped by the EMPLOYEE's team.
+  // Reads are own/team/all. Deciding is granted at team/all; an own-level
+  // holder is refused in the service, and self-approval in the repository.
+  ...scopedPermission("hr.expense_claim.read", "View expense claims"),
+  ...scopedPermission(
+    "hr.expense_claim.decide",
+    "Approve or reject expense claims",
+  ),
+
+  // apps/api/src/modules/employee-self-service/expense-claims — own claims only.
+  {
+    code: "employee_self_service.expense_claim.create",
+    description: "Submit an expense claim for myself",
+  },
+  {
+    code: "employee_self_service.expense_claim.read",
+    description: "View my own expense claims",
+  },
+
   // apps/api/src/modules/employee-self-service/tasks — own tasks only.
   {
     code: "employee_self_service.task.read",

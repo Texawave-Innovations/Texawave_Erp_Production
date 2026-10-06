@@ -320,16 +320,20 @@ Covered in §2.5. Additional audit:
 4. **Workflow:** employee submits claim (`pending`) → HR approves or rejects with optional note. Employee is notified. Excel export.
 5. **Calculations:** totals by status and by category. **No reimbursement, payment, or payroll link exists** (grep for reimburse/paid/payout returned nothing).
 6. **Production:** none. `Docs/ARCHITECTURE.md` lists `expenses` under paused Finance — the table does not exist.
-7. **Required backend:** `hr.expense_claim` with status transitions in a transaction (decide + audit). Amount as integer minor units. **No reimbursement**.
-8. **Models:** `HrExpenseClaim`.
-9. **APIs:** `POST /self-service/expense-claims`, `GET /self-service/expense-claims`, `GET /hr/expense-claims`, `POST /hr/expense-claims/:id/decision`.
-10. **Permissions:** `employee_self_service.expense_claim.create|read`, `hr.expense_claim.read`, `hr.expense_claim.decide`.
-11. **Audit:** decision (approve/reject) with before/after.
-12. **Scope:** `.own` for claimant; `.team`/`.all` for decision.
-13. **Dependencies:** Employee; Payroll (**no legacy link — do not build**).
-14. **Confirmed rules:** three statuses; six categories; amount > 0 (observed, MyExpenses validation); decision only from `pending` (observed in UI; server guard not confirmed).
-15. **Unresolved:** X1 reimbursement path (none in legacy); X2 receipt — legacy stores a text reference only, so receipt upload is undecided (D1); X3 approval limits by amount (none observed); X4 self-approval guard (not observed; production must forbid).
-16. **Recommendation:** implement now, no payroll link. Receipt is a reference string until D1.
+7. **Backend (implemented):** `hr.expense_claims` (one row per claim), decided once in a transaction with a row lock, with an audit row. Amount is `NUMERIC(12,2)`, the production money convention (salary columns), not minor units. No reimbursement or payroll link.
+8. **Model:** `ExpenseClaim` (table `hr.expense_claims`). CHECKs: amount > 0; six legacy categories; three statuses; non-blank description; decision consistency.
+9. **APIs (implemented):** `POST /self-service/expense-claims`, `GET /self-service/expense-claims`, `GET /self-service/expense-claims/:id`, `GET /hr/expense-claims`, `GET /hr/expense-claims/:id`, `POST /hr/expense-claims/:id/decision` (body `decision`: `APPROVED` | `REJECTED`, optional `note`). No edit, cancel or resubmit routes (none in legacy).
+10. **Permissions (implemented):** `employee_self_service.expense_claim.create|read`; `hr.expense_claim.read.own|team|all`; `hr.expense_claim.decide.own|team|all`. Decision at own level is refused with 403 `DECISION_SCOPE_REQUIRED`. Default roles: HR Manager gets `read.all` and `decide.all`; Employee gets self-service create and read. Team Lead gets nothing (read-only default).
+11. **Audit (implemented):** `create`, `approve`, `reject`. Snapshots hold employee id, category, amount, expense date, status and decider only. Description and receipt reference are free text and are kept out.
+12. **Scope:** `.own` for the claimant; `.team` and `.all` for HR, reached through the claim employee's team. Out-of-scope claims return 404.
+13. **Dependencies:** Employee. Payroll and reimbursement: **not built** (no legacy link).
+14. **Confirmed rules:** three statuses; six categories; amount > 0 (`MyExpenses.tsx`); description required (max 300); decision only from `PENDING` (`ExpenseApprovals.tsx` shows buttons only while pending). A decision is final.
+15. **Production rules added (not in legacy; flagged as decisions):**
+    - Self-approval is refused with 403 `SELF_APPROVAL_FORBIDDEN` (legacy had no guard, so HR could approve its own claim). Decision X4.
+    - A claim cannot be dated in the future. Legacy only capped the date input at today (UI), so the server now enforces it, in UTC like legacy. Decision X5.
+    - Receipt reference is capped at 100 characters and the description at 300 (legacy). The 100 cap is a production choice. Decision X6.
+    - Decision rights are by HR scope (`hr.expense_claim.decide`), not by reporting manager. Legacy has no reporting-line link for expenses, so this is not an invented hierarchy. Decision X7.
+16. **Unresolved (business decisions):** X1 reimbursement or payout path (none in legacy); X2 receipt upload (legacy stores free text only; decision D1); X3 approval limits by amount (none observed); X5, X6, X7 above (production choices, confirm with the business owner); notifications on decision (legacy notifies the employee via `sendNotification`, and production has no notification model, B2). Deferred.
 
 ### 3.12 Employee Documents (`EmployeeDocumentsView.tsx` 344 lines; `hr/Documents.tsx` 164 lines)
 

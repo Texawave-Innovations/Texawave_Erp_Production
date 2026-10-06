@@ -73,6 +73,7 @@ model Organization {
   leaveRequests         LeaveRequest[]
   leaveEntitlements     LeaveEntitlement[]
   workLogs              WorkLog[]
+  expenseClaims         ExpenseClaim[]
   tasks                 Task[]
   tickets               Ticket[]
   ticketComments        TicketComment[]
@@ -114,6 +115,8 @@ model User {
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
   workLogsRequested   WorkLog[]               @relation("WorkLogRequester")
   workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
+  expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
+  expenseClaimsDecided   ExpenseClaim[]       @relation("ExpenseClaimDecider")
   tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
   tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
   ticketsRaisedByMe   Ticket[]                @relation("TicketRaisedBy")
@@ -589,6 +592,7 @@ model Employee {
   leaveRequests    LeaveRequest[]
   leaveEntitlements LeaveEntitlement[]
   workLogs         WorkLog[]
+  expenseClaims    ExpenseClaim[]
   tasksAssigned    Task[]            @relation("TaskAssignee")
   tasksCreated     Task[]            @relation("TaskCreatedBy")
   tickets          Ticket[]          @relation("TicketRequester")
@@ -902,6 +906,44 @@ model WorkLog {
   @@index([organizationId, employeeId, workDate])
   @@index([organizationId, status])
   @@map("work_logs")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Expense claims (apps/api/src/modules/hr/expense-claims). Legacy:
+// hr/expenseRequests in RTDB (ExpenseApprovals.tsx, MyExpenses.tsx). Three
+// legacy statuses, six legacy categories, no edit/cancel/resubmit, no payment
+// link. Decisions are final, as in work logs. See Docs/HR_LEGACY_PARITY.md §3.11.
+// ---------------------------------------------------------------------------
+
+/// One expense claim submitted by an employee and decided by HR.
+model ExpenseClaim {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  expenseType    String    @map("expense_type")
+  amount         Decimal   @db.Decimal(12, 2)
+  expenseDate    DateTime  @map("expense_date") @db.Date
+  description    String
+  receiptRef     String?   @map("receipt_ref")
+  status         String    @default("PENDING")
+  requestedBy    Int       @map("requested_by")
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?   @map("decision_note")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  requester    User         @relation("ExpenseClaimRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("ExpenseClaimDecider", fields: [decidedBy], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, employeeId, expenseDate])
+  @@index([organizationId, status])
+  @@map("expense_claims")
   @@schema("hr")
 }
 
