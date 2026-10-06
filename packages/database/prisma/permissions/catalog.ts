@@ -335,6 +335,15 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Approve or reject expense claims",
   ),
 
+  // apps/api/src/modules/hr/exit-requests — reads are own/team/all. Reviewing,
+  // approving or rejecting is the separate `decide` permission; an own-level
+  // holder is refused, and self-decision is refused in the repository.
+  ...scopedPermission("hr.exit_request.read", "View exit requests"),
+  ...scopedPermission(
+    "hr.exit_request.decide",
+    "Review, approve or reject exit requests",
+  ),
+
   // apps/api/src/modules/employee-self-service/expense-claims — own claims only.
   {
     code: "employee_self_service.expense_claim.create",
@@ -343,6 +352,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "employee_self_service.expense_claim.read",
     description: "View my own expense claims",
+  },
+
+  // apps/api/src/modules/employee-self-service/exit-requests — own requests only.
+  // There is no cancel, withdraw or resubmit permission: none exists in legacy.
+  {
+    code: "employee_self_service.exit_request.create",
+    description: "Submit an exit request for myself",
+  },
+  {
+    code: "employee_self_service.exit_request.read",
+    description: "View my own exit requests",
   },
 
   // apps/api/src/modules/employee-self-service/tasks — own tasks only.

@@ -264,15 +264,17 @@ Covered in §2.5. Additional audit:
 5. **Calculations:** none. Notice period is an **input value**, not computed.
 6. **Production:** **Partial.** `Employee.status` has `RESIGNED | TERMINATED` (terminal, with `dateOfExit` and `exitReason`). Lifecycle rejects further transitions out of exit states. Employee deactivation disables login (`HR_API.md` §7).
 7. **Critical gap:** **legacy `completed` does NOT change the employee record.** Confirmed: `ExitRequests.tsx` writes only `hr/exitRequests/{id}` and a notification. Employee remains active in legacy. Production's exit lifecycle would deactivate. This is **a deliberate deviation to decide**, not a rule to copy.
-8. **Required backend:** `HrExitRequest` with explicit transitions (decision E1), `noticePeriodDays` stored as input only, `settlementStatus` as enumerated text. On `completed`, a transactional call to the existing lifecycle service to set `RESIGNED` (decision E2).
-9. **APIs:** `POST /self-service/exit-requests`, `GET /self-service/exit-requests`, `GET /hr/exit-requests`, `PATCH /hr/exit-requests/:id` (status, lastWorkingDate, settlement, note), with transition guard.
-10. **Permissions:** `employee_self_service.exit_request.create`, `hr.exit_request.read`, `hr.exit_request.decide`, `hr.exit_request.complete` (separate — completing triggers deactivation).
-11. **Audit:** every status change, settlement change, and the deactivation.
-12. **Scope:** `.own`, `.team`, `.all`.
-13. **Dependencies:** Employee lifecycle (exit transition), Notification (no model: F6), Settlement (blocked).
-14. **Confirmed rules:** five statuses; notice period is user input defaulting to 30 days (**observed default, not policy**).
-15. **Unresolved:** E1 transition map; E2 whether `completed` deactivates; E3 notice period policy (who sets, minimum); E4 clearance and asset return (**not present in legacy at all**); E5 final settlement calculation (**not present**; `settlementStatus` is only a label).
-16. **Recommendation:** implement request lifecycle now with an explicit transition map. Deactivation on completion is blocked on E2. Clearance and final settlement are **not built** because legacy has no rules.
+8. **Production (built):** `hr.exit_requests` (migration `20261006140000_add_hr_exit_requests`). Statuses `SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED | COMPLETED` (legacy names, upper-cased). Settlement `PENDING | IN_PROGRESS | COMPLETED | ON_HOLD`. `noticePeriodDays` is stored as entered (default 30), with no policy applied.
+9. **APIs:** `POST /self-service/exit-requests`, `GET /self-service/exit-requests`, `GET /self-service/exit-requests/:id`, `GET /hr/exit-requests`, `GET /hr/exit-requests/:id`, `PATCH /hr/exit-requests/:id` (status and/or confirmedLastWorkingDate, settlementStatus, hrNote). No cancel, withdraw or resubmit route: none exists in legacy.
+10. **Permissions:** `employee_self_service.exit_request.create|read`; `hr.exit_request.read.{own,team,all}`; `hr.exit_request.decide.{own,team,all}`. Own-level decide is refused with `DECISION_SCOPE_REQUIRED`. Self-decision is refused with `SELF_DECISION_FORBIDDEN`. Default roles: HR admin gets `.all`; employees get self-service create and read. Team-level decide is granted to no default role, as with expense claims.
+11. **Audit:** `create`, `review`, `approve`, `reject`, `complete`, `update`. Snapshots hold business facts only. Reason, additional notes and HR note are excluded.
+12. **Scope:** HR reads are `.own`/`.team`/`.all` through the employee. Out-of-scope rows return 404.
+13. **Dependencies:** Notification (no infrastructure: F6, so **no notifications are sent**; legacy sends one per status change). Settlement and clearance (blocked).
+14. **Confirmed rules:** five statuses; one active request per employee (SUBMITTED, UNDER_REVIEW or APPROVED), enforced in the service and by a partial unique index; preferred last working day not in the past; notice period is user input defaulting to 30 days (**observed default, not policy**).
+15. **Unresolved:** E3 notice period policy (who sets, minimum); E4 clearance and asset return (**not present in legacy**); E5 final settlement (**not present**; `settlementStatus` is only a label).
+16. **PRODUCTION DECISION E1 (transition map, implemented):** `SUBMITTED → UNDER_REVIEW | APPROVED | REJECTED`; `UNDER_REVIEW → APPROVED | REJECTED`; `APPROVED → COMPLETED`. REJECTED and COMPLETED are final. Naming the current status is refused, so a second approval is an error. Legacy has no guard.
+17. **PRODUCTION DECISION E2 (implemented as "no employee change"):** creating, approving and completing a request do **not** change `Employee.status`. Legacy does not either. Setting `RESIGNED` on completion is **blocked** until HR confirms the rule. Until then the employee stays ACTIVE and can still log in.
+18. **Production date rule:** preferred last working day is refused if before today, using the same UTC-based `today()` helper as leave requests. Legacy only sets `min=today` in the browser. Whether HR's date convention should be IST is **UNRESOLVED**.
 
 ### 3.9 Task Assignment (`TaskAssignment.tsx` 598 lines; `employee/MyTasks.tsx` 549; `employee/AssignTasks.tsx` 11 lines)
 
@@ -515,7 +517,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 | Location privilege               | **Ready** (D18 resolved; see §12)                               | Attendance punch gate; portal not gated.        |
 | Loans (request, approve, ledger) | **Ready**                                                       |                                                 |
 | Loans (EMI credit)               | **Blocked** on payroll                                          |                                                 |
-| Exit requests (lifecycle)        | **Ready** with E1 default                                       |                                                 |
+| Exit requests (lifecycle)        | **Built** with E1 default (§3.8)                                |                                                 |
 | Exit completion → deactivation   | **Blocked** on E2                                               |                                                 |
 | Clearance / final settlement     | **Blocked** — no legacy rules                                   |                                                 |
 | Tasks                            | **Ready** — dedicated `hr` tables                               | §6.                                             |

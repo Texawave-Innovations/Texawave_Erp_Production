@@ -74,6 +74,7 @@ model Organization {
   leaveEntitlements     LeaveEntitlement[]
   workLogs              WorkLog[]
   expenseClaims         ExpenseClaim[]
+  exitRequests          ExitRequest[]
   tasks                 Task[]
   tickets               Ticket[]
   ticketComments        TicketComment[]
@@ -117,6 +118,8 @@ model User {
   workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
   expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
   expenseClaimsDecided   ExpenseClaim[]       @relation("ExpenseClaimDecider")
+  exitRequestsRequested  ExitRequest[]        @relation("ExitRequestRequester")
+  exitRequestsDecided    ExitRequest[]        @relation("ExitRequestDecider")
   tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
   tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
   ticketsRaisedByMe   Ticket[]                @relation("TicketRaisedBy")
@@ -593,6 +596,7 @@ model Employee {
   leaveEntitlements LeaveEntitlement[]
   workLogs         WorkLog[]
   expenseClaims    ExpenseClaim[]
+  exitRequests     ExitRequest[]
   tasksAssigned    Task[]            @relation("TaskAssignee")
   tasksCreated     Task[]            @relation("TaskCreatedBy")
   tickets          Ticket[]          @relation("TicketRequester")
@@ -944,6 +948,45 @@ model ExpenseClaim {
   @@index([organizationId, employeeId, expenseDate])
   @@index([organizationId, status])
   @@map("expense_claims")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Exit requests (apps/api/src/modules/hr/exit-requests). Legacy: hr/exitRequests
+// in RTDB (employee/ExitRequest.tsx, hr/ExitRequests.tsx). Five legacy statuses,
+// no cancel/withdraw/resubmit. Creating or approving a request does NOT change
+// the employee record; see Docs/HR_LEGACY_PARITY.md §3.8 (decision E2).
+// ---------------------------------------------------------------------------
+
+/// One resignation request submitted by an employee and managed by HR.
+model ExitRequest {
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @map("employee_id")
+  status                   String    @default("SUBMITTED")
+  reason                   String
+  preferredLastWorkingDate DateTime  @map("preferred_last_working_date") @db.Date
+  noticePeriodDays         Int       @default(30) @map("notice_period_days")
+  additionalNotes          String?   @map("additional_notes")
+  confirmedLastWorkingDate DateTime? @map("confirmed_last_working_date") @db.Date
+  settlementStatus         String?   @map("settlement_status")
+  hrNote                   String?   @map("hr_note")
+  requestedBy              Int       @map("requested_by")
+  decidedBy                Int?      @map("decided_by")
+  decidedAt                DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  requester    User         @relation("ExitRequestRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("ExitRequestDecider", fields: [decidedBy], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, employeeId, createdAt])
+  @@index([organizationId, status])
+  @@map("exit_requests")
   @@schema("hr")
 }
 

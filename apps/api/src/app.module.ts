@@ -22,6 +22,8 @@ import { TicketsModule } from "./modules/hr/tickets/tickets.module.js";
 import { MyTicketsModule } from "./modules/employee-self-service/tickets/my-tickets.module.js";
 import { ExpenseClaimsModule } from "./modules/hr/expense-claims/expense-claims.module.js";
 import { MyExpenseClaimsModule } from "./modules/employee-self-service/expense-claims/my-expense-claims.module.js";
+import { ExitRequestsModule } from "./modules/hr/exit-requests/exit-requests.module.js";
+import { MyExitRequestsModule } from "./modules/employee-self-service/exit-requests/my-exit-requests.module.js";
 import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
 import { RevisionLettersModule } from "./modules/hr/revision-letters/revision-letters.module.js";
 import { InterviewsModule } from "./modules/hr/interviews/interviews.module.js";
@@ -88,6 +90,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     TasksModule,
     TicketsModule,
     ExpenseClaimsModule,
+    ExitRequestsModule,
     AttendanceModule,
     RevisionLettersModule,
     InterviewsModule,
@@ -99,6 +102,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     MyTasksModule,
     MyTicketsModule,
     MyExpenseClaimsModule,
+    MyExitRequestsModule,
     DepartmentsModule,
     UsersModule,
     MenuModule,
