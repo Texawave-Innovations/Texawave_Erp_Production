@@ -18,6 +18,8 @@ import { WorkLogsModule } from "./modules/hr/work-logs/work-logs.module.js";
 import { MyWorkLogsModule } from "./modules/employee-self-service/work-logs/my-work-logs.module.js";
 import { TasksModule } from "./modules/hr/tasks/tasks.module.js";
 import { MyTasksModule } from "./modules/employee-self-service/tasks/my-tasks.module.js";
+import { TicketsModule } from "./modules/hr/tickets/tickets.module.js";
+import { MyTicketsModule } from "./modules/employee-self-service/tickets/my-tickets.module.js";
 import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
 import { RevisionLettersModule } from "./modules/hr/revision-letters/revision-letters.module.js";
 import { InterviewsModule } from "./modules/hr/interviews/interviews.module.js";
@@ -82,6 +84,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     LeaveRequestsModule,
     WorkLogsModule,
     TasksModule,
+    TicketsModule,
     AttendanceModule,
     RevisionLettersModule,
     InterviewsModule,
@@ -91,6 +94,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     MyLeaveRequestsModule,
     MyWorkLogsModule,
     MyTasksModule,
+    MyTicketsModule,
     DepartmentsModule,
     UsersModule,
     MenuModule,

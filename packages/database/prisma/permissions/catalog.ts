@@ -301,6 +301,31 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Assign, reassign, update status, approve and reopen tasks",
   ),
 
+  // apps/api/src/modules/hr/tickets — team-scoped by the EMPLOYEE's team. Replying
+  // and changing status ride on the write scope (legacy: the same admin who
+  // raises a ticket replies to it and moves it), so there is no separate
+  // respond permission.
+  ...scopedPermission("hr.ticket.read", "View employee tickets"),
+  ...scopedPermission(
+    "hr.ticket.write",
+    "Raise tickets for employees, reply, change status and reopen",
+  ),
+
+  // apps/api/src/modules/employee-self-service/tickets — own tickets only.
+  {
+    code: "employee_self_service.ticket.read",
+    description: "View tickets I raised or that HR raised for me",
+  },
+  {
+    code: "employee_self_service.ticket.create",
+    description: "Raise a ticket to HR",
+  },
+  {
+    code: "employee_self_service.ticket.update",
+    description:
+      "Edit my own open ticket and reply on tickets HR raised for me",
+  },
+
   // apps/api/src/modules/employee-self-service/tasks — own tasks only.
   {
     code: "employee_self_service.task.read",

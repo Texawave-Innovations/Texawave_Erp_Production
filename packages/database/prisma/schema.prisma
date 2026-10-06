@@ -74,6 +74,8 @@ model Organization {
   leaveEntitlements     LeaveEntitlement[]
   workLogs              WorkLog[]
   tasks                 Task[]
+  tickets               Ticket[]
+  ticketComments        TicketComment[]
   weeklyOffRules        WeeklyOffRule[]
   menuItems             MenuItem[]
   attendanceRecords     AttendanceRecord[]
@@ -114,6 +116,8 @@ model User {
   workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
   tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
   tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
+  ticketsRaisedByMe   Ticket[]                @relation("TicketRaisedBy")
+  ticketCommentsByMe  TicketComment[]         @relation("TicketCommentByHr")
   attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
   attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
   passwordResetTokens PasswordResetToken[]
@@ -587,6 +591,8 @@ model Employee {
   workLogs         WorkLog[]
   tasksAssigned    Task[]            @relation("TaskAssignee")
   tasksCreated     Task[]            @relation("TaskCreatedBy")
+  tickets          Ticket[]          @relation("TicketRequester")
+  ticketComments   TicketComment[]   @relation("TicketCommentByEmployee")
   revisionLetters  RevisionLetter[]
   profile          EmployeeProfile?
   sensitiveInfo    EmployeeSensitiveInfo?
@@ -942,6 +948,63 @@ model Task {
   @@index([organizationId, status])
   @@index([organizationId, dueDate])
   @@map("tasks")
+  @@schema("hr")
+}
+
+/// One employee ticket (legacy `hr/tickets`). Raised by the employee, or by an
+/// HR admin on the employee's behalf (`raisedByAdmin`). The ticket row holds
+/// the request and its status only; every reply lives in `TicketComment`, so
+/// the conversation is kept as history instead of being overwritten.
+/// `status` is the four legacy values; `resolvedAt` is stamped when a ticket
+/// is resolved or closed and kept on reopen, as the legacy screen does.
+model Ticket {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @map("employee_id")
+  category        String
+  subject         String
+  description     String
+  status          String    @default("OPEN")
+  raisedByAdmin   Boolean   @default(false) @map("raised_by_admin")
+  raisedByUserId  Int?      @map("raised_by_user_id")
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  employee     Employee        @relation("TicketRequester", fields: [employeeId], references: [id])
+  raisedByUser User?           @relation("TicketRaisedBy", fields: [raisedByUserId], references: [id], onDelete: Restrict)
+  comments     TicketComment[]
+
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@map("tickets")
+  @@schema("hr")
+}
+
+/// One reply on a ticket. Append-only: database triggers (migration) reject
+/// UPDATE, DELETE and TRUNCATE, so the conversation cannot be edited after the
+/// fact. Exactly one author is set, matching `authorKind`.
+model TicketComment {
+  id               Int      @id @default(autoincrement())
+  organizationId   Int      @map("organization_id")
+  ticketId         Int      @map("ticket_id")
+  authorKind       String   @map("author_kind")
+  authorUserId     Int?     @map("author_user_id")
+  authorEmployeeId Int?     @map("author_employee_id")
+  body             String
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  ticket         Ticket       @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  authorUser     User?        @relation("TicketCommentByHr", fields: [authorUserId], references: [id], onDelete: Restrict)
+  authorEmployee Employee?    @relation("TicketCommentByEmployee", fields: [authorEmployeeId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, ticketId, createdAt])
+  @@map("ticket_comments")
   @@schema("hr")
 }
 

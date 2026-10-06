@@ -301,16 +301,16 @@ Covered in §2.5. Additional audit:
 4. **Workflow:** employee raises (`open`) → HR changes status and may add `adminReply`. `resolved`/`closed` set `resolvedAt`. Admin can raise a ticket **on behalf of** a targeted employee or as `isGlobal` (broadcast). Employee can edit category/subject/description (`RaiseTicket.tsx:172`).
 5. **Calculations:** none.
 6. **Production:** none.
-7. **Required backend:** `hr.ticket` table, `hr.ticket_comment` (append-only), status transitions with guard, category as a reference table or enum (decision K1).
-8. **Models:** `HrTicket`, `HrTicketComment`.
-9. **APIs:** `POST /self-service/tickets`, `PATCH /self-service/tickets/:id` (only while `open`, decision K2), `GET /self-service/tickets`, `GET /hr/tickets`, `POST /hr/tickets` (admin-created), `POST /hr/tickets/:id/status`, `POST /hr/tickets/:id/comments`.
-10. **Permissions:** `employee_self_service.ticket.create|read|update`, `hr.ticket.read|write|respond`.
+7. **Backend (implemented):** `hr.tickets` and `hr.ticket_comments` (append-only, DB triggers), status transitions with guard, category as a checked text value (decision K1).
+8. **Models:** `Ticket`, `TicketComment`.
+9. **APIs (implemented):** `POST /self-service/tickets`, `PATCH /self-service/tickets/:id` (only while `OPEN` and self-raised, decision K2), `GET /self-service/tickets`, `GET /self-service/tickets/:id`, `POST /self-service/tickets/:id/comments`, `GET /hr/tickets`, `GET /hr/tickets/:id`, `POST /hr/tickets` (admin-raised), `POST /hr/tickets/:id/status`, `POST /hr/tickets/:id/comments`. Routes and rules: [HR_EMPLOYEE_TICKETS.md](HR_EMPLOYEE_TICKETS.md).
+10. **Permissions (implemented):** `employee_self_service.ticket.read|create|update`, `hr.ticket.read|write` (`.own/.team/.all`). Replies ride on `hr.ticket.write`; no separate respond permission.
 11. **Audit:** status change, reply, admin-created.
 12. **Scope:** `.own` for employee; `.team`/`.all` for HR.
 13. **Dependencies:** Employee, Notification (F6).
-14. **Confirmed rules:** four statuses; `resolved`/`closed` stamp `resolvedAt`; employee may edit a ticket (observed without a guard on status).
-15. **Unresolved:** K1 category list; K2 may an employee edit after it is `in_progress`; K3 may `closed` be reopened; K4 SLA (none observed); K5 attachments (legacy stores none on tickets).
-16. **Recommendation:** implement now. Attachments deferred (no evidence, and blocked on D1).
+14. **Confirmed rules:** four statuses; `resolved`/`closed` stamp `resolvedAt`; employee may edit a ticket (observed without a guard on status); admin **Reopen** returns a resolved or closed ticket to `open` (verified in `AdminTickets.tsx`); the employee may reply only on a ticket HR raised (`RaiseTicket.tsx`); no delete, no priority, no assignee, no attachments (all verified absent).
+15. **Unresolved:** K2 may an employee edit after it is `in_progress` (production: no, open only); K4 SLA (none observed); K6 production limits status moves to the table in HR_EMPLOYEE_TICKETS §3 (legacy allowed any-to-any); K7 may an employee reply after HR closes a ticket (legacy has no guard). K3 is settled: reopen is legacy-verified.
+16. **Status:** backend implemented ([HR_EMPLOYEE_TICKETS.md](HR_EMPLOYEE_TICKETS.md)). **Not built:** broadcast `Send to All` (legacy writes one ticket per employee; needs a bulk-write design, B1) and notifications (no production notification model, B2). Attachments not applicable (none in legacy).
 
 ### 3.11 Expense Approvals (`ExpenseApprovals.tsx` 362 lines; `employee/MyExpenses.tsx` 374 lines)
 
@@ -455,7 +455,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 
 **Tasks (§3.9):** T1 **reuse vs dedicated** (decided in §6, pending confirmation); T2–T5 **resolved from legacy source**, see [HR_TASK_ASSIGNMENT.md](HR_TASK_ASSIGNMENT.md) §9.
 
-**Tickets (§3.10):** K1 category list; K2 employee editing after `in_progress`; K3 reopening `closed`; K4 SLA (none); K5 attachments.
+**Tickets (§3.10):** K2 employee editing after `in_progress` (production: no); K4 SLA (none); K6 status-move limits; K7 employee reply after close. K1 (categories) and K3 (reopen) are decided. Broadcast and notifications are not yet built.
 
 **Expenses (§3.11):** X1 reimbursement path (none); X2 receipt storage; X3 amount-based approval limits (none); X4 self-approval rule (production must forbid).
 
@@ -515,7 +515,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 | Exit completion → deactivation   | **Blocked** on E2                                               |                                                 |
 | Clearance / final settlement     | **Blocked** — no legacy rules                                   |                                                 |
 | Tasks                            | **Ready** — dedicated `hr` tables                               | §6.                                             |
-| Tickets                          | **Ready** (no attachments)                                      | K1 default: free category text.                 |
+| Tickets                          | **Ready** (no attachments)                                      | Built; see HR_EMPLOYEE_TICKETS.md §9.           |
 | Expense claims                   | **Ready** (no reimbursement)                                    |                                                 |
 | Employee documents               | **Blocked** on D1                                               | Storage.                                        |
 | Other documents / vault          | **Blocked** on D1, D16, D17                                     |                                                 |
