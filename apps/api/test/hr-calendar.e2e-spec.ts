@@ -143,13 +143,11 @@ describe("HR calendar (e2e)", () => {
         data: { organizationId: org.id, userId: user.id, teamId },
       });
     }
-    const login = await request(app.getHttpServer())
-      .post("/auth/login")
-      .send({
-        organizationSlug: org.slug,
-        email: user.email,
-        password: "Password123!",
-      });
+    const login = await request(app.getHttpServer()).post("/auth/login").send({
+      organizationSlug: org.slug,
+      email: user.email,
+      password: "Password123!",
+    });
     expect(login.status).toBe(201);
     tokens[key] = (
       login.body as Body<{ accessToken: string }>

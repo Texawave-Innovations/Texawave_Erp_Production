@@ -792,3 +792,53 @@ Files: `TexaWave_ERP/src/modules/hr/Shifts.tsx` (the screen is titled "Location 
 - Unit: `office-network.spec.ts` (IP normalization and matching, fail-closed cases) and `location-privilege.service.spec.ts` (REMOTE vs OFFICE gate, denial cases, own-scope refusal, out-of-scope 404, default vs explicit reads).
 - E2E: `apps/api/test/hr-location-privilege.e2e-spec.ts` (23 tests): authorization, team scope, organization isolation, the punch gate with a denied punch that leaves no session, office-list validation and duplicates, audit rows, and no-op writes.
 - Regression: the full API unit suite and the full backend E2E suite.
+
+## 13. Holidays — legacy parity and production status
+
+### 13.1 Legacy sources (read-only, `D:\New folder\TexaWave_ERP`)
+
+- UI: `src/modules/hr/Holiday.tsx` (343 lines). Read by `src/modules/hr/SalaryReport.tsx` (`hr/holidays`).
+- Storage: Firebase RTDB, `hr/holidays/{YYYY-MM}/{id}`. Fields written: `id`, `date` (`YYYY-MM-DD`), `name`, `departments`, `isRecurring`.
+- Not verified in detail: how `Attendance.tsx` consumes holidays (it is listed by grep only).
+
+### 13.2 Verified legacy behaviour
+
+| Area                 | Legacy (`Holiday.tsx`)                                                                                                                                                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create               | Date + name required (client check only). `departments` is always saved as `['All']`. `isRecurring` is always saved as `false`; no UI sets it.                                                                                     |
+| Duplicate date       | Saving a date that already has a holiday **replaces** that entry (reuses its id, toast "Holiday Replaced"). Not rejected.                                                                                                          |
+| Update               | Edit reuses the id; only `date`, `name`, `departments` are rewritten (departments reset to `['All']`).                                                                                                                             |
+| Delete               | Hard `remove` after a `confirm()` dialog. No history kept.                                                                                                                                                                         |
+| Filter               | Month picker (`hr/holidays/{YYYY-MM}`); department filter in the list only (`'All'` or a department name).                                                                                                                         |
+| Past/future          | No rule. Any date may be entered.                                                                                                                                                                                                  |
+| Sundays              | Every Sunday of the selected month is auto-written as an attendance record with status `Holiday` (note `Auto: Sunday Holiday`) for each active employee, unless that employee already has an attendance record for the date.       |
+| Holiday → attendance | On month load, `applyHolidaysToAttendance` **writes** `status: 'Holiday'` records into `hr/attendance/{date}/{employeeId}` for each holiday that applies to the employee's department (or `All`), again skipping existing records. |
+| Consequence          | Records written once stay in attendance. Changing or deleting a holiday later does not revise them. Holiday status is stored data, not derived.                                                                                    |
+| Timezone             | Date parsing mixes `new Date('YYYY-MM-DD')` (UTC) and local `new Date(y, m, d)`. The code comments say the local form was adopted to fix a Monday-as-Sunday shift.                                                                 |
+
+### 13.3 Production behaviour (as implemented)
+
+- Model `hr.holidays` (`schema.prisma` `Holiday`); migration `20260930104120_add_hr_calendar`. Date is `DATE`; `name` must be non-blank; partial unique indexes allow one active holiday per `(organization, date)` for the whole organization and one per `(organization, date, work_location)` for a location.
+- Scope is the **work location**, not department. Legacy department scope is not carried over (see 13.4).
+- API: `apps/api/src/modules/hr/holidays` — list (by `year` or `from`/`to`, `workLocationId`, `organizationWide`, `isActive`), get, create, patch (`name`, `description` only), `deactivate` / `activate`. No DELETE: a wrong entry is deactivated and re-entered. Date and location scope are immutable. Duplicate active date+scope returns 409 `HOLIDAY_DATE_TAKEN`.
+- Permissions: `hr.holiday.read` (list/get, and `GET /hr/calendar/day`) and `hr.holiday.write` (create/update/activate/deactivate). Reads are organization-scoped reference data, not team-scoped.
+- Audit: `holiday` entity with `create`, `update`, `activate`, `deactivate`. Snapshots contain date, name, description, location id and active flag only.
+- Calendar resolution is shared: `apps/api/src/modules/hr/calendar/calendar.repository.ts` returns the holidays that apply to an employee on a date (organization-wide plus the employee's location) together with the weekly-off rules. Attendance and Leave use it. Holidays are never written into attendance rows.
+- Tests: `holidays.service.spec.ts` (unit); `calendar.service.spec.ts` (unit); `test/hr-calendar.e2e-spec.ts` (E2E: authorized and unauthorized list, create, update, deactivate/activate, duplicate date, organization isolation, location scope, weekly-off coexistence). Attendance, Leave and Full Month Present regressions are covered by their own E2E suites.
+
+### 13.4 Deliberate differences from legacy
+
+1. **Holidays are derived, not written.** Legacy wrote `Holiday` into attendance; production never writes holiday attendance. Editing a holiday changes reports and Leave day counts immediately, and stored attendance is left alone. This matches the Attendance calendar-precedence design.
+2. **No department scope.** Production scopes holidays to a work location or the whole organization.
+3. **Duplicates are rejected (409), not replaced.** Legacy silently replaced the entry for that date.
+4. **No hard delete.** Deactivate and re-enter keeps history.
+5. **No automatic Sunday holiday.** Production has no default weekly off. A weekly-off rule must be created (`weekly-off-rules`). Legacy assumed every Sunday was off.
+6. **`isRecurring` is not implemented.** Legacy always stored `false` and had no UI for it. Recurring holidays are not built.
+
+### 13.5 Unresolved business rules
+
+- Whether a past holiday date may be created or edited after the attendance period is closed. Production currently allows any date, as legacy did.
+- Whether holidays should be department-scoped as well as location-scoped (legacy has a department field). Needs an owner decision.
+- Whether the legacy `isRecurring` concept should exist at all.
+- Whether any existing legacy holiday records must be imported into production. No import exists.
+- Whether Sunday weekly-off should be seeded for each organization or left to admins (production: left to admins).
