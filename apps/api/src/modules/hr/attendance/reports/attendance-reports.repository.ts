@@ -15,6 +15,11 @@ export interface ReportEmployee {
   workLocationId: number | null;
 }
 
+export interface FullMonthEmployee extends ReportEmployee {
+  dateOfJoining: Date;
+  dateOfExit: Date | null;
+}
+
 /** Employees in the caller's team scope employed at any point in `from`..`to`
  * (joined on or before `to`, and not exited before `from`). Employment dates
  * are data already on the employee record; nothing here is assumed. */
@@ -62,6 +67,61 @@ export class AttendanceReportsRepository {
           fullName: true,
           teamId: true,
           workLocationId: true,
+        },
+        orderBy: [{ employeeCode: "asc" }, { id: "asc" }],
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
+    return { items: rows, total };
+  }
+
+  /** ACTIVE employees in the caller's team scope employed at any point in
+   * `from`..`to`. ACTIVE is the status legacy FMP.tsx lists (inactive, resigned
+   * and terminated employees are not shown). Employment dates are returned so
+   * the caller can decide whether the employee was employed the whole month. */
+  @TeamScoped()
+  async findActiveEmployeesEmployedBetween(
+    scope: TeamScope,
+    from: string,
+    to: string,
+    pagination: PaginationDto,
+    narrow: {
+      employeeId?: number | undefined;
+      teamId?: number | undefined;
+    } = {},
+  ): Promise<{ items: FullMonthEmployee[]; total: number }> {
+    const where = teamWhere(
+      scope,
+      {
+        deletedAt: null,
+        status: "ACTIVE",
+        dateOfJoining: { lte: parseDateOnly(to) },
+        AND: [
+          {
+            OR: [
+              { dateOfExit: null },
+              { dateOfExit: { gte: parseDateOnly(from) } },
+            ],
+          },
+        ],
+        ...(narrow.employeeId !== undefined ? { id: narrow.employeeId } : {}),
+        ...(narrow.teamId !== undefined ? { teamId: narrow.teamId } : {}),
+      },
+      { teamField: "teamId", ownerField: "userId" },
+    ) as Prisma.EmployeeWhereInput;
+    const [rows, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        select: {
+          id: true,
+          employeeCode: true,
+          fullName: true,
+          teamId: true,
+          workLocationId: true,
+          dateOfJoining: true,
+          dateOfExit: true,
         },
         orderBy: [{ employeeCode: "asc" }, { id: "asc" }],
         skip: pagination.skip,

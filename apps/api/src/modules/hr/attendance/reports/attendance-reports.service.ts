@@ -10,6 +10,7 @@ import { AttendanceDayContextRepository } from "../attendance-day-context.reposi
 import { AttendanceRepository } from "../attendance.repository.js";
 import type {
   DailyAttendanceReportQueryDto,
+  FullMonthPresentReportQueryDto,
   MissingPunchReportQueryDto,
   MonthlyAttendanceReportQueryDto,
   RangeAttendanceReportQueryDto,
@@ -21,7 +22,12 @@ import {
   type MissingPunchType,
 } from "./attendance-report-rules.js";
 import {
+  employedWholeMonthOf,
+  isFullMonthPresent,
+} from "./full-month-present-rules.js";
+import {
   istDateOf,
+  EFFECTIVE_STATUSES,
   type EffectiveStatus,
 } from "../services/attendance-calculation.service.js";
 import type { EmployeeRef } from "../services/attendance-day-resolver.js";
@@ -32,6 +38,7 @@ import {
 } from "../services/attendance-day-view.service.js";
 import {
   AttendanceReportsRepository,
+  type FullMonthEmployee,
   type ReportEmployee,
 } from "./attendance-reports.repository.js";
 
@@ -50,6 +57,22 @@ export interface MonthlySummaryRow {
   workedMinutes: number;
   overtimeMinutes: number;
   shortfallMinutes: number;
+}
+
+export interface FullMonthPresentRow {
+  employee: { id: number; employeeCode: string; fullName: string };
+  month: string;
+  /** True once the month's last day is before today (IST). */
+  monthComplete: boolean;
+  /** True when the employee was employed on the first and last day of the month. */
+  employedWholeMonth: boolean;
+  /** Counts over the days counted: the month up to and including today (IST). */
+  countsByStatus: Record<EffectiveStatus, number>;
+  presentDays: number;
+  /** Definition: full-month-present-rules.ts. */
+  fullMonthPresent: boolean;
+  /** The counted days in date order, with the derived status of each. */
+  days: { attendanceDate: string; status: EffectiveStatus }[];
 }
 
 export interface MissingPunchRow extends DayView {
@@ -132,6 +155,45 @@ export class AttendanceReportsService {
       for (const employee of items)
         rows.push(summarise(employee, query.month, []));
     }
+    return new PaginatedResponseDto(rows, total, query.page, query.limit);
+  }
+
+  /** Full Month Present for one calendar month: one row per ACTIVE employee in
+   * scope, employed during the month. Read-only; it persists nothing. Employees
+   * are paged, so `fullMonthPresent` is decided per row on this page only. */
+  async fullMonthPresent(query: FullMonthPresentReportQueryDto) {
+    const scope = await this.teamContext.resolveScope(REPORT_READ);
+    const from = `${query.month}-01`;
+    const last = lastDayOf(query.month);
+    const { items, total } =
+      await this.reportEmployees.findActiveEmployeesEmployedBetween(
+        scope,
+        from,
+        last,
+        query,
+        { employeeId: query.employeeId, teamId: query.teamId },
+      );
+    const today = istDateOf(new Date());
+    const monthComplete = last < today;
+    const counted = monthComplete ? last : today;
+    const views =
+      counted >= from ? await this.viewsFor(items, from, counted) : [];
+    const viewsByEmployee = new Map<number, DayView[]>();
+    for (const view of views) {
+      const list = viewsByEmployee.get(view.employeeId);
+      if (list) list.push(view);
+      else viewsByEmployee.set(view.employeeId, [view]);
+    }
+    const rows: FullMonthPresentRow[] = items.map((employee) =>
+      fullMonthPresentRow(
+        employee,
+        query.month,
+        from,
+        last,
+        monthComplete,
+        viewsByEmployee.get(employee.id) ?? [],
+      ),
+    );
     return new PaginatedResponseDto(rows, total, query.page, query.limit);
   }
 
@@ -293,6 +355,47 @@ function summarise(
     workedMinutes,
     overtimeMinutes,
     shortfallMinutes,
+  };
+}
+
+function fullMonthPresentRow(
+  employee: FullMonthEmployee,
+  month: string,
+  firstDay: string,
+  lastDay: string,
+  monthComplete: boolean,
+  views: readonly DayView[],
+): FullMonthPresentRow {
+  const countsByStatus = Object.fromEntries(
+    EFFECTIVE_STATUSES.map((status) => [status, 0]),
+  ) as Record<EffectiveStatus, number>;
+  for (const v of views) countsByStatus[v.status] += 1;
+  const employedWholeMonth = employedWholeMonthOf(
+    formatDateOnly(employee.dateOfJoining),
+    employee.dateOfExit ? formatDateOnly(employee.dateOfExit) : null,
+    firstDay,
+    lastDay,
+  );
+  return {
+    employee: {
+      id: employee.id,
+      employeeCode: employee.employeeCode,
+      fullName: employee.fullName,
+    },
+    month,
+    monthComplete,
+    employedWholeMonth,
+    countsByStatus,
+    presentDays: countsByStatus.PRESENT,
+    fullMonthPresent: isFullMonthPresent({
+      monthComplete,
+      employedWholeMonth,
+      statuses: views.map((v) => v.status),
+    }),
+    days: views.map((v) => ({
+      attendanceDate: v.attendanceDate,
+      status: v.status,
+    })),
   };
 }
 

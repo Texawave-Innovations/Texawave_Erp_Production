@@ -49,3 +49,20 @@ export class MonthlyAttendanceReportQueryDto extends PaginationDto {
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
   month!: string;
 }
+
+/** A calendar month with the same optional narrowing as the range reports. */
+export class FullMonthPresentReportQueryDto extends MonthlyAttendanceReportQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  employeeId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  teamId?: number;
+}

@@ -95,7 +95,8 @@ See `Docs/ATTENDANCE_DATABASE_DESIGN.md`.
   seeded but denied in code, "exists only so the permission family is complete").
 - **Reports**: `GET /hr/attendance/reports/daily-summary`,
   `GET /hr/attendance/reports/monthly-summary`, `GET /hr/attendance/reports/missing-punches`,
-  `GET /hr/attendance/reports/overtime` — read-only, `.own`/`.team`/`.all` scoped the same way as
+  `GET /hr/attendance/reports/overtime`, `GET /hr/attendance/reports/full-month-present` — read-only,
+  `.own`/`.team`/`.all` scoped the same way as
   the records endpoint. (Monthly sign-off/lock — legacy §5.3 — is explicitly NOT included until
   the unresolved legacy behavior in `ATTENDANCE_LEGACY_PARITY.md` §1.3/§5.3 is confirmed; see §5.)
 
@@ -197,6 +198,7 @@ Code: `apps/api/src/modules/hr/attendance/`. Module: `AttendanceModule` (importe
 | `GET /hr/attendance/reports/monthly?month=YYYY-MM`                        | `hr.attendance_report.read` (scoped)                 | Per-employee counts by derived status, and totals.                                                                                                                                      |
 | `GET /hr/attendance/reports/missing-punches?from&to`                      | `hr.attendance_report.read` (scoped)                 | New derived report. Open checkout on a past day, or stored PRESENT with no check-in.                                                                                                    |
 | `GET /hr/attendance/reports/overtime?from&to`                             | `hr.attendance_report.read` (scoped)                 | New derived report. Overtime per employee and the days it was produced.                                                                                                                 |
+| `GET /hr/attendance/reports/full-month-present?month=YYYY-MM`             | `hr.attendance_report.read` (scoped)                 | New derived report. Active employees; `fullMonthPresent` per the rule in the Full Month Present section. Read-only, nothing persisted.                                                  |
 
 Route order matters: the corrections and reports controllers are registered before the attendance
 controller, so `/hr/attendance/corrections` is never read as `:id`.
@@ -297,7 +299,34 @@ All reports read the shared day views. Report rules (what a row means) live in
   half-day and absent days produce 0 overtime and therefore no row. A monthly total is a range of
   one month.
 
-Both new reports use the existing `hr.attendance_report.read` permission (`.own`/`.team`/`.all`). A
+- **Full Month Present** (`/reports/full-month-present?month=YYYY-MM&employeeId&teamId`). **New
+  derived report, not legacy parity.** Legacy `src/modules/hr/FMP.tsx` shows a P/L/H/A grid and
+  states no qualifying rule, so the rule below is production's. Definition
+  (`reports/full-month-present-rules.ts`):
+  - Population: ACTIVE employees in scope employed at any point in the month. Legacy also lists only
+    active employees (`status` active or missing); RESIGNED, TERMINATED and INACTIVE are not listed.
+  - `fullMonthPresent` requires all of: the month is complete (its last day is before today, IST);
+    the employee was employed on the 1st and on the last day; and every working day is `PRESENT`.
+    Working days are every counted day that is not `HOLIDAY` or `WEEKLY_OFF`. There must be at
+    least one working day.
+  - `ABSENT`, `HALF_DAY`, `ON_LEAVE` and `NOT_MARKED` each disqualify. A missing check-out on a past
+    day keeps the derived status `PRESENT`, so it does not disqualify. The missing-punch report flags it.
+  - Every status comes from the shared day views. The report adds no status or hour rule.
+  - Deviations from legacy, taken on purpose: legacy counts `Half Day` as `P` (production keeps
+    `HALF_DAY` separate and disqualifies it); legacy shows `A` for any unmarked day including future
+    dates (production counts through today only); legacy `FMP.tsx` does not treat Sundays as off days,
+    and marks `H` only for an explicit `Holiday` or `Week Off` status or a holiday-list date
+    (production uses the weekly-off rules). The legacy Documents tab matrix (`hrComputations.ts`) does
+    treat Sundays as `H`, so the two legacy views disagree.
+  - Open business decisions: mid-month joiners and leavers are listed but never qualify, because the
+    rule does not define a partial-month qualification. Whether `HALF_DAY` should qualify, and whether
+    a missing check-out should disqualify, are unresolved. Current behavior follows the production
+    status rules.
+  - Pagination is over employees. `fullMonthPresent` is decided per row, so it does not depend on the
+    page.
+
+All the new reports (missing-punch, overtime, full-month-present) use the existing
+`hr.attendance_report.read` permission (`.own`/`.team`/`.all`). A
 separate permission would be redundant with the daily and monthly reports. Pagination is over
 employees. The missing-punch `type` filter is applied to the rows of the page, so a page can hold
 fewer than `limit` rows when a type is requested.

@@ -4,6 +4,7 @@ import { Paginate } from "../../../../common/decorators/paginate.decorator.js";
 import { RequireScopedPermission } from "../../../../common/decorators/require-permission.decorator.js";
 import {
   DailyAttendanceReportQueryDto,
+  FullMonthPresentReportQueryDto,
   MissingPunchReportQueryDto,
   MonthlyAttendanceReportQueryDto,
   RangeAttendanceReportQueryDto,
@@ -40,6 +41,19 @@ export class AttendanceReportsController {
     query: MonthlyAttendanceReportQueryDto,
   ) {
     return this.reports.monthly(query);
+  }
+
+  @Get("full-month-present")
+  @RequireScopedPermission("hr.attendance_report.read")
+  @ApiOperation({
+    summary:
+      "Full Month Present for a calendar month: active employees in scope, with per-day derived status and whether every working day was PRESENT",
+  })
+  fullMonthPresent(
+    @Paginate(FullMonthPresentReportQueryDto)
+    query: FullMonthPresentReportQueryDto,
+  ) {
+    return this.reports.fullMonthPresent(query);
   }
 
   @Get("missing-punches")
