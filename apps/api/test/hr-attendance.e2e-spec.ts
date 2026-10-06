@@ -602,6 +602,58 @@ describe("HR attendance (e2e)", () => {
       expect(errorOf(r)).toBe("CORRECTION_NOT_APPLICABLE");
     });
 
+    it("refuses a second request for a date that already has one, even after it was rejected", async () => {
+      const first = await submit("requester", {
+        attendanceDate: "2026-06-10",
+        correctionType: "MISSED_CHECK_OUT",
+        requestedCheckOutAt: "2026-06-10T13:00:00.000Z",
+        reason: "forgot to check out",
+      }).expect(201);
+      const id = (first.body as Body<Correction>).data.id;
+
+      const again = await submit("requester", {
+        attendanceDate: "2026-06-10",
+        correctionType: "MISSED_CHECK_IN",
+        requestedCheckInAt: "2026-06-10T04:30:00.000Z",
+        reason: "second attempt",
+      }).expect(409);
+      expect(errorOf(again)).toBe("CORRECTION_ALREADY_REQUESTED");
+
+      await post("hrDecider", `/hr/attendance/corrections/${id}/reject`, {
+        note: "no open session",
+      }).expect(200);
+
+      const afterReject = await submit("requester", {
+        attendanceDate: "2026-06-10",
+        correctionType: "MISSED_CHECK_OUT",
+        requestedCheckOutAt: "2026-06-10T13:00:00.000Z",
+        reason: "resubmitting",
+      }).expect(409);
+      expect(errorOf(afterReject)).toBe("CORRECTION_ALREADY_REQUESTED");
+    });
+
+    it("concurrent submissions for one date create exactly one request", async () => {
+      const body = {
+        attendanceDate: "2026-06-11",
+        correctionType: "MISSED_CHECK_OUT",
+        requestedCheckOutAt: "2026-06-11T13:00:00.000Z",
+        reason: "double click",
+      };
+      const results = await Promise.all([
+        submit("requester", body),
+        submit("requester", body),
+      ]);
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+
+      const rows = await prisma.attendanceCorrection.count({
+        where: {
+          employeeId: emp.requester!,
+          attendanceDate: new Date("2026-06-11T00:00:00Z"),
+        },
+      });
+      expect(rows).toBe(1);
+    });
+
     it("an employee cannot decide their own correction", async () => {
       const selfApprover = await mkUser(orgA, "selfApprover", [
         "hr.attendance_correction.approve.all",

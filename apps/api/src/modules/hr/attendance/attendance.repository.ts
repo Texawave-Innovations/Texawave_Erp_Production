@@ -450,7 +450,9 @@ export class AttendanceRepository {
 
   // ---- shared helpers -------------------------------------------------------
 
-  private async lockEmployee(
+  /** Serialises every punch-changing write for one employee. Public so the
+   * correction repository can take the same lock around its duplicate check. */
+  async lockEmployee(
     tx: Prisma.TransactionClient,
     scope: OrgScope,
     employeeId: number,

@@ -8,6 +8,7 @@ import { OrgScoped } from "../../../../common/decorators/org-scoped.decorator.js
 import { TeamScoped } from "../../../../common/decorators/team-scoped.decorator.js";
 import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import {
+  BusinessRuleConflictException,
   InvalidStateTransitionException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
@@ -128,6 +129,10 @@ export class AttendanceCorrectionsRepository {
     private readonly attendance: AttendanceRepository,
   ) {}
 
+  /** One request per employee per attendance date, whatever its status — the
+   * legacy rule (`MyAttendance.tsx`: a date with any request cannot be
+   * resubmitted). The employee lock makes the check and the insert one step
+   * against a concurrent submission for the same employee. */
   @OrgScoped()
   async create(
     scope: OrgScope,
@@ -135,11 +140,29 @@ export class AttendanceCorrectionsRepository {
     userId: number,
   ): Promise<CorrectionView> {
     return this.prisma.$transaction(async (tx) => {
+      await this.attendance.lockEmployee(tx, scope, input.employeeId);
+      const attendanceDate = parseDateOnly(input.attendanceDate);
+      const existing = await tx.attendanceCorrection.findFirst({
+        where: {
+          organizationId: scope.organizationId,
+          employeeId: input.employeeId,
+          attendanceDate,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new BusinessRuleConflictException(
+          "A correction has already been requested for this date",
+          "CORRECTION_ALREADY_REQUESTED",
+        );
+      }
+
       const row = await tx.attendanceCorrection.create({
         data: {
           organizationId: scope.organizationId,
           employeeId: input.employeeId,
-          attendanceDate: parseDateOnly(input.attendanceDate),
+          attendanceDate,
           correctionType: input.correctionType,
           requestedCheckInAt: input.requestedCheckInAt
             ? new Date(input.requestedCheckInAt)
