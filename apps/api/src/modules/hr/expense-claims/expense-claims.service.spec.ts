@@ -47,7 +47,6 @@ const validClaim = {
   amount: 1250.5,
   expenseDate: "2020-01-15",
   description: "Cab to client site",
-  receiptRef: undefined,
 };
 
 describe("ExpenseClaimsService", () => {
@@ -71,7 +70,7 @@ describe("ExpenseClaimsService", () => {
   it("decide() refuses an own-level holder before reading any claim", async () => {
     const { service, repository } = makeService("own");
     await expect(
-      service.decide(5, { decision: "APPROVED", note: undefined }),
+      service.decide(5, { decision: "APPROVED" } as never),
     ).rejects.toBeInstanceOf(ExpenseClaimDecisionScopeException);
     expect(repository.decide).not.toHaveBeenCalled();
   });
@@ -96,7 +95,7 @@ describe("ExpenseClaimsService", () => {
     const { service, repository } = makeService("team");
     repository.decide.mockResolvedValue(null);
     await expect(
-      service.decide(5, { decision: "APPROVED", note: undefined }),
+      service.decide(5, { decision: "APPROVED" } as never),
     ).rejects.toBeInstanceOf(ResourceNotFoundException);
   });
 
