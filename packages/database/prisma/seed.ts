@@ -150,6 +150,14 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-attendance",
+      label: "Attendance",
+      path: "/hr/attendance",
+      order: 5,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
