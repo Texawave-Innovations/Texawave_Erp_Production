@@ -6,12 +6,16 @@ import { TenantContextService } from "../../../platform/tenancy/tenant-context.s
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
 import type {
   ApproveLeaveRequestDto,
+  CancelLeaveRequestDto,
   CreateLeaveRequestDto,
+  HrLeaveBalanceQueryDto,
+  LeaveBalanceQueryDto,
   QueryLeaveRequestDto,
   QueryMyLeaveRequestDto,
   RejectLeaveRequestDto,
+  SetLeaveEntitlementDto,
 } from "./dto/leave-request.dto.js";
-import { LeaveRequestsRepository } from "./leave-requests.repository.js";
+import { LeaveRequestsRepository, today } from "./leave-requests.repository.js";
 
 const READ = "hr.leave_request.read";
 const APPROVE = "hr.leave.approve";
@@ -76,6 +80,42 @@ export class LeaveRequestsService {
     return row;
   }
 
+  /** Balances of one employee, within the caller's scope (else 404). */
+  async hrBalances(query: HrLeaveBalanceQueryDto) {
+    const scope = await this.teamContext.resolveScope(READ);
+    const visible = await this.repository.employeeVisible(
+      scope,
+      query.employeeId,
+    );
+    if (!visible) {
+      throw new ResourceNotFoundException("Employee", query.employeeId);
+    }
+    return this.balanceSheet(
+      query.employeeId,
+      query.year ?? Number(today().slice(0, 4)),
+    );
+  }
+
+  /** Sets or clears one employee's annual entitlement override. Org-wide
+   * administration, gated by `hr.leave_type.write` at the controller. */
+  async setEntitlement(
+    employeeId: number,
+    leaveTypeId: number,
+    year: number,
+    dto: SetLeaveEntitlementDto,
+  ) {
+    return this.repository.setEntitlement(
+      this.tenantContext.getOrgScope(),
+      {
+        employeeId,
+        leaveTypeId,
+        year,
+        annualEntitlement: dto.annualEntitlement,
+      },
+      this.tenantContext.getUserId(),
+    );
+  }
+
   // ---- self-service (the authenticated user's own employee record) ---------
 
   /** Submits leave for the AUTHENTICATED user's employee. The employee is
@@ -99,5 +139,62 @@ export class LeaveRequestsService {
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  async findMineOne(id: number) {
+    const employee = await this.employees.getCurrentEmployee();
+    const row = await this.repository.findMineOne(
+      this.tenantContext.getOrgScope(),
+      employee.id,
+      id,
+    );
+    if (!row) throw new ResourceNotFoundException("Leave request", id);
+    return row;
+  }
+
+  async cancelMine(id: number, dto: CancelLeaveRequestDto) {
+    const employee = await this.employees.getCurrentEmployee();
+    const row = await this.repository.cancel(
+      this.tenantContext.getOrgScope(),
+      employee.id,
+      id,
+      dto.note,
+      this.tenantContext.getUserId(),
+      today(),
+    );
+    if (!row) throw new ResourceNotFoundException("Leave request", id);
+    return row;
+  }
+
+  async resubmitMine(id: number) {
+    const employee = await this.employees.getCurrentEmployee();
+    const row = await this.repository.resubmit(
+      this.tenantContext.getOrgScope(),
+      employee.id,
+      id,
+      this.tenantContext.getUserId(),
+      today(),
+    );
+    if (!row) throw new ResourceNotFoundException("Leave request", id);
+    return row;
+  }
+
+  async myBalances(query: LeaveBalanceQueryDto) {
+    const employee = await this.employees.getCurrentEmployee();
+    return this.balanceSheet(
+      employee.id,
+      query.year ?? Number(today().slice(0, 4)),
+    );
+  }
+
+  private async balanceSheet(employeeId: number, year: number) {
+    const rows = await this.repository.balanceSheet(
+      this.tenantContext.getOrgScope(),
+      employeeId,
+      year,
+      today(),
+    );
+    if (!rows) throw new ResourceNotFoundException("Employee", employeeId);
+    return rows;
   }
 }

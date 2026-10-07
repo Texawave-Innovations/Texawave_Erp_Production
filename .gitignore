@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turborepo
 .turbo/
+
+# Employee document uploads (local disk) — back up with the database, never commit
+apps/api/storage/

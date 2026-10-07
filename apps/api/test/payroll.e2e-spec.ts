@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
+import { FieldEncryptionService } from "../src/shared/crypto/field-encryption.service.js";
 import { PrismaService } from "../src/shared/prisma/prisma.service.js";
 
 interface Body<T> {
@@ -386,48 +387,45 @@ describe("Payroll & Compliance (e2e)", () => {
       effectiveFrom: "2026-01-01",
     }).expect(200);
 
-    // Bank details (IFSC/PAN given in lower case are normalised)
-    const bankRes = await put("admin", `/hr/bank-details/${employeeId1}`, {
-      bankName: "HDFC Bank",
-      accountNumber: "50100123456789",
-      ifscCode: "hdfc0001234",
-      panNumber: "abcde1234f",
-      aadhaarNumber: "123456789012",
-    }).expect(200);
-    const bank = dataOf<{
-      accountNumber: string;
-      ifscCode: string;
-      panNumber: string;
-      aadhaarNumber: string;
-    }>(bankRes);
-    // Sensitive numbers never come back in full
-    expect(bank.accountNumber).toBe("**********6789");
-    expect(bank.panNumber).toBe("******234F");
-    expect(bank.aadhaarNumber).toBe("********9012");
-    expect(bank.ifscCode).toBe("HDFC0001234");
-
-    const stored = await prisma.employeeBankDetails.findUniqueOrThrow({
-      where: { employeeId: employeeId1 },
-    });
-    expect(stored.accountNumber).toBe("50100123456789");
-    expect(stored.panNumber).toBe("ABCDE1234F");
-
-    await put("admin", `/hr/bank-details/${employeeId2}`, {
-      bankName: "State Bank of India",
-      accountNumber: "20100123456789",
-      ifscCode: "SBIN0001234",
-    }).expect(200);
-
-    // The change is in the audit trail, masked
-    const audit = await prisma.auditLog.findFirst({
-      where: {
+    // Bank details and PAN come from the employee's onboarding record —
+    // payroll has no write endpoint of its own for them.
+    const encryption = app.get(FieldEncryptionService);
+    const seedBank = (
+      employeeId: number,
+      accountNumber: string,
+      ifsc: string,
+      bankName: string,
+    ) =>
+      prisma.employeeBankDetail.create({
+        data: {
+          organizationId: org.id,
+          teamId,
+          employeeId,
+          accountHolderName: "Test Holder",
+          accountNumberEncrypted: encryption.encrypt(accountNumber),
+          accountNumberMasked: encryption.mask(accountNumber),
+          ifsc,
+          bankName,
+        },
+      });
+    await seedBank(employeeId1, "50100123456789", "HDFC0001234", "HDFC Bank");
+    await seedBank(
+      employeeId2,
+      "20100123456789",
+      "SBIN0001234",
+      "State Bank of India",
+    );
+    await prisma.employeeGovernmentId.create({
+      data: {
         organizationId: org.id,
-        entityType: "employee_bank_details",
-        entityId: BigInt(stored.id),
+        teamId,
+        employeeId: employeeId1,
+        panNumber: "ABCDE1234F",
       },
     });
-    expect(audit).not.toBeNull();
-    expect(JSON.stringify(audit?.after)).not.toContain("50100123456789");
+
+    // The old payroll-owned bank-details endpoint is gone
+    await put("admin", `/hr/bank-details/${employeeId1}`, {}).expect(404);
   });
 
   it("3. creates employee loan and bonus; bonus needs a second approver", async () => {
@@ -582,7 +580,12 @@ describe("Payroll & Compliance (e2e)", () => {
       employeeId: number;
       netPayable: number | string;
       payslipNumber: string;
-      employee: { bankDetails: { accountNumber: string } | null };
+      employee: {
+        bankDetails: {
+          accountNumber: string;
+          panNumber?: string | null;
+        } | null;
+      };
     }
     const payslips = dataOf<PayslipItem[]>(payslipsRes);
     expect(payslips).toHaveLength(2);
@@ -591,7 +594,8 @@ describe("Payroll & Compliance (e2e)", () => {
     expect(ps1).toBeDefined();
     expect(Number(ps1?.netPayable)).toBe(52200);
     expect(ps1?.payslipNumber).toMatch(/^PS-202605-/);
-    expect(ps1?.employee.bankDetails?.accountNumber).toBe("**********6789");
+    expect(ps1?.employee.bankDetails?.accountNumber).toBe("XXXXXXXXXX6789");
+    expect(ps1?.employee.bankDetails?.panNumber).toBe("******234F");
 
     // The May installment of loan 1 is settled, the loan stays active
     const repayments = await prisma.loanRepayment.findMany({
@@ -624,7 +628,7 @@ describe("Payroll & Compliance (e2e)", () => {
     expect(bData.totalEmployees).toBe(2);
     expect(Number(bData.totalAmount)).toBe(52200 + 19850);
     for (const p of bData.payments) {
-      expect(p.employee.bankDetails?.accountNumber).toMatch(/^\*+\d{4}$/);
+      expect(p.employee.bankDetails?.accountNumber).toMatch(/^X+\d{4}$/);
     }
 
     // A second payout batch for the same period is refused
@@ -682,19 +686,6 @@ describe("Payroll & Compliance (e2e)", () => {
   });
 
   it("9. keeps team-level grants inside their teams and out of org-wide operations", async () => {
-    const bank = {
-      bankName: "Attacker Bank",
-      accountNumber: "99999999999999",
-      ifscCode: "ATKR0000001",
-    };
-    // Team B employee: invisible to a Team A lead, and their account untouched
-    await put("teamlead", `/hr/bank-details/${employeeId3}`, bank).expect(404);
-    expect(
-      await prisma.employeeBankDetails.findUnique({
-        where: { employeeId: employeeId3 },
-      }),
-    ).toBeNull();
-
     // Salary structures: same boundary
     await post("teamlead", "/hr/salaries", {
       employeeId: employeeId3,
@@ -702,13 +693,6 @@ describe("Payroll & Compliance (e2e)", () => {
       hra: 5000,
       effectiveFrom: "2027-01-01",
     }).expect(404);
-
-    // Team A employee: allowed
-    await put("teamlead", `/hr/bank-details/${employeeId2}`, {
-      bankName: "State Bank of India",
-      accountNumber: "20100123456789",
-      ifscCode: "SBIN0001234",
-    }).expect(200);
 
     // Org-wide payroll operations need an .all grant
     await post("teamlead", "/hr/payroll/periods", {

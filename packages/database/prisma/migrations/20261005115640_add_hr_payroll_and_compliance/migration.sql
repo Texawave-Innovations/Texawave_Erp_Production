@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "payroll_periods" (
+CREATE TABLE "hr"."payroll_periods" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "year" INTEGER NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE "payroll_periods" (
 );
 
 -- CreateTable
-CREATE TABLE "payroll_runs" (
+CREATE TABLE "hr"."payroll_runs" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_period_id" INTEGER NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE "payroll_runs" (
 );
 
 -- CreateTable
-CREATE TABLE "payroll_entries" (
+CREATE TABLE "hr"."payroll_entries" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_run_id" INTEGER NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE "payroll_entries" (
 );
 
 -- CreateTable
-CREATE TABLE "payroll_earnings" (
+CREATE TABLE "hr"."payroll_earnings" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_entry_id" INTEGER NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE "payroll_earnings" (
 );
 
 -- CreateTable
-CREATE TABLE "payroll_deductions" (
+CREATE TABLE "hr"."payroll_deductions" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_entry_id" INTEGER NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE "payroll_deductions" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_salaries" (
+CREATE TABLE "hr"."employee_salaries" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "employee_id" INTEGER NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE "employee_salaries" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_pf_profiles" (
+CREATE TABLE "hr"."employee_pf_profiles" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "employee_id" INTEGER NOT NULL,
@@ -166,7 +166,7 @@ CREATE TABLE "employee_pf_profiles" (
 );
 
 -- CreateTable
-CREATE TABLE "pf_contributions" (
+CREATE TABLE "hr"."pf_contributions" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_period_id" INTEGER NOT NULL,
@@ -190,7 +190,7 @@ CREATE TABLE "pf_contributions" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_esi_profiles" (
+CREATE TABLE "hr"."employee_esi_profiles" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "employee_id" INTEGER NOT NULL,
@@ -210,7 +210,7 @@ CREATE TABLE "employee_esi_profiles" (
 );
 
 -- CreateTable
-CREATE TABLE "esi_contributions" (
+CREATE TABLE "hr"."esi_contributions" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_period_id" INTEGER NOT NULL,
@@ -234,7 +234,7 @@ CREATE TABLE "esi_contributions" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_loans" (
+CREATE TABLE "hr"."employee_loans" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "employee_id" INTEGER NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE "employee_loans" (
 );
 
 -- CreateTable
-CREATE TABLE "loan_repayments" (
+CREATE TABLE "hr"."loan_repayments" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "loan_id" INTEGER NOT NULL,
@@ -279,7 +279,7 @@ CREATE TABLE "loan_repayments" (
 );
 
 -- CreateTable
-CREATE TABLE "loan_skip_requests" (
+CREATE TABLE "hr"."loan_skip_requests" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "loan_id" INTEGER NOT NULL,
@@ -302,7 +302,7 @@ CREATE TABLE "loan_skip_requests" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_bonuses" (
+CREATE TABLE "hr"."employee_bonuses" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "employee_id" INTEGER NOT NULL,
@@ -328,7 +328,7 @@ CREATE TABLE "employee_bonuses" (
 );
 
 -- CreateTable
-CREATE TABLE "payslips" (
+CREATE TABLE "hr"."payslips" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_period_id" INTEGER NOT NULL,
@@ -351,7 +351,7 @@ CREATE TABLE "payslips" (
 );
 
 -- CreateTable
-CREATE TABLE "payment_batches" (
+CREATE TABLE "hr"."payment_batches" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payroll_period_id" INTEGER NOT NULL,
@@ -375,7 +375,7 @@ CREATE TABLE "payment_batches" (
 );
 
 -- CreateTable
-CREATE TABLE "payroll_payments" (
+CREATE TABLE "hr"."payroll_payments" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "payment_batch_id" INTEGER NOT NULL,
@@ -397,329 +397,296 @@ CREATE TABLE "payroll_payments" (
     CONSTRAINT "payroll_payments_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "employee_bank_details" (
-    "id" SERIAL NOT NULL,
-    "organization_id" INTEGER NOT NULL,
-    "employee_id" INTEGER NOT NULL,
-    "bank_name" TEXT NOT NULL,
-    "account_number" TEXT NOT NULL,
-    "ifsc_code" TEXT NOT NULL,
-    "pan_number" TEXT,
-    "aadhaar_number" TEXT,
-    "custom_fields" JSONB NOT NULL DEFAULT '{}',
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_by" INTEGER,
-    "updated_by" INTEGER,
-    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-    "deleted_at" TIMESTAMPTZ(6),
-
-    CONSTRAINT "employee_bank_details_pkey" PRIMARY KEY ("id")
-);
+-- CreateIndex
+CREATE INDEX "payroll_periods_organization_id_status_idx" ON "hr"."payroll_periods"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "payroll_periods_organization_id_status_idx" ON "payroll_periods"("organization_id", "status");
+CREATE UNIQUE INDEX "payroll_periods_organization_id_year_month_key" ON "hr"."payroll_periods"("organization_id", "year", "month");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payroll_periods_organization_id_year_month_key" ON "payroll_periods"("organization_id", "year", "month");
+CREATE INDEX "payroll_runs_organization_id_payroll_period_id_idx" ON "hr"."payroll_runs"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_runs_organization_id_payroll_period_id_idx" ON "payroll_runs"("organization_id", "payroll_period_id");
+CREATE INDEX "payroll_runs_organization_id_status_idx" ON "hr"."payroll_runs"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "payroll_runs_organization_id_status_idx" ON "payroll_runs"("organization_id", "status");
+CREATE UNIQUE INDEX "payroll_runs_payroll_period_id_run_number_key" ON "hr"."payroll_runs"("payroll_period_id", "run_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payroll_runs_payroll_period_id_run_number_key" ON "payroll_runs"("payroll_period_id", "run_number");
+CREATE INDEX "payroll_entries_organization_id_payroll_run_id_idx" ON "hr"."payroll_entries"("organization_id", "payroll_run_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_entries_organization_id_payroll_run_id_idx" ON "payroll_entries"("organization_id", "payroll_run_id");
+CREATE INDEX "payroll_entries_organization_id_employee_id_idx" ON "hr"."payroll_entries"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_entries_organization_id_employee_id_idx" ON "payroll_entries"("organization_id", "employee_id");
+CREATE INDEX "payroll_entries_organization_id_status_idx" ON "hr"."payroll_entries"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "payroll_entries_organization_id_status_idx" ON "payroll_entries"("organization_id", "status");
+CREATE UNIQUE INDEX "payroll_entries_payroll_run_id_employee_id_key" ON "hr"."payroll_entries"("payroll_run_id", "employee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payroll_entries_payroll_run_id_employee_id_key" ON "payroll_entries"("payroll_run_id", "employee_id");
+CREATE INDEX "payroll_earnings_organization_id_payroll_entry_id_idx" ON "hr"."payroll_earnings"("organization_id", "payroll_entry_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_earnings_organization_id_payroll_entry_id_idx" ON "payroll_earnings"("organization_id", "payroll_entry_id");
+CREATE INDEX "payroll_earnings_payroll_entry_id_code_idx" ON "hr"."payroll_earnings"("payroll_entry_id", "code");
 
 -- CreateIndex
-CREATE INDEX "payroll_earnings_payroll_entry_id_code_idx" ON "payroll_earnings"("payroll_entry_id", "code");
+CREATE INDEX "payroll_deductions_organization_id_payroll_entry_id_idx" ON "hr"."payroll_deductions"("organization_id", "payroll_entry_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_deductions_organization_id_payroll_entry_id_idx" ON "payroll_deductions"("organization_id", "payroll_entry_id");
+CREATE INDEX "payroll_deductions_payroll_entry_id_code_idx" ON "hr"."payroll_deductions"("payroll_entry_id", "code");
 
 -- CreateIndex
-CREATE INDEX "payroll_deductions_payroll_entry_id_code_idx" ON "payroll_deductions"("payroll_entry_id", "code");
+CREATE INDEX "employee_salaries_organization_id_employee_id_effective_fro_idx" ON "hr"."employee_salaries"("organization_id", "employee_id", "effective_from");
 
 -- CreateIndex
-CREATE INDEX "employee_salaries_organization_id_employee_id_effective_fro_idx" ON "employee_salaries"("organization_id", "employee_id", "effective_from");
+CREATE UNIQUE INDEX "employee_pf_profiles_employee_id_key" ON "hr"."employee_pf_profiles"("employee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_pf_profiles_employee_id_key" ON "employee_pf_profiles"("employee_id");
+CREATE INDEX "employee_pf_profiles_organization_id_employee_id_idx" ON "hr"."employee_pf_profiles"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_pf_profiles_organization_id_employee_id_idx" ON "employee_pf_profiles"("organization_id", "employee_id");
+CREATE INDEX "pf_contributions_organization_id_payroll_period_id_idx" ON "hr"."pf_contributions"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "pf_contributions_organization_id_payroll_period_id_idx" ON "pf_contributions"("organization_id", "payroll_period_id");
+CREATE INDEX "pf_contributions_organization_id_employee_id_idx" ON "hr"."pf_contributions"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "pf_contributions_organization_id_employee_id_idx" ON "pf_contributions"("organization_id", "employee_id");
+CREATE UNIQUE INDEX "pf_contributions_payroll_period_id_employee_id_key" ON "hr"."pf_contributions"("payroll_period_id", "employee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "pf_contributions_payroll_period_id_employee_id_key" ON "pf_contributions"("payroll_period_id", "employee_id");
+CREATE UNIQUE INDEX "employee_esi_profiles_employee_id_key" ON "hr"."employee_esi_profiles"("employee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_esi_profiles_employee_id_key" ON "employee_esi_profiles"("employee_id");
+CREATE INDEX "employee_esi_profiles_organization_id_employee_id_idx" ON "hr"."employee_esi_profiles"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_esi_profiles_organization_id_employee_id_idx" ON "employee_esi_profiles"("organization_id", "employee_id");
+CREATE INDEX "esi_contributions_organization_id_payroll_period_id_idx" ON "hr"."esi_contributions"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "esi_contributions_organization_id_payroll_period_id_idx" ON "esi_contributions"("organization_id", "payroll_period_id");
+CREATE INDEX "esi_contributions_organization_id_employee_id_idx" ON "hr"."esi_contributions"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "esi_contributions_organization_id_employee_id_idx" ON "esi_contributions"("organization_id", "employee_id");
+CREATE UNIQUE INDEX "esi_contributions_payroll_period_id_employee_id_key" ON "hr"."esi_contributions"("payroll_period_id", "employee_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "esi_contributions_payroll_period_id_employee_id_key" ON "esi_contributions"("payroll_period_id", "employee_id");
+CREATE INDEX "employee_loans_organization_id_employee_id_idx" ON "hr"."employee_loans"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_loans_organization_id_employee_id_idx" ON "employee_loans"("organization_id", "employee_id");
+CREATE INDEX "employee_loans_organization_id_status_idx" ON "hr"."employee_loans"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "employee_loans_organization_id_status_idx" ON "employee_loans"("organization_id", "status");
+CREATE UNIQUE INDEX "employee_loans_organization_id_loan_number_key" ON "hr"."employee_loans"("organization_id", "loan_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_loans_organization_id_loan_number_key" ON "employee_loans"("organization_id", "loan_number");
+CREATE INDEX "loan_repayments_organization_id_loan_id_idx" ON "hr"."loan_repayments"("organization_id", "loan_id");
 
 -- CreateIndex
-CREATE INDEX "loan_repayments_organization_id_loan_id_idx" ON "loan_repayments"("organization_id", "loan_id");
+CREATE INDEX "loan_repayments_loan_id_status_idx" ON "hr"."loan_repayments"("loan_id", "status");
 
 -- CreateIndex
-CREATE INDEX "loan_repayments_loan_id_status_idx" ON "loan_repayments"("loan_id", "status");
+CREATE UNIQUE INDEX "loan_repayments_loan_id_installment_no_key" ON "hr"."loan_repayments"("loan_id", "installment_no");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "loan_repayments_loan_id_installment_no_key" ON "loan_repayments"("loan_id", "installment_no");
+CREATE INDEX "loan_skip_requests_organization_id_loan_id_idx" ON "hr"."loan_skip_requests"("organization_id", "loan_id");
 
 -- CreateIndex
-CREATE INDEX "loan_skip_requests_organization_id_loan_id_idx" ON "loan_skip_requests"("organization_id", "loan_id");
+CREATE INDEX "loan_skip_requests_organization_id_status_idx" ON "hr"."loan_skip_requests"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "loan_skip_requests_organization_id_status_idx" ON "loan_skip_requests"("organization_id", "status");
+CREATE UNIQUE INDEX "loan_skip_requests_loan_id_payroll_period_id_key" ON "hr"."loan_skip_requests"("loan_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "loan_skip_requests_loan_id_payroll_period_id_key" ON "loan_skip_requests"("loan_id", "payroll_period_id");
+CREATE INDEX "employee_bonuses_organization_id_employee_id_idx" ON "hr"."employee_bonuses"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_bonuses_organization_id_employee_id_idx" ON "employee_bonuses"("organization_id", "employee_id");
+CREATE INDEX "employee_bonuses_organization_id_payroll_period_id_idx" ON "hr"."employee_bonuses"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "employee_bonuses_organization_id_payroll_period_id_idx" ON "employee_bonuses"("organization_id", "payroll_period_id");
+CREATE INDEX "employee_bonuses_organization_id_status_idx" ON "hr"."employee_bonuses"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "employee_bonuses_organization_id_status_idx" ON "employee_bonuses"("organization_id", "status");
+CREATE UNIQUE INDEX "payslips_payroll_entry_id_key" ON "hr"."payslips"("payroll_entry_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payslips_payroll_entry_id_key" ON "payslips"("payroll_entry_id");
+CREATE INDEX "payslips_organization_id_employee_id_idx" ON "hr"."payslips"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "payslips_organization_id_employee_id_idx" ON "payslips"("organization_id", "employee_id");
+CREATE INDEX "payslips_organization_id_payroll_period_id_idx" ON "hr"."payslips"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "payslips_organization_id_payroll_period_id_idx" ON "payslips"("organization_id", "payroll_period_id");
+CREATE UNIQUE INDEX "payslips_organization_id_payslip_number_key" ON "hr"."payslips"("organization_id", "payslip_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payslips_organization_id_payslip_number_key" ON "payslips"("organization_id", "payslip_number");
+CREATE INDEX "payment_batches_organization_id_payroll_period_id_idx" ON "hr"."payment_batches"("organization_id", "payroll_period_id");
 
 -- CreateIndex
-CREATE INDEX "payment_batches_organization_id_payroll_period_id_idx" ON "payment_batches"("organization_id", "payroll_period_id");
+CREATE INDEX "payment_batches_organization_id_status_idx" ON "hr"."payment_batches"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "payment_batches_organization_id_status_idx" ON "payment_batches"("organization_id", "status");
+CREATE UNIQUE INDEX "payment_batches_organization_id_batch_number_key" ON "hr"."payment_batches"("organization_id", "batch_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payment_batches_organization_id_batch_number_key" ON "payment_batches"("organization_id", "batch_number");
+CREATE INDEX "payroll_payments_organization_id_employee_id_idx" ON "hr"."payroll_payments"("organization_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "payroll_payments_organization_id_employee_id_idx" ON "payroll_payments"("organization_id", "employee_id");
+CREATE INDEX "payroll_payments_organization_id_status_idx" ON "hr"."payroll_payments"("organization_id", "status");
 
 -- CreateIndex
-CREATE INDEX "payroll_payments_organization_id_status_idx" ON "payroll_payments"("organization_id", "status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "payroll_payments_payment_batch_id_payroll_entry_id_key" ON "payroll_payments"("payment_batch_id", "payroll_entry_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "employee_bank_details_employee_id_key" ON "employee_bank_details"("employee_id");
-
--- CreateIndex
-CREATE INDEX "employee_bank_details_organization_id_employee_id_idx" ON "employee_bank_details"("organization_id", "employee_id");
+CREATE UNIQUE INDEX "payroll_payments_payment_batch_id_payroll_entry_id_key" ON "hr"."payroll_payments"("payment_batch_id", "payroll_entry_id");
 
 -- AddForeignKey
-ALTER TABLE "payroll_periods" ADD CONSTRAINT "payroll_periods_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_periods" ADD CONSTRAINT "payroll_periods_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_periods" ADD CONSTRAINT "payroll_periods_finalized_by_id_fkey" FOREIGN KEY ("finalized_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_periods" ADD CONSTRAINT "payroll_periods_finalized_by_id_fkey" FOREIGN KEY ("finalized_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_runs" ADD CONSTRAINT "payroll_runs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_runs" ADD CONSTRAINT "payroll_runs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_runs" ADD CONSTRAINT "payroll_runs_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_runs" ADD CONSTRAINT "payroll_runs_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_runs" ADD CONSTRAINT "payroll_runs_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_runs" ADD CONSTRAINT "payroll_runs_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_runs" ADD CONSTRAINT "payroll_runs_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_runs" ADD CONSTRAINT "payroll_runs_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_entries" ADD CONSTRAINT "payroll_entries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_entries" ADD CONSTRAINT "payroll_entries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_entries" ADD CONSTRAINT "payroll_entries_payroll_run_id_fkey" FOREIGN KEY ("payroll_run_id") REFERENCES "payroll_runs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_entries" ADD CONSTRAINT "payroll_entries_payroll_run_id_fkey" FOREIGN KEY ("payroll_run_id") REFERENCES "hr"."payroll_runs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_entries" ADD CONSTRAINT "payroll_entries_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_entries" ADD CONSTRAINT "payroll_entries_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_earnings" ADD CONSTRAINT "payroll_earnings_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_earnings" ADD CONSTRAINT "payroll_earnings_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_earnings" ADD CONSTRAINT "payroll_earnings_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_earnings" ADD CONSTRAINT "payroll_earnings_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_deductions" ADD CONSTRAINT "payroll_deductions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_deductions" ADD CONSTRAINT "payroll_deductions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_deductions" ADD CONSTRAINT "payroll_deductions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_deductions" ADD CONSTRAINT "payroll_deductions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_salaries" ADD CONSTRAINT "employee_salaries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_salaries" ADD CONSTRAINT "employee_salaries_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_salaries" ADD CONSTRAINT "employee_salaries_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_salaries" ADD CONSTRAINT "employee_salaries_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_pf_profiles" ADD CONSTRAINT "employee_pf_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_pf_profiles" ADD CONSTRAINT "employee_pf_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_pf_profiles" ADD CONSTRAINT "employee_pf_profiles_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_pf_profiles" ADD CONSTRAINT "employee_pf_profiles_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "pf_contributions" ADD CONSTRAINT "pf_contributions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."pf_contributions" ADD CONSTRAINT "pf_contributions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "pf_contributions" ADD CONSTRAINT "pf_contributions_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."pf_contributions" ADD CONSTRAINT "pf_contributions_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "pf_contributions" ADD CONSTRAINT "pf_contributions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."pf_contributions" ADD CONSTRAINT "pf_contributions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "pf_contributions" ADD CONSTRAINT "pf_contributions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."pf_contributions" ADD CONSTRAINT "pf_contributions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_esi_profiles" ADD CONSTRAINT "employee_esi_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_esi_profiles" ADD CONSTRAINT "employee_esi_profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_esi_profiles" ADD CONSTRAINT "employee_esi_profiles_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_esi_profiles" ADD CONSTRAINT "employee_esi_profiles_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "esi_contributions" ADD CONSTRAINT "esi_contributions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."esi_contributions" ADD CONSTRAINT "esi_contributions_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "esi_contributions" ADD CONSTRAINT "esi_contributions_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."esi_contributions" ADD CONSTRAINT "esi_contributions_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "esi_contributions" ADD CONSTRAINT "esi_contributions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."esi_contributions" ADD CONSTRAINT "esi_contributions_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "esi_contributions" ADD CONSTRAINT "esi_contributions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."esi_contributions" ADD CONSTRAINT "esi_contributions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_loans" ADD CONSTRAINT "employee_loans_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_loans" ADD CONSTRAINT "employee_loans_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_loans" ADD CONSTRAINT "employee_loans_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_loans" ADD CONSTRAINT "employee_loans_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_repayments" ADD CONSTRAINT "loan_repayments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_repayments" ADD CONSTRAINT "loan_repayments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_repayments" ADD CONSTRAINT "loan_repayments_loan_id_fkey" FOREIGN KEY ("loan_id") REFERENCES "employee_loans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_repayments" ADD CONSTRAINT "loan_repayments_loan_id_fkey" FOREIGN KEY ("loan_id") REFERENCES "hr"."employee_loans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_repayments" ADD CONSTRAINT "loan_repayments_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_repayments" ADD CONSTRAINT "loan_repayments_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_loan_id_fkey" FOREIGN KEY ("loan_id") REFERENCES "employee_loans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_loan_id_fkey" FOREIGN KEY ("loan_id") REFERENCES "hr"."employee_loans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_requested_by_id_fkey" FOREIGN KEY ("requested_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_requested_by_id_fkey" FOREIGN KEY ("requested_by_id") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."loan_skip_requests" ADD CONSTRAINT "loan_skip_requests_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bonuses" ADD CONSTRAINT "employee_bonuses_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bonuses" ADD CONSTRAINT "employee_bonuses_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bonuses" ADD CONSTRAINT "employee_bonuses_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bonuses" ADD CONSTRAINT "employee_bonuses_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bonuses" ADD CONSTRAINT "employee_bonuses_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bonuses" ADD CONSTRAINT "employee_bonuses_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bonuses" ADD CONSTRAINT "employee_bonuses_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bonuses" ADD CONSTRAINT "employee_bonuses_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payslips" ADD CONSTRAINT "payslips_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payslips" ADD CONSTRAINT "payslips_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payslips" ADD CONSTRAINT "payslips_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payslips" ADD CONSTRAINT "payslips_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payslips" ADD CONSTRAINT "payslips_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payslips" ADD CONSTRAINT "payslips_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payslips" ADD CONSTRAINT "payslips_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payslips" ADD CONSTRAINT "payslips_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payment_batches" ADD CONSTRAINT "payment_batches_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payment_batches" ADD CONSTRAINT "payment_batches_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payment_batches" ADD CONSTRAINT "payment_batches_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payment_batches" ADD CONSTRAINT "payment_batches_payroll_period_id_fkey" FOREIGN KEY ("payroll_period_id") REFERENCES "hr"."payroll_periods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payment_batches" ADD CONSTRAINT "payment_batches_generated_by_id_fkey" FOREIGN KEY ("generated_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "hr"."payment_batches" ADD CONSTRAINT "payment_batches_generated_by_id_fkey" FOREIGN KEY ("generated_by_id") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_payments" ADD CONSTRAINT "payroll_payments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_payments" ADD CONSTRAINT "payroll_payments_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_payments" ADD CONSTRAINT "payroll_payments_payment_batch_id_fkey" FOREIGN KEY ("payment_batch_id") REFERENCES "payment_batches"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_payments" ADD CONSTRAINT "payroll_payments_payment_batch_id_fkey" FOREIGN KEY ("payment_batch_id") REFERENCES "hr"."payment_batches"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_payments" ADD CONSTRAINT "payroll_payments_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_payments" ADD CONSTRAINT "payroll_payments_payroll_entry_id_fkey" FOREIGN KEY ("payroll_entry_id") REFERENCES "hr"."payroll_entries"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "payroll_payments" ADD CONSTRAINT "payroll_payments_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "employee_bank_details" ADD CONSTRAINT "employee_bank_details_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "employee_bank_details" ADD CONSTRAINT "employee_bank_details_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."payroll_payments" ADD CONSTRAINT "payroll_payments_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

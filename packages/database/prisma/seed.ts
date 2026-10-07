@@ -79,6 +79,27 @@ async function main() {
     },
   });
 
+  // `hr.employee.read`/`hr.interview.read`/etc. are `.own`/`.team`/`.all`
+  // scoped triplets (or role-specific codes) — there is no single catalog
+  // code that means "can see this HR screen", and MenuItem.permission only
+  // stores one exact code (menu.service.ts matches it verbatim, no
+  // prefix/any-of support). So, like "Dashboard" above, these items are left
+  // ungated (permission: null) and the pages themselves do the real,
+  // multi-permission check per section/tab (HrDashboardView, EmployeesView,
+  // RecruitmentView) — the API remains the authoritative enforcement point.
+  const hrParent = await prisma.menuItem.upsert({
+    where: {
+      organizationId_code: { organizationId: org.id, code: "hr" },
+    },
+    update: { label: "HR", order: 3 },
+    create: {
+      organizationId: org.id,
+      code: "hr",
+      label: "HR",
+      order: 3,
+    },
+  });
+
   const defaultMenuItems = [
     {
       code: "dashboard",
@@ -97,6 +118,70 @@ async function main() {
       permission: "reference.tags.read",
     },
     {
+      code: "hr-dashboard",
+      label: "Dashboard",
+      path: "/hr/dashboard",
+      order: 1,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-employees",
+      label: "Employees",
+      path: "/hr/employees",
+      order: 2,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-recruitment",
+      label: "Recruitment",
+      path: "/hr/recruitment",
+      order: 3,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-work-logs",
+      label: "Work Logs",
+      path: "/hr/work-logs",
+      order: 4,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-attendance",
+      label: "Attendance",
+      path: "/hr/attendance",
+      order: 5,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-regularization",
+      label: "Regularization",
+      path: "/hr/regularization",
+      order: 6,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-tasks",
+      label: "Task Assignment",
+      path: "/hr/tasks",
+      order: 7,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-leaves",
+      label: "Leaves",
+      path: "/hr/leaves",
+      order: 8,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
@@ -108,7 +193,7 @@ async function main() {
       code: "admin-roles",
       label: "Roles",
       path: "/admin/roles",
-      order: 2,
+      order: 3,
       parentId: adminParent.id,
       permission: "settings.role.read",
     },
@@ -116,7 +201,7 @@ async function main() {
       code: "admin-users",
       label: "Users",
       path: "/admin/users",
-      order: 3,
+      order: 4,
       parentId: adminParent.id,
       permission: "users.user.read",
     },
@@ -124,7 +209,7 @@ async function main() {
       code: "admin-menu",
       label: "Navigation Menu",
       path: "/admin/menu",
-      order: 4,
+      order: 5,
       parentId: adminParent.id,
       permission: "menu.item.read",
     },

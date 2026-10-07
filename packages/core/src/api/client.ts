@@ -22,6 +22,8 @@ export interface RequestOptions {
   // here. Values are stringified at the point of use below regardless.
   query?: object;
   body?: unknown;
+  /** Multipart upload. Sent as-is: the browser sets the Content-Type boundary. */
+  formData?: FormData;
   signal?: AbortSignal;
 }
 
@@ -67,12 +69,14 @@ export class ApiClient {
       response = await fetch(url, {
         method: options.method ?? "GET",
         headers: {
-          "Content-Type": "application/json",
+          ...(options.formData ? {} : { "Content-Type": "application/json" }),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        ...(options.body !== undefined
-          ? { body: JSON.stringify(options.body) }
-          : {}),
+        ...(options.formData
+          ? { body: options.formData }
+          : options.body !== undefined
+            ? { body: JSON.stringify(options.body) }
+            : {}),
         ...(options.signal ? { signal: options.signal } : {}),
       });
     } catch (cause) {

@@ -2,13 +2,14 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsInt,
   IsOptional,
   IsString,
   Length,
-  MinLength,
 } from "class-validator";
+import { IsStrongPassword } from "../../../common/validation/password-policy.js";
 
 export class CreateUserDto {
   @ApiProperty({ example: "user@texawave.com" })
@@ -21,9 +22,17 @@ export class CreateUserDto {
   fullName!: string;
 
   @ApiProperty({ example: "StrongP@ssw0rd!" })
-  @IsString()
-  @MinLength(8)
+  @IsStrongPassword()
   password!: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Force a password change on next login — set for an HR-issued temporary password",
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
 
   @ApiPropertyOptional({ type: [Number], example: [1, 2] })
   @IsOptional()

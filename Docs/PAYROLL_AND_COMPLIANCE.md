@@ -17,7 +17,7 @@ The **Payroll & Compliance** module provides automated, reproducible, and compli
    - **Permissions** are not set in the client — they come from the roles assigned to the logged-in user (`/settings/roles`, `/settings/roles/:id/permissions`, `/users/:id/roles`, `/users/:id/teams`). After changing a user's roles, log in again to get a fresh token.
    - Scoped permissions exist in three variants: `<code>.own`, `<code>.team`, `<code>.all`. Missing permission → `403 Forbidden`.
 2. **Tenant & Team Scoping:** All payroll data is strictly team-scoped (`@TeamScoped()`). Users with `.own` can only view their own records; users with `.team` can access employees within their assigned teams (`user_team_access`); users with `.all` have organization-wide visibility. Accessing a record outside the caller's scope returns `404 Not Found`.
-   - **Access scope — writes:** single-employee writes (salary, bank details, loan, bonus, a single payment) are held to the same boundary: `.team` only for employees in the caller's teams (others → `404`), `.own` never (nobody edits their own pay → `404`).
+   - **Access scope — writes:** single-employee writes (salary, loan, bonus, a single payment) are held to the same boundary: `.team` only for employees in the caller's teams (others → `404`), `.own` never (nobody edits their own pay → `404`).
    - **Access scope — org-wide operations:** a payroll period, run, payslip generation, finalization and payment batch cover the whole organization, so they require the `.all` grant (`hr.payroll.write.all`, `hr.payroll.approve.all`, `hr.payroll.finalize.all`, `hr.payment.read.all` / `hr.payment.write.all`). A `.team` grant gets `403 Forbidden`. Run headers (`GET /hr/payroll/runs`) are readable with `.team`/`.all`; per-employee entries stay team-filtered.
    - **Maker-checker:** the user who created a payroll run, bonus or loan skip request cannot approve it, and nobody can approve a bonus or skip request for themselves → `403 Forbidden`.
 3. **Response Envelope:**
@@ -138,16 +138,15 @@ Statutory deductions are always taken. A loan installment is deducted only if it
 
 These are known gaps, not bugs — each needs a business decision or another module first:
 
-| Area                                                                                                      | Status                                                                                                                                                       |
-| :-------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Attendance / unrecorded absence / half-days                                                               | No attendance module exists. Until it does, LOP comes only from approved unpaid leave + employment window (§3.1).                                            |
-| Professional Tax, TDS (income tax)                                                                        | Not implemented — no deduction is made.                                                                                                                      |
-| PF: EPS/EPF split, voluntary PF above the wage cap, DA in PF wage                                         | Not implemented; PF wage is `min(Basic, 15000)`.                                                                                                             |
-| ESI contribution-period rule (stay covered for the whole Apr–Sep / Oct–Mar period after crossing ₹21,000) | Not implemented; eligibility is decided month by month.                                                                                                      |
-| LOP leave-type detection                                                                                  | By leave-type code (`LOP`, `UNPAID`, `*LOSS_OF_PAY*`). An `isPaid` flag on `LeaveType` belongs to the leave module.                                          |
-| LOP "sandwich" policy                                                                                     | Leave days are calendar days, so holidays/weekly-offs inside an unpaid leave range count as LOP. Confirm this is the intended policy.                        |
-| Loan approval workflow                                                                                    | Loans are created `ACTIVE`; `hr.loan.approve` currently governs skip requests only.                                                                          |
-| Encryption at rest of account / PAN / Aadhaar                                                             | Stored in plaintext; masked in every JSON response and audited on change (see §4.9). Needs a key-management decision (and whether Aadhaar is needed at all). |
+| Area                                                                                                      | Status                                                                                                                                |
+| :-------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| Attendance / unrecorded absence / half-days                                                               | No attendance module exists. Until it does, LOP comes only from approved unpaid leave + employment window (§3.1).                     |
+| Professional Tax, TDS (income tax)                                                                        | Not implemented — no deduction is made.                                                                                               |
+| PF: EPS/EPF split, voluntary PF above the wage cap, DA in PF wage                                         | Not implemented; PF wage is `min(Basic, 15000)`.                                                                                      |
+| ESI contribution-period rule (stay covered for the whole Apr–Sep / Oct–Mar period after crossing ₹21,000) | Not implemented; eligibility is decided month by month.                                                                               |
+| LOP leave-type detection                                                                                  | By leave-type code (`LOP`, `UNPAID`, `*LOSS_OF_PAY*`). An `isPaid` flag on `LeaveType` belongs to the leave module.                   |
+| LOP "sandwich" policy                                                                                     | Leave days are calendar days, so holidays/weekly-offs inside an unpaid leave range count as LOP. Confirm this is the intended policy. |
+| Loan approval workflow                                                                                    | Loans are created `ACTIVE`; `hr.loan.approve` currently governs skip requests only.                                                   |
 
 ---
 
@@ -675,32 +674,14 @@ Update a single payment line (e.g. mark failed, record bank reference).
 
 ---
 
-### 4.9 Bank Details (`/hr/bank-details`)
+### 4.9 Bank Details (read from onboarding)
 
-#### `PUT /hr/bank-details/:employeeId`
+Payroll has no bank-details endpoint or table of its own. It reads the employee's onboarding record:
 
-Create or update employee bank account details.
+- **Bank account:** `hr.employee_bank_details` (`EmployeeBankDetail`), entered through `PUT /employee/profile/bank-details` (Docs/HR_API.md). The account number is encrypted at rest (`FieldEncryptionService`, AES-256-GCM) with a stored masked copy.
+- **PAN:** `hr.employee_government_ids` (`EmployeeGovernmentId`).
 
-- **Permission:** `hr.salary.write.team` (own teams' employees only — others `404`) / `.all`. `.own` cannot change anyone's bank details, including their own.
-- **Request Body:**
-  ```json
-  {
-    "bankName": "HDFC Bank",
-    "accountNumber": "50100123456789",
-    "ifscCode": "HDFC0001234",
-    "panNumber": "ABCDE1234F",
-    "aadhaarNumber": "123456789012"
-  }
-  ```
-  `ifscCode` and `panNumber` are upper-cased and `accountNumber` has spaces removed before validation.
-- **Audit:** every create/update writes an `audit_logs` row (`entityType: "employee_bank_details"`) with masked before/after values.
-- **Response:** the stored record with `accountNumber`, `panNumber`, `aadhaarNumber` masked (e.g. `**********6789`).
-
-#### `GET /hr/bank-details/:employeeId`
-
-Retrieve employee bank account details (masked as above).
-
-- **Permission:** `hr.salary.read.own` / `.team` / `.all`
+Payslip and payment responses keep the `employee.bankDetails` shape — `{ bankName, accountNumber, ifscCode, panNumber? }` — where `accountNumber` is the stored masked value (e.g. `XXXXXXXXXX6789`) and `panNumber` (payslips only) is masked to its last four characters. A soft-deleted onboarding row counts as missing. Only the bank-transfer CSV export (§4.8) decrypts the full account number.
 
 ---
 
@@ -780,7 +761,7 @@ HR
   - `payroll-calculator.service.spec.ts`: Tests statutory PF capping, ESI ceiling on the recurring wage, ESI wage without bonus, LOP prorating, weekly offs & holiday exclusions, scheduled loan installments (none due, skipped, adjusted last installment, not fitting net pay), one-time arrears, bonus inclusion.
   - `payroll-periods.service.spec.ts`: Tests period creation/duplicates, org-wide scope enforcement, and that finalize delegates to the locked repository transaction.
 - **E2E Integration Tests:** `apps/api/test/payroll.e2e-spec.ts`
-  - Runs 12 sequential integration scenarios against real PostgreSQL and Redis databases: the full May cycle, maker-checker, team-scope boundaries (bank details, salaries, org-wide operations), cross-organization payslip generation, run supersession, duplicate batch/processing, loan skip re-scheduling and closure, one-time arrears and ESI with a bonus month.
+  - Runs 12 sequential integration scenarios against real PostgreSQL and Redis databases: the full May cycle, maker-checker, team-scope boundaries (salaries, org-wide operations), cross-organization payslip generation, run supersession, duplicate batch/processing, loan skip re-scheduling and closure, one-time arrears and ESI with a bonus month.
 
 ### 6.2 Test Scenarios & Edge Cases Matrix
 
@@ -795,7 +776,7 @@ HR
 | **TC-PAY-07** | Employee with Gross ₹50,000 ($>$ ₹21,000 ESI ceiling)              | ESI deduction is ₹0.00. `esiIncluded` = false.                                                                                                                       |
 | **TC-PAY-08** | Active loan with approved EMI skip request for the period          | Loan EMI is not deducted in this payroll run; the installment is `SKIPPED` and a new one is appended at the end.                                                     |
 | **TC-PAY-09** | Bank transfer batch CSV export                                     | Headers `Employee Code,Employee Name,Bank Name,Account Number,IFSC Code,Amount,Payment Method,Status,Payment Reference`; no PAN; formula-prefixed names neutralised. |
-| **TC-PAY-10** | Team-scoped access control                                         | Manager of Team A cannot view or change payslips, salaries or bank details of Team B employees (**404**), and cannot run org-wide operations (**403**).              |
+| **TC-PAY-10** | Team-scoped access control                                         | Manager of Team A cannot view or change payslips or salaries of Team B employees (**404**), and cannot run org-wide operations (**403**).                            |
 | **TC-PAY-11** | Self-service isolation                                             | User A calling `/self-service/payslips` only sees payslips linked to User A's employee record.                                                                       |
 | **TC-PAY-12** | Creator approves own run / bonus / skip request                    | **403 Forbidden** (maker-checker).                                                                                                                                   |
 | **TC-PAY-13** | Second run after the first was approved                            | First run → `CANCELLED`; only the new run can be approved and paid.                                                                                                  |

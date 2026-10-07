@@ -19,6 +19,6 @@ import { EmployeesService } from "./employees.service.js";
     EmployeeQueryService,
   ],
   // Only the public read service leaves this module — never a repository.
-  exports: [EmployeeQueryService],
+  exports: [EmployeeQueryService, EmployeesService],
 })
 export class EmployeesModule {}

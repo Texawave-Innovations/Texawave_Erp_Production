@@ -1,8 +1,11 @@
 # HR backend — API contract
 
 **Scope:** audit platform, HR master data, employees, shifts and shift assignments, holiday and
-weekly-off calendar, leave. **Backend only** — no UI exists for any of it.
-**Status:** implemented and tested on `feature/HR`; **not merged**. **Owner:** unassigned (see the readiness
+weekly-off calendar, leave, work logs, and employee self-service onboarding/profile. **Backend
+only** for most of this file — UI exists for Employees, Recruitment, Profiles, Location Privilege,
+Org Chart, **Work Logs** (§2a) and the **onboarding wizard/portal** (§2b); everything else here
+has no UI yet.
+**Status:** implemented and tested, merged to `feature/HR`. **Owner:** unassigned (see the readiness
 report). Companion documents: `reports/HR_BACKEND_COMPLETION_REPORT.md` (what was verified, what is open),
 `reports/AUDIT_PLATFORM_DESIGN.md`, `reports/HR_IMPLEMENTATION_READINESS.md` (the decisions).
 
@@ -118,37 +121,212 @@ Rules:
 - A weekly-off rule's scope is the whole organization, **one location, or one team** (never both); rules are not edited in place — end the old, create the new, so past dates stay answerable. No two active rules of the **same scope** may overlap (exclusion constraint); rules of different scopes may coexist.
 - `/hr/calendar/day` returns **every** applicable rule with `coversWeekday`, and deliberately **no verdict** (`isWeeklyOff`/`isWorkingDay` do not exist): which scope wins is an open policy decision. Server-side callers: `CalendarQueryService.dayFor(employeeId, date)`.
 
-### Leave (`modules/hr/leave-requests`, `employee-self-service/leave-requests`)
+### Leave (`modules/hr/leave-requests`, `modules/hr/leave-types`, `employee-self-service/leave-requests`)
 
-| Method & path                         | Permission                                   | Notes                                                                                                                                                       |
-| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST `/self-service/leave-requests`   | `employee_self_service.leave_request.create` | `{leaveTypeId, startDate, endDate, reason}`; the **employee is the caller's own record** (403 `NOT_AN_EMPLOYEE` if the login is unlinked); starts `PENDING` |
-| GET `/self-service/leave-requests`    | `employee_self_service.leave_request.read`   | my requests = my leave history                                                                                                                              |
-| GET `/hr/leave-requests`, GET `:id`   | `hr.leave_request.read` ▲                    | filters `employeeId (history), status, leaveTypeId, from, to`, `sortBy`                                                                                     |
-| POST `/hr/leave-requests/:id/approve` | `hr.leave.approve` ▲                         | `{note?}`                                                                                                                                                   |
-| POST `/hr/leave-requests/:id/reject`  | `hr.leave.approve` ▲                         | `{note}` — **mandatory**                                                                                                                                    |
+Full design, rules and open decisions: [HR_LEAVE.md](HR_LEAVE.md).
 
-- Whole days only. `calendarDays` counts both ends and does **not** exclude weekly-offs/holidays (⚠ unapproved policy).
-- `PENDING → APPROVED \| REJECTED`, both **final** (DB trigger; no edit, cancel or delete exists). Two approvers racing: one wins, the other gets 422.
-- **Maker-checker:** the employee's own login can never decide their request, even holding `hr.leave.approve.all` (403 `SELF_APPROVAL_FORBIDDEN`). `hr.leave.approve.own` is seeded only to keep the permission family complete and grants nothing.
-- ⚠ Overlap prevention: two PENDING/APPROVED requests of one employee may not share a day (exclusion constraint); REJECTED ones do not block. Only an **ACTIVE** employee can request; the start cannot precede joining.
-- **Not implemented (unapproved):** balances, accrual, carry-forward, half-days, cancellation/withdrawal, HR submitting on someone's behalf, approval chains.
+| Method & path                                               | Permission                                   | Notes                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST `/self-service/leave-requests`                         | `employee_self_service.leave_request.create` | `{leaveTypeId, startDate, endDate, dayPortion?, reason}`. The employee is the caller's own record (403 `NOT_AN_EMPLOYEE` if unlinked). Starts `PENDING`. `dayPortion` is `FULL` (default), `FIRST_HALF` or `SECOND_HALF`; a half needs `startDate = endDate`. |
+| GET `/self-service/leave-requests`                          | `employee_self_service.leave_request.read`   | my requests (history); filters as below                                                                                                                                                                                                                       |
+| GET `/self-service/leave-requests/:id`                      | `employee_self_service.leave_request.read`   | one of my requests; another id is 404                                                                                                                                                                                                                         |
+| POST `/self-service/leave-requests/:id/cancel`              | `employee_self_service.leave_request.create` | `{note?}`. Withdraws my PENDING request, or my APPROVED one **before it starts**. Releases balance and Attendance effect.                                                                                                                                     |
+| POST `/self-service/leave-requests/:id/resubmit`            | `employee_self_service.leave_request.create` | Resubmits my REJECTED or CANCELLED request (same id, back to PENDING, re-validated). Start must not be past.                                                                                                                                                  |
+| GET `/self-service/leave-requests/balances`                 | `employee_self_service.leave_request.read`   | `?year=`. My balance per active leave type: `opening, entitlement, accrued, used, pending, available` (`available` is `null` for unpaid).                                                                                                                     |
+| GET `/hr/leave-requests`, GET `:id`                         | `hr.leave_request.read` ▲                    | filters `employeeId (history), status, leaveTypeId, from, to`, `sortBy`                                                                                                                                                                                       |
+| GET `/hr/leave-requests/balances`                           | `hr.leave_request.read` ▲                    | `?employeeId=&year=`. 404 for an employee outside the caller's scope.                                                                                                                                                                                         |
+| POST `/hr/leave-requests/:id/approve`                       | `hr.leave.approve` ▲                         | `{note?}`. Re-checks the balance; 422 `LEAVE_BALANCE_INSUFFICIENT` if it no longer covers the request.                                                                                                                                                        |
+| POST `/hr/leave-requests/:id/reject`                        | `hr.leave.approve` ▲                         | `{note}` — **mandatory**                                                                                                                                                                                                                                      |
+| PUT `/hr/leave-entitlements/:employeeId/:leaveTypeId/:year` | `hr.leave_type.write`                        | `{annualEntitlement}` in days (0–366, one decimal). `null` removes the override so the type default applies again.                                                                                                                                            |
+| GET / POST / PATCH `/hr/leave-types`                        | `hr.leave_type.read` / `.write`              | create and update accept `isPaid` (default true), `annualEntitlement` (default 0), `carryForwardLimit` (default 0).                                                                                                                                           |
+
+- **Lifecycle:** `PENDING → APPROVED | REJECTED | CANCELLED`; `APPROVED → CANCELLED` (before start); `REJECTED | CANCELLED → PENDING` (resubmit). Other moves are 422 `INVALID_STATE_TRANSITION`. Enforced by a database trigger as well.
+- **Working days:** `leaveDays` excludes holidays and weekly offs (Attendance precedence). `calendarDays` is kept for history. A request with no working day is 422 `LEAVE_NO_WORKING_DAYS`.
+- **Balance:** paid leave is enforced at submission, resubmission and approval (422 `LEAVE_BALANCE_INSUFFICIENT`). Pending requests hold balance. Carry-forward is capped per leave type. Unpaid leave is not limited.
+- **Overlap:** two PENDING/APPROVED requests may not share a day, except the first and second half of one date. REJECTED and CANCELLED never block.
+- **Maker-checker:** the requester can never decide their own request (403 `SELF_APPROVAL_FORBIDDEN`), even with `.all`.
+- **Not built (open decisions, see HR_LEAVE.md §9.3):** HR submitting or cancelling on someone else's behalf, notifications, approval chains, past-date policy, encashment.
+
+### Work logs (`modules/hr/work-logs`, `modules/employee-self-service/work-logs`)
+
+Legacy: HR `WorkLogs.tsx` (approve/reject queue) and employee `MyTimesheet.tsx` (self-submission),
+both Firebase-backed. Table `hr.work_logs`. **UI exists**: `/hr/work-logs` (approver) and
+`/self-service/work-logs` (own logs), under `apps/ui/src/features/hr/work-logs/`.
+
+| Method & path                    | Permission                              | Notes                                                                                                                  |
+| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/work-logs`              | `hr.work_log.read` ▲                    | filters `employeeId, status, from, to`, pagination                                                                     |
+| GET `/hr/work-logs/approvals`    | `hr.work_log.approve`                   | the caller's direct reports (`Employee.reportsToId`); defaults `status=PENDING`                                        |
+| GET `/hr/work-logs/:id`          | `hr.work_log.read` ▲                    | 404 outside scope                                                                                                      |
+| POST `/hr/work-logs/:id/approve` | `hr.work_log.approve`                   | `{note?}` — optional, 3–500 chars if sent                                                                              |
+| POST `/hr/work-logs/:id/reject`  | `hr.work_log.approve`                   | same body shape                                                                                                        |
+| GET `/self-service/work-logs`    | `employee_self_service.work_log.read`   | my logs; filters `status, from, to` (no `employeeId` — always "me")                                                    |
+| POST `/self-service/work-logs`   | `employee_self_service.work_log.create` | `{workDate, hoursWorked, taskDescription}` → starts `PENDING`. `employeeId` resolved from the JWT, never from the body |
+
+- **Status:** `PENDING → APPROVED | REJECTED`, final once decided — **no edit or delete route** (matches legacy).
+- **Approval is by direct manager, not team**: `hr.work_log.approve` carries no `.own/.team/.all` suffix; the service narrows to `employee.reportsToId = caller`. A decider cannot approve/reject their own log (403 `SELF_APPROVAL_FORBIDDEN`), even with the permission. Deciding an already-decided log is 422 `INVALID_STATE_TRANSITION`.
+- **Fields:** `hoursWorked` 0.01–24, 2 decimals; `taskDescription` 3–500 chars; `workDate` is a plain date, no time zone.
+- **Not built:** edit/delete, a project/task selector (legacy's task field is free text), bulk approve.
+
+### Recruitment — revision letters (`modules/hr/revision-letters`)
+
+Legacy: Recruitment → Revision Letter (`RevisionLetter.tsx`). Table `hr.revision_letters`. Backend only.
+
+| Method & path                    | Permission                   | Notes                                                                                                                                                                                    |
+| -------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/revision-letters`       | `hr.revision_letter.read` ▲  | `?employeeId`, `page`, `limit`, `order` (default newest first); pagination meta                                                                                                          |
+| GET `/hr/revision-letters/:id`   | `hr.revision_letter.read` ▲  | 404 outside scope                                                                                                                                                                        |
+| POST `/hr/revision-letters`      | `hr.revision_letter.write` ▲ | `{employeeId, designation, location?, letterDate?, effectiveDate?, basic?, da?, hra?, ca?, signatoryName?, signatoryDesignation?}` → **201**; issues `documentNo` and status `GENERATED` |
+| PATCH `/hr/revision-letters/:id` | `hr.revision_letter.write` ▲ | any of the fields above except `employeeId` (400); `documentNo` is never changed                                                                                                         |
+
+- **Employee-linked:** `employeeId` is required (legacy is only reachable per employee). The employee must be inside the caller's scope; otherwise **422 `INVALID_EMPLOYEE`**, the same as an unknown id, so ids cannot be probed.
+- **Identity from the record:** `employeeName` is copied from the employee's full name and cannot be sent by the client.
+- **Defaults (legacy form prefills, applied only when the create request omits them):** `location` = `Chennai`; `letterDate` = today (UTC); `effectiveDate` = 1st of next month; components = `0`; signatory = `Amanullah Khan` / `Co-Founder`.
+- **Money:** the four components are the stored truth, each `≥ 0`, at most 2 dp, below 10¹⁰. `grossMonthly = basic + da + hra + ca`; `grossAnnual = grossMonthly × 12`, both derived and exact (`Decimal`). The legacy 35/15/30/20 split is a UI convenience and is **not** enforced here.
+- **Document number:** `TW/HR/REV/{FY}/{NNN}` with FY from the issuing date (April–March). Issued from `platform.document_sequences` (doc type `hr_revision_letter_{FY}`) under a row lock in the same transaction, so concurrent issues never share a number and a rolled-back issue gives its number back.
+- **Status:** `GENERATED` only (DB CHECK). Legacy never assigns any other value.
+- **Issuing a letter does not change the employee's stored salary** (legacy behaviour).
+- **Team scope:** `.team`/`.all` readers and writers reach letters through the employee's `team_id`; `.own` **write** is refused (403) — writing is reserved, never granted to self.
+- **Not implemented (legacy has no such thing, or it is undecided):** delete (legacy has a delete; the platform rule is "no DELETE route" — decision pending), approval/signing, signature and seal images (no file storage exists yet), document rendering/PDF, an employee salary write-back, share/e-mail/WhatsApp actions, a link to offer letters (legacy has none).
+- **Salary audit rule (R4):** the audit trail never records salary amounts. An `update` records the changed field **names** in `changedFields`. The amounts are readable only through the `hr.revision_letter` read permission, never through the generic `audit.log.read`.
+
+### Recruitment — interview schedule (`modules/hr/interviews`)
+
+Legacy: Recruitment → Interview Schedule (`InterviewSchedule.tsx`). Table `hr.interviews`. Backend only.
+
+**Explicit exception to the HR team-scope rule.** Legacy stores no employee or team owner for an interview, so there is nothing to scope by. Access is organization-wide and exact-name (`hr.interview.read` / `hr.interview.write`, no `.own/.team/.all`). Not granted to Employee or Team Lead by default. Organization isolation still applies to every route.
+
+| Method & path                     | Permission           | Notes                                                                                                                                                 |
+| --------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/interviews`              | `hr.interview.read`  | `?search` (case-insensitive over candidate, role, interviewer), `?status`, `page`, `limit`, `order`; newest interview date first                      |
+| GET `/hr/interviews/:id`          | `hr.interview.read`  | 404 outside the organization                                                                                                                          |
+| POST `/hr/interviews`             | `hr.interview.write` | `{candidateName, roleTitle, interviewerName, interviewDate, interviewTime, mode?, notes?}` → **201**; starts `SCHEDULED`; `mode` defaults to `ONLINE` |
+| PATCH `/hr/interviews/:id/status` | `hr.interview.write` | `{status}` → **200**. Any of the five values, from any value, including the current one (legacy has no transition guard)                              |
+
+- **Values:** `status` ∈ `SCHEDULED · COMPLETED · SELECTED · REJECTED · NO_SHOW`; `mode` ∈ `ONLINE · IN_PERSON · PHONE`. Stored uppercase; both enforced by CHECK constraints in the database.
+- **Free text, as legacy:** `candidateName` and `interviewerName` are typed text (2–120). There is no candidate or employee id, and the interviewer is not an employee reference.
+- **Time:** `interviewTime` is `HH:MM` (24-hour), checked by the API and by a CHECK constraint.
+- **Not implemented (legacy has no such thing):** reschedule, editing any field after creation, delete (legacy has a delete, but the platform forbids DELETE routes — decision pending), candidate pipeline or stages, interviewer-to-employee linking, notifications.
+- **Audit:** `create` (snapshot: role, date, time, mode, status — candidate and interviewer names are personal data and are left out) and `status_change` (before/after status), each in the same transaction, with the actor from the JWT.
+
+### Recruitment — offer letters (`modules/hr/offer-letters`)
+
+Legacy: Recruitment → Offer Letter (`OfferLetter.tsx`, `OfferLetterTemplate.ts`). Table `hr.offer_letters`. Backend only.
+
+**Same explicit org-wide exception as interviews:** `hr.offer_letter.read` / `hr.offer_letter.write`, exact-name, not granted to Employee or Team Lead by default.
+
+| Method & path                 | Permission              | Notes                                                                                                                                                                                            |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET `/hr/offer-letters`       | `hr.offer_letter.read`  | `?search` (candidate or role), `page`, `limit`, `order`; newest first                                                                                                                            |
+| GET `/hr/offer-letters/:id`   | `hr.offer_letter.read`  | 404 outside the organization                                                                                                                                                                     |
+| POST `/hr/offer-letters`      | `hr.offer_letter.write` | `{candidateName, role, joiningDate, location?, reportingManager?, offerDate?, offerValidityDate?, basic?, da?, hra?, ca?, workSchedule*?, signatory*?, company*?}` → **201**; status `GENERATED` |
+| PATCH `/hr/offer-letters/:id` | `hr.offer_letter.write` | any field above except status (400); only the fields sent are written; overwrites in place, as legacy does                                                                                       |
+
+- **Full snapshot:** the record holds the complete form — work schedule (Mon–Fri, Sat, Sun), signatory, company email/phone/website/address, the four salary components, and the derived monthly and annual gross (`grossMonthly = basic+da+hra+ca`, `grossAnnual = ×12`, exact).
+- **Prefills, applied only when a create request omits them** (legacy form defaults): location `Chennai`; reporting manager `Mr. Nithyanandan Ramaraj`; `offerDate` today (UTC); `offerValidityDate` today + 7 days (legacy computes it from today); work schedule `10:00 AM – 7:00 PM` / `Week Off`; signatory `Amanullah Khan` / `Co-Founder`; the Texawave contact constants; components `0`.
+- **Status is GENERATED only.** Legacy declares `Sent` and `Accepted` but never assigns them, so they are not implemented. There is no status route; a status field in a body is refused (400). The database CHECK also allows only `GENERATED`.
+- **No employee reference** (legacy's `:id` route only prefills and never saves a link) and **no link to revision letters** (legacy has none).
+- **Not implemented:** signature and seal images (no file storage exists yet), PDF/HTML rendering and sharing (Gmail, WhatsApp, mail), delete (same decision as interviews), `Sent`/`Accepted` transitions.
+- **Audit (R4):** `create` snapshot holds the role, location, the three dates and status. It does **not** hold the candidate name or any salary amount. `update` holds the changed field **names** (`changedFields`), never values.
+
+### Recruitment — salary sensitivity (R4)
+
+Salary amounts (revision and offer letters) are not written to the audit trail. The platform's `audit.log.read` is a generic permission and must not expose salary by accident. Amounts are visible only through the record's own read permission (`hr.revision_letter.read` team-scoped, `hr.offer_letter.read` organization-wide). No new global audit permission was introduced.
 
 ---
 
-## 3. Permission catalogue (43 codes; `packages/database/prisma/permissions/catalog.ts`)
+### Location Privilege (`modules/hr/location-privilege`)
+
+Legacy: `Shifts.tsx` (the screen is titled "Location Privilege"), `attendanceService.ts` (the check-in gate), `EmployeePortalLayout.tsx` (the portal gate). Full discovery in `HR_LEGACY_PARITY.md` §4. Tables `hr.employee_location_privileges` and `hr.office_network_addresses`. Backend only.
+
+| Method & path                               | Permission                    | Notes                                                                                                                                                                                                            |
+| ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/location-privileges/employees/:id` | `hr.location_privilege.read`  | `{employeeId, mode, source: explicit\|unset, updatedAt}`. A never-set employee reports `mode: null`, `source: unset` (not gated). 404 outside scope                                                              |
+| PUT `/hr/location-privileges/employees/:id` | `hr.location_privilege.write` | body `{mode: "OFFICE" \| "REMOTE"}`. Refused (403) when the target is the caller's own employee record. 404 outside the organization. Returns `changed: false` (and writes nothing) when the mode is already set |
+| GET `/hr/office-networks`                   | `hr.office_network.read`      | The organization's office addresses, active and inactive                                                                                                                                                         |
+| POST `/hr/office-networks`                  | `hr.office_network.write`     | body `{ipAddress, label?}` → **201**. `ipAddress` must be an IPv4 or IPv6 literal (`::ffff:` is normalised to IPv4). Duplicate → 409                                                                             |
+| PATCH `/hr/office-networks/:id`             | `hr.office_network.write`     | body `{isActive}`. Addresses are deactivated, never deleted. 404 outside the organization                                                                                                                        |
+
+- **What the setting controls:** only the attendance check-in and check-out punch (`POST /hr/attendance/check-in` and `/check-out`). **Opt-in:** only an explicit `OFFICE` row is gated. `OFFICE` requires the caller's address to match an **active** entry in `hr.office_network_addresses`. `REMOTE` and a never-set employee (no row) skip that check, so check-in is unchanged for everyone HR has not classified. Nothing else changes. Portal access is **not** gated by this setting (see the parity doc §4).
+- **Denied punch:** `403 LOCATION_NOT_ALLOWED`. The check runs before any write, so a denied punch creates no record and no session. Denied attempts are not audited, because nothing changed.
+- **Fail-closed rules:** an OFFICE employee is denied when the client address is unknown, when no active office address exists, or when the address does not match. The client address is `request.ip`, which honours `X-Forwarded-For` only for the number of hops set by `TRUST_PROXY_HOPS` (default 0, socket address only).
+- **Scope:** organization-wide. Legacy has no team dimension, so no team or own variants are granted (Docs/HR_LEGACY_PARITY.md §12.2). Changing your own employee record is refused (403) whatever permissions you hold. The office-address routes are organization-wide, not employee data, so they carry no scope.
+- **Audit:** `employee_location_privilege` (`create`/`update`) records the before and after `mode`. `office_network_address` (`create`/`update`) records the address and `isActive`. Writes are in the same transaction as their audit row. A no-op write writes no audit row.
+- **Not built (open decisions, `HR_LEGACY_PARITY.md` §4 and §6):** portal device gating, CIDR ranges, any employee self-service request to change the setting, and any change to the Firebase security rules that legacy relied on.
+
+---
+
+### Profiles (`modules/hr/profiles`)
+
+Legacy: `Profile.tsx`, `EmployeeProfileView.tsx`, `BankDetails.tsx`, `EmployeeForm.tsx`; full discovery in `HR_LEGACY_PARITY.md` §11. Tables `hr.employee_profiles` (personal, non-sensitive) and `hr.employee_sensitive_info` (PAN, Aadhaar, ESI, PF, bank). Backend only. Name, contact, joining date and placement are read from the employee record and are not duplicated.
+
+| Method & path                       | Permission                    | Notes                                                                                                           |
+| ----------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/employees/:id/profile`     | `hr.employee_profile.read` ▲  | employee summary + profile; 404 outside scope                                                                   |
+| PATCH `/hr/employees/:id/profile`   | `hr.employee_profile.write` ▲ | partial: omitted fields unchanged, `null` clears; creates the profile on first save; `.own` write refused (403) |
+| GET `/hr/employees/:id/sensitive`   | `hr.employee_sensitive.read`  | PAN, Aadhaar, ESI, PF, bank fields. **Audited read** (`read_sensitive`), written before the data is returned    |
+| PATCH `/hr/employees/:id/sensitive` | `hr.employee_sensitive.write` | partial, same semantics; formats enforced (below)                                                               |
+
+- **Profile fields:** `title`, `dateOfBirth`, `gender`, `maritalStatus`, `bloodGroup`, `languages` (≤ 10, normalised: trimmed, case-insensitive de-duplicated), `fatherName`, `motherName`, `spouseName`, `emergencyContact {name, phone, relation}`, `presentAddress` and `permanentAddress` (`{address, area?, district?, city, state, pincode, country?}`), `isFresher`, `experienceYears` (0–60, one decimal place), `previousCompany`, `previousRole`.
+- **Sensitive fields and formats:** `panNumber` `AAAAA9999A`; `aadhaarNumber` 12 digits; `esiNumber` 10–17 digits; `pfNumber` 5–30 characters; `bankName`, `bankBranch` 2–100 characters; `bankAccountNo` 6–20 digits; `bankIfsc` `AAAA0XXXXXX`. **Legacy had no format checks; these are production guards.**
+- **Unknown fields are refused (400)**, including `status`, `monthlySalary`, `allowances` and any salary or activation field. Those are not profile data.
+- **Scope:** the profile is team-scoped through the employee (`.own` reads own record; `.team` and `.all` read and write within scope; out of scope is 404). The sensitive record is organization-wide, with no own or team variants. Holders of the profile permission cannot read sensitive data without the sensitive permission.
+- **Audit:** `employee_profile` (`create`/`update`) and `employee_sensitive_info` (`create`/`update`) record **changed field names only** (`changedFields`), never values. `read_sensitive` is written in the same transaction before values are returned: no audit row, no data.
+- **Not implemented (conflicts or out of scope; see `HR_LEGACY_PARITY.md` §11.5–11.6):** employee self-submission of profile or bank details (legacy writes these live with no HR gate); onboarding approval that sets salary and `status: Active`; family phone numbers; documents and photo; the client-side CSV and XLSX exports.
+
+---
+
+### Employee self-service — onboarding & profile (`modules/employee-self-service/profile`)
+
+New-hire self-onboarding (TEXA-16): a `users` row is created with `mustChangePassword: true`
+(`POST /hr/employees` + `POST /users` via `NewHireView`), the employee's own profile data lives
+here under `employee/profile` (its own permission namespace, never `hr.*`), and HR gets a
+read-only progress view. **UI exists**: the forced `/change-password` page, the `/onboarding`
+wizard and `/portal` landing (route group `apps/ui/src/app/(employee-portal)/`, auto-routed by
+`Employee.onboardingStatus` — not reached via the sidebar), plus `/hr/employees/:id/onboarding`
+(linked from the Employee detail page).
+
+| Method & path                                             | Permission                                   | Notes                                                                                   |
+| --------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| GET `/employee/profile`                                   | `employee_self_service.profile.read`         | the caller's own employee summary                                                       |
+| GET/PUT `/employee/profile/personal-details`              | `employee_self_service.profile.{read,write}` | date of birth, gender, marital status, blood group, emergency contact, parents          |
+| GET/PUT `/employee/profile/address/:type`                 | same                                         | `type` = `PERMANENT` or `PRESENT`                                                       |
+| DELETE `/employee/profile/address/present`                | `employee_self_service.profile.write`        | clears present address ("same as permanent")                                            |
+| GET/PUT `/employee/profile/bank-details`                  | same                                         | account number is encrypted at rest; read returns it masked                             |
+| GET/PUT `/employee/profile/government-ids`                | same                                         | Aadhaar, PAN, ESI, PF                                                                   |
+| GET/POST `/employee/profile/family`, PUT/DELETE `:id`     | same                                         | family members (name, relation, DOB, phone)                                             |
+| GET/POST `/employee/profile/experience`, PUT/DELETE `:id` | same                                         | prior employment rows                                                                   |
+| GET `/employee/profile/documents`                         | `employee_self_service.profile.read`         | list of uploaded documents                                                              |
+| PUT `/employee/profile/documents/:type/file`              | `employee_self_service.profile.write`        | multipart upload, field `file`; PDF/JPG/PNG, ≤ 5 MB                                     |
+| GET `/employee/profile/documents/:type/file`              | `employee_self_service.profile.read`         | download the caller's own document                                                      |
+| DELETE `/employee/profile/documents/:type`                | `employee_self_service.profile.write`        |                                                                                         |
+| POST `/employee/profile/submit`                           | `employee_self_service.profile.write`        | completes onboarding if everything required is present, else returns `{missing: [...]}` |
+| GET `/hr/employees/:id/onboarding`                        | `hr.employee.read` ▲                         | HR's read-only view: `{employeeId, onboardingStatus, missing}`                          |
+
+- **Required to submit:** personal (date of birth, gender, both emergency-contact fields, both parents' name+phone), permanent address (all five fields — present address only if not "same as permanent"), bank (holder name, account number, IFSC, bank name), government ids (Aadhaar, PAN), and 7 required documents (profile photo, Aadhaar, PAN, bank statement, 10th/12th/graduation certificates). Resume and post-graduation certificate are optional. See `onboarding-completeness.ts` for the exact list.
+- **Each step saves independently** — a failed later step never loses an earlier one. `submit` re-checks everything server-side regardless of what the wizard thinks is filled.
+- **Known UX quirk (pre-existing, not Work-Logs-related):** the `/change-password` page's own guard watches the in-memory access token and redirects to `/login` the instant the form clears it on success, which races ahead of the "Password changed — go to sign in" confirmation screen ever painting. Functionally harmless (the user still ends up back at `/login` to sign in with the new password) but that confirmation screen is effectively unreachable.
+- **Not built:** HR editing an employee's onboarding answers, re-opening a COMPLETE profile for later edits, notifications when onboarding finishes.
+
+---
+
+## 3. Permission catalogue (133 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
-| Area         | Codes                                                                                                          |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| Master data  | `master.{designation,employment_type,work_location,shift}.{read,write}`                                        |
-| Employees    | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write` |
-| Shifts       | `hr.shift_assignment.{read,write}.{own,team,all}`                                                              |
-| Calendar     | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                       |
-| Leave        | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`      |
-| Self-service | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                               |
-| Audit        | `audit.log.read`                                                                                               |
+| Area               | Codes                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                               |
+| Employees          | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                        |
+| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
+| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
+| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
+| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
+| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
+| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                          |
+| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                        |
+| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                       |
+| Audit              | `audit.log.read`                                                                                                                                                      |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
 `hr.shift_assignment.write.own`, `hr.leave.approve.own`. Default dev roles (`default-roles.ts`, pinned by a
@@ -161,7 +339,10 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
+`work_logs` (Work logs) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
+`employee_government_ids` · `employee_family_members` · `employee_experience` · `employee_documents`
+(Onboarding/self-service profile); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.
@@ -175,7 +356,7 @@ reason text. Browse with `GET /audit/logs` (`audit.log.read`).
 
 ## 6. Not built (by decision) — see the completion report for the full list
 
-Employee activation / password setup · employee sensitive-PII table · leave balances/accrual/half-days/cancellation ·
+Employee activation / password setup · employee sensitive-PII table · leave notifications, approval chains and HR-initiated leave actions ·
 shift break/grace/overtime policy · weekly-off precedence · probation/notice enforcement · old-ERP data import ·
 `@nestjs/event-emitter`.
 
@@ -187,18 +368,20 @@ shift break/grace/overtime policy · weekly-off precedence · probation/notice e
 
 ## 8. Error codes
 
-| HTTP      | `error`                                                                                                                                                                                              | Meaning                                                                      |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 404       | `RESOURCE_NOT_FOUND`                                                                                                                                                                                 | not found **or outside your organization/scope**                             |
-| 409       | `RESOURCE_CONFLICT`                                                                                                                                                                                  | duplicate code/name/e-mail/login link, shift still assigned                  |
-| 409       | `VERSION_CONFLICT`                                                                                                                                                                                   | stale employee `version`                                                     |
-| 409       | `SHIFT_ASSIGNMENT_OVERLAP` · `WEEKLY_OFF_OVERLAP` · `LEAVE_OVERLAP` · `HOLIDAY_DATE_TAKEN`                                                                                                           | overlap/date rules (message names the clash)                                 |
-| 422       | `INVALID_STATE_TRANSITION`                                                                                                                                                                           | status/decision not allowed from here (incl. terminal states, decided leave) |
-| 422       | `INVALID_TEAM · INVALID_DEPARTMENT · INVALID_DESIGNATION · INVALID_EMPLOYMENT_TYPE · INVALID_WORK_LOCATION · INVALID_MANAGER · INVALID_USER · INVALID_SHIFT · INVALID_EMPLOYEE · INVALID_LEAVE_TYPE` | referenced record missing, inactive, or another organization's               |
-| 422       | `REPORTING_LINE_CYCLE · JOINING_AFTER_EXIT · EFFECTIVE_DATE_BEFORE_JOINING · EMPLOYEE_HAS_LEFT · EMPLOYEE_NOT_ACTIVE`                                                                                | employee lifecycle rules                                                     |
-| 422       | `SHIFT_TIME_INVALID · SHIFT_WORKING_MINUTES_INVALID · ASSIGNMENT_TARGET_INVALID · ASSIGNMENT_DATES_INVALID · ASSIGNMENT_BEFORE_JOINING · ASSIGNMENT_CANNOT_EXTEND · ASSIGNMENT_VOIDED`               | shifts/assignments                                                           |
-| 422       | `WEEKLY_OFF_SCOPE_INVALID · WEEKLY_OFF_DATES_INVALID · WEEKLY_OFF_CANNOT_EXTEND · WEEKLY_OFF_VOIDED`                                                                                                 | weekly-off rules                                                             |
-| 422       | `LEAVE_DATES_INVALID · LEAVE_BEFORE_JOINING`                                                                                                                                                         | leave                                                                        |
-| 403       | `NOT_AN_EMPLOYEE` · `SELF_APPROVAL_FORBIDDEN`                                                                                                                                                        | self-service without a linked employee / deciding your own leave             |
-| 400       | (validation)                                                                                                                                                                                         | malformed body/query, unknown body field                                     |
-| 401 / 403 |                                                                                                                                                                                                      | no token / missing permission                                                |
+| HTTP      | `error`                                                                                                                                                                                              | Meaning                                                                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 404       | `RESOURCE_NOT_FOUND`                                                                                                                                                                                 | not found **or outside your organization/scope**                                                                    |
+| 409       | `RESOURCE_CONFLICT`                                                                                                                                                                                  | duplicate code/name/e-mail/login link, shift still assigned                                                         |
+| 409       | `VERSION_CONFLICT`                                                                                                                                                                                   | stale employee `version`                                                                                            |
+| 409       | `SHIFT_ASSIGNMENT_OVERLAP` · `WEEKLY_OFF_OVERLAP` · `LEAVE_OVERLAP` · `HOLIDAY_DATE_TAKEN`                                                                                                           | overlap/date rules (message names the clash)                                                                        |
+| 422       | `INVALID_STATE_TRANSITION`                                                                                                                                                                           | status/decision not allowed from here (incl. terminal states, decided leave)                                        |
+| 422       | `INVALID_TEAM · INVALID_DEPARTMENT · INVALID_DESIGNATION · INVALID_EMPLOYMENT_TYPE · INVALID_WORK_LOCATION · INVALID_MANAGER · INVALID_USER · INVALID_SHIFT · INVALID_EMPLOYEE · INVALID_LEAVE_TYPE` | referenced record missing, inactive, or another organization's                                                      |
+| 422       | `REPORTING_LINE_CYCLE · JOINING_AFTER_EXIT · EFFECTIVE_DATE_BEFORE_JOINING · EMPLOYEE_HAS_LEFT · EMPLOYEE_NOT_ACTIVE`                                                                                | employee lifecycle rules                                                                                            |
+| 422       | `SHIFT_TIME_INVALID · SHIFT_WORKING_MINUTES_INVALID · ASSIGNMENT_TARGET_INVALID · ASSIGNMENT_DATES_INVALID · ASSIGNMENT_BEFORE_JOINING · ASSIGNMENT_CANNOT_EXTEND · ASSIGNMENT_VOIDED`               | shifts/assignments                                                                                                  |
+| 422       | `WEEKLY_OFF_SCOPE_INVALID · WEEKLY_OFF_DATES_INVALID · WEEKLY_OFF_CANNOT_EXTEND · WEEKLY_OFF_VOIDED`                                                                                                 | weekly-off rules                                                                                                    |
+| 422       | `LEAVE_DATES_INVALID · LEAVE_BEFORE_JOINING`                                                                                                                                                         | leave                                                                                                               |
+| 422       | `LEAVE_AFTER_EXIT · LEAVE_SPANS_YEAR · LEAVE_HALF_DAY_INVALID · LEAVE_NO_WORKING_DAYS · LEAVE_BALANCE_INSUFFICIENT · LEAVE_ALREADY_STARTED · LEAVE_DATES_PAST`                                       | leave: exit date, year boundary, half-day shape, working days, balance, withdrawal after start, resubmit past start |
+| 403       | `NOT_AN_EMPLOYEE` · `SELF_APPROVAL_FORBIDDEN`                                                                                                                                                        | self-service without a linked employee / deciding your own leave                                                    |
+| 403       | `LOCATION_NOT_ALLOWED`                                                                                                                                                                               | attendance punch from outside the office network while OFFICE-mode (nothing written)                                |
+| 400       | (validation)                                                                                                                                                                                         | malformed body/query, unknown body field                                                                            |
+| 401 / 403 |                                                                                                                                                                                                      | no token / missing permission                                                                                       |

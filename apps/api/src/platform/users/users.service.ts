@@ -86,6 +86,7 @@ export class UsersService {
         email: dto.email,
         fullName: dto.fullName,
         passwordHash,
+        mustChangePassword: dto.mustChangePassword,
       },
       callerId,
     );

@@ -32,6 +32,12 @@ export const envSchema = z.object({
 
   CORS_ORIGIN: z.string().default("http://localhost:3001"),
 
+  // How many reverse-proxy hops sit in front of the API. 0 = trust the socket
+  // address only (the safe default). Set it to the real hop count in each
+  // deployment. Too high lets a client forge X-Forwarded-For and pass the
+  // office-network check.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce
     .number()
     .int()
@@ -46,6 +52,20 @@ export const envSchema = z.object({
   // App passwords), never the account's real login password.
   GMAIL_USER: z.string().optional(),
   GMAIL_APP_PASSWORD: z.string().optional(),
+
+  // AES-256-GCM key for encrypting sensitive onboarding fields (bank account
+  // numbers — apps/api/src/shared/crypto/field-encryption.service.ts).
+  // 64 hex characters = 32 bytes. Generate with: openssl rand -hex 32
+  // Local-disk root for employee document uploads (shared/file-storage). Back
+  // this folder up together with the database — rows point at these files.
+  UPLOAD_DIR: z.string().min(1).default("storage/uploads"),
+
+  FIELD_ENCRYPTION_KEY: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{64}$/,
+      "FIELD_ENCRYPTION_KEY must be 64 hex characters (32 bytes)",
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

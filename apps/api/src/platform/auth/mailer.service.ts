@@ -22,10 +22,13 @@ export class MailerService {
   constructor(private readonly config: ConfigService) {
     const user = this.config.get<string>("GMAIL_USER");
     const pass = this.config.get<string>("GMAIL_APP_PASSWORD");
+    // Vitest always sets NODE_ENV=test, so e2e runs never send real mail even
+    // when GMAIL_* is configured for local dev. Production never sets "test".
+    const stubbed = this.config.get<string>("NODE_ENV") === "test";
 
     this.from = user ?? null;
     this.transporter =
-      user && pass
+      !stubbed && user && pass
         ? nodemailer.createTransport({
             service: "gmail",
             auth: { user, pass },

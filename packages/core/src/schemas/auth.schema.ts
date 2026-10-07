@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { strongPasswordSchema } from "./user.schema";
 
 /** Mirrors apps/api/src/platform/auth/dto/forgot-password.dto.ts so the form
  * fails the same way the API would, before a round trip
@@ -15,7 +16,7 @@ export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export const resetPasswordSchema = z
   .object({
     token: z.string().min(1, "Missing reset token"),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: strongPasswordSchema,
     confirmPassword: z.string().min(1, "Confirm your new password"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -24,3 +25,21 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+/** Mirrors apps/api/src/platform/auth/dto/change-password.dto.ts. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: strongPasswordSchema,
+    confirmPassword: z.string().min(1, "Confirm your new password."),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.newPassword !== data.currentPassword, {
+    message: "New password must be different from the current password.",
+    path: ["newPassword"],
+  });
+
+export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;

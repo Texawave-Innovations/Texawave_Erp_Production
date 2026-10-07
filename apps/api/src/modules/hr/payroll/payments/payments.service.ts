@@ -6,6 +6,7 @@ import {
 } from "../../../../common/exceptions/business.exception.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
+import { FieldEncryptionService } from "../../../../shared/crypto/field-encryption.service.js";
 import {
   assertEmployeeInWriteScope,
   requireOrgWideScope,
@@ -41,6 +42,7 @@ export class PaymentsService {
     private readonly repository: PaymentsRepository,
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
+    private readonly encryption: FieldEncryptionService,
   ) {}
 
   async findBatches(query: QueryPaymentBatchDto) {
@@ -98,6 +100,10 @@ export class PaymentsService {
   async exportBatchCsv(id: number): Promise<string> {
     await this.requireOrgWide(READ, "export payment batches");
     const batch = await this.loadBatch(id);
+    const encryptedAccounts = await this.repository.findEncryptedAccountNumbers(
+      this.tenantContext.getOrgScope(),
+      batch.payments.map((p) => p.employee.id),
+    );
     const headers = [
       "Employee Code",
       "Employee Name",
@@ -113,13 +119,16 @@ export class PaymentsService {
     const lines = [headers.join(",")];
 
     for (const p of batch.payments) {
-      const bank = p.employee.bankDetails;
+      const bank = p.employee.bankDetail?.deletedAt
+        ? null
+        : p.employee.bankDetail;
+      const encrypted = encryptedAccounts.get(p.employee.id);
       const row = [
         csvCell(p.employee.employeeCode),
         csvCell(p.employee.fullName),
         csvCell(bank?.bankName),
-        csvCell(bank?.accountNumber),
-        csvCell(bank?.ifscCode),
+        csvCell(bank && encrypted ? this.encryption.decrypt(encrypted) : null),
+        csvCell(bank?.ifsc),
         p.amount.toString(),
         csvCell(p.paymentMethod),
         csvCell(p.status),

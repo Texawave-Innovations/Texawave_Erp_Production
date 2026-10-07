@@ -46,11 +46,12 @@ const INCLUDE_PAYMENT_DETAILS = {
       fullName: true,
       teamId: true,
       userId: true,
-      bankDetails: {
+      bankDetail: {
         select: {
           bankName: true,
-          accountNumber: true,
-          ifscCode: true,
+          accountNumberMasked: true,
+          ifsc: true,
+          deletedAt: true,
         },
       },
     },
@@ -177,7 +178,7 @@ export class PaymentsRepository {
           employee: {
             select: {
               employeeCode: true,
-              bankDetails: { select: { id: true, deletedAt: true } },
+              bankDetail: { select: { id: true, deletedAt: true } },
             },
           },
         },
@@ -193,7 +194,7 @@ export class PaymentsRepository {
       if (paymentMethod === "BANK_TRANSFER") {
         const missing = entries
           .filter(
-            (e) => !e.employee.bankDetails || e.employee.bankDetails.deletedAt,
+            (e) => !e.employee.bankDetail || e.employee.bankDetail.deletedAt,
           )
           .map((e) => e.employee.employeeCode);
         if (missing.length > 0) {
@@ -343,5 +344,20 @@ export class PaymentsRepository {
       },
       include: INCLUDE_PAYMENT_DETAILS,
     });
+  }
+
+  /** Encrypted account numbers for the bank-transfer export only — kept out
+   * of INCLUDE_PAYMENT_DETAILS so no JSON response can carry them. */
+  @OrgScoped()
+  async findEncryptedAccountNumbers(scope: OrgScope, employeeIds: number[]) {
+    const rows = await this.prisma.employeeBankDetail.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        employeeId: { in: employeeIds },
+        deletedAt: null,
+      },
+      select: { employeeId: true, accountNumberEncrypted: true },
+    });
+    return new Map(rows.map((r) => [r.employeeId, r.accountNumberEncrypted]));
   }
 }

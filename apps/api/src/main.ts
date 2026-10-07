@@ -1,14 +1,21 @@
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService);
+
+  // request.ip (used by the office-network check and the audit trail) reads
+  // X-Forwarded-For only for the configured number of proxy hops.
+  app.set("trust proxy", config.getOrThrow<number>("TRUST_PROXY_HOPS"));
 
   app.enableCors({
     origin: config.getOrThrow<string>("CORS_ORIGIN"),

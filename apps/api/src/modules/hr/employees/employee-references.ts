@@ -151,10 +151,10 @@ async function wouldCreateCycle(
 ): Promise<boolean> {
   const rows = await tx.$queryRaw<Array<{ id: number }>>`
     WITH RECURSIVE chain(id, reports_to_id) AS (
-      SELECT id, reports_to_id FROM employees WHERE id = ${managerId}
+      SELECT id, reports_to_id FROM hr.employees WHERE id = ${managerId}
       UNION
       SELECT e.id, e.reports_to_id
-        FROM employees e JOIN chain c ON e.id = c.reports_to_id
+        FROM hr.employees e JOIN chain c ON e.id = c.reports_to_id
     )
     SELECT id FROM chain WHERE id = ${employeeId} LIMIT 1`;
   return rows.length > 0;

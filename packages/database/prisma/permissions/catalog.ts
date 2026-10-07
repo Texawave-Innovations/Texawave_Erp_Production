@@ -136,6 +136,96 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ...scopedPermission("hr.leave_request.read", "View leave requests"),
   ...scopedPermission("hr.leave.approve", "Approve or reject leave requests"),
 
+  // apps/api/src/modules/hr/attendance — team-scoped (an employee's day is
+  // reached through the employee). attendance.write.own and
+  // attendance_correction.approve.own are reserved: nobody may edit or decide
+  // their own attendance; approve.team/write.team are granted to no role by
+  // default, the same open decision as leave approval.
+  ...scopedPermission("hr.attendance.read", "View attendance records"),
+  ...scopedPermission(
+    "hr.attendance.write",
+    "Manually edit attendance records (HR)",
+  ),
+  ...scopedPermission(
+    "hr.attendance_correction.read",
+    "View attendance correction requests",
+  ),
+  ...scopedPermission(
+    "hr.attendance_correction.approve",
+    "Approve or reject attendance correction requests",
+  ),
+  ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
+
+  // apps/api/src/modules/hr/location-privilege — organization-wide. Legacy has
+  // no team dimension for location privilege (Docs/HR_LEGACY_PARITY.md §12),
+  // so no scope variants are invented. The service refuses a change to the
+  // caller's own privilege.
+  {
+    code: "hr.location_privilege.read",
+    description: "View employee location privileges",
+  },
+  {
+    code: "hr.location_privilege.write",
+    description: "Change employee location privileges (HR)",
+  },
+  // Organization-wide office network list. Not employee data, so no scope.
+  {
+    code: "hr.office_network.read",
+    description: "View office network addresses",
+  },
+  {
+    code: "hr.office_network.write",
+    description: "Add or deactivate office network addresses",
+  },
+
+  // apps/api/src/modules/hr/profiles — profile details are employee-linked, so
+  // team-scoped through the employee. write.own is reserved: nobody edits their
+  // own profile through HR routes (self-submission is not built; see
+  // Docs/HR_LEGACY_PARITY.md §11.5).
+  ...scopedPermission("hr.employee_profile.read", "View employee profiles"),
+  ...scopedPermission("hr.employee_profile.write", "Edit employee profiles"),
+  // Sensitive identifiers and bank details (ARCHITECTURE.md §10). Organization-
+  // wide by design; no team dimension, so no own/team/all suffix (see CODING_STANDARDS §2a). Reads are audited.
+  {
+    code: "hr.employee_sensitive.read",
+    description:
+      "View sensitive employee identifiers and bank details (audited)",
+  },
+  {
+    code: "hr.employee_sensitive.write",
+    description: "Create/edit sensitive employee identifiers and bank details",
+  },
+
+  // apps/api/src/modules/hr/interviews, offer-letters — EXPLICIT, DOCUMENTED
+  // EXCEPTION to the HR team-scope rule (Docs/HR_API.md, Recruitment). Legacy
+  // stores no employee or team owner for these records, so there is nothing
+  // to scope by: each permission is organization-wide and exact-name, with no
+  // .own/.team/.all variants. Not granted to Employee or Team Lead by default.
+  { code: "hr.interview.read", description: "View the interview schedule" },
+  {
+    code: "hr.interview.write",
+    description: "Schedule interviews and change their status",
+  },
+  { code: "hr.offer_letter.read", description: "View offer letters" },
+  {
+    code: "hr.offer_letter.write",
+    description: "Generate and edit offer letters",
+  },
+
+  // apps/api/src/modules/hr/revision-letters — employee-linked (a letter is
+  // always issued to an existing employee), so team-scoped through the
+  // employee. write.own is reserved: nobody issues or edits a revision letter
+  // for themselves. Who among team leads may see or issue these is an open
+  // decision, so write.team/read.team are granted to no role by default.
+  ...scopedPermission(
+    "hr.revision_letter.read",
+    "View salary revision letters",
+  ),
+  ...scopedPermission(
+    "hr.revision_letter.write",
+    "Issue and edit salary revision letters",
+  ),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.
@@ -163,12 +253,141 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "View my own employee record",
   },
   {
+    code: "employee_self_service.profile.write",
+    description:
+      "Edit my own onboarding profile (personal, bank, family, experience, documents)",
+  },
+  // Full bank account number (masked form is visible under hr.employee.read).
+  ...scopedPermission(
+    "hr.employee_bank.reveal",
+    "Reveal full bank account numbers",
+  ),
+  {
     code: "employee_self_service.leave_request.read",
     description: "View my own leave requests",
   },
   {
     code: "employee_self_service.leave_request.create",
     description: "Request leave for myself",
+  },
+  {
+    code: "employee_self_service.attendance.punch",
+    description: "Check in and check out for myself",
+  },
+  {
+    code: "employee_self_service.attendance.read",
+    description: "View my own attendance",
+  },
+  {
+    code: "employee_self_service.attendance_correction.create",
+    description: "Request a correction to my own attendance",
+  },
+
+  // apps/api/src/modules/employee-self-service/work-logs — own records only.
+  {
+    code: "employee_self_service.work_log.create",
+    description: "Submit a work log for myself",
+  },
+  {
+    code: "employee_self_service.work_log.read",
+    description: "View my own work logs",
+  },
+
+  // apps/api/src/modules/hr/work-logs — team-scoped read; approval is by the
+  // employee's reporting manager (Employee.reportsToId), not by team, so the
+  // approve permission carries no scope suffix.
+  ...scopedPermission("hr.work_log.read", "View work logs"),
+  {
+    code: "hr.work_log.approve",
+    description: "Approve or reject work logs of my direct reports",
+  },
+
+  // apps/api/src/modules/hr/tasks — team-scoped by the ASSIGNEE's team. There is
+  // no separate approve permission: in legacy the same admin who assigns a
+  // task approves or reopens it, so approval rides on the write scope.
+  ...scopedPermission("hr.task.read", "View tasks"),
+  ...scopedPermission(
+    "hr.task.write",
+    "Assign, reassign, update status, approve and reopen tasks",
+  ),
+
+  // apps/api/src/modules/hr/tickets — team-scoped by the EMPLOYEE's team. Replying
+  // and changing status ride on the write scope (legacy: the same admin who
+  // raises a ticket replies to it and moves it), so there is no separate
+  // respond permission.
+  ...scopedPermission("hr.ticket.read", "View employee tickets"),
+  ...scopedPermission(
+    "hr.ticket.write",
+    "Raise tickets for employees, reply, change status and reopen",
+  ),
+
+  // apps/api/src/modules/employee-self-service/tickets — own tickets only.
+  {
+    code: "employee_self_service.ticket.read",
+    description: "View tickets I raised or that HR raised for me",
+  },
+  {
+    code: "employee_self_service.ticket.create",
+    description: "Raise a ticket to HR",
+  },
+  {
+    code: "employee_self_service.ticket.update",
+    description:
+      "Edit my own open ticket and reply on tickets HR raised for me",
+  },
+
+  // apps/api/src/modules/hr/expense-claims — team-scoped by the EMPLOYEE's team.
+  // Reads are own/team/all. Deciding is granted at team/all; an own-level
+  // holder is refused in the service, and self-approval in the repository.
+  ...scopedPermission("hr.expense_claim.read", "View expense claims"),
+  ...scopedPermission(
+    "hr.expense_claim.decide",
+    "Approve or reject expense claims",
+  ),
+
+  // apps/api/src/modules/hr/exit-requests — reads are own/team/all. Reviewing,
+  // approving or rejecting is the separate `decide` permission; an own-level
+  // holder is refused, and self-decision is refused in the repository.
+  ...scopedPermission("hr.exit_request.read", "View exit requests"),
+  ...scopedPermission(
+    "hr.exit_request.decide",
+    "Review, approve or reject exit requests",
+  ),
+
+  // apps/api/src/modules/employee-self-service/expense-claims — own claims only.
+  {
+    code: "employee_self_service.expense_claim.create",
+    description: "Submit an expense claim for myself",
+  },
+  {
+    code: "employee_self_service.expense_claim.read",
+    description: "View my own expense claims",
+  },
+
+  // apps/api/src/modules/employee-self-service/exit-requests — own requests only.
+  // There is no cancel, withdraw or resubmit permission: none exists in legacy.
+  {
+    code: "employee_self_service.exit_request.create",
+    description: "Submit an exit request for myself",
+  },
+  {
+    code: "employee_self_service.exit_request.read",
+    description: "View my own exit requests",
+  },
+
+  // apps/api/src/modules/employee-self-service/tasks — own tasks only.
+  {
+    code: "employee_self_service.task.read",
+    description: "View tasks assigned to me or created by me",
+  },
+  {
+    code: "employee_self_service.task.create",
+    description:
+      "Create a task for myself (optionally request admin attention)",
+  },
+  {
+    code: "employee_self_service.task.update_status",
+    description: "Update the status of my own tasks until admin approval",
   },
 
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).

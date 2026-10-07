@@ -30,14 +30,15 @@ const INCLUDE_PAYSLIP_DETAILS = {
       designation: { select: { id: true, name: true } },
       department: { select: { id: true, name: true } },
       team: { select: { id: true, name: true } },
-      bankDetails: {
+      bankDetail: {
         select: {
           bankName: true,
-          accountNumber: true,
-          ifscCode: true,
-          panNumber: true,
+          accountNumberMasked: true,
+          ifsc: true,
+          deletedAt: true,
         },
       },
+      employeeGovernmentId: { select: { panNumber: true, deletedAt: true } },
       pfProfile: { select: { uan: true, pfNumber: true } },
       esiProfile: { select: { insuranceNumber: true } },
     },

@@ -1,5 +1,4 @@
 import { Module } from "@nestjs/common";
-import { BankDetailsModule } from "./bank-details/bank-details.module.js";
 import { BonusesModule } from "./bonuses/bonuses.module.js";
 import { ComplianceModule } from "./compliance/compliance.module.js";
 import { LoansModule } from "./loans/loans.module.js";
@@ -19,7 +18,6 @@ import { SalariesModule } from "./salaries/salaries.module.js";
     PayrollRunsModule,
     PayslipsModule,
     PaymentsModule,
-    BankDetailsModule,
   ],
   exports: [
     PayrollPeriodsModule,
@@ -30,7 +28,6 @@ import { SalariesModule } from "./salaries/salaries.module.js";
     PayrollRunsModule,
     PayslipsModule,
     PaymentsModule,
-    BankDetailsModule,
   ],
 })
 export class PayrollModule {}

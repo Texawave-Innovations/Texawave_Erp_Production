@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -226,6 +227,47 @@ export class AuthService {
     return this.issueTokens(user.id, organizationId, roleIds);
   }
 
+  /**
+   * Voluntary password change (also the forced first-login change for HR-created
+   * accounts). Revokes every session, so the user signs in again with the new
+   * password. Onboarding stage is NOT written here: it is derived from
+   * `mustChangePassword` plus the employee's profile state (Docs/ARCHITECTURE.md §7).
+   */
+  async changePassword(
+    userId: number,
+    organizationId: number,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.users.findById({ organizationId }, userId);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    const currentMatches = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
+    if (!currentMatches) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        "New password must be different from the current password",
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.users.updatePasswordHash(
+      { organizationId },
+      userId,
+      passwordHash,
+    );
+
+    await this.revokeAllRefreshTokens(userId);
+    await this.permissions.invalidate(userId);
+  }
+
   async logout(userId: number): Promise<void> {
     await this.revokeAllRefreshTokens(userId);
     await this.permissions.invalidate(userId);
@@ -248,6 +290,7 @@ export class AuthService {
     organizationId: number;
     email: string;
     fullName: string;
+    mustChangePassword: boolean;
     roleIds: number[];
     permissions: string[];
   }> {
@@ -266,6 +309,7 @@ export class AuthService {
       organizationId: user.organizationId,
       email: user.email,
       fullName: user.fullName,
+      mustChangePassword: user.mustChangePassword,
       roleIds,
       permissions,
     };

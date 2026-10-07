@@ -34,7 +34,7 @@ export async function issueEmployeeCode(
   // First use in an organization: create its counter. DO NOTHING makes two
   // simultaneous first uses safe (the loser simply proceeds to the UPDATE).
   await tx.$executeRaw`
-    INSERT INTO document_sequences
+    INSERT INTO platform.document_sequences
       (organization_id, doc_type, prefix, padding, next_number, updated_at)
     VALUES
       (${organizationId}, ${EMPLOYEE_CODE_DOC_TYPE}, ${EMPLOYEE_CODE_PREFIX},
@@ -44,7 +44,7 @@ export async function issueEmployeeCode(
   const rows = await tx.$queryRaw<
     Array<{ prefix: string; padding: number; issued: number }>
   >`
-    UPDATE document_sequences
+    UPDATE platform.document_sequences
        SET next_number = next_number + 1, updated_at = now()
      WHERE organization_id = ${organizationId}
        AND doc_type = ${EMPLOYEE_CODE_DOC_TYPE}

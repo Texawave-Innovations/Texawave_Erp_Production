@@ -368,9 +368,7 @@ describe("HR employees (e2e)", () => {
         .post(`/hr/employees/${e1.id}/status`)
         .send({})
         .expect(401);
-      await request(app.getHttpServer())
-        .get("/self-service/profile")
-        .expect(401);
+      await request(app.getHttpServer()).get("/employee/profile").expect(401);
     });
 
     it("403 for a user with no HR permission", async () => {
@@ -1484,12 +1482,12 @@ describe("HR employees (e2e)", () => {
     });
 
     it("an unlinked login is not an employee: self-service is 403 NOT_AN_EMPLOYEE", async () => {
-      const res = await get("linkable1", "/self-service/profile").expect(403);
+      const res = await get("linkable1", "/employee/profile").expect(403);
       expect((res.body as { error: string }).error).toBe("NOT_AN_EMPLOYEE");
     });
 
     it("without the permission the route is 403 even for a linked user", async () => {
-      await get("nobody", "/self-service/profile").expect(403);
+      await get("nobody", "/employee/profile").expect(403);
     });
 
     it("links a login and the user then sees exactly their own record", async () => {
@@ -1502,7 +1500,7 @@ describe("HR employees (e2e)", () => {
         hasLogin: true,
       });
       const mine = (
-        (await get("linkable1", "/self-service/profile").expect(200))
+        (await get("linkable1", "/employee/profile").expect(200))
           .body as Body<Emp>
       ).data;
       expect(mine.id).toBe(emp.id);
@@ -1515,13 +1513,13 @@ describe("HR employees (e2e)", () => {
         (
           await get(
             "linkable1",
-            `/self-service/profile?employeeId=${e1.id}&id=${e1.id}`,
+            `/employee/profile?employeeId=${e1.id}&id=${e1.id}`,
           ).expect(200)
         ).body as Body<Emp>
       ).data;
       expect(viaQuery.id).toBe(emp.id);
       await request(app.getHttpServer())
-        .get(`/self-service/profile/${e1.id}`)
+        .get(`/employee/profile/${e1.id}`)
         .set(auth("linkable1"))
         .expect(404);
     });
@@ -1607,7 +1605,7 @@ describe("HR employees (e2e)", () => {
         },
       });
       expect(n).toBe(1);
-      await get("linkable1", "/self-service/profile").expect(403);
+      await get("linkable1", "/employee/profile").expect(403);
       // The account itself is untouched and can be linked again.
       expect(
         (

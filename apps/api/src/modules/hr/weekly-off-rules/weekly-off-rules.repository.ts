@@ -364,7 +364,7 @@ export class WeeklyOffRulesRepository {
     id: number,
   ) {
     await tx.$queryRaw`
-      SELECT id FROM weekly_off_rules
+      SELECT id FROM hr.weekly_off_rules
        WHERE id = ${id} AND organization_id = ${organizationId} FOR UPDATE`;
   }
 
