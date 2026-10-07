@@ -158,6 +158,14 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-regularization",
+      label: "Regularization",
+      path: "/hr/regularization",
+      order: 6,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
