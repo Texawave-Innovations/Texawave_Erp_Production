@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "approvals" (
+CREATE TABLE "platform"."approvals" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "entity_type" TEXT NOT NULL,
@@ -23,16 +23,16 @@ CREATE TABLE "approvals" (
 );
 
 -- CreateIndex
-CREATE INDEX "approvals_organization_id_entity_type_entity_id_idx" ON "approvals"("organization_id", "entity_type", "entity_id");
+CREATE INDEX "approvals_organization_id_entity_type_entity_id_idx" ON "platform"."approvals"("organization_id", "entity_type", "entity_id");
 
 -- CreateIndex
-CREATE INDEX "approvals_organization_id_status_idx" ON "approvals"("organization_id", "status");
+CREATE INDEX "approvals_organization_id_status_idx" ON "platform"."approvals"("organization_id", "status");
 
 -- AddForeignKey
-ALTER TABLE "approvals" ADD CONSTRAINT "approvals_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "platform"."approvals" ADD CONSTRAINT "approvals_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "approvals" ADD CONSTRAINT "approvals_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "platform"."approvals" ADD CONSTRAINT "approvals_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "platform"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "approvals" ADD CONSTRAINT "approvals_decided_by_fkey" FOREIGN KEY ("decided_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "platform"."approvals" ADD CONSTRAINT "approvals_decided_by_fkey" FOREIGN KEY ("decided_by") REFERENCES "platform"."users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
