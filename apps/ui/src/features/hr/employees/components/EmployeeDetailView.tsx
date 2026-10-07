@@ -14,6 +14,7 @@ import {
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { useEmployee, useEmployeeStatusHistory } from "../hooks";
 import {
   CORRECTIONS,
@@ -61,6 +62,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const canStatus = usePermission(STATUS_WRITE);
   const canCorrect = usePermission(STATUS_CORRECT);
+  const canReadProfile = usePermission(PROFILE_READ_ANY_SCOPE);
 
   const query = useEmployee(id);
   const [historyPage, setHistoryPage] = useState(1);
@@ -145,6 +147,14 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {canReadProfile ? (
+              <Link
+                href={`/hr/employees/${e.id}/profile`}
+                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                Profile
+              </Link>
+            ) : null}
             {canWrite ? (
               <Link
                 href={`/hr/employees/${e.id}/edit`}
