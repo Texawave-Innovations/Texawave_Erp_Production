@@ -182,6 +182,14 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-full-month-present",
+      label: "Full Month Present",
+      path: "/hr/full-month-present",
+      order: 9,
+      parentId: hrParent.id,
+      permission: "hr.attendance_report.read",
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
