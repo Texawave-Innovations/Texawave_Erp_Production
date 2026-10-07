@@ -28,7 +28,7 @@ export async function lockPayrollPeriod(
   const rows = await tx.$queryRaw<LockedPayrollPeriod[]>`
     SELECT id, year, month, status,
            period_start AS "periodStart", period_end AS "periodEnd"
-      FROM payroll_periods
+      FROM hr.payroll_periods
      WHERE id = ${payrollPeriodId}
        AND organization_id = ${organizationId}
        AND deleted_at IS NULL
@@ -57,13 +57,13 @@ export async function issuePayrollNumber(
   docType: PayrollDocType,
 ): Promise<number> {
   await tx.$executeRaw`
-    INSERT INTO document_sequences
+    INSERT INTO platform.document_sequences
       (organization_id, doc_type, prefix, padding, next_number, updated_at)
     VALUES (${organizationId}, ${docType}, ${PREFIX[docType]}, 6, 1, now())
     ON CONFLICT (organization_id, doc_type) DO NOTHING`;
 
   const rows = await tx.$queryRaw<Array<{ issued: number }>>`
-    UPDATE document_sequences
+    UPDATE platform.document_sequences
        SET next_number = next_number + 1, updated_at = now()
      WHERE organization_id = ${organizationId}
        AND doc_type = ${docType}

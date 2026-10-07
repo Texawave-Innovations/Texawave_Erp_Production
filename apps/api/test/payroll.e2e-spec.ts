@@ -162,12 +162,13 @@ describe("Payroll & Compliance (e2e)", () => {
       })
     ).id;
 
-    // Cache permissions
-    const dbPerms = await prisma.permission.findMany({
-      where: { code: { in: PERMS } },
-    });
-    for (const p of dbPerms) {
-      perm.set(p.code, p.id);
+    for (const code of PERMS) {
+      const p = await prisma.permission.upsert({
+        where: { code },
+        update: {},
+        create: { code, description: code },
+      });
+      perm.set(code, p.id);
     }
 
     const passwordHash = await bcrypt.hash("Password123!", 10);
