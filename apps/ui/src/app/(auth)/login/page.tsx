@@ -6,6 +6,7 @@ import { Alert, Button, Card, FormField, Input } from "@texawave-erp/ui-kit";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { landingPathAfterLogin } from "@/features/auth/landing";
 import { apiClient, applyAuthTokens } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -33,7 +34,7 @@ export default function LoginPage() {
       });
       setOrganization({ organizationId: 0, organizationSlug });
       applyAuthTokens(data);
-      router.push("/reference/tags");
+      router.push(await landingPathAfterLogin());
     } catch (err) {
       // Values are intentionally NOT cleared on failure
       // (Docs/DESIGN_SYSTEM.md "Preserve entered form values when

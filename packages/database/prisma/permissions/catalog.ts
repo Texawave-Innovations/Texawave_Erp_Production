@@ -253,6 +253,16 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "View my own employee record",
   },
   {
+    code: "employee_self_service.profile.write",
+    description:
+      "Edit my own onboarding profile (personal, bank, family, experience, documents)",
+  },
+  // Full bank account number (masked form is visible under hr.employee.read).
+  ...scopedPermission(
+    "hr.employee_bank.reveal",
+    "Reveal full bank account numbers",
+  ),
+  {
     code: "employee_self_service.leave_request.read",
     description: "View my own leave requests",
   },

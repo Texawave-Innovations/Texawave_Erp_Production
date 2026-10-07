@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { useMe } from "@/hooks/usePermission";
+import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -31,7 +32,8 @@ export default function DashboardLayout({
   const [navOpen, setNavOpen] = useState(false);
 
   // Prime the current user's profile and permissions
-  useMe();
+  const me = useMe();
+  const mustChangePassword = me.data?.mustChangePassword === true;
 
   async function handleSignOut() {
     // Best-effort: revoke server-side refresh tokens too, but don't block
@@ -43,13 +45,26 @@ export default function DashboardLayout({
     router.push("/login");
   }
 
+  // A hire with an employee record who has not finished onboarding belongs
+  // in the wizard, not the admin area. Accounts with no employee record get
+  // no data here and are never redirected.
+  const employee = useMyEmployee();
+  const onboardingIncomplete =
+    employee.data !== undefined &&
+    employee.data.onboardingStatus !== "COMPLETE";
+
   useEffect(() => {
     if (!accessToken) {
       router.replace("/login");
+    } else if (mustChangePassword) {
+      // A temporary password must be replaced before anything else is reachable.
+      router.replace("/change-password");
+    } else if (onboardingIncomplete) {
+      router.replace("/onboarding");
     }
-  }, [accessToken, router]);
+  }, [accessToken, mustChangePassword, onboardingIncomplete, router]);
 
-  if (!accessToken) {
+  if (!accessToken || mustChangePassword || onboardingIncomplete) {
     return null;
   }
 

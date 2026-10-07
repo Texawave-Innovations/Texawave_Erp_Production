@@ -230,7 +230,8 @@ document_sequences (id, organization_id, doc_type VARCHAR, prefix VARCHAR, next_
 ```sql
 status_history   (id, org_id, entity_type, entity_id, from_status_id, to_status_id, changed_by, changed_at, remarks)
 attachments       (id, org_id, entity_type, entity_id, file_url, file_type, uploaded_by, uploaded_at)
-approvals         (id, org_id, entity_type, entity_id, workflow_id, step, approver_id, decision, decided_at)
+approvals         (id, organization_id, entity_type, entity_id, status PENDING|APPROVED|REJECTED|EXPIRED, proposed_changes jsonb, requested_by, decided_by, decided_at, decision_note, expires_at, + §5.1 baseline)
+                  -- single-step only; no workflow/step tables until a second use case needs multi-step approval. Shipped in migration 20261005094420_add_approvals.
 audit_logs        (id, org_id, actor_id, entity_type, entity_id, action, before jsonb, after jsonb, ip, at)
 comments          (id, org_id, entity_type, entity_id, author_id, body, created_at)
 ```
@@ -280,7 +281,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Projects** — `projects`, `project_members`, `tasks` (`parent_task_id` for subtasks, `assignee_id`, `status_id`, `due_date`), `project_reports`. `task_comments` reuses the generic `comments` table (`entity_type='task'`).
 
-**HR** — `employees`, `attendance_records` (+ `check_in_location point`, `check_in_face_match_score`, `check_in_method` via `statuses`), `leave_types`, `leave_requests`, `payroll_runs`, `payslips`, `pf_esi_records`, `bonuses`, `tickets`
+**HR** — `employees` (+ `onboarding_status`), `employee_personal_details` (1:1), `employee_bank_details` (1:1, account number stored encrypted, masked form only in responses), `employee_addresses` (one row per `PERMANENT`/`PRESENT`), `employee_government_ids` (1:1, Aadhaar/PAN required, ESI/PF optional), `employee_family_members`, `employee_experience`, `employee_documents` (one row per `documentType`; file on local disk under `UPLOAD_DIR`, with MIME type and size recorded), `attendance_records` (+ `check_in_location point`, `check_in_face_match_score`, `check_in_method` via `statuses`), `leave_types`, `leave_requests`, `payroll_runs`, `payslips`, `pf_esi_records`, `bonuses`, `tickets`
 
 **Vault** — `documents`, `document_folders`, `document_access_grants` (+ `encryption_key_ref`, `iso_format_version`), reuses `approvals`/`approval_workflows` from platform
 
@@ -318,6 +319,60 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 - Own route group: `(employee-portal)`, not nested under `(dashboard)`.
 - Own permission namespace: `employee_self_service.*`, distinct from `hr.*`. An employee's JWT should not carry `hr.employee.read` just because they can see their own record.
 - Mostly reuses HR's tables (`employees`, `attendance_records`, `leave_requests`, `payslips`) scoped down by permission + `WHERE employee.user_id = :currentUserId`, rather than new tables.
+
+### 7a. Self-onboarding (TEXA-16/onboarding epic) — built
+
+HR creates a new hire's login and employee record; the new hire changes a
+temporary password, fills in their own profile, and only then reaches the
+real employee portal.
+
+**Creation is two existing calls composed, never one combined endpoint.**
+`CreateEmployeeDto` deliberately carries no password field — "a login is a
+separate `users` row linked by `userId` — never stored here." So onboarding
+is: `POST /users` (temp password, `mustChangePassword: true`, the employee's
+self-service role), then `POST /hr/employees` with that new `userId`. No
+change to either endpoint's shape was needed.
+
+**Two independent flags, not one stored state machine.** `onboardingStatus`
+on `Employee` only ever holds `PENDING_ACTIVATION` or `COMPLETE` — it is NOT
+a three-state machine, because the true "has this person changed their temp
+password yet" fact already lives on `User.mustChangePassword` and would
+drift from a copy. Any check that needs that fact (e.g. the submit gate)
+reads `User.mustChangePassword` directly, not `onboardingStatus`. The
+`employees.repository.ts#markOnboardingComplete` transition is therefore a
+forward-only `WHERE onboarding_status <> 'COMPLETE'`, not a transition out of
+a specific prior value.
+
+**Onboarding data model** (`apps/api/src/modules/employee-self-service/profile/`):
+`employee_personal_details`, `employee_bank_details`, `employee_addresses`
+(one row per `PERMANENT`/`PRESENT`; no present-address row means "same as
+permanent"), `employee_government_ids`, `employee_family_members`,
+`employee_experience`, `employee_documents` (one row per
+`documentType` — see §5.6). Every write is resolved from the caller's JWT via
+`EmployeeQueryService.getCurrentEmployee()`; no request ever carries an
+employee id for these routes.
+
+**Bank account numbers are encrypted at rest**
+(`apps/api/src/common/crypto/field-encryption.service.ts`, AES-256-GCM,
+key from `FIELD_ENCRYPTION_KEY`). Self-service reads only ever return the
+masked form; a full reveal is a separate, not-yet-built HR permission
+(`hr.employee_bank.reveal.own/.team/.all`, already seeded in the permission
+catalog).
+
+**Document files are stored on local disk.** Uploads are checked by their actual bytes (PDF, JPG or PNG only), capped at 5 MB, saved under a random server-generated name in `UPLOAD_DIR` (default `apps/api/storage/uploads`, git-ignored), and streamed back only to the employee who owns them. The folder must be backed up together with the database. Moving to object storage later changes only `shared/file-storage`.
+
+**Sensitive-field changes after `COMPLETE` go through approval, not a direct
+edit** — HR requests a change to bank details or an identity document, Super
+Admin approves or rejects it, and only approval applies it. The shared
+`Approval` table (§5.4) exists for this; the HR-side request/approve routes
+are not built yet — this is the next piece of this epic, not a design gap.
+
+**URL is short, permission code is not.** The routes live at
+`/employee/profile/...` (user-facing), while the module folder and every
+permission code stay `employee-self-service` /
+`employee_self_service.profile.*`, so they never read like `hr.employee.*`
+in a permission list or an audit log. The two names are independent; only
+the string in `@Controller()` decides the route.
 
 ---
 

@@ -16,6 +16,7 @@ const USER_SELECT = {
   email: true,
   fullName: true,
   isActive: true,
+  mustChangePassword: true,
   createdBy: true,
   updatedBy: true,
   createdAt: true,
@@ -136,7 +137,12 @@ export class UsersRepository {
   @OrgScoped()
   async create(
     scope: OrgScope,
-    data: { email: string; fullName: string; passwordHash: string },
+    data: {
+      email: string;
+      fullName: string;
+      passwordHash: string;
+      mustChangePassword?: boolean | undefined;
+    },
     createdBy?: number,
   ) {
     const user = await this.prisma.user.create({
@@ -145,6 +151,7 @@ export class UsersRepository {
         email: data.email,
         fullName: data.fullName,
         passwordHash: data.passwordHash,
+        mustChangePassword: data.mustChangePassword ?? false,
         createdBy: createdBy ?? null,
         updatedBy: createdBy ?? null,
       },
@@ -327,7 +334,7 @@ export class UsersRepository {
   updatePasswordHash(scope: OrgScope, userId: number, passwordHash: string) {
     return this.prisma.user.updateMany({
       where: { id: userId, organizationId: scope.organizationId },
-      data: { passwordHash },
+      data: { passwordHash, mustChangePassword: false },
     });
   }
 }

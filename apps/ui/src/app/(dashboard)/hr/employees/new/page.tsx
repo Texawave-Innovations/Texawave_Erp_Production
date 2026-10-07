@@ -1,5 +1,5 @@
-import { EmployeeCreateView } from "@/features/hr/employees/components/EmployeeFormView";
+import { NewHireView } from "@/features/onboarding/components/NewHireView";
 
-export default function HrEmployeeNewPage() {
-  return <EmployeeCreateView />;
+export default function NewHirePage() {
+  return <NewHireView />;
 }

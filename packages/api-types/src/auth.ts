@@ -19,4 +19,6 @@ export interface MeUser {
   fullName: string;
   roleIds: number[];
   permissions: string[];
+  /** True until the user changes their temporary password (TEXA-16 onboarding). */
+  mustChangePassword: boolean;
 }

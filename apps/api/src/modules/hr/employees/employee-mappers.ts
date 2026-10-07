@@ -37,6 +37,9 @@ export interface EmployeeListItem {
   employmentType: Ref;
   reportsToId: number | null;
   hasLogin: boolean;
+  /** Self-onboarding progress (Docs/ARCHITECTURE.md §7) — written only by
+   * the employee-self-service module via EmployeeQueryService, never by HR. */
+  onboardingStatus: string;
 }
 
 export interface EmployeeDetail extends EmployeeListItem {
@@ -68,6 +71,7 @@ export function toListItem(row: EmployeeRow): EmployeeListItem {
     employmentType: row.employmentType,
     reportsToId: row.reportsToId,
     hasLogin: row.userId !== null,
+    onboardingStatus: row.onboardingStatus,
   };
 }
 
