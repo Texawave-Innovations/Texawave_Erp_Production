@@ -142,6 +142,14 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-work-logs",
+      label: "Work Logs",
+      path: "/hr/work-logs",
+      order: 4,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
