@@ -3,7 +3,17 @@ import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
+import {
+  BusinessRuleConflictException,
+  BusinessRuleViolationException,
+} from "../../../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import {
+  issuePayrollNumber,
+  lockPayrollPeriod,
+  periodTag,
+} from "../shared/payroll-locks.js";
+import { findApprovedRun } from "../shared/payslip-generation.js";
 import type {
   QueryPaymentBatchDto,
   UpdatePaymentDto,
@@ -34,12 +44,13 @@ const INCLUDE_PAYMENT_DETAILS = {
       id: true,
       employeeCode: true,
       fullName: true,
+      teamId: true,
+      userId: true,
       bankDetails: {
         select: {
           bankName: true,
           accountNumber: true,
           ifscCode: true,
-          panNumber: true,
         },
       },
     },
@@ -105,6 +116,14 @@ export class PaymentsRepository {
     });
   }
 
+  /**
+   * Creates the payout batch for a FINALIZED period from its single approved
+   * run, under the period row lock, so two concurrent calls cannot both
+   * create one: at most one non-cancelled batch exists per period. For bank
+   * transfers every employee must have bank details — a batch with blank
+   * account lines is refused rather than silently produced. Returns `null`
+   * for an unknown period.
+   */
   @OrgScoped()
   async createBatch(
     scope: OrgScope,
@@ -112,50 +131,103 @@ export class PaymentsRepository {
     paymentMethod: string,
     userId: number,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const period = await tx.payrollPeriod.findFirstOrThrow({
-        where: { id: payrollPeriodId, organizationId: scope.organizationId },
-      });
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const period = await lockPayrollPeriod(
+        tx,
+        scope.organizationId,
+        payrollPeriodId,
+      );
+      if (!period) return null;
 
-      const run = await tx.payrollRun.findFirst({
-        where: {
-          payrollPeriodId,
-          organizationId: scope.organizationId,
-          status: "APPROVED",
-        },
-        orderBy: { runNumber: "desc" },
-        include: { entries: true },
-      });
-
-      if (!run || run.entries.length === 0) {
-        throw new Error(
-          "No approved payroll run with entries found for period",
+      if (period.status !== "FINALIZED") {
+        throw new BusinessRuleViolationException(
+          "Payment batches can only be created for a finalized payroll period",
+          "PERIOD_NOT_FINALIZED",
         );
       }
 
-      const seq = await tx.paymentBatch.count({
-        where: { organizationId: scope.organizationId },
+      const existing = await tx.paymentBatch.findFirst({
+        where: {
+          organizationId: scope.organizationId,
+          payrollPeriodId,
+          deletedAt: null,
+          status: { not: "CANCELLED" },
+        },
+        select: { batchNumber: true },
       });
+      if (existing) {
+        throw new BusinessRuleConflictException(
+          `A payment batch (${existing.batchNumber}) already exists for this period`,
+          "PAYMENT_BATCH_EXISTS",
+        );
+      }
 
-      const batchNumber = `BATCH-${period.year}${String(period.month).padStart(2, "0")}-${String(seq + 1).padStart(4, "0")}`;
-      const totalAmount = run.entries.reduce(
+      const run = await findApprovedRun(
+        tx,
+        scope.organizationId,
+        payrollPeriodId,
+      );
+      const entries = await tx.payrollEntry.findMany({
+        where: {
+          organizationId: scope.organizationId,
+          payrollRunId: run.id,
+          deletedAt: null,
+        },
+        include: {
+          employee: {
+            select: {
+              employeeCode: true,
+              bankDetails: { select: { id: true, deletedAt: true } },
+            },
+          },
+        },
+        orderBy: { id: "asc" },
+      });
+      if (entries.length === 0) {
+        throw new BusinessRuleViolationException(
+          "The approved payroll run has no entries",
+          "PAYROLL_RUN_EMPTY",
+        );
+      }
+
+      if (paymentMethod === "BANK_TRANSFER") {
+        const missing = entries
+          .filter(
+            (e) => !e.employee.bankDetails || e.employee.bankDetails.deletedAt,
+          )
+          .map((e) => e.employee.employeeCode);
+        if (missing.length > 0) {
+          throw new BusinessRuleViolationException(
+            `Bank details are missing for: ${missing.join(", ")}`,
+            "BANK_DETAILS_MISSING",
+          );
+        }
+      }
+
+      const seq = await issuePayrollNumber(
+        tx,
+        scope.organizationId,
+        "payment_batch",
+      );
+      const batchNumber = `BATCH-${periodTag(period)}-${String(seq).padStart(6, "0")}`;
+      const totalAmount = entries.reduce(
         (sum, entry) => sum.add(new Prisma.Decimal(entry.netPayable)),
         new Prisma.Decimal(0),
       );
 
-      const batch = await tx.paymentBatch.create({
+      return tx.paymentBatch.create({
         data: {
           organizationId: scope.organizationId,
           payrollPeriodId,
           batchNumber,
-          totalEmployees: run.entries.length,
+          totalEmployees: entries.length,
           totalAmount,
           generatedById: userId,
           status: "PENDING",
           createdBy: userId,
           updatedBy: userId,
           payments: {
-            create: run.entries.map((entry) => ({
+            create: entries.map((entry) => ({
               organizationId: scope.organizationId,
               payrollEntryId: entry.id,
               employeeId: entry.employeeId,
@@ -171,60 +243,83 @@ export class PaymentsRepository {
           ...INCLUDE_BATCH_DETAILS,
           payments: {
             include: INCLUDE_PAYMENT_DETAILS,
+            orderBy: { id: "asc" },
           },
         },
       });
-
-      return batch;
     });
   }
 
+  /**
+   * PENDING -> PROCESSED as one conditional update: of two concurrent calls
+   * exactly one matches the PENDING row; the other fails. Only payments
+   * still PENDING are marked PAID (a FAILED/CANCELLED one is left alone).
+   * Returns `null` for an unknown batch.
+   */
   @OrgScoped()
   async processBatch(scope: OrgScope, id: number, userId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const batch = await tx.paymentBatch.findFirstOrThrow({
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const batch = await tx.paymentBatch.findFirst({
         where: { id, organizationId: scope.organizationId, deletedAt: null },
+        select: { id: true, status: true },
       });
+      if (!batch) return null;
 
       const now = new Date();
+      const { count } = await tx.paymentBatch.updateMany({
+        where: {
+          id: batch.id,
+          organizationId: scope.organizationId,
+          status: "PENDING",
+        },
+        data: { status: "PROCESSED", processedAt: now, updatedBy: userId },
+      });
+      if (count === 0) {
+        throw new BusinessRuleViolationException(
+          `Payment batch cannot be processed from status ${batch.status}`,
+          "BATCH_ALREADY_PROCESSED",
+        );
+      }
+
       await tx.payrollPayment.updateMany({
         where: {
           paymentBatchId: batch.id,
           organizationId: scope.organizationId,
+          status: "PENDING",
         },
-        data: {
-          status: "PAID",
-          creditedAt: now,
-          updatedBy: userId,
-        },
+        data: { status: "PAID", creditedAt: now, updatedBy: userId },
       });
 
-      return tx.paymentBatch.update({
+      return tx.paymentBatch.findUniqueOrThrow({
         where: { id: batch.id },
-        data: {
-          status: "PROCESSED",
-          processedAt: now,
-          updatedBy: userId,
-        },
         include: {
           ...INCLUDE_BATCH_DETAILS,
           payments: {
             include: INCLUDE_PAYMENT_DETAILS,
+            orderBy: { id: "asc" },
           },
         },
       });
     });
   }
 
+  /** Applies the change only if the payment is still in `expectedStatus`
+   * (the service validated the transition from it); `null` otherwise. */
   @OrgScoped()
   async updatePayment(
     scope: OrgScope,
     paymentId: number,
+    expectedStatus: string,
     dto: UpdatePaymentDto,
     userId: number,
   ) {
-    return this.prisma.payrollPayment.update({
-      where: { id: paymentId },
+    const { count } = await this.prisma.payrollPayment.updateMany({
+      where: {
+        id: paymentId,
+        organizationId: scope.organizationId,
+        status: expectedStatus,
+        deletedAt: null,
+      },
       data: {
         ...(dto.status ? { status: dto.status } : {}),
         ...(dto.bankReference !== undefined
@@ -233,8 +328,9 @@ export class PaymentsRepository {
         ...(dto.creditedAt ? { creditedAt: new Date(dto.creditedAt) } : {}),
         updatedBy: userId,
       },
-      include: INCLUDE_PAYMENT_DETAILS,
     });
+    if (count === 0) return null;
+    return this.findPaymentById(scope, paymentId);
   }
 
   @OrgScoped()

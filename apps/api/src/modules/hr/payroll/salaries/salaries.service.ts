@@ -14,9 +14,11 @@ import type {
   QuerySalaryDto,
   UpdateSalaryDto,
 } from "./dto/salary.dto.js";
+import { assertEmployeeInWriteScope } from "../shared/payroll-scope.js";
 import { SalariesRepository } from "./salaries.repository.js";
 
 const READ = "hr.salary.read";
+const WRITE = "hr.salary.write";
 
 @Injectable()
 export class SalariesService {
@@ -30,7 +32,7 @@ export class SalariesService {
   async create(dto: CreateSalaryDto) {
     const orgScope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    const teamScope = await this.teamContext.resolveScope(READ);
+    const teamScope = await this.teamContext.resolveScope(WRITE);
 
     // Verify employee exists
     const employee = await this.prisma.employee.findFirst({
@@ -44,16 +46,9 @@ export class SalariesService {
       throw new ResourceNotFoundException("Employee", dto.employeeId);
     }
 
-    // If caller has team scope, employee must belong to their teams
-    if (
-      teamScope.level === "team" &&
-      !teamScope.teamIds.includes(employee.teamId)
-    ) {
-      throw new ResourceNotFoundException("Employee", dto.employeeId);
-    }
-    if (teamScope.level === "own" && employee.userId !== teamScope.userId) {
-      throw new ResourceNotFoundException("Employee", dto.employeeId);
-    }
+    // `.team` only for employees in the caller's teams; `.own` may not set
+    // anyone's salary (including their own).
+    assertEmployeeInWriteScope(teamScope, employee);
 
     const from = parseDateOnly(dto.effectiveFrom);
     const to = dto.effectiveTo ? parseDateOnly(dto.effectiveTo) : null;
@@ -78,14 +73,16 @@ export class SalariesService {
       );
     }
 
+    // Recurring monthly gross only: arrears are a one-time payment (paid once
+    // by the calculator) and must not inflate the monthly wage used for
+    // statutory thresholds.
     const grossMonthly =
       dto.grossMonthly ??
       Number(dto.basic) +
         Number(dto.hra) +
         Number(dto.conveyance ?? 0) +
         Number(dto.otherAllowance ?? 0) +
-        Number(dto.specialAllowance ?? 0) +
-        Number(dto.arrearsSalary ?? 0);
+        Number(dto.specialAllowance ?? 0);
 
     return this.repository.create(
       orgScope,
@@ -131,6 +128,8 @@ export class SalariesService {
     const orgScope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
     const current = await this.findOne(id);
+    const writeScope = await this.teamContext.resolveScope(WRITE);
+    assertEmployeeInWriteScope(writeScope, current.employee);
 
     let to = current.effectiveTo;
     if (dto.effectiveTo !== undefined) {
@@ -162,16 +161,14 @@ export class SalariesService {
       dto.hra !== undefined ||
       dto.conveyance !== undefined ||
       dto.otherAllowance !== undefined ||
-      dto.specialAllowance !== undefined ||
-      dto.arrearsSalary !== undefined
+      dto.specialAllowance !== undefined
     ) {
       grossMonthly =
         Number(dto.basic ?? current.basic) +
         Number(dto.hra ?? current.hra) +
         Number(dto.conveyance ?? current.conveyance) +
         Number(dto.otherAllowance ?? current.otherAllowance) +
-        Number(dto.specialAllowance ?? current.specialAllowance) +
-        Number(dto.arrearsSalary ?? current.arrearsSalary);
+        Number(dto.specialAllowance ?? current.specialAllowance);
     }
 
     return this.repository.update(

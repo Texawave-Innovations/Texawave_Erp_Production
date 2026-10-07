@@ -7,6 +7,11 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { lockPayrollPeriod } from "../shared/payroll-locks.js";
+import {
+  findApprovedRun,
+  generatePayslipsForRun,
+} from "../shared/payslip-generation.js";
 import type { QueryPayslipDto } from "./dto/payslip.dto.js";
 
 const VIA_EMPLOYEE = {
@@ -173,68 +178,43 @@ export class PayslipsRepository {
     });
   }
 
+  /**
+   * (Re)generates payslips for the period's approved run. Both lookups are
+   * organization-filtered and the period is row-locked, so another org's
+   * period id is "not found" and concurrent calls cannot double-number.
+   */
   @OrgScoped()
   async generateForPeriod(
     scope: OrgScope,
     payrollPeriodId: number,
     createdById: number,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      const period = await tx.payrollPeriod.findUniqueOrThrow({
-        where: { id: payrollPeriodId },
+  ): Promise<PayslipRow[] | null> {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const period = await lockPayrollPeriod(
+        tx,
+        scope.organizationId,
+        payrollPeriodId,
+      );
+      if (!period) return null;
+
+      const run = await findApprovedRun(
+        tx,
+        scope.organizationId,
+        payrollPeriodId,
+      );
+      const ids = await generatePayslipsForRun(
+        tx,
+        scope.organizationId,
+        period,
+        run.id,
+        createdById,
+      );
+
+      return tx.payslip.findMany({
+        where: { id: { in: ids }, organizationId: scope.organizationId },
+        include: INCLUDE_PAYSLIP_DETAILS,
+        orderBy: { id: "asc" },
       });
-
-      // Find the latest approved run for this period
-      const run = await tx.payrollRun.findFirst({
-        where: {
-          payrollPeriodId,
-          status: "APPROVED",
-        },
-        orderBy: { runNumber: "desc" },
-        include: {
-          entries: true,
-        },
-      });
-
-      if (!run) {
-        throw new Error(
-          "Cannot generate payslips: no approved payroll run found for this period",
-        );
-      }
-
-      const payslipsCreated = [];
-      let seq = await tx.payslip.count({
-        where: { organizationId: scope.organizationId },
-      });
-
-      for (const entry of run.entries) {
-        seq++;
-        const payslipNumber = `PS-${period.year}${String(period.month).padStart(2, "0")}-${String(seq).padStart(5, "0")}`;
-
-        const ps = await tx.payslip.upsert({
-          where: { payrollEntryId: entry.id },
-          create: {
-            organizationId: scope.organizationId,
-            payrollPeriodId,
-            payrollEntryId: entry.id,
-            employeeId: entry.employeeId,
-            payslipNumber,
-            netPayable: entry.netPayable,
-            status: "GENERATED",
-            createdBy: createdById,
-            updatedBy: createdById,
-          },
-          update: {
-            netPayable: entry.netPayable,
-            updatedBy: createdById,
-          },
-          include: INCLUDE_PAYSLIP_DETAILS,
-        });
-
-        payslipsCreated.push(ps);
-      }
-
-      return payslipsCreated;
     });
   }
 }

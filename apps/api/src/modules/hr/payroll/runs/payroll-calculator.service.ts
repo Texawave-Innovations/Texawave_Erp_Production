@@ -52,6 +52,7 @@ export interface CalculatedEmployeePayroll {
     | undefined;
   loanRepayments: Array<{
     loanId: number;
+    repaymentId: number;
     amount: number;
   }>;
   bonusIds: number[];
@@ -71,8 +72,8 @@ export class PayrollCalculatorService {
     payrollPeriodId: number,
     employeeId: number,
   ): Promise<CalculatedEmployeePayroll | null> {
-    const period = await this.prisma.payrollPeriod.findUniqueOrThrow({
-      where: { id: payrollPeriodId },
+    const period = await this.prisma.payrollPeriod.findFirstOrThrow({
+      where: { id: payrollPeriodId, organizationId },
     });
 
     const employee = await this.prisma.employee.findFirst({
@@ -232,6 +233,10 @@ export class PayrollCalculatorService {
       lopDays += Math.max(0, daysAfterExit);
     }
 
+    // KNOWN GAP (Docs/PAYROLL_AND_COMPLIANCE.md "Not yet modelled"): there is
+    // no attendance module, so LOP comes only from approved unpaid leave and
+    // the employment window, and `presentDays` is derived, not recorded. An
+    // absence without a leave request is NOT deducted until attendance exists.
     const payableDays = Math.max(0, totalCalendarDays - lopDays);
     const presentDays = Math.max(
       0,
@@ -297,7 +302,13 @@ export class PayrollCalculatorService {
       });
     }
 
-    if (Number(salary.arrearsSalary) > 0) {
+    // Arrears are a one-time payment: paid by the first finalized period
+    // after they are set (finalize stamps `arrearsPaidPeriodId`), never as a
+    // recurring monthly component.
+    if (
+      Number(salary.arrearsSalary) > 0 &&
+      salary.arrearsPaidPeriodId == null
+    ) {
       earnings.push({
         code: "ARREARS",
         name: "Arrears",
@@ -318,8 +329,10 @@ export class PayrollCalculatorService {
     });
 
     const bonusIds: number[] = [];
+    let bonusTotal = 0;
     for (const b of bonuses) {
       bonusIds.push(b.id);
+      bonusTotal += Number(b.amount);
       earnings.push({
         code: "BONUS",
         name: `Bonus (${b.bonusType})`,
@@ -340,7 +353,8 @@ export class PayrollCalculatorService {
     let pfInfo: CalculatedEmployeePayroll["pf"] | undefined;
     let esiInfo: CalculatedEmployeePayroll["esi"] | undefined;
 
-    // PF Calculation
+    // PF Calculation (statutory wage ceiling; see Docs/PAYROLL_AND_COMPLIANCE.md
+    // for what is not modelled yet: voluntary PF, EPS/EPF split, DA)
     const pfProfile = employee.pfProfile;
     if (pfProfile?.pfApplicable) {
       const pfWage = Math.min(basicCalc, 15000);
@@ -362,10 +376,18 @@ export class PayrollCalculatorService {
       };
     }
 
-    // ESI Calculation (Gross <= 21,000 threshold)
+    // ESI: eligibility on the recurring monthly wage (arrears excluded), and
+    // contributions on wages excluding annual/performance bonus, which ESI
+    // does not treat as wages.
+    const recurringMonthlyWage =
+      Number(salary.basic) +
+      Number(salary.hra) +
+      Number(salary.conveyance) +
+      Number(salary.otherAllowance) +
+      Number(salary.specialAllowance);
     const esiProfile = employee.esiProfile;
-    if (esiProfile?.esiApplicable && monthlyGross <= 21000) {
-      const esiWage = totalGrossEarnings;
+    if (esiProfile?.esiApplicable && recurringMonthlyWage <= 21000) {
+      const esiWage = round(totalGrossEarnings - bonusTotal, 2);
       const empContribution = round(esiWage * 0.0075, 2);
       const emrContribution = round(esiWage * 0.0325, 2);
 
@@ -384,7 +406,12 @@ export class PayrollCalculatorService {
       };
     }
 
-    // Loans & EMI
+    // Loans: at most ONE scheduled installment per loan per period — the
+    // earliest still-PENDING one that has fallen due by the period end. A loan
+    // with nothing due yet (before its first due date), or with an approved
+    // skip for this period, deducts nothing. Installments are deducted only
+    // while net pay stays non-negative; one that does not fit stays PENDING
+    // and is recovered in a later period instead of being marked paid.
     const activeLoans = await this.prisma.employeeLoan.findMany({
       where: {
         organizationId,
@@ -394,19 +421,34 @@ export class PayrollCalculatorService {
       },
       include: {
         skipRequests: {
-          where: { payrollPeriodId, status: "APPROVED" },
+          where: { payrollPeriodId, status: "APPROVED", deletedAt: null },
+        },
+        repayments: {
+          where: {
+            status: "PENDING",
+            deletedAt: null,
+            dueDate: { lte: period.periodEnd },
+          },
+          orderBy: { installmentNo: "asc" },
+          take: 1,
         },
       },
+      orderBy: { id: "asc" },
     });
 
     const loanRepayments: CalculatedEmployeePayroll["loanRepayments"] = [];
+    let runningNet =
+      totalGrossEarnings - deductions.reduce((sum, d) => sum + d.amount, 0);
 
     for (const loan of activeLoans) {
-      if (loan.skipRequests && loan.skipRequests.length > 0) {
-        continue; // EMI skipped for this period
-      }
+      if (loan.skipRequests.length > 0) continue;
+      const installment = loan.repayments[0];
+      if (!installment) continue;
 
-      const emi = Number(loan.emiAmount);
+      const emi = Number(installment.amount);
+      if (emi > runningNet) continue;
+      runningNet -= emi;
+
       deductions.push({
         code: "LOAN",
         name: `Loan EMI (${loan.loanNumber})`,
@@ -417,6 +459,7 @@ export class PayrollCalculatorService {
 
       loanRepayments.push({
         loanId: loan.id,
+        repaymentId: installment.id,
         amount: emi,
       });
     }

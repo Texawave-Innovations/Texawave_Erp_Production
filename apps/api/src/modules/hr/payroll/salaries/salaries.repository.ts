@@ -207,8 +207,10 @@ export class SalariesRepository {
         ...(dto.specialAllowance !== undefined
           ? { specialAllowance: dto.specialAllowance }
           : {}),
+        // New arrears are a new one-time payment: clear the "already paid"
+        // marker so the next finalized period pays them.
         ...(dto.arrearsSalary !== undefined
-          ? { arrearsSalary: dto.arrearsSalary }
+          ? { arrearsSalary: dto.arrearsSalary, arrearsPaidPeriodId: null }
           : {}),
         updatedBy: updatedById,
       },

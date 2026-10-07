@@ -8,7 +8,6 @@ import {
 } from "../../../../common/exceptions/business.exception.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
-import type { Prisma } from "@texawave-erp/database";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { EmployeeQueryService } from "../../employees/employee-query.service.js";
 import type {
@@ -18,6 +17,10 @@ import type {
   QueryLoanDto,
 } from "./dto/loan.dto.js";
 import { LoansRepository } from "./loans.repository.js";
+import {
+  assertEmployeeInWriteScope,
+  assertNotSelfApproval,
+} from "../shared/payroll-scope.js";
 
 const READ = "hr.loan.read";
 const WRITE = "hr.loan.write";
@@ -49,28 +52,11 @@ export class LoansService {
       throw new ResourceNotFoundException("Employee", dto.employeeId);
     }
 
-    if (
-      teamScope.level === "team" &&
-      !teamScope.teamIds.includes(employee.teamId)
-    ) {
-      throw new ResourceNotFoundException("Employee", dto.employeeId);
-    }
+    assertEmployeeInWriteScope(teamScope, employee);
+    assertScheduleCoversPrincipal(dto);
 
     const disbursedDate = parseDateOnly(dto.disbursedDate);
-
-    // Generate loan number
-    const count = await this.prisma.employeeLoan.count({
-      where: { organizationId: orgScope.organizationId },
-    });
-    const loanNumber = `LOAN-${String(count + 1).padStart(6, "0")}`;
-
-    return this.repository.create(
-      orgScope,
-      dto,
-      loanNumber,
-      disbursedDate,
-      userId,
-    );
+    return this.repository.create(orgScope, dto, disbursedDate, userId);
   }
 
   async findAll(query: QueryLoanDto) {
@@ -156,6 +142,9 @@ export class LoansService {
 
     const skipReq = await this.repository.findSkipRequestById(scope, id);
     if (!skipReq) throw new ResourceNotFoundException("Loan skip request", id);
+    // Maker-checker: not the requester, and not the borrower.
+    assertNotSelfApproval(skipReq.requestedById, userId, "skip request");
+    assertNotSelfApproval(skipReq.loan.employee.userId, userId, "skip request");
 
     if (skipReq.status !== "PENDING") {
       throw new BusinessRuleViolationException(
@@ -164,44 +153,26 @@ export class LoansService {
       );
     }
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const updated = await tx.loanSkipRequest.update({
-        where: { id },
-        data: {
-          status: dto.decision,
-          approvedById: userId,
-          approvedAt: new Date(),
-          updatedBy: userId,
-        },
-      });
+    if (skipReq.payrollPeriod.status === "FINALIZED") {
+      throw new BusinessRuleViolationException(
+        "Cannot decide a skip request for a finalized period",
+        "PERIOD_FINALIZED",
+      );
+    }
 
-      if (dto.decision === "APPROVED") {
-        // Mark repayment installment if applicable
-        await tx.loanRepayment.updateMany({
-          where: {
-            loanId: skipReq.loanId,
-            status: "PENDING",
-            dueDate: {
-              gte: skipReq.payrollPeriod.id
-                ? (
-                    await tx.payrollPeriod.findUniqueOrThrow({
-                      where: { id: skipReq.payrollPeriodId },
-                    })
-                  ).periodStart
-                : new Date(),
-              lte: (
-                await tx.payrollPeriod.findUniqueOrThrow({
-                  where: { id: skipReq.payrollPeriodId },
-                })
-              ).periodEnd,
-            },
-          },
-          data: { status: "SKIPPED" },
-        });
-      }
-
-      return updated;
-    });
+    const decided = await this.repository.decideSkipRequest(
+      this.tenantContext.getOrgScope(),
+      id,
+      dto.decision,
+      userId,
+    );
+    if (!decided) {
+      throw new BusinessRuleViolationException(
+        "Skip request was decided concurrently",
+        "ALREADY_DECIDED",
+      );
+    }
+    return decided;
   }
 
   async findMyLoans(query?: QueryLoanDto) {
@@ -234,5 +205,23 @@ export class LoansService {
       throw new ResourceNotFoundException("Employee loan", id);
     }
     return row;
+  }
+}
+
+/**
+ * The schedule is `emiMonths` installments of `emiAmount`, the last one
+ * adjusted to the remainder — so it must cover the principal, and the last
+ * installment must be positive and not exceed a regular EMI.
+ */
+function assertScheduleCoversPrincipal(dto: CreateLoanDto): void {
+  const cents = (n: number) => Math.round(n * 100);
+  const principal = cents(dto.principalAmount);
+  const emi = cents(dto.emiAmount);
+  const last = principal - emi * (dto.emiMonths - 1);
+  if (last <= 0 || last > emi) {
+    throw new BusinessRuleViolationException(
+      `EMI ${dto.emiAmount} x ${dto.emiMonths} months does not match principal ${dto.principalAmount}: the last installment would be ${last / 100}`,
+      "LOAN_SCHEDULE_INVALID",
+    );
   }
 }

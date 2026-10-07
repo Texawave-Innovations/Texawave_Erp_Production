@@ -4,10 +4,13 @@ import { ResourceNotFoundException } from "../../../../common/exceptions/busines
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../../employees/employee-query.service.js";
+import { requireOrgWideScope } from "../shared/payroll-scope.js";
+import { maskEmployeeBankDetails } from "../shared/sensitive-data.js";
 import type { QueryPayslipDto } from "./dto/payslip.dto.js";
 import { PayslipsRepository } from "./payslips.repository.js";
 
 const READ = "hr.payslip.read";
+const GENERATE = "hr.payroll.write";
 
 @Injectable()
 export class PayslipsService {
@@ -25,7 +28,12 @@ export class PayslipsService {
       query,
       query,
     );
-    return new PaginatedResponseDto(items, total, query.page, query.limit);
+    return new PaginatedResponseDto(
+      items.map(maskEmployeeBankDetails),
+      total,
+      query.page,
+      query.limit,
+    );
   }
 
   async findById(id: number) {
@@ -34,13 +42,23 @@ export class PayslipsService {
     if (!row) {
       throw new ResourceNotFoundException("Payslip", id);
     }
-    return row;
+    return maskEmployeeBankDetails(row);
   }
 
   async generateForPeriod(payrollPeriodId: number) {
+    const scope = await this.teamContext.resolveScope(GENERATE);
+    requireOrgWideScope(scope, "generate payslips");
     const orgScope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    return this.repository.generateForPeriod(orgScope, payrollPeriodId, userId);
+    const rows = await this.repository.generateForPeriod(
+      orgScope,
+      payrollPeriodId,
+      userId,
+    );
+    if (!rows) {
+      throw new ResourceNotFoundException("Payroll period", payrollPeriodId);
+    }
+    return rows.map(maskEmployeeBankDetails);
   }
 
   async findMine(query: QueryPayslipDto) {
@@ -52,7 +70,12 @@ export class PayslipsService {
       query,
       query,
     );
-    return new PaginatedResponseDto(items, total, query.page, query.limit);
+    return new PaginatedResponseDto(
+      items.map(maskEmployeeBankDetails),
+      total,
+      query.page,
+      query.limit,
+    );
   }
 
   async findMineById(id: number) {
@@ -62,6 +85,6 @@ export class PayslipsService {
     if (!row) {
       throw new ResourceNotFoundException("Payslip", id);
     }
-    return row;
+    return maskEmployeeBankDetails(row);
   }
 }

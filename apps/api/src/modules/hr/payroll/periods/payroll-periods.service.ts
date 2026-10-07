@@ -6,9 +6,9 @@ import {
   ResourceConflictException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
+import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
-import type { Prisma } from "@texawave-erp/database";
-import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { requireOrgWideScope } from "../shared/payroll-scope.js";
 import type {
   CreatePayrollPeriodDto,
   QueryPayrollPeriodDto,
@@ -16,15 +16,19 @@ import type {
 } from "./dto/payroll-period.dto.js";
 import { PayrollPeriodsRepository } from "./payroll-periods.repository.js";
 
+const WRITE = "hr.payroll.write";
+const FINALIZE = "hr.payroll.finalize";
+
 @Injectable()
 export class PayrollPeriodsService {
   constructor(
     private readonly repository: PayrollPeriodsRepository,
     private readonly tenantContext: TenantContextService,
-    private readonly prisma: PrismaService,
+    private readonly teamContext: TeamContextService,
   ) {}
 
   async create(dto: CreatePayrollPeriodDto) {
+    await this.requireWrite();
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
 
@@ -82,6 +86,7 @@ export class PayrollPeriodsService {
   }
 
   async update(id: number, dto: UpdatePayrollPeriodDto) {
+    await this.requireWrite();
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
     const current = await this.findOne(id);
@@ -101,86 +106,18 @@ export class PayrollPeriodsService {
   }
 
   async finalize(id: number) {
+    const teamScope = await this.teamContext.resolveScope(FINALIZE);
+    requireOrgWideScope(teamScope, "finalize payroll periods");
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    const current = await this.findOne(id);
 
-    if (current.status === "FINALIZED") {
-      throw new BusinessRuleViolationException(
-        "Payroll period is already finalized",
-        "PAYROLL_ALREADY_FINALIZED",
-      );
-    }
+    const period = await this.repository.finalize(scope, id, userId);
+    if (!period) throw new ResourceNotFoundException("Payroll period", id);
+    return period;
+  }
 
-    const approvedRun = current.runs?.find((r) => r.status === "APPROVED");
-    if (!approvedRun) {
-      throw new BusinessRuleViolationException(
-        "Cannot finalize payroll period: no approved payroll run exists",
-        "NO_APPROVED_RUN",
-      );
-    }
-
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const period = await this.repository.finalize(scope, id, userId, tx);
-
-      let seq = await tx.payslip.count({
-        where: { organizationId: scope.organizationId },
-      });
-
-      const entries = await tx.payrollEntry.findMany({
-        where: { payrollRunId: approvedRun.id, deletedAt: null },
-      });
-
-      for (const entry of entries) {
-        seq++;
-        const payslipNumber = `PS-${period.year}${String(period.month).padStart(2, "0")}-${String(seq).padStart(5, "0")}`;
-
-        await tx.payslip.upsert({
-          where: { payrollEntryId: entry.id },
-          create: {
-            organizationId: scope.organizationId,
-            payrollPeriodId: id,
-            payrollEntryId: entry.id,
-            employeeId: entry.employeeId,
-            payslipNumber,
-            netPayable: entry.netPayable,
-            status: "GENERATED",
-            createdBy: userId,
-            updatedBy: userId,
-          },
-          update: {
-            netPayable: entry.netPayable,
-            updatedBy: userId,
-          },
-        });
-      }
-
-      if (entries.length > 0) {
-        await tx.loanRepayment.updateMany({
-          where: {
-            payrollEntryId: { in: entries.map((e: { id: number }) => e.id) },
-            status: "PENDING",
-          },
-          data: {
-            status: "PAID",
-            paidAt: new Date(),
-            updatedBy: userId,
-          },
-        });
-      }
-
-      await tx.employeeBonus.updateMany({
-        where: {
-          payrollPeriodId: id,
-          status: "APPROVED",
-        },
-        data: {
-          status: "PAID",
-          updatedBy: userId,
-        },
-      });
-
-      return period;
-    });
+  private async requireWrite() {
+    const teamScope = await this.teamContext.resolveScope(WRITE);
+    requireOrgWideScope(teamScope, "manage payroll periods");
   }
 }

@@ -7,7 +7,12 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../../common/tenancy/tenant-where.js";
+import {
+  BusinessRuleViolationException,
+  ResourceNotFoundException,
+} from "../../../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { lockPayrollPeriod } from "../shared/payroll-locks.js";
 import type {
   QueryPayrollEntryDto,
   QueryPayrollRunDto,
@@ -106,199 +111,266 @@ export class PayrollRunsRepository {
     });
   }
 
+  /**
+   * Stores a run under the period row lock, so concurrent runs/approvals of
+   * one period serialize:
+   * - the period is re-checked (not FINALIZED/CANCELLED) after locking;
+   * - every earlier PROCESSED/APPROVED run of the period is superseded
+   *   (CANCELLED, its entries too) and loan installments it had linked are
+   *   released, so a period never has two payable runs;
+   * - the run number is max+1 read under the same lock (no count() race).
+   */
   @OrgScoped()
   async createRun(
     scope: OrgScope,
     payrollPeriodId: number,
-    runNumber: number,
     notes: string | undefined,
     createdById: number,
     calculations: CalculatedEmployeePayroll[],
   ) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const run = await tx.payrollRun.create({
-        data: {
-          organizationId: scope.organizationId,
+    return this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const period = await lockPayrollPeriod(
+          tx,
+          scope.organizationId,
           payrollPeriodId,
-          runNumber,
-          status: "PROCESSED",
-          startedAt: new Date(),
-          completedAt: new Date(),
-          createdById,
-          notes: notes ?? null,
-          createdBy: createdById,
-          updatedBy: createdById,
-        },
-      });
+        );
+        if (!period) {
+          throw new ResourceNotFoundException(
+            "Payroll period",
+            payrollPeriodId,
+          );
+        }
+        if (period.status === "FINALIZED" || period.status === "CANCELLED") {
+          throw new BusinessRuleViolationException(
+            `Cannot process payroll for a ${period.status.toLowerCase()} period`,
+            "PAYROLL_FINALIZED",
+          );
+        }
 
-      for (const calc of calculations) {
-        const entry = await tx.payrollEntry.create({
+        const superseded = await tx.payrollRun.findMany({
+          where: {
+            organizationId: scope.organizationId,
+            payrollPeriodId,
+            status: { in: ["PROCESSED", "APPROVED"] },
+          },
+          select: { id: true },
+        });
+        const supersededIds = superseded.map((r) => r.id);
+        if (supersededIds.length > 0) {
+          await tx.loanRepayment.updateMany({
+            where: {
+              organizationId: scope.organizationId,
+              status: "PENDING",
+              payrollEntry: { payrollRunId: { in: supersededIds } },
+            },
+            data: { payrollEntryId: null, updatedBy: createdById },
+          });
+          await tx.payrollEntry.updateMany({
+            where: { payrollRunId: { in: supersededIds } },
+            data: { status: "CANCELLED", updatedBy: createdById },
+          });
+          await tx.payrollRun.updateMany({
+            where: { id: { in: supersededIds } },
+            data: { status: "CANCELLED", updatedBy: createdById },
+          });
+        }
+
+        const last = await tx.payrollRun.aggregate({
+          where: { payrollPeriodId },
+          _max: { runNumber: true },
+        });
+        const runNumber = (last._max.runNumber ?? 0) + 1;
+
+        const run = await tx.payrollRun.create({
           data: {
             organizationId: scope.organizationId,
-            payrollRunId: run.id,
-            employeeId: calc.employeeId,
-            totalCalendarDays: calc.totalCalendarDays,
-            requiredWorkingDays: calc.requiredWorkingDays,
-            presentDays: calc.presentDays,
-            halfDays: calc.halfDays,
-            holidayDays: calc.holidayDays,
-            leaveDays: calc.leaveDays,
-            lopDays: calc.lopDays,
-            payableDays: calc.payableDays,
-            monthlyGross: calc.monthlyGross,
-            perDayRate: calc.perDayRate,
-            earningRatio: calc.earningRatio,
-            baseEarnings: calc.baseEarnings,
-            totalGrossEarnings: calc.totalGrossEarnings,
-            totalDeductions: calc.totalDeductions,
-            netPayable: calc.netPayable,
-            status: "CALCULATED",
+            payrollPeriodId,
+            runNumber,
+            status: "PROCESSED",
+            startedAt: new Date(),
+            completedAt: new Date(),
+            createdById,
+            notes: notes ?? null,
             createdBy: createdById,
             updatedBy: createdById,
           },
         });
 
-        // Insert Earnings
-        if (calc.earnings.length > 0) {
-          await tx.payrollEarning.createMany({
-            data: calc.earnings.map((e) => ({
-              organizationId: scope.organizationId,
-              payrollEntryId: entry.id,
-              code: e.code,
-              name: e.name,
-              baseAmount: e.baseAmount,
-              earningRatio: e.earningRatio,
-              calculatedAmount: e.calculatedAmount,
-              createdBy: createdById,
-              updatedBy: createdById,
-            })),
-          });
+        for (const calc of calculations) {
+          await this.storeEntry(
+            tx,
+            scope,
+            payrollPeriodId,
+            run.id,
+            calc,
+            createdById,
+          );
         }
 
-        // Insert Deductions
-        if (calc.deductions.length > 0) {
-          await tx.payrollDeduction.createMany({
-            data: calc.deductions.map((d) => ({
-              organizationId: scope.organizationId,
-              payrollEntryId: entry.id,
-              code: d.code,
-              name: d.name,
-              amount: d.amount,
-              sourceType: d.sourceType ?? null,
-              sourceId: d.sourceId ?? null,
-              createdBy: createdById,
-              updatedBy: createdById,
-            })),
-          });
-        }
+        await tx.payrollPeriod.update({
+          where: { id: payrollPeriodId },
+          data: { status: "PROCESSED", updatedBy: createdById },
+        });
 
-        // PF Contribution Snapshot
-        if (calc.pf) {
-          await tx.pfContribution.upsert({
-            where: {
-              payrollPeriodId_employeeId: {
-                payrollPeriodId,
-                employeeId: calc.employeeId,
-              },
-            },
-            create: {
-              organizationId: scope.organizationId,
-              payrollPeriodId,
-              payrollEntryId: entry.id,
-              employeeId: calc.employeeId,
-              pfIncluded: calc.pf.pfIncluded,
-              pfWage: calc.pf.pfWage,
-              employeeContribution: calc.pf.employeeContribution,
-              employerContribution: calc.pf.employerContribution,
-              paymentStatus: "PENDING",
-              salaryCredited: false,
-              createdBy: createdById,
-              updatedBy: createdById,
-            },
-            update: {
-              payrollEntryId: entry.id,
-              pfIncluded: calc.pf.pfIncluded,
-              pfWage: calc.pf.pfWage,
-              employeeContribution: calc.pf.employeeContribution,
-              employerContribution: calc.pf.employerContribution,
-              updatedBy: createdById,
-            },
-          });
-        }
-
-        // ESI Contribution Snapshot
-        if (calc.esi) {
-          await tx.esiContribution.upsert({
-            where: {
-              payrollPeriodId_employeeId: {
-                payrollPeriodId,
-                employeeId: calc.employeeId,
-              },
-            },
-            create: {
-              organizationId: scope.organizationId,
-              payrollPeriodId,
-              payrollEntryId: entry.id,
-              employeeId: calc.employeeId,
-              esiIncluded: calc.esi.esiIncluded,
-              esiWage: calc.esi.esiWage,
-              employeeContribution: calc.esi.employeeContribution,
-              employerContribution: calc.esi.employerContribution,
-              paymentStatus: "PENDING",
-              salaryCredited: false,
-              createdBy: createdById,
-              updatedBy: createdById,
-            },
-            update: {
-              payrollEntryId: entry.id,
-              esiIncluded: calc.esi.esiIncluded,
-              esiWage: calc.esi.esiWage,
-              employeeContribution: calc.esi.employeeContribution,
-              employerContribution: calc.esi.employerContribution,
-              updatedBy: createdById,
-            },
-          });
-        }
-
-        // Link pending loan repayments to this entry
-        for (const lr of calc.loanRepayments) {
-          const repayment = await tx.loanRepayment.findFirst({
-            where: {
-              loanId: lr.loanId,
-              status: "PENDING",
-            },
-            orderBy: { installmentNo: "asc" },
-          });
-          if (repayment) {
-            await tx.loanRepayment.update({
-              where: { id: repayment.id },
-              data: { payrollEntryId: entry.id },
-            });
-          }
-        }
-
-        // Link included bonuses to this period
-        if (calc.bonusIds.length > 0) {
-          await tx.employeeBonus.updateMany({
-            where: { id: { in: calc.bonusIds } },
-            data: { payrollPeriodId },
-          });
-        }
-      }
-
-      // Update Period status to PROCESSED
-      await tx.payrollPeriod.update({
-        where: { id: payrollPeriodId },
-        data: { status: "PROCESSED" },
-      });
-
-      return tx.payrollRun.findUniqueOrThrow({
-        where: { id: run.id },
-        include: INCLUDE_RUN_DETAILS,
-      });
-    });
+        return tx.payrollRun.findUniqueOrThrow({
+          where: { id: run.id },
+          include: INCLUDE_RUN_DETAILS,
+        });
+      },
+      { timeout: 120_000 },
+    );
   }
 
+  private async storeEntry(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    payrollPeriodId: number,
+    payrollRunId: number,
+    calc: CalculatedEmployeePayroll,
+    createdById: number,
+  ) {
+    const entry = await tx.payrollEntry.create({
+      data: {
+        organizationId: scope.organizationId,
+        payrollRunId,
+        employeeId: calc.employeeId,
+        totalCalendarDays: calc.totalCalendarDays,
+        requiredWorkingDays: calc.requiredWorkingDays,
+        presentDays: calc.presentDays,
+        halfDays: calc.halfDays,
+        holidayDays: calc.holidayDays,
+        leaveDays: calc.leaveDays,
+        lopDays: calc.lopDays,
+        payableDays: calc.payableDays,
+        monthlyGross: calc.monthlyGross,
+        perDayRate: calc.perDayRate,
+        earningRatio: calc.earningRatio,
+        baseEarnings: calc.baseEarnings,
+        totalGrossEarnings: calc.totalGrossEarnings,
+        totalDeductions: calc.totalDeductions,
+        netPayable: calc.netPayable,
+        status: "CALCULATED",
+        createdBy: createdById,
+        updatedBy: createdById,
+      },
+    });
+
+    if (calc.earnings.length > 0) {
+      await tx.payrollEarning.createMany({
+        data: calc.earnings.map((e) => ({
+          organizationId: scope.organizationId,
+          payrollEntryId: entry.id,
+          code: e.code,
+          name: e.name,
+          baseAmount: e.baseAmount,
+          earningRatio: e.earningRatio,
+          calculatedAmount: e.calculatedAmount,
+          createdBy: createdById,
+          updatedBy: createdById,
+        })),
+      });
+    }
+
+    if (calc.deductions.length > 0) {
+      await tx.payrollDeduction.createMany({
+        data: calc.deductions.map((d) => ({
+          organizationId: scope.organizationId,
+          payrollEntryId: entry.id,
+          code: d.code,
+          name: d.name,
+          amount: d.amount,
+          sourceType: d.sourceType ?? null,
+          sourceId: d.sourceId ?? null,
+          createdBy: createdById,
+          updatedBy: createdById,
+        })),
+      });
+    }
+
+    // PF / ESI contribution snapshots: one per employee per period, so a
+    // re-run overwrites the figures of the run it superseded.
+    const key = {
+      payrollPeriodId_employeeId: {
+        payrollPeriodId,
+        employeeId: calc.employeeId,
+      },
+    };
+    if (calc.pf) {
+      const figures = {
+        payrollEntryId: entry.id,
+        pfIncluded: calc.pf.pfIncluded,
+        pfWage: calc.pf.pfWage,
+        employeeContribution: calc.pf.employeeContribution,
+        employerContribution: calc.pf.employerContribution,
+        updatedBy: createdById,
+      };
+      await tx.pfContribution.upsert({
+        where: key,
+        create: {
+          ...figures,
+          organizationId: scope.organizationId,
+          payrollPeriodId,
+          employeeId: calc.employeeId,
+          paymentStatus: "PENDING",
+          salaryCredited: false,
+          createdBy: createdById,
+        },
+        update: figures,
+      });
+    }
+    if (calc.esi) {
+      const figures = {
+        payrollEntryId: entry.id,
+        esiIncluded: calc.esi.esiIncluded,
+        esiWage: calc.esi.esiWage,
+        employeeContribution: calc.esi.employeeContribution,
+        employerContribution: calc.esi.employerContribution,
+        updatedBy: createdById,
+      };
+      await tx.esiContribution.upsert({
+        where: key,
+        create: {
+          ...figures,
+          organizationId: scope.organizationId,
+          payrollPeriodId,
+          employeeId: calc.employeeId,
+          paymentStatus: "PENDING",
+          salaryCredited: false,
+          createdBy: createdById,
+        },
+        update: figures,
+      });
+    }
+
+    // Link exactly the installments the calculator deducted.
+    for (const lr of calc.loanRepayments) {
+      await tx.loanRepayment.updateMany({
+        where: {
+          id: lr.repaymentId,
+          organizationId: scope.organizationId,
+          status: "PENDING",
+        },
+        data: { payrollEntryId: entry.id, updatedBy: createdById },
+      });
+    }
+
+    if (calc.bonusIds.length > 0) {
+      await tx.employeeBonus.updateMany({
+        where: {
+          id: { in: calc.bonusIds },
+          organizationId: scope.organizationId,
+        },
+        data: { payrollPeriodId },
+      });
+    }
+  }
+
+  /**
+   * PROCESSED -> APPROVED as one conditional update under the period lock: a
+   * second concurrent approval (or approval of a run superseded meanwhile)
+   * matches no row and fails instead of approving twice.
+   */
   @OrgScoped()
   async approveRun(
     scope: OrgScope,
@@ -307,8 +379,23 @@ export class PayrollRunsRepository {
     notes: string | undefined,
   ) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const run = await tx.payrollRun.update({
-        where: { id },
+      const current = await tx.payrollRun.findFirst({
+        where: tenantWhere(scope, { id, deletedAt: null }),
+        select: { payrollPeriodId: true },
+      });
+      if (!current) throw new ResourceNotFoundException("Payroll run", id);
+      await lockPayrollPeriod(
+        tx,
+        scope.organizationId,
+        current.payrollPeriodId,
+      );
+
+      const { count } = await tx.payrollRun.updateMany({
+        where: {
+          id,
+          organizationId: scope.organizationId,
+          status: "PROCESSED",
+        },
         data: {
           status: "APPROVED",
           approvedById,
@@ -316,20 +403,28 @@ export class PayrollRunsRepository {
           ...(notes ? { notes } : {}),
           updatedBy: approvedById,
         },
-        include: INCLUDE_RUN_DETAILS,
       });
+      if (count === 0) {
+        throw new BusinessRuleViolationException(
+          "Payroll run is no longer awaiting approval",
+          "INVALID_STATE_TRANSITION",
+        );
+      }
 
       await tx.payrollEntry.updateMany({
         where: { payrollRunId: id },
-        data: { status: "APPROVED" },
+        data: { status: "APPROVED", updatedBy: approvedById },
       });
 
       await tx.payrollPeriod.update({
-        where: { id: run.payrollPeriodId },
-        data: { status: "APPROVED" },
+        where: { id: current.payrollPeriodId },
+        data: { status: "APPROVED", updatedBy: approvedById },
       });
 
-      return run;
+      return tx.payrollRun.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE_RUN_DETAILS,
+      });
     });
   }
 

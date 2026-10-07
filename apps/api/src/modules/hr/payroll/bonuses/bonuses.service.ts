@@ -8,6 +8,10 @@ import { TeamContextService } from "../../../../platform/tenancy/team-context.se
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { BonusesRepository } from "./bonuses.repository.js";
+import {
+  assertEmployeeInWriteScope,
+  assertNotSelfApproval,
+} from "../shared/payroll-scope.js";
 import type {
   CreateBonusDto,
   DecideBonusDto,
@@ -43,12 +47,7 @@ export class BonusesService {
       throw new ResourceNotFoundException("Employee", dto.employeeId);
     }
 
-    if (
-      teamScope.level === "team" &&
-      !teamScope.teamIds.includes(employee.teamId)
-    ) {
-      throw new ResourceNotFoundException("Employee", dto.employeeId);
-    }
+    assertEmployeeInWriteScope(teamScope, employee);
 
     if (dto.payrollPeriodId) {
       const period = await this.prisma.payrollPeriod.findFirst({
@@ -99,6 +98,9 @@ export class BonusesService {
 
     const bonus = await this.repository.findById(scope, id);
     if (!bonus) throw new ResourceNotFoundException("Employee bonus", id);
+    // Maker-checker: not the person who raised it, and never the recipient.
+    assertNotSelfApproval(bonus.createdBy, userId, "bonus");
+    assertNotSelfApproval(bonus.employee.userId, userId, "bonus");
 
     if (bonus.status !== "PENDING") {
       throw new BusinessRuleViolationException(

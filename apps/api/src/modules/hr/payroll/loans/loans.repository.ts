@@ -7,7 +7,16 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { issuePayrollNumber } from "../shared/payroll-locks.js";
 import type { CreateLoanDto, QueryLoanDto } from "./dto/loan.dto.js";
+
+/** Same day `months` later, clamped to the month end (31 Jan + 1 = 28/29 Feb). */
+function addMonths(date: Date, months: number): Date {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+}
 
 const VIA_EMPLOYEE = {
   teamField: "employee.teamId",
@@ -91,20 +100,30 @@ export class LoansRepository {
     });
   }
 
+  /**
+   * Creates the loan and its full repayment schedule: `emiMonths`
+   * installments one month apart, the last one adjusted so the schedule sums
+   * to exactly the principal (the service has validated that it fits). The
+   * loan number comes from the per-organization counter (no count() race).
+   */
   @OrgScoped()
   async create(
     scope: OrgScope,
     dto: CreateLoanDto,
-    loanNumber: string,
     disbursedDate: Date,
     createdById: number,
   ): Promise<LoanRow> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const seq = await issuePayrollNumber(
+        tx,
+        scope.organizationId,
+        "employee_loan",
+      );
       const loan = await tx.employeeLoan.create({
         data: {
           organizationId: scope.organizationId,
           employeeId: dto.employeeId,
-          loanNumber,
+          loanNumber: `LOAN-${String(seq).padStart(6, "0")}`,
           principalAmount: dto.principalAmount,
           emiAmount: dto.emiAmount,
           emiMonths: dto.emiMonths,
@@ -116,17 +135,18 @@ export class LoansRepository {
         },
       });
 
-      // Pre-schedule EMI installments
+      const principal = new Prisma.Decimal(dto.principalAmount);
+      const emi = new Prisma.Decimal(dto.emiAmount);
+      const lastAmount = principal.sub(emi.mul(dto.emiMonths - 1));
+
       const repaymentsData: Prisma.LoanRepaymentCreateManyInput[] = [];
       for (let i = 1; i <= dto.emiMonths; i++) {
-        const dueDate = new Date(disbursedDate);
-        dueDate.setUTCMonth(dueDate.getUTCMonth() + i);
         repaymentsData.push({
           organizationId: scope.organizationId,
           loanId: loan.id,
           installmentNo: i,
-          dueDate,
-          amount: dto.emiAmount,
+          dueDate: addMonths(disbursedDate, i),
+          amount: i === dto.emiMonths ? lastAmount : emi,
           status: "PENDING",
           createdBy: createdById,
           updatedBy: createdById,
@@ -187,30 +207,97 @@ export class LoansRepository {
             employee: { select: { id: true, teamId: true, userId: true } },
           },
         },
-        payrollPeriod: { select: { id: true, year: true, month: true } },
+        payrollPeriod: {
+          select: {
+            id: true,
+            year: true,
+            month: true,
+            status: true,
+            periodEnd: true,
+          },
+        },
       },
     });
   }
 
+  /**
+   * Decides a PENDING skip request (conditional update, so two concurrent
+   * decisions cannot both apply). On approval the installment that period
+   * would have recovered — the earliest still-PENDING one due by the period
+   * end — becomes SKIPPED and an installment of the same amount is appended
+   * one month after the current last one, so the skipped amount is still
+   * recovered. Returns `null` if the request was decided meanwhile.
+   */
   @OrgScoped()
   async decideSkipRequest(
     scope: OrgScope,
     id: number,
-    status: "APPROVED" | "REJECTED",
+    decision: "APPROVED" | "REJECTED",
     approvedById: number,
   ) {
-    return this.prisma.loanSkipRequest.update({
-      where: { id },
-      data: {
-        status,
-        approvedById,
-        approvedAt: new Date(),
-        updatedBy: approvedById,
-      },
-      include: {
-        loan: true,
-        payrollPeriod: true,
-      },
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const { count } = await tx.loanSkipRequest.updateMany({
+        where: { id, organizationId: scope.organizationId, status: "PENDING" },
+        data: {
+          status: decision,
+          approvedById,
+          approvedAt: new Date(),
+          updatedBy: approvedById,
+        },
+      });
+      if (count === 0) return null;
+
+      const request = await tx.loanSkipRequest.findUniqueOrThrow({
+        where: { id },
+        include: { payrollPeriod: { select: { periodEnd: true } } },
+      });
+
+      if (decision === "APPROVED") {
+        const skipped = await tx.loanRepayment.findFirst({
+          where: {
+            organizationId: scope.organizationId,
+            loanId: request.loanId,
+            status: "PENDING",
+            deletedAt: null,
+            dueDate: { lte: request.payrollPeriod.periodEnd },
+          },
+          orderBy: { installmentNo: "asc" },
+        });
+        if (skipped) {
+          const last = await tx.loanRepayment.findFirstOrThrow({
+            where: { loanId: request.loanId },
+            orderBy: { installmentNo: "desc" },
+          });
+          await tx.loanRepayment.update({
+            where: { id: skipped.id },
+            data: {
+              status: "SKIPPED",
+              payrollEntryId: null,
+              updatedBy: approvedById,
+            },
+          });
+          await tx.loanRepayment.create({
+            data: {
+              organizationId: scope.organizationId,
+              loanId: request.loanId,
+              installmentNo: last.installmentNo + 1,
+              dueDate: addMonths(last.dueDate, 1),
+              amount: skipped.amount,
+              status: "PENDING",
+              createdBy: approvedById,
+              updatedBy: approvedById,
+            },
+          });
+        }
+      }
+
+      return tx.loanSkipRequest.findUniqueOrThrow({
+        where: { id },
+        include: {
+          loan: { select: { id: true, loanNumber: true, employeeId: true } },
+          payrollPeriod: { select: { id: true, year: true, month: true } },
+        },
+      });
     });
   }
 

@@ -1,10 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../../common/dto/paginated-response.dto.js";
 import {
-  BusinessRuleViolationException,
+  InvalidStateTransitionException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
+import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
+import {
+  assertEmployeeInWriteScope,
+  requireOrgWideScope,
+} from "../shared/payroll-scope.js";
+import { csvCell, maskEmployeeBankDetails } from "../shared/sensitive-data.js";
 import type {
   CreatePaymentBatchDto,
   QueryPaymentBatchDto,
@@ -12,14 +18,33 @@ import type {
 } from "./dto/payment.dto.js";
 import { PaymentsRepository } from "./payments.repository.js";
 
+const READ = "hr.payment.read";
+const WRITE = "hr.payment.write";
+
+/** Allowed manual status changes of a single payment. PAID and CANCELLED
+ * are terminal; FAILED may be retried (back to PENDING) or settled. */
+const PAYMENT_TRANSITIONS: Record<string, readonly string[]> = {
+  PENDING: ["PAID", "FAILED", "CANCELLED"],
+  FAILED: ["PENDING", "PAID", "CANCELLED"],
+  PAID: [],
+  CANCELLED: [],
+};
+
+/**
+ * A payment batch pays the whole organization's approved run, so every batch
+ * operation needs an `.all` grant of `hr.payment.*`. Correcting a single
+ * payment is narrower: a `.team` grant may touch its own teams' payments.
+ */
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly repository: PaymentsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly teamContext: TeamContextService,
   ) {}
 
   async findBatches(query: QueryPaymentBatchDto) {
+    await this.requireOrgWide(READ, "view payment batches");
     const scope = this.tenantContext.getOrgScope();
     const { items, total } = await this.repository.findBatches(
       scope,
@@ -30,55 +55,55 @@ export class PaymentsService {
   }
 
   async findBatchById(id: number) {
-    const scope = this.tenantContext.getOrgScope();
-    const row = await this.repository.findBatchById(scope, id);
-    if (!row) {
-      throw new ResourceNotFoundException("Payment batch", id);
-    }
-    return row;
+    await this.requireOrgWide(READ, "view payment batches");
+    const batch = await this.loadBatch(id);
+    return { ...batch, payments: batch.payments.map(maskEmployeeBankDetails) };
   }
 
   async createBatch(dto: CreatePaymentBatchDto) {
+    await this.requireOrgWide(WRITE, "create payment batches");
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    try {
-      return await this.repository.createBatch(
-        scope,
+    const batch = await this.repository.createBatch(
+      scope,
+      dto.payrollPeriodId,
+      dto.paymentMethod ?? "BANK_TRANSFER",
+      userId,
+    );
+    if (!batch) {
+      throw new ResourceNotFoundException(
+        "Payroll period",
         dto.payrollPeriodId,
-        dto.paymentMethod ?? "BANK_TRANSFER",
-        userId,
       );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new BusinessRuleViolationException(msg, "PAYMENT_BATCH_FAILED");
     }
+    return { ...batch, payments: batch.payments.map(maskEmployeeBankDetails) };
   }
 
   async processBatch(id: number) {
+    await this.requireOrgWide(WRITE, "process payment batches");
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    const batch = await this.repository.findBatchById(scope, id);
+    const batch = await this.repository.processBatch(scope, id, userId);
     if (!batch) {
       throw new ResourceNotFoundException("Payment batch", id);
     }
-    if (batch.status === "PROCESSED") {
-      throw new BusinessRuleViolationException(
-        "Payment batch is already processed",
-        "BATCH_ALREADY_PROCESSED",
-      );
-    }
-    return this.repository.processBatch(scope, id, userId);
+    return { ...batch, payments: batch.payments.map(maskEmployeeBankDetails) };
   }
 
+  /**
+   * Bank-transfer file. It carries the full account number (the bank needs
+   * it) but not PAN, and every text cell goes through `csvCell` so names
+   * cannot inject spreadsheet formulas.
+   */
   async exportBatchCsv(id: number): Promise<string> {
-    const batch = await this.findBatchById(id);
+    await this.requireOrgWide(READ, "export payment batches");
+    const batch = await this.loadBatch(id);
     const headers = [
       "Employee Code",
       "Employee Name",
       "Bank Name",
       "Account Number",
       "IFSC Code",
-      "PAN Number",
       "Amount",
       "Payment Method",
       "Status",
@@ -90,16 +115,15 @@ export class PaymentsService {
     for (const p of batch.payments) {
       const bank = p.employee.bankDetails;
       const row = [
-        `"${p.employee.employeeCode}"`,
-        `"${p.employee.fullName.replace(/"/g, '""')}"`,
-        `"${bank?.bankName ?? ""}"`,
-        `"${bank?.accountNumber ?? ""}"`,
-        `"${bank?.ifscCode ?? ""}"`,
-        `"${bank?.panNumber ?? ""}"`,
+        csvCell(p.employee.employeeCode),
+        csvCell(p.employee.fullName),
+        csvCell(bank?.bankName),
+        csvCell(bank?.accountNumber),
+        csvCell(bank?.ifscCode),
         p.amount.toString(),
-        p.paymentMethod,
-        p.status,
-        `"${p.bankReference ?? ""}"`,
+        csvCell(p.paymentMethod),
+        csvCell(p.status),
+        csvCell(p.bankReference),
       ];
       lines.push(row.join(","));
     }
@@ -108,12 +132,60 @@ export class PaymentsService {
   }
 
   async updatePayment(paymentId: number, dto: UpdatePaymentDto) {
-    const scope = this.tenantContext.getOrgScope();
+    const scope = await this.teamContext.resolveScope(WRITE);
+    const orgScope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    const payment = await this.repository.findPaymentById(scope, paymentId);
+    const payment = await this.repository.findPaymentById(orgScope, paymentId);
     if (!payment) {
       throw new ResourceNotFoundException("Payroll payment", paymentId);
     }
-    return this.repository.updatePayment(scope, paymentId, dto, userId);
+    try {
+      assertEmployeeInWriteScope(scope, payment.employee);
+    } catch {
+      throw new ResourceNotFoundException("Payroll payment", paymentId);
+    }
+
+    if (dto.status && dto.status !== payment.status) {
+      const allowed = PAYMENT_TRANSITIONS[payment.status] ?? [];
+      if (!allowed.includes(dto.status)) {
+        throw new InvalidStateTransitionException(
+          "Payroll payment",
+          payment.status,
+          dto.status,
+        );
+      }
+    }
+
+    const updated = await this.repository.updatePayment(
+      orgScope,
+      paymentId,
+      payment.status,
+      dto,
+      userId,
+    );
+    if (!updated) {
+      // Someone else changed the status between our read and write.
+      throw new InvalidStateTransitionException(
+        "Payroll payment",
+        payment.status,
+        dto.status ?? payment.status,
+        "the payment was modified concurrently",
+      );
+    }
+    return maskEmployeeBankDetails(updated);
+  }
+
+  private async loadBatch(id: number) {
+    const scope = this.tenantContext.getOrgScope();
+    const row = await this.repository.findBatchById(scope, id);
+    if (!row) {
+      throw new ResourceNotFoundException("Payment batch", id);
+    }
+    return row;
+  }
+
+  private async requireOrgWide(permission: string, action: string) {
+    const scope = await this.teamContext.resolveScope(permission);
+    requireOrgWideScope(scope, action);
   }
 }

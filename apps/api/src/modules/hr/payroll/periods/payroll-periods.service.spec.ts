@@ -1,7 +1,9 @@
+import { ForbiddenException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import {
   BusinessRuleViolationException,
   ResourceConflictException,
+  ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
 import { PayrollPeriodsService } from "./payroll-periods.service.js";
 
@@ -11,7 +13,8 @@ const USER_ID = 42;
 function makeService(overrides?: {
   existingPeriod?: unknown;
   currentPeriod?: unknown;
-  approvedRunEntries?: unknown[];
+  finalized?: unknown;
+  level?: "own" | "team" | "all";
 }) {
   const repository = {
     findMany: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -46,14 +49,18 @@ function makeService(overrides?: {
       ),
     finalize: vi
       .fn()
-      .mockImplementation((_scope: unknown, id: number, userId: number) => ({
-        id,
-        year: 2026,
-        month: 4,
-        status: "FINALIZED",
-        finalizedAt: new Date(),
-        finalizedById: userId,
-      })),
+      .mockImplementation((_scope: unknown, id: number, userId: number) =>
+        overrides && "finalized" in overrides
+          ? overrides.finalized
+          : {
+              id,
+              year: 2026,
+              month: 4,
+              status: "FINALIZED",
+              finalizedAt: new Date(),
+              finalizedById: userId,
+            },
+      ),
   };
 
   const tenantContext = {
@@ -61,44 +68,22 @@ function makeService(overrides?: {
     getUserId: vi.fn().mockReturnValue(USER_ID),
   };
 
-  const prisma = {
-    $transaction: vi
-      .fn()
-      .mockImplementation(
-        async (cb: (tx: Record<string, unknown>) => Promise<unknown>) => {
-          const tx = {
-            payslip: {
-              count: vi.fn().mockResolvedValue(0),
-              upsert: vi.fn().mockResolvedValue({ id: 101 }),
-            },
-            payrollEntry: {
-              findMany: vi
-                .fn()
-                .mockResolvedValue(
-                  overrides?.approvedRunEntries ?? [
-                    { id: 11, employeeId: 101, netPayable: 45000 },
-                  ],
-                ),
-            },
-            loanRepayment: {
-              updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-            },
-            employeeBonus: {
-              updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-            },
-          };
-          return cb(tx);
-        },
-      ),
+  const teamContext = {
+    resolveScope: vi.fn().mockResolvedValue({
+      level: overrides?.level ?? "all",
+      userId: USER_ID,
+      organizationId: 1,
+      teamIds: overrides?.level === "team" ? [3] : [],
+    }),
   };
 
   const service = new PayrollPeriodsService(
     repository as never,
     tenantContext as never,
-    prisma as never,
+    teamContext as never,
   );
 
-  return { service, repository, prisma };
+  return { service, repository, teamContext };
 }
 
 describe("PayrollPeriodsService", () => {
@@ -147,47 +132,40 @@ describe("PayrollPeriodsService", () => {
     ).rejects.toBeInstanceOf(BusinessRuleViolationException);
   });
 
-  it("rejects finalization if period is already finalized", async () => {
-    const { service } = makeService({
-      currentPeriod: { id: 1, status: "FINALIZED" },
-    });
+  it("rejects period management without an organization-wide grant", async () => {
+    const { service, repository } = makeService({ level: "team" });
+    await expect(
+      service.create({ year: 2026, month: 4 }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repository.create).not.toHaveBeenCalled();
+  });
 
+  it("rejects finalization without an organization-wide finalize grant", async () => {
+    const { service, repository, teamContext } = makeService({
+      level: "team",
+    });
     await expect(service.finalize(1)).rejects.toBeInstanceOf(
-      BusinessRuleViolationException,
+      ForbiddenException,
+    );
+    expect(teamContext.resolveScope).toHaveBeenCalledWith(
+      "hr.payroll.finalize",
+    );
+    expect(repository.finalize).not.toHaveBeenCalled();
+  });
+
+  it("reports an unknown (or other organization's) period as not found", async () => {
+    const { service } = makeService({ finalized: null });
+    await expect(service.finalize(999)).rejects.toBeInstanceOf(
+      ResourceNotFoundException,
     );
   });
 
-  it("rejects finalization if no approved run exists", async () => {
-    const { service } = makeService({
-      currentPeriod: {
-        id: 1,
-        status: "PROCESSING",
-        runs: [{ id: 1, status: "PROCESSED" }], // not APPROVED
-      },
-    });
-
-    await expect(service.finalize(1)).rejects.toBeInstanceOf(
-      BusinessRuleViolationException,
-    );
-  });
-
-  it("finalizes period, locks calculations and generates payslips", async () => {
-    const { service, repository } = makeService({
-      currentPeriod: {
-        id: 1,
-        year: 2026,
-        month: 4,
-        status: "PROCESSING",
-        runs: [{ id: 10, status: "APPROVED" }],
-      },
-      approvedRunEntries: [
-        { id: 201, employeeId: 50, netPayable: 60000 },
-        { id: 202, employeeId: 51, netPayable: 45000 },
-      ],
-    });
+  it("finalizes through the locked repository transaction", async () => {
+    const { service, repository } = makeService();
 
     const result = await service.finalize(1);
+
     expect(result.status).toBe("FINALIZED");
-    expect(repository.finalize).toHaveBeenCalledOnce();
+    expect(repository.finalize).toHaveBeenCalledWith(SCOPE, 1, USER_ID);
   });
 });
