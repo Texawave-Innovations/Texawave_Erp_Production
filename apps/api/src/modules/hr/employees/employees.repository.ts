@@ -188,6 +188,21 @@ export class EmployeesRepository {
     });
   }
 
+  /** Self-service onboarding completion only — the single column it is
+   * allowed to touch, guarded to a forward-only transition so a second call
+   * (a retried request) is a harmless no-op rather than an error. */
+  @OrgScoped()
+  async markOnboardingComplete(scope: OrgScope, employeeId: number) {
+    await this.prisma.employee.updateMany({
+      where: tenantWhere(scope, {
+        id: employeeId,
+        onboardingStatus: { not: "COMPLETE" },
+        deletedAt: null,
+      }),
+      data: { onboardingStatus: "COMPLETE" },
+    });
+  }
+
   @OrgScoped()
   async findStatusHistory(
     scope: OrgScope,

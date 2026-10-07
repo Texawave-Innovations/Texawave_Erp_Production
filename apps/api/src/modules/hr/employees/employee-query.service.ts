@@ -26,4 +26,16 @@ export class EmployeeQueryService {
     if (!row) throw new NotAnEmployeeException();
     return toDetail(row);
   }
+
+  /** Called by employee-self-service once every required onboarding section
+   * is filled in. No-op if the employee isn't currently PENDING_PROFILE
+   * (already complete, or hasn't changed their temp password yet) — the
+   * caller (ProfileService) checks completeness before calling this. */
+  async completeOnboarding(): Promise<void> {
+    const employee = await this.getCurrentEmployee();
+    await this.repository.markOnboardingComplete(
+      this.tenantContext.getOrgScope(),
+      employee.id,
+    );
+  }
 }

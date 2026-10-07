@@ -19,5 +19,17 @@ export default defineConfig({
     baseURL: process.env.UI_BASE_URL ?? "http://localhost:3001",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // Local runs only: PLAYWRIGHT_USE_SYSTEM_CHROME=1 uses an installed
+        // Chrome instead of the downloaded test browser. CI never sets it.
+        ...(process.env.PLAYWRIGHT_USE_SYSTEM_CHROME === "1"
+          ? { channel: "chrome" }
+          : {}),
+      },
+    },
+  ],
 });

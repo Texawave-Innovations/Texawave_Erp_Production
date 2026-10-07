@@ -42,42 +42,51 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users                 User[]
-  roles                 Role[]
-  tags                  Tag[]
-  teams                 Team[]
-  departments           Department[]
-  userTeamAccess        UserTeamAccess[]
-  auditLogs             AuditLog[]
-  designations          Designation[]
-  employmentTypes       EmploymentType[]
-  workLocations         WorkLocation[]
-  employees             Employee[]
-  employeeStatusHistory EmployeeStatusHistory[]
-  documentSequences     DocumentSequence[]
-  shifts                Shift[]
-  shiftAssignments      ShiftAssignment[]
-  holidays              Holiday[]
-  leaveTypes            LeaveType[]
-  leaveRequests         LeaveRequest[]
-  weeklyOffRules        WeeklyOffRule[]
-  menuItems             MenuItem[]
+  users                   User[]
+  roles                   Role[]
+  tags                    Tag[]
+  teams                   Team[]
+  departments             Department[]
+  userTeamAccess          UserTeamAccess[]
+  approvals               Approval[]
+  employeePersonalDetails EmployeePersonalDetail[]
+  employeeBankDetails     EmployeeBankDetail[]
+  employeeFamilyMembers   EmployeeFamilyMember[]
+  employeeExperiences     EmployeeExperience[]
+  employeeDocuments       EmployeeDocument[]
+  auditLogs               AuditLog[]
+  designations            Designation[]
+  employmentTypes         EmploymentType[]
+  workLocations           WorkLocation[]
+  employees               Employee[]
+  employeeStatusHistory   EmployeeStatusHistory[]
+  documentSequences       DocumentSequence[]
+  shifts                  Shift[]
+  shiftAssignments        ShiftAssignment[]
+  holidays                Holiday[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
+  weeklyOffRules          WeeklyOffRule[]
+  menuItems               MenuItem[]
+  employeeAddresses       EmployeeAddress[]
+  employeeGovernmentIds   EmployeeGovernmentId[]
 
   @@map("organizations")
 }
 
 model User {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  email          String
-  passwordHash   String    @map("password_hash")
-  fullName       String    @map("full_name")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  email              String
+  passwordHash       String    @map("password_hash")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  fullName           String    @map("full_name")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
 
   organization        Organization            @relation(fields: [organizationId], references: [id])
   userRoles           UserRole[]
@@ -89,6 +98,8 @@ model User {
   leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
   passwordResetTokens PasswordResetToken[]
+  approvalsRequested  Approval[]              @relation("ApprovalRequester")
+  approvalsDecided    Approval[]              @relation("ApprovalDecider")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -222,13 +233,20 @@ model Team {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  department       Department?       @relation(fields: [departmentId], references: [id])
-  lead             User?             @relation("TeamLead", fields: [leadUserId], references: [id])
-  userAccess       UserTeamAccess[]
-  employees        Employee[]
-  shiftAssignments ShiftAssignment[]
-  weeklyOffRules   WeeklyOffRule[]
+  organization          Organization             @relation(fields: [organizationId], references: [id])
+  department            Department?              @relation(fields: [departmentId], references: [id])
+  lead                  User?                    @relation("TeamLead", fields: [leadUserId], references: [id])
+  userAccess            UserTeamAccess[]
+  personalDetails       EmployeePersonalDetail[]
+  bankDetails           EmployeeBankDetail[]
+  familyMembers         EmployeeFamilyMember[]
+  experiences           EmployeeExperience[]
+  documents             EmployeeDocument[]
+  employees             Employee[]
+  shiftAssignments      ShiftAssignment[]
+  weeklyOffRules        WeeklyOffRule[]
+  employeeAddresses     EmployeeAddress[]
+  employeeGovernmentIds EmployeeGovernmentId[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -514,6 +532,7 @@ model Employee {
   workLocationId   Int?      @map("work_location_id")
   reportsToId      Int?      @map("reports_to_id")
   status           String    @default("ACTIVE")
+  onboardingStatus String    @default("PENDING_ACTIVATION") @map("onboarding_status")
   dateOfJoining    DateTime  @map("date_of_joining") @db.Date
   dateOfExit       DateTime? @map("date_of_exit") @db.Date
   exitReason       String?   @map("exit_reason")
@@ -526,18 +545,25 @@ model Employee {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization     Organization            @relation(fields: [organizationId], references: [id])
-  user             User?                   @relation(fields: [userId], references: [id])
-  team             Team                    @relation(fields: [teamId], references: [id])
-  department       Department?             @relation(fields: [departmentId], references: [id])
-  designation      Designation             @relation(fields: [designationId], references: [id])
-  employmentType   EmploymentType          @relation(fields: [employmentTypeId], references: [id])
-  workLocation     WorkLocation?           @relation(fields: [workLocationId], references: [id])
-  reportsTo        Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
-  directReports    Employee[]              @relation("ReportingLine")
-  statusHistory    EmployeeStatusHistory[]
-  shiftAssignments ShiftAssignment[]
-  leaveRequests    LeaveRequest[]
+  organization         Organization            @relation(fields: [organizationId], references: [id])
+  user                 User?                   @relation(fields: [userId], references: [id])
+  team                 Team                    @relation(fields: [teamId], references: [id])
+  department           Department?             @relation(fields: [departmentId], references: [id])
+  designation          Designation             @relation(fields: [designationId], references: [id])
+  employmentType       EmploymentType          @relation(fields: [employmentTypeId], references: [id])
+  workLocation         WorkLocation?           @relation(fields: [workLocationId], references: [id])
+  reportsTo            Employee?               @relation("ReportingLine", fields: [reportsToId], references: [id])
+  directReports        Employee[]              @relation("ReportingLine")
+  statusHistory        EmployeeStatusHistory[]
+  shiftAssignments     ShiftAssignment[]
+  leaveRequests        LeaveRequest[]
+  personalDetail       EmployeePersonalDetail?
+  bankDetail           EmployeeBankDetail?
+  familyMembers        EmployeeFamilyMember[]
+  experiences          EmployeeExperience[]
+  documents            EmployeeDocument[]
+  employeeAddresses    EmployeeAddress[]
+  employeeGovernmentId EmployeeGovernmentId?
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -791,4 +817,243 @@ model LeaveRequest {
   @@index([organizationId, status])
   @@index([organizationId, leaveTypeId])
   @@map("leave_requests")
+}
+
+/// Shared approval record (Docs/ARCHITECTURE.md §5.4), polymorphic on
+/// `entity_type`/`entity_id`. First consumer: HR change requests for
+/// sensitive employee data (bank details, identity documents), approved by
+/// Super Admin. `proposed_changes` holds the requested new values; the target
+/// row is only updated when status becomes APPROVED.
+model Approval {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  entityType      String    @map("entity_type")
+  entityId        Int       @map("entity_id")
+  status          String    @default("PENDING")
+  proposedChanges Json      @map("proposed_changes")
+  requestedBy     Int       @map("requested_by")
+  decidedBy       Int?      @map("decided_by")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote    String?   @map("decision_note")
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  requester    User         @relation("ApprovalRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("ApprovalDecider", fields: [decidedBy], references: [id])
+
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, status])
+  @@map("approvals")
+}
+
+/// Employee self-onboarding (Docs/ARCHITECTURE.md §7). 1:1 with `employees`.
+/// Filled in by the employee in the onboarding wizard; read-only for HR.
+model EmployeePersonalDetail {
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  teamId                   Int       @map("team_id")
+  employeeId               Int       @unique @map("employee_id")
+  dateOfBirth              DateTime? @map("date_of_birth") @db.Date
+  gender                   String?
+  maritalStatus            String?   @map("marital_status")
+  bloodGroup               String?   @map("blood_group")
+  fatherName               String?   @map("father_name")
+  fatherPhone              String?   @map("father_phone")
+  motherName               String?   @map("mother_name")
+  motherPhone              String?   @map("mother_phone")
+  emergencyContactName     String?   @map("emergency_contact_name")
+  emergencyContactRelation String?   @map("emergency_contact_relation")
+  emergencyContactPhone    String?   @map("emergency_contact_phone")
+  customFields             Json      @default("{}") @map("custom_fields")
+  isActive                 Boolean   @default(true) @map("is_active")
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, teamId])
+  @@map("employee_personal_details")
+}
+
+/// Bank details for salary disbursement. `account_number_encrypted` is
+/// ciphertext only (AES-256-GCM, key from config); `account_number_masked`
+/// is the only form ever returned to a UI. Full reveal is a separate permission.
+model EmployeeBankDetail {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  teamId                 Int       @map("team_id")
+  employeeId             Int       @unique @map("employee_id")
+  accountHolderName      String    @map("account_holder_name")
+  accountNumberEncrypted String    @map("account_number_encrypted")
+  accountNumberMasked    String    @map("account_number_masked")
+  ifsc                   String
+  bankName               String    @map("bank_name")
+  branchName             String?   @map("branch_name")
+  customFields           Json      @default("{}") @map("custom_fields")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, teamId])
+  @@map("employee_bank_details")
+}
+
+model EmployeeFamilyMember {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  teamId         Int       @map("team_id")
+  employeeId     Int       @map("employee_id")
+  name           String
+  relation       String
+  dateOfBirth    DateTime? @map("date_of_birth") @db.Date
+  contactPhone   String?   @map("contact_phone")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, teamId, employeeId])
+  @@map("employee_family_members")
+}
+
+model EmployeeExperience {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  teamId           Int       @map("team_id")
+  employeeId       Int       @map("employee_id")
+  employer         String
+  designation      String
+  fromDate         DateTime  @map("from_date") @db.Date
+  toDate           DateTime? @map("to_date") @db.Date
+  reasonForLeaving String?   @map("reason_for_leaving")
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, teamId, employeeId])
+  @@map("employee_experience")
+}
+
+/// Document metadata only. The file itself lives in storage at `storage_key`
+/// (storage backend not yet decided; Vault is paused).
+model EmployeeDocument {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  teamId         Int       @map("team_id")
+  employeeId     Int       @map("employee_id")
+  documentType   String    @map("document_type")
+  fileName       String    @map("file_name")
+  storageKey     String    @map("storage_key")
+  /// Set by the file upload path; null only on rows written before uploads existed.
+  mimeType       String?   @map("mime_type")
+  sizeBytes      Int?      @map("size_bytes")
+  uploadedAt     DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, documentType])
+  @@index([organizationId, teamId, employeeId])
+  @@map("employee_documents")
+}
+
+/// Permanent and present addresses (one row per employee per type). Present
+/// address is only stored when it differs from permanent; the UI "same as
+/// permanent" tick writes no row.
+model EmployeeAddress {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  teamId         Int       @map("team_id")
+  employeeId     Int       @map("employee_id")
+  addressType    String    @map("address_type")
+  addressLine    String    @map("address_line")
+  areaLocality   String?   @map("area_locality")
+  district       String
+  city           String
+  state          String
+  pincode        String
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, addressType])
+  @@index([organizationId, teamId])
+  @@map("employee_addresses")
+}
+
+/// Government identifiers. 1:1 with `employees`. Aadhaar and PAN are required
+/// on submit; ESI and PF are optional.
+model EmployeeGovernmentId {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  teamId         Int       @map("team_id")
+  employeeId     Int       @unique @map("employee_id")
+  aadhaarNumber  String?   @map("aadhaar_number")
+  panNumber      String?   @map("pan_number")
+  esiNumber      String?   @map("esi_number")
+  pfNumber       String?   @map("pf_number")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, teamId])
+  @@map("employee_government_ids")
 }

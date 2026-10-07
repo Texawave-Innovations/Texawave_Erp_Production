@@ -10,6 +10,7 @@ import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
 import { ProfileModule } from "./modules/employee-self-service/profile/profile.module.js";
+import { TeamsModule } from "./modules/hr/teams/teams.module.js";
 import { EmployeesModule } from "./modules/hr/employees/employees.module.js";
 import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
 import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
@@ -29,6 +30,8 @@ import { HealthModule } from "./platform/health/health.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
 import { TenancyModule } from "./platform/tenancy/tenancy.module.js";
 import { UsersModule } from "./platform/users/users.module.js";
+import { FieldEncryptionModule } from "./shared/crypto/field-encryption.module.js";
+import { FileStorageModule } from "./shared/file-storage/file-storage.module.js";
 import { PrismaModule } from "./shared/prisma/prisma.module.js";
 import { RedisModule } from "./shared/redis/redis.module.js";
 
@@ -51,6 +54,8 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     LoggerModule,
     PrismaModule,
     RedisModule,
+    FieldEncryptionModule,
+    FileStorageModule,
     AuthModule,
     RolesPermissionsModule,
     TenancyModule,
@@ -70,6 +75,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     LeaveTypesModule,
     LeaveRequestsModule,
     ProfileModule,
+    TeamsModule,
     MyLeaveRequestsModule,
     DepartmentsModule,
     UsersModule,
