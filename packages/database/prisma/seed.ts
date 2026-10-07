@@ -182,14 +182,6 @@ async function main() {
       permission: null,
     },
     {
-      code: "hr-holidays",
-      label: "Holidays",
-      path: "/hr/holidays",
-      order: 9,
-      parentId: hrParent.id,
-      permission: null,
-    },
-    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
