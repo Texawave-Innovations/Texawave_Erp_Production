@@ -1,0 +1,228 @@
+/* ==========================================================================
+   TexaWave Enterprise Ecosystem — Ambient Animated Background
+   Conforms to Docs/DESIGN_SYSTEM.md (Restrained Enterprise ERP, Zero Conflict)
+   Strictly GPU-Composited SVG & CSS, Zero Main-Thread Blocking, Zero Flickering
+   ========================================================================== */
+
+/* Hardware-accelerated isolate container */
+.texa-ecosystem-viewport {
+  contain: layout style paint;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* ==========================================================================
+   Core Hub Animations
+   ========================================================================== */
+
+/* Ambient pulsing radial glow behind the central server cylinder */
+@keyframes coreBreathing {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+.ecosystem-core-glow {
+  animation: coreBreathing 6s ease-in-out infinite;
+  transform-origin: 345px 285px;
+  will-change: opacity, transform;
+}
+
+/* Vertical server data beam shimmer */
+@keyframes beamShimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scaleY(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scaleY(1.08);
+  }
+}
+
+.ecosystem-beam-shimmer {
+  animation: beamShimmer 4s ease-in-out infinite;
+  transform-origin: 345px 270px;
+  will-change: opacity, transform;
+}
+
+/* Slow rotation for concentric hub halo */
+@keyframes hubHaloRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ecosystem-halo-rotate {
+  animation: hubHaloRotate 36s linear infinite;
+  transform-origin: 345px 285px;
+  will-change: transform;
+}
+
+/* ==========================================================================
+   Conduit Channel Flows (Software, Electrical, Mechanical, Procurement)
+   ========================================================================== */
+
+/* Fluid energy stream flowing from Central Hub outward to departments */
+@keyframes conduitFlowOut {
+  0% {
+    stroke-dashoffset: 160;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Telemetry stream flowing from departments inward to Central Hub */
+@keyframes conduitFlowIn {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 160;
+  }
+}
+
+.ecosystem-pulse-out {
+  stroke-dasharray: 20 60;
+  animation: conduitFlowOut 5s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.ecosystem-pulse-in {
+  stroke-dasharray: 18 55;
+  animation: conduitFlowIn 5.5s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.ecosystem-pulse-fast {
+  stroke-dasharray: 12 40;
+  animation: conduitFlowOut 3.8s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.ecosystem-pulse-slow {
+  stroke-dasharray: 24 70;
+  animation: conduitFlowIn 7s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+/* ==========================================================================
+   Micro-Node & Circuit Interconnection Beacons
+   ========================================================================== */
+
+@keyframes beaconPulse {
+  0%,
+  100% {
+    r: 3.5;
+    opacity: 0.5;
+  }
+  50% {
+    r: 6;
+    opacity: 1;
+  }
+}
+
+.ecosystem-beacon {
+  animation: beaconPulse 3.5s ease-in-out infinite;
+  will-change: r, opacity;
+}
+
+.ecosystem-beacon-delayed {
+  animation: beaconPulse 4.2s ease-in-out 1.5s infinite;
+  will-change: r, opacity;
+}
+
+/* High-tech circuit track pulse */
+@keyframes circuitTraceShimmer {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.ecosystem-circuit-track {
+  animation: circuitTraceShimmer 4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+/* ==========================================================================
+   Accessibility: Reduced Motion Compliance (Docs/DESIGN_SYSTEM.md §1.6)
+   ========================================================================== */
+
+/* ==========================================================================
+   Ultra-Premium Frosted Glassmorphism Login Card
+   True Optical Glass with Specular Rim Highlights, Blur & Translucency
+   ========================================================================== */
+
+.glass-login-card {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.16) 100%
+  ) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(190%) !important;
+  backdrop-filter: blur(15px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow:
+    0 24px 50px -12px rgba(15, 23, 42, 0.1),
+    0 8px 20px -4px rgba(15, 23, 42, 0.04),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.glass-input-field {
+  background: rgba(255, 255, 255, 0.38) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  box-shadow:
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.7),
+    0 1px 3px 0 rgba(15, 23, 42, 0.03) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.glass-input-field:hover {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.glass-input-field:focus {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.18),
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ecosystem-core-glow,
+  .ecosystem-beam-shimmer,
+  .ecosystem-halo-rotate,
+  .ecosystem-pulse-out,
+  .ecosystem-pulse-in,
+  .ecosystem-pulse-fast,
+  .ecosystem-pulse-slow,
+  .ecosystem-beacon,
+  .ecosystem-beacon-delayed,
+  .ecosystem-circuit-track {
+    animation: none !important;
+    opacity: 0.65 !important;
+  }
+}
