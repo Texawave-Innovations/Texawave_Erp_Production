@@ -27,6 +27,13 @@ describe("validateEnv", () => {
     });
   });
 
+  it("accepts an installed-browser channel for payslip PDFs", () => {
+    expect(
+      validateEnv({ ...minimal(), PDF_BROWSER_CHANNEL: "msedge" })
+        .PDF_BROWSER_CHANNEL,
+    ).toBe("msedge");
+  });
+
   it("coerces numeric strings from process.env", () => {
     const env = validateEnv({
       ...minimal(),
@@ -88,6 +95,7 @@ describe("validateEnv", () => {
     ["TRUST_PROXY_HOPS", "-1", /TRUST_PROXY_HOPS: /],
     ["LOG_LEVEL", "verbose", /LOG_LEVEL: /],
     ["UPLOAD_DIR", "", /UPLOAD_DIR: /],
+    ["PDF_BROWSER_CHANNEL", "firefox", /PDF_BROWSER_CHANNEL: /],
   ])("rejects an invalid %s (%s)", (key, value, pattern) => {
     expect(() => validateEnv({ ...minimal(), [key]: value })).toThrow(pattern);
   });

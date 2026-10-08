@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
+import { PayslipPdfRenderer } from "../src/modules/hr/payroll/payslips/payslip-pdf.renderer.js";
 import { FieldEncryptionService } from "../src/shared/crypto/field-encryption.service.js";
 import { PrismaService } from "../src/shared/prisma/prisma.service.js";
 
@@ -127,10 +128,24 @@ describe("Payroll & Compliance (e2e)", () => {
       }).expect(201),
     );
 
+  // Headless Chromium is not available in CI; the renderer is swapped for a
+  // stub that records the HTML it was given. The template itself is covered
+  // by payslip-pdf.template.spec.ts — this suite proves routing and scope.
+  const renderedHtml: string[] = [];
+  const fakePdfRenderer = {
+    render: (html: string) => {
+      renderedHtml.push(html);
+      return Promise.resolve(Buffer.from("%PDF-1.7 stub"));
+    },
+  };
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PayslipPdfRenderer)
+      .useValue(fakePdfRenderer)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -684,6 +699,33 @@ describe("Payroll & Compliance (e2e)", () => {
     const myLoans = dataOf<Array<{ employeeId: number }>>(loanRes);
     expect(myLoans).toHaveLength(1);
     expect(myLoans[0]?.employeeId).toBe(employeeId1);
+  });
+
+  it("8b. downloads payslip PDFs within the caller's scope only", async () => {
+    const all = dataOf<Array<{ id: number; employeeId: number }>>(
+      await get("admin", "/hr/payslips").expect(200),
+    );
+    const ps1 = all.find((p) => p.employeeId === employeeId1);
+    const ps2 = all.find((p) => p.employeeId === employeeId2);
+    expect(ps1 && ps2).toBeTruthy();
+
+    // HR route: a PDF attachment, rendered from the masked view
+    const hrRes = await get("admin", `/hr/payslips/${ps1?.id}/pdf`).expect(200);
+    expect(hrRes.headers["content-type"]).toContain("application/pdf");
+    expect(hrRes.headers["content-disposition"]).toMatch(
+      /^attachment; filename="PS-202605-.*\.pdf"$/,
+    );
+    const html = renderedHtml.at(-1) ?? "";
+    expect(html).toContain("XXXXXXXXXX6789");
+    expect(html).not.toMatch(/\d{10}6789/);
+
+    // No payslip permission → 403; unknown / other-org id → 404
+    await get("checker", `/hr/payslips/${ps1?.id}/pdf`).expect(403);
+    await get("admin", "/hr/payslips/999999999/pdf").expect(404);
+
+    // Self-service: own payslip only
+    await get("emp1", `/self-service/payslips/${ps1?.id}/pdf`).expect(200);
+    await get("emp1", `/self-service/payslips/${ps2?.id}/pdf`).expect(404);
   });
 
   it("9. keeps team-level grants inside their teams and out of org-wide operations", async () => {

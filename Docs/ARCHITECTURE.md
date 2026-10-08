@@ -433,6 +433,8 @@ keep both env vars in sync with whatever you chose.
 
 **Why `packages/database`'s Prisma generator is `"prisma-client-js"`, not the newer `"prisma-client"`:** the newer generator emits raw `.ts` with no build step of its own, which only a TS-aware runtime (tsx/vitest) can load — the classic generator emits ready-to-run compiled JS, which every consumer in this repo (vitest, the swc-built API, plain `node`) can load uniformly. If you ever change this, re-run `pnpm --filter database build` and re-verify `node apps/api/dist/main.js` actually boots, not just that it typechecks.
 
+**Payslip PDFs need a Chromium binary on the API host.** `GET /hr/payslips/:id/pdf` and `GET /self-service/payslips/:id/pdf` render HTML to PDF with headless Chromium through `playwright` (`apps/api/src/modules/hr/payroll/payslips/payslip-pdf.renderer.ts`). Run `pnpm --filter api exec playwright install chromium` once on every machine/image that serves the API (add `--with-deps` on a bare Linux image), or, where that download is blocked, set `PDF_BROWSER_CHANNEL=msedge` (or `chrome`) in `apps/api/.env` to use the browser already installed on the host. Without either, everything else works and only those two routes fail with a 500. The e2e suite swaps the renderer for a stub, so CI doesn't need the browser. Any future server-side PDF should reuse this renderer rather than adding a second PDF library.
+
 ---
 
 ## 10. Hard-won rules, stated explicitly
