@@ -127,67 +127,89 @@ async function main() {
   }
 
   // Seed default menu items
-  const adminParent = await prisma.menuItem.upsert({
-    where: {
-      organizationId_code: { organizationId: org.id, code: "admin" },
-    },
-    update: { label: "Admin", order: 10 },
-    create: {
-      organizationId: org.id,
-      code: "admin",
-      label: "Admin",
-      order: 10,
-    },
-  });
-
   const defaultMenuItems = [
+    // HR Module
     {
-      code: "dashboard",
+      code: "hr-dashboard",
       label: "Dashboard",
-      path: "/",
+      path: "/hr",
       order: 1,
       parentId: null,
       permission: null,
     },
     {
-      code: "reference-tags",
-      label: "Reference Tags",
-      path: "/reference/tags",
+      code: "hr-employees",
+      label: "Employees",
+      path: "/hr/employees",
       order: 2,
       parentId: null,
-      permission: "reference.tags.read",
-    },
-    {
-      code: "admin-departments",
-      label: "Departments",
-      path: "/admin/departments",
-      order: 1,
-      parentId: adminParent.id,
-      permission: "departments.department.read",
-    },
-    {
-      code: "admin-roles",
-      label: "Roles",
-      path: "/admin/roles",
-      order: 2,
-      parentId: adminParent.id,
-      permission: "settings.role.read",
-    },
-    {
-      code: "admin-users",
-      label: "Users",
-      path: "/admin/users",
-      order: 3,
-      parentId: adminParent.id,
       permission: "users.user.read",
     },
     {
-      code: "admin-menu",
+      code: "hr-departments",
+      label: "Departments",
+      path: "/hr/departments",
+      order: 3,
+      parentId: null,
+      permission: "departments.department.read",
+    },
+    {
+      code: "hr-teams",
+      label: "Teams",
+      path: "/hr/teams",
+      order: 4,
+      parentId: null,
+      permission: null,
+    },
+    {
+      code: "hr-attendance",
+      label: "Attendance",
+      path: "/hr/attendance",
+      order: 5,
+      parentId: null,
+      permission: null,
+    },
+    {
+      code: "hr-leaves",
+      label: "Leaves",
+      path: "/hr/leaves",
+      order: 6,
+      parentId: null,
+      permission: null,
+    },
+    {
+      code: "hr-payroll",
+      label: "Payroll",
+      path: "/hr/payroll",
+      order: 7,
+      parentId: null,
+      permission: null,
+    },
+
+    // Settings Module
+    {
+      code: "settings-roles",
+      label: "Roles & Permissions",
+      path: "/settings/roles",
+      order: 10,
+      parentId: null,
+      permission: "settings.role.read",
+    },
+    {
+      code: "settings-menu",
       label: "Navigation Menu",
       path: "/admin/menu",
-      order: 4,
-      parentId: adminParent.id,
+      order: 11,
+      parentId: null,
       permission: "menu.item.read",
+    },
+    {
+      code: "reference-tags",
+      label: "Reference Tags",
+      path: "/reference/tags",
+      order: 12,
+      parentId: null,
+      permission: "reference.tags.read",
     },
   ];
 

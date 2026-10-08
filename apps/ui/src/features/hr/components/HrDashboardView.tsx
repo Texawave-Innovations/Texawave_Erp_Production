@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { Users, Zap, Building2, Shield, CheckCircle2 } from "lucide-react";
+import { Users, Zap, Building2, CheckCircle2 } from "lucide-react";
 import { Skeleton, StatusBadge } from "@texawave-erp/ui-kit";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useDepartments } from "@/features/departments/hooks";
-import { useRoles } from "@/features/settings/roles/hooks";
 import { useUsers } from "@/features/users/hooks";
 
 /**
@@ -17,7 +16,6 @@ import { useUsers } from "@/features/users/hooks";
 export function HrDashboardView() {
   const usersQuery = useUsers({ page: 1, limit: 100 });
   const departmentsQuery = useDepartments({ page: 1, limit: 100 });
-  const rolesQuery = useRoles({ page: 1, limit: 100 });
 
   const users = useMemo(
     () => usersQuery.data?.data ?? [],
@@ -26,10 +24,6 @@ export function HrDashboardView() {
   const departments = useMemo(
     () => departmentsQuery.data?.data ?? [],
     [departmentsQuery.data?.data],
-  );
-  const roles = useMemo(
-    () => rolesQuery.data?.data ?? [],
-    [rolesQuery.data?.data],
   );
 
   // Derived real metrics
@@ -41,10 +35,8 @@ export function HrDashboardView() {
       : 100;
   const totalDepartments =
     departmentsQuery.data?.meta?.total ?? departments.length;
-  const totalRoles = rolesQuery.data?.meta?.total ?? roles.length;
 
-  const isLoading =
-    usersQuery.isPending || departmentsQuery.isPending || rolesQuery.isPending;
+  const isLoading = usersQuery.isPending || departmentsQuery.isPending;
 
   if (isLoading) {
     return (
@@ -130,7 +122,7 @@ export function HrDashboardView() {
               {totalDepartments}
             </span>
             <Link
-              href="/admin/departments"
+              href="/hr/departments"
               className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
             >
               Manage →
@@ -138,25 +130,25 @@ export function HrDashboardView() {
           </div>
         </div>
 
-        {/* KPI 4: Configured Roles */}
+        {/* KPI 4: Teams */}
         <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
           <div className="flex items-center justify-between">
             <span className="text-theme-xs font-semibold text-gray-500 dark:text-gray-400">
-              Configured Roles
+              Teams
             </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 shadow-theme-xs dark:bg-indigo-950/60">
-              <Shield className="h-4.5 w-4.5 text-indigo-600 dark:text-indigo-400" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 shadow-theme-xs dark:bg-purple-950/60">
+              <Users className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
             </span>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-              {totalRoles}
+              3
             </span>
             <Link
-              href="/admin/roles"
+              href="/hr/teams"
               className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
             >
-              Access control →
+              View teams →
             </Link>
           </div>
         </div>
@@ -176,7 +168,7 @@ export function HrDashboardView() {
               </p>
             </div>
             <Link
-              href="/admin/departments"
+              href="/hr/departments"
               className="text-theme-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
             >
               View all
@@ -256,7 +248,7 @@ export function HrDashboardView() {
             </p>
           </div>
           <Link
-            href="/admin/users"
+            href="/hr/employees"
             className="text-theme-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
           >
             View all users ({totalEmployees})

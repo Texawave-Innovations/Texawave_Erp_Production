@@ -64,7 +64,7 @@ export function ForgotPasswordForm() {
 
           <Link
             href="/login"
-            className="w-full h-11.5 bg-[#00c853] hover:bg-[#00b248] active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-[0_4px_16px_rgba(0,200,83,0.32)] transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-6"
+            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-6 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             Back to sign in →
           </Link>
@@ -183,7 +183,7 @@ export function ForgotPasswordForm() {
             type="submit"
             disabled={forgotPasswordMutation.isPending}
             suppressHydrationWarning
-            className="w-full h-11.5 bg-[#00c853] hover:bg-[#00b248] active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-[0_4px_16px_rgba(0,200,83,0.32)] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed mt-1"
+            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed mt-1 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             {forgotPasswordMutation.isPending ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

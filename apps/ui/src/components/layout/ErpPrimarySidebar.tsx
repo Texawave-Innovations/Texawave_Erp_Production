@@ -38,7 +38,7 @@ const PRIMARY_MODULES: ErpModuleItem[] = [
   { id: "purchases", label: "Purchases", icon: ShoppingBag, path: "#" },
   { id: "scm", label: "SCM", icon: Package, path: "#" },
   { id: "finance", label: "Finance", icon: Landmark, path: "#" },
-  { id: "hr", label: "HR", icon: Users, path: "/admin/departments" },
+  { id: "hr", label: "HR", icon: Users, path: "/hr" },
   { id: "projects", label: "Projects", icon: FolderKanban, path: "#" },
   { id: "documents", label: "Document Center", icon: FileText, path: "#" },
   { id: "master-lists", label: "Master Lists", icon: ClipboardList, path: "#" },
@@ -52,17 +52,23 @@ const PRIMARY_MODULES: ErpModuleItem[] = [
 
 /**
  * Leftmost ERP Primary Module Sidebar.
- * Displays TexaWave ERP branding and primary enterprise modules with HR highlighted active.
+ * Displays TexaWave ERP branding and primary enterprise modules.
  * Conforms to Section 4 & Docs/DESIGN_SYSTEM.md.
  */
 export function ErpPrimarySidebar() {
   const pathname = usePathname();
 
-  // Determine if HR module is currently active
+  // Determine active module
   const isHrActive =
-    pathname.startsWith("/admin") ||
     pathname.startsWith("/hr") ||
-    pathname.startsWith("/settings/roles");
+    pathname === "/admin/departments" ||
+    pathname === "/admin/users";
+
+  const isSettingsActive =
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/reference") ||
+    pathname === "/admin/roles" ||
+    pathname === "/admin/menu";
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-dark">
@@ -80,7 +86,12 @@ export function ErpPrimarySidebar() {
       <nav aria-label="ERP Modules" className="flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-1">
           {PRIMARY_MODULES.map((mod) => {
-            const active = mod.id === "hr" ? isHrActive : false;
+            const active =
+              mod.id === "hr"
+                ? isHrActive
+                : mod.id === "settings"
+                  ? isSettingsActive
+                  : false;
             const isClickable = mod.path !== "#";
 
             return (
