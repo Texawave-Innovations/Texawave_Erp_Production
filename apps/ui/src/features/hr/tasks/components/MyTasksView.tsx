@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -17,21 +16,16 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import type { MyTaskStatus } from "../api";
+import { useMyTasks, useSetMyTaskStatus } from "../hooks";
 import {
-  useApproveTask,
-  useReopenTask,
-  useSetTaskStatus,
-  useTasks,
-} from "../hooks";
-import {
-  READ_ANY_SCOPE,
+  SELF_SERVICE_CREATE,
   SELF_SERVICE_READ,
-  WRITE_TEAM_OR_ALL,
+  SELF_SERVICE_UPDATE_STATUS,
 } from "../permissions";
 import { STATUS_LABELS } from "../status";
 import { TASK_STATUSES, type TaskItem, type TaskStatus } from "../types";
-import { CreateTaskDialog } from "./CreateTaskDialog";
-import { ReassignTaskDialog } from "./ReassignTaskDialog";
+import { CreateMyTaskDialog } from "./CreateMyTaskDialog";
 import { TaskPriorityBadge, TaskStatusBadge } from "./TaskStatusBadge";
 
 const PAGE_SIZE = 20;
@@ -49,37 +43,57 @@ const EMPTY_FILTERS: Filters = { status: "", q: "", awaitingApproval: false };
 function describeStatusError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
-      return "You don't have permission to change this task.";
+      return "You don't have permission to update this task.";
     }
     if (error.errorCode === "INVALID_STATE_TRANSITION") {
-      return "This task can no longer move to that status — it may already be approved or completed.";
+      return "This task can no longer move to that status — it may already be approved.";
     }
     if (error.statusCode === 404) {
-      return "This task is no longer in your scope.";
+      return "This task is no longer yours to update.";
     }
     return error.message;
   }
   return "Something went wrong. Try again.";
 }
 
+/** The next self-service move for a task (legacy `MyTasks.tsx`: "Start
+ * Working", "Mark as Done", and the checkbox that reopens a DONE task).
+ * `null` means no control — locked (approved) or cancelled. */
+function nextMoves(task: TaskItem): MyTaskStatus[] {
+  if (task.adminApproved) return [];
+  switch (task.status) {
+    case "PENDING":
+      return ["IN_PROGRESS", "DONE"];
+    case "IN_PROGRESS":
+      return ["DONE"];
+    case "DONE":
+      return ["PENDING"];
+    default:
+      return [];
+  }
+}
+
+const MOVE_LABELS: Record<MyTaskStatus, string> = {
+  PENDING: "Mark as pending",
+  IN_PROGRESS: "Start working",
+  DONE: "Mark as done",
+};
+
 /**
- * HR Task Assignment: assign, reassign, update status, approve and reopen
- * tasks within the caller's scope (hr.task.read/write). Filtering and paging
- * happen server-side; this view only builds the query.
+ * Self-service "My Tasks" (legacy `employee/MyTasks.tsx`): tasks assigned to
+ * or created by the authenticated employee. Start, complete or reopen a task
+ * within the lifecycle the API allows; create a task for yourself, optionally
+ * flagged for admin/HR attention.
  */
-export function TasksView() {
-  const router = useRouter();
-  const canRead = usePermission(READ_ANY_SCOPE);
-  const canWrite = usePermission(WRITE_TEAM_OR_ALL);
-  const canSelfService = usePermission(SELF_SERVICE_READ);
+export function MyTasksView() {
+  const canRead = usePermission(SELF_SERVICE_READ);
+  const canCreate = usePermission(SELF_SERVICE_CREATE);
+  const canUpdateStatus = usePermission(SELF_SERVICE_UPDATE_STATUS);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [summary, setSummary] = useState<SummaryFilter>("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [reassignTarget, setReassignTarget] = useState<TaskItem | null>(null);
-  const setStatus = useSetTaskStatus();
-  const approve = useApproveTask();
-  const reopen = useReopenTask();
+  const setStatus = useSetMyTaskStatus();
   const { toast } = useToast();
 
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) => {
@@ -103,43 +117,17 @@ export function TasksView() {
     [page, filters, summary],
   );
 
-  const list = useTasks(query);
+  const list = useMyTasks(query);
   const hasFilters =
     filters.status !== "" || filters.q !== "" || filters.awaitingApproval;
 
-  async function handleStatusChange(task: TaskItem, status: TaskStatus) {
+  async function handleMove(task: TaskItem, status: MyTaskStatus) {
     try {
       await setStatus.mutateAsync({ id: task.id, status });
-      toast({ title: "Status updated", variant: "success" });
+      toast({ title: "Task updated", variant: "success" });
     } catch (error) {
       toast({
-        title: "Could not update status",
-        description: describeStatusError(error),
-        variant: "error",
-      });
-    }
-  }
-
-  async function handleApprove(task: TaskItem) {
-    try {
-      await approve.mutateAsync(task.id);
-      toast({ title: "Task approved", variant: "success" });
-    } catch (error) {
-      toast({
-        title: "Could not approve",
-        description: describeStatusError(error),
-        variant: "error",
-      });
-    }
-  }
-
-  async function handleReopen(task: TaskItem) {
-    try {
-      await reopen.mutateAsync(task.id);
-      toast({ title: "Task reopened", variant: "success" });
-    } catch (error) {
-      toast({
-        title: "Could not reopen",
+        title: "Could not update task",
         description: describeStatusError(error),
         variant: "error",
       });
@@ -148,8 +136,9 @@ export function TasksView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to tasks">
-        Ask an administrator for the <code>hr.task.read</code> permission.
+      <Alert variant="warning" title="You don't have access to your tasks">
+        Ask an administrator for the{" "}
+        <code>employee_self_service.task.read</code> permission.
       </Alert>
     );
   }
@@ -186,7 +175,7 @@ export function TasksView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-            Task Assignment
+            My Tasks
           </h1>
           {list.data ? (
             <p className="text-theme-sm text-gray-500 dark:text-gray-400">
@@ -196,22 +185,11 @@ export function TasksView() {
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canSelfService ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/self-service/tasks")}
-            >
-              My tasks
-            </Button>
-          ) : null}
-          {canWrite ? (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              New Task
-            </Button>
-          ) : null}
-        </div>
+        {canCreate ? (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            New task
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -222,10 +200,10 @@ export function TasksView() {
       </div>
 
       <Card>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
-            placeholder="Search title or assignee"
-            aria-label="Search tasks"
+            placeholder="Search title"
+            aria-label="Search my tasks"
             value={filters.q}
             onChange={(e) => update("q", e.target.value)}
           />
@@ -268,7 +246,7 @@ export function TasksView() {
         </div>
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to tasks">
+          <Alert variant="warning" title="You don't have access to your tasks">
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -285,14 +263,16 @@ export function TasksView() {
             description={
               hasFilters || summary
                 ? "Try a different status, search term, or clear the filters."
-                : "Tasks you assign will appear here."
+                : canCreate
+                  ? "Tasks assigned to you, or tasks you create for yourself, will appear here."
+                  : "Tasks assigned to you will appear here."
             }
           />
         </Card>
       ) : (
         <>
           <DataTable
-            caption="Tasks"
+            caption="My tasks"
             rows={list.data.data}
             getRowKey={(t) => String(t.id)}
             columns={[
@@ -312,14 +292,13 @@ export function TasksView() {
                       ) : null}
                       {t.requestToAdmin ? (
                         <span className="text-theme-xs text-brand-600 dark:text-brand-400">
-                          Employee request
+                          Sent to admin
                         </span>
                       ) : null}
                     </div>
                   </div>
                 ),
               },
-              { header: "Assignee", cell: (t) => t.assignee.fullName },
               { header: "Assigned by", cell: (t) => t.assignedBy.fullName },
               { header: "Due", cell: (t) => t.dueDate },
               {
@@ -340,69 +319,27 @@ export function TasksView() {
                   </div>
                 ),
               },
-              ...(canWrite
-                ? [
-                    {
-                      header: "Actions",
-                      cell: (t: TaskItem) => {
-                        if (t.awaitingApproval) {
-                          return (
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => void handleApprove(t)}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => void handleReopen(t)}
-                              >
-                                Reopen
-                              </Button>
-                            </div>
-                          );
-                        }
-                        if (t.adminApproved) {
-                          return "—";
-                        }
-                        return (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Select
-                              aria-label={`Set status for ${t.title}`}
-                              value={t.status}
-                              onChange={(e) =>
-                                void handleStatusChange(
-                                  t,
-                                  e.target.value as TaskStatus,
-                                )
-                              }
-                              className="w-auto min-w-[8rem]"
-                            >
-                              {TASK_STATUSES.map((s) => (
-                                <option key={s} value={s}>
-                                  {STATUS_LABELS[s]}
-                                </option>
-                              ))}
-                            </Select>
-                            {!t.isEmployeeCreated &&
-                            (t.status === "PENDING" ||
-                              t.status === "IN_PROGRESS") ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setReassignTarget(t)}
-                              >
-                                Reassign
-                              </Button>
-                            ) : null}
-                          </div>
-                        );
-                      },
-                    },
-                  ]
-                : []),
+              {
+                header: "Actions",
+                cell: (t: TaskItem) => {
+                  const moves = canUpdateStatus ? nextMoves(t) : [];
+                  if (moves.length === 0) return "—";
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {moves.map((status) => (
+                        <Button
+                          key={status}
+                          size="sm"
+                          variant={status === "DONE" ? "primary" : "secondary"}
+                          onClick={() => void handleMove(t, status)}
+                        >
+                          {MOVE_LABELS[status]}
+                        </Button>
+                      ))}
+                    </div>
+                  );
+                },
+              },
             ]}
           />
           <Pagination
@@ -413,17 +350,10 @@ export function TasksView() {
         </>
       )}
 
-      {canWrite ? (
-        <CreateTaskDialog
+      {canCreate ? (
+        <CreateMyTaskDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-        />
-      ) : null}
-      {canWrite && reassignTarget ? (
-        <ReassignTaskDialog
-          open
-          onClose={() => setReassignTarget(null)}
-          task={reassignTarget}
         />
       ) : null}
     </div>

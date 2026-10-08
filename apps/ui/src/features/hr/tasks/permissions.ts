@@ -16,3 +16,10 @@ export const WRITE_TEAM_OR_ALL = [
   "hr.task.write.team",
   "hr.task.write.all",
 ] as const;
+
+/** Self-service: the authenticated user's own tasks (assigned to or created
+ * by them), via `/self-service/tasks`. */
+export const SELF_SERVICE_READ = "employee_self_service.task.read";
+export const SELF_SERVICE_CREATE = "employee_self_service.task.create";
+export const SELF_SERVICE_UPDATE_STATUS =
+  "employee_self_service.task.update_status";
