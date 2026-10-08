@@ -217,6 +217,10 @@ export function RegularizationView() {
                 header: "Decided by",
                 cell: (c) => c.decidedBy?.fullName ?? "—",
               },
+              {
+                header: "Note",
+                cell: (c) => c.decisionNote ?? "—",
+              },
               ...(canApprove
                 ? [
                     {
