@@ -1,10 +1,8 @@
 "use client";
 
-import { Button } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { useMe } from "@/hooks/usePermission";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -19,6 +17,10 @@ import { useAuthStore } from "@/stores/auth-store";
  * foundation. This guard is enough to keep an unauthenticated user from
  * seeing the dashboard shell flash before redirecting, nothing more.
  */
+import { DynamicSidebar } from "@/components/DynamicSidebar";
+import { ErpPrimarySidebar } from "@/components/layout/ErpPrimarySidebar";
+import { GlobalHeader } from "@/components/layout/GlobalHeader";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -33,9 +35,6 @@ export default function DashboardLayout({
   useMe();
 
   async function handleSignOut() {
-    // Best-effort: revoke server-side refresh tokens too, but don't block
-    // the UI on it — the local state clear below is what actually matters
-    // for this browser tab.
     void apiClient.post("/auth/logout").catch(() => undefined);
     clear();
     queryClient.clear();
@@ -53,18 +52,17 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-        <span className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          TexaWave ERP
-        </span>
-        <Button variant="ghost" size="sm" onClick={() => void handleSignOut()}>
-          Sign out
-        </Button>
-      </header>
-      <div className="flex flex-1 overflow-hidden">
-        <DynamicSidebar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900">
+      {/* Tier 1: Leftmost ERP Primary Module Sidebar */}
+      <ErpPrimarySidebar />
+
+      {/* Tier 2: Dynamic RBAC Navigation Sidebar */}
+      <DynamicSidebar />
+
+      {/* Main Content Workspace Column with Top Global Header */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <GlobalHeader onSignOut={() => void handleSignOut()} />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

@@ -36,35 +36,68 @@ export function Dialog({
     }
   }, [open]);
 
+  const handleClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    const isInsideDialog =
+      rect.top <= e.clientY &&
+      e.clientY <= rect.top + rect.height &&
+      rect.left <= e.clientX &&
+      e.clientX <= rect.left + rect.width;
+
+    if (!isInsideDialog) {
+      onClose();
+    }
+  };
+
   return (
     <dialog
       ref={ref}
       onClose={onClose}
       onCancel={onClose}
+      onClick={handleClick}
       aria-labelledby="dialog-title"
       className={cn(
-        "w-full max-w-lg rounded-xl border border-gray-200 bg-white p-0 shadow-theme-xl backdrop:bg-gray-900/50",
-        "dark:border-gray-800 dark:bg-gray-dark",
+        "fixed inset-0 m-auto w-full max-w-lg overflow-hidden rounded-2xl border border-brand-500/35 bg-white p-0 shadow-dialog-glow backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm",
+        "dark:border-brand-400/40 dark:bg-gray-dark",
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-        <h2
-          id="dialog-title"
-          className="text-theme-sm font-semibold text-gray-900 dark:text-white/90"
-        >
-          {title}
-        </h2>
+      <div className="h-1 w-full bg-linear-to-r from-brand-400 via-brand-500 to-brand-600" />
+      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+        <div className="flex items-center gap-2.5">
+          <span className="h-2 w-2 rounded-full bg-brand-500 ring-4 ring-brand-500/20 dark:bg-brand-400 dark:ring-brand-400/20" />
+          <h2
+            id="dialog-title"
+            className="text-theme-sm font-semibold tracking-tight text-gray-900 dark:text-white/90"
+          >
+            {title}
+          </h2>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
         >
-          ✕
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </dialog>
   );
 }

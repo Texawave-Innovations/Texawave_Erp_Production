@@ -89,7 +89,7 @@ export function DynamicSidebar() {
 
   if (menuQuery.isPending) {
     return (
-      <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <aside className="w-64 shrink-0 border-r border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-col gap-3">
           <Skeleton className="h-8 w-3/4" />
           <Skeleton className="h-6 w-full" />
@@ -103,7 +103,7 @@ export function DynamicSidebar() {
 
   if (menuQuery.isError) {
     return (
-      <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white p-4 text-theme-xs text-error-600 dark:border-gray-800 dark:bg-gray-900">
+      <aside className="w-64 shrink-0 border-r border-gray-200 bg-white p-4 text-theme-xs text-error-600 dark:border-gray-800 dark:bg-gray-900">
         Could not load navigation.
       </aside>
     );
@@ -112,7 +112,7 @@ export function DynamicSidebar() {
   const items = menuQuery.data ?? [];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <aside className="w-64 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="flex h-full flex-col justify-between p-4">
         <nav className="flex flex-col gap-1.5 overflow-y-auto">
           {items.length === 0 ? (

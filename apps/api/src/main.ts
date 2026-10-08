@@ -10,8 +10,30 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
 
+  const corsOrigin = config.getOrThrow<string>("CORS_ORIGIN");
+  const allowedOrigins = corsOrigin.includes(",")
+    ? corsOrigin.split(",").map((s) => s.trim())
+    : [corsOrigin.trim()];
+
   app.enableCors({
-    origin: config.getOrThrow<string>("CORS_ORIGIN"),
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        (config.get<string>("NODE_ENV") !== "production" &&
+          /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   });
 
