@@ -130,15 +130,38 @@ describe("PayrollRunsService", () => {
       );
     });
 
-    it("uses the explicit employee list, de-duplicated, instead of querying", async () => {
+    it("filters an explicit, de-duplicated employee list to non-INACTIVE employees in the org", async () => {
       const { service, calculator, prisma } = makeService();
+      // 5 is INACTIVE — the eligibility query leaves it out.
+      prisma.employee.findMany.mockResolvedValueOnce([{ id: 3 }, { id: 4 }]);
 
-      await service.createRun({ payrollPeriodId: 10, employeeIds: [3, 3, 4] });
+      await service.createRun({
+        payrollPeriodId: 10,
+        employeeIds: [3, 3, 4, 5],
+      });
 
-      expect(prisma.employee.findMany).not.toHaveBeenCalled();
+      expect(prisma.employee.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: [3, 4, 5] },
+          organizationId: 1,
+          status: { not: "INACTIVE" },
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
       expect(
         calculator.calculateForEmployee.mock.calls.map((c) => c[2]),
       ).toEqual([3, 4]);
+    });
+
+    it("rejects an explicit list that contains only INACTIVE employees", async () => {
+      const { service, prisma, repository } = makeService();
+      prisma.employee.findMany.mockResolvedValueOnce([]);
+
+      await expect(
+        service.createRun({ payrollPeriodId: 10, employeeIds: [5] }),
+      ).rejects.toMatchObject({ errorCode: "NO_ELIGIBLE_EMPLOYEES" });
+      expect(repository.createRun).not.toHaveBeenCalled();
     });
 
     it("skips employees the calculator returns null for", async () => {

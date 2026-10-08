@@ -259,6 +259,15 @@ describe("BonusesService", () => {
       expect(result).toEqual({ id: 9, status: "APPROVED", decidedBy: USER_ID });
     });
 
+    it("rejects when another approver decided the bonus first", async () => {
+      const { service, repository } = makeService({ bonus: pending });
+      repository.decide.mockResolvedValueOnce(null);
+
+      await expect(
+        service.decide(9, { decision: "APPROVED" }),
+      ).rejects.toMatchObject({ errorCode: "ALREADY_DECIDED" });
+    });
+
     it("rejects deciding an unknown bonus", async () => {
       const { service, repository } = makeService({ bonus: null });
 

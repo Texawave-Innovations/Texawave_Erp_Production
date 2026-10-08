@@ -34,23 +34,15 @@ describe("@IsStrongPassword()", () => {
     expect(messagesFor(pw)).toEqual([message]);
   });
 
-  // NOTE: the source's doc comment promises every missing requirement is
-  // listed, but all four `Matches` rules share class-validator's "matches"
-  // constraint key, so only one regex message survives per validation. This
-  // test asserts only what currently holds (rejected, length rule reported,
-  // no unknown messages) rather than pinning that behaviour.
-  it("rejects a password missing several requirements with policy messages only", () => {
-    const allowed = [
-      "Password must be at least 8 characters.",
-      "Password must include an uppercase letter.",
-      "Password must include a lowercase letter.",
-      "Password must include a number.",
-      "Password must include a special character.",
-    ];
-    const messages = messagesFor("abc");
-    expect(messages).toContain("Password must be at least 8 characters.");
-    expect(messages.length).toBeGreaterThanOrEqual(2);
-    for (const m of messages) expect(allowed).toContain(m);
+  it("lists every missing requirement, not just one", () => {
+    expect(messagesFor("abc").sort()).toEqual(
+      [
+        "Password must be at least 8 characters.",
+        "Password must include an uppercase letter.",
+        "Password must include a number.",
+        "Password must include a special character.",
+      ].sort(),
+    );
   });
 
   it("rejects a non-string value", () => {

@@ -98,8 +98,31 @@ describe("MailerService", () => {
     );
   });
 
-  it("falls back to logging when the app password is missing", async () => {
+  it("never logs the reset link in production when credentials are missing", async () => {
     const mailer = makeMailer({ ...CONFIGURED, GMAIL_APP_PASSWORD: undefined });
+
+    await mailer.sendPasswordResetEmail(
+      "jane@acme.test",
+      "https://x/reset?token=secret-token",
+    );
+
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).not.toHaveBeenCalledWith(
+      expect.stringContaining("secret-token"),
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("not configured"),
+    );
+  });
+
+  it("falls back to logging when the app password is missing", async () => {
+    const mailer = makeMailer({
+      ...CONFIGURED,
+      NODE_ENV: "development",
+      GMAIL_APP_PASSWORD: undefined,
+    });
 
     await mailer.sendPasswordResetEmail("jane@acme.test", "https://x/reset");
 
@@ -109,7 +132,11 @@ describe("MailerService", () => {
   });
 
   it("falls back to logging when the Gmail user is missing", async () => {
-    const mailer = makeMailer({ ...CONFIGURED, GMAIL_USER: undefined });
+    const mailer = makeMailer({
+      ...CONFIGURED,
+      NODE_ENV: "development",
+      GMAIL_USER: undefined,
+    });
 
     await mailer.sendPasswordResetEmail("jane@acme.test", "https://x/reset");
 

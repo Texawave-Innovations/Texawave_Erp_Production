@@ -76,7 +76,20 @@ export class PayrollRunsService {
     // Determine target employees
     let employeeIds: number[] = [];
     if (dto.employeeIds && dto.employeeIds.length > 0) {
-      employeeIds = [...new Set(dto.employeeIds)];
+      // An explicit list may name RESIGNED/TERMINATED employees (that's how a
+      // leaver's final partial month gets paid — the calculator's
+      // employment-window check handles the dates), but never INACTIVE ones:
+      // they're on a break, not working, and must not be paid.
+      const eligible = await this.prisma.employee.findMany({
+        where: {
+          id: { in: [...new Set(dto.employeeIds)] },
+          organizationId: orgScope.organizationId,
+          status: { not: "INACTIVE" },
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      employeeIds = eligible.map((e: { id: number }) => e.id);
     } else {
       const activeEmployees = await this.prisma.employee.findMany({
         where: {

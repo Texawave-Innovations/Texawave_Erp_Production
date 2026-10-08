@@ -120,15 +120,23 @@ export class BonusesRepository {
     id: number,
     status: "APPROVED" | "REJECTED",
     approvedById: number,
-  ): Promise<BonusRow> {
-    return this.prisma.employeeBonus.update({
-      where: { id },
+  ): Promise<BonusRow | null> {
+    // Conditional on PENDING so two approvers racing on the same bonus can't
+    // both win — the loser's update matches 0 rows and gets null back
+    // (same pattern as LoansRepository.decideSkipRequest).
+    const { count } = await this.prisma.employeeBonus.updateMany({
+      where: { id, organizationId: scope.organizationId, status: "PENDING" },
       data: {
         status,
         approvedById,
         approvedAt: new Date(),
         updatedBy: approvedById,
       },
+    });
+    if (count === 0) return null;
+
+    return this.prisma.employeeBonus.findUniqueOrThrow({
+      where: { id },
       include: INCLUDE_DETAILS,
     });
   }

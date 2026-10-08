@@ -109,6 +109,18 @@ export class BonusesService {
       );
     }
 
-    return this.repository.decide(orgScope, id, dto.decision, userId);
+    const decided = await this.repository.decide(
+      orgScope,
+      id,
+      dto.decision,
+      userId,
+    );
+    if (!decided) {
+      throw new BusinessRuleViolationException(
+        "Bonus was decided concurrently",
+        "ALREADY_DECIDED",
+      );
+    }
+    return decided;
   }
 }

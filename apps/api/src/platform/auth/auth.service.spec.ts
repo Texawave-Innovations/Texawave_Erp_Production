@@ -32,10 +32,15 @@ afterEach(() => {
 function makeRedis() {
   const store = new Map<string, string>();
   const ttls = new Map<string, number>();
+  let scanSnapshot: string[] = [];
   const redis = {
     store,
     ttls,
-    get: vi.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+    getdel: vi.fn((key: string) => {
+      const value = store.get(key) ?? null;
+      store.delete(key);
+      return Promise.resolve(value);
+    }),
     set: vi.fn(
       (key: string, value: string | number, _mode: "EX", ttl: number) => {
         store.set(key, String(value));
@@ -50,12 +55,24 @@ function makeRedis() {
       }
       return Promise.resolve(removed);
     }),
-    keys: vi.fn((pattern: string) => {
-      const regex = new RegExp(
-        `^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
-      );
-      return Promise.resolve([...store.keys()].filter((k) => regex.test(k)));
-    }),
+    // Like real SCAN: walks the whole keyspace a page at a time (one key per
+    // page here, so multi-page iteration is always exercised) and filters
+    // each page by MATCH — a page can come back empty with a non-zero cursor.
+    // Keys present for the whole iteration are always returned even if others
+    // are deleted mid-scan, so the walk runs over a snapshot taken at cursor 0.
+    scan: vi.fn(
+      (cursor: string, _match: "MATCH", pattern: string, _count: "COUNT") => {
+        const regex = new RegExp(
+          `^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
+        );
+        if (cursor === "0") scanSnapshot = [...store.keys()];
+        const all = scanSnapshot;
+        const index = Number(cursor);
+        const page = all.slice(index, index + 1).filter((k) => regex.test(k));
+        const next = index + 1 >= all.length ? "0" : String(index + 1);
+        return Promise.resolve([next, page] as [string, string[]]);
+      },
+    ),
     incr: vi.fn((key: string) => {
       const next = Number(store.get(key) ?? "0") + 1;
       store.set(key, String(next));
@@ -300,7 +317,7 @@ describe("AuthService", () => {
       await expect(service.refresh(tokens.accessToken)).rejects.toThrow(
         new UnauthorizedException("Not a refresh token"),
       );
-      expect(redis.get).not.toHaveBeenCalled();
+      expect(redis.getdel).not.toHaveBeenCalled();
     });
 
     it("rejects a token signed with a different secret", async () => {
@@ -354,6 +371,31 @@ describe("AuthService", () => {
       expect(refreshKeysFor(redis, 7)).toHaveLength(0);
     });
 
+    it("rejects a deactivated user and revokes all of their sessions", async () => {
+      const { service, users, redis } = makeService();
+      const first = await service.login("acme", "jane@acme.test", PASSWORD);
+      await service.login("acme", "jane@acme.test", PASSWORD);
+      users.findById.mockResolvedValue(makeUser({ isActive: false }));
+
+      await expect(service.refresh(first.refreshToken)).rejects.toThrow(
+        new UnauthorizedException("User no longer exists"),
+      );
+      expect(refreshKeysFor(redis, 7)).toHaveLength(0);
+    });
+
+    it("lets only one of two concurrent refreshes with the same token succeed", async () => {
+      const { service } = makeService();
+      const tokens = await service.login("acme", "jane@acme.test", PASSWORD);
+
+      const results = await Promise.allSettled([
+        service.refresh(tokens.refreshToken),
+        service.refresh(tokens.refreshToken),
+      ]);
+
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+    });
+
     it("looks the user up in the org stored server-side, not one the client could influence", async () => {
       const { service, users, redis, jwt } = makeService();
       const tokens = await service.login("acme", "jane@acme.test", PASSWORD);
@@ -380,7 +422,13 @@ describe("AuthService", () => {
       expect(refreshKeysFor(redis, 7)).toHaveLength(0);
       expect(redis.store.has("refresh:8:other-user")).toBe(true);
       expect(redis.store.has("refresh:70:prefix-user")).toBe(true);
-      expect(redis.keys).toHaveBeenCalledWith("refresh:7:*");
+      expect(redis.scan).toHaveBeenCalledWith(
+        "0",
+        "MATCH",
+        "refresh:7:*",
+        "COUNT",
+        100,
+      );
       expect(permissions.invalidate).toHaveBeenCalledWith(7);
     });
 
@@ -588,7 +636,7 @@ describe("AuthService", () => {
       );
       expect(passwordResetTokens.markUsed).not.toHaveBeenCalled();
       expect(users.updatePasswordHash).not.toHaveBeenCalled();
-      expect(redis.keys).not.toHaveBeenCalled();
+      expect(redis.scan).not.toHaveBeenCalled();
     });
 
     it("rejects a valid token belonging to an inactive user with the same generic error", async () => {
