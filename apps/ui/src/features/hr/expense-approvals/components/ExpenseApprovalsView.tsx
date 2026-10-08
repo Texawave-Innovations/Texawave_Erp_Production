@@ -60,7 +60,20 @@ function MySection() {
   const [submitOpen, setSubmitOpen] = useState(false);
   const list = useMyExpenseClaims({ page, limit: PAGE_SIZE });
 
+  // `canRead` only means the account holds the self-service permission, not
+  // that it's actually linked to an employee — an admin/HR account can hold
+  // employee_self_service.expense_claim.read without being an employee
+  // itself, and "my expense claims" is structurally empty for them, not
+  // broken. Hide the whole section rather than show a request failure that
+  // will never resolve by retrying.
   if (!canRead) return null;
+  if (
+    list.isError &&
+    list.error instanceof ApiError &&
+    list.error.errorCode === "NOT_AN_EMPLOYEE"
+  ) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-4">

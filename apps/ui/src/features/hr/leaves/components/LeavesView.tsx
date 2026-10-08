@@ -71,7 +71,23 @@ function MySection() {
   const resubmit = useResubmitMyLeaveRequest();
   const { toast } = useToast();
 
+  // `canRead` only means the account holds the self-service permission, not
+  // that it's actually linked to an employee — an admin/HR account can hold
+  // employee_self_service.leave_request.read without being an employee
+  // itself, and "my leave" is structurally empty for them, not broken. Hide
+  // the whole section rather than show a request failure that will never
+  // resolve by retrying.
   if (!canRead) return null;
+  if (
+    (list.isError &&
+      list.error instanceof ApiError &&
+      list.error.errorCode === "NOT_AN_EMPLOYEE") ||
+    (balances.isError &&
+      balances.error instanceof ApiError &&
+      balances.error.errorCode === "NOT_AN_EMPLOYEE")
+  ) {
+    return null;
+  }
 
   async function handleResubmit(id: number) {
     try {
