@@ -198,6 +198,14 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-exit-requests",
+      label: "Exit Requests",
+      path: "/hr/exit-requests",
+      order: 11,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
