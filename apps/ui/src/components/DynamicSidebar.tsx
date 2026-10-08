@@ -233,7 +233,7 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
     <aside
       id="app-sidebar"
       onClick={onAsideClick}
-      className={`w-64 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 ${
+      className={`flex h-full w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 ${
         open !== undefined
           ? open
             ? "translate-x-0"
@@ -241,45 +241,43 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
           : ""
       }`}
     >
-      <div className="flex h-full flex-col justify-between p-4">
-        <div className="flex flex-col gap-3">
-          {/* Section Module Header */}
-          <div className="px-3 py-1 text-theme-base font-bold tracking-tight text-gray-900 dark:text-white">
-            {headerTitle}
-          </div>
-
-          {/* Sequential Sub-Navigation List */}
-          <nav
-            aria-label={`${headerTitle} Navigation`}
-            className="flex flex-col gap-1 overflow-y-auto"
-          >
-            {navItems.map((item) => {
-              const isActive = checkIsActive(item);
-
-              return (
-                <Link
-                  key={item.id}
-                  href={item.path}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand-500 ${
-                    isActive
-                      ? "bg-brand-50 text-brand-700 font-semibold dark:bg-brand-950 dark:text-brand-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <item.icon
-                    className={`h-4.5 w-4.5 shrink-0 ${
-                      isActive
-                        ? "text-brand-600 dark:text-brand-400"
-                        : "text-gray-500 dark:text-gray-400"
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+      {/* Section Module Header aligned with Primary Sidebar */}
+      <div className="flex h-16 shrink-0 items-center border-b border-gray-100 px-5 dark:border-gray-800">
+        <h2 className="text-theme-sm font-bold tracking-tight text-gray-900 dark:text-white">
+          {headerTitle}
+        </h2>
       </div>
+
+      {/* Sequential Sub-Navigation List with smooth scroll */}
+      <nav
+        aria-label={`${headerTitle} Navigation`}
+        className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-1"
+      >
+        {navItems.map((item) => {
+          const isActive = checkIsActive(item);
+
+          return (
+            <Link
+              key={item.id}
+              href={item.path}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-theme-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand-500 ${
+                isActive
+                  ? "bg-brand-50 text-brand-700 font-semibold dark:bg-brand-950 dark:text-brand-300"
+                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
+            >
+              <item.icon
+                className={`h-4.5 w-4.5 shrink-0 ${
+                  isActive
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-gray-500 dark:text-gray-400"
+                }`}
+              />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }
