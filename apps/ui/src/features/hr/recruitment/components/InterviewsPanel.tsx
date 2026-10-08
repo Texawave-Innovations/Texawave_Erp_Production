@@ -315,7 +315,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
                 label: "Status",
                 value: INTERVIEW_STATUS_LABELS[detail.data.status],
               },
-              { label: "Notes", value: detail.data.notes ?? "â€”" },
+              { label: "Notes", value: detail.data.notes ?? "—" },
             ]}
           />
         )}

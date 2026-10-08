@@ -266,7 +266,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                 { label: "Location", value: detail.data.location },
                 {
                   label: "Reporting manager",
-                  value: detail.data.reportingManager || "â€”",
+                  value: detail.data.reportingManager || "—",
                 },
                 {
                   label: "Offer date",
@@ -308,7 +308,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
             <DetailList
               items={[
                 {
-                  label: "Mon â€“ Fri",
+                  label: "Mon – Fri",
                   value: detail.data.workSchedule.monFri,
                 },
                 { label: "Saturday", value: detail.data.workSchedule.sat },

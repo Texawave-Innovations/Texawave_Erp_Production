@@ -9,12 +9,16 @@ import {
   changeEmployeeStatus,
   createEmployee,
   getEmployee,
+  linkEmployeeUser,
   listEmployees,
   listLookup,
   listStatusHistory,
+  unlinkEmployeeUser,
   updateEmployee,
   type EmployeeListQuery,
+  type LinkAccountBody,
   type StatusChangeBody,
+  type UnlinkAccountBody,
 } from "./api";
 
 const KEY = "hr-employees" as const;
@@ -105,5 +109,21 @@ export function useChangeEmployeeStatus() {
       body: StatusChangeBody;
       correction: boolean;
     }) => changeEmployeeStatus(id, body, correction),
+  );
+}
+
+export function useLinkEmployeeUser() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, body }: { id: number; body: LinkAccountBody }) =>
+      linkEmployeeUser(id, body),
+  );
+}
+
+export function useUnlinkEmployeeUser() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, body }: { id: number; body: UnlinkAccountBody }) =>
+      unlinkEmployeeUser(id, body),
   );
 }

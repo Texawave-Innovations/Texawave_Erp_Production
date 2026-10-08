@@ -78,6 +78,36 @@ export async function changeEmployeeStatus(
   return data;
 }
 
+export interface LinkAccountBody {
+  userId: number;
+  reason?: string;
+}
+
+export interface UnlinkAccountBody {
+  reason?: string;
+}
+
+/** Attach an existing platform user (same org, active, not linked elsewhere). */
+export async function linkEmployeeUser(
+  id: number,
+  body: LinkAccountBody,
+): Promise<EmployeeDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<EmployeeDetail>(`${BASE}/${id}/link-user`, body),
+  );
+  return data;
+}
+
+export async function unlinkEmployeeUser(
+  id: number,
+  body: UnlinkAccountBody,
+): Promise<EmployeeDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<EmployeeDetail>(`${BASE}/${id}/unlink-user`, body),
+  );
+  return data;
+}
+
 export function listStatusHistory(
   id: number,
   page: number,

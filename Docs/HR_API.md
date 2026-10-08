@@ -1,8 +1,11 @@
 # HR backend — API contract
 
 **Scope:** audit platform, HR master data, employees, shifts and shift assignments, holiday and
-weekly-off calendar, leave. **Backend only** — no UI exists for any of it.
-**Status:** implemented and tested on `feature/HR`; **not merged**. **Owner:** unassigned (see the readiness
+weekly-off calendar, leave, work logs, and employee self-service onboarding/profile. **Backend
+only** for most of this file — UI exists for Employees, Recruitment, Profiles, Location Privilege,
+Org Chart, **Work Logs** (§2a) and the **onboarding wizard/portal** (§2b); everything else here
+has no UI yet.
+**Status:** implemented and tested, merged to `feature/HR`. **Owner:** unassigned (see the readiness
 report). Companion documents: `reports/HR_BACKEND_COMPLETION_REPORT.md` (what was verified, what is open),
 `reports/AUDIT_PLATFORM_DESIGN.md`, `reports/HR_IMPLEMENTATION_READINESS.md` (the decisions).
 
@@ -144,6 +147,27 @@ Full design, rules and open decisions: [HR_LEAVE.md](HR_LEAVE.md).
 - **Maker-checker:** the requester can never decide their own request (403 `SELF_APPROVAL_FORBIDDEN`), even with `.all`.
 - **Not built (open decisions, see HR_LEAVE.md §9.3):** HR submitting or cancelling on someone else's behalf, notifications, approval chains, past-date policy, encashment.
 
+### Work logs (`modules/hr/work-logs`, `modules/employee-self-service/work-logs`)
+
+Legacy: HR `WorkLogs.tsx` (approve/reject queue) and employee `MyTimesheet.tsx` (self-submission),
+both Firebase-backed. Table `hr.work_logs`. **UI exists**: `/hr/work-logs` (approver) and
+`/self-service/work-logs` (own logs), under `apps/ui/src/features/hr/work-logs/`.
+
+| Method & path                    | Permission                              | Notes                                                                                                                  |
+| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/work-logs`              | `hr.work_log.read` ▲                    | filters `employeeId, status, from, to`, pagination                                                                     |
+| GET `/hr/work-logs/approvals`    | `hr.work_log.approve`                   | the caller's direct reports (`Employee.reportsToId`); defaults `status=PENDING`                                        |
+| GET `/hr/work-logs/:id`          | `hr.work_log.read` ▲                    | 404 outside scope                                                                                                      |
+| POST `/hr/work-logs/:id/approve` | `hr.work_log.approve`                   | `{note?}` — optional, 3–500 chars if sent                                                                              |
+| POST `/hr/work-logs/:id/reject`  | `hr.work_log.approve`                   | same body shape                                                                                                        |
+| GET `/self-service/work-logs`    | `employee_self_service.work_log.read`   | my logs; filters `status, from, to` (no `employeeId` — always "me")                                                    |
+| POST `/self-service/work-logs`   | `employee_self_service.work_log.create` | `{workDate, hoursWorked, taskDescription}` → starts `PENDING`. `employeeId` resolved from the JWT, never from the body |
+
+- **Status:** `PENDING → APPROVED | REJECTED`, final once decided — **no edit or delete route** (matches legacy).
+- **Approval is by direct manager, not team**: `hr.work_log.approve` carries no `.own/.team/.all` suffix; the service narrows to `employee.reportsToId = caller`. A decider cannot approve/reject their own log (403 `SELF_APPROVAL_FORBIDDEN`), even with the permission. Deciding an already-decided log is 422 `INVALID_STATE_TRANSITION`.
+- **Fields:** `hoursWorked` 0.01–24, 2 decimals; `taskDescription` 3–500 chars; `workDate` is a plain date, no time zone.
+- **Not built:** edit/delete, a project/task selector (legacy's task field is free text), bulk approve.
+
 ### Recruitment — revision letters (`modules/hr/revision-letters`)
 
 Legacy: Recruitment → Revision Letter (`RevisionLetter.tsx`). Table `hr.revision_letters`. Backend only.
@@ -252,7 +276,41 @@ Legacy: `Profile.tsx`, `EmployeeProfileView.tsx`, `BankDetails.tsx`, `EmployeeFo
 
 ---
 
-## 3. Permission catalogue (89 codes; `packages/database/prisma/permissions/catalog.ts`)
+### Employee self-service — onboarding & profile (`modules/employee-self-service/profile`)
+
+New-hire self-onboarding (TEXA-16): a `users` row is created with `mustChangePassword: true`
+(`POST /hr/employees` + `POST /users` via `NewHireView`), the employee's own profile data lives
+here under `employee/profile` (its own permission namespace, never `hr.*`), and HR gets a
+read-only progress view. **UI exists**: the forced `/change-password` page, the `/onboarding`
+wizard and `/portal` landing (route group `apps/ui/src/app/(employee-portal)/`, auto-routed by
+`Employee.onboardingStatus` — not reached via the sidebar), plus `/hr/employees/:id/onboarding`
+(linked from the Employee detail page).
+
+| Method & path                                             | Permission                                   | Notes                                                                                   |
+| --------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| GET `/employee/profile`                                   | `employee_self_service.profile.read`         | the caller's own employee summary                                                       |
+| GET/PUT `/employee/profile/personal-details`              | `employee_self_service.profile.{read,write}` | date of birth, gender, marital status, blood group, emergency contact, parents          |
+| GET/PUT `/employee/profile/address/:type`                 | same                                         | `type` = `PERMANENT` or `PRESENT`                                                       |
+| DELETE `/employee/profile/address/present`                | `employee_self_service.profile.write`        | clears present address ("same as permanent")                                            |
+| GET/PUT `/employee/profile/bank-details`                  | same                                         | account number is encrypted at rest; read returns it masked                             |
+| GET/PUT `/employee/profile/government-ids`                | same                                         | Aadhaar, PAN, ESI, PF                                                                   |
+| GET/POST `/employee/profile/family`, PUT/DELETE `:id`     | same                                         | family members (name, relation, DOB, phone)                                             |
+| GET/POST `/employee/profile/experience`, PUT/DELETE `:id` | same                                         | prior employment rows                                                                   |
+| GET `/employee/profile/documents`                         | `employee_self_service.profile.read`         | list of uploaded documents                                                              |
+| PUT `/employee/profile/documents/:type/file`              | `employee_self_service.profile.write`        | multipart upload, field `file`; PDF/JPG/PNG, ≤ 5 MB                                     |
+| GET `/employee/profile/documents/:type/file`              | `employee_self_service.profile.read`         | download the caller's own document                                                      |
+| DELETE `/employee/profile/documents/:type`                | `employee_self_service.profile.write`        |                                                                                         |
+| POST `/employee/profile/submit`                           | `employee_self_service.profile.write`        | completes onboarding if everything required is present, else returns `{missing: [...]}` |
+| GET `/hr/employees/:id/onboarding`                        | `hr.employee.read` ▲                         | HR's read-only view: `{employeeId, onboardingStatus, missing}`                          |
+
+- **Required to submit:** personal (date of birth, gender, both emergency-contact fields, both parents' name+phone), permanent address (all five fields — present address only if not "same as permanent"), bank (holder name, account number, IFSC, bank name), government ids (Aadhaar, PAN), and 7 required documents (profile photo, Aadhaar, PAN, bank statement, 10th/12th/graduation certificates). Resume and post-graduation certificate are optional. See `onboarding-completeness.ts` for the exact list.
+- **Each step saves independently** — a failed later step never loses an earlier one. `submit` re-checks everything server-side regardless of what the wizard thinks is filled.
+- **Known UX quirk (pre-existing, not Work-Logs-related):** the `/change-password` page's own guard watches the in-memory access token and redirects to `/login` the instant the form clears it on success, which races ahead of the "Password changed — go to sign in" confirmation screen ever painting. Functionally harmless (the user still ends up back at `/login` to sign in with the new password) but that confirmation screen is effectively unreachable.
+- **Not built:** HR editing an employee's onboarding answers, re-opening a COMPLETE profile for later edits, notifications when onboarding finishes.
+
+---
+
+## 3. Permission catalogue (133 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
@@ -266,7 +324,8 @@ Synced to every environment by `pnpm --filter @texawave-erp/database permissions
 | Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
 | Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
 | Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                          |
-| Self-service       | `employee_self_service.{profile.read, leave_request.read, leave_request.create}`                                                                                      |
+| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                        |
+| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                       |
 | Audit              | `audit.log.read`                                                                                                                                                      |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
@@ -280,7 +339,10 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
+`work_logs` (Work logs) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
+`employee_government_ids` · `employee_family_members` · `employee_experience` · `employee_documents`
+(Onboarding/self-service profile); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.

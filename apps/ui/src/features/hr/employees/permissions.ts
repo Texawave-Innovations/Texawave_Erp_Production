@@ -20,3 +20,6 @@ export const WRITE_TEAM_OR_ALL = [
 /** Organization-wide exact permissions (not scoped). */
 export const STATUS_WRITE = "hr.employee_status.write";
 export const STATUS_CORRECT = "hr.employee_status.correct";
+
+/** Link/unlink an employee's platform login (employee-lifecycle.controller.ts). Never a credential. */
+export const ACCOUNT_WRITE = "hr.employee_account.write";
