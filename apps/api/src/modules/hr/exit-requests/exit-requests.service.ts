@@ -81,11 +81,15 @@ export class ExitRequestsService {
     }
     const scope = await this.teamContext.resolveScope(DECIDE);
     if (scope.level === "own") throw new ExitRequestDecisionScopeException();
-    const reviewer = await this.employees.getCurrentEmployee();
+    // `reviewer` is only used to detect self-decision below; an admin
+    // account holding team/all-scope decide without being linked to an
+    // employee can never be deciding their own request (they have no
+    // employee row at all), so `null` here is a valid state, not an error.
+    const reviewer = await this.employees.findCurrentEmployeeOrNull();
     const row = await this.repository.update(
       scope,
       id,
-      reviewer.id,
+      reviewer?.id ?? null,
       dto,
       this.tenantContext.getUserId(),
     );

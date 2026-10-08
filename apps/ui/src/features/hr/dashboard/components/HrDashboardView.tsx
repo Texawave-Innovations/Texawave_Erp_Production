@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
+import { WRITE_TEAM_OR_ALL } from "../../employees/permissions";
 import {
   useAbsenceLookback,
   useActivityFeed,
@@ -25,6 +29,7 @@ import {
   Donut,
   KpiCard,
   Legend,
+  QuickActionTile,
   SectionCard,
   WidgetState,
   SEGMENT_FILL,
@@ -63,6 +68,7 @@ function pct(part: number, whole: number): number {
 }
 
 export function HrDashboardView() {
+  const router = useRouter();
   const fullName = useAuthStore((s) => s.user?.fullName);
   const [now] = useState(() => new Date());
   const today = useMemo(() => istToday(now), [now]);
@@ -89,6 +95,16 @@ export function HrDashboardView() {
     ["hr.ticket.read", "hr.expense_claim.read"],
     "all",
   );
+  // Reuses the employee feature's own write gate (API: create → 403 for `.own`),
+  // so the hero/quick-action "Add employee" link never shows for a read-only user.
+  const canCreateEmployee = usePermission(WRITE_TEAM_OR_ALL);
+  const canQuickActions =
+    canCreateEmployee ||
+    canEmployees ||
+    canAttendance ||
+    canLeaves ||
+    canExpenses ||
+    canPipeline;
 
   const headcount = useHeadcount(canEmployees);
   const attendance = useDailyAttendance(today, canAttendance);
@@ -173,6 +189,27 @@ export function HrDashboardView() {
             {" · Attendance, leave, recruitment and workforce figures"}
           </p>
         </div>
+        {(canCreateEmployee || canEmployees) && (
+          <div className="flex flex-wrap items-center gap-3">
+            {canCreateEmployee && (
+              <Button
+                variant="secondary"
+                onClick={() => router.push("/hr/employees/new")}
+              >
+                Add employee
+              </Button>
+            )}
+            {canEmployees && (
+              <Button
+                variant="ghost"
+                className="border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                onClick={() => router.push("/hr/employees")}
+              >
+                Employee directory
+              </Button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* KPI row */}
@@ -202,6 +239,7 @@ export function HrDashboardView() {
                   value={String(totalEmployees)}
                   note="Registered headcount"
                   tone="neutral"
+                  href="/hr/employees"
                 />
               </WidgetState>
             )}
@@ -218,6 +256,7 @@ export function HrDashboardView() {
                   value={String(headcount.data?.active ?? 0)}
                   note="Status: active"
                   tone="brand"
+                  href="/hr/employees"
                 />
               </WidgetState>
             )}
@@ -234,6 +273,7 @@ export function HrDashboardView() {
                   value={String(presentToday)}
                   note={`${pct(presentToday, scopedHeadcount)}% of ${scopedHeadcount} in scope`}
                   tone="info"
+                  href="/hr/attendance"
                 />
               </WidgetState>
             )}
@@ -250,6 +290,7 @@ export function HrDashboardView() {
                   value={String(approvals.data?.total ?? 0)}
                   note={`${approvals.data?.leaves ?? 0} leave · ${approvals.data?.corrections ?? 0} attendance corrections`}
                   tone="error"
+                  href="/hr/leaves"
                 />
               </WidgetState>
             )}
@@ -282,11 +323,62 @@ export function HrDashboardView() {
                   value={String(pendingExpenses.data ?? 0)}
                   note="Claims awaiting decision"
                   tone="warning"
+                  href="/hr/expense-approvals"
                 />
               </WidgetState>
             )}
           </div>
         </section>
+      )}
+
+      {/* Quick actions */}
+      {canQuickActions && (
+        <SectionCard title="Quick actions" headingId="hr-quick-actions-heading">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {canCreateEmployee && (
+              <QuickActionTile
+                href="/hr/employees/new"
+                label="Add employee"
+                description="Onboard a new hire"
+              />
+            )}
+            {canEmployees && (
+              <QuickActionTile
+                href="/hr/employees"
+                label="Employee directory"
+                description="Browse the workforce"
+              />
+            )}
+            {canAttendance && (
+              <QuickActionTile
+                href="/hr/attendance"
+                label="Attendance"
+                description="Daily attendance records"
+              />
+            )}
+            {canLeaves && (
+              <QuickActionTile
+                href="/hr/leaves"
+                label="Leave requests"
+                description="Review time-off requests"
+              />
+            )}
+            {canExpenses && (
+              <QuickActionTile
+                href="/hr/expense-approvals"
+                label="Expense claims"
+                description="Reimbursement approvals"
+              />
+            )}
+            {canPipeline && (
+              <QuickActionTile
+                href="/hr/recruitment"
+                label="Recruitment pipeline"
+                description="Sourcing to offer stages"
+              />
+            )}
+          </div>
+        </SectionCard>
       )}
 
       {/* Recruitment pipeline */}
@@ -320,30 +412,32 @@ export function HrDashboardView() {
                     ? pct(next.count, stage.count)
                     : null;
                 return (
-                  <li
-                    key={stage.label}
-                    className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]"
-                  >
-                    <div className="flex items-center justify-between text-theme-xs font-medium text-gray-600 dark:text-gray-300">
-                      <span>{stage.label}</span>
-                      <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                        Step {idx + 1}
-                      </span>
-                    </div>
-                    {stage.count === null ? (
-                      <p className="mt-2 text-theme-sm font-medium text-gray-500 dark:text-gray-400">
-                        Not tracked
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-title-sm font-semibold text-gray-900 dark:text-white/90">
-                        {stage.count}
-                      </p>
-                    )}
-                    {conv !== null && (
-                      <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                        {conv}% to next stage
-                      </p>
-                    )}
+                  <li key={stage.label}>
+                    <Link
+                      href="/hr/recruitment"
+                      className="block rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-brand-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500/40 dark:hover:bg-gray-900"
+                    >
+                      <div className="flex items-center justify-between text-theme-xs font-medium text-gray-600 dark:text-gray-300">
+                        <span>{stage.label}</span>
+                        <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                          Step {idx + 1}
+                        </span>
+                      </div>
+                      {stage.count === null ? (
+                        <p className="mt-2 text-theme-sm font-medium text-gray-500 dark:text-gray-400">
+                          Not tracked
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-title-sm font-semibold text-gray-900 dark:text-white/90">
+                          {stage.count}
+                        </p>
+                      )}
+                      {conv !== null && (
+                        <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                          {conv}% to next stage
+                        </p>
+                      )}
+                    </Link>
                   </li>
                 );
               })}

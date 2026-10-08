@@ -67,11 +67,15 @@ export class ExpenseClaimsService {
   async decide(id: number, dto: DecideExpenseClaimDto) {
     const scope = await this.teamContext.resolveScope(DECIDE);
     if (scope.level === "own") throw new ExpenseClaimDecisionScopeException();
-    const approver = await this.employees.getCurrentEmployee();
+    // `approver` is only used to detect self-approval below; an admin
+    // account holding team/all-scope decide without being linked to an
+    // employee can never be deciding their own claim (they have no employee
+    // row at all), so `null` here is a valid state, not an error.
+    const approver = await this.employees.findCurrentEmployeeOrNull();
     const row = await this.repository.decide(
       scope,
       id,
-      approver.id,
+      approver?.id ?? null,
       { status: dto.decision, note: dto.note },
       this.tenantContext.getUserId(),
     );

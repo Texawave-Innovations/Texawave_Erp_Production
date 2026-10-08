@@ -46,9 +46,16 @@ export class WorkLogsService {
 
   // ---- approver view (the caller's direct reports) --------------------------
 
-  /** Defaults to PENDING: the approver's queue is what still needs a decision. */
+  /** Defaults to PENDING: the approver's queue is what still needs a decision.
+   * "Direct reports" is an Employee-hierarchy concept (`reportsToId`); a
+   * caller holding `hr.work_log.approve` without being linked to an employee
+   * (e.g. an admin account) structurally has none — an empty queue, the same
+   * outcome a real employee with no reports already gets, not an error. */
   async findApprovals(query: QueryWorkLogApprovalsDto) {
-    const approver = await this.employees.getCurrentEmployee();
+    const approver = await this.employees.findCurrentEmployeeOrNull();
+    if (!approver) {
+      return new PaginatedResponseDto([], 0, query.page, query.limit);
+    }
     const { items, total } = await this.repository.findDirectReports(
       this.tenantContext.getOrgScope(),
       approver.id,
@@ -71,7 +78,14 @@ export class WorkLogsService {
     status: "APPROVED" | "REJECTED",
     note: string | undefined,
   ) {
-    const approver = await this.employees.getCurrentEmployee();
+    // Same reasoning as `findApprovals()`: no linked employee means no
+    // direct reports, so this work log can never be one of theirs — 404,
+    // not a misleading 403, consistent with every other scope-miss in this
+    // service.
+    const approver = await this.employees.findCurrentEmployeeOrNull();
+    if (!approver) {
+      throw new ResourceNotFoundException("Work log", id);
+    }
     const row = await this.repository.decide(
       this.tenantContext.getOrgScope(),
       id,

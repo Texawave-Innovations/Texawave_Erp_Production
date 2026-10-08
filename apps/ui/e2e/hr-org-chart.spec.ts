@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { signInAsAdmin } from "./helpers/auth";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 /**
  * Real-browser coverage for the HR org chart: the tree loads from
@@ -6,24 +9,25 @@ import { expect, test } from "@playwright/test";
  * drawer, and the drawer links through to the employee's profile. Uses the
  * seeded Super Admin (packages/database/prisma/seed.ts) — run the seed
  * against a running dev DB first.
+ *
+ * Tokens live in memory only (stores/auth-store.ts), so every navigation
+ * after sign-in is an in-app link click, never `page.goto` to a protected
+ * URL — a hard navigation discards them and lands back on /login (same
+ * constraint documented in e2e/hr-employees.spec.ts, e2e/hr-profiles.spec.ts
+ * and e2e/hr-location-privilege.spec.ts). This file signs in with the
+ * shared `signInAsAdmin` helper and then reaches the screen via the sidebar
+ * link.
  */
-async function signIn(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel("Organization").fill("texawave-innovations");
-  await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/auth/login")),
-    page.getByRole("button", { name: "Sign in" }).click(),
-  ]);
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+async function openOrgChart(page: import("@playwright/test").Page) {
+  await page.getByRole("navigation").locator("a[href='/hr/org-chart']").click();
+  await expect(page).toHaveURL(/\/hr\/org-chart$/);
 }
 
 test("loads the reporting tree and narrows it with search", async ({
   page,
 }) => {
-  await signIn(page);
-  await page.goto("/hr/org-chart");
+  await signInAsAdmin(page);
+  await openOrgChart(page);
 
   await expect(page.getByRole("heading", { name: "Org chart" })).toBeVisible();
 
@@ -36,8 +40,8 @@ test("loads the reporting tree and narrows it with search", async ({
 });
 
 test("filters by department", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/hr/org-chart");
+  await signInAsAdmin(page);
+  await openOrgChart(page);
 
   const select = page.getByRole("combobox", { name: "Filter by department" });
   await expect(select).toBeVisible();
@@ -50,8 +54,8 @@ test("filters by department", async ({ page }) => {
 test("opens the employee detail drawer and links to the full profile", async ({
   page,
 }) => {
-  await signIn(page);
-  await page.goto("/hr/org-chart");
+  await signInAsAdmin(page);
+  await openOrgChart(page);
 
   const nodeButton = page
     .getByRole("button", { name: /View .+'s details/ })
@@ -71,7 +75,14 @@ test("opens the employee detail drawer and links to the full profile", async ({
 test("shows a 403-friendly message when the API refuses the request", async ({
   page,
 }) => {
-  await page.route("**/hr/org-chart*", (route) =>
+  await signInAsAdmin(page);
+
+  // Scoped to the API origin only — a bare "**/hr/org-chart*" glob also
+  // matches the UI's own client-side navigation fetch for the page route
+  // at the same pathname (same host:3001 dev server), which would replace
+  // the whole app shell with this mocked JSON body instead of just the
+  // API response (see hr-profiles.spec.ts for the same convention).
+  await page.route(`${API}/hr/org-chart*`, (route) =>
     route.fulfill({
       status: 403,
       contentType: "application/json",
@@ -85,8 +96,7 @@ test("shows a 403-friendly message when the API refuses the request", async ({
     }),
   );
 
-  await signIn(page);
-  await page.goto("/hr/org-chart");
+  await openOrgChart(page);
 
   await expect(
     page.getByText("You don't have access to this part of the org chart"),

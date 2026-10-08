@@ -294,7 +294,7 @@ export class ExitRequestsRepository {
   async update(
     scope: TeamScope,
     id: number,
-    reviewerEmployeeId: number,
+    reviewerEmployeeId: number | null,
     change: ExitRequestUpdate,
     actorId: number,
   ): Promise<ExitRequestView | null> {
@@ -318,7 +318,10 @@ export class ExitRequestsRepository {
       });
       if (!before) return null;
 
-      if (before.employee.id === reviewerEmployeeId) {
+      if (
+        reviewerEmployeeId !== null &&
+        before.employee.id === reviewerEmployeeId
+      ) {
         throw new ExitRequestSelfDecisionForbiddenException();
       }
       const from = before.status as ExitRequestStatus;

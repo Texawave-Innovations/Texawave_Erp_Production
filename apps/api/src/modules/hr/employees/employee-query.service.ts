@@ -27,6 +27,20 @@ export class EmployeeQueryService {
     return toDetail(row);
   }
 
+  /** Same lookup as `getCurrentEmployee()`, but for callers where "not an
+   * employee" is a valid state rather than an error — an admin/HR-manager
+   * account holding a team/all-scope decide permission (e.g.
+   * `hr.work_log.approve`) is never itself an employee, so a hard 403 there
+   * would misreport an authorization failure the permission guard already
+   * cleared. Returns `null` instead of throwing. */
+  async findCurrentEmployeeOrNull(): Promise<EmployeeDetail | null> {
+    const row = await this.repository.findByUserId(
+      this.tenantContext.getOrgScope(),
+      this.tenantContext.getUserId(),
+    );
+    return row ? toDetail(row) : null;
+  }
+
   /** Called by employee-self-service once every required onboarding section
    * is filled in. No-op if the employee isn't currently PENDING_PROFILE
    * (already complete, or hasn't changed their temp password yet) — the

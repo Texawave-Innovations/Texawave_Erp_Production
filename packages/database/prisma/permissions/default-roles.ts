@@ -49,6 +49,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.leave_request.read.all",
       "hr.leave.approve.all",
       "hr.work_log.read.all",
+      "hr.work_log.approve",
       "hr.expense_claim.read.all",
       "hr.expense_claim.decide.all",
       "hr.exit_request.read.all",

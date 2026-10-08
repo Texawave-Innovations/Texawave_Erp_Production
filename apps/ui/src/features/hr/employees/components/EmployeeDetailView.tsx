@@ -23,6 +23,7 @@ import {
   isExitStatus,
 } from "../status";
 import {
+  ACCOUNT_WRITE,
   READ_ANY_SCOPE,
   STATUS_CORRECT,
   STATUS_WRITE,
@@ -31,6 +32,7 @@ import {
 import type { EmployeeDetail } from "../types";
 import { ChangeStatusDialog } from "./ChangeStatusDialog";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
+import { LinkAccountDialog } from "./LinkAccountDialog";
 
 const HISTORY_PAGE_SIZE = 10;
 
@@ -63,11 +65,15 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const canStatus = usePermission(STATUS_WRITE);
   const canCorrect = usePermission(STATUS_CORRECT);
   const canReadProfile = usePermission(PROFILE_READ_ANY_SCOPE);
+  const canAccount = usePermission(ACCOUNT_WRITE);
 
   const query = useEmployee(id);
   const [historyPage, setHistoryPage] = useState(1);
   const history = useEmployeeStatusHistory(id, historyPage, HISTORY_PAGE_SIZE);
   const [statusDialog, setStatusDialog] = useState<null | "change" | "correct">(
+    null,
+  );
+  const [accountDialog, setAccountDialog] = useState<null | "link" | "unlink">(
     null,
   );
 
@@ -187,6 +193,22 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 Correct status
               </Button>
             ) : null}
+            {canAccount && !e.hasLogin ? (
+              <Button
+                variant="secondary"
+                onClick={() => setAccountDialog("link")}
+              >
+                Link account
+              </Button>
+            ) : null}
+            {canAccount && e.hasLogin ? (
+              <Button
+                variant="secondary"
+                onClick={() => setAccountDialog("unlink")}
+              >
+                Unlink account
+              </Button>
+            ) : null}
           </div>
         </div>
       </Card>
@@ -293,6 +315,15 @@ export function EmployeeDetailView({ id }: { id: number }) {
           onClose={() => setStatusDialog(null)}
           employee={e}
           correction={statusDialog === "correct"}
+        />
+      ) : null}
+
+      {accountDialog ? (
+        <LinkAccountDialog
+          open
+          onClose={() => setAccountDialog(null)}
+          employee={e}
+          mode={accountDialog}
         />
       ) : null}
     </div>

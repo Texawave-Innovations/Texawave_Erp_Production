@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInAsAdmin } from "./helpers/auth";
 
 /**
  * Real-browser coverage for Work Logs: the HR approver screen loads from the
@@ -6,22 +7,22 @@ import { expect, test } from "@playwright/test";
  * own logs and blocks an invalid create submission before any request.
  * Uses the seeded Super Admin (packages/database/prisma/seed.ts) — run the
  * seed against a running dev DB first.
+ *
+ * Tokens live in memory only (stores/auth-store.ts), so every navigation
+ * after sign-in is an in-app link click, never `page.goto` to a protected
+ * URL (same constraint documented in e2e/hr-employees.spec.ts,
+ * e2e/hr-profiles.spec.ts, e2e/hr-location-privilege.spec.ts and
+ * e2e/hr-org-chart.spec.ts). This file signs in with the shared
+ * `signInAsAdmin` helper and then reaches the screen via the sidebar link.
  */
-async function signIn(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.waitForLoadState("networkidle");
-  await page.getByLabel("Organization").fill("texawave-innovations");
-  await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
-  await page.getByRole("button", { name: "Sign in" }).click();
+async function openWorkLogs(page: import("@playwright/test").Page) {
+  await page.getByRole("navigation").locator("a[href='/hr/work-logs']").click();
+  await expect(page).toHaveURL(/\/hr\/work-logs$/);
 }
 
 test("lists work logs and narrows them with filters", async ({ page }) => {
-  await signIn(page);
-  // Client-side link, not page.goto: a hard navigation drops the in-memory
-  // auth store (Docs/CODING_STANDARDS.md "Frontend API/state/error
-  // standard" — tokens are deliberately not persisted across reloads).
-  await page.getByRole("link", { name: "Work Logs" }).click();
+  await signInAsAdmin(page);
+  await openWorkLogs(page);
   await expect(page.getByRole("heading", { name: "Work Logs" })).toBeVisible();
 
   // The seeded Super Admin has `hr.work_log.approve` but no linked employee
@@ -55,8 +56,8 @@ test("lists my work logs and blocks an invalid create submission", async ({
       posted = true;
   });
 
-  await signIn(page);
-  await page.getByRole("link", { name: "Work Logs" }).click();
+  await signInAsAdmin(page);
+  await openWorkLogs(page);
   await page.getByRole("button", { name: "My work logs" }).click();
 
   await expect(

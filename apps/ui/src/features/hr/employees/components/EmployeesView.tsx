@@ -24,6 +24,7 @@ import { STATUS_LABELS } from "../status";
 import type { EmployeeStatus } from "../types";
 import { EMPLOYEE_STATUSES } from "../types";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
+import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
 
 const PAGE_SIZE = 20;
 
@@ -326,6 +327,12 @@ export function EmployeesView() {
               {
                 header: "Status",
                 cell: (e) => <EmployeeStatusBadge status={e.status} />,
+              },
+              {
+                header: "Onboarding",
+                cell: (e) => (
+                  <OnboardingStatusBadge status={e.onboardingStatus} />
+                ),
               },
               {
                 header: "Login",

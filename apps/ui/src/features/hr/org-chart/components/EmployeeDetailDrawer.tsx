@@ -37,9 +37,10 @@ export function EmployeeDetailDrawer({
         aria-hidden="true"
       />
       <aside
-        role="dialog"
-        aria-modal="true"
+        role={node ? "dialog" : undefined}
+        aria-modal={node ? true : undefined}
         aria-label={node ? `${node.fullName} details` : undefined}
+        aria-hidden={node ? undefined : true}
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col gap-4 overflow-y-auto border-l border-gray-200 bg-white p-5 shadow-theme-xl transition-transform dark:border-gray-800 dark:bg-gray-900",
           node ? "translate-x-0" : "translate-x-full",

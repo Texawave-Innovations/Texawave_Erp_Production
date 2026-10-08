@@ -171,3 +171,25 @@ export function statusTargetAllowed(
 ): status is EmployeeStatus {
   return (targets as readonly string[]).includes(status);
 }
+
+/** Optional reason mirroring LinkEmployeeUserDto/UnlinkEmployeeUserDto: when
+ * given it must be 3–500 characters, same as the status-change reason. */
+const optionalReason = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || (v.length >= 3 && v.length <= 500), {
+    message: "Reason must be 3–500 characters",
+  });
+
+export const linkAccountSchema = z.object({
+  userId: requiredId,
+  reason: optionalReason,
+});
+
+export type LinkAccountValues = z.infer<typeof linkAccountSchema>;
+
+export const unlinkAccountSchema = z.object({
+  reason: optionalReason,
+});
+
+export type UnlinkAccountValues = z.infer<typeof unlinkAccountSchema>;

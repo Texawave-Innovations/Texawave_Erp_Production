@@ -32,6 +32,7 @@ function makeService(decideLevel: "own" | "team" | "all" = "all") {
   };
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
+    findCurrentEmployeeOrNull: vi.fn().mockResolvedValue({ id: 77 }),
   };
   const service = new ExpenseClaimsService(
     repository as never,
@@ -97,6 +98,20 @@ describe("ExpenseClaimsService", () => {
     await expect(
       service.decide(5, { decision: "APPROVED" } as never),
     ).rejects.toBeInstanceOf(ResourceNotFoundException);
+  });
+
+  it("decide() passes a null approver id (not a 403) for a caller with no linked employee", async () => {
+    const { service, repository, employees } = makeService("team");
+    employees.findCurrentEmployeeOrNull.mockResolvedValue(null);
+    repository.decide.mockResolvedValue({ id: 5, status: "REJECTED" });
+    await service.decide(5, { decision: "REJECTED", note: "Missing bill" });
+    expect(repository.decide).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "team" }),
+      5,
+      null,
+      { status: "REJECTED", note: "Missing bill" },
+      42,
+    );
   });
 
   it("createForCurrentEmployee() takes the employee from the JWT, never the client", async () => {

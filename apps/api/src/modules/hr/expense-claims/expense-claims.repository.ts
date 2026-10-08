@@ -245,7 +245,7 @@ export class ExpenseClaimsRepository {
   async decide(
     scope: TeamScope,
     id: number,
-    approverEmployeeId: number,
+    approverEmployeeId: number | null,
     decision: { status: "APPROVED" | "REJECTED"; note: string | undefined },
     actorId: number,
   ): Promise<ExpenseClaimView | null> {
@@ -259,7 +259,10 @@ export class ExpenseClaimsRepository {
       });
       if (!before) return null;
 
-      if (before.employee.id === approverEmployeeId) {
+      if (
+        approverEmployeeId !== null &&
+        before.employee.id === approverEmployeeId
+      ) {
         throw new ExpenseClaimSelfApprovalForbiddenException();
       }
       if (before.status !== "PENDING") {

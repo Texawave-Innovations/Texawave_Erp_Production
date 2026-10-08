@@ -32,6 +32,7 @@ function makeService(decideLevel: "own" | "team" | "all" = "all") {
   };
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
+    findCurrentEmployeeOrNull: vi.fn().mockResolvedValue({ id: 77 }),
   };
   const service = new ExitRequestsService(
     repository as never,
@@ -91,11 +92,25 @@ describe("ExitRequestsService", () => {
       const { service, repository, employees } = makeService();
       repository.update.mockResolvedValue({ id: 5 });
       await service.update(5, { status: "APPROVED" });
-      expect(employees.getCurrentEmployee).toHaveBeenCalled();
+      expect(employees.findCurrentEmployeeOrNull).toHaveBeenCalled();
       expect(repository.update).toHaveBeenCalledWith(
         expect.objectContaining({ level: "all" }),
         5,
         77,
+        { status: "APPROVED" },
+        42,
+      );
+    });
+
+    it("passes a null reviewer id (not a 403) for a caller with no linked employee", async () => {
+      const { service, repository, employees } = makeService();
+      employees.findCurrentEmployeeOrNull.mockResolvedValue(null);
+      repository.update.mockResolvedValue({ id: 5 });
+      await service.update(5, { status: "APPROVED" });
+      expect(repository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ level: "all" }),
+        5,
+        null,
         { status: "APPROVED" },
         42,
       );
