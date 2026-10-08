@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { ErrorState, Skeleton } from "@texawave-erp/ui-kit";
 
 /** Full class strings only: Tailwind cannot see classes built from a variable (CODING_STANDARDS §12). */
@@ -98,12 +99,15 @@ export function KpiCard({
   note,
   tone,
   headingId,
+  href,
 }: {
   label: string;
   value: string;
   note: string;
   tone: "neutral" | "brand" | "info" | "warning" | "error";
   headingId: string;
+  /** Optional destination for the figure's source page (e.g. the employee directory). Omit when there is no page to land on yet. */
+  href?: string;
 }) {
   const valueClass = {
     neutral: "text-gray-900 dark:text-white/90",
@@ -119,11 +123,8 @@ export function KpiCard({
     warning: "bg-warning-500",
     error: "bg-error-500",
   }[tone];
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
-    >
+  const body = (
+    <>
       <span
         className={`absolute inset-x-0 top-0 h-1 ${edgeClass}`}
         aria-hidden="true"
@@ -140,7 +141,49 @@ export function KpiCard({
       <p className="mt-3 border-t border-gray-100 pt-3 text-theme-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
         {note}
       </p>
+    </>
+  );
+  const boxClass =
+    "relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900";
+  return (
+    <section aria-labelledby={headingId} className={boxClass}>
+      {body}
+      {href && (
+        // Stretched-link overlay: keeps the outer element a <section> (so its
+        // accessible name and test hooks are unchanged) while making the whole
+        // card a single tab stop that navigates to the figure's source page.
+        <Link
+          href={href}
+          aria-label={`${label}: ${value}. ${note}`}
+          className="absolute inset-0 z-10 rounded-2xl transition-colors hover:bg-gray-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-white/[0.03]"
+        />
+      )}
     </section>
+  );
+}
+
+/** Navigation tile for the dashboard's "Quick actions" card. Styling matches KpiCard/SectionCard so it reads as the same family. */
+export function QuickActionTile({
+  href,
+  label,
+  description,
+}: {
+  href: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-brand-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500/40 dark:hover:bg-gray-900"
+    >
+      <span className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+        {label}
+      </span>
+      <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+        {description}
+      </span>
+    </Link>
   );
 }
 
