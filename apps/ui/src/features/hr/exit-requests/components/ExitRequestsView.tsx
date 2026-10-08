@@ -300,6 +300,10 @@ function ReviewSection() {
                 header: "Decided by",
                 cell: (r) => r.decidedBy?.fullName ?? "—",
               },
+              {
+                header: "HR note",
+                cell: (r) => r.hrNote ?? "—",
+              },
               ...(canDecide
                 ? [
                     {
