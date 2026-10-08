@@ -1,8 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
   PINCODE,
-  OptionalText,
+  OptionalName,
   Pattern,
+  RequiredName,
   RequiredText,
 } from "./onboarding-rules.js";
 
@@ -10,16 +11,16 @@ export class AddressDto {
   @RequiredText(200)
   addressLine!: string;
 
-  @OptionalText()
+  @OptionalName()
   areaLocality?: string;
 
-  @RequiredText()
+  @RequiredName()
   district!: string;
 
-  @RequiredText()
+  @RequiredName()
   city!: string;
 
-  @RequiredText()
+  @RequiredName()
   state!: string;
 
   @ApiProperty({ example: "560034" })

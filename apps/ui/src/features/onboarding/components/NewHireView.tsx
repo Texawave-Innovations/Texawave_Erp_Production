@@ -31,6 +31,9 @@ import {
 
 type FieldKey = keyof NewHireFormValues;
 
+const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
+const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
+
 interface FormState {
   firstName: string;
   lastName: string;
@@ -263,7 +266,9 @@ export function NewHireView() {
                   {...p}
                   value={values.firstName}
                   disabled={submitting}
-                  onChange={(e) => set("firstName", e.target.value)}
+                  onChange={(e) =>
+                    set("firstName", sanitizeName(e.target.value))
+                  }
                 />
               )}
             </FormField>
@@ -273,7 +278,9 @@ export function NewHireView() {
                   {...p}
                   value={values.lastName}
                   disabled={submitting}
-                  onChange={(e) => set("lastName", e.target.value)}
+                  onChange={(e) =>
+                    set("lastName", sanitizeName(e.target.value))
+                  }
                 />
               )}
             </FormField>
@@ -289,7 +296,9 @@ export function NewHireView() {
                   inputMode="numeric"
                   value={values.mobile}
                   disabled={submitting}
-                  onChange={(e) => set("mobile", e.target.value)}
+                  onChange={(e) =>
+                    set("mobile", sanitizeMobile(e.target.value))
+                  }
                 />
               )}
             </FormField>
@@ -412,6 +421,8 @@ export function NewHireView() {
                 <Input
                   {...p}
                   type="date"
+                  min="1900-01-01"
+                  max="2099-12-31"
                   value={values.dateOfJoining}
                   disabled={submitting}
                   onChange={(e) => set("dateOfJoining", e.target.value)}

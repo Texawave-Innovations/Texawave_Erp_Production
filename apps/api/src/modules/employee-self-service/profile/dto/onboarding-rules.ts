@@ -47,6 +47,8 @@ export const FORMAT = {
   pan: /^[A-Z]{5}\d{4}[A-Z]$/,
   esi: /^\d{17}$/,
   pf: /^\d{12}$/,
+  /** Letters, spaces, and . ' - (e.g. "Mary Jane O'Brien-Smith"). No digits or other symbols. */
+  name: /^[A-Za-z][A-Za-z .'-]*$/,
 } as const;
 
 const MSG = {
@@ -58,6 +60,7 @@ const MSG = {
   pan: "PAN must be 5 letters, 4 digits, then 1 letter (for example ABCDE1234F).",
   esi: "ESI number must be exactly 17 digits.",
   pf: "PF (UAN) number must be exactly 12 digits.",
+  name: "Enter a valid name (letters only).",
 } as const;
 
 /** A required text field: a non-empty string with a sensible length cap. */
@@ -77,6 +80,29 @@ export function OptionalText(max = 100) {
     IsOptional(),
     IsString({ message: "Must be text." }),
     MaxLength(max, { message: `Must be at most ${max} characters.` }),
+  );
+}
+
+/** A required person's name: letters, spaces, and . ' - only — no digits or symbols. */
+export function RequiredName(max = 100) {
+  return applyDecorators(
+    ApiProperty(),
+    IsString({ message: "Must be text." }),
+    MinLength(1, { message: "This field is required." }),
+    MaxLength(max, { message: `Must be at most ${max} characters.` }),
+    Matches(FORMAT.name, { message: MSG.name }),
+  );
+}
+
+/** An optional name-shaped field (same character set as RequiredName) —
+ * absent or empty is fine, but a non-empty value must still be letters only. */
+export function OptionalName(max = 100) {
+  return applyDecorators(
+    ApiProperty({ required: false }),
+    IsOptional(),
+    IsString({ message: "Must be text." }),
+    MaxLength(max, { message: `Must be at most ${max} characters.` }),
+    Matches(FORMAT.name, { message: MSG.name }),
   );
 }
 

@@ -15,8 +15,19 @@ const requiredText = (max = 100) =>
     .trim()
     .min(1, "This field is required.")
     .max(max, `Must be at most ${max} characters.`);
-const optionalText = (max = 100) =>
-  z.string().trim().max(max, `Must be at most ${max} characters.`);
+const NAME_RE = /^[A-Za-z][A-Za-z .'-]*$/;
+const NAME_MSG = "Enter a valid name (letters only).";
+/** Letters, spaces, and . ' - only — no digits or other symbols. */
+const requiredName = (max = 100) => requiredText(max).regex(NAME_RE, NAME_MSG);
+/** Same character set as requiredName, but absent/empty is fine. */
+const optionalName = (max = 100) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Must be at most ${max} characters.`)
+    .regex(NAME_RE, NAME_MSG)
+    .or(z.literal(""))
+    .optional();
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date (YYYY-MM-DD).");
@@ -28,22 +39,22 @@ export const personalDetailsSchema = z.object({
   bloodGroup: z
     .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
     .optional(),
-  emergencyContactName: requiredText(),
-  emergencyContactRelation: requiredText(),
+  emergencyContactName: requiredName(),
+  emergencyContactRelation: requiredName(),
   emergencyContactPhone: mobile,
-  fatherName: requiredText(),
+  fatherName: requiredName(),
   fatherPhone: mobile,
-  motherName: requiredText(),
+  motherName: requiredName(),
   motherPhone: mobile,
 });
 export type PersonalDetailsValues = z.infer<typeof personalDetailsSchema>;
 
 export const addressSchema = z.object({
   addressLine: requiredText(200),
-  areaLocality: optionalText(),
-  district: requiredText(),
-  city: requiredText(),
-  state: requiredText(),
+  areaLocality: optionalName(),
+  district: requiredName(),
+  city: requiredName(),
+  state: requiredName(),
   pincode: z
     .string()
     .trim()
@@ -52,7 +63,7 @@ export const addressSchema = z.object({
 export type AddressValues = z.infer<typeof addressSchema>;
 
 export const bankDetailsSchema = z.object({
-  accountHolderName: requiredText(),
+  accountHolderName: requiredName(),
   accountNumber: z
     .string()
     .trim()
@@ -65,8 +76,8 @@ export const bankDetailsSchema = z.object({
       /^[A-Z]{4}0[A-Z0-9]{6}$/,
       "Enter a valid IFSC code (4 letters, 0, then 6 letters or digits).",
     ),
-  bankName: requiredText(),
-  branchName: optionalText().optional(),
+  bankName: requiredName(),
+  branchName: optionalName(),
 });
 export type BankDetailsValues = z.infer<typeof bankDetailsSchema>;
 
@@ -97,3 +108,12 @@ export const governmentIdsSchema = z.object({
     .optional(),
 });
 export type GovernmentIdsValues = z.infer<typeof governmentIdsSchema>;
+
+/** Mirrors apps/api/.../profile/dto/family-member.dto.ts. */
+export const familyMemberSchema = z.object({
+  name: requiredName(),
+  relation: requiredName(50),
+  dateOfBirth: date.or(z.literal("")).optional(),
+  contactPhone: mobile.or(z.literal("")).optional(),
+});
+export type FamilyMemberValues = z.infer<typeof familyMemberSchema>;
