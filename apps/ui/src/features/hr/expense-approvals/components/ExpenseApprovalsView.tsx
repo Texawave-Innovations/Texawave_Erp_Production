@@ -301,6 +301,10 @@ function ApprovalsSection() {
                 header: "Decided by",
                 cell: (r) => r.decidedBy?.fullName ?? "—",
               },
+              {
+                header: "Note",
+                cell: (r) => r.decisionNote ?? "—",
+              },
               ...(canDecide
                 ? [
                     {
