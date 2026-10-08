@@ -136,7 +136,7 @@ async function main() {
     {
       code: "hr-profiles",
       label: "Profiles",
-      path: "/hr/employees",
+      path: "/hr/profiles",
       order: 3,
       parentId: hrParent.id,
       permission: "hr.employee_profile.read",
