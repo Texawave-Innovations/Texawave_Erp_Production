@@ -26,6 +26,12 @@ export interface EmployeeListItem {
   employmentType: Ref;
   reportsToId: number | null;
   hasLogin: boolean;
+  /**
+   * Self-onboarding progress, written only by the employee-self-service
+   * module (apps/api/.../employee-mappers.ts). Only ever "PENDING_ACTIVATION"
+   * or "COMPLETE" — see OnboardingStatusBadge.
+   */
+  onboardingStatus: string;
 }
 
 /** Shape of GET /hr/employees/:id. `version` is sent back on every update. */
