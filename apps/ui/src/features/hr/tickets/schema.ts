@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { TICKET_CATEGORIES, TICKET_STATUSES } from "./types";
+import {
+  EMPLOYEE_TICKET_CATEGORIES,
+  TICKET_CATEGORIES,
+  TICKET_STATUSES,
+} from "./types";
 
 /**
  * Client-side UX validation only. Mirrors
@@ -41,6 +45,41 @@ export type CreateTicketValues = z.infer<typeof createTicketSchema>;
 export const EMPTY_CREATE_TICKET_FORM = {
   employeeId: 0,
   category: "" as unknown as (typeof TICKET_CATEGORIES)[number],
+  subject: "",
+  description: "",
+};
+
+/**
+ * Self-service raise/edit (apps/api .../dto/ticket.dto.ts
+ * CreateMyTicketDto / UpdateMyTicketDto — the same shape, sent together).
+ * The category set is the employee set, not the admin set.
+ */
+export const createMyTicketSchema = z.object({
+  category: z.enum(EMPLOYEE_TICKET_CATEGORIES, {
+    message: "Select a category",
+  }),
+  subject: z
+    .string()
+    .trim()
+    .min(1, "Subject is required")
+    .max(
+      TICKET_SUBJECT_MAX,
+      `Subject must be at most ${TICKET_SUBJECT_MAX} characters`,
+    ),
+  description: z
+    .string()
+    .trim()
+    .min(1, "Description is required")
+    .max(
+      TICKET_DESCRIPTION_MAX,
+      `Description must be at most ${TICKET_DESCRIPTION_MAX} characters`,
+    ),
+});
+
+export type CreateMyTicketValues = z.infer<typeof createMyTicketSchema>;
+
+export const EMPTY_CREATE_MY_TICKET_FORM = {
+  category: "" as unknown as (typeof EMPLOYEE_TICKET_CATEGORIES)[number],
   subject: "",
   description: "",
 };

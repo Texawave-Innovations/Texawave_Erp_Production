@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
   Card,
   DataTable,
-  Dialog,
   EmptyState,
   ErrorState,
   Input,
@@ -17,69 +15,55 @@ import {
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import { useTickets } from "../hooks";
-import {
-  READ_ANY_SCOPE,
-  SELF_SERVICE_READ,
-  WRITE_ANY_SCOPE,
-} from "../permissions";
+import { useMyTickets } from "../hooks";
+import { SELF_SERVICE_CREATE, SELF_SERVICE_READ } from "../permissions";
 import { STATUS_LABELS } from "../status";
-import {
-  TICKET_CATEGORIES,
-  TICKET_STATUSES,
-  type TicketItem,
-  type TicketStatus,
-  type TicketCategory,
-} from "../types";
-import { TicketDetailDialog } from "./TicketDetailDialog";
-import { TicketForm } from "./TicketForm";
+import { TICKET_STATUSES, type TicketItem, type TicketStatus } from "../types";
+import { CreateMyTicketDialog } from "./CreateMyTicketDialog";
+import { MyTicketDetailDialog } from "./MyTicketDetailDialog";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 
 const PAGE_SIZE = 10;
 
 interface Filters {
   status: "" | TicketStatus;
-  category: "" | TicketCategory;
   q: string;
 }
-const EMPTY_FILTERS: Filters = { status: "", category: "", q: "" };
+const EMPTY_FILTERS: Filters = { status: "", q: "" };
 
 /**
- * Employee Tickets: the HR/admin queue (own/team/all, filterable by status,
- * category and search), with create and detail/reply/status-change via
- * dialogs. Mirrors ExitRequestsView's single scoped screen shape.
+ * My Tickets (legacy `employee/RaiseTicket.tsx`): tickets I raised, and
+ * notices HR raised for me, in one scoped list — raise a new ticket, view
+ * details, reply to HR notices and edit an open ticket of my own.
  */
-export function TicketsView() {
-  const router = useRouter();
-  const canRead = usePermission(READ_ANY_SCOPE);
-  const canWrite = usePermission(WRITE_ANY_SCOPE);
-  const canSelfService = usePermission(SELF_SERVICE_READ);
+export function MyTicketsView() {
+  const canRead = usePermission(SELF_SERVICE_READ);
+  const canCreate = usePermission(SELF_SERVICE_CREATE);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
-
-  const query = {
-    page,
-    limit: PAGE_SIZE,
-    ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.category ? { category: filters.category } : {}),
-    ...(filters.q ? { q: filters.q } : {}),
-  };
-
-  const list = useTickets(query, canRead);
-  const hasFilters =
-    filters.status !== "" || filters.category !== "" || filters.q !== "";
 
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((f) => ({ ...f, [key]: value }));
     setPage(1);
   };
 
+  const query = {
+    page,
+    limit: PAGE_SIZE,
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.q ? { q: filters.q } : {}),
+  };
+
+  const list = useMyTickets(query);
+  const hasFilters = filters.status !== "" || filters.q !== "";
+
   if (!canRead) {
     return (
       <Alert variant="warning" title="You don't have access to tickets">
-        Ask an administrator for the <code>hr.ticket.read</code> permission.
+        Ask an administrator for the{" "}
+        <code>employee_self_service.ticket.read</code> permission.
       </Alert>
     );
   }
@@ -89,7 +73,7 @@ export function TicketsView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-            Employee Tickets
+            My Tickets
           </h1>
           {list.data ? (
             <p className="text-theme-sm text-gray-500 dark:text-gray-400">
@@ -99,24 +83,13 @@ export function TicketsView() {
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canWrite ? (
-            <Button onClick={() => setCreateOpen(true)}>Raise ticket</Button>
-          ) : null}
-          {canSelfService ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/self-service/tickets")}
-            >
-              My tickets
-            </Button>
-          ) : null}
-        </div>
+        {canCreate ? (
+          <Button onClick={() => setCreateOpen(true)}>Raise ticket</Button>
+        ) : null}
       </div>
 
       <Card>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Select
             aria-label="Filter by status"
             value={filters.status}
@@ -131,23 +104,9 @@ export function TicketsView() {
               </option>
             ))}
           </Select>
-          <Select
-            aria-label="Filter by category"
-            value={filters.category}
-            onChange={(e) =>
-              update("category", e.target.value as "" | TicketCategory)
-            }
-          >
-            <option value="">All categories</option>
-            {TICKET_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
           <Input
-            aria-label="Search tickets"
-            placeholder="Search subject, category or employee"
+            aria-label="Search my tickets"
+            placeholder="Search subject, description or category"
             value={filters.q}
             onChange={(e) => update("q", e.target.value)}
           />
@@ -190,21 +149,20 @@ export function TicketsView() {
             }
             description={
               hasFilters
-                ? "Try a different status, category or search, or clear the filters."
-                : canWrite
-                  ? "Raise a ticket to see it here."
-                  : "Tickets from your team will appear here."
+                ? "Try a different status or search, or clear the filters."
+                : canCreate
+                  ? "Raise a ticket to get help from HR."
+                  : "Tickets and notices from HR will appear here."
             }
           />
         </Card>
       ) : (
         <>
           <DataTable
-            caption="Employee tickets"
+            caption="My tickets"
             rows={list.data.data}
             getRowKey={(r) => String(r.id)}
             columns={[
-              { header: "Employee", cell: (r) => r.employee.fullName },
               { header: "Subject", cell: (r) => r.subject },
               { header: "Category", cell: (r) => r.category },
               {
@@ -213,7 +171,7 @@ export function TicketsView() {
               },
               {
                 header: "Raised by",
-                cell: (r) => (r.raisedByAdmin ? "HR" : "Employee"),
+                cell: (r) => (r.raisedByAdmin ? "HR" : "Me"),
               },
               {
                 header: "Actions",
@@ -238,16 +196,11 @@ export function TicketsView() {
       )}
 
       {createOpen ? (
-        <Dialog open onClose={() => setCreateOpen(false)} title="Raise ticket">
-          <TicketForm
-            onSubmitted={() => setCreateOpen(false)}
-            onCancel={() => setCreateOpen(false)}
-          />
-        </Dialog>
+        <CreateMyTicketDialog open onClose={() => setCreateOpen(false)} />
       ) : null}
 
       {detailId !== null ? (
-        <TicketDetailDialog
+        <MyTicketDetailDialog
           open
           ticketId={detailId}
           onClose={() => setDetailId(null)}

@@ -5,12 +5,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
+  addMyTicketComment,
   addTicketComment,
+  createMyTicket,
   createTicket,
+  getMyTicket,
   getTicket,
+  listMyTickets,
   listTickets,
   setTicketStatus,
+  updateMyTicket,
+  type CreateMyTicketBody,
   type CreateTicketBody,
+  type MyTicketListQuery,
   type TicketListQuery,
 } from "./api";
 import type { TicketStatus } from "./types";
@@ -58,5 +65,47 @@ export function useAddTicketComment() {
   return useOrgScopedMutation(
     [KEY],
     ({ id, body }: { id: number; body: string }) => addTicketComment(id, body),
+  );
+}
+
+// ---- self-service: tickets raised by the caller, or raised by HR for them -
+
+export function useMyTickets(query: MyTicketListQuery) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "mine", query),
+    queryFn: () => listMyTickets(query),
+    enabled: orgId > 0,
+  });
+}
+
+export function useMyTicket(id: number | null) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "mine-detail", id ?? 0),
+    queryFn: () => getMyTicket(id as number),
+    enabled: orgId > 0 && id !== null,
+  });
+}
+
+export function useCreateMyTicket() {
+  return useOrgScopedMutation([KEY], (body: CreateMyTicketBody) =>
+    createMyTicket(body),
+  );
+}
+
+export function useUpdateMyTicket() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, body }: { id: number; body: CreateMyTicketBody }) =>
+      updateMyTicket(id, body),
+  );
+}
+
+export function useAddMyTicketComment() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, body }: { id: number; body: string }) =>
+      addMyTicketComment(id, body),
   );
 }
