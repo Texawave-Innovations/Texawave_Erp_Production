@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInAsAdmin } from "./helpers/auth";
 
 /**
  * Real-browser coverage for the Location Privilege screen: searching and
@@ -6,18 +7,25 @@ import { expect, test } from "@playwright/test";
  * changed, and the office network allowlist can be listed, added to and
  * toggled. Uses the seeded Super Admin (packages/database/prisma/seed.ts) —
  * run the seed against a running dev DB first.
+ *
+ * Tokens live in memory only (stores/auth-store.ts), so every navigation
+ * after sign-in is an in-app link click, never `page.goto` to a protected
+ * URL — a hard navigation discards them and lands back on /login (same
+ * constraint documented in e2e/hr-employees.spec.ts and
+ * e2e/hr-profiles.spec.ts). This file signs in with the shared
+ * `signInAsAdmin` helper and then reaches the screen via the sidebar link.
  */
-async function signIn(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel("Organization").fill("texawave-innovations");
-  await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
-  await page.getByRole("button", { name: "Sign in" }).click();
+async function openLocationPrivilege(page: import("@playwright/test").Page) {
+  await page
+    .getByRole("navigation")
+    .locator("a[href='/hr/location-privilege']")
+    .click();
+  await expect(page).toHaveURL(/\/hr\/location-privilege$/);
 }
 
 test("loads the screen and shows the office network list", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/hr/location-privilege");
+  await signInAsAdmin(page);
+  await openLocationPrivilege(page);
 
   await expect(
     page.getByRole("heading", { name: "Location privilege" }),
@@ -30,8 +38,8 @@ test("loads the screen and shows the office network list", async ({ page }) => {
 test("searching narrows the employee list and shows no-match state", async ({
   page,
 }) => {
-  await signIn(page);
-  await page.goto("/hr/location-privilege");
+  await signInAsAdmin(page);
+  await openLocationPrivilege(page);
 
   await page
     .getByRole("searchbox", { name: "Search employees by name or code" })
@@ -43,8 +51,8 @@ test("searching narrows the employee list and shows no-match state", async ({
 test("selecting an employee shows and allows changing their privilege", async ({
   page,
 }) => {
-  await signIn(page);
-  await page.goto("/hr/location-privilege");
+  await signInAsAdmin(page);
+  await openLocationPrivilege(page);
 
   await page
     .getByRole("searchbox", { name: "Search employees by name or code" })
@@ -75,8 +83,8 @@ test("adding an office network blocks an empty submission and then succeeds", as
       posted = true;
   });
 
-  await signIn(page);
-  await page.goto("/hr/location-privilege");
+  await signInAsAdmin(page);
+  await openLocationPrivilege(page);
 
   await page.getByRole("button", { name: "Add address" }).click();
   await page.getByRole("button", { name: "Add address" }).last().click();
