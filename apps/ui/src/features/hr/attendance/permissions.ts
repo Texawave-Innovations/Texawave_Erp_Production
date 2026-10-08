@@ -21,24 +21,3 @@ export const WRITE_ANY_SCOPE = [
 /** Self-service: the authenticated user's own attendance. */
 export const SELF_SERVICE_READ = "employee_self_service.attendance.read";
 export const SELF_SERVICE_PUNCH = "employee_self_service.attendance.punch";
-
-/** Corrections: own/team/all read, same triplet shape as attendance itself.
- * An employee's own corrections surface through the `.own` scope of this same
- * permission — there is no separate self-service list endpoint. */
-export const CORRECTION_READ_ANY_SCOPE = [
-  "hr.attendance_correction.read.own",
-  "hr.attendance_correction.read.team",
-  "hr.attendance_correction.read.all",
-] as const;
-
-/** `.own` is always refused server-side (nobody may decide their own request),
- * but the permission catalogue still follows the `.own/.team/.all` triplet. */
-export const CORRECTION_APPROVE_ANY_SCOPE = [
-  "hr.attendance_correction.approve.own",
-  "hr.attendance_correction.approve.team",
-  "hr.attendance_correction.approve.all",
-] as const;
-
-/** Self-service: submit a correction request for one's own attendance. */
-export const SELF_SERVICE_CORRECTION_CREATE =
-  "employee_self_service.attendance_correction.create";
