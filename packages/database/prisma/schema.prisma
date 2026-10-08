@@ -1625,12 +1625,24 @@ model EmployeeExperience {
 
 /// Document metadata only. The file itself lives in storage at `storage_key`
 /// (storage backend not yet decided; Vault is paused).
+/// employeeId+documentType is unique only among source="ONBOARDING" rows — a
+/// partial unique index enforced in migration
+/// 20261007000000_hr_employee_documents/migration.sql, since Prisma's schema
+/// language cannot express a partial (WHERE-qualified) unique index. Do not
+/// add `@@unique([employeeId, documentType])` here: it would reject the
+/// multiple HR_UPLOADED rows this model is designed to allow.
 model EmployeeDocument {
   id             Int       @id @default(autoincrement())
   organizationId Int       @map("organization_id")
   teamId         Int       @map("team_id")
   employeeId     Int       @map("employee_id")
   documentType   String    @map("document_type")
+  /// Free-text display name for HR ad-hoc uploads (e.g. "Offer Letter").
+  /// Null for onboarding's fixed-type rows, where documentType is the name.
+  label          String?   @map("label")
+  /// "ONBOARDING" (employee self-service, one per documentType) or
+  /// "HR_UPLOADED" (ad-hoc, HR-added, unlimited per documentType).
+  source         String    @default("ONBOARDING") @map("source")
   fileName       String    @map("file_name")
   storageKey     String    @map("storage_key")
   /// Set by the file upload path; null only on rows written before uploads existed.
@@ -1649,7 +1661,7 @@ model EmployeeDocument {
   team         Team         @relation(fields: [teamId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
 
-  @@unique([employeeId, documentType])
+  @@index([employeeId, documentType])
   @@index([organizationId, teamId, employeeId])
   @@map("employee_documents")
   @@schema("hr")

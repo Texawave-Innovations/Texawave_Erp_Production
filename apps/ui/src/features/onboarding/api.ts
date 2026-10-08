@@ -54,16 +54,28 @@ export const listDepartments = () => listOptions("/departments");
 export const listRoles = () => listOptions("/settings/roles");
 
 /** Two composed calls — see Docs/ARCHITECTURE.md §7a. Step 1 creates the
- * login with a forced password change; step 2 links the new employee to it. */
+ * login with a forced password change; step 2 links the new employee to it.
+ * `employeeRoleId` is always included alongside the admin-picked role so
+ * every new hire gets the self-service baseline needed for onboarding,
+ * regardless of which additional role (Team Lead, HR Manager, ...) they're
+ * given — see the onboarding-landing 403 gap this closes. */
 export async function createNewHire(
   values: NewHireFormValues,
+  employeeRoleId: number,
 ): Promise<CreatedEmployee> {
+  const roleIds = Array.from(
+    new Set(
+      [employeeRoleId, values.roleId].filter(
+        (id): id is number => id !== undefined,
+      ),
+    ),
+  );
   const userInput: CreateUserInput = {
     email: values.email,
     fullName: `${values.firstName} ${values.lastName}`,
     password: values.tempPassword,
     mustChangePassword: true,
-    roleIds: [values.roleId],
+    roleIds,
   };
   const user = await withAuthRetry(() =>
     apiClient.post<User>("/users", userInput),

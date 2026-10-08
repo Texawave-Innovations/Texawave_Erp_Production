@@ -1,11 +1,11 @@
 -- AlterTable
-ALTER TABLE "employees" ADD COLUMN     "onboarding_status" TEXT NOT NULL DEFAULT 'PENDING_PASSWORD_CHANGE';
+ALTER TABLE "hr"."employees" ADD COLUMN     "onboarding_status" TEXT NOT NULL DEFAULT 'PENDING_PASSWORD_CHANGE';
 
 -- AlterTable
-ALTER TABLE "users" ADD COLUMN     "must_change_password" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "platform"."users" ADD COLUMN     "must_change_password" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
-CREATE TABLE "employee_personal_details" (
+CREATE TABLE "hr"."employee_personal_details" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "team_id" INTEGER NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE "employee_personal_details" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_bank_details" (
+CREATE TABLE "hr"."employee_bank_details" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "team_id" INTEGER NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE "employee_bank_details" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_family_members" (
+CREATE TABLE "hr"."employee_family_members" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "team_id" INTEGER NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE "employee_family_members" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_experience" (
+CREATE TABLE "hr"."employee_experience" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "team_id" INTEGER NOT NULL,
@@ -96,7 +96,7 @@ CREATE TABLE "employee_experience" (
 );
 
 -- CreateTable
-CREATE TABLE "employee_documents" (
+CREATE TABLE "hr"."employee_documents" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "team_id" INTEGER NOT NULL,
@@ -117,67 +117,67 @@ CREATE TABLE "employee_documents" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_personal_details_employee_id_key" ON "employee_personal_details"("employee_id");
+CREATE UNIQUE INDEX "employee_personal_details_employee_id_key" ON "hr"."employee_personal_details"("employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_personal_details_organization_id_team_id_idx" ON "employee_personal_details"("organization_id", "team_id");
+CREATE INDEX "employee_personal_details_organization_id_team_id_idx" ON "hr"."employee_personal_details"("organization_id", "team_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_bank_details_employee_id_key" ON "employee_bank_details"("employee_id");
+CREATE UNIQUE INDEX "employee_bank_details_employee_id_key" ON "hr"."employee_bank_details"("employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_bank_details_organization_id_team_id_idx" ON "employee_bank_details"("organization_id", "team_id");
+CREATE INDEX "employee_bank_details_organization_id_team_id_idx" ON "hr"."employee_bank_details"("organization_id", "team_id");
 
 -- CreateIndex
-CREATE INDEX "employee_family_members_organization_id_team_id_employee_id_idx" ON "employee_family_members"("organization_id", "team_id", "employee_id");
+CREATE INDEX "employee_family_members_organization_id_team_id_employee_id_idx" ON "hr"."employee_family_members"("organization_id", "team_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_experience_organization_id_team_id_employee_id_idx" ON "employee_experience"("organization_id", "team_id", "employee_id");
+CREATE INDEX "employee_experience_organization_id_team_id_employee_id_idx" ON "hr"."employee_experience"("organization_id", "team_id", "employee_id");
 
 -- CreateIndex
-CREATE INDEX "employee_documents_organization_id_team_id_employee_id_idx" ON "employee_documents"("organization_id", "team_id", "employee_id");
+CREATE INDEX "employee_documents_organization_id_team_id_employee_id_idx" ON "hr"."employee_documents"("organization_id", "team_id", "employee_id");
 
 -- AddForeignKey
-ALTER TABLE "employee_personal_details" ADD CONSTRAINT "employee_personal_details_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_personal_details" ADD CONSTRAINT "employee_personal_details_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_personal_details" ADD CONSTRAINT "employee_personal_details_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_personal_details" ADD CONSTRAINT "employee_personal_details_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "platform"."teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_personal_details" ADD CONSTRAINT "employee_personal_details_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_personal_details" ADD CONSTRAINT "employee_personal_details_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bank_details" ADD CONSTRAINT "employee_bank_details_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bank_details" ADD CONSTRAINT "employee_bank_details_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bank_details" ADD CONSTRAINT "employee_bank_details_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bank_details" ADD CONSTRAINT "employee_bank_details_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "platform"."teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_bank_details" ADD CONSTRAINT "employee_bank_details_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_bank_details" ADD CONSTRAINT "employee_bank_details_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_family_members" ADD CONSTRAINT "employee_family_members_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_family_members" ADD CONSTRAINT "employee_family_members_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_family_members" ADD CONSTRAINT "employee_family_members_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_family_members" ADD CONSTRAINT "employee_family_members_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "platform"."teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_family_members" ADD CONSTRAINT "employee_family_members_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_family_members" ADD CONSTRAINT "employee_family_members_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_experience" ADD CONSTRAINT "employee_experience_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_experience" ADD CONSTRAINT "employee_experience_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_experience" ADD CONSTRAINT "employee_experience_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_experience" ADD CONSTRAINT "employee_experience_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "platform"."teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_experience" ADD CONSTRAINT "employee_experience_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_experience" ADD CONSTRAINT "employee_experience_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_documents" ADD CONSTRAINT "employee_documents_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_documents" ADD CONSTRAINT "employee_documents_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_documents" ADD CONSTRAINT "employee_documents_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_documents" ADD CONSTRAINT "employee_documents_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "platform"."teams"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_documents" ADD CONSTRAINT "employee_documents_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hr"."employee_documents" ADD CONSTRAINT "employee_documents_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "hr"."employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
