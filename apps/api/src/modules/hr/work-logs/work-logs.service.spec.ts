@@ -20,6 +20,7 @@ function makeService(level: "own" | "team" | "all" = "all") {
   const teamContext = { resolveScope: vi.fn().mockResolvedValue(teamScope) };
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
+    findCurrentEmployeeOrNull: vi.fn().mockResolvedValue({ id: 77 }),
   };
   const service = new WorkLogsService(
     repository as never,
@@ -53,13 +54,25 @@ describe("WorkLogsService", () => {
   it("approvals queue defaults to PENDING and is limited to the caller's direct reports", async () => {
     const { service, repository, employees } = makeService();
     await service.findApprovals({ page: 1, limit: 20 } as never);
-    expect(employees.getCurrentEmployee).toHaveBeenCalled();
+    expect(employees.findCurrentEmployeeOrNull).toHaveBeenCalled();
     expect(repository.findDirectReports).toHaveBeenCalledWith(
       ORG,
       77,
       expect.objectContaining({ status: "PENDING" }),
       expect.anything(),
     );
+  });
+
+  it("approvals queue is empty, not a 403, for a caller with no linked employee", async () => {
+    const { service, repository, employees } = makeService();
+    employees.findCurrentEmployeeOrNull.mockResolvedValue(null);
+    const result = await service.findApprovals({
+      page: 1,
+      limit: 20,
+    } as never);
+    expect(repository.findDirectReports).not.toHaveBeenCalled();
+    expect(result.items).toEqual([]);
+    expect(result.total).toBe(0);
   });
 
   it("approvals queue honours an explicit status filter", async () => {
@@ -96,6 +109,15 @@ describe("WorkLogsService", () => {
     await expect(service.approve(5, {} as never)).rejects.toBeInstanceOf(
       ResourceNotFoundException,
     );
+  });
+
+  it("approve() answers not-found (not forbidden) for a caller with no linked employee", async () => {
+    const { service, repository, employees } = makeService();
+    employees.findCurrentEmployeeOrNull.mockResolvedValue(null);
+    await expect(service.approve(5, {} as never)).rejects.toBeInstanceOf(
+      ResourceNotFoundException,
+    );
+    expect(repository.decide).not.toHaveBeenCalled();
   });
 
   it("createForCurrentEmployee() takes the employee from the JWT, never the body", async () => {
