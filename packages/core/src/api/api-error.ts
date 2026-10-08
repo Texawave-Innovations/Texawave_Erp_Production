@@ -40,6 +40,17 @@ export class ApiError extends Error {
     return this.statusCode === 400 && this.fieldErrors.length > 0;
   }
 
+  static isApiError(err: unknown): err is ApiError {
+    return (
+      err instanceof ApiError ||
+      (typeof err === "object" &&
+        err !== null &&
+        "statusCode" in err &&
+        "errorCode" in err &&
+        (err as { name?: string }).name === "ApiError")
+    );
+  }
+
   static networkError(cause: unknown): ApiError {
     return new ApiError({
       statusCode: 0,

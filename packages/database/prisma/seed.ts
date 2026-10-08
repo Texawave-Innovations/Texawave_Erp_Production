@@ -1,15 +1,14 @@
 // Local-dev seed only — NOT run in CI, NOT a migration. Creates the single
 // "Texawave Innovations" organization, its three teams (Docs/ARCHITECTURE.md
-// §5.5), the permission catalogue (prisma/permissions/catalog.ts — synced by
-// the same code every environment uses, so this seed can't drift from
-// staging/production), a "Super Admin"
+// §5.5), the starter permission catalog (reference-feature + settings/roles
+// permissions — no HR permissions here; the HR module defines its own
+// catalog, including the `.own`/`.team`/`.all` scope variants per
+// Docs/CODING_STANDARDS.md §10a, when it's actually built), a "Super Admin"
 // role granted every permission, and one Super Admin user with no team
 // assignment (Super Admin uses `.all`-scoped permissions where they exist,
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../generated/prisma/client.js";
-import { DEFAULT_ROLES } from "./permissions/default-roles.js";
-import { syncPermissions } from "./permissions/sync.js";
 
 const prisma = new PrismaClient();
 
@@ -21,6 +20,58 @@ const TEAMS = [
   { name: "Mechanical", code: "ME" },
   { name: "Electrical", code: "EL" },
 ] as const;
+
+const REFERENCE_PERMISSIONS = [
+  { code: "reference.tags.read", description: "View reference tags" },
+  {
+    code: "reference.tags.write",
+    description: "Create/update/delete reference tags",
+  },
+];
+
+const SETTINGS_PERMISSIONS = [
+  {
+    code: "settings.role.read",
+    description: "View roles and their permissions",
+  },
+  {
+    code: "settings.role.write",
+    description: "Create/rename roles and assign/revoke their permissions",
+  },
+];
+
+const DEPARTMENTS_PERMISSIONS = [
+  {
+    code: "departments.department.read",
+    description: "View departments",
+  },
+  {
+    code: "departments.department.write",
+    description: "Create/update/delete departments",
+  },
+];
+
+const USERS_PERMISSIONS = [
+  {
+    code: "users.user.read",
+    description: "View users and their assignments",
+  },
+  {
+    code: "users.user.write",
+    description: "Create/update users and assign roles or teams",
+  },
+];
+
+const MENU_PERMISSIONS = [
+  {
+    code: "menu.item.read",
+    description: "View navigation menu items",
+  },
+  {
+    code: "menu.item.write",
+    description: "Create/update/delete navigation menu items",
+  },
+];
 
 async function main() {
   const org = await prisma.organization.upsert({
@@ -60,69 +111,30 @@ async function main() {
     teams.set(team.code, row);
   }
 
-  // The permission catalogue lives in prisma/permissions/catalog.ts and is
-  // what every environment (not just this local seed) is synced to via
-  // `pnpm --filter @texawave-erp/database permissions:sync`.
-  await syncPermissions(prisma);
+  const allPermissionDefs = [
+    ...REFERENCE_PERMISSIONS,
+    ...SETTINGS_PERMISSIONS,
+    ...DEPARTMENTS_PERMISSIONS,
+    ...USERS_PERMISSIONS,
+    ...MENU_PERMISSIONS,
+  ];
+  for (const permission of allPermissionDefs) {
+    await prisma.permission.upsert({
+      where: { code: permission.code },
+      update: { description: permission.description },
+      create: permission,
+    });
+  }
 
   // Seed default menu items
-  const adminParent = await prisma.menuItem.upsert({
-    where: {
-      organizationId_code: { organizationId: org.id, code: "admin" },
-    },
-    update: { label: "Admin", order: 10 },
-    create: {
-      organizationId: org.id,
-      code: "admin",
-      label: "Admin",
-      order: 10,
-    },
-  });
-
-  // `hr.employee.read`/`hr.interview.read`/etc. are `.own`/`.team`/`.all`
-  // scoped triplets (or role-specific codes) — there is no single catalog
-  // code that means "can see this HR screen", and MenuItem.permission only
-  // stores one exact code (menu.service.ts matches it verbatim, no
-  // prefix/any-of support). So, like "Dashboard" above, these items are left
-  // ungated (permission: null) and the pages themselves do the real,
-  // multi-permission check per section/tab (HrDashboardView, EmployeesView,
-  // RecruitmentView) — the API remains the authoritative enforcement point.
-  const hrParent = await prisma.menuItem.upsert({
-    where: {
-      organizationId_code: { organizationId: org.id, code: "hr" },
-    },
-    update: { label: "HR", order: 3 },
-    create: {
-      organizationId: org.id,
-      code: "hr",
-      label: "HR",
-      order: 3,
-    },
-  });
-
   const defaultMenuItems = [
-    {
-      code: "dashboard",
-      label: "Dashboard",
-      path: "/",
-      order: 1,
-      parentId: null,
-      permission: null,
-    },
-    {
-      code: "reference-tags",
-      label: "Reference Tags",
-      path: "/reference/tags",
-      order: 2,
-      parentId: null,
-      permission: "reference.tags.read",
-    },
+    // HR Module
     {
       code: "hr-dashboard",
       label: "Dashboard",
-      path: "/hr/dashboard",
+      path: "/hr",
       order: 1,
-      parentId: hrParent.id,
+      parentId: null,
       permission: null,
     },
     {
@@ -130,144 +142,74 @@ async function main() {
       label: "Employees",
       path: "/hr/employees",
       order: 2,
-      parentId: hrParent.id,
-      permission: null,
+      parentId: null,
+      permission: "users.user.read",
     },
     {
-      code: "hr-profiles",
-      label: "Profiles",
-      path: "/hr/employees",
+      code: "hr-departments",
+      label: "Departments",
+      path: "/hr/departments",
       order: 3,
-      parentId: hrParent.id,
-      permission: "hr.employee_profile.read",
+      parentId: null,
+      permission: "departments.department.read",
     },
     {
-      code: "hr-org-chart",
-      label: "Org Chart",
-      path: "/hr/org-chart",
+      code: "hr-teams",
+      label: "Teams",
+      path: "/hr/teams",
       order: 4,
-      parentId: hrParent.id,
-      permission: "hr.employee.read",
-    },
-    {
-      code: "hr-recruitment",
-      label: "Recruitment",
-      path: "/hr/recruitment",
-      order: 5,
-      parentId: hrParent.id,
-      permission: null,
-    },
-    {
-      code: "hr-work-logs",
-      label: "Work Logs",
-      path: "/hr/work-logs",
-      order: 6,
-      parentId: hrParent.id,
+      parentId: null,
       permission: null,
     },
     {
       code: "hr-attendance",
       label: "Attendance",
       path: "/hr/attendance",
-      order: 7,
-      parentId: hrParent.id,
-      permission: null,
-    },
-    {
-      code: "hr-regularization",
-      label: "Regularization",
-      path: "/hr/regularization",
-      order: 8,
-      parentId: hrParent.id,
-      permission: null,
-    },
-    {
-      code: "hr-location-privilege",
-      label: "Location Privilege",
-      path: "/hr/location-privilege",
-      order: 9,
-      parentId: hrParent.id,
-      permission: "hr.location_privilege.read",
-    },
-    {
-      code: "hr-tasks",
-      label: "Task Assignment",
-      path: "/hr/tasks",
-      order: 10,
-      parentId: hrParent.id,
+      order: 5,
+      parentId: null,
       permission: null,
     },
     {
       code: "hr-leaves",
       label: "Leaves",
       path: "/hr/leaves",
-      order: 11,
-      parentId: hrParent.id,
+      order: 6,
+      parentId: null,
       permission: null,
     },
     {
-      code: "hr-full-month-present",
-      label: "Full Month Present",
-      path: "/hr/full-month-present",
-      order: 12,
-      parentId: hrParent.id,
-      permission: "hr.attendance_report.read",
-    },
-    {
-      code: "hr-expense-approvals",
-      label: "Expense Approvals",
-      path: "/hr/expense-approvals",
-      order: 13,
-      parentId: hrParent.id,
+      code: "hr-payroll",
+      label: "Payroll",
+      path: "/hr/payroll",
+      order: 7,
+      parentId: null,
       permission: null,
     },
+
+    // Settings Module
     {
-      code: "hr-tickets",
-      label: "Employee Tickets",
-      path: "/hr/tickets",
-      order: 14,
-      parentId: hrParent.id,
-      permission: "hr.ticket.read",
-    },
-    {
-      code: "hr-exit-requests",
-      label: "Exit Requests",
-      path: "/hr/exit-requests",
-      order: 15,
-      parentId: hrParent.id,
-      permission: null,
-    },
-    {
-      code: "admin-departments",
-      label: "Departments",
-      path: "/admin/departments",
-      order: 1,
-      parentId: adminParent.id,
-      permission: "departments.department.read",
-    },
-    {
-      code: "admin-roles",
-      label: "Roles",
-      path: "/admin/roles",
-      order: 3,
-      parentId: adminParent.id,
+      code: "settings-roles",
+      label: "Roles & Permissions",
+      path: "/settings/roles",
+      order: 10,
+      parentId: null,
       permission: "settings.role.read",
     },
     {
-      code: "admin-users",
-      label: "Users",
-      path: "/admin/users",
-      order: 4,
-      parentId: adminParent.id,
-      permission: "users.user.read",
-    },
-    {
-      code: "admin-menu",
+      code: "settings-menu",
       label: "Navigation Menu",
       path: "/admin/menu",
-      order: 5,
-      parentId: adminParent.id,
+      order: 11,
+      parentId: null,
       permission: "menu.item.read",
+    },
+    {
+      code: "reference-tags",
+      label: "Reference Tags",
+      path: "/reference/tags",
+      order: 12,
+      parentId: null,
+      permission: "reference.tags.read",
     },
   ];
 
@@ -313,52 +255,6 @@ async function main() {
       permissionId: permission.id,
     })),
   });
-
-  // The approved employment types. (The HR migration inserts them for
-  // organizations that already exist; this covers an organization created
-  // afterwards, e.g. a fresh dev database.) Insert-only: never overwrites an
-  // edited row. Probation/notice stay NULL — those rules are not approved.
-  for (const type of [
-    { code: "PERMANENT", name: "Permanent" },
-    { code: "CONTRACT", name: "Contract" },
-    { code: "TEMPORARY", name: "Temporary" },
-    { code: "INTERN", name: "Intern" },
-  ]) {
-    await prisma.employmentType.upsert({
-      where: {
-        organizationId_code: { organizationId: org.id, code: type.code },
-      },
-      update: {},
-      create: { organizationId: org.id, ...type },
-    });
-  }
-
-  // Starter HR roles for local dev (prisma/permissions/default-roles.ts).
-  // ADDITIVE: grants what is listed, never removes a grant an administrator
-  // added, and `update: {}` means a grant an administrator REVOKED stays
-  // revoked. Team Lead is read-only by default (pinned by a test).
-  for (const definition of DEFAULT_ROLES) {
-    const role = await prisma.role.upsert({
-      where: {
-        organizationId_name: { organizationId: org.id, name: definition.name },
-      },
-      update: {},
-      create: { organizationId: org.id, name: definition.name },
-    });
-    const permissions = await prisma.permission.findMany({
-      where: { code: { in: [...definition.permissions] } },
-      select: { id: true },
-    });
-    for (const permission of permissions) {
-      await prisma.rolePermission.upsert({
-        where: {
-          roleId_permissionId: { roleId: role.id, permissionId: permission.id },
-        },
-        update: {},
-        create: { roleId: role.id, permissionId: permission.id },
-      });
-    }
-  }
 
   const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
   const superAdminUser = await prisma.user.upsert({
