@@ -5,11 +5,22 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  Network,
+  Briefcase,
+  FileSpreadsheet,
+  Clock,
+  CalendarCheck,
+  MapPin,
+  ListTodo,
+  Calendar,
+  CalendarDays,
+  Award,
+  Receipt,
+  Ticket,
+  UserMinus,
+  Banknote,
   Building2,
   UsersRound,
-  Clock,
-  Calendar,
-  Banknote,
   Shield,
   Menu as MenuIcon,
   Tag,
@@ -39,6 +50,90 @@ const HR_NAV_ITEMS: SubNavItem[] = [
     icon: Users,
   },
   {
+    id: "org-chart",
+    label: "Org Chart",
+    path: "/hr/org-chart",
+    icon: Network,
+  },
+  {
+    id: "recruitment",
+    label: "Recruitment",
+    path: "/hr/recruitment",
+    icon: Briefcase,
+  },
+  {
+    id: "work-logs",
+    label: "Work Logs",
+    path: "/hr/work-logs",
+    icon: FileSpreadsheet,
+  },
+  {
+    id: "attendance",
+    label: "Attendance",
+    path: "/hr/attendance",
+    icon: Clock,
+  },
+  {
+    id: "regularization",
+    label: "Regularization",
+    path: "/hr/regularization",
+    icon: CalendarCheck,
+  },
+  {
+    id: "location-privilege",
+    label: "Location Privilege",
+    path: "/hr/location-privilege",
+    icon: MapPin,
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    path: "/hr/tasks",
+    icon: ListTodo,
+  },
+  {
+    id: "leaves",
+    label: "Leaves",
+    path: "/hr/leaves",
+    icon: Calendar,
+  },
+  {
+    id: "holidays",
+    label: "Holidays",
+    path: "/hr/holidays",
+    icon: CalendarDays,
+  },
+  {
+    id: "full-month-present",
+    label: "Full Month Present",
+    path: "/hr/full-month-present",
+    icon: Award,
+  },
+  {
+    id: "expense-approvals",
+    label: "Expense Approvals",
+    path: "/hr/expense-approvals",
+    icon: Receipt,
+  },
+  {
+    id: "tickets",
+    label: "Employee Tickets",
+    path: "/hr/tickets",
+    icon: Ticket,
+  },
+  {
+    id: "exit-requests",
+    label: "Exit Requests",
+    path: "/hr/exit-requests",
+    icon: UserMinus,
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    path: "/hr/payroll",
+    icon: Banknote,
+  },
+  {
     id: "departments",
     label: "Departments",
     path: "/hr/departments",
@@ -49,24 +144,6 @@ const HR_NAV_ITEMS: SubNavItem[] = [
     label: "Teams",
     path: "/hr/teams",
     icon: UsersRound,
-  },
-  {
-    id: "attendance",
-    label: "Attendance",
-    path: "/hr/attendance",
-    icon: Clock,
-  },
-  {
-    id: "leaves",
-    label: "Leaves",
-    path: "/hr/leaves",
-    icon: Calendar,
-  },
-  {
-    id: "payroll",
-    label: "Payroll",
-    path: "/hr/payroll",
-    icon: Banknote,
   },
 ];
 
@@ -116,7 +193,10 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
 
   function checkIsActive(item: SubNavItem): boolean {
     if (item.exact) {
-      return pathname === item.path;
+      return (
+        pathname === item.path ||
+        (item.path === "/hr" && pathname === "/hr/dashboard")
+      );
     }
 
     if (item.id === "departments") {

@@ -11,6 +11,6 @@ export async function landingPathAfterLogin(): Promise<string> {
     const employee = await getMyEmployee();
     return employee.onboardingStatus === "COMPLETE" ? "/portal" : "/onboarding";
   } catch {
-    return "/reference/tags";
+    return "/hr";
   }
 }
