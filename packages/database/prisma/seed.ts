@@ -190,6 +190,14 @@ async function main() {
       permission: "hr.attendance_report.read",
     },
     {
+      code: "hr-expense-approvals",
+      label: "Expense Approvals",
+      path: "/hr/expense-approvals",
+      order: 10,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
