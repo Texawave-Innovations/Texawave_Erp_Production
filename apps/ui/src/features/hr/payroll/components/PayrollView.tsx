@@ -13,6 +13,8 @@ import {
   PAYSLIP_READ,
   SALARY_READ,
 } from "../permissions";
+import { BonusesPanel } from "./BonusesPanel";
+import { LoansPanel } from "./LoansPanel";
 import { PanelPlaceholder } from "./PanelPlaceholder";
 import { PeriodsPanel } from "./PeriodsPanel";
 import { SalaryReportPanel } from "./SalaryReportPanel";
@@ -74,10 +76,8 @@ export function PayrollView() {
           {active.id === "salaries" ? (
             <PanelPlaceholder title="Salaries" />
           ) : null}
-          {active.id === "bonuses" ? (
-            <PanelPlaceholder title="Bonuses" />
-          ) : null}
-          {active.id === "loans" ? <PanelPlaceholder title="Loans" /> : null}
+          {active.id === "bonuses" ? <BonusesPanel /> : null}
+          {active.id === "loans" ? <LoansPanel /> : null}
           {active.id === "payslips" ? (
             <PanelPlaceholder title="Payslips" />
           ) : null}

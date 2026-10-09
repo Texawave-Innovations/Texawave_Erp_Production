@@ -30,3 +30,27 @@ export function PayrollStatusBadge({
 export function periodStatusLabel(status: PeriodStatus): string {
   return LABEL[status];
 }
+
+/** Loan, repayment, skip-request, bonus and contribution statuses. */
+const OTHER: Record<string, { label: string; color: StatusColorToken }> = {
+  ACTIVE: { label: "Active", color: "brand" },
+  CLOSED: { label: "Closed", color: "success" },
+  DEFAULTED: { label: "Defaulted", color: "error" },
+  CANCELLED: { label: "Cancelled", color: "gray" },
+  PENDING: { label: "Pending", color: "warning" },
+  PAID: { label: "Paid", color: "success" },
+  SKIPPED: { label: "Skipped", color: "gray" },
+  APPROVED: { label: "Approved", color: "success" },
+  REJECTED: { label: "Rejected", color: "error" },
+  CREDITED: { label: "Credited", color: "success" },
+  FAILED: { label: "Failed", color: "error" },
+};
+
+export function StatusPill({ status }: { status: string }) {
+  const s = OTHER[status] ?? { label: status, color: "gray" as const };
+  return <StatusBadge label={s.label} colorToken={s.color} />;
+}
+
+export function statusLabel(status: string): string {
+  return OTHER[status]?.label ?? status;
+}

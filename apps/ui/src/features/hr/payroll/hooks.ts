@@ -21,7 +21,26 @@ import {
   listRuns,
   type PeriodListQuery,
   type RunListQuery,
+  type BonusListQuery,
+  type ContributionQuery,
+  type CreateBonusBody,
+  type CreateLoanBody,
+  type LoanListQuery,
+  createBonus,
+  createLoan,
+  decideBonus,
+  decideLoanSkip,
+  type EsiProfileBody,
+  getComplianceProfile,
+  listBonuses,
+  listContributions,
+  listLoans,
+  listMyLoans,
+  type PfProfileBody,
+  requestLoanSkip,
+  saveComplianceProfile,
 } from "./api";
+import type { ComplianceKind } from "./types";
 
 /** One root for every payroll query: a period/run change also changes runs,
  * entries and payslips, so mutations invalidate the whole subtree. */
@@ -115,4 +134,130 @@ export function useAllRunEntries(runId: number | null) {
     queryFn: () => listAllRunEntries(runId as number),
     enabled: orgId > 0 && Boolean(runId),
   });
+}
+
+// ---- compliance: PF / ESI ------------------------------------------------
+
+export function useComplianceProfile(
+  kind: ComplianceKind,
+  employeeId: number | null,
+) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, kind, "profile", employeeId ?? 0),
+    queryFn: () => getComplianceProfile(kind, employeeId as number),
+    enabled: orgId > 0 && Boolean(employeeId),
+  });
+}
+
+export function useSaveComplianceProfile(kind: ComplianceKind) {
+  return useOrgScopedMutation(
+    [KEY],
+    ({
+      employeeId,
+      body,
+    }: {
+      employeeId: number;
+      body: PfProfileBody | EsiProfileBody;
+    }) =>
+      saveComplianceProfile(
+        kind,
+        employeeId,
+        body as PfProfileBody & EsiProfileBody,
+      ),
+  );
+}
+
+export function useContributions(
+  kind: ComplianceKind,
+  query: ContributionQuery,
+) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, kind, "contributions", query),
+    queryFn: () => listContributions(kind, query),
+    enabled: orgId > 0,
+  });
+}
+
+// ---- loans ---------------------------------------------------------------
+
+export function useLoans(query: LoanListQuery, enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "loans", query),
+    queryFn: () => listLoans(query),
+    enabled: orgId > 0 && enabled,
+  });
+}
+
+export function useMyLoans(
+  query: Omit<LoanListQuery, "employeeId">,
+  enabled = true,
+) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "my-loans", query),
+    queryFn: () => listMyLoans(query),
+    enabled: orgId > 0 && enabled,
+  });
+}
+
+export function useCreateLoan() {
+  return useOrgScopedMutation([KEY], (body: CreateLoanBody) =>
+    createLoan(body),
+  );
+}
+
+export function useRequestLoanSkip() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({
+      loanId,
+      body,
+    }: {
+      loanId: number;
+      body: { payrollPeriodId: number; reason: string };
+    }) => requestLoanSkip(loanId, body),
+  );
+}
+
+export function useDecideLoanSkip() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, decision }: { id: number; decision: "APPROVED" | "REJECTED" }) =>
+      decideLoanSkip(id, decision),
+  );
+}
+
+// ---- bonuses -------------------------------------------------------------
+
+export function useBonuses(query: BonusListQuery) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "bonuses", query),
+    queryFn: () => listBonuses(query),
+    enabled: orgId > 0,
+  });
+}
+
+export function useCreateBonus() {
+  return useOrgScopedMutation([KEY], (body: CreateBonusBody) =>
+    createBonus(body),
+  );
+}
+
+export function useDecideBonus() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({
+      id,
+      decision,
+      note,
+    }: {
+      id: number;
+      decision: "APPROVED" | "REJECTED";
+      note?: string | undefined;
+    }) => decideBonus(id, { decision, ...(note ? { note } : {}) }),
+  );
 }

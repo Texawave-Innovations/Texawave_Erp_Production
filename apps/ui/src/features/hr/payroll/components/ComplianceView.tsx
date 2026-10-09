@@ -4,7 +4,7 @@ import { type TabItem, Tabs } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { ESI_READ, PF_READ } from "../permissions";
-import { PanelPlaceholder } from "./PanelPlaceholder";
+import { CompliancePanel } from "./CompliancePanel";
 import { NoAccess, SectionHeader } from "./SectionHeader";
 
 type ComplianceTab = "pf" | "esi";
@@ -37,12 +37,8 @@ export function ComplianceView() {
           value={active.id}
           onChange={setRequested}
         >
-          {active.id === "pf" ? (
-            <PanelPlaceholder title="Provident Fund (PF)" />
-          ) : null}
-          {active.id === "esi" ? (
-            <PanelPlaceholder title="Employee State Insurance (ESI)" />
-          ) : null}
+          {active.id === "pf" ? <CompliancePanel kind="pf" /> : null}
+          {active.id === "esi" ? <CompliancePanel kind="esi" /> : null}
         </Tabs>
       )}
     </div>

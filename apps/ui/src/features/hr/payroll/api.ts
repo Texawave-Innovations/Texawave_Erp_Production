@@ -1,10 +1,22 @@
 import type { PaginatedEnvelope } from "@texawave-erp/api-types";
+import { ApiError } from "@texawave-erp/core";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 import type {
+  Bonus,
+  BonusType,
+  ComplianceKind,
+  ContributionPaymentStatus,
+  DecisionStatus,
+  EsiContribution,
+  EsiProfile,
+  Loan,
+  LoanStatus,
   PayrollEntry,
   PayrollPeriod,
   PayrollRun,
   PeriodStatus,
+  PfContribution,
+  PfProfile,
   RunStatus,
 } from "./types";
 
@@ -146,4 +158,182 @@ export async function listAllRunEntries(
     if (page >= (res.meta?.totalPages ?? 1)) break;
   }
   return rows;
+}
+
+// ---- compliance: PF / ESI ------------------------------------------------
+
+const COMPLIANCE = "/hr/compliance";
+
+export type ComplianceProfile<K extends ComplianceKind> = K extends "pf"
+  ? PfProfile
+  : EsiProfile;
+export type Contribution<K extends ComplianceKind> = K extends "pf"
+  ? PfContribution
+  : EsiContribution;
+
+/** null when the employee has no profile yet (the API answers 404). */
+export async function getComplianceProfile<K extends ComplianceKind>(
+  kind: K,
+  employeeId: number,
+): Promise<ComplianceProfile<K> | null> {
+  try {
+    const { data } = await withAuthRetry(() =>
+      apiClient.get<ComplianceProfile<K>>(
+        `${COMPLIANCE}/${kind}/profiles/${employeeId}`,
+      ),
+    );
+    return data;
+  } catch (err) {
+    if (err instanceof ApiError && err.isNotFound) return null;
+    throw err;
+  }
+}
+
+export type PfProfileBody = {
+  pfApplicable: boolean;
+  uan?: string | undefined;
+  pfNumber?: string | undefined;
+  effectiveFrom?: string | undefined;
+  effectiveTo?: string | undefined;
+};
+export type EsiProfileBody = {
+  esiApplicable: boolean;
+  insuranceNumber?: string | undefined;
+  effectiveFrom?: string | undefined;
+  effectiveTo?: string | undefined;
+};
+
+export async function saveComplianceProfile<K extends ComplianceKind>(
+  kind: K,
+  employeeId: number,
+  body: K extends "pf" ? PfProfileBody : EsiProfileBody,
+): Promise<ComplianceProfile<K>> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<ComplianceProfile<K>>(
+      `${COMPLIANCE}/${kind}/profiles/${employeeId}`,
+      body,
+    ),
+  );
+  return data;
+}
+
+export interface ContributionQuery extends PageQuery {
+  payrollPeriodId?: number;
+  employeeId?: number;
+  paymentStatus?: ContributionPaymentStatus;
+}
+
+export function listContributions<K extends ComplianceKind>(
+  kind: K,
+  query: ContributionQuery,
+): Promise<PaginatedEnvelope<Contribution<K>>> {
+  return withAuthRetry(() =>
+    apiClient.get<Contribution<K>[]>(`${COMPLIANCE}/${kind}/contributions`, {
+      query,
+    }),
+  ) as Promise<PaginatedEnvelope<Contribution<K>>>;
+}
+
+// ---- loans ---------------------------------------------------------------
+
+const LOANS = "/hr/loans";
+
+export interface LoanListQuery extends PageQuery {
+  employeeId?: number;
+  status?: LoanStatus;
+}
+
+export function listLoans(
+  query: LoanListQuery,
+): Promise<PaginatedEnvelope<Loan>> {
+  return withAuthRetry(() =>
+    apiClient.get<Loan[]>(LOANS, { query }),
+  ) as Promise<PaginatedEnvelope<Loan>>;
+}
+
+export function listMyLoans(
+  query: Omit<LoanListQuery, "employeeId">,
+): Promise<PaginatedEnvelope<Loan>> {
+  return withAuthRetry(() =>
+    apiClient.get<Loan[]>("/self-service/loans", { query }),
+  ) as Promise<PaginatedEnvelope<Loan>>;
+}
+
+export interface CreateLoanBody {
+  employeeId: number;
+  principalAmount: number;
+  emiAmount: number;
+  emiMonths: number;
+  disbursedDate: string;
+  reason?: string | undefined;
+}
+
+export async function createLoan(body: CreateLoanBody): Promise<Loan> {
+  const { data } = await withAuthRetry(() => apiClient.post<Loan>(LOANS, body));
+  return data;
+}
+
+export async function requestLoanSkip(
+  loanId: number,
+  body: { payrollPeriodId: number; reason: string },
+): Promise<unknown> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<unknown>(`${LOANS}/${loanId}/skip-request`, body),
+  );
+  return data;
+}
+
+export async function decideLoanSkip(
+  skipRequestId: number,
+  decision: Exclude<DecisionStatus, "PENDING">,
+): Promise<unknown> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<unknown>(`${LOANS}/skip-requests/${skipRequestId}/decide`, {
+      decision,
+    }),
+  );
+  return data;
+}
+
+// ---- bonuses -------------------------------------------------------------
+
+const BONUSES = "/hr/bonuses";
+
+export interface BonusListQuery extends PageQuery {
+  employeeId?: number;
+  payrollPeriodId?: number;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+}
+
+export function listBonuses(
+  query: BonusListQuery,
+): Promise<PaginatedEnvelope<Bonus>> {
+  return withAuthRetry(() =>
+    apiClient.get<Bonus[]>(BONUSES, { query }),
+  ) as Promise<PaginatedEnvelope<Bonus>>;
+}
+
+export interface CreateBonusBody {
+  employeeId: number;
+  bonusType: BonusType;
+  amount: number;
+  payrollPeriodId?: number | undefined;
+  reason?: string | undefined;
+}
+
+export async function createBonus(body: CreateBonusBody): Promise<Bonus> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Bonus>(BONUSES, body),
+  );
+  return data;
+}
+
+export async function decideBonus(
+  id: number,
+  body: { decision: "APPROVED" | "REJECTED"; note?: string | undefined },
+): Promise<Bonus> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Bonus>(`${BONUSES}/${id}/decide`, body),
+  );
+  return data;
 }

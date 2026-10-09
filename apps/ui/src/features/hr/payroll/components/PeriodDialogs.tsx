@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Button,
   Dialog,
   FormField,
   Input,
@@ -25,49 +24,7 @@ import {
 import { createPeriodSchema, runNotesSchema } from "../schema";
 import type { PayrollPeriod, PayrollRun } from "../types";
 
-function ServerError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <p
-      role="alert"
-      className="text-theme-xs text-error-600 dark:text-error-400"
-    >
-      {message}
-    </p>
-  );
-}
-
-function Actions({
-  onCancel,
-  submitting,
-  submitLabel,
-  destructive = false,
-}: {
-  onCancel: () => void;
-  submitting: boolean;
-  submitLabel: string;
-  destructive?: boolean;
-}) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={onCancel}
-        disabled={submitting}
-      >
-        Cancel
-      </Button>
-      <Button
-        type="submit"
-        variant={destructive ? "destructive" : "primary"}
-        loading={submitting}
-      >
-        {submitLabel}
-      </Button>
-    </div>
-  );
-}
+import { DialogActions as Actions, ServerError } from "./DialogParts";
 
 // ---- create period --------------------------------------------------------
 

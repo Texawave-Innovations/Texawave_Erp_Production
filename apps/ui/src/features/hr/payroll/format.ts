@@ -65,6 +65,13 @@ const ERROR_TEXT: Record<string, string> = {
   NO_ELIGIBLE_EMPLOYEES: "No eligible employees were found for this period.",
   CALCULATION_EMPTY: "Payroll could not be calculated for any employee.",
   RUN_ALREADY_APPROVED: "This payroll run is already approved.",
+  PERIOD_FINALIZED:
+    "That payroll period is finalized, so it can no longer change.",
+  ALREADY_DECIDED:
+    "This was already decided by someone else. Refresh to see it.",
+  LOAN_NOT_ACTIVE: "Only an active loan can skip an EMI.",
+  LOAN_SCHEDULE_INVALID:
+    "EMI × months must cover the principal, and the last installment can't be empty.",
   INVALID_STATE_TRANSITION:
     "That action is not allowed in the current status. Refresh and try again.",
 };
