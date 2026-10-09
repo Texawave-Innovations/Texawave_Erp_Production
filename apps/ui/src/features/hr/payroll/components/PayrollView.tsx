@@ -15,10 +15,17 @@ import {
 } from "../permissions";
 import { PanelPlaceholder } from "./PanelPlaceholder";
 import { PeriodsPanel } from "./PeriodsPanel";
+import { SalaryReportPanel } from "./SalaryReportPanel";
 import { NoAccess, SectionHeader } from "./SectionHeader";
 
 type PayrollTab =
-  "periods" | "salaries" | "bonuses" | "loans" | "payslips" | "payments";
+  | "periods"
+  | "salaries"
+  | "bonuses"
+  | "loans"
+  | "payslips"
+  | "payments"
+  | "report";
 
 /** HR → Payroll. One tab per area; each shows only when the user can read
  * it. Payslips/Loans also show for an employee who can only see their own. */
@@ -40,6 +47,7 @@ export function PayrollView() {
   if (canPayslips || canMyPayslips)
     tabs.push({ id: "payslips", label: "Payslips" });
   if (canPayments) tabs.push({ id: "payments", label: "Payments" });
+  if (canPeriods) tabs.push({ id: "report", label: "Salary report" });
 
   const [requested, setRequested] = useState<PayrollTab>("periods");
   const active = tabs.find((t) => t.id === requested) ?? tabs[0];
@@ -76,6 +84,7 @@ export function PayrollView() {
           {active.id === "payments" ? (
             <PanelPlaceholder title="Payments" />
           ) : null}
+          {active.id === "report" ? <SalaryReportPanel /> : null}
         </Tabs>
       )}
     </div>

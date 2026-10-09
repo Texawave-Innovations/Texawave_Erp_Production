@@ -131,3 +131,19 @@ export function listEntries(
     apiClient.get<PayrollEntry[]>(ENTRIES, { query }),
   ) as Promise<PaginatedEnvelope<PayrollEntry>>;
 }
+
+/** Every entry of one run, across pages — for reports that need totals.
+ * Capped so a runaway result can't loop forever (100 × 50 = 5,000 rows). */
+export async function listAllRunEntries(
+  payrollRunId: number,
+): Promise<PayrollEntry[]> {
+  const LIMIT = 100;
+  const MAX_PAGES = 50;
+  const rows: PayrollEntry[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const res = await listEntries({ page, limit: LIMIT, payrollRunId });
+    rows.push(...res.data);
+    if (page >= (res.meta?.totalPages ?? 1)) break;
+  }
+  return rows;
+}

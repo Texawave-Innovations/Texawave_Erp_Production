@@ -36,6 +36,11 @@ export interface EmployeeRef {
   fullName: string;
 }
 
+export interface NamedRef {
+  id: number;
+  name: string;
+}
+
 export interface PeriodRef {
   id: number;
   year: number;
@@ -102,7 +107,10 @@ export interface PayrollEntry {
   totalDeductions: Money;
   netPayable: Money;
   status: string;
-  employee: EmployeeRef;
+  employee: EmployeeRef & {
+    team: NamedRef | null;
+    department: NamedRef | null;
+  };
   earnings: Array<{
     id: number;
     code: string;

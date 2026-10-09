@@ -28,6 +28,7 @@ test("Payroll is reachable from the sidebar and its tabs switch panels", async (
     "Loans",
     "Payslips",
     "Payments",
+    "Salary report",
   ]) {
     await expect(tablist.getByRole("tab", { name })).toBeVisible();
   }

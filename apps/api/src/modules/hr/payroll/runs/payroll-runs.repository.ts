@@ -41,6 +41,9 @@ const INCLUDE_ENTRY_DETAILS = {
       fullName: true,
       teamId: true,
       userId: true,
+      // Names for the salary report's team/department filters.
+      team: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
     },
   },
   payrollRun: {

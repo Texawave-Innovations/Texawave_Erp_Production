@@ -15,6 +15,7 @@ import {
   finalizePeriod,
   getEntry,
   getPeriod,
+  listAllRunEntries,
   listEntries,
   listPeriods,
   listRuns,
@@ -104,5 +105,14 @@ export function useEntry(id: number | null) {
     queryKey: orgScopedKey(orgId, KEY, "entry", id ?? 0),
     queryFn: () => getEntry(id as number),
     enabled: orgId > 0 && Boolean(id),
+  });
+}
+
+export function useAllRunEntries(runId: number | null) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "run-entries-all", runId ?? 0),
+    queryFn: () => listAllRunEntries(runId as number),
+    enabled: orgId > 0 && Boolean(runId),
   });
 }

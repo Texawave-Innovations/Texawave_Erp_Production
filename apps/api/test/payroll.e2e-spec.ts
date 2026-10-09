@@ -103,6 +103,10 @@ describe("Payroll & Compliance (e2e)", () => {
 
   interface EntryItem {
     employeeId: number;
+    employee: {
+      team: { id: number; name: string } | null;
+      department: { id: number; name: string } | null;
+    };
     totalGrossEarnings: number | string;
     totalDeductions: number | string;
     netPayable: number | string;
@@ -545,6 +549,15 @@ describe("Payroll & Compliance (e2e)", () => {
     // Net payable: 55000 - 2800 = 52200
     const entry1 = entries.find((e) => e.employeeId === employeeId1);
     expect(entry1).toBeDefined();
+    // Team and department names ride along for the salary report filters
+    expect(entry1?.employee.team).toEqual({
+      id: teamId,
+      name: `Team A ${suffix}`,
+    });
+    expect(entry1?.employee.department).toEqual({
+      id: departmentId,
+      name: `Eng ${suffix}`,
+    });
     expect(Number(entry1?.totalGrossEarnings)).toBe(55000);
     expect(Number(entry1?.totalDeductions)).toBe(2800);
     expect(Number(entry1?.netPayable)).toBe(52200);
