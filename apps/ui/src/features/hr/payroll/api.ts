@@ -117,6 +117,13 @@ export interface EntryListQuery extends PageQuery {
   employeeId?: number;
 }
 
+export async function getEntry(id: number): Promise<PayrollEntry> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PayrollEntry>(`${ENTRIES}/${id}`),
+  );
+  return data;
+}
+
 export function listEntries(
   query: EntryListQuery,
 ): Promise<PaginatedEnvelope<PayrollEntry>> {

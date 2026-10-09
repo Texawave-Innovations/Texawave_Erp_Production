@@ -10,7 +10,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
-import { isoDate, periodLabel } from "../format";
+import { isoDate, periodLabel, timestamp } from "../format";
 import { usePeriods, useRuns } from "../hooks";
 import {
   PAYROLL_APPROVE,
@@ -24,6 +24,7 @@ import {
   type PeriodStatus,
 } from "../types";
 import { EntriesDialog } from "./EntriesDialog";
+import { PayrollLifecycle } from "./PayrollLifecycle";
 import { PayrollStatusBadge, periodStatusLabel } from "./PayrollStatusBadge";
 import {
   ApproveRunDialog,
@@ -105,6 +106,10 @@ function PeriodDetail({
           </div>
         </div>
 
+        {runs.isSuccess ? (
+          <PayrollLifecycle period={period} runs={rows} />
+        ) : null}
+
         <QueryState query={runs} area="payroll runs" />
         {runs.isSuccess && rows.length === 0 ? (
           <EmptyState
@@ -125,12 +130,39 @@ function PeriodDetail({
               { header: "Run", cell: (r) => `#${r.runNumber}` },
               {
                 header: "Status",
-                cell: (r) => <PayrollStatusBadge status={r.status} />,
+                cell: (r) => (
+                  <span className="flex flex-col items-start gap-0.5">
+                    <PayrollStatusBadge status={r.status} />
+                    {r.status === "CANCELLED" ? (
+                      <span className="text-theme-xs text-gray-500">
+                        Replaced by a later run
+                      </span>
+                    ) : null}
+                  </span>
+                ),
               },
               { header: "Employees", cell: (r) => r._count.entries },
               {
                 header: "Run by",
-                cell: (r) => r.runCreator?.fullName ?? "—",
+                cell: (r) => (
+                  <span className="flex flex-col">
+                    <span>{r.runCreator?.fullName ?? "—"}</span>
+                    <span className="text-theme-xs text-gray-500">
+                      {timestamp(r.completedAt ?? r.startedAt)}
+                    </span>
+                  </span>
+                ),
+              },
+              {
+                header: "Notes",
+                cell: (r) =>
+                  r.notes ? (
+                    <span className="line-clamp-2 max-w-48" title={r.notes}>
+                      {r.notes}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
               },
               {
                 header: "Approved by",

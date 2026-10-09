@@ -88,10 +88,16 @@ export interface PayrollEntry {
   totalCalendarDays: number;
   requiredWorkingDays: number;
   presentDays: Money;
+  halfDays: Money;
+  holidayDays: Money;
   leaveDays: Money;
   lopDays: Money;
   payableDays: Money;
   monthlyGross: Money;
+  perDayRate: Money;
+  /** payableDays ÷ requiredWorkingDays, e.g. "0.9545". */
+  earningRatio: Money;
+  baseEarnings: Money;
   totalGrossEarnings: Money;
   totalDeductions: Money;
   netPayable: Money;
@@ -101,8 +107,17 @@ export interface PayrollEntry {
     id: number;
     code: string;
     name: string;
+    baseAmount: Money;
+    earningRatio: Money;
     calculatedAmount: Money;
   }>;
-  deductions: Array<{ id: number; code: string; name: string; amount: Money }>;
+  deductions: Array<{
+    id: number;
+    code: string;
+    name: string;
+    amount: Money;
+    /** Where the deduction came from, e.g. "STATUTORY", "LOAN". */
+    sourceType: string | null;
+  }>;
   payslip: { id: number; payslipNumber: string; status: string } | null;
 }

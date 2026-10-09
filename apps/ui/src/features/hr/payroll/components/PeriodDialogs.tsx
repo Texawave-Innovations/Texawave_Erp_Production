@@ -10,6 +10,10 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import {
+  EmployeePicker,
+  type EmployeeOption,
+} from "@/components/widgets/EmployeePicker";
 import { describeError, MONTH_OPTIONS, periodLabel } from "../format";
 import {
   useApproveRun,
@@ -268,31 +272,154 @@ export function RunPayrollDialog({
 }) {
   const run = useCreateRun();
   const { toast } = useToast();
+  const [scope, setScope] = useState<"all" | "selected">("all");
+  const [picking, setPicking] = useState<EmployeeOption | null>(null);
+  const [selected, setSelected] = useState<EmployeeOption[]>([]);
+  const [notes, setNotes] = useState("");
+  const [errors, setErrors] = useState<{
+    employees?: string | undefined;
+    notes?: string | undefined;
+  }>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  function addPicked(employee: EmployeeOption | null) {
+    setPicking(null);
+    if (employee && !selected.some((e) => e.id === employee.id)) {
+      setSelected((list) => [...list, employee]);
+      setErrors((e) => ({ ...e, employees: undefined }));
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const next: typeof errors = {};
+    const parsed = runNotesSchema.safeParse({ notes });
+    if (!parsed.success) next.notes = parsed.error.issues[0]?.message;
+    if (scope === "selected" && selected.length === 0)
+      next.employees = "Add at least one employee";
+    setErrors(next);
+    if (!parsed.success || next.employees) return;
+
+    setServerError(null);
+    try {
+      const created = await run.mutateAsync({
+        payrollPeriodId: period.id,
+        ...(scope === "selected"
+          ? { employeeIds: selected.map((s) => s.id) }
+          : {}),
+        ...(parsed.data.notes ? { notes: parsed.data.notes } : {}),
+      });
+      toast({
+        title: `Run #${created.runNumber} processed`,
+        variant: "success",
+      });
+      onClose();
+    } catch (err) {
+      setServerError(describeError(err));
+    }
+  }
+
   return (
-    <NotesDialog
-      open={open}
-      onClose={onClose}
-      title="Run payroll"
-      submitLabel="Run payroll"
-      submitting={run.isPending}
-      intro={
-        <>
-          Calculates pay for every eligible employee for{" "}
-          <strong>{periodLabel(period)}</strong>. Running again replaces the
-          previous unapproved run.
-        </>
-      }
-      onSubmit={async (notes) => {
-        const created = await run.mutateAsync({
-          payrollPeriodId: period.id,
-          ...(notes ? { notes } : {}),
-        });
-        toast({
-          title: `Run #${created.runNumber} processed`,
-          variant: "success",
-        });
-      }}
-    />
+    <Dialog open={open} onClose={onClose} title="Run payroll">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <p className="rounded-lg bg-gray-50 p-3 text-theme-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          Calculates pay for <strong>{periodLabel(period)}</strong> from
+          salaries, attendance, leave, loans and bonuses. Running again replaces
+          the previous unapproved run.
+        </p>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-theme-sm font-medium text-gray-700 dark:text-white/90">
+            Employees
+          </legend>
+          {(
+            [
+              ["all", "All eligible employees"],
+              ["selected", "Selected employees only"],
+            ] as const
+          ).map(([value, text]) => (
+            <label
+              key={value}
+              className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300"
+            >
+              <input
+                type="radio"
+                name="run-scope"
+                value={value}
+                checked={scope === value}
+                disabled={run.isPending}
+                onChange={() => setScope(value)}
+              />
+              {text}
+            </label>
+          ))}
+        </fieldset>
+
+        {scope === "selected" ? (
+          <div className="flex flex-col gap-2">
+            <FormField
+              label="Add employee"
+              error={errors.employees}
+              hint="Pick employees one at a time."
+            >
+              {(f) => (
+                <EmployeePicker
+                  {...f}
+                  value={picking}
+                  onChange={addPicked}
+                  disabled={run.isPending}
+                />
+              )}
+            </FormField>
+            {selected.length > 0 ? (
+              <ul
+                aria-label="Selected employees"
+                className="flex flex-wrap gap-2"
+              >
+                {selected.map((emp) => (
+                  <li
+                    key={emp.id}
+                    className="flex items-center gap-1 rounded-full bg-brand-50 py-1 pr-1 pl-3 text-theme-xs text-brand-800 dark:bg-brand-950 dark:text-brand-300"
+                  >
+                    {emp.fullName} ({emp.employeeCode})
+                    <button
+                      type="button"
+                      aria-label={`Remove ${emp.fullName}`}
+                      className="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900"
+                      onClick={() =>
+                        setSelected((list) =>
+                          list.filter((x) => x.id !== emp.id),
+                        )
+                      }
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        <FormField label="Notes" hint="Optional." error={errors.notes}>
+          {(f) => (
+            <Textarea
+              {...f}
+              rows={2}
+              value={notes}
+              disabled={run.isPending}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          )}
+        </FormField>
+        <ServerError message={serverError} />
+        <Actions
+          onCancel={onClose}
+          submitting={run.isPending}
+          submitLabel="Run payroll"
+        />
+      </form>
+    </Dialog>
   );
 }
 

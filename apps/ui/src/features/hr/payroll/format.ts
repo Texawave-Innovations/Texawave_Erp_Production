@@ -45,6 +45,15 @@ export function isoDate(value: string | null | undefined): string {
   return value ? value.slice(0, 10) : "—";
 }
 
+/** ISO timestamp → "8 Oct 2026, 14:05" in the viewer's locale/timezone. */
+export function timestamp(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
 /** Business-rule codes the payroll API returns, in words an HR user acts on.
  * Anything else falls back to the server's own message. */
 const ERROR_TEXT: Record<string, string> = {
