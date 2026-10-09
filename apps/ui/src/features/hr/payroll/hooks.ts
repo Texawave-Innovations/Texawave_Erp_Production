@@ -39,8 +39,19 @@ import {
   type PfProfileBody,
   requestLoanSkip,
   saveComplianceProfile,
+  type BatchListQuery,
+  type PayslipListQuery,
+  type UpdatePaymentBody,
+  createPaymentBatch,
+  generatePayslips,
+  getPaymentBatch,
+  listMyPayslips,
+  listPaymentBatches,
+  listPayslips,
+  processPaymentBatch,
+  updatePayment,
 } from "./api";
-import type { ComplianceKind } from "./types";
+import type { ComplianceKind, PaymentMethod } from "./types";
 
 /** One root for every payroll query: a period/run change also changes runs,
  * entries and payslips, so mutations invalidate the whole subtree. */
@@ -259,5 +270,74 @@ export function useDecideBonus() {
       decision: "APPROVED" | "REJECTED";
       note?: string | undefined;
     }) => decideBonus(id, { decision, ...(note ? { note } : {}) }),
+  );
+}
+
+// ---- payslips ------------------------------------------------------------
+
+export function usePayslips(query: PayslipListQuery, enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "payslips", query),
+    queryFn: () => listPayslips(query),
+    enabled: orgId > 0 && enabled,
+  });
+}
+
+export function useMyPayslips(
+  query: Omit<PayslipListQuery, "employeeId">,
+  enabled = true,
+) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "my-payslips", query),
+    queryFn: () => listMyPayslips(query),
+    enabled: orgId > 0 && enabled,
+  });
+}
+
+export function useGeneratePayslips() {
+  return useOrgScopedMutation([KEY], (payrollPeriodId: number) =>
+    generatePayslips(payrollPeriodId),
+  );
+}
+
+// ---- payments ------------------------------------------------------------
+
+export function usePaymentBatches(query: BatchListQuery) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "payment-batches", query),
+    queryFn: () => listPaymentBatches(query),
+    enabled: orgId > 0,
+  });
+}
+
+export function usePaymentBatch(id: number | null) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "payment-batch", id ?? 0),
+    queryFn: () => getPaymentBatch(id as number),
+    enabled: orgId > 0 && Boolean(id),
+  });
+}
+
+export function useCreatePaymentBatch() {
+  return useOrgScopedMutation(
+    [KEY],
+    (body: { payrollPeriodId: number; paymentMethod: PaymentMethod }) =>
+      createPaymentBatch(body),
+  );
+}
+
+export function useProcessPaymentBatch() {
+  return useOrgScopedMutation([KEY], (id: number) => processPaymentBatch(id));
+}
+
+export function useUpdatePayment() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, body }: { id: number; body: UpdatePaymentBody }) =>
+      updatePayment(id, body),
   );
 }

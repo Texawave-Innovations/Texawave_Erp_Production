@@ -300,7 +300,11 @@ function ProfileSection({ kind }: { kind: ComplianceKind }) {
               />
             ) : null}
           </>
-        ) : null}
+        ) : (
+          <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+            Choose an employee to see or edit their {cfg.name} registration.
+          </p>
+        )}
       </section>
     </Card>
   );

@@ -11,6 +11,12 @@ import type {
   EsiProfile,
   Loan,
   LoanStatus,
+  PaymentBatch,
+  PaymentMethod,
+  PaymentStatus,
+  BatchStatus,
+  PayrollPayment,
+  Payslip,
   PayrollEntry,
   PayrollPeriod,
   PayrollRun,
@@ -334,6 +340,117 @@ export async function decideBonus(
 ): Promise<Bonus> {
   const { data } = await withAuthRetry(() =>
     apiClient.post<Bonus>(`${BONUSES}/${id}/decide`, body),
+  );
+  return data;
+}
+
+// ---- payslips ------------------------------------------------------------
+
+export interface PayslipListQuery extends PageQuery {
+  employeeId?: number;
+  payrollPeriodId?: number;
+}
+
+export function listPayslips(
+  query: PayslipListQuery,
+): Promise<PaginatedEnvelope<Payslip>> {
+  return withAuthRetry(() =>
+    apiClient.get<Payslip[]>("/hr/payslips", { query }),
+  ) as Promise<PaginatedEnvelope<Payslip>>;
+}
+
+export function listMyPayslips(
+  query: Omit<PayslipListQuery, "employeeId">,
+): Promise<PaginatedEnvelope<Payslip>> {
+  return withAuthRetry(() =>
+    apiClient.get<Payslip[]>("/self-service/payslips", { query }),
+  ) as Promise<PaginatedEnvelope<Payslip>>;
+}
+
+/** (Re)generates the payslips of a period's approved run. */
+export async function generatePayslips(
+  payrollPeriodId: number,
+): Promise<Payslip[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Payslip[]>("/hr/payslips/generate", { payrollPeriodId }),
+  );
+  return data;
+}
+
+/** The payslip PDF, from the HR or the self-service route. */
+export function downloadPayslipPdf(
+  id: number,
+  selfService: boolean,
+): Promise<Blob> {
+  const base = selfService ? "/self-service/payslips" : "/hr/payslips";
+  return withAuthRetry(() => apiClient.download(`${base}/${id}/pdf`));
+}
+
+// ---- payments ------------------------------------------------------------
+
+const BATCHES = "/hr/payment-batches";
+
+export interface BatchListQuery extends PageQuery {
+  payrollPeriodId?: number;
+  status?: BatchStatus;
+}
+
+export function listPaymentBatches(
+  query: BatchListQuery,
+): Promise<PaginatedEnvelope<PaymentBatch>> {
+  return withAuthRetry(() =>
+    apiClient.get<PaymentBatch[]>(BATCHES, { query }),
+  ) as Promise<PaginatedEnvelope<PaymentBatch>>;
+}
+
+export async function getPaymentBatch(id: number): Promise<PaymentBatch> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PaymentBatch>(`${BATCHES}/${id}`),
+  );
+  return data;
+}
+
+export async function createPaymentBatch(body: {
+  payrollPeriodId: number;
+  paymentMethod: PaymentMethod;
+}): Promise<PaymentBatch> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<PaymentBatch>(BATCHES, body),
+  );
+  return data;
+}
+
+/** Marks the batch processed and its still-pending payments paid. */
+export async function processPaymentBatch(id: number): Promise<PaymentBatch> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<PaymentBatch>(`${BATCHES}/${id}/process`, {}),
+  );
+  return data;
+}
+
+/** The bank-transfer CSV (full account numbers — the bank needs them). */
+export async function exportPaymentBatch(
+  id: number,
+): Promise<{ fileName: string; content: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ fileName: string; content: string }>(
+      `${BATCHES}/${id}/export`,
+    ),
+  );
+  return data;
+}
+
+export interface UpdatePaymentBody {
+  status?: PaymentStatus | undefined;
+  bankReference?: string | undefined;
+}
+
+export async function updatePayment(
+  id: number,
+  body: UpdatePaymentBody,
+): Promise<PayrollPayment> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<PayrollPayment>(`/hr/payments/${id}`, body),
   );
   return data;
 }

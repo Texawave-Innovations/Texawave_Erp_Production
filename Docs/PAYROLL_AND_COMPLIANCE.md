@@ -730,17 +730,17 @@ A deliberately simple, standards-compliant first version — meant as the base f
 
 **Navigation.** Two sidebar entries under HR (menu rows `hr-payroll` order 16, `hr-compliance` order 17, `permission: null` in `packages/database/prisma/seed.ts` — run `pnpm --filter database seed`). Each screen is a tab bar; a tab appears only when the user can read it, and with no readable tab the screen shows a "No access" alert.
 
-| Route            | Tab            | Shown when the user has (any of `.own`/`.team`/`.all` unless noted) | Status                                         |
-| :--------------- | :------------- | :------------------------------------------------------------------ | :--------------------------------------------- |
-| `/hr/payroll`    | Periods & runs | `hr.payroll.read`                                                   | **Built**                                      |
-|                  | Salaries       | `hr.salary.read`                                                    | Placeholder                                    |
-|                  | Bonuses        | `hr.bonus.read`                                                     | **Built**                                      |
-|                  | Loans          | `hr.loan.read` or `employee_self_service.loan.read` (exact)         | **Built**                                      |
-|                  | Payslips       | `hr.payslip.read` or `employee_self_service.payslip.read` (exact)   | Placeholder (PDF download API is ready — §4.7) |
-|                  | Payments       | `hr.payment.read`                                                   | Placeholder                                    |
-|                  | Salary report  | `hr.payroll.read`                                                   | **Built**                                      |
-| `/hr/compliance` | PF             | `hr.pf.read`                                                        | **Built**                                      |
-|                  | ESI            | `hr.esi.read`                                                       | **Built**                                      |
+| Route            | Tab            | Shown when the user has (any of `.own`/`.team`/`.all` unless noted) | Status                                          |
+| :--------------- | :------------- | :------------------------------------------------------------------ | :---------------------------------------------- |
+| `/hr/payroll`    | Periods & runs | `hr.payroll.read`                                                   | **Built**                                       |
+|                  | Salaries       | `hr.salary.read`                                                    | Placeholder                                     |
+|                  | Bonuses        | `hr.bonus.read`                                                     | **Built**                                       |
+|                  | Loans          | `hr.loan.read` or `employee_self_service.loan.read` (exact)         | **Built**                                       |
+|                  | Payslips       | `hr.payslip.read` or `employee_self_service.payslip.read` (exact)   | **Built**                                       |
+|                  | Payments       | `hr.payment.read`                                                   | **Built** (batches need an `.all` grant — §4.8) |
+|                  | Salary report  | `hr.payroll.read`                                                   | **Built**                                       |
+| `/hr/compliance` | PF             | `hr.pf.read`                                                        | **Built**                                       |
+|                  | ESI            | `hr.esi.read`                                                       | **Built**                                       |
 
 **Periods & runs** (`components/PeriodsPanel.tsx`, `PeriodDialogs.tsx`, `EntriesDialog.tsx`, `PayrollLifecycle.tsx`)
 
@@ -778,11 +778,32 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - **Approve / Reject** (`hr.bonus.approve`, pending) with an optional note. Not offered to the bonus's creator (`createdBy`) or its recipient (`employee.userId`).
 - Known API inconsistency: finalization sets a paid bonus to **`PAID`**, but the list filter (`QueryBonusDto`) accepts `PENDING`/`APPROVED`/`PROCESSED`/`REJECTED` and rejects `PAID`, so the UI offers no "Paid" filter. Paid bonuses still show under "All statuses".
 
+**Payslips** (`components/PayslipsPanel.tsx`)
+
+- **My payslips** (`employee_self_service.payslip.read`): own payslips, hidden for `403 NOT_AN_EMPLOYEE`. **Employee payslips** (`hr.payslip.read`): period and employee filters sent to the API; columns payslip #, employee, period, net pay, issued.
+- **View** shows the payslip as issued (no extra request — the list row carries everything): designation, department, payable / LOP days, bank + account, PAN, UAN, ESI number, earnings and deductions tables, gross / deductions / net. Account number and PAN arrive **masked** from the API (last four characters).
+- **Download PDF** (row and detail): `GET /hr/payslips/:id/pdf`, or `/self-service/payslips/:id/pdf` from "My payslips"; saved as `<payslip number>.pdf`. The button shows a spinner while the API renders it; a failure (e.g. no PDF browser on the server — `PDF_BROWSER_CHANNEL`, Docs/ARCHITECTURE.md §9) becomes an error toast.
+- **Generate payslips** (`hr.payroll.write`): lists only periods with status `APPROVED` or `FINALIZED`; re-generating refreshes existing payslips, never duplicates them. Finalizing a period already generates them.
+
+**Payments** (`components/PaymentsPanel.tsx`)
+
+- Batch list: status and period filters; columns batch #, period, employees, total, status, created (date + by). A `.team` / `.own` holder gets the API's `403` and sees "You don't have access to payment batches".
+- **New payment batch** (`hr.payment.write`): only `FINALIZED` periods are offered; method Bank transfer / Cash / Cheque. The API refuses a second batch for the period (`PAYMENT_BATCH_EXISTS`) and, for bank transfer, names employees without bank details (`BANK_DETAILS_MISSING`). The new batch opens straight away.
+- **Batch detail:** summary, payments table (employee, bank + masked account, amount, method, status, reference, credited on). **Export bank file** downloads the API's CSV (full account numbers — the only place they appear). **Process batch** (`hr.payment.write`, batch `PENDING`) asks for confirmation inline, then marks every pending payment paid.
+- **Update** one payment (`hr.payment.write`, not `PAID`/`CANCELLED`): status limited to the API's transitions (Pending → Paid / Failed / Cancelled; Failed → Pending / Paid / Cancelled) and bank reference (e.g. UTR). Confirm and edit steps are inline, not nested dialogs (see the `Dialog` id bug below).
+
+**Loading, error and empty states** (every tab)
+
+- Lists: skeleton rows while loading; a **403** shows "You don't have access to …"; any other failure shows "Something went wrong" with **Try again** (5xx are retried twice first); an empty result explains why (e.g. "Payslips are issued when a payroll period is finalized") and differs when filters are set.
+- Dropdowns fed by the API (periods, employees) say "Loading …" / "Could not load …" in their first option and are disabled while loading. Cancelled periods are never offered as a filter.
+- Every action button shows a spinner and is disabled while its request runs; server errors appear inline in the dialog (`role="alert"`), business codes in plain English (`format.ts`).
+- PF / ESI registration prompts "Choose an employee …" before one is picked.
+
 **Shared building blocks**
 
 - `Tabs` — `packages/ui-kit/src/components/tabs` (Docs/DESIGN_SYSTEM.md §2).
 - `EmployeePicker` — `apps/ui/src/components/widgets/EmployeePicker.tsx` (search + select over `GET /hr/employees`, scope-filtered server-side).
-- `OpenPeriodSelect` (periods that are not finalized or cancelled), `DialogParts` (`ServerError`, `DialogActions`), `StatusPill` (loan, repayment, skip, bonus and contribution statuses).
+- `OpenPeriodSelect` (periods that are not finalized or cancelled), `PeriodFilterSelect` ("All periods" filter without cancelled periods), `download.ts` (`downloadBlob` / `downloadText`), `DialogParts` (`ServerError`, `DialogActions`), `StatusPill` (loan, repayment, skip, bonus and contribution statuses).
 - Feature internals: `api.ts` / `hooks.ts` (query key root `hr-payroll`; every mutation invalidates it), `types.ts`, `schema.ts` (zod), `format.ts` (`money`, `periodLabel`, `describeError` — business error codes mapped to plain-English messages), `permissions.ts`, `QueryState.tsx` (loading / no access / error-with-retry).
 - **Known ui-kit bug:** `Dialog` uses a fixed `id="dialog-title"`, so two mounted dialogs share one accessible name. Payroll mounts each dialog only while open; fix `Dialog` with `useId()` in a separate PR.
 
@@ -867,14 +888,16 @@ HR
   - The PDF renderer is replaced by a stub in this suite, so it needs no browser; the PDF layout itself is covered by the template unit test.
 - **Browser (UI) E2E Tests — Playwright:** `apps/ui/e2e/`
 
-  | Spec                               | Covers                                                                                                                                                                                              | Data                                    |
-  | :--------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- |
-  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period    | Real API + dev DB                       |
-  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                          | Real sign-in, payroll API from fixtures |
-  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                            | Real sign-in, payroll API from fixtures |
-  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters       | Real API (test 1), then fixtures        |
-  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip | Real sign-in, loans API from fixtures   |
-  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                            | Real sign-in, bonuses API from fixtures |
+  | Spec                               | Covers                                                                                                                                                                                                                                                                              | Data                                     |
+  | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
+  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period                                                                                    | Real API + dev DB                        |
+  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                                                                                                          | Real sign-in, payroll API from fixtures  |
+  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                                                                                                            | Real sign-in, payroll API from fixtures  |
+  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters                                                                                       | Real API (test 1), then fixtures         |
+  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip                                                                                 | Real sign-in, loans API from fixtures    |
+  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                                                                                                            | Real sign-in, bonuses API from fixtures  |
+  | `hr-payroll-payslips.spec.ts`      | "My payslips" hidden for `NOT_AN_EMPLOYEE`; HR list; payslip breakdown with masked bank/PAN; PDF download from the HR route and from "My payslips" (self-service route); period + employee filters; Generate validation and body; error state → Try again → empty state             | Real sign-in, payslips API from fixtures |
+  | `hr-payroll-payments.spec.ts`      | Empty state; New batch offers only finalized periods, validation, exact POST body, opens the batch; payments table; bank-file download; Process batch confirm / cancel / confirm; Update offers only allowed statuses, exact PATCH body; PAID payment not editable; `403` explained | Real sign-in, payments API from fixtures |
 
   Fixture-backed specs exist because a dev DB usually has no employees, salaries or processed runs, and approval needs a second user. They prove UI behaviour; the API e2e suite proves the numbers.
 
@@ -906,30 +929,39 @@ HR
 
 #### UI test cases (manual or Playwright)
 
-| Test Case    | Steps                                                                               | Expected Result                                                                                                  |
-| :----------- | :---------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| **TC-UI-01** | User with no payroll / compliance permission opens HR → Payroll and HR → Compliance | "No access" alert; no tabs.                                                                                      |
-| **TC-UI-02** | User with only `hr.salary.read.team` opens Payroll                                  | Only the Salaries tab; Periods & runs and Salary report hidden.                                                  |
-| **TC-UI-03** | New period with end date before start date                                          | Inline "End date cannot be before start date"; no request sent.                                                  |
-| **TC-UI-04** | New period for a year+month that already exists                                     | Dialog stays open with the API's conflict message.                                                               |
-| **TC-UI-05** | Run payroll → "Selected employees only" with nobody added                           | "Add at least one employee"; no request sent.                                                                    |
-| **TC-UI-06** | Run payroll when no employee has a salary for the period                            | Dialog shows "Some employees have no salary structure for this period…".                                         |
-| **TC-UI-07** | Creator of a run clicks Approve                                                     | Dialog shows "You created this, so someone else must approve it."; run stays Processed.                          |
-| **TC-UI-08** | Finalize before any run is approved                                                 | Finalize button disabled.                                                                                        |
-| **TC-UI-09** | Salary report on a processed (unapproved) run                                       | "Not yet approved" warning.                                                                                      |
-| **TC-UI-10** | Salary report: Team + Department combination nobody matches                         | "No matching employees"; totals ₹ 0.00; Export CSV disabled.                                                     |
-| **TC-UI-11** | Export CSV with an employee named `=HYPERLINK("x")`                                 | Cell exported as `'=HYPERLINK("x")` (shown as text in Excel).                                                    |
-| **TC-UI-12** | Keyboard only: Tab to the tab bar, Arrow Right / Left, Home / End                   | Focus and selection move together; only the selected tab is in the Tab order.                                    |
-| **TC-UI-13** | PF tab: pick an employee with no profile                                            | "No PF profile yet"; form ready to fill (read-only without `hr.pf.write`).                                       |
-| **TC-UI-14** | PF: UAN with 11 digits / ESI: number with 12 digits                                 | "UAN is 12 digits" / "ESI number is 10 or 17 digits"; no request sent.                                           |
-| **TC-UI-15** | Team lead (`.team` grants) opens the PF tab and searches the employee picker        | Only employees of the team lead's own teams are listed (writes outside them are refused by the API — TC-PAY-21). |
-| **TC-UI-16** | Issue loan: principal 12,000, 12 months, EMI 900 → then EMI 2,000                   | "EMI × months must cover the principal" → "Too many months: the last installment would be empty"; no request.    |
-| **TC-UI-17** | Loans tab for an account with no employee record                                    | No "My loans" section and no error; Employee loans list still works.                                             |
-| **TC-UI-18** | Open a loan with a skip request you raised (or as the borrower)                     | "Someone else must decide" instead of Approve / Reject.                                                          |
-| **TC-UI-19** | Request EMI skip without a period                                                   | "Choose a payroll period"; finalized/cancelled periods are not offered.                                          |
-| **TC-UI-20** | Bonuses tab default view                                                            | Status filter = Pending (the approval queue).                                                                    |
-| **TC-UI-21** | Bonus you created, or one for yourself                                              | No Approve / Reject; "Someone else must decide".                                                                 |
-| **TC-UI-22** | New bonus with no employee / type / amount                                          | Three inline errors; no request.                                                                                 |
+| Test Case    | Steps                                                                               | Expected Result                                                                                                                                        |
+| :----------- | :---------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-UI-01** | User with no payroll / compliance permission opens HR → Payroll and HR → Compliance | "No access" alert; no tabs.                                                                                                                            |
+| **TC-UI-02** | User with only `hr.salary.read.team` opens Payroll                                  | Only the Salaries tab; Periods & runs and Salary report hidden.                                                                                        |
+| **TC-UI-03** | New period with end date before start date                                          | Inline "End date cannot be before start date"; no request sent.                                                                                        |
+| **TC-UI-04** | New period for a year+month that already exists                                     | Dialog stays open with the API's conflict message.                                                                                                     |
+| **TC-UI-05** | Run payroll → "Selected employees only" with nobody added                           | "Add at least one employee"; no request sent.                                                                                                          |
+| **TC-UI-06** | Run payroll when no employee has a salary for the period                            | Dialog shows "Some employees have no salary structure for this period…".                                                                               |
+| **TC-UI-07** | Creator of a run clicks Approve                                                     | Dialog shows "You created this, so someone else must approve it."; run stays Processed.                                                                |
+| **TC-UI-08** | Finalize before any run is approved                                                 | Finalize button disabled.                                                                                                                              |
+| **TC-UI-09** | Salary report on a processed (unapproved) run                                       | "Not yet approved" warning.                                                                                                                            |
+| **TC-UI-10** | Salary report: Team + Department combination nobody matches                         | "No matching employees"; totals ₹ 0.00; Export CSV disabled.                                                                                           |
+| **TC-UI-11** | Export CSV with an employee named `=HYPERLINK("x")`                                 | Cell exported as `'=HYPERLINK("x")` (shown as text in Excel).                                                                                          |
+| **TC-UI-12** | Keyboard only: Tab to the tab bar, Arrow Right / Left, Home / End                   | Focus and selection move together; only the selected tab is in the Tab order.                                                                          |
+| **TC-UI-13** | PF tab: pick an employee with no profile                                            | "No PF profile yet"; form ready to fill (read-only without `hr.pf.write`).                                                                             |
+| **TC-UI-14** | PF: UAN with 11 digits / ESI: number with 12 digits                                 | "UAN is 12 digits" / "ESI number is 10 or 17 digits"; no request sent.                                                                                 |
+| **TC-UI-15** | Team lead (`.team` grants) opens the PF tab and searches the employee picker        | Only employees of the team lead's own teams are listed (writes outside them are refused by the API — TC-PAY-21).                                       |
+| **TC-UI-16** | Issue loan: principal 12,000, 12 months, EMI 900 → then EMI 2,000                   | "EMI × months must cover the principal" → "Too many months: the last installment would be empty"; no request.                                          |
+| **TC-UI-17** | Loans tab for an account with no employee record                                    | No "My loans" section and no error; Employee loans list still works.                                                                                   |
+| **TC-UI-18** | Open a loan with a skip request you raised (or as the borrower)                     | "Someone else must decide" instead of Approve / Reject.                                                                                                |
+| **TC-UI-19** | Request EMI skip without a period                                                   | "Choose a payroll period"; finalized/cancelled periods are not offered.                                                                                |
+| **TC-UI-20** | Bonuses tab default view                                                            | Status filter = Pending (the approval queue).                                                                                                          |
+| **TC-UI-21** | Bonus you created, or one for yourself                                              | No Approve / Reject; "Someone else must decide".                                                                                                       |
+| **TC-UI-22** | New bonus with no employee / type / amount                                          | Three inline errors; no request.                                                                                                                       |
+| **TC-UI-23** | Payslips tab as an account with no employee record                                  | No "My payslips" section and no error.                                                                                                                 |
+| **TC-UI-24** | View a payslip                                                                      | Earnings, deductions and totals match the run entry; bank account and PAN show only their last four characters.                                        |
+| **TC-UI-25** | Download PDF (HR list, detail, and "My payslips")                                   | A `<payslip number>.pdf` file is saved; "My payslips" uses `/self-service/payslips/:id/pdf`. With no PDF browser on the server an error toast appears. |
+| **TC-UI-26** | Generate payslips                                                                   | Only approved / finalized periods are offered; no period → inline error, no request; success toast with the count.                                     |
+| **TC-UI-27** | New payment batch                                                                   | Only finalized periods offered; a second batch for the same period is refused with a plain-English message; missing bank details names the employees.  |
+| **TC-UI-28** | Process batch                                                                       | Needs confirmation; afterwards pending payments show Paid and the button disappears.                                                                   |
+| **TC-UI-29** | Update a payment                                                                    | Paid / Cancelled payments have no Update; status choices follow the allowed transitions; reference saved.                                              |
+| **TC-UI-30** | Payments tab with only a `.team` grant                                              | "You don't have access to payment batches" (the API needs `.all`).                                                                                     |
+| **TC-UI-31** | Any list while the API fails (stop the API)                                         | Skeleton, then "Something went wrong" + Try again; after restarting the API, Try again loads the data.                                                 |
 
 ### 6.3 How to Run Tests Locally
 
@@ -946,7 +978,7 @@ pnpm --filter api test:e2e test/payroll.e2e-spec.ts
 # 3. Browser (UI) E2E — needs api (:3000) and ui (:3001) running against the
 #    seeded dev DB (`pnpm --filter database seed` adds the Payroll/Compliance menu rows)
 pnpm --filter ui exec playwright install chromium   # once
-pnpm --filter ui test:e2e e2e/hr-payroll.spec.ts e2e/hr-payroll-processing.spec.ts e2e/hr-payroll-salary-report.spec.ts e2e/hr-payroll-loans.spec.ts e2e/hr-payroll-bonuses.spec.ts e2e/hr-compliance.spec.ts
+pnpm --filter ui test:e2e e2e/hr-payroll.spec.ts e2e/hr-payroll-processing.spec.ts e2e/hr-payroll-salary-report.spec.ts e2e/hr-payroll-loans.spec.ts e2e/hr-payroll-bonuses.spec.ts e2e/hr-payroll-payslips.spec.ts e2e/hr-payroll-payments.spec.ts e2e/hr-compliance.spec.ts
 
 # 4. Monorepo Typecheck & Lint
 pnpm -r run typecheck

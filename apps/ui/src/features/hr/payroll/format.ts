@@ -72,6 +72,14 @@ const ERROR_TEXT: Record<string, string> = {
   LOAN_NOT_ACTIVE: "Only an active loan can skip an EMI.",
   LOAN_SCHEDULE_INVALID:
     "EMI × months must cover the principal, and the last installment can't be empty.",
+  NO_APPROVED_RUN:
+    "This period has no approved payroll run yet. Approve a run first.",
+  PERIOD_NOT_FINALIZED:
+    "Payments can only be made for a finalized payroll period. Finalize it first.",
+  PAYMENT_BATCH_EXISTS:
+    "A payment batch already exists for this period. Open it from the list.",
+  PAYROLL_RUN_EMPTY: "The approved payroll run has no employees to pay.",
+  BATCH_ALREADY_PROCESSED: "This batch was already processed.",
   INVALID_STATE_TRANSITION:
     "That action is not allowed in the current status. Refresh and try again.",
 };

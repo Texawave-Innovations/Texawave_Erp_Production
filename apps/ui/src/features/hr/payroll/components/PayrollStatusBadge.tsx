@@ -39,6 +39,8 @@ const OTHER: Record<string, { label: string; color: StatusColorToken }> = {
   CANCELLED: { label: "Cancelled", color: "gray" },
   PENDING: { label: "Pending", color: "warning" },
   PAID: { label: "Paid", color: "success" },
+  PROCESSING: { label: "Processing", color: "warning" },
+  PROCESSED: { label: "Processed", color: "success" },
   SKIPPED: { label: "Skipped", color: "gray" },
   APPROVED: { label: "Approved", color: "success" },
   REJECTED: { label: "Rejected", color: "error" },

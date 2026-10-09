@@ -16,6 +16,8 @@ import {
 import { BonusesPanel } from "./BonusesPanel";
 import { LoansPanel } from "./LoansPanel";
 import { PanelPlaceholder } from "./PanelPlaceholder";
+import { PaymentsPanel } from "./PaymentsPanel";
+import { PayslipsPanel } from "./PayslipsPanel";
 import { PeriodsPanel } from "./PeriodsPanel";
 import { SalaryReportPanel } from "./SalaryReportPanel";
 import { NoAccess, SectionHeader } from "./SectionHeader";
@@ -78,12 +80,8 @@ export function PayrollView() {
           ) : null}
           {active.id === "bonuses" ? <BonusesPanel /> : null}
           {active.id === "loans" ? <LoansPanel /> : null}
-          {active.id === "payslips" ? (
-            <PanelPlaceholder title="Payslips" />
-          ) : null}
-          {active.id === "payments" ? (
-            <PanelPlaceholder title="Payments" />
-          ) : null}
+          {active.id === "payslips" ? <PayslipsPanel /> : null}
+          {active.id === "payments" ? <PaymentsPanel /> : null}
           {active.id === "report" ? <SalaryReportPanel /> : null}
         </Tabs>
       )}

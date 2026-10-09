@@ -12,9 +12,9 @@ import {
 } from "@texawave-erp/ui-kit";
 import { useMemo, useState } from "react";
 import { periodLabel } from "../format";
+import { downloadText } from "../download";
 import { useAllRunEntries, usePeriods } from "../hooks";
 import {
-  downloadText,
   optionsOf,
   reportRun,
   reportTitle,

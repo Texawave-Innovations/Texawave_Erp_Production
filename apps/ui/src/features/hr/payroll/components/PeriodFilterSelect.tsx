@@ -21,10 +21,17 @@ export function PeriodFilterSelect({
     <Select
       aria-label="Filter by payroll period"
       className="w-48"
+      disabled={periods.isPending}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
     >
-      <option value="">All periods</option>
+      <option value="">
+        {periods.isPending
+          ? "Loading periods…"
+          : periods.isError
+            ? "All periods (list unavailable)"
+            : "All periods"}
+      </option>
       {usable.map((p) => (
         <option key={p.id} value={p.id}>
           {periodLabel(p)}

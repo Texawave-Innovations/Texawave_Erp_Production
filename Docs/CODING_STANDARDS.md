@@ -438,6 +438,7 @@ Tailwind classes are always written as **complete literal strings**, never built
 One documented pattern, so every feature doesn't reinvent its own fetch/auth/error plumbing:
 
 - **API client**: `packages/core`'s `ApiClient` (`packages/core/src/api/client.ts`) — every feature's `api.ts` calls it, never `fetch` directly. It returns the _full_ envelope (`{ data, meta }`), never silently drops `meta` — a paginated hook reads `.meta` for `page`/`totalPages`, a single-resource call reads `.data`.
+  For a binary response (e.g. a PDF) use `apiClient.download(path)`, which returns a `Blob` and still turns an error body into the same `ApiError`.
 - **Errors**: every failure — HTTP error body, network failure, unparseable response — normalizes to one `ApiError` (`packages/core/src/api/api-error.ts`) with `.isAuthError`/`.isPermissionError`/`.isNotFound`/`.isValidationError`/`.fieldErrors` helpers. Components branch on these, never on a raw status code.
 - **Field errors vs. toasts**: validation errors render inline via `FormField`'s `error` prop (same zod schema client- and conceptually server-side, see `packages/core/src/schemas/`); the _result_ of an action (created/deleted/failed) is a toast (`useToast()`, `packages/ui-kit`) — don't mix the two.
 - **Auth-expiry handling**: `apps/ui/src/lib/api-client.ts`'s `withAuthRetry()` — one silent refresh-and-retry on a 401, concurrent 401s share a single in-flight refresh (no thundering herd of refresh calls). If refresh itself fails, auth is cleared and the `(dashboard)` layout's guard redirects to `/login`.

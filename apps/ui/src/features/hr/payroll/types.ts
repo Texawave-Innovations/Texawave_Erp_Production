@@ -280,3 +280,105 @@ export interface Bonus {
   payrollPeriod: PeriodRef | null;
   approver: PersonRef | null;
 }
+
+// ---- payslips ------------------------------------------------------------
+
+/** Bank details as the API returns them: account number and PAN are masked
+ * to their last four characters; only the bank CSV export has them in full. */
+export interface MaskedBankDetails {
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  panNumber?: string | null;
+}
+
+export interface Payslip {
+  id: number;
+  payrollPeriodId: number;
+  payrollEntryId: number;
+  employeeId: number;
+  payslipNumber: string;
+  netPayable: Money;
+  status: string;
+  generatedAt: string;
+  employee: EmployeeRef & {
+    userId: number | null;
+    designation: NamedRef | null;
+    department: NamedRef | null;
+    team: NamedRef | null;
+    bankDetails: MaskedBankDetails | null;
+    pfProfile: { uan: string | null; pfNumber: string | null } | null;
+    esiProfile: { insuranceNumber: string | null } | null;
+  };
+  payrollPeriod: PeriodRef & { periodStart: string; periodEnd: string };
+  payrollEntry: {
+    payableDays: Money;
+    lopDays: Money;
+    totalGrossEarnings: Money;
+    totalDeductions: Money;
+    netPayable: Money;
+    earnings: Array<{
+      code: string;
+      name: string;
+      baseAmount: Money;
+      calculatedAmount: Money;
+    }>;
+    deductions: Array<{
+      code: string;
+      name: string;
+      amount: Money;
+      sourceType: string | null;
+    }>;
+  };
+}
+
+// ---- payments ------------------------------------------------------------
+
+export const PAYMENT_METHODS = ["BANK_TRANSFER", "CASH", "CHEQUE"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const BATCH_STATUSES = [
+  "PENDING",
+  "PROCESSING",
+  "PROCESSED",
+  "CANCELLED",
+] as const;
+export type BatchStatus = (typeof BATCH_STATUSES)[number];
+
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+
+/** Manual status changes the API allows (payments.service.ts
+ * PAYMENT_TRANSITIONS). PAID and CANCELLED are final. */
+export const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
+  PENDING: ["PAID", "FAILED", "CANCELLED"],
+  FAILED: ["PENDING", "PAID", "CANCELLED"],
+  PAID: [],
+  CANCELLED: [],
+};
+
+export interface PayrollPayment {
+  id: number;
+  paymentBatchId: number;
+  employeeId: number;
+  amount: Money;
+  paymentMethod: PaymentMethod;
+  status: PaymentStatus;
+  bankReference: string | null;
+  creditedAt: string | null;
+  employee: EmployeeRef & { bankDetails: MaskedBankDetails | null };
+}
+
+export interface PaymentBatch {
+  id: number;
+  payrollPeriodId: number;
+  batchNumber: string;
+  totalEmployees: number;
+  totalAmount: Money;
+  generatedAt: string;
+  status: BatchStatus;
+  processedAt: string | null;
+  payrollPeriod: PeriodRef;
+  generator: PersonRef | null;
+  /** Only on the single-batch endpoints. */
+  payments?: PayrollPayment[];
+}

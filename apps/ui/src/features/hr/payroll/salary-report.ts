@@ -198,22 +198,6 @@ export function reportTitle(meta: ReportMeta): string {
   return `${periodLabel(meta)} · Run #${meta.runNumber}`;
 }
 
-/** Saves text as a file through a temporary object URL. */
-export function downloadText(
-  fileName: string,
-  content: string,
-  type = "text/csv;charset=utf-8",
-): void {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 /** Distinct teams/departments present in a run, sorted by name, for the
  * report's filter dropdowns. */
 export function optionsOf(
