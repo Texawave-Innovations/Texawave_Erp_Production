@@ -69,6 +69,8 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.office_network.write",
       "hr.revision_letter.read.all",
       "hr.revision_letter.write.all",
+      "hr.promotion_letter.read.all",
+      "hr.promotion_letter.write.all",
       "hr.employee_profile.read.all",
       "hr.employee_profile.write.all",
       "hr.employee_sensitive.read",

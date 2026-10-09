@@ -226,6 +226,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Issue and edit salary revision letters",
   ),
 
+  // apps/api/src/modules/hr/promotion-letters — same model as revision letters:
+  // employee-linked, team-scoped through the employee, write.own reserved, and
+  // no .team grant to any role by default.
+  ...scopedPermission(
+    "hr.promotion_letter.read",
+    "View promotion letters and an employee's salary history",
+  ),
+  ...scopedPermission(
+    "hr.promotion_letter.write",
+    "Issue and edit promotion letters",
+  ),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.

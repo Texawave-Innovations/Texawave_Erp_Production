@@ -89,6 +89,7 @@ model Organization {
   attendanceRecords       AttendanceRecord[]
   attendanceCorrections   AttendanceCorrection[]
   revisionLetters         RevisionLetter[]
+  promotionLetters        PromotionLetter[]
   interviews              Interview[]
   offerLetters            OfferLetter[]
   employeeProfiles        EmployeeProfile[]
@@ -485,8 +486,9 @@ model Designation {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employees    Employee[]
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  employees        Employee[]
+  promotionLetters PromotionLetter[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -645,6 +647,7 @@ model Employee {
   tickets               Ticket[]                   @relation("TicketRequester")
   ticketComments        TicketComment[]            @relation("TicketCommentByEmployee")
   revisionLetters       RevisionLetter[]
+  promotionLetters      PromotionLetter[]
   profile               EmployeeProfile?
   sensitiveInfo         EmployeeSensitiveInfo?
   attendanceRecords     AttendanceRecord[]
@@ -1309,6 +1312,50 @@ model RevisionLetter {
   @@unique([organizationId, documentNo])
   @@index([organizationId, employeeId])
   @@map("revision_letters")
+  @@schema("hr")
+}
+
+/// Promotion letter issued to an existing employee (Recruitment → Promotion
+/// Letter). Same shape and rules as `RevisionLetter` — employee-linked, so
+/// team-scoped THROUGH `employee`; GENERATED only; the four components are the
+/// stored truth and gross is derived — plus a new designation chosen from the
+/// `designations` master. `designation` and `previous_designation` are name
+/// snapshots taken at issue, so a later rename in the master does not rewrite
+/// an issued letter. Issuing a letter does NOT change the employee's stored
+/// designation or salary. `document_no` is issued once from the per-FY
+/// `platform.document_sequences` counter and is never changed.
+model PromotionLetter {
+  id                   Int      @id @default(autoincrement())
+  organizationId       Int      @map("organization_id")
+  employeeId           Int      @map("employee_id")
+  designationId        Int      @map("designation_id")
+  documentNo           String   @map("document_no")
+  employeeName         String   @map("employee_name")
+  previousDesignation  String   @map("previous_designation")
+  designation          String
+  location             String
+  letterDate           DateTime @map("letter_date") @db.Date
+  effectiveDate        DateTime @map("effective_date") @db.Date
+  basic                Decimal  @db.Decimal(12, 2)
+  da                   Decimal  @db.Decimal(12, 2)
+  hra                  Decimal  @db.Decimal(12, 2)
+  ca                   Decimal  @db.Decimal(12, 2)
+  signatoryName        String   @map("signatory_name")
+  signatoryDesignation String   @map("signatory_designation")
+  status               String   @default("GENERATED")
+  createdBy            Int?     @map("created_by")
+  updatedBy            Int?     @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  employee          Employee     @relation(fields: [employeeId], references: [id])
+  designationMaster Designation  @relation(fields: [designationId], references: [id])
+
+  @@unique([organizationId, documentNo])
+  @@index([organizationId, employeeId])
+  @@index([designationId])
+  @@map("promotion_letters")
   @@schema("hr")
 }
 
