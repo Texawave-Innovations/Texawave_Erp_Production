@@ -265,10 +265,10 @@ export function BonusesPanel() {
     <div className="flex flex-col gap-4">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-3">
+          <div className="flex w-full flex-wrap gap-3 sm:w-auto">
             <Select
               aria-label="Filter by bonus status"
-              className="w-44"
+              className="w-full sm:w-44"
               value={status}
               onChange={(e) => {
                 setStatus(

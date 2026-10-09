@@ -1,5 +1,5 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
-import { signInAsAdmin } from "./helpers/auth";
+import { adminUserId, signInAsAdmin } from "./helpers/auth";
 
 /**
  * Real-browser coverage for the payroll processing flow: lifecycle tracker,
@@ -218,11 +218,27 @@ test("runs payroll for selected employees and drills into one employee", async (
   ).toBeVisible();
 });
 
-test("explains why the creator of a run cannot approve it", async ({
-  page,
-}) => {
+test("never offers Approve to the run's creator", async ({ page }) => {
   const state = await mockPayroll(page);
-  state.runs = [RUN];
+  state.runs = [
+    {
+      ...RUN,
+      runCreator: { id: await adminUserId(page), fullName: "Super Admin" },
+    },
+  ];
+  const detail = await openPeriod(page);
+  const runs = detail.getByRole("table", { name: "Payroll runs" });
+  await expect(
+    runs.getByText("You ran this — someone else must approve"),
+  ).toBeVisible();
+  await expect(runs.getByRole("button", { name: "Approve" })).toHaveCount(0);
+});
+
+test("explains a maker-checker refusal from the server", async ({ page }) => {
+  // Created by someone else as far as the UI knows; the server still
+  // refuses (e.g. stale data) and the dialog says why.
+  const state = await mockPayroll(page);
+  state.runs = [{ ...RUN, runCreator: { id: 777, fullName: "Other HR" } }];
   const detail = await openPeriod(page);
 
   await detail

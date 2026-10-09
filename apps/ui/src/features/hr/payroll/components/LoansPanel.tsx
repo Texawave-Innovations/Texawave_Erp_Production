@@ -195,7 +195,7 @@ function HrLoansSection() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Select
             aria-label="Filter by loan status"
-            className="w-44"
+            className="w-full sm:w-44"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value as LoanStatus | "");

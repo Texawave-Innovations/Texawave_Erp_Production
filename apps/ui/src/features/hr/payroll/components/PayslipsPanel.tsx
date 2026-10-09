@@ -458,7 +458,7 @@ function HrPayslipsSection() {
       </h2>
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">
             <PeriodFilterSelect
               value={periodId}
               onChange={(id) => {
@@ -466,7 +466,7 @@ function HrPayslipsSection() {
                 setPage(1);
               }}
             />
-            <div className="w-64">
+            <div className="w-full sm:w-64">
               <FormField label="Filter by employee">
                 {(f) => (
                   <EmployeePicker

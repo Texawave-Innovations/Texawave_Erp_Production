@@ -117,7 +117,7 @@ export function SalaryReportPanel() {
     <div className="flex flex-col gap-4">
       <Card>
         <div className="flex flex-wrap items-end gap-4">
-          <div className="w-48">
+          <div className="w-full sm:w-48">
             <FormField label="Period">
               {(f) => (
                 <Select
@@ -159,7 +159,7 @@ export function SalaryReportPanel() {
               )}
             </FormField>
           </div>
-          <div className="w-48">
+          <div className="w-full sm:w-48">
             <FormField label="Team">
               {(f) => (
                 <Select
@@ -180,7 +180,7 @@ export function SalaryReportPanel() {
               )}
             </FormField>
           </div>
-          <div className="w-48">
+          <div className="w-full sm:w-48">
             <FormField label="Department">
               {(f) => (
                 <Select
@@ -203,7 +203,7 @@ export function SalaryReportPanel() {
               )}
             </FormField>
           </div>
-          <div className="w-64">
+          <div className="w-full sm:w-64">
             <FormField label="Search employees">
               {(f) => (
                 <Input

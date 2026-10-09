@@ -747,7 +747,7 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - Period list: year / status filters, pagination, **New period** (`hr.payroll.write`) with year, month and optional start/end dates; end before start is blocked client-side.
 - **Manage** opens the period detail: a progress tracker (Period created → Payroll run → Approved → Finalized, with a "Next:" hint) and the runs table (run #, status — cancelled runs say "Replaced by a later run", employees, run by + time, notes, approved by).
 - **Run payroll** (`hr.payroll.write`, period not finalized/cancelled): _All eligible employees_ or _Selected employees only_ (added one at a time with the employee picker, at least one required) plus optional notes.
-- **Approve** (`hr.payroll.approve`, run `PROCESSED`): optional notes. The UI does not yet hide it from the run's creator — the API refuses with a plain `403` (`error: "Forbidden"`, message starting "Maker-checker:") and the dialog explains why (§5.2).
+- **Approve** (`hr.payroll.approve`, run `PROCESSED`): optional notes. Not offered to the run's creator ("You ran this — someone else must approve"); if the API still refuses (plain `403`, `error: "Forbidden"`, message starting "Maker-checker:") the dialog explains why (§5.2).
 - **Finalize** (`hr.payroll.finalize`): disabled until a run is `APPROVED`; confirmation warns that the period gets locked and payslips generated. **Cancel period** (`hr.payroll.write`).
 - **View entries**: per-employee table (payable/LOP days, gross, deductions, net) → **View** shows one employee's calculation (attendance, monthly gross, per-day rate, earning ratio, base earnings, earnings and deductions tables, totals, payslip number once issued).
 
@@ -798,6 +798,26 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - Dropdowns fed by the API (periods, employees) say "Loading …" / "Could not load …" in their first option and are disabled while loading. Cancelled periods are never offered as a filter.
 - Every action button shows a spinner and is disabled while its request runs; server errors appear inline in the dialog (`role="alert"`), business codes in plain English (`format.ts`).
 - PF / ESI registration prompts "Choose an employee …" before one is picked.
+
+**Permission handling** (`permissions.ts` — UI visibility only; the API is authoritative)
+
+A button shows only when the API would actually allow the action, not merely when the user holds some grant of the permission:
+
+| Kind of action                    | Needs                                                                                                                    | Examples                                                                                   |
+| :-------------------------------- | :----------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| Read a tab                        | any of `.own` / `.team` / `.all` (the API filters the rows)                                                              | every tab                                                                                  |
+| Single-employee write or approval | `.team` or `.all` (`.own` never writes pay; an `.own` approver only sees their own records, which maker-checker forbids) | New bonus, approve bonus, issue loan, decide skip, PF/ESI save, update one payment         |
+| Whole-organization action         | `.all` only (`requireOrgWideScope`)                                                                                      | New / cancel period, run, approve, finalize, generate payslips, every payment-batch action |
+
+- Maker-checker is mirrored: run Approve hidden from its creator, bonus and skip decisions hidden from creator / requester / recipient — the server still refuses and the UI explains it.
+- Payments with only a `.team` / `.own` payment grant: an info alert ("Payment batches need organization-wide access") instead of a request that would always `403`.
+- Self-service sections ("My payslips", "My loans") use the exact `employee_self_service.*` codes.
+
+**Responsive & accessibility**
+
+- Phone width (375px): no page-level horizontal scroll on any tab; tables scroll inside their own wrapper; filter dropdowns stack full-width (`w-full sm:w-48` etc.); dialogs fit the screen.
+- Keyboard: tabs follow the ARIA tabs pattern (Arrow / Home / End); in a payment batch, opening the inline confirmation focuses "Yes, process batch" and "Not yet" returns focus to "Process batch"; opening a payment's editor focuses its Status field.
+- Screen readers: loading skeletons are `role="status"` with "Loading …" text; every icon-like or repeated button has a specific name ("Download PDF of payslip PS-…", "Update payment for …"); tables have captions; inline errors use `role="alert"`; spinners set `aria-busy`.
 
 **Shared building blocks**
 
@@ -888,16 +908,18 @@ HR
   - The PDF renderer is replaced by a stub in this suite, so it needs no browser; the PDF layout itself is covered by the template unit test.
 - **Browser (UI) E2E Tests — Playwright:** `apps/ui/e2e/`
 
-  | Spec                               | Covers                                                                                                                                                                                                                                                                              | Data                                     |
-  | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period                                                                                    | Real API + dev DB                        |
-  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                                                                                                          | Real sign-in, payroll API from fixtures  |
-  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                                                                                                            | Real sign-in, payroll API from fixtures  |
-  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters                                                                                       | Real API (test 1), then fixtures         |
-  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip                                                                                 | Real sign-in, loans API from fixtures    |
-  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                                                                                                            | Real sign-in, bonuses API from fixtures  |
-  | `hr-payroll-payslips.spec.ts`      | "My payslips" hidden for `NOT_AN_EMPLOYEE`; HR list; payslip breakdown with masked bank/PAN; PDF download from the HR route and from "My payslips" (self-service route); period + employee filters; Generate validation and body; error state → Try again → empty state             | Real sign-in, payslips API from fixtures |
-  | `hr-payroll-payments.spec.ts`      | Empty state; New batch offers only finalized periods, validation, exact POST body, opens the batch; payments table; bank-file download; Process batch confirm / cancel / confirm; Update offers only allowed statuses, exact PATCH body; PAID payment not editable; `403` explained | Real sign-in, payments API from fixtures |
+  | Spec                               | Covers                                                                                                                                                                                                                                                                              | Data                                                         |
+  | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period                                                                                    | Real API + dev DB                                            |
+  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                                                                                                          | Real sign-in, payroll API from fixtures                      |
+  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                                                                                                            | Real sign-in, payroll API from fixtures                      |
+  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters                                                                                       | Real API (test 1), then fixtures                             |
+  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip                                                                                 | Real sign-in, loans API from fixtures                        |
+  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                                                                                                            | Real sign-in, bonuses API from fixtures                      |
+  | `hr-payroll-payslips.spec.ts`      | "My payslips" hidden for `NOT_AN_EMPLOYEE`; HR list; payslip breakdown with masked bank/PAN; PDF download from the HR route and from "My payslips" (self-service route); period + employee filters; Generate validation and body; error state → Try again → empty state             | Real sign-in, payslips API from fixtures                     |
+  | `hr-payroll-payments.spec.ts`      | Empty state; New batch offers only finalized periods, validation, exact POST body, opens the batch; payments table; bank-file download; Process batch confirm / cancel / confirm; Update offers only allowed statuses, exact PATCH body; PAID payment not editable; `403` explained | Real sign-in, payments API from fixtures                     |
+  | `hr-payroll-permissions.spec.ts`   | Team lead: no New period / Generate payslips / payment batches (info alert, no request) but New bonus; `.own` employee: only readable tabs, no write buttons, "My payslips" only                                                                                                    | Real sign-in, `/auth/me` permissions swapped, empty fixtures |
+  | `hr-payroll-responsive.spec.ts`    | 375px viewport: every payroll and compliance tab without page-level horizontal scroll; filters stack; tabs operable by Arrow keys                                                                                                                                                   | Real sign-in, empty fixtures                                 |
 
   Fixture-backed specs exist because a dev DB usually has no employees, salaries or processed runs, and approval needs a second user. They prove UI behaviour; the API e2e suite proves the numbers.
 
@@ -962,6 +984,11 @@ HR
 | **TC-UI-29** | Update a payment                                                                    | Paid / Cancelled payments have no Update; status choices follow the allowed transitions; reference saved.                                              |
 | **TC-UI-30** | Payments tab with only a `.team` grant                                              | "You don't have access to payment batches" (the API needs `.all`).                                                                                     |
 | **TC-UI-31** | Any list while the API fails (stop the API)                                         | Skeleton, then "Something went wrong" + Try again; after restarting the API, Try again loads the data.                                                 |
+| **TC-UI-32** | Team lead (`.team` payroll/payment grants) opens Payroll                            | No New period, Run, Approve, Finalize, Generate payslips or payment-batch buttons; Payments shows the organization-wide-access note.                   |
+| **TC-UI-33** | Employee with only `.own` grants                                                    | Only readable tabs; no write or approve buttons anywhere; "My payslips" shows.                                                                         |
+| **TC-UI-34** | Run created by you, status Processed                                                | No Approve; "You ran this — someone else must approve".                                                                                                |
+| **TC-UI-35** | Phone (375px) — every tab                                                           | No sideways page scroll; wide tables scroll on their own; filters stacked.                                                                             |
+| **TC-UI-36** | Keyboard only: Payments → open batch → Process batch → Not yet → Update payment     | Focus lands on "Yes, process batch", back on "Process batch", then on the Status field.                                                                |
 
 ### 6.3 How to Run Tests Locally
 
@@ -978,7 +1005,7 @@ pnpm --filter api test:e2e test/payroll.e2e-spec.ts
 # 3. Browser (UI) E2E — needs api (:3000) and ui (:3001) running against the
 #    seeded dev DB (`pnpm --filter database seed` adds the Payroll/Compliance menu rows)
 pnpm --filter ui exec playwright install chromium   # once
-pnpm --filter ui test:e2e e2e/hr-payroll.spec.ts e2e/hr-payroll-processing.spec.ts e2e/hr-payroll-salary-report.spec.ts e2e/hr-payroll-loans.spec.ts e2e/hr-payroll-bonuses.spec.ts e2e/hr-payroll-payslips.spec.ts e2e/hr-payroll-payments.spec.ts e2e/hr-compliance.spec.ts
+pnpm --filter ui test:e2e e2e/hr-payroll.spec.ts e2e/hr-payroll-processing.spec.ts e2e/hr-payroll-salary-report.spec.ts e2e/hr-payroll-loans.spec.ts e2e/hr-payroll-bonuses.spec.ts e2e/hr-payroll-payslips.spec.ts e2e/hr-payroll-payments.spec.ts e2e/hr-payroll-permissions.spec.ts e2e/hr-payroll-responsive.spec.ts e2e/hr-compliance.spec.ts
 
 # 4. Monorepo Typecheck & Lint
 pnpm -r run typecheck

@@ -304,12 +304,12 @@ export function useGeneratePayslips() {
 
 // ---- payments ------------------------------------------------------------
 
-export function usePaymentBatches(query: BatchListQuery) {
+export function usePaymentBatches(query: BatchListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "payment-batches", query),
     queryFn: () => listPaymentBatches(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 

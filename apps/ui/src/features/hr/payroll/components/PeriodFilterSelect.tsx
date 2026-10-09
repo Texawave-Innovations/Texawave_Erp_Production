@@ -20,7 +20,7 @@ export function PeriodFilterSelect({
   return (
     <Select
       aria-label="Filter by payroll period"
-      className="w-48"
+      className="w-full sm:w-48"
       disabled={periods.isPending}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}

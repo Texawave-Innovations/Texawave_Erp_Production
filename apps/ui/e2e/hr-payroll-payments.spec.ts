@@ -210,7 +210,14 @@ test("exports the bank file and processes the batch after confirming", async ({
   );
 
   await dialog.getByRole("button", { name: "Process batch" }).click();
+  // Keyboard focus follows the inline confirmation, and comes back.
+  await expect(
+    dialog.getByRole("button", { name: "Yes, process batch" }),
+  ).toBeFocused();
   await dialog.getByRole("button", { name: "Not yet" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "Process batch" }),
+  ).toBeFocused();
   expect(state.calls).toHaveLength(0);
 
   await dialog.getByRole("button", { name: "Process batch" }).click();
@@ -249,6 +256,7 @@ test("corrects one payment within the allowed status changes", async ({
     name: "Update payment for Asha Rao",
   });
   const status = form.getByLabel("Status");
+  await expect(status).toBeFocused();
   await expect(status.locator("option")).toHaveText([
     "Pending",
     "Paid",

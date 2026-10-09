@@ -13,7 +13,7 @@ import {
   Select,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { exportPaymentBatch } from "../api";
 import { downloadText } from "../download";
@@ -26,7 +26,11 @@ import {
   useProcessPaymentBatch,
   useUpdatePayment,
 } from "../hooks";
-import { PAYMENT_WRITE } from "../permissions";
+import {
+  PAYMENT_BATCH_READ,
+  PAYMENT_BATCH_WRITE,
+  PAYMENT_WRITE,
+} from "../permissions";
 import {
   BATCH_STATUSES,
   type BatchStatus,
@@ -170,6 +174,12 @@ function PaymentEditor({
   const update = useUpdatePayment();
   const { toast } = useToast();
   const [status, setStatus] = useState<PaymentStatus>(payment.status);
+  // The editor appears below the table: move focus (and the view) to it.
+  const statusRef = useRef<HTMLSelectElement>(null);
+  useEffect(() => {
+    statusRef.current?.focus();
+    statusRef.current?.scrollIntoView({ block: "nearest" });
+  }, []);
   const [reference, setReference] = useState(payment.bankReference ?? "");
   const [serverError, setServerError] = useState<string | null>(null);
   const choices = [payment.status, ...PAYMENT_TRANSITIONS[payment.status]];
@@ -213,6 +223,7 @@ function PaymentEditor({
           {(f) => (
             <Select
               {...f}
+              ref={statusRef}
               value={status}
               onChange={(e) => setStatus(e.target.value as PaymentStatus)}
             >
@@ -253,11 +264,23 @@ function BatchDetailDialog({
   id: number;
   onClose: () => void;
 }) {
-  const canWrite = usePermission(PAYMENT_WRITE);
+  const canProcess = usePermission(PAYMENT_BATCH_WRITE);
+  const canEditPayment = usePermission(PAYMENT_WRITE);
   const query = usePaymentBatch(id);
   const process = useProcessPaymentBatch();
   const { toast } = useToast();
   const [confirming, setConfirming] = useState(false);
+  // "Process batch" disappears when the confirmation opens; focus its
+  // "Yes" button so keyboard users are not dropped to the page.
+  // "Not yet" gives focus back to "Process batch".
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const processRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+  useEffect(() => {
+    if (confirming) confirmRef.current?.focus();
+    else if (wasConfirming.current) processRef.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -321,8 +344,8 @@ function BatchDetailDialog({
                 >
                   Export bank file
                 </Button>
-                {canWrite && batch.status === "PENDING" && !confirming ? (
-                  <Button onClick={() => setConfirming(true)}>
+                {canProcess && batch.status === "PENDING" && !confirming ? (
+                  <Button ref={processRef} onClick={() => setConfirming(true)}>
                     Process batch
                   </Button>
                 ) : null}
@@ -342,6 +365,7 @@ function BatchDetailDialog({
                   </span>
                   <div className="flex gap-2">
                     <Button
+                      ref={confirmRef}
                       loading={process.isPending}
                       onClick={() => void handleProcess()}
                     >
@@ -410,7 +434,8 @@ function BatchDetailDialog({
                   {
                     header: "Actions",
                     cell: (r) =>
-                      canWrite && PAYMENT_TRANSITIONS[r.status].length > 0 ? (
+                      canEditPayment &&
+                      PAYMENT_TRANSITIONS[r.status].length > 0 ? (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -444,28 +469,48 @@ function BatchDetailDialog({
  * bank file, mark it processed, and correct single payments. Batches cover
  * the whole organization, so the API requires an `.all` grant to see them. */
 export function PaymentsPanel() {
-  const canWrite = usePermission(PAYMENT_WRITE);
+  const canList = usePermission(PAYMENT_BATCH_READ);
+  const canWrite = usePermission(PAYMENT_BATCH_WRITE);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<BatchStatus | "">("");
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
-  const query = usePaymentBatches({
-    page,
-    limit: PAGE_SIZE,
-    ...(status ? { status } : {}),
-    ...(periodId ? { payrollPeriodId: periodId } : {}),
-  });
+  const query = usePaymentBatches(
+    {
+      page,
+      limit: PAGE_SIZE,
+      ...(status ? { status } : {}),
+      ...(periodId ? { payrollPeriodId: periodId } : {}),
+    },
+    canList,
+  );
   const rows = query.data?.data ?? [];
+
+  // A `.team`/`.own` payment grant can still correct single payments
+  // elsewhere, but batches are organization-wide: explain instead of
+  // calling an endpoint that always answers 403.
+  if (!canList) {
+    return (
+      <Alert
+        variant="info"
+        title="Payment batches need organization-wide access"
+      >
+        A payment batch pays the whole organization, so viewing and creating
+        batches needs the organization-wide (.all) payments permission. Ask an
+        administrator if you need it.
+      </Alert>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-3">
+          <div className="flex w-full flex-wrap gap-3 sm:w-auto">
             <Select
               aria-label="Filter by batch status"
-              className="w-44"
+              className="w-full sm:w-44"
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value as BatchStatus | "");

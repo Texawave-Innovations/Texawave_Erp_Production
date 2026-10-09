@@ -353,7 +353,7 @@ function ContributionsSection({ kind }: { kind: ComplianceKind }) {
           />
           <Select
             aria-label="Filter by payment status"
-            className="w-44"
+            className="w-full sm:w-44"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value as ContributionPaymentStatus | "");

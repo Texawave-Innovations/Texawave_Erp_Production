@@ -21,9 +21,11 @@ export function QueryState({
   if (query.isPending) {
     return (
       <Card>
-        <div className="flex flex-col gap-3">
+        {/* Skeletons are decorative; screen readers hear the status text. */}
+        <div role="status" aria-busy="true" className="flex flex-col gap-3">
+          <span className="sr-only">Loading {area}…</span>
           {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
+            <Skeleton key={i} className="h-10 w-full" aria-hidden="true" />
           ))}
         </div>
       </Card>

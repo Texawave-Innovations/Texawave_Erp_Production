@@ -10,6 +10,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { useAuthStore } from "@/stores/auth-store";
 import { isoDate, periodLabel, timestamp } from "../format";
 import { usePeriods, useRuns } from "../hooks";
 import {
@@ -50,6 +51,7 @@ function PeriodDetail({
   const canWrite = usePermission(PAYROLL_WRITE);
   const canApprove = usePermission(PAYROLL_APPROVE);
   const canFinalize = usePermission(PAYROLL_FINALIZE);
+  const userId = useAuthStore((s) => s.user?.userId ?? null);
   const runs = useRuns({ page: 1, limit: 50, payrollPeriodId: period.id });
   const [runOpen, setRunOpen] = useState(false);
   const [confirm, setConfirm] = useState<"finalize" | "cancel" | null>(null);
@@ -183,9 +185,17 @@ function PeriodDetail({
                       View entries
                     </Button>
                     {canApprove && r.status === "PROCESSED" && !locked ? (
-                      <Button size="sm" onClick={() => setApproving(r)}>
-                        Approve
-                      </Button>
+                      // Maker-checker, mirrored from the API: the run's
+                      // creator may not approve it.
+                      r.runCreator && r.runCreator.id === userId ? (
+                        <span className="text-theme-xs text-gray-600 dark:text-gray-400">
+                          You ran this — someone else must approve
+                        </span>
+                      ) : (
+                        <Button size="sm" onClick={() => setApproving(r)}>
+                          Approve
+                        </Button>
+                      )
                     ) : null}
                   </div>
                 ),
@@ -269,7 +279,7 @@ export function PeriodsPanel() {
             </Select>
             <Select
               aria-label="Filter by status"
-              className="w-44"
+              className="w-full sm:w-44"
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value as PeriodStatus | "");
