@@ -2,7 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { parseDateOnly } from "../../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../../common/exceptions/business.exception.js";
+import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
+import { assertEmployeeInWriteScope } from "../shared/payroll-scope.js";
 import { ComplianceRepository } from "./compliance.repository.js";
 import type {
   QueryContributionDto,
@@ -35,6 +37,7 @@ export class ComplianceService {
 
   async updatePfProfile(employeeId: number, dto: UpdateEmployeePfProfileDto) {
     const scope = await this.teamContext.resolveScope(PF_WRITE);
+    await this.requireEmployeeInWriteScope(scope, employeeId);
     const from = dto.effectiveFrom
       ? parseDateOnly(dto.effectiveFrom)
       : undefined;
@@ -72,6 +75,7 @@ export class ComplianceService {
 
   async updateEsiProfile(employeeId: number, dto: UpdateEmployeeEsiProfileDto) {
     const scope = await this.teamContext.resolveScope(ESI_WRITE);
+    await this.requireEmployeeInWriteScope(scope, employeeId);
     const from = dto.effectiveFrom
       ? parseDateOnly(dto.effectiveFrom)
       : undefined;
@@ -94,5 +98,20 @@ export class ComplianceService {
     const item = await this.repository.findEsiContributionById(scope, id);
     if (!item) throw new ResourceNotFoundException("ESI contribution", id);
     return item;
+  }
+
+  // A profile write is a single-employee write: the employee must exist in
+  // this organization and be inside the caller's write scope (`.team` = own
+  // teams, `.own` = nobody), otherwise 404 — same rule as salaries and loans.
+  private async requireEmployeeInWriteScope(
+    scope: TeamScope,
+    employeeId: number,
+  ): Promise<void> {
+    const employee = await this.repository.findEmployeeForWrite(
+      scope,
+      employeeId,
+    );
+    if (!employee) throw new ResourceNotFoundException("Employee", employeeId);
+    assertEmployeeInWriteScope(scope, employee);
   }
 }

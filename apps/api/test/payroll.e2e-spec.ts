@@ -54,6 +54,8 @@ const CHECKER_PERMS = [
 
 /** Team-level grants only — must never reach other teams or org-wide ops. */
 const TEAM_LEAD_PERMS = [
+  "hr.pf.write.team",
+  "hr.esi.write.team",
   "hr.salary.read.team",
   "hr.salary.write.team",
   "hr.payroll.read.team",
@@ -71,6 +73,7 @@ describe("Payroll & Compliance (e2e)", () => {
   let prisma: PrismaService;
   let org: { id: number; slug: string };
   let otherOrgPeriodId: number;
+  let otherOrgEmployeeId: number;
   const tokens: Record<string, string> = {};
   const perm = new Map<string, number>();
   const rawSuffix = randomUUID().slice(0, 8);
@@ -344,6 +347,49 @@ describe("Payroll & Compliance (e2e)", () => {
       },
     });
     employeeId3 = emp3.id;
+
+    // An employee of the other organization: profile writes must never
+    // reach it, whatever id is sent.
+    const otherOrgId = (
+      await prisma.payrollPeriod.findUniqueOrThrow({
+        where: { id: otherOrgPeriodId },
+      })
+    ).organizationId;
+    const otherTeam = await prisma.team.create({
+      data: {
+        organizationId: otherOrgId,
+        name: `Other Team ${suffix}`,
+        code: `OTH_${suffix}`,
+      },
+    });
+    const otherEmpType = await prisma.employmentType.create({
+      data: {
+        organizationId: otherOrgId,
+        name: `Other FullTime ${suffix}`,
+        code: `OFT_${suffix}`,
+      },
+    });
+    const otherDesig = await prisma.designation.create({
+      data: {
+        organizationId: otherOrgId,
+        name: `Other Dev ${suffix}`,
+        code: `ODEV_${suffix}`,
+      },
+    });
+    otherOrgEmployeeId = (
+      await prisma.employee.create({
+        data: {
+          organizationId: otherOrgId,
+          employeeCode: `EMP-${randNum + 3}`,
+          fullName: "Other Org Employee",
+          teamId: otherTeam.id,
+          designationId: otherDesig.id,
+          employmentTypeId: otherEmpType.id,
+          dateOfJoining: new Date("2026-01-01T00:00:00.000Z"),
+          status: "ACTIVE",
+        },
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -742,6 +788,37 @@ describe("Payroll & Compliance (e2e)", () => {
   });
 
   it("9. keeps team-level grants inside their teams and out of org-wide operations", async () => {
+    // PF / ESI profile writes: own team only, never another team or org.
+    // Re-sends the values test 2 set, so later calculations are unchanged.
+    await put("teamlead", `/hr/compliance/pf/profiles/${employeeId1}`, {
+      pfApplicable: true,
+      uan: "100123456789",
+      pfNumber: "MH/PUN/0012345/000/0001",
+      effectiveFrom: "2026-01-01",
+    }).expect(200);
+    await put("teamlead", `/hr/compliance/pf/profiles/${employeeId3}`, {
+      pfApplicable: true,
+    }).expect(404);
+    await put("teamlead", `/hr/compliance/esi/profiles/${employeeId3}`, {
+      esiApplicable: true,
+    }).expect(404);
+    await put("admin", `/hr/compliance/pf/profiles/${otherOrgEmployeeId}`, {
+      pfApplicable: true,
+    }).expect(404);
+    await put("admin", `/hr/compliance/esi/profiles/${otherOrgEmployeeId}`, {
+      esiApplicable: true,
+    }).expect(404);
+    expect(
+      await prisma.employeePfProfile.count({
+        where: { employeeId: { in: [employeeId3, otherOrgEmployeeId] } },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.employeeEsiProfile.count({
+        where: { employeeId: { in: [employeeId3, otherOrgEmployeeId] } },
+      }),
+    ).toBe(0);
+
     // Salary structures: same boundary
     await post("teamlead", "/hr/salaries", {
       employeeId: employeeId3,

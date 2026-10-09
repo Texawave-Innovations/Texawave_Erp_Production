@@ -20,6 +20,23 @@ const VIA_EMPLOYEE = {
 export class ComplianceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** The employee a profile write targets, if it exists in the caller's
+   * organization. The service then checks it against the team scope. */
+  @TeamScoped()
+  async findEmployeeForWrite(
+    scope: TeamScope,
+    employeeId: number,
+  ): Promise<{ id: number; teamId: number; userId: number | null } | null> {
+    return this.prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      },
+      select: { id: true, teamId: true, userId: true },
+    });
+  }
+
   // ---- PF Profiles ---------------------------------------------------------
 
   @TeamScoped()

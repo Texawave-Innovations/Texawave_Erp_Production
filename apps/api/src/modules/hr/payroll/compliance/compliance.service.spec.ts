@@ -16,8 +16,17 @@ function makeService(overrides?: {
   esiProfile?: unknown;
   pfContribution?: unknown;
   esiContribution?: unknown;
+  employee?: { id: number; teamId: number; userId: number | null } | null;
+  scope?: { level: string; teamIds: number[] };
 }) {
   const repository = {
+    findEmployeeForWrite: vi
+      .fn()
+      .mockResolvedValue(
+        overrides?.employee === undefined
+          ? { id: 7, teamId: 3, userId: 99 }
+          : overrides.employee,
+      ),
     getPfProfile: vi.fn().mockResolvedValue(overrides?.pfProfile ?? null),
     upsertPfProfile: vi.fn().mockResolvedValue({ id: 1, pfApplicable: true }),
     findPfContributions: vi
@@ -39,7 +48,9 @@ function makeService(overrides?: {
   };
 
   const teamContext = {
-    resolveScope: vi.fn().mockResolvedValue(TEAM_SCOPE),
+    resolveScope: vi
+      .fn()
+      .mockResolvedValue({ ...TEAM_SCOPE, ...(overrides?.scope ?? {}) }),
   };
 
   const service = new ComplianceService(
@@ -261,6 +272,63 @@ describe("ComplianceService", () => {
       await expect(service.findEsiContributionById(12)).rejects.toBeInstanceOf(
         ResourceNotFoundException,
       );
+    });
+  });
+
+  // A profile write is a single-employee write: it must stay inside the
+  // caller's organization and team scope (404 otherwise, never 403).
+  describe("profile write scope", () => {
+    const PF = { pfApplicable: true };
+    const ESI = { esiApplicable: true };
+
+    it("writes for an employee in one of the caller's teams", async () => {
+      const { service, repository } = makeService({
+        scope: { level: "team", teamIds: [3] },
+      });
+      await service.updatePfProfile(7, PF);
+      await service.updateEsiProfile(7, ESI);
+      expect(repository.findEmployeeForWrite).toHaveBeenCalledWith(
+        expect.objectContaining({ level: "team" }),
+        7,
+      );
+      expect(repository.upsertPfProfile).toHaveBeenCalled();
+      expect(repository.upsertEsiProfile).toHaveBeenCalled();
+    });
+
+    it("refuses an employee outside the caller's teams", async () => {
+      const { service, repository } = makeService({
+        scope: { level: "team", teamIds: [4] },
+      });
+      await expect(service.updatePfProfile(7, PF)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      await expect(service.updateEsiProfile(7, ESI)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      expect(repository.upsertPfProfile).not.toHaveBeenCalled();
+      expect(repository.upsertEsiProfile).not.toHaveBeenCalled();
+    });
+
+    it("refuses an employee of another organization (not found in this one)", async () => {
+      const { service, repository } = makeService({ employee: null });
+      await expect(service.updatePfProfile(7, PF)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      await expect(service.updateEsiProfile(7, ESI)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      expect(repository.upsertPfProfile).not.toHaveBeenCalled();
+      expect(repository.upsertEsiProfile).not.toHaveBeenCalled();
+    });
+
+    it("gives an .own grant no write access, not even to oneself", async () => {
+      const { service, repository } = makeService({
+        scope: { level: "own", teamIds: [] },
+      });
+      await expect(service.updatePfProfile(7, PF)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      expect(repository.upsertPfProfile).not.toHaveBeenCalled();
     });
   });
 });
