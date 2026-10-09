@@ -14,6 +14,7 @@ import {
   SALARY_READ,
 } from "../permissions";
 import { PanelPlaceholder } from "./PanelPlaceholder";
+import { PeriodsPanel } from "./PeriodsPanel";
 import { NoAccess, SectionHeader } from "./SectionHeader";
 
 type PayrollTab =
@@ -61,9 +62,7 @@ export function PayrollView() {
           value={active.id}
           onChange={setRequested}
         >
-          {active.id === "periods" ? (
-            <PanelPlaceholder title="Periods & runs" />
-          ) : null}
+          {active.id === "periods" ? <PeriodsPanel /> : null}
           {active.id === "salaries" ? (
             <PanelPlaceholder title="Salaries" />
           ) : null}
