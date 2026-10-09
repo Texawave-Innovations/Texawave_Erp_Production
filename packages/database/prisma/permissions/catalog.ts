@@ -390,6 +390,44 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Update the status of my own tasks until admin approval",
   },
 
+  // apps/api/src/modules/hr/candidates — recruitment pipeline, team-scoped
+  // the same way hr.task.*/hr.ticket.* are: read/write seeded as
+  // .own/.team/.all together, following the exact scoped pattern above.
+  ...scopedPermission("hr.candidate.read", "View candidates"),
+  ...scopedPermission(
+    "hr.candidate.write",
+    "Create/update candidates and their pipeline stage",
+  ),
+
+  // apps/api/src/modules/hr/loans — employee salary advances/loans.
+  ...scopedPermission("hr.loan.read", "View employee loans"),
+  ...scopedPermission(
+    "hr.loan.write",
+    "Request, approve/reject and manage loans (EMIs, skip requests)",
+  ),
+
+  // apps/api/src/modules/hr/bonuses — employee bonuses.
+  ...scopedPermission("hr.bonus.read", "View employee bonuses"),
+  ...scopedPermission(
+    "hr.bonus.write",
+    "Request and approve/reject employee bonuses",
+  ),
+
+  // apps/api/src/modules/hr/payroll — payroll periods and payslips.
+  // `hr.payroll.credit` is a separate, deliberately distinct write-level
+  // action from `hr.payroll.write`: generating/finalizing a payroll run is
+  // not the same authority as crediting payslips (paying out), so the two
+  // are granted independently.
+  ...scopedPermission("hr.payroll.read", "View payroll periods and payslips"),
+  ...scopedPermission(
+    "hr.payroll.write",
+    "Generate, regenerate and finalize payroll periods and payslips",
+  ),
+  ...scopedPermission(
+    "hr.payroll.credit",
+    "Mark payslips as credited (paid out)",
+  ),
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",

@@ -95,6 +95,11 @@ model Organization {
   employeeSensitiveInfos  EmployeeSensitiveInfo[]
   employeeAddresses       EmployeeAddress[]
   employeeGovernmentIds   EmployeeGovernmentId[]
+  candidates              Candidate[]
+  loans                   Loan[]
+  bonuses                 Bonus[]
+  payrollPeriods          PayrollPeriod[]
+  payrollAuditLogs        PayrollAuditLog[]
 
   @@map("organizations")
   @@schema("platform")
@@ -632,6 +637,9 @@ model Employee {
   documents             EmployeeDocument[]
   employeeAddresses     EmployeeAddress[]
   employeeGovernmentId  EmployeeGovernmentId?
+  loans                 Loan[]
+  bonuses               Bonus[]
+  payslips              Payslip[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -1288,6 +1296,7 @@ model RevisionLetter {
 model Interview {
   id              Int      @id @default(autoincrement())
   organizationId  Int      @map("organization_id")
+  candidateId     Int?     @map("candidate_id")
   candidateName   String   @map("candidate_name")
   roleTitle       String   @map("role_title")
   interviewerName String   @map("interviewer_name")
@@ -1303,6 +1312,7 @@ model Interview {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  candidate    Candidate?   @relation(fields: [candidateId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, interviewDate])
   @@index([organizationId, status])
@@ -1320,6 +1330,7 @@ model Interview {
 model OfferLetter {
   id                   Int      @id @default(autoincrement())
   organizationId       Int      @map("organization_id")
+  candidateId          Int?     @map("candidate_id")
   candidateName        String   @map("candidate_name")
   role                 String
   location             String
@@ -1347,10 +1358,243 @@ model OfferLetter {
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  candidate    Candidate?   @relation(fields: [candidateId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, joiningDate])
   @@index([organizationId, candidateName])
   @@map("offer_letters")
+  @@schema("hr")
+}
+
+/// Recruitment candidate (legacy-adjacent: `Interview`/`OfferLetter` predate
+/// this table and store candidate name as free text; `candidateId` on both is
+/// an additive, nullable link so new records can reference a Candidate row
+/// without requiring one). `stage` is plain business data (not an enum) so HR
+/// can introduce new pipeline stages without a migration.
+model Candidate {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  roleApplied    String    @map("role_applied")
+  source         String?
+  resumeUrl      String?   @map("resume_url")
+  stage          String    @default("APPLIED")
+  appliedAt      DateTime  @map("applied_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  interviews   Interview[]
+  offerLetters OfferLetter[]
+
+  @@index([organizationId, stage])
+  @@map("candidates")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Loans, bonuses and payroll (apps/api/src/modules/hr/loans, hr/bonuses,
+// hr/payroll). Amounts use Decimal(14, 2) — wider than ExpenseClaim's
+// Decimal(12, 2) because payroll aggregates (net payable, total earnings)
+// can exceed a single claim amount.
+// ---------------------------------------------------------------------------
+
+/// A salary advance/loan requested by an employee and decided by HR, repaid
+/// through EMI deductions tracked in `LoanEmiPayment`. The `override*` fields
+/// capture a request to exceed the standard max-loan policy (a separate
+/// decision from the loan's own approval) together with the employee's gross
+/// salary and the standard max at the time of request, for audit purposes.
+model Loan {
+  id                      Int       @id @default(autoincrement())
+  organizationId          Int       @map("organization_id")
+  employeeId              Int       @map("employee_id")
+  amount                  Decimal   @db.Decimal(14, 2)
+  approvedAmount          Decimal?  @map("approved_amount") @db.Decimal(14, 2)
+  reason                  String
+  emiMonths               Int?      @map("emi_months")
+  emiAmount               Decimal?  @map("emi_amount") @db.Decimal(14, 2)
+  remainingBalance        Decimal   @default(0) @map("remaining_balance") @db.Decimal(14, 2)
+  status                  String    @default("PENDING")
+  disbursedAt             DateTime? @map("disbursed_at") @db.Timestamptz(6)
+  notes                   String?
+  decidedBy               Int?      @map("decided_by")
+  decidedAt               DateTime? @map("decided_at") @db.Timestamptz(6)
+  overrideRequestedAmount Decimal?  @map("override_requested_amount") @db.Decimal(14, 2)
+  overrideStatus          String?   @map("override_status")
+  overrideDecidedBy       Int?      @map("override_decided_by")
+  overrideDecidedAt       DateTime? @map("override_decided_at") @db.Timestamptz(6)
+  overrideReason          String?   @map("override_reason")
+  employeeGrossAtRequest  Decimal?  @map("employee_gross_at_request") @db.Decimal(14, 2)
+  standardMaxAtRequest    Decimal?  @map("standard_max_at_request") @db.Decimal(14, 2)
+  createdBy               Int?      @map("created_by")
+  updatedBy               Int?      @map("updated_by")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  employee     Employee            @relation(fields: [employeeId], references: [id])
+  emiPayments  LoanEmiPayment[]
+  skipRequests LoanSkipEmiRequest[]
+
+  @@index([organizationId, status])
+  @@map("loans")
+  @@schema("hr")
+}
+
+/// One EMI installment paid/deducted against a loan (via payroll or
+/// otherwise, see `deductedFrom`). `remainingBalanceAfter` is the loan's
+/// running balance snapshot right after this payment, kept for audit even if
+/// the loan's own `remainingBalance` is later recalculated.
+model LoanEmiPayment {
+  id                    Int      @id @default(autoincrement())
+  loanId                Int      @map("loan_id")
+  month                 String
+  amount                Decimal  @db.Decimal(14, 2)
+  paidAt                DateTime @map("paid_at") @db.Timestamptz(6)
+  payrollCredited       Boolean  @default(false) @map("payroll_credited")
+  remainingBalanceAfter Decimal  @map("remaining_balance_after") @db.Decimal(14, 2)
+  deductedFrom          String?  @map("deducted_from")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId, month])
+  @@map("loan_emi_payments")
+  @@schema("hr")
+}
+
+/// A request to skip an EMI for one month, decided by HR.
+model LoanSkipEmiRequest {
+  id          Int       @id @default(autoincrement())
+  loanId      Int       @map("loan_id")
+  month       String
+  status      String    @default("PENDING")
+  requestedBy Int       @map("requested_by")
+  requestedAt DateTime  @map("requested_at") @db.Timestamptz(6)
+  decidedBy   Int?      @map("decided_by")
+  decidedAt   DateTime? @map("decided_at") @db.Timestamptz(6)
+  reason      String?
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId, month])
+  @@map("loan_skip_emi_requests")
+  @@schema("hr")
+}
+
+/// A bonus requested/granted to an employee for a given payroll month,
+/// decided by HR.
+model Bonus {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  amount         Decimal   @db.Decimal(14, 2)
+  bonusType      String    @map("bonus_type")
+  month          String
+  status         String    @default("PENDING")
+  requestedAt    DateTime  @map("requested_at") @db.Timestamptz(6)
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, month])
+  @@map("bonuses")
+  @@schema("hr")
+}
+
+/// One payroll run for one calendar month (`period`, e.g. "2026-01"). Holds
+/// the run's lifecycle only; the per-employee numbers live in `Payslip`.
+model PayrollPeriod {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  period         String
+  status         String    @default("OPEN")
+  finalizedBy    Int?      @map("finalized_by")
+  finalizedAt    DateTime? @map("finalized_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  payslips     Payslip[]
+
+  @@unique([organizationId, period])
+  @@map("payroll_periods")
+  @@schema("hr")
+}
+
+/// One employee's computed salary for one payroll period. Every component is
+/// stored (not re-derived) so a generated payslip never silently changes if
+/// the computation logic changes later; `regeneratedReason` is set when a
+/// payslip is recomputed and replaced.
+model Payslip {
+  id                 Int       @id @default(autoincrement())
+  periodId           Int       @map("period_id")
+  employeeId         Int       @map("employee_id")
+  monthlySalary      Decimal   @map("monthly_salary") @db.Decimal(14, 2)
+  presentDays        Decimal   @map("present_days") @db.Decimal(14, 2)
+  halfDays           Decimal   @map("half_days") @db.Decimal(14, 2)
+  leaveDays          Decimal   @map("leave_days") @db.Decimal(14, 2)
+  payableDays        Decimal   @map("payable_days") @db.Decimal(14, 2)
+  perDayRate         Decimal   @map("per_day_rate") @db.Decimal(14, 2)
+  pdPay              Decimal   @map("pd_pay") @db.Decimal(14, 2)
+  hdPay              Decimal   @map("hd_pay") @db.Decimal(14, 2)
+  holidayPay         Decimal   @map("holiday_pay") @db.Decimal(14, 2)
+  loanDeduction      Decimal   @default(0) @map("loan_deduction") @db.Decimal(14, 2)
+  basic              Decimal   @db.Decimal(14, 2)
+  hra                Decimal   @db.Decimal(14, 2)
+  conveyance         Decimal   @db.Decimal(14, 2)
+  otherAllowance     Decimal   @map("other_allowance") @db.Decimal(14, 2)
+  specialAllowance   Decimal   @map("special_allowance") @db.Decimal(14, 2)
+  arrearsSalary      Decimal   @default(0) @map("arrears_salary") @db.Decimal(14, 2)
+  pf                 Decimal   @default(0) @db.Decimal(14, 2)
+  esi                Decimal   @default(0) @db.Decimal(14, 2)
+  totalDeductions    Decimal   @map("total_deductions") @db.Decimal(14, 2)
+  totalEarnings      Decimal   @map("total_earnings") @db.Decimal(14, 2)
+  netPayable         Decimal   @map("net_payable") @db.Decimal(14, 2)
+  creditStatus       String    @default("PENDING") @map("credit_status")
+  creditedAt         DateTime? @map("credited_at") @db.Timestamptz(6)
+  generatedAt        DateTime  @map("generated_at") @db.Timestamptz(6)
+  generatedBy        Int       @map("generated_by")
+  regeneratedReason  String?   @map("regenerated_reason")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([periodId, employeeId])
+  @@index([periodId, creditStatus])
+  @@map("payslips")
+  @@schema("hr")
+}
+
+/// Append-only log of payroll actions (generate/finalize/credit/etc.) for one
+/// organization/period, complementing the platform-wide `AuditLog` the way
+/// `EmployeeStatusHistory` complements it for employee status.
+model PayrollAuditLog {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  period         String
+  action         String
+  performedBy    Int      @map("performed_by")
+  performedAt    DateTime @map("performed_at") @db.Timestamptz(6)
+  details        Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, period])
+  @@map("payroll_audit_logs")
   @@schema("hr")
 }
 
