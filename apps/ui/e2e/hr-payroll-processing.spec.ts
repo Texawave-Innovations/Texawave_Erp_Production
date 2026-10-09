@@ -126,8 +126,9 @@ async function mockPayroll(page: Page) {
     if (url.pathname === `/hr/payroll/runs/${RUN.id}/approve`)
       return json(403, {
         statusCode: 403,
-        error: "SELF_APPROVAL_FORBIDDEN",
-        message: "You cannot approve a payroll run you created",
+        // The real body: a plain ForbiddenException (all-exceptions.filter.ts).
+        error: "Forbidden",
+        message: "Maker-checker: you cannot approve this payroll run yourself",
       });
     if (url.pathname === "/hr/payroll/entries")
       return json(200, page1([ENTRY]));
@@ -231,6 +232,6 @@ test("explains why the creator of a run cannot approve it", async ({
   const dialog = page.getByRole("dialog", { name: "Approve payroll run" });
   await dialog.getByRole("button", { name: "Approve" }).click();
   await expect(dialog.getByRole("alert")).toHaveText(
-    "You created this payroll run, so someone else must approve it.",
+    "You created this, so someone else must approve it.",
   );
 });

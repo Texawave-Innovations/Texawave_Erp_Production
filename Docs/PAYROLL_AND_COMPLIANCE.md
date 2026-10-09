@@ -2,8 +2,9 @@
 
 > **Target Audience:** Frontend Engineers, UI/UX Designers, and QA / Test Automation Engineers.  
 > **Backend Module:** `apps/api/src/modules/hr/payroll/`  
+> **Frontend Feature:** `apps/ui/src/features/hr/payroll/` (routes `/hr/payroll`, `/hr/compliance` — §5)  
 > **Database Migrations:** `20261005115640_add_hr_payroll_and_compliance`, `20261007102758_payroll_one_time_arrears`  
-> **Monorepo Packages:** `@texawave-erp/database`, `apps/api`
+> **Monorepo Packages:** `@texawave-erp/database`, `apps/api`, `apps/ui`, `@texawave-erp/ui-kit`
 
 ---
 
@@ -27,7 +28,7 @@ The **Payroll & Compliance** module provides automated, reproducible, and compli
    - Status codes: `400` request validation failure (DTO), `401` no/invalid token, `403` missing permission, `404` not found or outside caller's scope, `409` duplicate/conflict, `422` business-rule violation (e.g. `NO_APPROVED_RUN`).
 4. **Data Formats:**
    - **Dates:** Strictly `YYYY-MM-DD` string format (ISO calendar date without timestamp or timezone shifts).
-   - **Monetary amounts:** Decimal numbers with 2 decimal places (e.g., `50000.00`).
+   - **Monetary amounts & day counts in responses:** Prisma `Decimal` columns are serialized as **strings with trailing zeros dropped** — `52200.00` arrives as `"52200"`, `21.50` as `"21.5"`. Compare numerically (`Number(x)`), never as strings, and never do money arithmetic on floats in the UI (the salary report sums in integer paise). Request bodies take plain JSON numbers. JSON samples below show numbers for readability.
    - **Primary Keys:** Integers (`Int @id`). Never UUID strings.
 5. **Historical Reproducibility:** Historical payroll runs and payslips are **immutable snapshots**. Once a payroll period is finalized, altering employee master data, attendance, or salaries will **never** change historical payroll entries or payslips.
 
@@ -191,7 +192,8 @@ Creates a new payroll period in `DRAFT` status.
 List paginated payroll periods.
 
 - **Permission:** `hr.payroll.read.own` / `.team` / `.all`
-- **Query Params:** `page`, `limit`, `year`, `status` (`DRAFT`, `PROCESSING`, `FINALIZED`, `CANCELLED`)
+- **Query Params:** `page`, `limit` (max 100), `year`, `status` (`DRAFT`, `PROCESSING`, `PROCESSED`, `APPROVED`, `FINALIZED`, `CANCELLED`)
+- Each period includes `runs[]` (`id`, `runNumber`, `status`, `startedAt`, `completedAt`, `approvedAt`, newest first) and `finalizedBy`.
 
 #### `GET /hr/payroll/periods/:id`
 
@@ -515,53 +517,79 @@ List calculated employee entries for a run.
 
 - **Permission:** `hr.payroll.read.own` / `.team` / `.all`
 - **Query Params:** `payrollRunId`, `payrollPeriodId`, `employeeId`, `status`, `page`, `limit`
+- **Employee fields:** each entry's `employee` carries `id`, `employeeCode`, `fullName`, `teamId`, `userId`, `team { id, name }` and `department { id, name }` (either may be `null`). The UI salary report filters by team/department from these.
 
 #### `GET /hr/payroll/entries/:id`
 
 Get a single entry with its earnings/deductions breakdown.
 
 - **Permission:** `hr.payroll.read.own` / `.team` / `.all`
-- **Response Sample:**
+- **Response Sample** (a single object; decimals are strings — §1.4):
   ```json
   {
-    "data": [
-      {
-        "id": 101,
-        "employeeId": 10,
-        "totalCalendarDays": 31,
-        "requiredWorkingDays": 22,
-        "presentDays": 22,
-        "payableDays": 31,
-        "lopDays": 0,
-        "monthlyGross": 50000.0,
-        "totalGrossEarnings": 55000.0,
-        "totalDeductions": 2800.0,
-        "netPayable": 52200.0,
-        "earnings": [
-          {
-            "code": "BASIC",
-            "name": "Basic Salary",
-            "calculatedAmount": 25000.0
-          },
-          {
-            "code": "HRA",
-            "name": "House Rent Allowance",
-            "calculatedAmount": 15000.0
-          },
-          {
-            "code": "BONUS",
-            "name": "Bonus (PERFORMANCE)",
-            "calculatedAmount": 5000.0
-          }
-        ],
-        "deductions": [
-          { "code": "PF", "name": "Provident Fund", "amount": 1800.0 },
-          { "code": "LOAN", "name": "Loan Repayment", "amount": 1000.0 }
-        ]
-      }
-    ]
+    "data": {
+      "id": 101,
+      "payrollRunId": 1,
+      "employeeId": 10,
+      "totalCalendarDays": 31,
+      "requiredWorkingDays": 22,
+      "presentDays": "22",
+      "halfDays": "0",
+      "holidayDays": "0",
+      "leaveDays": "0",
+      "lopDays": "0",
+      "payableDays": "31",
+      "monthlyGross": "50000",
+      "perDayRate": "1612.9",
+      "earningRatio": "1",
+      "baseEarnings": "50000",
+      "totalGrossEarnings": "55000",
+      "totalDeductions": "2800",
+      "netPayable": "52200",
+      "employee": {
+        "id": 10,
+        "employeeCode": "EMP-001",
+        "fullName": "John Doe",
+        "teamId": 3,
+        "userId": 7,
+        "team": { "id": 3, "name": "Software" },
+        "department": { "id": 2, "name": "Engineering" }
+      },
+      "earnings": [
+        {
+          "code": "BASIC",
+          "name": "Basic Salary",
+          "baseAmount": "25000",
+          "earningRatio": "1",
+          "calculatedAmount": "25000"
+        },
+        {
+          "code": "BONUS",
+          "name": "Bonus (PERFORMANCE)",
+          "baseAmount": "5000",
+          "earningRatio": "1",
+          "calculatedAmount": "5000"
+        }
+      ],
+      "deductions": [
+        {
+          "code": "PF",
+          "name": "Provident Fund",
+          "amount": "1800",
+          "sourceType": "PF"
+        },
+        {
+          "code": "LOAN",
+          "name": "Loan Repayment",
+          "amount": "1000",
+          "sourceType": "LOAN"
+        }
+      ],
+      "payslip": null
+    }
   }
   ```
+  `sourceType` is `PF`, `ESI` or `LOAN` for statutory/loan deductions; the salary report groups deductions by it.
 
 ---
 
@@ -602,6 +630,15 @@ Authenticated employee's own payslips.
 Authenticated employee's individual payslip.
 
 - **Permission:** `employee_self_service.payslip.read`
+
+#### `GET /hr/payslips/:id/pdf` / `GET /self-service/payslips/:id/pdf`
+
+Download a payslip as an A4 PDF (`Content-Type: application/pdf`, `Content-Disposition: attachment; filename="PS-YYYYMM-NNNNNN.pdf"`). Not wrapped in the `{ data }` envelope.
+
+- **Permission:** HR route `hr.payslip.read.own` / `.team` / `.all` (same scope as `GET /hr/payslips/:id`); self-service route `employee_self_service.payslip.read`, own payslips only.
+- **Errors:** `403` without the permission; `404` for an unknown id, another organization's payslip, one outside the caller's team scope, or (self-service) someone else's payslip.
+- **Content:** employee, designation, department, masked bank account / PAN, UAN, ESI number, calendar / payable / LOP days, earnings and deductions tables, gross, total deductions, net payable. Masking is identical to the JSON responses.
+- **Rendering:** headless Chromium via `playwright` (`payslips/payslip-pdf.renderer.ts`). The API host needs a browser: `pnpm --filter api exec playwright install chromium`, or set `PDF_BROWSER_CHANNEL=msedge` / `chrome` in `apps/api/.env` to use an installed Edge/Chrome (Docs/ARCHITECTURE.md §9). Without either, these two routes return `500`; nothing else is affected.
 
 ---
 
@@ -687,7 +724,50 @@ Payslip and payment responses keep the `employee.bankDetails` shape — `{ bankN
 
 ## 5. UI/UX Designer & Frontend Engineering Guide
 
-### 5.1 Required Screens & Layout Hierarchy
+### 5.0 What is built (status 2026-10-09)
+
+A deliberately simple, standards-compliant first version — meant as the base for UI polish, not the final design.
+
+**Navigation.** Two sidebar entries under HR (menu rows `hr-payroll` order 16, `hr-compliance` order 17, `permission: null` in `packages/database/prisma/seed.ts` — run `pnpm --filter database seed`). Each screen is a tab bar; a tab appears only when the user can read it, and with no readable tab the screen shows a "No access" alert.
+
+| Route            | Tab            | Shown when the user has (any of `.own`/`.team`/`.all` unless noted) | Status                                         |
+| :--------------- | :------------- | :------------------------------------------------------------------ | :--------------------------------------------- |
+| `/hr/payroll`    | Periods & runs | `hr.payroll.read`                                                   | **Built**                                      |
+|                  | Salaries       | `hr.salary.read`                                                    | Placeholder                                    |
+|                  | Bonuses        | `hr.bonus.read`                                                     | Placeholder                                    |
+|                  | Loans          | `hr.loan.read` or `employee_self_service.loan.read` (exact)         | Placeholder                                    |
+|                  | Payslips       | `hr.payslip.read` or `employee_self_service.payslip.read` (exact)   | Placeholder (PDF download API is ready — §4.7) |
+|                  | Payments       | `hr.payment.read`                                                   | Placeholder                                    |
+|                  | Salary report  | `hr.payroll.read`                                                   | **Built**                                      |
+| `/hr/compliance` | PF             | `hr.pf.read`                                                        | Placeholder                                    |
+|                  | ESI            | `hr.esi.read`                                                       | Placeholder                                    |
+
+**Periods & runs** (`components/PeriodsPanel.tsx`, `PeriodDialogs.tsx`, `EntriesDialog.tsx`, `PayrollLifecycle.tsx`)
+
+- Period list: year / status filters, pagination, **New period** (`hr.payroll.write`) with year, month and optional start/end dates; end before start is blocked client-side.
+- **Manage** opens the period detail: a progress tracker (Period created → Payroll run → Approved → Finalized, with a "Next:" hint) and the runs table (run #, status — cancelled runs say "Replaced by a later run", employees, run by + time, notes, approved by).
+- **Run payroll** (`hr.payroll.write`, period not finalized/cancelled): _All eligible employees_ or _Selected employees only_ (added one at a time with the employee picker, at least one required) plus optional notes.
+- **Approve** (`hr.payroll.approve`, run `PROCESSED`): optional notes. The UI does not yet hide it from the run's creator — the API refuses with a plain `403` (`error: "Forbidden"`, message starting "Maker-checker:") and the dialog explains why (§5.2).
+- **Finalize** (`hr.payroll.finalize`): disabled until a run is `APPROVED`; confirmation warns that the period gets locked and payslips generated. **Cancel period** (`hr.payroll.write`).
+- **View entries**: per-employee table (payable/LOP days, gross, deductions, net) → **View** shows one employee's calculation (attendance, monthly gross, per-day rate, earning ratio, base earnings, earnings and deductions tables, totals, payslip number once issued).
+
+**Salary report** (`components/SalaryReportPanel.tsx`, rules in `salary-report.ts`)
+
+- Reads the saved run — never recalculates (Docs/HR_LEGACY_PARITY.md §3.14). Period selector lists non-cancelled periods with a processed/approved run; run defaults to the approved one, else the latest processed one (then a "Not yet approved" warning).
+- Filters: **Team**, **Department** (options taken from the run's own employees), employee name/code search. All client-side, after loading every page of the run's entries (cap 5,000 rows).
+- Columns: employee, team / department, payable days, LOP, gross, PF, ESI, loan EMI, other deductions, net payable; summary cards and a totals line. Totals are summed in integer paise.
+- **Export CSV** of the filtered rows plus a totals row: `salary-report-YYYY-MM-runN.csv`, UTF-8 with BOM, every cell quoted, a leading `= + - @` prefixed with `'`.
+
+**Shared building blocks**
+
+- `Tabs` — `packages/ui-kit/src/components/tabs` (Docs/DESIGN_SYSTEM.md §2).
+- `EmployeePicker` — `apps/ui/src/components/widgets/EmployeePicker.tsx` (search + select over `GET /hr/employees`, scope-filtered server-side).
+- Feature internals: `api.ts` / `hooks.ts` (query key root `hr-payroll`; every mutation invalidates it), `types.ts`, `schema.ts` (zod), `format.ts` (`money`, `periodLabel`, `describeError` — business error codes mapped to plain-English messages), `permissions.ts`, `QueryState.tsx` (loading / no access / error-with-retry).
+- **Known ui-kit bug:** `Dialog` uses a fixed `id="dialog-title"`, so two mounted dialogs share one accessible name. Payroll mounts each dialog only while open; fix `Dialog` with `useId()` in a separate PR.
+
+### 5.1 Target Screens & Layout Hierarchy
+
+The full target. §5.0 says which parts exist today.
 
 ```
 HR
@@ -724,8 +804,8 @@ HR
 
 - `DRAFT` $\to$ `PROCESSED` (run executed) $\to$ `APPROVED` (run approved) $\to$ `FINALIZED` (finalized). A re-run from `PROCESSED` or `APPROVED` returns the period to `PROCESSED` and cancels the earlier run. `DRAFT`/`CANCELLED` can be set via PATCH on a non-finalized period.
 - **"Run Payroll" Button:** Enabled when status is `DRAFT`, `PROCESSED` or `APPROVED` (warn on `APPROVED`: _"This replaces the approved run; it must be approved again."_). Disabled for `FINALIZED`/`CANCELLED`.
-- **"Approve Run" Button:** Hide for the user who created the run (maker-checker, API returns `403`).
-- **"Finalize Period" Button:** Enabled **only** when the period is `APPROVED`. Show confirmation modal warning: _"Finalizing will lock all calculations, settle loan repayments, and generate official payslips. This action is irreversible."_
+- **"Approve Run" Button:** Hide for the user who created the run (maker-checker, API returns `403`). _Current UI:_ shown for any `PROCESSED` run to users with `hr.payroll.approve`; the API's maker-checker `403` is shown as "You created this, so someone else must approve it." (told apart from a missing-permission `403` by its "Maker-checker:" message — there is no dedicated error code). Follow-up: hide it when `runCreator.id` (a user id) equals the signed-in user.
+- **"Finalize Period" Button:** Enabled **only** when the period is `APPROVED` (_current UI:_ when the period has an `APPROVED` run). Show confirmation modal warning: _"Finalizing will lock all calculations, settle loan repayments, and generate official payslips. This action is irreversible."_
 
 #### Payment Batch State Transitions
 
@@ -760,31 +840,61 @@ HR
 - **Unit Tests:** `apps/api/src/modules/hr/payroll/**/*.spec.ts`
   - `payroll-calculator.service.spec.ts`: Tests statutory PF capping, ESI ceiling on the recurring wage, ESI wage without bonus, LOP prorating, weekly offs & holiday exclusions, scheduled loan installments (none due, skipped, adjusted last installment, not fitting net pay), one-time arrears, bonus inclusion.
   - `payroll-periods.service.spec.ts`: Tests period creation/duplicates, org-wide scope enforcement, and that finalize delegates to the locked repository transaction.
+  - `payslip-pdf.template.spec.ts` / `payslip-pdf.service.spec.ts`: payslip HTML escaping, amount formatting, masked values, and that PDFs go through the scoped payslip reads.
 - **E2E Integration Tests:** `apps/api/test/payroll.e2e-spec.ts`
-  - Runs 12 sequential integration scenarios against real PostgreSQL and Redis databases: the full May cycle, maker-checker, team-scope boundaries (salaries, org-wide operations), cross-organization payslip generation, run supersession, duplicate batch/processing, loan skip re-scheduling and closure, one-time arrears and ESI with a bonus month.
+  - Runs 13 sequential integration scenarios against real PostgreSQL and Redis databases: the full May cycle, maker-checker, team-scope boundaries (salaries, org-wide operations), payslip PDF download scope (8b), cross-organization payslip generation, run supersession, duplicate batch/processing, loan skip re-scheduling and closure, one-time arrears and ESI with a bonus month. Entries are also checked to carry the employee's team and department.
+  - The PDF renderer is replaced by a stub in this suite, so it needs no browser; the PDF layout itself is covered by the template unit test.
+- **Browser (UI) E2E Tests — Playwright:** `apps/ui/e2e/`
+
+  | Spec                               | Covers                                                                                                                                                                                           | Data                                    |
+  | :--------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- |
+  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period | Real API + dev DB                       |
+  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                       | Real sign-in, payroll API from fixtures |
+  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                         | Real sign-in, payroll API from fixtures |
+
+  Fixture-backed specs exist because a dev DB usually has no employees, salaries or processed runs, and approval needs a second user. They prove UI behaviour; the API e2e suite proves the numbers.
 
 ### 6.2 Test Scenarios & Edge Cases Matrix
 
-| Test Case     | Scenario / Condition                                               | Expected Result                                                                                                                                                      |
-| :------------ | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **TC-PAY-01** | Create two periods for the same year and month (e.g., 2026-05)     | First succeeds (201); Second fails with **409 Conflict** (`DUPLICATE_PERIOD`).                                                                                       |
-| **TC-PAY-02** | Finalize period without an `APPROVED` payroll run                  | Fails with **422 Unprocessable Entity** (`NO_APPROVED_RUN`).                                                                                                         |
-| **TC-PAY-03** | Finalize an already `FINALIZED` period                             | Fails with **422 Unprocessable Entity** (`PAYROLL_ALREADY_FINALIZED`).                                                                                               |
-| **TC-PAY-04** | Employee joins mid-month (e.g., joined May 16th in a 31-day month) | First 15 days count as LOP. Earning ratio = $16 / 31$. Gross and base components prorated accordingly.                                                               |
-| **TC-PAY-05** | Employee with Basic ₹25,000 (exceeds ₹15,000 PF statutory ceiling) | PF Wage capped at ₹15,000. Employee contribution exactly ₹1,800.00.                                                                                                  |
-| **TC-PAY-06** | Employee with Gross ₹20,000 ($\le$ ₹21,000 ESI ceiling)            | ESI Wage = ₹20,000. Employee contribution = ₹150.00 (0.75%).                                                                                                         |
-| **TC-PAY-07** | Employee with Gross ₹50,000 ($>$ ₹21,000 ESI ceiling)              | ESI deduction is ₹0.00. `esiIncluded` = false.                                                                                                                       |
-| **TC-PAY-08** | Active loan with approved EMI skip request for the period          | Loan EMI is not deducted in this payroll run; the installment is `SKIPPED` and a new one is appended at the end.                                                     |
-| **TC-PAY-09** | Bank transfer batch CSV export                                     | Headers `Employee Code,Employee Name,Bank Name,Account Number,IFSC Code,Amount,Payment Method,Status,Payment Reference`; no PAN; formula-prefixed names neutralised. |
-| **TC-PAY-10** | Team-scoped access control                                         | Manager of Team A cannot view or change payslips or salaries of Team B employees (**404**), and cannot run org-wide operations (**403**).                            |
-| **TC-PAY-11** | Self-service isolation                                             | User A calling `/self-service/payslips` only sees payslips linked to User A's employee record.                                                                       |
-| **TC-PAY-12** | Creator approves own run / bonus / skip request                    | **403 Forbidden** (maker-checker).                                                                                                                                   |
-| **TC-PAY-13** | Second run after the first was approved                            | First run → `CANCELLED`; only the new run can be approved and paid.                                                                                                  |
-| **TC-PAY-14** | Payment batch before finalize / second batch / process twice       | **422** `PERIOD_NOT_FINALIZED` / **409** `PAYMENT_BATCH_EXISTS` / **422** `BATCH_ALREADY_PROCESSED`.                                                                 |
-| **TC-PAY-15** | Payslip generation with another organization's period id           | **404**; nothing created.                                                                                                                                            |
-| **TC-PAY-16** | Loan after its final installment is paid                           | Loan `CLOSED`; no further EMI.                                                                                                                                       |
-| **TC-PAY-17** | Arrears set once                                                   | Paid in the next finalized period only.                                                                                                                              |
-| **TC-PAY-18** | ESI-covered employee with a bonus                                  | ESI wage excludes the bonus.                                                                                                                                         |
+| Test Case     | Scenario / Condition                                                         | Expected Result                                                                                                                                                      |
+| :------------ | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-PAY-01** | Create two periods for the same year and month (e.g., 2026-05)               | First succeeds (201); Second fails with **409 Conflict** (`DUPLICATE_PERIOD`).                                                                                       |
+| **TC-PAY-02** | Finalize period without an `APPROVED` payroll run                            | Fails with **422 Unprocessable Entity** (`NO_APPROVED_RUN`).                                                                                                         |
+| **TC-PAY-03** | Finalize an already `FINALIZED` period                                       | Fails with **422 Unprocessable Entity** (`PAYROLL_ALREADY_FINALIZED`).                                                                                               |
+| **TC-PAY-04** | Employee joins mid-month (e.g., joined May 16th in a 31-day month)           | First 15 days count as LOP. Earning ratio = $16 / 31$. Gross and base components prorated accordingly.                                                               |
+| **TC-PAY-05** | Employee with Basic ₹25,000 (exceeds ₹15,000 PF statutory ceiling)           | PF Wage capped at ₹15,000. Employee contribution exactly ₹1,800.00.                                                                                                  |
+| **TC-PAY-06** | Employee with Gross ₹20,000 ($\le$ ₹21,000 ESI ceiling)                      | ESI Wage = ₹20,000. Employee contribution = ₹150.00 (0.75%).                                                                                                         |
+| **TC-PAY-07** | Employee with Gross ₹50,000 ($>$ ₹21,000 ESI ceiling)                        | ESI deduction is ₹0.00. `esiIncluded` = false.                                                                                                                       |
+| **TC-PAY-08** | Active loan with approved EMI skip request for the period                    | Loan EMI is not deducted in this payroll run; the installment is `SKIPPED` and a new one is appended at the end.                                                     |
+| **TC-PAY-09** | Bank transfer batch CSV export                                               | Headers `Employee Code,Employee Name,Bank Name,Account Number,IFSC Code,Amount,Payment Method,Status,Payment Reference`; no PAN; formula-prefixed names neutralised. |
+| **TC-PAY-10** | Team-scoped access control                                                   | Manager of Team A cannot view or change payslips or salaries of Team B employees (**404**), and cannot run org-wide operations (**403**).                            |
+| **TC-PAY-11** | Self-service isolation                                                       | User A calling `/self-service/payslips` only sees payslips linked to User A's employee record.                                                                       |
+| **TC-PAY-12** | Creator approves own run / bonus / skip request                              | **403 Forbidden** (maker-checker).                                                                                                                                   |
+| **TC-PAY-13** | Second run after the first was approved                                      | First run → `CANCELLED`; only the new run can be approved and paid.                                                                                                  |
+| **TC-PAY-14** | Payment batch before finalize / second batch / process twice                 | **422** `PERIOD_NOT_FINALIZED` / **409** `PAYMENT_BATCH_EXISTS` / **422** `BATCH_ALREADY_PROCESSED`.                                                                 |
+| **TC-PAY-15** | Payslip generation with another organization's period id                     | **404**; nothing created.                                                                                                                                            |
+| **TC-PAY-16** | Loan after its final installment is paid                                     | Loan `CLOSED`; no further EMI.                                                                                                                                       |
+| **TC-PAY-17** | Arrears set once                                                             | Paid in the next finalized period only.                                                                                                                              |
+| **TC-PAY-18** | ESI-covered employee with a bonus                                            | ESI wage excludes the bonus.                                                                                                                                         |
+| **TC-PAY-19** | Download payslip PDF: HR with `hr.payslip.read`; user without it; unknown id | `200 application/pdf` attachment `PS-….pdf` with masked bank/PAN; **403**; **404**.                                                                                  |
+| **TC-PAY-20** | Self-service PDF of own vs another employee's payslip                        | Own → `200`; another's → **404**.                                                                                                                                    |
+
+#### UI test cases (manual or Playwright)
+
+| Test Case    | Steps                                                                               | Expected Result                                                                         |
+| :----------- | :---------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| **TC-UI-01** | User with no payroll / compliance permission opens HR → Payroll and HR → Compliance | "No access" alert; no tabs.                                                             |
+| **TC-UI-02** | User with only `hr.salary.read.team` opens Payroll                                  | Only the Salaries tab; Periods & runs and Salary report hidden.                         |
+| **TC-UI-03** | New period with end date before start date                                          | Inline "End date cannot be before start date"; no request sent.                         |
+| **TC-UI-04** | New period for a year+month that already exists                                     | Dialog stays open with the API's conflict message.                                      |
+| **TC-UI-05** | Run payroll → "Selected employees only" with nobody added                           | "Add at least one employee"; no request sent.                                           |
+| **TC-UI-06** | Run payroll when no employee has a salary for the period                            | Dialog shows "Some employees have no salary structure for this period…".                |
+| **TC-UI-07** | Creator of a run clicks Approve                                                     | Dialog shows "You created this, so someone else must approve it."; run stays Processed. |
+| **TC-UI-08** | Finalize before any run is approved                                                 | Finalize button disabled.                                                               |
+| **TC-UI-09** | Salary report on a processed (unapproved) run                                       | "Not yet approved" warning.                                                             |
+| **TC-UI-10** | Salary report: Team + Department combination nobody matches                         | "No matching employees"; totals ₹ 0.00; Export CSV disabled.                            |
+| **TC-UI-11** | Export CSV with an employee named `=HYPERLINK("x")`                                 | Cell exported as `'=HYPERLINK("x")` (shown as text in Excel).                           |
+| **TC-UI-12** | Keyboard only: Tab to the tab bar, Arrow Right / Left, Home / End                   | Focus and selection move together; only the selected tab is in the Tab order.           |
 
 ### 6.3 How to Run Tests Locally
 
@@ -798,7 +908,32 @@ $env:DATABASE_URL="postgresql://texawave:texawave@localhost:5432/texawave_erp_te
 $env:REDIS_URL="redis://localhost:6379/5"
 pnpm --filter api test:e2e test/payroll.e2e-spec.ts
 
-# 3. Monorepo Typecheck & Lint
+# 3. Browser (UI) E2E — needs api (:3000) and ui (:3001) running against the
+#    seeded dev DB (`pnpm --filter database seed` adds the Payroll/Compliance menu rows)
+pnpm --filter ui exec playwright install chromium   # once
+pnpm --filter ui test:e2e e2e/hr-payroll.spec.ts e2e/hr-payroll-processing.spec.ts e2e/hr-payroll-salary-report.spec.ts
+
+# 4. Monorepo Typecheck & Lint
 pnpm -r run typecheck
 pnpm --filter api run lint
+pnpm --filter ui run lint
 ```
+
+**If the Playwright / Chromium download is blocked** (`cdn.playwright.dev` timeout), run the browser tests in the installed Microsoft Edge through a throw-away config — don't commit it:
+
+```ts
+// apps/ui/playwright.edge.tmp.config.ts
+import base from "./playwright.config";
+export default {
+  ...base,
+  projects: [{ name: "edge", use: { ...(base.use ?? {}), channel: "msedge" } }],
+};
+```
+
+```bash
+cd apps/ui && pnpm exec playwright test -c playwright.edge.tmp.config.ts e2e/hr-payroll*.spec.ts
+```
+
+The same blocked download affects payslip PDFs on the API — set `PDF_BROWSER_CHANNEL=msedge` in `apps/api/.env` (§4.7).
+
+**Troubleshooting: every payroll call returns `500`, API log says `hr.payroll_periods does not exist`.** The dev DB has the payroll tables in the `public` schema (from an earlier version of the payroll migration) while `prisma migrate status` reports "up to date". Check with `SELECT to_regclass('hr.payroll_periods'), to_regclass('public.payroll_periods');`. Fix by recreating the tables in `hr` from the two payroll migration files (and copying any rows across), or with `pnpm --filter database exec prisma migrate reset` if local data can be discarded.

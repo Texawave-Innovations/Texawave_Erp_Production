@@ -65,8 +65,6 @@ const ERROR_TEXT: Record<string, string> = {
   NO_ELIGIBLE_EMPLOYEES: "No eligible employees were found for this period.",
   CALCULATION_EMPTY: "Payroll could not be calculated for any employee.",
   RUN_ALREADY_APPROVED: "This payroll run is already approved.",
-  SELF_APPROVAL_FORBIDDEN:
-    "You created this payroll run, so someone else must approve it.",
   INVALID_STATE_TRANSITION:
     "That action is not allowed in the current status. Refresh and try again.",
 };
@@ -75,6 +73,11 @@ export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     const known = ERROR_TEXT[error.errorCode];
     if (known) return known;
+    // Maker-checker refusals are a plain 403 with no error code of their own
+    // (apps/api/.../payroll/shared/payroll-scope.ts `assertNotSelfApproval`),
+    // so they are told apart from a missing permission by their message.
+    if (error.isPermissionError && /maker-checker/i.test(error.message))
+      return "You created this, so someone else must approve it.";
     if (error.isPermissionError)
       return "You don't have permission to do this. Organization-wide payroll actions need an .all grant.";
     if (error.statusCode === 409) return error.message;
