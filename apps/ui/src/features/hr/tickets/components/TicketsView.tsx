@@ -76,11 +76,27 @@ export function TicketsView() {
     setPage(1);
   };
 
-  if (!canRead) {
+  if (!canRead && !canSelfService) {
     return (
       <Alert variant="warning" title="You don't have access to tickets">
         Ask an administrator for the <code>hr.ticket.read</code> permission.
       </Alert>
+    );
+  }
+
+  if (!canRead && canSelfService) {
+    return (
+      <Card>
+        <EmptyState
+          title="Employee Tickets"
+          description="You can raise and view your own tickets."
+        />
+        <div className="mt-4">
+          <Button onClick={() => router.push("/self-service/tickets")}>
+            My tickets
+          </Button>
+        </div>
+      </Card>
     );
   }
 

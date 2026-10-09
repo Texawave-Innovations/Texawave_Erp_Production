@@ -109,13 +109,29 @@ export function AttendanceView() {
     ...(filters.status ? { status: filters.status } : {}),
   };
 
-  const list = useAttendanceList(query);
+  const list = useAttendanceList(query, canRead);
 
-  if (!canRead) {
+  if (!canRead && !canSelfService) {
     return (
       <Alert variant="warning" title="You don't have access to attendance">
         Ask an administrator for the <code>hr.attendance.read</code> permission.
       </Alert>
+    );
+  }
+
+  if (!canRead && canSelfService) {
+    return (
+      <Card>
+        <EmptyState
+          title="Attendance"
+          description="You can view your own attendance record."
+        />
+        <div className="mt-4">
+          <Button onClick={() => router.push("/self-service/attendance")}>
+            My attendance
+          </Button>
+        </div>
+      </Card>
     );
   }
 

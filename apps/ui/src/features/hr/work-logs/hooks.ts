@@ -22,23 +22,24 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useWorkLogs(query: WorkLogListQuery) {
+export function useWorkLogs(query: WorkLogListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list", query),
     queryFn: () => listWorkLogs(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 
 export function useWorkLogApprovals(
   query: Omit<WorkLogListQuery, "employeeId">,
+  enabled = true,
 ) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "approvals", query),
     queryFn: () => listWorkLogApprovals(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 

@@ -70,18 +70,35 @@ export function WorkLogsView() {
     ...(filters.to ? { to: filters.to } : {}),
   };
 
-  const scopeList = useWorkLogs(query);
-  const approvalsList = useWorkLogApprovals(query);
+  const hasHrAccess = canRead || canApprove;
+  const scopeList = useWorkLogs(query, canRead);
+  const approvalsList = useWorkLogApprovals(query, canApprove);
   const list = tab === "approvals" ? approvalsList : scopeList;
 
   const hasFilters =
     filters.status !== "" || filters.from !== "" || filters.to !== "";
 
-  if (!canRead && !canApprove) {
+  if (!hasHrAccess && !canSelfService) {
     return (
       <Alert variant="warning" title="You don't have access to work logs">
         Ask an administrator for the <code>hr.work_log.read</code> permission.
       </Alert>
+    );
+  }
+
+  if (!hasHrAccess && canSelfService) {
+    return (
+      <Card>
+        <EmptyState
+          title="Work Logs"
+          description="You can submit and view your own work logs."
+        />
+        <div className="mt-4">
+          <Button onClick={() => router.push("/self-service/work-logs")}>
+            My work logs
+          </Button>
+        </div>
+      </Card>
     );
   }
 

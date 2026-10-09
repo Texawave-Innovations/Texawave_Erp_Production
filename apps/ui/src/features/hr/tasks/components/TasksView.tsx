@@ -103,7 +103,7 @@ export function TasksView() {
     [page, filters, summary],
   );
 
-  const list = useTasks(query);
+  const list = useTasks(query, canRead);
   const hasFilters =
     filters.status !== "" || filters.q !== "" || filters.awaitingApproval;
 
@@ -146,11 +146,27 @@ export function TasksView() {
     }
   }
 
-  if (!canRead) {
+  if (!canRead && !canSelfService) {
     return (
       <Alert variant="warning" title="You don't have access to tasks">
         Ask an administrator for the <code>hr.task.read</code> permission.
       </Alert>
+    );
+  }
+
+  if (!canRead && canSelfService) {
+    return (
+      <Card>
+        <EmptyState
+          title="Task Assignment"
+          description="You can view and update the status of your own tasks."
+        />
+        <div className="mt-4">
+          <Button onClick={() => router.push("/self-service/tasks")}>
+            My tasks
+          </Button>
+        </div>
+      </Card>
     );
   }
 

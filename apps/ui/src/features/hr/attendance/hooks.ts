@@ -22,12 +22,12 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useAttendanceList(query: AttendanceListQuery) {
+export function useAttendanceList(query: AttendanceListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list", query),
     queryFn: () => listAttendance(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 
