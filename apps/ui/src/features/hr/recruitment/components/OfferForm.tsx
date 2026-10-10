@@ -1,7 +1,16 @@
 "use client";
 
-import { Button, FormField, Input } from "@texawave-erp/ui-kit";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button, FormField, Input, Select } from "@texawave-erp/ui-kit";
+import {
+  User,
+  DollarSign,
+  Calendar,
+  Building2,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
+import { FormSection } from "../../components/FormSection";
 import {
   issuesByField,
   offerFormSchema,
@@ -30,10 +39,11 @@ export interface OfferFormProps {
   onSubmit: (input: CreateOfferLetterInput) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
+  onValuesChange?: (values: OfferFormValues) => void;
 }
 
 /** Legacy prefills, mirrored from offer-letters.rules.ts OFFER_LETTER_DEFAULTS. */
-const LEGACY_DEFAULTS = {
+export const LEGACY_OFFER_DEFAULTS = {
   location: "Chennai",
   reportingManager: "Mr. Nithyanandan Ramaraj",
   workScheduleMonFri: "10:00 AM – 7:00 PM",
@@ -48,13 +58,13 @@ const LEGACY_DEFAULTS = {
     "No. 93/206, Canal Bank Road, Indra Nagar, Adyar, Chennai – 600020",
 } as const;
 
-function emptyValues(): OfferFormValues {
+export function emptyOfferValues(): OfferFormValues {
   const offerDate = todayDateOnly();
   return {
     candidateName: "",
     role: "",
-    location: LEGACY_DEFAULTS.location,
-    reportingManager: LEGACY_DEFAULTS.reportingManager,
+    location: LEGACY_OFFER_DEFAULTS.location,
+    reportingManager: LEGACY_OFFER_DEFAULTS.reportingManager,
     offerDate,
     joiningDate: "",
     offerValidityDate: addDaysToDateOnly(offerDate, 7),
@@ -62,19 +72,19 @@ function emptyValues(): OfferFormValues {
     da: "",
     hra: "",
     ca: "",
-    workScheduleMonFri: LEGACY_DEFAULTS.workScheduleMonFri,
-    workScheduleSat: LEGACY_DEFAULTS.workScheduleSat,
-    workScheduleSun: LEGACY_DEFAULTS.workScheduleSun,
-    signatoryName: LEGACY_DEFAULTS.signatoryName,
-    signatoryDesignation: LEGACY_DEFAULTS.signatoryDesignation,
-    companyEmail: LEGACY_DEFAULTS.companyEmail,
-    companyPhone: LEGACY_DEFAULTS.companyPhone,
-    companyWebsite: LEGACY_DEFAULTS.companyWebsite,
-    companyAddress: LEGACY_DEFAULTS.companyAddress,
+    workScheduleMonFri: LEGACY_OFFER_DEFAULTS.workScheduleMonFri,
+    workScheduleSat: LEGACY_OFFER_DEFAULTS.workScheduleSat,
+    workScheduleSun: LEGACY_OFFER_DEFAULTS.workScheduleSun,
+    signatoryName: LEGACY_OFFER_DEFAULTS.signatoryName,
+    signatoryDesignation: LEGACY_OFFER_DEFAULTS.signatoryDesignation,
+    companyEmail: LEGACY_OFFER_DEFAULTS.companyEmail,
+    companyPhone: LEGACY_OFFER_DEFAULTS.companyPhone,
+    companyWebsite: LEGACY_OFFER_DEFAULTS.companyWebsite,
+    companyAddress: LEGACY_OFFER_DEFAULTS.companyAddress,
   };
 }
 
-function valuesFrom(offer: OfferLetterView): OfferFormValues {
+export function offerValuesFrom(offer: OfferLetterView): OfferFormValues {
   return {
     candidateName: offer.candidateName,
     role: offer.role,
@@ -105,13 +115,14 @@ export function OfferForm({
   onSubmit,
   onCancel,
   submitLabel,
+  onValuesChange,
 }: OfferFormProps) {
   const [values, setValues] = useState<OfferFormValues>(() =>
-    initial ? valuesFrom(initial) : emptyValues(),
+    initial ? offerValuesFrom(initial) : emptyOfferValues(),
   );
   const [basis, setBasis] = useState<SalaryBasis>("monthly");
   const [amount, setAmount] = useState<string>(() =>
-    initial ? round2(monthlyTotal(valuesFrom(initial))) : "",
+    initial ? round2(monthlyTotal(offerValuesFrom(initial))) : "",
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -120,11 +131,24 @@ export function OfferForm({
   const monthlyNet = monthlyTotal(values);
   const annualGross = monthlyNet * 12;
 
+  // Inform parent of current values for live document preview via ref to prevent infinite loops
+  const onValuesChangeRef = useRef(onValuesChange);
+  useEffect(() => {
+    onValuesChangeRef.current = onValuesChange;
+  });
+
+  useEffect(() => {
+    onValuesChangeRef.current?.(values);
+  }, [values]);
+
   function set<K extends keyof OfferFormValues>(
     key: K,
     value: OfferFormValues[K],
   ) {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+      return next;
+    });
   }
 
   /** Legacy behaviour: one amount drives all four components. */
@@ -188,7 +212,12 @@ export function OfferForm({
   const textField = (
     key: keyof OfferFormValues,
     label: string,
-    options: { required?: boolean; hint?: string; type?: string } = {},
+    options: {
+      required?: boolean;
+      hint?: string;
+      type?: string;
+      placeholder?: string;
+    } = {},
   ) => (
     <FormField
       label={label}
@@ -200,6 +229,7 @@ export function OfferForm({
         <Input
           {...fieldProps}
           type={options.type ?? "text"}
+          placeholder={options.placeholder}
           value={values[key]}
           onChange={(e) => set(key, e.target.value as never)}
           disabled={submitting}
@@ -210,22 +240,37 @@ export function OfferForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-          Candidate
-        </legend>
+      {/* 01 Candidate Information */}
+      <FormSection
+        stepNumber="1"
+        title="Candidate Information"
+        description="Enter recipient and appointment details"
+        icon={User}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {textField("candidateName", "Candidate name", { required: true })}
-          {textField("role", "Role / designation", { required: true })}
-          {textField("location", "Location", { required: true })}
-          {textField("reportingManager", "Reporting manager")}
+          {textField("candidateName", "Candidate name", {
+            required: true,
+            placeholder: "e.g. Rohit Gupta",
+          })}
+          {textField("role", "Designation", {
+            required: true,
+            placeholder: "e.g. Frontend Developer",
+          })}
+          {textField("location", "Location", {
+            required: true,
+            placeholder: "e.g. Chennai, India",
+          })}
+          {textField("reportingManager", "Reporting manager", {
+            placeholder: "e.g. Mr. Nithyanandan Ramaraj",
+          })}
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {textField("offerDate", "Offer date", {
             required: true,
             type: "date",
           })}
-          {textField("joiningDate", "Joining date", {
+          {textField("joiningDate", "Date of joining", {
             required: true,
             type: "date",
           })}
@@ -233,39 +278,52 @@ export function OfferForm({
             type: "date",
           })}
         </div>
-      </fieldset>
+      </FormSection>
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-          Monthly salary (INR)
-        </legend>
+      {/* 02 Compensation Details */}
+      <FormSection
+        stepNumber="2"
+        title="Compensation Details"
+        description="Configure structured salary breakdown"
+        icon={DollarSign}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div
-            role="group"
-            aria-label="Salary basis"
-            className="inline-flex shrink-0 rounded-lg border border-gray-300 p-0.5"
-          >
-            {(["monthly", "annual"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={basis === option}
-                onClick={() => switchBasis(option)}
-                disabled={submitting}
-                className={`rounded-md px-3 py-1.5 text-theme-xs font-medium transition-colors ${
-                  basis === option
-                    ? "bg-brand-500 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300"
-                }`}
-              >
-                {option === "monthly" ? "Monthly" : "Annual"}
-              </button>
-            ))}
+          <div>
+            <label className="block text-theme-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Pay type
+            </label>
+            <div
+              role="group"
+              aria-label="Salary basis"
+              className="inline-flex rounded-lg border border-gray-300 p-0.5 dark:border-gray-700"
+            >
+              {(["monthly", "annual"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={basis === option}
+                  onClick={() => switchBasis(option)}
+                  disabled={submitting}
+                  className={`rounded-md px-3 py-1.5 text-theme-xs font-medium transition-colors ${
+                    basis === option
+                      ? "bg-brand-500 text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {option === "monthly" ? "Monthly" : "Annual"}
+                </button>
+              ))}
+            </div>
           </div>
+
           <div className="flex-1">
             <FormField
-              label={basis === "monthly" ? "Monthly salary" : "Annual salary"}
-              hint="Splits into Basic 35%, DA 15%, HRA 30%, CA 20%. Components can still be edited below."
+              label={
+                basis === "monthly"
+                  ? "Total CTC (Monthly)"
+                  : "Total CTC (Annual)"
+              }
+              hint="Splits into Basic 35%, DA 15%, HRA 30%, CA 20%. Specific items can be modified below."
             >
               {(fieldProps) => (
                 <Input
@@ -274,6 +332,7 @@ export function OfferForm({
                   inputMode="decimal"
                   min={0}
                   step="0.01"
+                  placeholder="e.g. 85000"
                   value={amount}
                   onChange={(e) => applyAmount(e.target.value, basis)}
                   disabled={submitting}
@@ -284,45 +343,59 @@ export function OfferForm({
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {textField("basic", "Basic", { type: "number" })}
-          {textField("da", "DA", { type: "number" })}
-          {textField("hra", "HRA", { type: "number" })}
-          {textField("ca", "CA", { type: "number" })}
+          {textField("basic", "Basic salary", {
+            type: "number",
+            placeholder: "₹",
+          })}
+          {textField("hra", "HRA", { type: "number", placeholder: "₹" })}
+          {textField("ca", "Conveyance", { type: "number", placeholder: "₹" })}
+          {textField("da", "Other allowances (DA)", {
+            type: "number",
+            placeholder: "₹",
+          })}
         </div>
 
-        <dl className="grid grid-cols-1 gap-2 rounded-lg border border-brand-200 bg-brand-25 p-4 text-theme-sm sm:grid-cols-2 dark:border-brand-800 dark:bg-brand-950/40">
-          <div className="flex justify-between gap-2">
-            <dt className="text-gray-600 dark:text-gray-300">Net monthly</dt>
-            <dd className="font-semibold">
+        <div className="grid grid-cols-1 gap-2 rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-theme-sm sm:grid-cols-2 dark:border-brand-800 dark:bg-brand-950/40">
+          <div className="flex justify-between items-center pr-2">
+            <span className="text-gray-600 dark:text-gray-300 font-medium">
+              Monthly CTC:
+            </span>
+            <span className="font-bold text-gray-900 dark:text-white">
               {monthlyNet > 0 ? formatRupees(monthlyNet.toFixed(2)) : "—"}
-            </dd>
+            </span>
           </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-gray-600 dark:text-gray-300">
-              Gross annual CTC
-            </dt>
-            <dd className="font-semibold">
+          <div className="flex justify-between items-center pl-2 sm:border-l sm:border-brand-200 dark:sm:border-brand-800">
+            <span className="text-gray-600 dark:text-gray-300 font-medium">
+              Gross Annual CTC:
+            </span>
+            <span className="font-bold text-brand-700 dark:text-brand-400">
               {annualGross > 0 ? formatRupees(annualGross.toFixed(2)) : "—"}
-            </dd>
+            </span>
           </div>
-        </dl>
-      </fieldset>
+        </div>
+      </FormSection>
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-          Working schedule
-        </legend>
+      {/* 03 Working Schedule */}
+      <FormSection
+        stepNumber="3"
+        title="Working Schedule"
+        description="Standard hours of duty and weekly off"
+        icon={Clock}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {textField("workScheduleMonFri", "Mon – Fri")}
           {textField("workScheduleSat", "Saturday")}
           {textField("workScheduleSun", "Sunday")}
         </div>
-      </fieldset>
+      </FormSection>
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-theme-xs font-semibold uppercase tracking-wide text-gray-500">
-          Signatory and company
-        </legend>
+      {/* 04 Signatory & Organization */}
+      <FormSection
+        stepNumber="4"
+        title="Authorized Signatory & Organization"
+        description="Authorized representative issuing this contract"
+        icon={Building2}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {textField("signatoryName", "Signatory name", { required: true })}
           {textField("signatoryDesignation", "Signatory designation", {
@@ -333,18 +406,18 @@ export function OfferForm({
           {textField("companyWebsite", "Company website", { required: true })}
         </div>
         {textField("companyAddress", "Company address", { required: true })}
-      </fieldset>
+      </FormSection>
 
       {submitError ? (
         <p
           role="alert"
-          className="text-theme-xs text-error-600 dark:text-error-400"
+          className="text-theme-xs text-error-600 dark:text-error-400 bg-error-50 p-3 rounded-lg border border-error-200 dark:bg-error-950/40 dark:border-error-800"
         >
           {submitError}
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
         <Button
           type="button"
           variant="secondary"

@@ -84,11 +84,17 @@ export async function createNewHire(
       }),
     );
     return res.data;
-  } catch {
-    throw new PartialNewHireError(
-      "The login was created, but the employee record could not be saved.",
-      user.id,
-    );
+  } catch (employeeError) {
+    // Attempt automatic cleanup of the newly provisioned user account so the email is not stranded
+    try {
+      await apiClient.delete(`/users/${user.id}`);
+    } catch {
+      throw new PartialNewHireError(
+        "The login was created, but the employee record could not be saved.",
+        user.id,
+      );
+    }
+    throw employeeError;
   }
 }
 
