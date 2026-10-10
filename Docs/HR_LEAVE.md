@@ -228,3 +228,52 @@ submissions: exactly one succeeds.
 
 Results of the final run are recorded in the completion report for this change. This
 document describes the design only; it does not state test counts.
+
+## 11. Leaves UI/UX Enhancement (TexaWave ERP Production)
+
+### 11.1 Layout and Navigation Architecture
+
+- **Page Header:** Unified header with title `Leaves` and subtitle `Manage your leave requests and review team requests.`
+- **Navigation Tabs:** When an authenticated account holds both self-service (`employee_self_service.leave_request.read`) and organizational review scopes (`hr.leave_request.read.*`), the page renders a unified tab switcher:
+  - `All` (default): Presents both My Leave and Team/Organization Requests sequentially, maintaining immediate locator visibility for automated test suites.
+  - `My Leave`: Focuses exclusively on personal leave balances, entitlement metrics, and personal request history.
+  - `Team Requests`: Focuses exclusively on the team/organizational approvals queue and filter toolbar.
+- **Permission Decoupling:** Accounts with self-service permission that lack a linked employee profile (e.g. Super Admin) cleanly suppress personal sections without displaying unhandled API errors.
+
+### 11.2 My Leave & Leave Balance Presentation
+
+- **Leave Balance Cards (`LeaveBalanceCards`):**
+  - Renders server-derived balances per leave type in responsive cards (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`).
+  - Top gradient accent bar, leave type code badge, and paid/unpaid status pill.
+  - Primary metric displays `available` working days for paid leave, or `Not balance-limited` for unpaid leave.
+  - Detailed micro-stat breakdown: Entitlement, Accrued, Used, and Pending.
+- **Missing Configuration Warning State:**
+  - Distinct warning banner (`AlertTriangle`, amber theme) rendered strictly when leave types are loaded and empty (`balances.length === 0`).
+  - Never shown during pending query loading or network/server errors.
+  - Clarifies that leave requests cannot be submitted until HR or an administrator configures leave types and entitlements.
+- **Personal Request History:**
+  - Table columns: `Leave type` (with code badge), `Dates` (with half-day portion indicator if applicable), `Days`, `Reason` (truncated with tooltip), `Status` (with decision/cancellation notes), and `Actions`.
+  - Actions provide `Cancel` (when `canCancel(r)` is true) and `Resubmit` (when `canResubmit(r)` is true).
+  - Uses `TableSkeleton` for loading states and semantic `EmptyState` when no requests have been logged.
+
+### 11.3 Team / Organization Requests Queue
+
+- **Filter Toolbar:**
+  - Compact filter card housing `Filter by status` combobox and `Filter by employee ID` input.
+  - Interactive `FilterChips` bar with individual removal actions and `Clear filters` button.
+- **Approvals Table:**
+  - Columns: `Employee` (rendered with shared `EmployeeIdentity`), `Leave type`, `Dates`, `Days`, `Status` (`LeaveStatusBadge`), `Decided by`, and `Actions`.
+  - Direct `Approve` and `Reject` action buttons for requests with `PENDING` status when holding `hr.leave.approve.*`.
+
+### 11.4 Centered Modals & Validation
+
+- **Request Leave Modal (`RequestLeaveDialog`):**
+  - Rendered using native `<dialog>` with backdrop blur, top gradient accent bar, and ESC/backdrop dismissal.
+  - Fields: `Leave type` (with available days preview), `Start date` (`type="date"`), `End date` (`type="date"`), `Portion` (`FULL`, `FIRST_HALF`, `SECOND_HALF`), and `Reason`.
+  - Validation: 3–500 character reason enforced client-side via Zod and mirrored in live character counter (`{values.reason.length}/500`) passed through `FormField.labelAction`.
+  - Inline warning alert when opened with zero active configured leave types.
+- **Decide Leave Modal (`DecideLeaveDialog`):**
+  - Displays employee context card (`EmployeeIdentity`, leave type, date span, duration, and employee reason).
+  - Rejection note required (3–500 characters) when rejecting; optional note when approving. Live character counter via `labelAction`.
+- **Cancel Leave Modal (`CancelLeaveDialog`):**
+  - Displays request context and optional cancellation note (3–500 characters) with live counter via `labelAction`.

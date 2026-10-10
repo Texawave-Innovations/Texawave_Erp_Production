@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,10 +13,15 @@ import {
   Input,
   Pagination,
   Select,
-  Skeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import {
+  FilterChips,
+  type FilterChipItem,
+} from "@/features/hr/components/FilterChip";
+import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
   useLeaveRequests,
   useMyLeaveBalances,
@@ -28,7 +34,7 @@ import {
   SELF_SERVICE_CREATE,
   SELF_SERVICE_READ,
 } from "../permissions";
-import { canCancel, canResubmit } from "../status";
+import { DAY_PORTION_LABELS, canCancel, canResubmit } from "../status";
 import {
   LEAVE_STATUSES,
   type LeaveRequestItem,
@@ -58,6 +64,8 @@ type Decision = {
   request: LeaveRequestItem;
   decision: "approve" | "reject";
 } | null;
+
+type LeavesTab = "all" | "mine" | "approvals";
 
 /** My leave: balances, history, request, cancel and resubmit. */
 function MySection() {
@@ -105,13 +113,22 @@ function MySection() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-          My leave
-        </h2>
+        <div>
+          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
+            My leave
+          </h2>
+          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+            Review your personal leave balances, entitlement breakdown, and
+            request history.
+          </p>
+        </div>
         {canCreate ? (
-          <Button onClick={() => setRequestOpen(true)}>Request leave</Button>
+          <Button onClick={() => setRequestOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Request leave
+          </Button>
         ) : null}
       </div>
 
@@ -120,82 +137,150 @@ function MySection() {
         isPending={balances.isPending}
       />
 
-      {list.isPending ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : list.isError ? (
-        <ErrorState onRetry={() => void list.refetch()} />
-      ) : list.data.data.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No leave requests yet"
-            description={
-              canCreate
-                ? "Request leave to see it here."
-                : "Your leave history will appear here."
-            }
-          />
-        </Card>
-      ) : (
-        <>
-          <DataTable
-            caption="My leave requests"
-            rows={list.data.data}
-            getRowKey={(r) => String(r.id)}
-            columns={[
-              { header: "Leave type", cell: (r) => r.leaveType.name },
-              {
-                header: "Dates",
-                cell: (r) =>
-                  r.startDate === r.endDate
-                    ? r.startDate
-                    : `${r.startDate} – ${r.endDate}`,
-              },
-              { header: "Days", cell: (r) => r.leaveDays },
-              { header: "Reason", cell: (r) => r.reason },
-              {
-                header: "Status",
-                cell: (r) => <LeaveStatusBadge status={r.status} />,
-              },
-              {
-                header: "Actions",
-                cell: (r) => (
-                  <div className="flex gap-2">
-                    {canCreate && canCancel(r) ? (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setCancelling(r)}
-                      >
-                        Cancel
-                      </Button>
-                    ) : null}
-                    {canCreate && canResubmit(r) ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        loading={resubmit.isPending}
-                        onClick={() => void handleResubmit(r.id)}
-                      >
-                        Resubmit
-                      </Button>
-                    ) : null}
-                    {!canCancel(r) && !canResubmit(r) ? "—" : null}
-                  </div>
-                ),
-              },
-            ]}
-          />
-          <Pagination
-            page={list.data.meta.page}
-            totalPages={list.data.meta.totalPages}
-            onPageChange={setPage}
-          />
-        </>
-      )}
+      <div className="flex flex-col gap-3">
+        <h3 className="text-theme-base font-semibold text-gray-900 dark:text-white/90">
+          Leave history
+        </h3>
+
+        {list.isPending ? (
+          <TableSkeleton rowsCount={4} columnsCount={6} />
+        ) : list.isError ? (
+          <ErrorState onRetry={() => void list.refetch()} />
+        ) : list.data.data.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No leave requests yet"
+              description={
+                canCreate
+                  ? "Request leave to see it here."
+                  : "Your leave history will appear here."
+              }
+            />
+          </Card>
+        ) : (
+          <>
+            <DataTable
+              caption="My leave requests"
+              rows={list.data.data}
+              getRowKey={(r) => String(r.id)}
+              columns={[
+                {
+                  header: "Leave type",
+                  cell: (r) => (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white/90">
+                        {r.leaveType.name}
+                      </span>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        {r.leaveType.code}
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  header: "Dates",
+                  cell: (r) => (
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900 dark:text-white/90">
+                        {r.startDate === r.endDate
+                          ? r.startDate
+                          : `${r.startDate} – ${r.endDate}`}
+                      </span>
+                      {r.dayPortion !== "FULL" ? (
+                        <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400">
+                          {DAY_PORTION_LABELS[r.dayPortion]}
+                        </span>
+                      ) : null}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Days",
+                  cell: (r) => (
+                    <span className="font-semibold text-gray-900 dark:text-white/90">
+                      {r.leaveDays}{" "}
+                      <span className="text-theme-xs font-normal text-gray-500 dark:text-gray-400">
+                        {r.leaveDays === 1 ? "day" : "days"}
+                      </span>
+                    </span>
+                  ),
+                },
+                {
+                  header: "Reason",
+                  cell: (r) => (
+                    <p
+                      className="max-w-xs truncate text-theme-sm text-gray-600 dark:text-gray-300"
+                      title={r.reason}
+                    >
+                      {r.reason}
+                    </p>
+                  ),
+                },
+                {
+                  header: "Status",
+                  cell: (r) => (
+                    <div className="flex flex-col gap-0.5">
+                      <LeaveStatusBadge status={r.status} />
+                      {r.status === "REJECTED" && r.decisionNote ? (
+                        <span
+                          className="max-w-45 truncate text-[11px] text-error-600 dark:text-error-400"
+                          title={r.decisionNote}
+                        >
+                          Note: {r.decisionNote}
+                        </span>
+                      ) : null}
+                      {r.status === "CANCELLED" && r.cancellationNote ? (
+                        <span
+                          className="max-w-45 truncate text-[11px] text-gray-500 dark:text-gray-400"
+                          title={r.cancellationNote}
+                        >
+                          Note: {r.cancellationNote}
+                        </span>
+                      ) : null}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Actions",
+                  cell: (r) => (
+                    <div className="flex items-center gap-2">
+                      {canCreate && canCancel(r) ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setCancelling(r)}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+                      {canCreate && canResubmit(r) ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={resubmit.isPending}
+                          onClick={() => void handleResubmit(r.id)}
+                        >
+                          Resubmit
+                        </Button>
+                      ) : null}
+                      {!canCancel(r) && !canResubmit(r) ? (
+                        <span className="text-gray-400 dark:text-gray-500">
+                          —
+                        </span>
+                      ) : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+            <Pagination
+              page={list.data.meta.page}
+              totalPages={list.data.meta.totalPages}
+              onPageChange={setPage}
+            />
+          </>
+        )}
+      </div>
 
       {requestOpen ? (
         <RequestLeaveDialog open onClose={() => setRequestOpen(false)} />
@@ -240,6 +325,27 @@ function ApprovalsSection() {
     setPage(1);
   };
 
+  const activeChips = useMemo<FilterChipItem[]>(() => {
+    const chips: FilterChipItem[] = [];
+    if (filters.status) {
+      chips.push({
+        id: "status",
+        label: "Status",
+        value: STATUS_LABEL[filters.status],
+        onRemove: () => update("status", ""),
+      });
+    }
+    if (filters.employeeId) {
+      chips.push({
+        id: "employeeId",
+        label: "Employee ID",
+        value: filters.employeeId,
+        onRemove: () => update("employeeId", ""),
+      });
+    }
+    return chips;
+  }, [filters]);
+
   if (!canRead) return null;
 
   return (
@@ -255,12 +361,18 @@ function ApprovalsSection() {
                 ? `Showing ${list.data.meta.total} matching requests`
                 : `${list.data.meta.total} requests`}
             </p>
-          ) : null}
+          ) : (
+            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+              Review and decide employee leave requests within your approval
+              scope.
+            </p>
+          )}
         </div>
       </div>
 
-      <Card>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {/* Filter toolbar */}
+      <Card className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
           <Select
             aria-label="Filter by status"
             value={filters.status}
@@ -283,29 +395,35 @@ function ApprovalsSection() {
             value={filters.employeeId}
             onChange={(e) => update("employeeId", e.target.value)}
           />
+          {hasFilters ? (
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilters(EMPTY_FILTERS);
+                  setPage(1);
+                }}
+              >
+                Clear filters
+              </Button>
+            </div>
+          ) : null}
         </div>
-        {hasFilters ? (
-          <div className="mt-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setFilters(EMPTY_FILTERS);
-                setPage(1);
-              }}
-            >
-              Clear filters
-            </Button>
-          </div>
+
+        {hasFilters && activeChips.length > 0 ? (
+          <FilterChips
+            chips={activeChips}
+            onClearAll={() => {
+              setFilters(EMPTY_FILTERS);
+              setPage(1);
+            }}
+          />
         ) : null}
       </Card>
 
       {list.isPending ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
+        <TableSkeleton rowsCount={5} columnsCount={7} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
@@ -339,23 +457,68 @@ function ApprovalsSection() {
             rows={list.data.data}
             getRowKey={(r) => String(r.id)}
             columns={[
-              { header: "Employee", cell: (r) => r.employee.fullName },
-              { header: "Leave type", cell: (r) => r.leaveType.name },
+              {
+                header: "Employee",
+                cell: (r) => (
+                  <EmployeeIdentity
+                    name={r.employee.fullName}
+                    code={r.employee.employeeCode}
+                    size="sm"
+                  />
+                ),
+              },
+              {
+                header: "Leave type",
+                cell: (r) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white/90">
+                      {r.leaveType.name}
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                      {r.leaveType.code}
+                    </span>
+                  </div>
+                ),
+              },
               {
                 header: "Dates",
-                cell: (r) =>
-                  r.startDate === r.endDate
-                    ? r.startDate
-                    : `${r.startDate} – ${r.endDate}`,
+                cell: (r) => (
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-900 dark:text-white/90">
+                      {r.startDate === r.endDate
+                        ? r.startDate
+                        : `${r.startDate} – ${r.endDate}`}
+                    </span>
+                    {r.dayPortion !== "FULL" ? (
+                      <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400">
+                        {DAY_PORTION_LABELS[r.dayPortion]}
+                      </span>
+                    ) : null}
+                  </div>
+                ),
               },
-              { header: "Days", cell: (r) => r.leaveDays },
+              {
+                header: "Days",
+                cell: (r) => (
+                  <span className="font-semibold text-gray-900 dark:text-white/90">
+                    {r.leaveDays}{" "}
+                    <span className="text-theme-xs font-normal text-gray-500 dark:text-gray-400">
+                      {r.leaveDays === 1 ? "day" : "days"}
+                    </span>
+                  </span>
+                ),
+              },
               {
                 header: "Status",
                 cell: (r) => <LeaveStatusBadge status={r.status} />,
               },
               {
                 header: "Decided by",
-                cell: (r) => r.decidedBy?.fullName ?? "—",
+                cell: (r) => (
+                  <span className="text-theme-sm text-gray-600 dark:text-gray-400">
+                    {r.decidedBy?.fullName ?? "—"}
+                  </span>
+                ),
               },
               ...(canApprove
                 ? [
@@ -363,7 +526,7 @@ function ApprovalsSection() {
                       header: "Actions",
                       cell: (r: LeaveRequestItem) =>
                         r.status === "PENDING" ? (
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
                             <Button
                               size="sm"
                               onClick={() =>
@@ -383,7 +546,9 @@ function ApprovalsSection() {
                             </Button>
                           </div>
                         ) : (
-                          "—"
+                          <span className="text-gray-400 dark:text-gray-500">
+                            —
+                          </span>
                         ),
                     },
                   ]
@@ -414,12 +579,12 @@ function ApprovalsSection() {
  * Leaves: self-service (balances, request, history, cancel, resubmit) and
  * the HR/approver queue (team/all, filterable, approve/reject with a
  * mandatory rejection reason), on one route — mirrors Regularization's single
- * scoped view rather than Work Logs' split self-service/HR routes, since
- * leave approval and an employee's own leave naturally sit on the same page.
+ * scoped view with unified navigation tabs for streamlined switching.
  */
 export function LeavesView() {
   const canReadMine = usePermission(SELF_SERVICE_READ);
   const canReadAny = usePermission(READ_ANY_SCOPE);
+  const [activeTab, setActiveTab] = useState<LeavesTab>("all");
 
   if (!canReadMine && !canReadAny) {
     return (
@@ -431,16 +596,71 @@ export function LeavesView() {
     );
   }
 
+  const showTabs = canReadMine && canReadAny;
+
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-        Leaves
-      </h1>
-      <MySection />
-      {canReadMine && canReadAny ? (
+    <div className="flex flex-col gap-6">
+      {/* Page Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
+          Leaves
+        </h1>
+        <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+          Manage your leave requests and review team requests.
+        </p>
+      </div>
+
+      {/* Navigation tabs if user holds both self-service and team/all scopes */}
+      {showTabs ? (
+        <div className="flex border-b border-gray-200 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
+              activeTab === "all"
+                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("mine")}
+            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
+              activeTab === "mine"
+                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            My Leave
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("approvals")}
+            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
+              activeTab === "approvals"
+                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            Team Requests
+          </button>
+        </div>
+      ) : null}
+
+      {/* Content based on permissions and selected tab */}
+      {(activeTab === "all" || activeTab === "mine") && canReadMine ? (
+        <MySection />
+      ) : null}
+
+      {activeTab === "all" && canReadMine && canReadAny ? (
         <hr className="border-gray-200 dark:border-gray-800" />
       ) : null}
-      <ApprovalsSection />
+
+      {(activeTab === "all" || activeTab === "approvals") && canReadAny ? (
+        <ApprovalsSection />
+      ) : null}
     </div>
   );
 }

@@ -88,8 +88,15 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Request leave">
+    <Dialog open={open} onClose={onClose} title="Request leave" size="xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        {!balances.isPending && types.length === 0 ? (
+          <Alert variant="warning" title="No active leave types configured">
+            No active leave types are available. Ask HR or an administrator to
+            set up leave types and entitlements before requesting leave.
+          </Alert>
+        ) : null}
+
         <FormField label="Leave type" required error={errors.leaveTypeId}>
           {(f) => (
             <Select
@@ -117,6 +124,7 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
             </Select>
           )}
         </FormField>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField label="Start date" required error={errors.startDate}>
             {(f) => (
@@ -147,6 +155,7 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
             )}
           </FormField>
         </div>
+
         <FormField
           label="Portion"
           error={errors.dayPortion}
@@ -172,11 +181,17 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
             </Select>
           )}
         </FormField>
+
         <FormField
           label="Reason"
           required
           error={errors.reason}
           hint="3–500 characters. Visible to whoever reads or decides the request."
+          labelAction={
+            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+              {values.reason.length}/500
+            </span>
+          }
         >
           {(f) => (
             <Textarea
@@ -185,18 +200,21 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
               invalid={f.invalid}
               value={values.reason}
               disabled={submitting}
+              placeholder="State the purpose of your leave..."
               onChange={(e) =>
                 setValues((v) => ({ ...v, reason: e.target.value }))
               }
             />
           )}
         </FormField>
+
         {serverError ? (
           <Alert variant="error" title="Could not submit">
             {serverError}
           </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"

@@ -23,12 +23,16 @@ export interface HolidayFormSubmitValues {
   name: string;
   description?: string | undefined;
   workLocationId?: number | undefined;
+  isActive?: boolean | undefined;
 }
 
 export interface HolidayFormProps {
-  /** Date and location are immutable after creation, so the edit form hides them. */
+  /** Date and location are immutable after creation, but displayed for clarity. */
   mode: "create" | "edit";
-  initialValues?: Partial<CreateHolidayValues>;
+  initialValues?: Partial<
+    CreateHolidayValues & { isActive?: "true" | "false" }
+  >;
+  initialWorkLocationName?: string;
   onSubmit: (values: HolidayFormSubmitValues) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -38,6 +42,9 @@ function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
       return "You don't have permission to save this holiday.";
+    }
+    if (error.errorCode === "HOLIDAY_DATE_TAKEN") {
+      return "A holiday on this date already exists for this scope.";
     }
     if (error.isValidationError) {
       return "The server rejected some values. Fix them and try again.";
@@ -50,12 +57,16 @@ function describeError(error: unknown): string {
 export function HolidayForm({
   mode,
   initialValues,
+  initialWorkLocationName,
   onSubmit,
   onCancel,
   submitLabel,
 }: HolidayFormProps) {
-  const [values, setValues] = useState<CreateHolidayValues>({
+  const [values, setValues] = useState<
+    CreateHolidayValues & { isActive?: "true" | "false" }
+  >({
     ...EMPTY_CREATE_FORM,
+    isActive: "true",
     ...initialValues,
   });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -88,6 +99,9 @@ export function HolidayForm({
         ...(mode === "create" && values.workLocationId
           ? { workLocationId: Number(values.workLocationId) }
           : {}),
+        ...(mode === "edit" && values.isActive !== undefined
+          ? { isActive: values.isActive === "true" }
+          : {}),
       });
     } catch (error) {
       setServerError(describeError(error));
@@ -98,12 +112,14 @@ export function HolidayForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      {/* Date Field */}
       {mode === "create" ? (
         <FormField label="Date" required error={errors.holidayDate}>
           {(f) => (
             <Input
               {...f}
               type="date"
+              aria-label="Date"
               invalid={f.invalid}
               value={values.holidayDate}
               disabled={submitting}
@@ -113,13 +129,28 @@ export function HolidayForm({
             />
           )}
         </FormField>
-      ) : null}
+      ) : (
+        <FormField label="Date" hint="Date cannot be modified once created.">
+          {(f) => (
+            <Input
+              {...f}
+              type="date"
+              aria-label="Date"
+              disabled
+              value={values.holidayDate}
+            />
+          )}
+        </FormField>
+      )}
 
+      {/* Holiday Name */}
       <FormField label="Holiday name" required error={errors.name}>
         {(f) => (
           <Input
             {...f}
+            aria-label="Holiday name"
             invalid={f.invalid}
+            placeholder="e.g. Republic Day"
             value={values.name}
             disabled={submitting}
             onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
@@ -127,15 +158,22 @@ export function HolidayForm({
         )}
       </FormField>
 
+      {/* Description */}
       <FormField
-        label="Description"
+        label="Description (Optional)"
         error={errors.description}
-        hint="Up to 500 characters. Optional."
+        hint="Optional. Up to 500 characters."
+        labelAction={
+          <span className="font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+            {values.description?.length ?? 0}/500
+          </span>
+        }
       >
         {(f) => (
           <Textarea
             {...f}
             rows={3}
+            placeholder="Enter description..."
             invalid={f.invalid}
             value={values.description}
             disabled={submitting}
@@ -146,11 +184,12 @@ export function HolidayForm({
         )}
       </FormField>
 
+      {/* Applies To */}
       {mode === "create" ? (
         <FormField
           label="Applies to"
           error={errors.workLocationId}
-          hint="Leave as Whole organization, or restrict to a single work location. Cannot be changed later."
+          hint="Leave as Whole organization, or select a specific work location."
         >
           {(f) => (
             <Select
@@ -171,6 +210,46 @@ export function HolidayForm({
             </Select>
           )}
         </FormField>
+      ) : (
+        <FormField
+          label="Applies to"
+          hint="Location scope cannot be modified once created."
+        >
+          {(f) => (
+            <Input
+              {...f}
+              aria-label="Applies to"
+              disabled
+              value={initialWorkLocationName ?? "Whole organization"}
+            />
+          )}
+        </FormField>
+      )}
+
+      {/* Status (Edit mode only) */}
+      {mode === "edit" ? (
+        <FormField
+          label="Status"
+          hint="Active holidays take effect as non-working days in attendance."
+        >
+          {(f) => (
+            <Select
+              {...f}
+              aria-label="Status"
+              value={values.isActive ?? "true"}
+              disabled={submitting}
+              onChange={(e) =>
+                setValues((v) => ({
+                  ...v,
+                  isActive: e.target.value as "true" | "false",
+                }))
+              }
+            >
+              <option value="true">Active</option>
+              <option value="false">Deactivated</option>
+            </Select>
+          )}
+        </FormField>
       ) : null}
 
       {serverError ? (
@@ -179,7 +258,7 @@ export function HolidayForm({
         </Alert>
       ) : null}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
         <Button
           type="button"
           variant="secondary"

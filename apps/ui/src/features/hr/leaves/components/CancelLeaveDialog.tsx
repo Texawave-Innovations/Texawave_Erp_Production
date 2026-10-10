@@ -80,17 +80,23 @@ export function CancelLeaveDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Cancel leave request">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1 rounded-lg bg-gray-50 p-3 text-theme-sm dark:bg-gray-800">
-          <p className="font-medium text-gray-900 dark:text-white/90">
+        <div className="flex flex-col gap-1.5 rounded-xl border border-gray-200/80 bg-gray-50/70 p-3.5 text-theme-sm dark:border-gray-800 dark:bg-gray-800/60">
+          <p className="font-semibold text-gray-900 dark:text-white/90">
             {request.leaveType.name}
           </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            {request.startDate} – {request.endDate}
+          <p className="text-theme-xs text-gray-600 dark:text-gray-400">
+            Dates: {request.startDate} – {request.endDate}
           </p>
         </div>
+
         <FormField
           label="Note (optional)"
           hint="Optional. 3–500 characters if provided."
+          labelAction={
+            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+              {note.length}/500
+            </span>
+          }
           error={error ?? undefined}
         >
           {(f) => (
@@ -100,19 +106,22 @@ export function CancelLeaveDialog({
               invalid={f.invalid}
               value={note}
               disabled={submitting}
+              placeholder="Add an optional reason for cancellation..."
               onChange={(e) => setNote(e.target.value)}
             />
           )}
         </FormField>
+
         {serverError ? (
           <p
             role="alert"
-            className="text-theme-xs text-error-600 dark:text-error-400"
+            className="text-theme-xs font-medium text-error-600 dark:text-error-400"
           >
             {serverError}
           </p>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"

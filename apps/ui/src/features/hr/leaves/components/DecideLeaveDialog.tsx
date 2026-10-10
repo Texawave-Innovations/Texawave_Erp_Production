@@ -111,16 +111,33 @@ export function DecideLeaveDialog({
   return (
     <Dialog open={open} onClose={onClose} title={title}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1 rounded-lg bg-gray-50 p-3 text-theme-sm dark:bg-gray-800">
-          <p className="font-medium text-gray-900 dark:text-white/90">
-            {request.employee.fullName} — {request.leaveType.name}
+        <div className="flex flex-col gap-2 rounded-xl border border-gray-200/80 bg-gray-50/70 p-3.5 text-theme-sm dark:border-gray-800 dark:bg-gray-800/60">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-gray-900 dark:text-white/90">
+              {request.employee.fullName}
+            </span>
+            <span className="rounded bg-gray-200/60 px-1.5 py-0.5 font-mono text-theme-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+              {request.employee.employeeCode}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-theme-xs text-gray-600 dark:text-gray-400">
+            <span className="font-medium text-gray-800 dark:text-gray-200">
+              {request.leaveType.name}
+            </span>
+            <span>•</span>
+            <span>
+              {request.startDate} – {request.endDate}
+            </span>
+            <span>•</span>
+            <span className="font-semibold text-gray-900 dark:text-white">
+              {request.leaveDays} day{request.leaveDays === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="text-theme-xs italic text-gray-600 dark:text-gray-400">
+            &ldquo;{request.reason}&rdquo;
           </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            {request.startDate} – {request.endDate} ({request.leaveDays} day
-            {request.leaveDays === 1 ? "" : "s"})
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">{request.reason}</p>
         </div>
+
         <FormField
           label={
             decision === "approve" ? "Note to the employee" : "Rejection reason"
@@ -131,6 +148,11 @@ export function DecideLeaveDialog({
               ? "Optional. 3–500 characters if provided."
               : "Required. 3–500 characters."
           }
+          labelAction={
+            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+              {note.length}/500
+            </span>
+          }
           error={error ?? undefined}
         >
           {(f) => (
@@ -140,19 +162,26 @@ export function DecideLeaveDialog({
               invalid={f.invalid}
               value={note}
               disabled={submitting}
+              placeholder={
+                decision === "approve"
+                  ? "Add an optional note to the employee..."
+                  : "State the reason for rejecting this leave request..."
+              }
               onChange={(e) => setNote(e.target.value)}
             />
           )}
         </FormField>
+
         {serverError ? (
           <p
             role="alert"
-            className="text-theme-xs text-error-600 dark:text-error-400"
+            className="text-theme-xs font-medium text-error-600 dark:text-error-400"
           >
             {serverError}
           </p>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"
