@@ -34,15 +34,19 @@ function describeSubmitError(error: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-/** Submits an expense claim for the authenticated user's own employee. There
- * is deliberately no employee picker (no `employeeId` in the self-service
- * create DTO) and no receipt file upload (legacy has none — `receiptRef` is
- * free text only). */
+const todayStr = () => new Intl.DateTimeFormat("en-CA").format(new Date());
+
+/**
+ * Submits an expense claim for the authenticated user's own employee.
+ */
 export function SubmitExpenseClaimDialog({
   open,
   onClose,
 }: SubmitExpenseClaimDialogProps) {
-  const [values, setValues] = useState(EMPTY_SUBMIT_FORM);
+  const [values, setValues] = useState({
+    ...EMPTY_SUBMIT_FORM,
+    expenseDate: todayStr(),
+  });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCreateMyExpenseClaim();
@@ -75,7 +79,10 @@ export function SubmitExpenseClaimDialog({
           : {}),
       });
       toast({ title: "Expense claim submitted", variant: "success" });
-      setValues(EMPTY_SUBMIT_FORM);
+      setValues({
+        ...EMPTY_SUBMIT_FORM,
+        expenseDate: todayStr(),
+      });
       onClose();
     } catch (err) {
       setServerError(describeSubmitError(err));
@@ -83,9 +90,25 @@ export function SubmitExpenseClaimDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Submit expense claim">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <FormField label="Expense type" required error={errors.expenseType}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Submit Expense Claim"
+      size="lg"
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4.5"
+        noValidate
+      >
+        <div>
+          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+            Add details for your expense claim.
+          </p>
+        </div>
+
+        {/* Expense Type */}
+        <FormField label="Expense Type" required error={errors.expenseType}>
           {(f) => (
             <Select
               {...f}
@@ -98,7 +121,7 @@ export function SubmitExpenseClaimDialog({
                 }))
               }
             >
-              <option value="">Select a type</option>
+              <option value="">Select expense type</option>
               {EXPENSE_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -107,80 +130,105 @@ export function SubmitExpenseClaimDialog({
             </Select>
           )}
         </FormField>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField label="Amount" required error={errors.amount}>
-            {(f) => (
+
+        {/* Amount */}
+        <FormField label="Amount (INR)" required error={errors.amount}>
+          {(f) => (
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-sm font-semibold text-gray-500">
+                ₹
+              </span>
               <Input
                 {...f}
                 type="number"
                 step="0.01"
                 min="0.01"
+                placeholder="Enter amount"
                 invalid={f.invalid}
                 value={values.amount || ""}
                 disabled={submitting}
+                className="pl-8"
                 onChange={(e) =>
                   setValues((v) => ({ ...v, amount: Number(e.target.value) }))
                 }
               />
-            )}
-          </FormField>
-          <FormField label="Expense date" required error={errors.expenseDate}>
-            {(f) => (
-              <Input
-                {...f}
-                type="date"
-                invalid={f.invalid}
-                value={values.expenseDate}
-                disabled={submitting}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, expenseDate: e.target.value }))
-                }
-              />
-            )}
-          </FormField>
-        </div>
+            </div>
+          )}
+        </FormField>
+
+        {/* Expense Date */}
+        <FormField label="Expense Date" required error={errors.expenseDate}>
+          {(f) => (
+            <Input
+              {...f}
+              type="date"
+              invalid={f.invalid}
+              value={values.expenseDate}
+              max={todayStr()}
+              disabled={submitting}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, expenseDate: e.target.value }))
+              }
+            />
+          )}
+        </FormField>
+
+        {/* Description */}
         <FormField
           label="Description"
           required
           error={errors.description}
-          hint="1–300 characters."
+          labelAction={
+            <span className="text-theme-xs text-gray-400 font-normal">
+              {values.description?.length ?? 0}/300
+            </span>
+          }
         >
           {(f) => (
             <Textarea
               {...f}
               rows={3}
+              placeholder="Enter expense description..."
               invalid={f.invalid}
               value={values.description}
               disabled={submitting}
+              maxLength={300}
               onChange={(e) =>
                 setValues((v) => ({ ...v, description: e.target.value }))
               }
             />
           )}
         </FormField>
+
+        {/* Receipt Reference */}
         <FormField
-          label="Receipt reference"
+          label="Receipt Reference (Optional)"
           error={errors.receiptRef}
-          hint="Optional. Free text, up to 100 characters — no file upload."
+          hint="Free text reference (e.g. Bill number, invoice number)."
         >
           {(f) => (
             <Input
               {...f}
+              placeholder="e.g. Bill number, invoice number"
               invalid={f.invalid}
               value={values.receiptRef}
               disabled={submitting}
+              maxLength={100}
               onChange={(e) =>
                 setValues((v) => ({ ...v, receiptRef: e.target.value }))
               }
             />
           )}
         </FormField>
+
         {serverError ? (
-          <Alert variant="error" title="Could not submit">
+          <Alert variant="error" title="Could not submit claim">
             {serverError}
           </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"
@@ -189,8 +237,12 @@ export function SubmitExpenseClaimDialog({
           >
             Cancel
           </Button>
-          <Button type="submit" loading={submitting}>
-            Submit
+          <Button
+            type="submit"
+            loading={submitting}
+            className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
+          >
+            Submit Claim
           </Button>
         </div>
       </form>
