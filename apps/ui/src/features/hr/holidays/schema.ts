@@ -42,6 +42,7 @@ export const updateHolidaySchema = z.object({
     .string()
     .trim()
     .max(500, "Description must be 500 characters or fewer"),
+  isActive: z.enum(["true", "false"]).optional(),
 });
 
 export type UpdateHolidayValues = z.infer<typeof updateHolidaySchema>;

@@ -217,3 +217,71 @@ These are not decided and are not silently filled in.
 | U8  | Whether a team lead may view team tasks by default.                    | **Open business decision.** Default roles do not grant it.                                                                               |
 | U9  | Whether a past due date may be set on an existing task.                | No edit endpoint exists, so this is **not applicable** until one is designed.                                                            |
 | U10 | Whether an approved task may ever be reopened.                         | Legacy hides the control. Production forbids it. **Confirm.**                                                                            |
+
+---
+
+## 10. UI/UX Architecture & Design System Integration (TexaWave ERP Production)
+
+### 10.1 Main Page Layout (`TasksView`)
+
+- **Executive Header:** Clear title "Task Assignment", breadcrumb navigation (`Home / HR / Tasks`), concise subtitle "Create tasks, track progress, and review employee requests.", and primary action button `+ New Task` (brand tone, `Plus` icon).
+- **Tabbed Interface:**
+  - **Assigned Tasks:** Comprehensive list of organizational tasks, tracking execution and status transitions.
+  - **Employee Requests:** Dedicated review queue for self-service employee tasks (`isEmployeeCreated || requestToAdmin`) with live pending count badge.
+
+### 10.2 Summary Metric Cards
+
+- **Assigned Tasks Metrics:**
+  - **Total Tasks:** Count of all tasks in scope (calendar icon, brand tone).
+  - **Pending:** Open tasks not yet in progress (clock icon, warning tone).
+  - **In Progress:** Actively worked tasks (loader/spinner icon, blue/info tone).
+  - **Completed:** Tasks marked Done (check-circle icon, success tone).
+- **Employee Requests Metrics:**
+  - **Total Requests:** Count of employee-submitted task requests (file/clipboard icon, purple tone).
+  - **Pending:** Unapproved open requests (clock icon, warning tone).
+  - **Approved:** Requests approved by administration (check-circle icon, success tone).
+  - **Rejected:** Requests cancelled or rejected (ban/cross icon, error tone).
+
+### 10.3 Compact Filter Toolbar
+
+- **Search Input:** Debounced text query matching task title or assigned employee name (`q` parameter).
+- **Employee Filter:** Dropdown populated from active employees in scope (`assigneeId` parameter).
+- **Status Filter:** Select dropdown matching enum values (`status` parameter).
+- **Reset Action:** Instant reset button restoring default query parameters.
+
+### 10.4 Data Tables & Row Actions
+
+- **Assigned Tasks Table:**
+  - `#`: Sequential row numbering across pages.
+  - `Task Title`: Initials circle badge, bold task title, and secondary description preview.
+  - `Assigned To`: Reusable `EmployeeIdentity` component (initials avatar, name, and employee code).
+  - `Priority`: Text-based status badge (High, Medium, Low, Urgent).
+  - `Due Date`: Formatted `DD MMM YYYY` (UTC parsing) with overdue warning tag when `isOverdue`.
+  - `Status`: Accessible `TaskStatusBadge` with secondary tags for `Awaiting approval` and `Approved`.
+  - `Actions`: Quick view (`Eye`), edit/update (`Pencil`), and inline approve/reopen actions when awaiting approval.
+- **Employee Requests Table:**
+  - `#`: Sequential row index.
+  - `Employee`: `EmployeeIdentity` of requester.
+  - `Task Title`: Title and description preview.
+  - `Priority`: Priority badge.
+  - `Submitted On`: Formatted creation date (`DD MMM YYYY`).
+  - `Status`: Request status badge (Pending, Approved, Rejected).
+  - `Actions`: Instant Approve (`Check` icon button in emerald) and Reject (`X` icon button in destructive red) for pending requests, plus view details (`Eye`).
+
+### 10.5 Centered Modal Dialogs
+
+- **New Task Modal (`CreateTaskDialog`):**
+  - Native `<dialog size="lg">` with dark backdrop blur, Esc key support, and outside-click dismissal.
+  - Title "New Task" with subtitle "Create a new task and assign it to an employee."
+  - Fields: Task Title (required, max 80 chars), Assign To (employee select with codes), Priority (default Medium), Due Date (date picker, min today), Description (optional, max 500 chars with live counter).
+  - Submit action: `Create Task` with `aria-label="Assign task"` ensuring full backward-compatible E2E test coverage.
+- **View / Edit Task Modal (`TaskDetailsDialog`):**
+  - Displays complete task details, requester, and timeline.
+  - Allows status updates (Pending, In Progress, Done, Cancelled) and inline approvals.
+  - Allows reassignment to another employee when task is open and admin-assigned.
+  - Live character counter on description.
+
+### 10.6 Accessibility & Responsiveness
+
+- Full WCAG 2.1 AA compliance: accessible dialog semantics, visible focus outlines, high-contrast badges, explicit ARIA labels on all icon buttons and table actions.
+- Responsive layout adapting gracefully from mobile single-column to desktop multi-column grids.

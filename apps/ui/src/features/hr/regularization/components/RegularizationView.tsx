@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Check, Clock, Plus, Search, X } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,9 +13,15 @@ import {
   Input,
   Pagination,
   Select,
-  Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import {
+  FilterChips,
+  type FilterChipItem,
+} from "@/features/hr/components/FilterChip";
+import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { formatTime } from "@/features/hr/attendance/status";
 import { useCorrections } from "../hooks";
 import {
   APPROVE_ANY_SCOPE,
@@ -49,8 +56,7 @@ type Decision = {
  * Attendance corrections ("Regularization"): a single list, scoped
  * server-side to the caller's own/team/all permission, with a "Request a
  * correction" action for self-service and approve/reject for the approval
- * permission. The API exposes one endpoint for every scope — there is no
- * separate approvals queue route, unlike Work Logs.
+ * permission.
  */
 export function RegularizationView() {
   const canRead = usePermission(READ_ANY_SCOPE);
@@ -82,6 +88,28 @@ export function RegularizationView() {
   const list = useCorrections(query);
   const hasFilters = filters.status !== "" || filters.employeeId !== "";
 
+  // Active filter chips
+  const activeChips = useMemo<FilterChipItem[]>(() => {
+    const chips: FilterChipItem[] = [];
+    if (filters.status) {
+      chips.push({
+        id: "status",
+        label: "Status",
+        value: STATUS_LABELS[filters.status],
+        onRemove: () => update("status", ""),
+      });
+    }
+    if (filters.employeeId) {
+      chips.push({
+        id: "employeeId",
+        label: "Employee ID",
+        value: `#${filters.employeeId}`,
+        onRemove: () => update("employeeId", ""),
+      });
+    }
+    return chips;
+  }, [filters]);
+
   if (!canRead) {
     return (
       <Alert
@@ -94,79 +122,104 @@ export function RegularizationView() {
     );
   }
 
-  const header = (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-          Regularization
-        </h1>
-        {list.data ? (
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            {hasFilters
-              ? `Showing ${list.data.meta.total} matching requests`
-              : `${list.data.meta.total} correction requests`}
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
+              Regularization
+            </h1>
+            {list.data ? (
+              <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                {list.data.meta.total} requests
+              </span>
+            ) : null}
+          </div>
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Review and manage employee attendance correction requests.
           </p>
+        </div>
+
+        {canCreate ? (
+          <Button
+            onClick={() => setSubmitOpen(true)}
+            className="inline-flex items-center gap-1.5 shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+            Request a correction
+          </Button>
         ) : null}
       </div>
-      {canCreate ? (
-        <Button onClick={() => setSubmitOpen(true)}>
-          Request a correction
-        </Button>
-      ) : null}
-    </div>
-  );
 
-  return (
-    <div className="flex flex-col gap-4">
-      {header}
-
+      {/* Filters Card */}
       <Card>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Select
-            aria-label="Filter by status"
-            value={filters.status}
-            onChange={(e) =>
-              update("status", e.target.value as "" | CorrectionStatus)
-            }
-          >
-            <option value="">All statuses</option>
-            {CORRECTION_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </Select>
-          <Input
-            type="number"
-            min="1"
-            aria-label="Filter by employee ID"
-            placeholder="Employee ID"
-            value={filters.employeeId}
-            onChange={(e) => update("employeeId", e.target.value)}
-          />
-        </div>
-        {hasFilters ? (
-          <div className="mt-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 items-center">
+            <Select
+              aria-label="Filter by status"
+              value={filters.status}
+              onChange={(e) =>
+                update("status", e.target.value as "" | CorrectionStatus)
+              }
+            >
+              <option value="">All statuses</option>
+              {CORRECTION_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </Select>
+
+            <div className="relative">
+              <Input
+                type="number"
+                min="1"
+                aria-label="Filter by employee ID"
+                placeholder="Search by Employee ID..."
+                value={filters.employeeId}
+                onChange={(e) => update("employeeId", e.target.value)}
+                className="pl-9"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
+
+            {hasFilters ? (
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFilters(EMPTY_FILTERS);
+                    setPage(1);
+                  }}
+                  className="text-theme-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 inline-flex items-center gap-1.5"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Reset filters
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          {activeChips.length > 0 ? (
+            <FilterChips
+              chips={activeChips}
+              onClearAll={() => {
                 setFilters(EMPTY_FILTERS);
                 setPage(1);
               }}
-            >
-              Clear filters
-            </Button>
-          </div>
-        ) : null}
+              className="pt-2 border-t border-gray-100 dark:border-gray-800"
+            />
+          ) : null}
+        </div>
       </Card>
 
+      {/* Requests Table States */}
       {list.isPending ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
+        <TableSkeleton rowsCount={6} columnsCount={7} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
@@ -188,10 +241,24 @@ export function RegularizationView() {
             }
             description={
               hasFilters
-                ? "Try a different status or employee, or clear the filters."
+                ? "Try a different status or employee ID, or reset the filters."
                 : canCreate
-                  ? "Request a correction to see it here."
+                  ? "Click 'Request a correction' above to submit your first request."
                   : "Correction requests you are allowed to see will appear here."
+            }
+            action={
+              hasFilters ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setFilters(EMPTY_FILTERS);
+                    setPage(1);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : undefined
             }
           />
         </Card>
@@ -202,20 +269,85 @@ export function RegularizationView() {
             rows={list.data.data}
             getRowKey={(c) => String(c.id)}
             columns={[
-              { header: "Employee", cell: (c) => c.employee.fullName },
-              { header: "Date", cell: (c) => c.attendanceDate },
+              {
+                header: "Employee",
+                cell: (c) => (
+                  <EmployeeIdentity
+                    name={c.employee.fullName}
+                    code={c.employee.employeeCode}
+                    avatarSize="sm"
+                    size="sm"
+                  />
+                ),
+              },
+              {
+                header: "Date",
+                cell: (c) => (
+                  <span className="font-medium text-gray-800 dark:text-gray-200 text-theme-xs">
+                    {c.attendanceDate}
+                  </span>
+                ),
+              },
               {
                 header: "Type",
-                cell: (c) => CORRECTION_TYPE_LABELS[c.correctionType],
+                cell: (c) => {
+                  const hasIn = Boolean(c.requestedCheckInAt);
+                  const hasOut = Boolean(c.requestedCheckOutAt);
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-semibold text-gray-900 dark:text-white text-theme-xs">
+                        {CORRECTION_TYPE_LABELS[c.correctionType]}
+                      </span>
+                      {hasIn || hasOut ? (
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 dark:text-gray-400">
+                          <Clock className="h-3 w-3 text-gray-400 shrink-0" />
+                          <span>
+                            {hasIn
+                              ? `In: ${formatTime(c.requestedCheckInAt!)}`
+                              : ""}
+                            {hasIn && hasOut ? " • " : ""}
+                            {hasOut
+                              ? `Out: ${formatTime(c.requestedCheckOutAt!)}`
+                              : ""}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                },
               },
-              { header: "Reason", cell: (c) => c.reason },
+              {
+                header: "Reason",
+                cell: (c) => (
+                  <span
+                    title={c.reason}
+                    className="block max-w-xs truncate text-theme-xs text-gray-600 dark:text-gray-300"
+                  >
+                    {c.reason}
+                  </span>
+                ),
+              },
               {
                 header: "Status",
                 cell: (c) => <CorrectionStatusBadge status={c.status} />,
               },
               {
                 header: "Decided by",
-                cell: (c) => c.decidedBy?.fullName ?? "—",
+                cell: (c) => (
+                  <div className="flex flex-col">
+                    <span className="text-theme-xs text-gray-800 dark:text-gray-200 font-medium">
+                      {c.decidedBy?.fullName ?? "—"}
+                    </span>
+                    {c.decisionNote ? (
+                      <span
+                        title={c.decisionNote}
+                        className="text-[11px] text-gray-400 truncate max-w-36 italic"
+                      >
+                        &ldquo;{c.decisionNote}&rdquo;
+                      </span>
+                    ) : null}
+                  </div>
+                ),
               },
               ...(canApprove
                 ? [
@@ -223,7 +355,7 @@ export function RegularizationView() {
                       header: "Actions",
                       cell: (c: AttendanceCorrectionItem) =>
                         c.status === "SUBMITTED" ? (
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-1.5">
                             <Button
                               size="sm"
                               onClick={() =>
@@ -232,7 +364,9 @@ export function RegularizationView() {
                                   decision: "approve",
                                 })
                               }
+                              className="h-8 px-2.5 text-theme-xs inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                             >
+                              <Check className="h-3.5 w-3.5" />
                               Approve
                             </Button>
                             <Button
@@ -244,12 +378,14 @@ export function RegularizationView() {
                                   decision: "reject",
                                 })
                               }
+                              className="h-8 px-2.5 text-theme-xs inline-flex items-center gap-1"
                             >
+                              <X className="h-3.5 w-3.5" />
                               Reject
                             </Button>
                           </div>
                         ) : (
-                          "—"
+                          <span className="text-gray-400">—</span>
                         ),
                     },
                   ]
@@ -264,10 +400,12 @@ export function RegularizationView() {
         </>
       )}
 
+      {/* Submit Correction Dialog */}
       {submitOpen ? (
         <SubmitCorrectionDialog open onClose={() => setSubmitOpen(false)} />
       ) : null}
 
+      {/* Decide Correction Dialog */}
       {decision ? (
         <DecideCorrectionDialog
           open

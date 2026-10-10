@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Network, Plus, Power, Server } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -10,12 +11,13 @@ import {
   Dialog,
   EmptyState,
   ErrorState,
+  FormField,
   Input,
-  Skeleton,
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
   useAddOfficeNetwork,
   useOfficeNetworks,
@@ -88,17 +90,34 @@ export function OfficeNetworksCard() {
   }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Office networks
-        </h2>
+    <Card className="p-5">
+      {/* Section Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-100 dark:border-gray-800">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-theme-base font-bold tracking-tight text-gray-900 dark:text-white">
+              Office networks
+            </h2>
+            {query.data ? (
+              <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                {query.data.length} configured
+              </span>
+            ) : null}
+          </div>
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Configured office network IP addresses and subnets for attendance
+            check-ins.
+          </p>
+        </div>
+
         {canWrite ? (
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 shadow-2xs text-theme-xs font-medium"
           >
+            <Plus className="h-4 w-4" />
             Add address
           </Button>
         ) : null}
@@ -106,11 +125,7 @@ export function OfficeNetworksCard() {
 
       <div className="mt-4">
         {query.isPending ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
+          <TableSkeleton rowsCount={3} columnsCount={4} />
         ) : query.isError ? (
           <ErrorState onRetry={() => void query.refetch()} />
         ) : query.data.length === 0 ? (
@@ -121,6 +136,18 @@ export function OfficeNetworksCard() {
                 ? "Add the first office address to restrict OFFICE-mode punches."
                 : "Office addresses will appear here once configured."
             }
+            action={
+              canWrite ? (
+                <Button
+                  size="sm"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add address
+                </Button>
+              ) : undefined
+            }
           />
         ) : (
           <DataTable<OfficeNetwork>
@@ -128,8 +155,25 @@ export function OfficeNetworksCard() {
             rows={query.data}
             getRowKey={(n) => String(n.id)}
             columns={[
-              { header: "IP address", cell: (n) => n.ipAddress },
-              { header: "Label", cell: (n) => n.label ?? "—" },
+              {
+                header: "IP address",
+                cell: (n) => (
+                  <div className="flex items-center gap-2">
+                    <Server className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                    <span className="font-mono text-theme-xs font-semibold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/80 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                      {n.ipAddress}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                header: "Label",
+                cell: (n) => (
+                  <span className="text-theme-xs font-medium text-gray-700 dark:text-gray-300">
+                    {n.label ?? "—"}
+                  </span>
+                ),
+              },
               {
                 header: "Status",
                 cell: (n) => (
@@ -150,7 +194,13 @@ export function OfficeNetworksCard() {
                       size="sm"
                       onClick={() => void handleToggle(n)}
                       aria-label={`${n.isActive ? "Deactivate" : "Activate"} ${n.ipAddress}`}
+                      className={`text-theme-xs font-medium inline-flex items-center gap-1 h-8 px-2.5 ${
+                        n.isActive
+                          ? "text-gray-600 hover:text-error-600 dark:text-gray-400 dark:hover:text-error-400"
+                          : "text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                      }`}
                     >
+                      <Power className="h-3 w-3" />
                       {n.isActive ? "Deactivate" : "Activate"}
                     </Button>
                   ) : null,
@@ -160,36 +210,81 @@ export function OfficeNetworksCard() {
         )}
       </div>
 
+      {/* Add Address Modal */}
       <Dialog
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setFormError(null);
+        }}
         title="Add office network address"
+        size="md"
       >
         <div className="flex flex-col gap-4">
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400 -mt-1">
+            Register a trusted public IP address for office network attendance
+            validation.
+          </p>
+
           {formError ? (
             <Alert variant="error" title="Could not add address">
               {formError}
             </Alert>
           ) : null}
-          <Input
-            aria-label="IP address"
-            placeholder="203.0.113.10"
-            value={ipAddress}
-            onChange={(e) => setIpAddress(e.target.value)}
-          />
-          <Input
-            aria-label="Label"
-            placeholder="Head office router (optional)"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+
+          <FormField
+            label="IP address"
+            required
+            hint="IPv4 or IPv6 public gateway address (e.g. 203.0.113.10)"
+          >
+            {(f) => (
+              <Input
+                {...f}
+                aria-label="IP address"
+                placeholder="203.0.113.10"
+                value={ipAddress}
+                disabled={addMutation.isPending}
+                onChange={(e) => {
+                  setIpAddress(e.target.value);
+                  setFormError(null);
+                }}
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="Label"
+            hint="Friendly name for this office router or location (optional)"
+          >
+            {(f) => (
+              <Input
+                {...f}
+                aria-label="Label"
+                placeholder="Head office router (optional)"
+                value={label}
+                disabled={addMutation.isPending}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            )}
+          </FormField>
+
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setCreateOpen(false);
+                setFormError(null);
+              }}
+              disabled={addMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={() => void handleCreate()}
               disabled={addMutation.isPending}
+              loading={addMutation.isPending}
             >
               Add address
             </Button>

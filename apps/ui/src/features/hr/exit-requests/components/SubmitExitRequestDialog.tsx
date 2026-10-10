@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -38,9 +38,11 @@ function describeSubmitError(error: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-/** Submits an exit request for the authenticated user's own employee. There
- * is deliberately no employee picker (no `employeeId` in the self-service
- * create DTO) — resolved from the JWT. */
+/**
+ * Raise Exit Request Modal.
+ * Renders in a centered modal dialog with fixed dark translucent backdrop blur,
+ * background scroll locking, keyboard Escape dismissal, and mobile-safe viewport constraints.
+ */
 export function SubmitExitRequestDialog({
   open,
   onClose,
@@ -52,6 +54,29 @@ export function SubmitExitRequestDialog({
   const { toast } = useToast();
 
   const submitting = mutation.isPending;
+
+  // Prevent background scrolling while the modal is open
+  useEffect(() => {
+    if (!open) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [open]);
+
+  // Support Escape key to close the modal
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -85,22 +110,34 @@ export function SubmitExitRequestDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Raise exit request">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Raise exit request"
+      className="w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900 animate-modal my-auto mx-auto"
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto px-0.5 py-1"
+        noValidate
+      >
         <FormField label="Reason" required error={errors.reason}>
           {(f) => (
             <Textarea
               {...f}
               rows={3}
               invalid={f.invalid}
+              placeholder="State the primary reason for leaving..."
               value={values.reason}
               disabled={submitting}
               onChange={(e) =>
                 setValues((v) => ({ ...v, reason: e.target.value }))
               }
+              className="resize-none focus-visible:ring-2 focus-visible:ring-brand-500"
             />
           )}
         </FormField>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField
             label="Preferred last working date"
@@ -120,9 +157,11 @@ export function SubmitExitRequestDialog({
                     preferredLastWorkingDate: e.target.value,
                   }))
                 }
+                className="focus-visible:ring-2 focus-visible:ring-brand-500"
               />
             )}
           </FormField>
+
           <FormField
             label="Notice period (days)"
             required
@@ -134,6 +173,7 @@ export function SubmitExitRequestDialog({
                 type="number"
                 min="0"
                 invalid={f.invalid}
+                placeholder="e.g. 30"
                 value={values.noticePeriodDays}
                 disabled={submitting}
                 onChange={(e) =>
@@ -142,34 +182,40 @@ export function SubmitExitRequestDialog({
                     noticePeriodDays: Number(e.target.value),
                   }))
                 }
+                className="focus-visible:ring-2 focus-visible:ring-brand-500"
               />
             )}
           </FormField>
         </div>
+
         <FormField
           label="Additional notes"
           error={errors.additionalNotes}
-          hint="Optional. Handover notes, pending work."
+          hint="Optional. Handover notes, pending projects, or specific instructions."
         >
           {(f) => (
             <Textarea
               {...f}
               rows={3}
               invalid={f.invalid}
+              placeholder="Any additional details or handover notes (optional)"
               value={values.additionalNotes}
               disabled={submitting}
               onChange={(e) =>
                 setValues((v) => ({ ...v, additionalNotes: e.target.value }))
               }
+              className="resize-none focus-visible:ring-2 focus-visible:ring-brand-500"
             />
           )}
         </FormField>
+
         {serverError ? (
           <Alert variant="error" title="Could not submit">
             {serverError}
           </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"

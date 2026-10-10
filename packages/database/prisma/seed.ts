@@ -7,7 +7,7 @@
 // assignment (Super Admin uses `.all`-scoped permissions where they exist,
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaClient, type Team } from "../generated/prisma/client.js";
 import { DEFAULT_ROLES } from "./permissions/default-roles.js";
 import { syncPermissions } from "./permissions/sync.js";
 
@@ -29,7 +29,7 @@ async function main() {
     create: { name: "Texawave Innovations", slug: "texawave-innovations" },
   });
 
-  const teams = new Map<string, { id: number }>();
+  const teams = new Map<string, Team>();
   for (const team of TEAMS) {
     // One Department per Team, 1:1 — a placeholder so local dev data stays
     // coherent now that `teams.department_id` exists (Docs/ARCHITECTURE.md
@@ -254,6 +254,22 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-departments",
+      label: "Departments",
+      path: "/hr/departments",
+      order: 18,
+      parentId: hrParent.id,
+      permission: "departments.department.read",
+    },
+    {
+      code: "hr-teams",
+      label: "Teams",
+      path: "/hr/teams",
+      order: 19,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",
@@ -402,6 +418,69 @@ async function main() {
   });
   // Deliberately no UserTeamAccess row for the Super Admin — `.all`-scoped
   // permissions bypass team filtering entirely (Docs/ARCHITECTURE.md §5.5).
+
+  const adminDesignation = await prisma.designation.upsert({
+    where: {
+      organizationId_code: {
+        organizationId: org.id,
+        code: "EXEC_01",
+      },
+    },
+    update: {},
+    create: {
+      organizationId: org.id,
+      code: "EXEC_01",
+      name: "Managing Director",
+    },
+  });
+
+  const swTeam = teams.get("SW");
+  const permanentType = await prisma.employmentType.findFirst({
+    where: { organizationId: org.id, code: "PERMANENT" },
+  });
+
+  if (swTeam && permanentType) {
+    await prisma.employee.upsert({
+      where: {
+        userId: superAdminUser.id,
+      },
+      update: {
+        fullName: "Super Admin",
+        status: "ACTIVE",
+        onboardingStatus: "COMPLETE",
+      },
+      create: {
+        organizationId: org.id,
+        employeeCode: "EMP-000001",
+        userId: superAdminUser.id,
+        fullName: "Super Admin",
+        workEmail: SUPER_ADMIN_EMAIL,
+        teamId: swTeam.id,
+        departmentId: swTeam.departmentId,
+        designationId: adminDesignation.id,
+        employmentTypeId: permanentType.id,
+        status: "ACTIVE",
+        onboardingStatus: "COMPLETE",
+        dateOfJoining: new Date("2026-01-01"),
+      },
+    });
+
+    await prisma.documentSequence.upsert({
+      where: {
+        organizationId_docType: { organizationId: org.id, docType: "employee" },
+      },
+      update: {
+        nextNumber: 2,
+      },
+      create: {
+        organizationId: org.id,
+        docType: "employee",
+        prefix: "EMP-",
+        padding: 6,
+        nextNumber: 2,
+      },
+    });
+  }
 
   console.log(
     `Seeded organization "Texawave Innovations" (slug: texawave-innovations) with teams ${TEAMS.map((t) => t.code).join(", ")} ` +

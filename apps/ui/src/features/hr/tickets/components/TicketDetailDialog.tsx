@@ -13,18 +13,22 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { Calendar, MessageSquare, Tag } from "lucide-react";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { usePermission } from "@/hooks/usePermission";
 import { useAddTicketComment, useSetTicketStatus, useTicket } from "../hooks";
 import { createTicketCommentSchema, TICKET_COMMENT_MAX } from "../schema";
 import { STATUS_LABELS } from "../status";
 import { ADMIN_MOVES, type TicketStatus } from "../types";
 import { WRITE_ANY_SCOPE } from "../permissions";
+import { formatTicketDateTime, formatTicketId } from "../utils";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 
 export interface TicketDetailDialogProps {
   open: boolean;
   onClose: () => void;
   ticketId: number;
+  employeeCode?: string | undefined;
 }
 
 function describeError(error: unknown): string {
@@ -49,12 +53,15 @@ function describeError(error: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-/** Ticket detail: comments thread (oldest first), a reply box and a
- * status-change control, gated on hr.ticket.write. */
+/**
+ * Centered modal displaying complete ticket details, comments thread,
+ * status change capabilities, and reply input.
+ */
 export function TicketDetailDialog({
   open,
   onClose,
   ticketId,
+  employeeCode,
 }: TicketDetailDialogProps) {
   const canWrite = usePermission(WRITE_ANY_SCOPE);
   const ticket = useTicket(ticketId);
@@ -102,11 +109,11 @@ export function TicketDetailDialog({
   const nextStatuses = ticket.data ? ADMIN_MOVES[ticket.data.status] : [];
 
   return (
-    <Dialog open={open} onClose={onClose} title="Ticket">
+    <Dialog open={open} onClose={onClose} title="Ticket Details" size="lg">
       {ticket.isPending ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 py-2">
           {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
+            <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
       ) : ticket.isError ? (
@@ -118,118 +125,217 @@ export function TicketDetailDialog({
           <ErrorState onRetry={() => void ticket.refetch()} />
         )
       ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 rounded-lg bg-gray-50 p-3 text-theme-sm dark:bg-gray-800">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-medium text-gray-900 dark:text-white/90">
-                {ticket.data.subject}
-              </p>
-              <TicketStatusBadge status={ticket.data.status} />
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">
-              {ticket.data.employee.fullName} · {ticket.data.category}
-            </p>
-            <p className="text-gray-700 dark:text-gray-300">
-              {ticket.data.description}
+        <div className="flex flex-col gap-5">
+          <div>
+            <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+              View complete information about this ticket.
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-              Comments
-            </h3>
+          {/* Grid Layout matching reference Panel 4 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-800 dark:bg-gray-800/40">
+            {/* Ticket ID */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Ticket ID
+              </span>
+              <p className="font-mono text-theme-sm font-semibold text-gray-900 dark:text-white/90 mt-0.5">
+                {formatTicketId(ticket.data.id, ticket.data.createdAt)}
+              </p>
+            </div>
+
+            {/* Status */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Status
+              </span>
+              <div className="mt-1">
+                <TicketStatusBadge status={ticket.data.status} />
+              </div>
+            </div>
+
+            {/* Category */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Category
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5 text-theme-sm font-medium text-gray-800 dark:text-gray-200">
+                <Tag className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                <span>{ticket.data.category}</span>
+              </div>
+            </div>
+
+            {/* Subject */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Subject
+              </span>
+              <p className="text-theme-sm font-medium text-gray-900 dark:text-white/90 mt-0.5">
+                {ticket.data.subject}
+              </p>
+            </div>
+
+            {/* Created On */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Created On
+              </span>
+              <div className="flex items-center gap-1.5 mt-1 text-theme-sm text-gray-800 dark:text-gray-200">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <span>{formatTicketDateTime(ticket.data.createdAt)}</span>
+              </div>
+            </div>
+
+            {/* Employee */}
+            <div>
+              <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                Employee
+              </span>
+              <div className="mt-1">
+                <EmployeeIdentity
+                  name={ticket.data.employee.fullName}
+                  code={
+                    employeeCode ??
+                    `EMP-${String(ticket.data.employee.id).padStart(4, "0")}`
+                  }
+                  size="sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+              Description
+            </span>
+            <div className="rounded-xl border border-gray-200 bg-white p-3.5 text-theme-sm text-gray-800 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-200 min-h-20 whitespace-pre-wrap leading-relaxed">
+              {ticket.data.description}
+            </div>
+          </div>
+
+          {/* Comments & Status Management */}
+          <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/30">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-gray-400" />
+              <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+                Comments & Activity
+              </h3>
+            </div>
+
             {ticket.data.comments.length === 0 ? (
-              <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-                No comments yet.
+              <p className="text-theme-xs text-gray-500 dark:text-gray-400 italic">
+                No comments on this ticket yet.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {ticket.data.comments.map((c) => (
                   <li
                     key={c.id}
-                    className="rounded-lg border border-gray-200 p-2 text-theme-sm dark:border-gray-800"
+                    className="rounded-lg border border-gray-200 bg-white p-3 text-theme-sm dark:border-gray-700 dark:bg-gray-dark"
                   >
-                    <p className="font-medium text-gray-900 dark:text-white/90">
-                      {c.author?.fullName ??
-                        (c.authorKind === "HR" ? "HR" : "Employee")}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="font-semibold text-theme-xs text-gray-900 dark:text-white/90">
+                        {c.author?.fullName ??
+                          (c.authorKind === "HR" ? "HR Admin" : "Employee")}
+                      </p>
+                      <span className="text-[11px] text-gray-400">
+                        {formatTicketDateTime(c.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-theme-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {c.body}
                     </p>
-                    <p className="text-gray-700 dark:text-gray-300">{c.body}</p>
                   </li>
                 ))}
               </ul>
             )}
+
+            {canWrite ? (
+              <div className="mt-2 flex flex-col gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                {/* Status move control */}
+                {nextStatuses.length > 0 ? (
+                  <FormField
+                    label="Move to Status"
+                    hint="Optional status transition"
+                  >
+                    {(f) => (
+                      <div className="flex gap-2">
+                        <Select
+                          {...f}
+                          value={status}
+                          disabled={submitting}
+                          onChange={(e) =>
+                            setStatusValue(e.target.value as "" | TicketStatus)
+                          }
+                        >
+                          <option value="">No status change</option>
+                          {nextStatuses.map((s) => (
+                            <option key={s} value={s}>
+                              {STATUS_LABELS[s]}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!status}
+                          loading={setStatus.isPending}
+                          onClick={() => void handleStatusChange()}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+                  </FormField>
+                ) : null}
+
+                {/* Reply box */}
+                <form onSubmit={handleReply} className="flex flex-col gap-2">
+                  <FormField
+                    label="Post a Reply"
+                    hint={`Up to ${TICKET_COMMENT_MAX} characters`}
+                    error={replyError ?? undefined}
+                  >
+                    {(f) => (
+                      <Textarea
+                        {...f}
+                        rows={3}
+                        placeholder="Write a reply or update note..."
+                        invalid={f.invalid}
+                        value={reply}
+                        disabled={submitting}
+                        onChange={(e) => setReply(e.target.value)}
+                      />
+                    )}
+                  </FormField>
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      loading={addComment.isPending}
+                      className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
+                    >
+                      Send Reply
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
+
+            {actionError ? (
+              <Alert variant="error" title="Could not save">
+                {actionError}
+              </Alert>
+            ) : null}
           </div>
 
-          {canWrite ? (
-            <>
-              {nextStatuses.length > 0 ? (
-                <FormField label="Move to status" hint="Optional.">
-                  {(f) => (
-                    <div className="flex gap-2">
-                      <Select
-                        {...f}
-                        value={status}
-                        disabled={submitting}
-                        onChange={(e) =>
-                          setStatusValue(e.target.value as "" | TicketStatus)
-                        }
-                      >
-                        <option value="">No status change</option>
-                        {nextStatuses.map((s) => (
-                          <option key={s} value={s}>
-                            {STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!status}
-                        loading={setStatus.isPending}
-                        onClick={() => void handleStatusChange()}
-                      >
-                        Apply
-                      </Button>
-                    </div>
-                  )}
-                </FormField>
-              ) : null}
-
-              <form onSubmit={handleReply} className="flex flex-col gap-2">
-                <FormField
-                  label="Reply"
-                  hint={`Up to ${TICKET_COMMENT_MAX} characters`}
-                  error={replyError ?? undefined}
-                >
-                  {(f) => (
-                    <Textarea
-                      {...f}
-                      rows={3}
-                      invalid={f.invalid}
-                      value={reply}
-                      disabled={submitting}
-                      onChange={(e) => setReply(e.target.value)}
-                    />
-                  )}
-                </FormField>
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    loading={addComment.isPending}
-                  >
-                    Send reply
-                  </Button>
-                </div>
-              </form>
-            </>
-          ) : null}
-
-          {actionError ? (
-            <Alert variant="error" title="Could not save">
-              {actionError}
-            </Alert>
-          ) : null}
+          {/* Footer actions */}
+          <div className="flex items-center justify-end pt-2 border-t border-gray-100 dark:border-gray-800">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       )}
     </Dialog>

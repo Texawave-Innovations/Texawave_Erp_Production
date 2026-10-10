@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Calendar, Info, LogIn, LogOut } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -51,15 +52,43 @@ function describeSubmitError(error: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-/** Converts a datetime-local value (local time, no zone) to an ISO instant. */
+/** Formats an ISO YYYY-MM-DD date into a human-readable label (e.g. 'Mon, 05 Oct 2026')
+ * without local timezone skew. */
+function formatFriendlyDate(isoDate: string): string {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return "";
+  const parts = isoDate.split("-");
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return "";
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Converts a datetime-local value (local time on attendance date) to an ISO instant.
+ * TexaWave ERP Production operates in Indian Standard Time (IST, UTC+05:30).
+ * Parsing with +05:30 ensures the resulting instant strictly falls on the attendance date in IST
+ * regardless of the client machine's local browser timezone. */
 function toIso(local: string): string {
-  return new Date(local).toISOString();
+  if (!local) return "";
+  if (local.includes("Z") || local.includes("+")) {
+    return new Date(local).toISOString();
+  }
+  const withSeconds = local.length === 16 ? `${local}:00` : local;
+  return new Date(`${withSeconds}+05:30`).toISOString();
 }
 
 const today = () => new Intl.DateTimeFormat("en-CA").format(new Date());
 
 /** Submits an attendance correction for the authenticated user's own
- * employee record. There is deliberately no employee picker. */
+ * employee record. */
 export function SubmitCorrectionDialog({
   open,
   onClose,
@@ -75,6 +104,61 @@ export function SubmitCorrectionDialog({
 
   const allowed = ALLOWED_TIMES[values.correctionType];
 
+  function handleAttendanceDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const nextDate = e.target.value;
+    setValues((v) => {
+      const nextIn =
+        v.requestedCheckInAt && nextDate
+          ? `${nextDate}T${v.requestedCheckInAt.includes("T") ? v.requestedCheckInAt.split("T")[1] : "09:00"}`
+          : v.requestedCheckInAt;
+      const nextOut =
+        v.requestedCheckOutAt && nextDate
+          ? `${nextDate}T${v.requestedCheckOutAt.includes("T") ? v.requestedCheckOutAt.split("T")[1] : "18:00"}`
+          : v.requestedCheckOutAt;
+      return {
+        ...v,
+        attendanceDate: nextDate,
+        requestedCheckInAt: nextIn,
+        requestedCheckOutAt: nextOut,
+      };
+    });
+    if (errors.attendanceDate) {
+      setErrors((prev) => ({ ...prev, attendanceDate: undefined }));
+    }
+  }
+
+  function handleCheckInChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    if (!val) {
+      setValues((v) => ({ ...v, requestedCheckInAt: "" }));
+      return;
+    }
+    const time = val.includes("T") ? val.split("T")[1] : val;
+    const synchronized = values.attendanceDate
+      ? `${values.attendanceDate}T${time}`
+      : val;
+    setValues((v) => ({ ...v, requestedCheckInAt: synchronized }));
+    if (errors.requestedCheckInAt) {
+      setErrors((prev) => ({ ...prev, requestedCheckInAt: undefined }));
+    }
+  }
+
+  function handleCheckOutChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    if (!val) {
+      setValues((v) => ({ ...v, requestedCheckOutAt: "" }));
+      return;
+    }
+    const time = val.includes("T") ? val.split("T")[1] : val;
+    const synchronized = values.attendanceDate
+      ? `${values.attendanceDate}T${time}`
+      : val;
+    setValues((v) => ({ ...v, requestedCheckOutAt: synchronized }));
+    if (errors.requestedCheckOutAt) {
+      setErrors((prev) => ({ ...prev, requestedCheckOutAt: undefined }));
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const result = submitCorrectionSchema.safeParse(values);
@@ -89,7 +173,11 @@ export function SubmitCorrectionDialog({
     }
     const timeError = validateCorrectionTimes(result.data);
     if (timeError) {
-      setErrors({ requestedCheckInAt: timeError });
+      if (timeError.toLowerCase().includes("check-out")) {
+        setErrors({ requestedCheckOutAt: timeError });
+      } else {
+        setErrors({ requestedCheckInAt: timeError });
+      }
       return;
     }
     setErrors({});
@@ -99,14 +187,14 @@ export function SubmitCorrectionDialog({
         attendanceDate: result.data.attendanceDate,
         correctionType: result.data.correctionType,
         reason: result.data.reason,
-        ...(result.data.requestedCheckInAt
+        ...(allowed.in && result.data.requestedCheckInAt
           ? { requestedCheckInAt: toIso(result.data.requestedCheckInAt) }
           : {}),
-        ...(result.data.requestedCheckOutAt
+        ...(allowed.out && result.data.requestedCheckOutAt
           ? { requestedCheckOutAt: toIso(result.data.requestedCheckOutAt) }
           : {}),
       });
-      toast({ title: "Correction requested", variant: "success" });
+      toast({ title: "Correction requested successfully", variant: "success" });
       setValues({ ...EMPTY_SUBMIT_FORM, attendanceDate: today() });
       onClose();
     } catch (error) {
@@ -117,12 +205,33 @@ export function SubmitCorrectionDialog({
   const submitting = mutation.isPending;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Request a correction">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Request a correction"
+      size="lg"
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        {/* Info Banner */}
+        <div className="flex items-start gap-2.5 p-3 rounded-xl border border-brand-200/50 bg-brand-50/50 dark:border-brand-800/40 dark:bg-brand-950/30 text-theme-xs text-brand-900 dark:text-brand-200">
+          <Info className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400 mt-0.5" />
+          <span>
+            Correction requests are reviewed by an HR administrator or reporting
+            manager. Approved adjustments directly update your attendance
+            record.
+          </span>
+        </div>
+
+        {/* Attendance Date */}
         <FormField
           label="Attendance date"
           required
           error={errors.attendanceDate}
+          hint={
+            values.attendanceDate
+              ? `Selected date: ${formatFriendlyDate(values.attendanceDate)} (IST)`
+              : undefined
+          }
         >
           {(f) => (
             <Input
@@ -132,12 +241,12 @@ export function SubmitCorrectionDialog({
               value={values.attendanceDate}
               disabled={submitting}
               max={today()}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, attendanceDate: e.target.value }))
-              }
+              onChange={handleAttendanceDateChange}
             />
           )}
         </FormField>
+
+        {/* Correction Type */}
         <FormField
           label="Correction type"
           required
@@ -163,52 +272,94 @@ export function SubmitCorrectionDialog({
             </Select>
           )}
         </FormField>
-        {allowed.in ? (
-          <FormField
-            label="Corrected check-in"
-            hint="Local date and time."
-            error={errors.requestedCheckInAt}
+
+        {/* Conditional Punch Fields */}
+        {allowed.in || allowed.out ? (
+          <div
+            className={`grid gap-3 ${
+              allowed.in && allowed.out
+                ? "grid-cols-1 sm:grid-cols-2"
+                : "grid-cols-1"
+            }`}
           >
-            {(f) => (
-              <Input
-                {...f}
-                type="datetime-local"
-                invalid={f.invalid}
-                value={values.requestedCheckInAt}
-                disabled={submitting}
-                onChange={(e) =>
-                  setValues((v) => ({
-                    ...v,
-                    requestedCheckInAt: e.target.value,
-                  }))
-                }
-              />
-            )}
-          </FormField>
+            {allowed.in ? (
+              <FormField
+                label="Corrected check-in"
+                hint="Time on attendance date (IST)."
+                error={errors.requestedCheckInAt}
+              >
+                {(f) => (
+                  <Input
+                    {...f}
+                    type="datetime-local"
+                    invalid={f.invalid}
+                    value={values.requestedCheckInAt}
+                    min={
+                      values.attendanceDate
+                        ? `${values.attendanceDate}T00:00`
+                        : undefined
+                    }
+                    max={
+                      values.attendanceDate
+                        ? `${values.attendanceDate}T23:59`
+                        : undefined
+                    }
+                    disabled={submitting}
+                    onChange={handleCheckInChange}
+                    className="font-mono text-theme-xs"
+                  />
+                )}
+              </FormField>
+            ) : null}
+
+            {allowed.out ? (
+              <FormField
+                label="Corrected check-out"
+                hint="Time on attendance date (IST)."
+                error={errors.requestedCheckOutAt}
+              >
+                {(f) => (
+                  <Input
+                    {...f}
+                    type="datetime-local"
+                    invalid={f.invalid}
+                    value={values.requestedCheckOutAt}
+                    min={
+                      values.attendanceDate
+                        ? `${values.attendanceDate}T00:00`
+                        : undefined
+                    }
+                    max={
+                      values.attendanceDate
+                        ? `${values.attendanceDate}T23:59`
+                        : undefined
+                    }
+                    disabled={submitting}
+                    onChange={handleCheckOutChange}
+                    className="font-mono text-theme-xs"
+                  />
+                )}
+              </FormField>
+            ) : null}
+          </div>
         ) : null}
-        {allowed.out ? (
-          <FormField label="Corrected check-out" hint="Local date and time.">
-            {(f) => (
-              <Input
-                {...f}
-                type="datetime-local"
-                invalid={f.invalid}
-                value={values.requestedCheckOutAt}
-                disabled={submitting}
-                onChange={(e) =>
-                  setValues((v) => ({
-                    ...v,
-                    requestedCheckOutAt: e.target.value,
-                  }))
-                }
-              />
-            )}
-          </FormField>
-        ) : null}
+
+        {/* Reason */}
         <FormField
           label="Reason"
           required
           error={errors.reason}
+          labelAction={
+            <span
+              className={`font-mono text-[11px] ${
+                values.reason.length > 500
+                  ? "text-error-600 font-bold"
+                  : "text-gray-400"
+              }`}
+            >
+              {values.reason.length}/500
+            </span>
+          }
           hint="3–500 characters. Visible to whoever decides the request."
         >
           {(f) => (
@@ -218,18 +369,21 @@ export function SubmitCorrectionDialog({
               invalid={f.invalid}
               value={values.reason}
               disabled={submitting}
+              placeholder="Explain why this correction is requested..."
               onChange={(e) =>
                 setValues((v) => ({ ...v, reason: e.target.value }))
               }
             />
           )}
         </FormField>
+
         {serverError ? (
           <Alert variant="error" title="Could not submit">
             {serverError}
           </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"

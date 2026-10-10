@@ -86,6 +86,7 @@ export class RolesRepository {
     return this.prisma.role.create({
       data: {
         name: dto.name,
+        isActive: dto.isActive ?? true,
         organizationId: scope.organizationId,
         createdBy,
         updatedBy: createdBy,

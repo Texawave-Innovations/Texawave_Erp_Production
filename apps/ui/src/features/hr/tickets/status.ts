@@ -2,7 +2,7 @@ import type { TicketStatus } from "./types";
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
   OPEN: "Open",
-  IN_PROGRESS: "In progress",
+  IN_PROGRESS: "In Progress",
   RESOLVED: "Resolved",
   CLOSED: "Closed",
 };
@@ -11,10 +11,10 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
  * renders as text as well, never color alone (Docs/DESIGN_SYSTEM.md). */
 export const STATUS_COLOR: Record<
   TicketStatus,
-  "success" | "warning" | "error" | "gray"
+  "brand" | "success" | "warning" | "error" | "gray"
 > = {
   OPEN: "warning",
-  IN_PROGRESS: "warning",
+  IN_PROGRESS: "brand",
   RESOLVED: "success",
   CLOSED: "gray",
 };

@@ -59,7 +59,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
   const debouncedSearch = useDebouncedValue(assigneeSearch);
   const employees = useEmployees({
     page: 1,
-    limit: 20,
+    limit: 100,
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
   });
   const mutation = useCreateTask();
@@ -91,6 +91,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
       });
       toast({ title: "Task assigned", variant: "success" });
       setValues({ ...EMPTY_CREATE_FORM, dueDate: today() });
+      setAssigneeSearch("");
       onClose();
     } catch (error) {
       setServerError(describeCreateError(error));
@@ -101,10 +102,21 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
   const employeeOptions = employees.data?.data ?? [];
 
   return (
-    <Dialog open={open} onClose={onClose} title="New Task">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+    <Dialog open={open} onClose={onClose} title="New Task" size="lg">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4.5"
+        noValidate
+      >
+        <div>
+          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+            Create a new task and assign it to an employee.
+          </p>
+        </div>
+
+        {/* Task Title */}
         <FormField
-          label="Title"
+          label="Task Title"
           required
           error={errors.title}
           hint="Up to 80 characters."
@@ -112,6 +124,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
           {(f) => (
             <Input
               {...f}
+              placeholder="Enter task title..."
               invalid={f.invalid}
               value={values.title}
               disabled={submitting}
@@ -122,15 +135,11 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
             />
           )}
         </FormField>
-        <FormField label="Assign to" required error={errors.assigneeId}>
+
+        {/* Assign To */}
+        <FormField label="Assign To" required error={errors.assigneeId}>
           {(f) => (
             <div className="flex flex-col gap-2">
-              <Input
-                placeholder="Search employees"
-                value={assigneeSearch}
-                disabled={submitting}
-                onChange={(e) => setAssigneeSearch(e.target.value)}
-              />
               <Select
                 {...f}
                 invalid={f.invalid}
@@ -141,7 +150,9 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
                 }
               >
                 <option value="">
-                  {employees.isPending ? "Loading…" : "Select an employee"}
+                  {employees.isPending
+                    ? "Loading employees…"
+                    : "Select employee"}
                 </option>
                 {employeeOptions.map((emp) => (
                   <option key={emp.id} value={String(emp.id)}>
@@ -152,66 +163,83 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
             </div>
           )}
         </FormField>
-        <FormField label="Priority" required>
-          {(f) => (
-            <Select
-              {...f}
-              value={values.priority}
-              disabled={submitting}
-              onChange={(e) =>
-                setValues((v) => ({
-                  ...v,
-                  priority: e.target.value as (typeof TASK_PRIORITIES)[number],
-                }))
-              }
-            >
-              {TASK_PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {PRIORITY_LABELS[p]}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Due date" required error={errors.dueDate}>
-          {(f) => (
-            <Input
-              {...f}
-              type="date"
-              invalid={f.invalid}
-              value={values.dueDate}
-              min={today()}
-              disabled={submitting}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, dueDate: e.target.value }))
-              }
-            />
-          )}
-        </FormField>
+
+        {/* Priority & Due Date (2-column layout) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Priority" required>
+            {(f) => (
+              <Select
+                {...f}
+                value={values.priority}
+                disabled={submitting}
+                onChange={(e) =>
+                  setValues((v) => ({
+                    ...v,
+                    priority: e.target
+                      .value as (typeof TASK_PRIORITIES)[number],
+                  }))
+                }
+              >
+                {TASK_PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABELS[p]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+
+          <FormField label="Due Date" required error={errors.dueDate}>
+            {(f) => (
+              <Input
+                {...f}
+                type="date"
+                invalid={f.invalid}
+                value={values.dueDate}
+                min={today()}
+                disabled={submitting}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, dueDate: e.target.value }))
+                }
+              />
+            )}
+          </FormField>
+        </div>
+
+        {/* Description */}
         <FormField
-          label="Description"
+          label="Description (Optional)"
           error={errors.description}
-          hint="Optional, up to 500 characters."
+          labelAction={
+            <span className="text-theme-xs text-gray-400 font-normal">
+              {values.description?.length ?? 0}/500
+            </span>
+          }
         >
           {(f) => (
             <Textarea
               {...f}
               rows={3}
+              placeholder="Enter task description..."
               invalid={f.invalid}
               value={values.description}
               disabled={submitting}
+              maxLength={500}
               onChange={(e) =>
                 setValues((v) => ({ ...v, description: e.target.value }))
               }
             />
           )}
         </FormField>
+
         {serverError ? (
           <Alert variant="error" title="Could not assign task">
             {serverError}
           </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"
@@ -220,8 +248,13 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
           >
             Cancel
           </Button>
-          <Button type="submit" loading={submitting}>
-            Assign task
+          <Button
+            type="submit"
+            loading={submitting}
+            aria-label="Assign task"
+            className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
+          >
+            Create Task
           </Button>
         </div>
       </form>

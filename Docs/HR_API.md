@@ -121,6 +121,59 @@ Rules:
 - A weekly-off rule's scope is the whole organization, **one location, or one team** (never both); rules are not edited in place — end the old, create the new, so past dates stay answerable. No two active rules of the **same scope** may overlap (exclusion constraint); rules of different scopes may coexist.
 - `/hr/calendar/day` returns **every** applicable rule with `coversWeekday`, and deliberately **no verdict** (`isWeeklyOff`/`isWorkingDay` do not exist): which scope wins is an open policy decision. Server-side callers: `CalendarQueryService.dayFor(employeeId, date)`.
 
+#### UI/UX Architecture & Design System Integration (TexaWave ERP Production — Holidays)
+
+1. **Main Page Layout (`HolidaysView`):**
+   - **Executive Header:** Clear title "Holidays" with subtitle "Manage organization holidays and their applicability." and a prominent primary action button `+ New holiday` (emerald tone with `Plus` icon).
+   - **Summary Stat Cards (4 cards):** Compact metrics calculated deterministically from the year query:
+     - **Total holidays:** Count of all configured holidays for the selected year (brand tone, `Calendar` icon).
+     - **Active:** Count of active holidays for the selected year (success tone, `CheckCircle2` icon).
+     - **Upcoming:** Count of active holidays where `holidayDate >= today` (warning tone, `Clock` icon).
+     - **Deactivated:** Count of inactive/deactivated holidays for the selected year (neutral gray tone, `Ban` icon).
+   - **Compact Filter Toolbar:**
+     - **Year Selector:** Dropdown selector with `aria-label="Filter by year"` defaulting to the current calendar year.
+     - **Status Selector:** Dropdown selector with `aria-label="Filter by status"` (`All statuses`, `Active`, `Deactivated`).
+     - **Reset Action:** Quick button resetting the filter view back to current year and all statuses.
+
+2. **Holiday Table & Actions:**
+   - **Columns:**
+     - `#`: Sequential row index across pagination.
+     - `Date`: Formatted date (`DD MMM YYYY`) with secondary weekday name indicator (`e.g., Monday`), computed using UTC to avoid timezone shift.
+     - `Holiday Name`: Primary name in semi-bold, with secondary single-line truncated description or title tooltip.
+     - `Applies To`: Scope badge indicating "Whole organization" or specific work location with building icon.
+     - `Status`: Accessible `StatusBadge` token (Active: `success`, Deactivated: `gray`).
+     - `Actions`: Accessible icon action buttons:
+       - Edit: Pencil icon button with `aria-label="Edit {name}"`.
+       - Deactivate / Activate: Toggle icon button with `aria-label="Deactivate {name}"` (soft red destructive hover) or `aria-label="Activate {name}"` (emerald hover).
+   - **Empty, Loading & Error States:**
+     - **TableSkeleton:** 5 rows × 6 columns loading skeleton.
+     - **Empty State:** Distinct warm calendar illustration matching approved reference design, heading "No holidays defined" (strictly matching E2E test locator), contextual subtitle for the year, and a primary `+ New holiday` CTA button.
+     - **Error State:** Accessible alert card with error details and retry action.
+
+3. **New Holiday Modal (`HolidayForm` in Create Mode):**
+   - Centered `<Dialog size="lg">` with dark translucent backdrop and subtle blur.
+   - Title "New Holiday" with subtitle "Create a new organization holiday."
+   - **Date:** Required date input picker (`YYYY-MM-DD`).
+   - **Holiday Name:** Required text input with placeholder `e.g. Republic Day` and max length 100.
+   - **Description:** Optional textarea with live character counter in `labelAction` (`{len}/500`).
+   - **Applies To:** Scope selector defaulting to "Whole organization" or choosing from active work locations.
+   - **Footer Actions:** Secondary "Cancel" and primary "Create holiday" with loading spinner state.
+
+4. **Edit Holiday Modal (`HolidayForm` in Edit Mode):**
+   - Centered `<Dialog size="lg">` matching the create modal style.
+   - Title "Edit Holiday" with subtitle "Update holiday details."
+   - **Date:** Read-only date display with informative helper note explaining that the date cannot be changed once created (preserves backend immutability).
+   - **Holiday Name:** Editable text input.
+   - **Description:** Editable textarea with live character counter (`{len}/500`).
+   - **Applies To:** Read-only scope display preserving work location immutability.
+   - **Status:** Accessible dropdown selector (`Active` / `Deactivated`) enabling direct activation/deactivation during edit.
+   - **Footer Actions:** Secondary "Cancel" and primary "Update holiday" with mutation handling.
+
+5. **Accessibility & Responsive Performance:**
+   - Strict WCAG 2.1 AA conformance: visible focus outlines, high-contrast text, clear `aria-label`s on row actions.
+   - Fully responsive design: metrics cards adapt from single-column on mobile to a 4-column grid on desktop; table maintains horizontal scrolling without breaking root viewport constraints.
+   - Sub-250ms smooth transitions respecting `prefers-reduced-motion`.
+
 ### Leave (`modules/hr/leave-requests`, `modules/hr/leave-types`, `employee-self-service/leave-requests`)
 
 Full design, rules and open decisions: [HR_LEAVE.md](HR_LEAVE.md).
@@ -167,6 +220,45 @@ both Firebase-backed. Table `hr.work_logs`. **UI exists**: `/hr/work-logs` (appr
 - **Approval is by direct manager, not team**: `hr.work_log.approve` carries no `.own/.team/.all` suffix; the service narrows to `employee.reportsToId = caller`. A decider cannot approve/reject their own log (403 `SELF_APPROVAL_FORBIDDEN`), even with the permission. Deciding an already-decided log is 422 `INVALID_STATE_TRANSITION`.
 - **Fields:** `hoursWorked` 0.01–24, 2 decimals; `taskDescription` 3–500 chars; `workDate` is a plain date, no time zone.
 - **Not built:** edit/delete, a project/task selector (legacy's task field is free text), bulk approve.
+
+#### UI/UX Architecture & Design System Integration (TexaWave ERP Production)
+
+1. **Screen 1 — Approvals (`/hr/work-logs` — tab `approvals`):**
+   - **Header:** Displays page title "Work Logs" with a live count badge pill showing the exact count of pending items awaiting the supervisor's decision (`${count} pending approvals`).
+   - **Tabs Switcher:** Segmented control toggling between "Approvals" and "All work logs", plus a shortcut to "My work logs".
+   - **Compact Filter Toolbar:** Status filter (`Select`), shared `DateRangePicker` (`fromAriaLabel="Logged on or after"`, `toAriaLabel="Logged on or before"`), dismissible `FilterChips`, and a quick "Reset filters" action.
+   - **Approval Table:** Renders `EmployeeIdentity` (with avatar initials and name), work date, formatted hours badge (`${hours} hrs`), readable task description with title tooltip, `WorkLogStatusBadge`, decider note preview, and distinct action buttons for `PENDING` rows:
+     - **Approve:** Emerald action button (`bg-emerald-600 hover:bg-emerald-700 text-white`) with `Check` icon.
+     - **Reject:** Destructive action button with `X` icon.
+   - **States:** `TableSkeleton` (6 rows × 7 columns), `EmptyState` with filter reset actions, and `ErrorState` with retry callback.
+
+2. **Screen 2 — All Work Logs (`/hr/work-logs` — tab `scope`):**
+   - **Scope-wide View:** Accessible to users with `hr.work_log.read` permission.
+   - **Columns:** Employee identity, work date, hours, task summary, status badge, and decider information (decision-maker name and note).
+
+3. **Screen 3 — My Work Logs (`/self-service/work-logs`):**
+   - **Employee Self-Service:** Header with page title "My Work Logs", subtitle "Track and manage your submitted work logs", total count badge pill, and a prominent primary action button `+ Submit work log`.
+   - **Compact Summary Metrics:** Derived safely from current data: Total Logs, Page Hours, Approved, and Pending.
+   - **Shared Filters & History Table:** Status selector, global shared `DateRangePicker`, filter chips, and history rows showing work date, hours worked, task description, status badge, and decider feedback note.
+
+4. **Screen 4 — Submit Work Log Modal (`CreateWorkLogDialog`):**
+   - **Dialog UX:** Native HTML `<dialog>` with focus trap, dark translucent backdrop, subtle backdrop blur, and Escape key / outside click dismissal.
+   - **Fields & Validation:**
+     - Date input with default `today` in ISO format (`YYYY-MM-DD`).
+     - Hours worked numeric input (`step="0.01"`, `min="0.01"`, `max="24"`).
+     - Task description textarea with live character counter in `labelAction` (`${len}/500`), validating between 3 and 500 characters.
+   - **Actions:** Secondary "Cancel" and Primary "Submit" with async loading spinner.
+
+5. **Approval Decision Modal (`DecideWorkLogDialog`):**
+   - Modal dialog with an employee preview card summarizing the requester's name, work date, and hours.
+   - Finality reminder: "Decision is final once saved".
+   - Optional note textarea with character counter in `labelAction` (3–500 chars if provided).
+   - Distinct Approve (emerald) or Reject (destructive) action with async mutation state.
+
+6. **Accessibility & Performance:**
+   - Strict WCAG 2.1 AA compliance: visible focus rings, color contrast ratios, screen-reader text for all table actions, ARIA attributes on inputs and comboboxes.
+   - Status is never communicated by color alone (text badges only).
+   - Transitions kept light (180–250ms) with zero unnecessary animation libraries or layout thrashing.
 
 ### Recruitment — revision letters (`modules/hr/revision-letters`)
 
@@ -272,6 +364,55 @@ Legacy: `Shifts.tsx` (the screen is titled "Location Privilege"), `attendanceSer
 - **Scope:** organization-wide. Legacy has no team dimension, so no team or own variants are granted (Docs/HR_LEGACY_PARITY.md §12.2). Changing your own employee record is refused (403) whatever permissions you hold. The office-address routes are organization-wide, not employee data, so they carry no scope.
 - **Audit:** `employee_location_privilege` (`create`/`update`) records the before and after `mode`. `office_network_address` (`create`/`update`) records the address and `isActive`. Writes are in the same transaction as their audit row. A no-op write writes no audit row.
 - **Not built (open decisions, `HR_LEGACY_PARITY.md` §4 and §6):** portal device gating, CIDR ranges, any employee self-service request to change the setting, and any change to the Firebase security rules that legacy relied on.
+
+#### UI/UX Architecture & Design System Integration (TexaWave ERP Production)
+
+1. **Main Page Layout (`LocationPrivilegeView`):**
+   - **Executive Header:** Clear title "Location privilege" with description "Manage office-network restrictions for employee attendance check-ins."
+   - **Responsive Two-Column Master-Detail Grid (`lg:grid-cols-12`):**
+     - **Left Column (5 cols):** Searchable employee directory card with debounced search input, total employee counter, and a list of employees rendered with `EmployeeIdentity` (avatar initials, name, code, designation). Supports keyboard navigation and active state styling.
+     - **Right Column (7 cols):** Selected employee privilege card (`EmployeePrivilegeCard`) or a helpful guidance empty card prompting the user to select an employee from the directory.
+   - **Bottom Section (Full Width):** Office Networks management card (`OfficeNetworksCard`).
+
+2. **Selected Employee Privilege Summary (`EmployeePrivilegeCard`):**
+   - **Header:** Full employee identity with avatar initials, name, employee code, designation, and color-coded status badge:
+     - `OFFICE`: Warning token badge (`Office (network required)`).
+     - `REMOTE`: Success token badge (`Remote (no network check)`).
+     - `null`: Gray token badge (`Not set (no restriction)`).
+   - **Action:** Prominent secondary "Change" button triggering the modal.
+   - **Policy Explanation Banner:** Informative callout explaining how the active rule affects check-in punch validation:
+     - Office restriction: Punches must originate from an authorized IP address.
+     - Remote exemption: Punches allowed from any network/location.
+     - Unset: Default unrestricted punches allowed.
+   - **Metadata Row:** Department/Team, privilege assignment type (Explicit rule vs Default policy), and formatted last updated timestamp.
+
+3. **Change Privilege Modal (`Dialog` — "Set location privilege"):**
+   - Centered `<Dialog size="md">` with fixed full-viewport translucent backdrop and subtle blur.
+   - Employee identity banner at the top of the dialog.
+   - Accessible `Location mode` `<Select>` with `OFFICE` and `REMOTE` options.
+   - Interactive preview cards explaining the consequences of each mode.
+   - Actions: Secondary "Cancel" and primary "Save" with async mutation loading state.
+   - Feedback: Toast notification on success ("Location privilege updated") and permission error notification if attempting to modify one's own record.
+
+4. **Office Networks Management (`OfficeNetworksCard`):**
+   - Header with active configured network count badge and primary "Add address" action button.
+   - States: `TableSkeleton` (3 rows × 4 cols), `EmptyState` with network icon and "Add address" action button, and `ErrorState`.
+   - Table Columns:
+     - **IP Address:** Styled monospace badge (`font-mono text-theme-xs`) with server icon.
+     - **Label:** Friendly router or location name (or `—`).
+     - **Status:** Text-based `StatusBadge` (Active: emerald `success`, Inactive: slate `gray`).
+     - **Actions:** Accessible "Deactivate" / "Activate" toggle with screen-reader friendly aria-labels.
+
+5. **Add Office Network Address Modal:**
+   - Centered `<Dialog size="md">` with title "Add office network address".
+   - Required IP address input with validation ("IP address is required") and format hint.
+   - Optional Label input for router/location identification.
+   - Secondary "Cancel" and Primary "Add address" buttons with async loading spinner.
+   - Feedback: Toast notification ("Office network added").
+
+6. **Accessibility & Security:**
+   - Strict WCAG 2.1 AA compliance: visible focus rings, color contrast ratios, screen-reader text for all table actions, ARIA attributes on inputs and comboboxes.
+   - Preserves all organization-wide security boundaries: no cross-tenant leakage, cannot modify own employee privilege.
 
 ---
 

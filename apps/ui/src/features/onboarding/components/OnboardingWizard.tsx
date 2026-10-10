@@ -249,14 +249,55 @@ export function OnboardingWizard() {
   );
 
   return (
-    <Card className="p-6">
-      <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-gray-100">
-        Complete your profile
-      </h1>
-      <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-        Step {step + 1} of {STEPS.length}: {STEPS[step]}. Each step is saved as
-        you go.
-      </p>
+    <Card className="border-neutral-200/80 bg-white p-6 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="flex flex-col gap-1 border-b border-neutral-100 pb-5 dark:border-neutral-800">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
+            Complete your profile
+          </h1>
+          <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-300">
+            Step {step + 1} of {STEPS.length}
+          </span>
+        </div>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          {STEPS[step]} · Each section is safely stored as you progress.
+        </p>
+
+        {/* Step Progress Bar & Indicators */}
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+            <div
+              className="h-full rounded-full bg-brand-600 transition-all duration-300 ease-out"
+              style={{
+                width: `${Math.round(((step + 1) / STEPS.length) * 100)}%`,
+              }}
+            />
+          </div>
+
+          <div className="hidden grid-cols-6 gap-2 sm:grid">
+            {STEPS.map((name, idx) => {
+              const isPassed = idx < step;
+              const isCurrent = idx === step;
+              return (
+                <div key={name} className="flex flex-col gap-0.5">
+                  <span
+                    className={`text-[11px] font-medium transition-colors ${
+                      isCurrent
+                        ? "font-semibold text-brand-700 dark:text-brand-400"
+                        : isPassed
+                          ? "text-neutral-700 dark:text-neutral-300"
+                          : "text-neutral-400 dark:text-neutral-500"
+                    }`}
+                  >
+                    {isPassed ? "✓ " : `${idx + 1}. `}
+                    {name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {saveError && (
         <div className="mt-4">

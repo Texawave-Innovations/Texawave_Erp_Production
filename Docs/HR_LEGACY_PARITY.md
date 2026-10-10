@@ -275,6 +275,7 @@ Covered in §2.5. Additional audit:
 16. **PRODUCTION DECISION E1 (transition map, implemented):** `SUBMITTED → UNDER_REVIEW | APPROVED | REJECTED`; `UNDER_REVIEW → APPROVED | REJECTED`; `APPROVED → COMPLETED`. REJECTED and COMPLETED are final. Naming the current status is refused, so a second approval is an error. Legacy has no guard.
 17. **PRODUCTION DECISION E2 (implemented as "no employee change"):** creating, approving and completing a request do **not** change `Employee.status`. Legacy does not either. Setting `RESIGNED` on completion is **blocked** until HR confirms the rule. Until then the employee stays ACTIVE and can still log in.
 18. **Production date rule:** preferred last working day is refused if before today, using the same UTC-based `today()` helper as leave requests. Legacy only sets `min=today` in the browser. Whether HR's date convention should be IST is **UNRESOLVED**.
+19. **UI Modal Interaction Decision (Raise Exit Request):** The "Raise Exit Request" action triggers a centered modal (`SubmitExitRequestDialog.tsx`) over a full-viewport translucent backdrop (`backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm`). Body scrolling is locked while the dialog is active. Supports Escape key and backdrop dismissal without submitting. Constrained to viewport dimensions on mobile with internal form scrolling, visible focus states, and a 200ms transform/opacity transition respecting `prefers-reduced-motion`.
 
 ### 3.9 Task Assignment (`TaskAssignment.tsx` 598 lines; `employee/MyTasks.tsx` 549; `employee/AssignTasks.tsx` 11 lines)
 
@@ -336,6 +337,43 @@ Covered in §2.5. Additional audit:
     - Receipt reference is capped at 100 characters and the description at 300 (legacy). The 100 cap is a production choice. Decision X6.
     - Decision rights are by HR scope (`hr.expense_claim.decide`), not by reporting manager. Legacy has no reporting-line link for expenses, so this is not an invented hierarchy. Decision X7.
 16. **Unresolved (business decisions):** X1 reimbursement or payout path (none in legacy); X2 receipt upload (legacy stores free text only; decision D1); X3 approval limits by amount (none observed); X5, X6, X7 above (production choices, confirm with the business owner); notifications on decision (legacy notifies the employee via `sendNotification`, and production has no notification model, B2). Deferred.
+
+#### 3.11.1 UI/UX Architecture & Design System Integration (TexaWave ERP Production)
+
+1. **Executive Page Layout (`ExpenseApprovalsView`):**
+   - **Header:** Clear title "Expense Approvals", breadcrumb navigation (`Home / HR / Expense Approvals`), concise description "Submit personal claims and review expense claims you are authorized to access.", and prominent primary action button `+ Submit Expense Claim` (in emerald green with `Plus` icon).
+   - **Tabbed Interface:**
+     - **My Expense Claims:** Self-service tab for employees to track and manage their personal expense submissions.
+     - **Team / Organization Claims:** Approver tab for managers/HR to review, approve, or reject employee expense claims in scope.
+
+2. **Summary Metric Cards:**
+   - **My Expense Claims Cards:** Total Claims (brand), Approved (success), Pending (warning), Rejected (error).
+   - **Team / Organization Claims Cards:** Total Claims (purple), Pending (warning), Approved (success), Rejected (error).
+
+3. **Compact Filter Toolbar:**
+   - Text search matching description, type, or employee name.
+   - Status selector dropdown (`All statuses`, `Pending`, `Approved`, `Rejected`).
+   - Expense type selector dropdown (`All types`, `Travel`, `Food`, `Accommodation`, `Office Supplies`, `Medical`, `Other`).
+   - Quick Reset button restoring default filter parameters.
+
+4. **Data Tables & Currency Presentation:**
+   - Sequential row numbering (`#`).
+   - Formatted dates (`DD MMM YYYY`, UTC parsing).
+   - Indian currency formatting (`₹ X,XXX.XX` via `Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })`).
+   - Reusable `EmployeeIdentity` component displaying avatar initials, employee name, and employee code.
+   - Accessible `ExpenseClaimStatusBadge` tokens.
+   - Row actions:
+     - View Details (`Eye` icon button) opening `ExpenseClaimDetailsDialog`.
+     - Direct Approve / Reject actions for pending claims in the approvals queue.
+
+5. **Centered Modal Dialogs:**
+   - **Submit Expense Claim Modal (`SubmitExpenseClaimDialog`):** Centered `<Dialog size="lg">` with dark translucent blur. Fields: Expense Type (required select), Amount (INR) with `₹` adornment, Expense Date (max today), Description (required, live char counter `0/300`), Receipt Reference (optional).
+   - **Expense Claim Details Modal (`ExpenseClaimDetailsDialog`):** Complete structured breakdown of the claim: expense type, formatted amount, date, status badge, full description, receipt reference, employee identity, and submission/decision timestamps.
+   - **Decide Expense Claim Modal (`DecideExpenseClaimDialog`):** Structured approval dialog with claim summary, optional decision note (up to 500 chars), and distinct Approve (emerald) / Reject (destructive red) actions.
+
+6. **Accessibility & Responsive Standards:**
+   - Full WCAG 2.1 AA compliance: visible focus rings, accessible dialog focus traps, high-contrast badges, explicit ARIA labels on all table buttons.
+   - Responsive design adapting smoothly across mobile, tablet, and desktop viewports.
 
 ### 3.12 Employee Documents (`EmployeeDocumentsView.tsx` 344 lines; `hr/Documents.tsx` 164 lines)
 

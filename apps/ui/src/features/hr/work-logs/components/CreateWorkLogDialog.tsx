@@ -79,82 +79,114 @@ export function CreateWorkLogDialog({
   const submitting = mutation.isPending;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Submit a work log">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <FormField label="Date" required error={errors.workDate}>
-          {(f) => (
-            <Input
-              {...f}
-              type="date"
-              invalid={f.invalid}
-              value={values.workDate}
-              disabled={submitting}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, workDate: e.target.value }))
-              }
-            />
-          )}
-        </FormField>
-        <FormField
-          label="Hours worked"
-          required
-          error={errors.hoursWorked}
-          hint="Between 0.01 and 24, up to 2 decimals."
+    <Dialog open={open} onClose={onClose} title="Submit a work log" size="md">
+      <div className="flex flex-col gap-4">
+        <p className="text-theme-sm text-gray-500 dark:text-gray-400 -mt-1">
+          Log your daily work hours and task details for supervisor approval.
+        </p>
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+          noValidate
         >
-          {(f) => (
-            <Input
-              {...f}
-              type="number"
-              step="0.01"
-              min="0.01"
-              max="24"
-              invalid={f.invalid}
-              value={values.hoursWorked}
-              disabled={submitting}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, hoursWorked: e.target.value }))
-              }
-            />
-          )}
-        </FormField>
-        <FormField
-          label="Task description"
-          required
-          error={errors.taskDescription}
-          hint="3–500 characters."
-        >
-          {(f) => (
-            <Textarea
-              {...f}
-              rows={3}
-              invalid={f.invalid}
-              value={values.taskDescription}
-              disabled={submitting}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, taskDescription: e.target.value }))
-              }
-            />
-          )}
-        </FormField>
-        {serverError ? (
-          <Alert variant="error" title="Could not submit">
-            {serverError}
-          </Alert>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={submitting}
+          <FormField
+            label="Date"
+            required
+            error={errors.workDate}
+            hint="Logged work date (YYYY-MM-DD)"
           >
-            Cancel
-          </Button>
-          <Button type="submit" loading={submitting}>
-            Submit
-          </Button>
-        </div>
-      </form>
+            {(f) => (
+              <Input
+                {...f}
+                type="date"
+                invalid={f.invalid}
+                value={values.workDate}
+                disabled={submitting}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, workDate: e.target.value }))
+                }
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="Hours worked"
+            required
+            error={errors.hoursWorked}
+            hint="Between 0.01 and 24, up to 2 decimals."
+          >
+            {(f) => (
+              <Input
+                {...f}
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="24"
+                placeholder="e.g. 8.00"
+                invalid={f.invalid}
+                value={values.hoursWorked}
+                disabled={submitting}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, hoursWorked: e.target.value }))
+                }
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="Task description"
+            required
+            error={errors.taskDescription}
+            hint="3–500 characters."
+            labelAction={
+              <span
+                className={`text-[11px] font-mono ${
+                  values.taskDescription.length > 500
+                    ? "text-error-600 dark:text-error-400 font-semibold"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
+                {values.taskDescription.length}/500
+              </span>
+            }
+          >
+            {(f) => (
+              <Textarea
+                {...f}
+                rows={4}
+                placeholder="Describe tasks completed, milestones reached, or key activities..."
+                invalid={f.invalid}
+                value={values.taskDescription}
+                disabled={submitting}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, taskDescription: e.target.value }))
+                }
+              />
+            )}
+          </FormField>
+
+          {serverError ? (
+            <Alert variant="error" title="Could not submit">
+              {serverError}
+            </Alert>
+          ) : null}
+
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={submitting}>
+              Submit
+            </Button>
+          </div>
+        </form>
+      </div>
     </Dialog>
   );
 }

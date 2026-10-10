@@ -5,6 +5,7 @@
  * the suffix itself, so the user's permission list holds the suffixed codes.
  */
 export const READ_ANY_SCOPE = [
+  "hr.ticket.read",
   "hr.ticket.read.own",
   "hr.ticket.read.team",
   "hr.ticket.read.all",
@@ -14,6 +15,7 @@ export const READ_ANY_SCOPE = [
  * ForbiddenException for a caller resolved at own scope. Listed here only
  * for completeness; write affordances are gated on the flat check below. */
 export const WRITE_ANY_SCOPE = [
+  "hr.ticket.write",
   "hr.ticket.write.team",
   "hr.ticket.write.all",
 ] as const;
