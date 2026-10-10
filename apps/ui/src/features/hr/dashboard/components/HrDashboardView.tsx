@@ -1,8 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Users,
+  UserCheck,
+  UserPlus,
+  Clock,
+  CheckCircle2,
+  Ticket,
+  Receipt,
+  Calendar,
+  Briefcase,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { Button } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
@@ -26,15 +38,18 @@ import {
   leaveTypeBreakdown,
 } from "../metrics";
 import {
-  Donut,
-  KpiCard,
+  StatCard,
+  QuickAction,
+  DashboardSection,
+  DonutChart,
   Legend,
-  QuickActionTile,
-  SectionCard,
+  AbsenceHeatmap,
+  PipelineFunnel,
+  ActivityFeed,
+  GlanceSection,
   WidgetState,
-  SEGMENT_FILL,
   type SegmentTone,
-} from "./dashboard-widgets";
+} from "../../components";
 
 const LEAVE_TONES: readonly SegmentTone[] = [
   "chart1",
@@ -44,17 +59,9 @@ const LEAVE_TONES: readonly SegmentTone[] = [
   "chart5",
 ];
 
-/** Cycles through the chart tones; the modulo keeps the index in range, the fallback satisfies the type. */
 function leaveTone(index: number): SegmentTone {
   return LEAVE_TONES[index % LEAVE_TONES.length] ?? "chart1";
 }
-
-const HEATMAP_TONE = {
-  none: "bg-gray-100 text-gray-500 dark:bg-white/[0.04] dark:text-gray-400",
-  low: "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400",
-  mid: "bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400",
-  high: "bg-error-500 text-white dark:bg-error-500",
-} as const;
 
 function greeting(date: Date): string {
   const hour = date.getHours();
@@ -67,6 +74,10 @@ function pct(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
 
+/**
+ * Enterprise HR Dashboard View conforming to TEXA Design System and Reference C.
+ * Provides high-density workforce telemetry, analytics, and operational streams.
+ */
 export function HrDashboardView() {
   const router = useRouter();
   const fullName = useAuthStore((s) => s.user?.fullName);
@@ -74,15 +85,24 @@ export function HrDashboardView() {
   const today = useMemo(() => istToday(now), [now]);
   const [leaveMode, setLeaveMode] = useState<"month" | "all">("month");
 
-  // RBAC: each section needs the permission(s) for every number it shows.
-  // A partial figure (for example approvals without corrections) would be misleading, so it is hidden instead.
+  // RBAC permissions gating for all metrics and sections
   const canEmployees = usePermission("hr.employee.read");
   const canAttendance = usePermission("hr.attendance_report.read");
   const canLeaves = usePermission("hr.leave_request.read");
   const canCorrections = usePermission("hr.attendance_correction.read");
   const canApprovals = canLeaves && canCorrections;
-  const canTickets = usePermission("hr.ticket.read");
-  const canExpenses = usePermission("hr.expense_claim.read");
+  const canTickets = usePermission([
+    "hr.ticket.read",
+    "hr.ticket.read.own",
+    "hr.ticket.read.team",
+    "hr.ticket.read.all",
+  ]);
+  const canExpenses = usePermission([
+    "hr.expense_claim.read",
+    "hr.expense_claim.read.own",
+    "hr.expense_claim.read.team",
+    "hr.expense_claim.read.all",
+  ]);
   const canPipeline = usePermission(
     ["hr.interview.read", "hr.offer_letter.read"],
     "all",
@@ -91,12 +111,7 @@ export function HrDashboardView() {
     ["hr.holiday.read", "hr.employee.read", "hr.attendance_report.read"],
     "all",
   );
-  const canActivity = usePermission(
-    ["hr.ticket.read", "hr.expense_claim.read"],
-    "all",
-  );
-  // Reuses the employee feature's own write gate (API: create → 403 for `.own`),
-  // so the hero/quick-action "Add employee" link never shows for a read-only user.
+  const canActivity = canTickets && canExpenses;
   const canCreateEmployee = usePermission(WRITE_TEAM_OR_ALL);
   const canQuickActions =
     canCreateEmployee ||
@@ -106,6 +121,7 @@ export function HrDashboardView() {
     canExpenses ||
     canPipeline;
 
+  // React Query telemetry hooks
   const headcount = useHeadcount(canEmployees);
   const attendance = useDailyAttendance(today, canAttendance);
   const lookback = useAbsenceLookback(today, canAttendance);
@@ -117,7 +133,9 @@ export function HrDashboardView() {
   const activity = useActivityFeed(canActivity);
   const glance = useGlanceSupport(today, canGlance);
 
+  // Derived metric values
   const totalEmployees = headcount.data?.total ?? 0;
+  const activeWorkforce = headcount.data?.active ?? 0;
   const counts = attendance.data?.counts;
   const presentToday = counts?.present ?? 0;
   const absentToday = counts?.absent ?? 0;
@@ -130,10 +148,10 @@ export function HrDashboardView() {
         { label: "Interviewed", count: pipeline.data.interviewed },
         { label: "Selected", count: pipeline.data.selected },
         { label: "Offered", count: pipeline.data.offered },
-        // No candidate or hire record exists in production; see the note under the stages.
         { label: "Hired", count: null },
       ]
     : [];
+
   const pipelineActive = pipelineStages.reduce(
     (sum, s) => sum + (s.count ?? 0),
     0,
@@ -160,71 +178,102 @@ export function HrDashboardView() {
     (best, d) => (d.absences > best.absences ? d : best),
     { day: "None", absences: 0 },
   );
-  const maxAbsence = Math.max(...lookback.days.map((d) => d.absences), 1);
 
   return (
     <div
-      className="mx-auto w-full max-w-7xl space-y-6 pb-12"
+      className="mx-auto w-full max-w-7xl space-y-6 pb-12 animate-reveal"
       role="main"
       aria-label="HR dashboard"
     >
-      {/* Hero */}
-      <header className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-brand-700 to-brand-500 p-6 text-white shadow-theme-md md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-theme-xs font-semibold uppercase tracking-wide text-brand-50">
-            Enterprise HR &amp; People Operations
-          </p>
-          <h1 className="mt-1 text-title-md font-semibold">
-            {greeting(now)}
-            {fullName ? `, ${fullName}` : ""}
-          </h1>
-          <p className="mt-1 text-theme-sm text-brand-50">
-            {now.toLocaleDateString("en-IN", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              timeZone: "Asia/Kolkata",
-            })}
-            {" · Attendance, leave, recruitment and workforce figures"}
-          </p>
-        </div>
-        {(canCreateEmployee || canEmployees) && (
-          <div className="flex flex-wrap items-center gap-3">
-            {canCreateEmployee && (
-              <Button
-                variant="secondary"
-                onClick={() => router.push("/hr/employees/new")}
-              >
-                Add employee
-              </Button>
-            )}
-            {canEmployees && (
-              <Button
-                variant="ghost"
-                className="border border-white/30 bg-white/10 text-white hover:bg-white/20"
-                onClick={() => router.push("/hr/employees")}
-              >
-                Employee directory
-              </Button>
-            )}
+      {/* Introduction Header Card */}
+      <header className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+        {/* Subtle Brand Accent Line */}
+        <span
+          className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-brand-600 via-brand-500 to-emerald-400"
+          aria-hidden="true"
+        />
+
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border border-brand-200/80 bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-800 dark:border-brand-500/30 dark:bg-brand-950 dark:text-brand-300">
+                <Sparkles className="h-3 w-3 text-brand-600 dark:text-brand-400" />
+                Enterprise HR &amp; People Operations
+              </span>
+
+              <span className="hidden items-center gap-1 text-[11px] font-medium text-gray-400 dark:text-gray-500 sm:inline-flex">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Telemetry
+              </span>
+            </div>
+
+            <h1 className="mt-1.5 text-title-sm sm:text-title-md font-bold tracking-tight text-gray-900 dark:text-white">
+              {greeting(now)}
+              {fullName ? `, ${fullName}` : ""}
+            </h1>
+
+            <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400 font-medium">
+              {now.toLocaleDateString("en-IN", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                timeZone: "Asia/Kolkata",
+              })}
+              {" · Attendance, leave, recruitment and workforce figures"}
+            </p>
           </div>
-        )}
+
+          {(canCreateEmployee || canEmployees) && (
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {canCreateEmployee && (
+                <Button
+                  variant="primary"
+                  onClick={() => router.push("/hr/employees/new")}
+                  className="gap-2 shadow-theme-xs"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>Add employee</span>
+                </Button>
+              )}
+              {canEmployees && (
+                <Button
+                  variant="secondary"
+                  onClick={() => router.push("/hr/employees")}
+                  className="gap-2"
+                >
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span>Employee directory</span>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* KPI row */}
+      {/* KPI Workforce & Operational Metrics Row */}
       {(canEmployees ||
         canAttendance ||
         canApprovals ||
         canTickets ||
         canExpenses) && (
-        <section aria-labelledby="hr-kpi-heading" className="space-y-3">
-          <h2
-            id="hr-kpi-heading"
-            className="text-theme-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-          >
-            Workforce &amp; operational metrics
-          </h2>
+        <section
+          aria-labelledby="hr-kpi-heading"
+          className="space-y-3 stagger-1 animate-reveal"
+        >
+          <div className="flex items-center justify-between">
+            <h2
+              id="hr-kpi-heading"
+              className="text-theme-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
+              Workforce &amp; operational metrics
+            </h2>
+
+            <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+              IST Real-time Sync
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {canEmployees && (
               <WidgetState
@@ -233,16 +282,18 @@ export function HrDashboardView() {
                 onRetry={() => void headcount.refetch()}
                 label="headcount"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-total"
                   label="Total employees"
                   value={String(totalEmployees)}
                   note="Registered headcount"
                   tone="neutral"
+                  icon={Users}
                   href="/hr/employees"
                 />
               </WidgetState>
             )}
+
             {canEmployees && (
               <WidgetState
                 isPending={headcount.isPending}
@@ -250,16 +301,24 @@ export function HrDashboardView() {
                 onRetry={() => void headcount.refetch()}
                 label="active workforce"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-active"
                   label="Active workforce"
-                  value={String(headcount.data?.active ?? 0)}
+                  value={String(activeWorkforce)}
                   note="Status: active"
                   tone="brand"
+                  icon={UserCheck}
+                  trend={{
+                    value: `${pct(activeWorkforce, totalEmployees)}%`,
+                    direction: "up",
+                    label: "active ratio",
+                    isPositive: true,
+                  }}
                   href="/hr/employees"
                 />
               </WidgetState>
             )}
+
             {canAttendance && (
               <WidgetState
                 isPending={attendance.isPending}
@@ -267,16 +326,23 @@ export function HrDashboardView() {
                 onRetry={() => void attendance.refetch()}
                 label="attendance today"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-present"
                   label="Present today"
                   value={String(presentToday)}
                   note={`${pct(presentToday, scopedHeadcount)}% of ${scopedHeadcount} in scope`}
                   tone="info"
+                  icon={Clock}
+                  trend={{
+                    value: `${pct(presentToday, scopedHeadcount)}%`,
+                    direction: "neutral",
+                    label: "turnout",
+                  }}
                   href="/hr/attendance"
                 />
               </WidgetState>
             )}
+
             {canApprovals && (
               <WidgetState
                 isPending={approvals.isPending}
@@ -284,16 +350,18 @@ export function HrDashboardView() {
                 onRetry={() => void approvals.refetch()}
                 label="pending approvals"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-approvals"
                   label="Pending approvals"
                   value={String(approvals.data?.total ?? 0)}
                   note={`${approvals.data?.leaves ?? 0} leave · ${approvals.data?.corrections ?? 0} attendance corrections`}
                   tone="error"
+                  icon={CheckCircle2}
                   href="/hr/leaves"
                 />
               </WidgetState>
             )}
+
             {canTickets && (
               <WidgetState
                 isPending={openTickets.isPending}
@@ -301,15 +369,18 @@ export function HrDashboardView() {
                 onRetry={() => void openTickets.refetch()}
                 label="open tickets"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-tickets"
                   label="Open tickets"
                   value={String(openTickets.data ?? 0)}
                   note="Open and in progress"
                   tone="warning"
+                  icon={Ticket}
+                  href="/hr/tickets"
                 />
               </WidgetState>
             )}
+
             {canExpenses && (
               <WidgetState
                 isPending={pendingExpenses.isPending}
@@ -317,12 +388,13 @@ export function HrDashboardView() {
                 onRetry={() => void pendingExpenses.refetch()}
                 label="pending expenses"
               >
-                <KpiCard
+                <StatCard
                   headingId="kpi-expenses"
                   label="Pending expenses"
                   value={String(pendingExpenses.data ?? 0)}
                   note="Claims awaiting decision"
                   tone="warning"
+                  icon={Receipt}
                   href="/hr/expense-approvals"
                 />
               </WidgetState>
@@ -331,63 +403,85 @@ export function HrDashboardView() {
         </section>
       )}
 
-      {/* Quick actions */}
+      {/* Quick Actions Row */}
       {canQuickActions && (
-        <SectionCard title="Quick actions" headingId="hr-quick-actions-heading">
+        <DashboardSection
+          title="Quick actions"
+          headingId="hr-quick-actions-heading"
+          description="Frequently accessed operational workflows"
+          icon={TrendingUp}
+          className="stagger-2 animate-reveal"
+        >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {canCreateEmployee && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/employees/new"
                 label="Add employee"
                 description="Onboard a new hire"
+                icon={UserPlus}
+                tone="brand"
               />
             )}
             {canEmployees && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/employees"
                 label="Employee directory"
                 description="Browse the workforce"
+                icon={Users}
+                tone="neutral"
               />
             )}
             {canAttendance && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/attendance"
                 label="Attendance"
                 description="Daily attendance records"
+                icon={Clock}
+                tone="info"
               />
             )}
             {canLeaves && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/leaves"
                 label="Leave requests"
                 description="Review time-off requests"
+                icon={Calendar}
+                tone="warning"
               />
             )}
             {canExpenses && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/expense-approvals"
                 label="Expense claims"
                 description="Reimbursement approvals"
+                icon={Receipt}
+                tone="warning"
               />
             )}
             {canPipeline && (
-              <QuickActionTile
+              <QuickAction
                 href="/hr/recruitment"
                 label="Recruitment pipeline"
                 description="Sourcing to offer stages"
+                icon={Briefcase}
+                tone="brand"
               />
             )}
           </div>
-        </SectionCard>
+        </DashboardSection>
       )}
 
-      {/* Recruitment pipeline */}
+      {/* Recruitment Pipeline Funnel */}
       {canPipeline && (
-        <SectionCard
+        <DashboardSection
           title="Recruitment & talent pipeline"
           headingId="hr-pipeline-heading"
+          description="Active candidate throughput from schedule to offer"
+          icon={Briefcase}
+          className="stagger-3 animate-reveal"
           aside={
-            <span className="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-theme-xs font-semibold text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/15 dark:text-brand-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800 dark:border-brand-500/30 dark:bg-brand-950 dark:text-brand-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
               {pipelineActive} active in pipeline
             </span>
           }
@@ -397,77 +491,34 @@ export function HrDashboardView() {
             isError={pipeline.isError}
             onRetry={() => void pipeline.refetch()}
             label="recruitment pipeline"
+            skeletonHeight="h-32"
           >
-            <ol
-              className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-3 xl:grid-cols-5"
-              aria-label="Recruitment pipeline stages"
-            >
-              {pipelineStages.map((stage, idx) => {
-                const next = pipelineStages[idx + 1];
-                const conv =
-                  stage.count !== null &&
-                  stage.count > 0 &&
-                  next?.count !== null &&
-                  next?.count !== undefined
-                    ? pct(next.count, stage.count)
-                    : null;
-                return (
-                  <li key={stage.label}>
-                    <Link
-                      href="/hr/recruitment"
-                      className="block rounded-xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:border-brand-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500/40 dark:hover:bg-gray-900"
-                    >
-                      <div className="flex items-center justify-between text-theme-xs font-medium text-gray-600 dark:text-gray-300">
-                        <span>{stage.label}</span>
-                        <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                          Step {idx + 1}
-                        </span>
-                      </div>
-                      {stage.count === null ? (
-                        <p className="mt-2 text-theme-sm font-medium text-gray-500 dark:text-gray-400">
-                          Not tracked
-                        </p>
-                      ) : (
-                        <p className="mt-2 text-title-sm font-semibold text-gray-900 dark:text-white/90">
-                          {stage.count}
-                        </p>
-                      )}
-                      {conv !== null && (
-                        <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                          {conv}% to next stage
-                        </p>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-            <p className="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
-              Scheduled, interviewed and selected come from interview records;
-              offered counts offer letters. Applicants and hires are not tracked
-              in production yet.
-            </p>
+            <PipelineFunnel stages={pipelineStages} />
           </WidgetState>
-        </SectionCard>
+        </DashboardSection>
       )}
 
-      {/* Two-column analytics */}
+      {/* Two-Column Analytics: Attendance, Absence, & Leaves */}
       {(canAttendance || canLeaves) && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 stagger-4 animate-reveal">
           <div className="space-y-6 lg:col-span-7">
+            {/* Attendance Donut Chart */}
             {canAttendance && (
-              <SectionCard
+              <DashboardSection
                 title="Attendance today"
                 headingId="hr-attendance-heading"
+                description="Live daily attendance breakdown for scoped employees"
+                icon={Clock}
               >
                 <WidgetState
                   isPending={attendance.isPending}
                   isError={attendance.isError}
                   onRetry={() => void attendance.refetch()}
                   label="attendance today"
+                  skeletonHeight="h-44"
                 >
                   <div className="flex flex-col items-center gap-6 sm:flex-row">
-                    <Donut
+                    <DonutChart
                       label={`Attendance today: ${presentToday} present, ${absentToday} absent, ${onLeaveToday} on leave`}
                       segments={[
                         {
@@ -508,40 +559,20 @@ export function HrDashboardView() {
                       ]}
                     />
                   </div>
-                  <table className="sr-only">
-                    <caption>Attendance today summary</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">Status</th>
-                        <th scope="col">Count</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Present</td>
-                        <td>{presentToday}</td>
-                      </tr>
-                      <tr>
-                        <td>Absent</td>
-                        <td>{absentToday}</td>
-                      </tr>
-                      <tr>
-                        <td>On approved leave</td>
-                        <td>{onLeaveToday}</td>
-                      </tr>
-                    </tbody>
-                  </table>
                 </WidgetState>
-              </SectionCard>
+              </DashboardSection>
             )}
 
+            {/* Absence Pattern Weekday Heatmap */}
             {canAttendance && (
-              <SectionCard
+              <DashboardSection
                 title="Absence pattern by weekday"
                 headingId="hr-heatmap-heading"
+                description="Distribution of unplanned absences over the last 3 working weeks"
+                icon={Calendar}
                 aside={
                   peak.absences > 0 ? (
-                    <span className="rounded-full border border-error-200 bg-error-50 px-3 py-1 text-theme-xs font-semibold text-error-700 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400">
+                    <span className="rounded-full border border-error-200 bg-error-50 px-3 py-1 text-[11px] font-bold text-error-700 dark:border-error-500/30 dark:bg-error-950 dark:text-error-300">
                       Peak: {peak.day} ({peak.absences} absences)
                     </span>
                   ) : null
@@ -551,62 +582,27 @@ export function HrDashboardView() {
                   isPending={lookback.isPending}
                   isError={lookback.isError}
                   label="absence pattern"
+                  skeletonHeight="h-28"
                 >
-                  <ul
-                    className="grid grid-cols-5 gap-3"
-                    aria-label="Absences per weekday, last three working weeks"
-                  >
-                    {lookback.days.map((d) => {
-                      const intensity = d.absences / maxAbsence;
-                      const tone =
-                        d.absences === 0
-                          ? HEATMAP_TONE.none
-                          : intensity < 0.4
-                            ? HEATMAP_TONE.low
-                            : intensity < 0.75
-                              ? HEATMAP_TONE.mid
-                              : HEATMAP_TONE.high;
-                      return (
-                        <li
-                          key={d.day}
-                          className="flex flex-col items-center gap-2"
-                        >
-                          <span className="text-theme-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                            {d.day}
-                          </span>
-                          <span
-                            className={`flex h-16 w-full flex-col items-center justify-center rounded-xl ${tone}`}
-                          >
-                            <span className="text-theme-lg font-semibold">
-                              {d.absences}
-                            </span>
-                            <span className="text-[10px] uppercase opacity-80">
-                              absent
-                            </span>
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <p className="mt-4 border-t border-gray-100 pt-3 text-theme-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                    Last 3 working weeks, including today (today is partial
-                    until attendance is complete).
-                  </p>
+                  <AbsenceHeatmap days={lookback.days} />
                 </WidgetState>
-              </SectionCard>
+              </DashboardSection>
             )}
           </div>
 
           <div className="space-y-6 lg:col-span-5">
+            {/* Leave Type Distribution */}
             {canLeaves && (
-              <SectionCard
+              <DashboardSection
                 title="Leave type breakdown"
                 headingId="hr-leave-heading"
+                description="Categorical distribution of leave requests"
+                icon={Calendar}
                 aside={
                   <div
                     role="group"
                     aria-label="Leave period"
-                    className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-800 dark:bg-white/[0.03]"
+                    className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-800 dark:bg-gray-800/60"
                   >
                     {(["month", "all"] as const).map((mode) => (
                       <button
@@ -614,10 +610,10 @@ export function HrDashboardView() {
                         type="button"
                         aria-pressed={leaveMode === mode}
                         onClick={() => setLeaveMode(mode)}
-                        className={`rounded-md px-2.5 py-1 text-theme-xs font-semibold transition-colors ${
+                        className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
                           leaveMode === mode
-                            ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white/90"
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-700 dark:text-white"
+                            : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                         }`}
                       >
                         {mode === "month" ? "This month" : "All time"}
@@ -631,19 +627,20 @@ export function HrDashboardView() {
                   isError={leaves.isError}
                   onRetry={() => void leaves.refetch()}
                   label="leave breakdown"
+                  skeletonHeight="h-44"
                 >
                   {leaveRows.length === 0 ? (
-                    <div className="py-10 text-center">
-                      <p className="text-theme-sm font-medium text-gray-600 dark:text-gray-300">
+                    <div className="py-12 text-center">
+                      <p className="text-theme-xs font-semibold text-gray-600 dark:text-gray-300">
                         No leave requests for this period
                       </p>
-                      <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
+                      <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
                         Leave requests appear here once submitted.
                       </p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-6 sm:flex-row">
-                      <Donut
+                      <DonutChart
                         label={`Leave requests: ${leaveTotal} total across ${leaveRows.length} types`}
                         segments={leaveRows.map((r, i) => ({
                           label: r.type,
@@ -663,19 +660,21 @@ export function HrDashboardView() {
                     </div>
                   )}
                 </WidgetState>
-              </SectionCard>
+              </DashboardSection>
             )}
           </div>
         </div>
       )}
 
-      {/* Activity and today */}
+      {/* Two-Column Activity Feed & Today at a Glance */}
       {(canActivity || canGlance) && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 stagger-5 animate-reveal">
           {canActivity && (
-            <SectionCard
+            <DashboardSection
               title="Recent tickets & expense claims"
               headingId="hr-activity-heading"
+              description="Unified stream of operational requests and submissions"
+              icon={Ticket}
               className="lg:col-span-7"
             >
               <WidgetState
@@ -683,56 +682,19 @@ export function HrDashboardView() {
                 isError={activity.isError}
                 onRetry={() => void activity.refetch()}
                 label="recent activity"
+                skeletonHeight="h-48"
               >
-                {feed.length === 0 ? (
-                  <p className="py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                    No recent activity
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {feed.map((item) => (
-                      <li key={item.id} className="flex items-start gap-3 py-3">
-                        <span
-                          className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                            item.kind === "ticket"
-                              ? "bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400"
-                              : "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
-                          }`}
-                        >
-                          {item.kind}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-theme-sm font-medium text-gray-800 dark:text-white/90">
-                            {item.title}
-                          </p>
-                          <p className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
-                            {item.detail}
-                          </p>
-                        </div>
-                        <time
-                          dateTime={new Date(item.timestamp).toISOString()}
-                          className="shrink-0 text-theme-xs text-gray-400"
-                        >
-                          {new Date(item.timestamp).toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: "Asia/Kolkata",
-                          })}
-                        </time>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ActivityFeed items={feed} />
               </WidgetState>
-            </SectionCard>
+            </DashboardSection>
           )}
 
           {canGlance && (
-            <SectionCard
+            <DashboardSection
               title="Today at a glance"
               headingId="hr-glance-heading"
+              description="Schedules, upcoming holidays, and workforce milestones"
+              icon={Calendar}
               className="lg:col-span-5"
             >
               <WidgetState
@@ -743,43 +705,11 @@ export function HrDashboardView() {
                   void attendance.refetch();
                 }}
                 label="today at a glance"
+                skeletonHeight="h-48"
               >
-                {glanceEvents.length === 0 ? (
-                  <p className="py-8 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                    Nothing scheduled today
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {glanceEvents.map((evt) => (
-                      <li
-                        key={evt.id}
-                        className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800"
-                      >
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${SEGMENT_FILL[evt.type === "leave" ? "warning" : evt.type === "holiday" ? "chart1" : "brand"]}`}
-                          aria-hidden="true"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-                            {evt.name}
-                          </p>
-                          <p className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
-                            {evt.detail}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-theme-xs font-medium capitalize text-gray-500 dark:text-gray-400">
-                          {evt.type}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
-                  Birthdays are not shown: date of birth is held on the
-                  restricted employee profile.
-                </p>
+                <GlanceSection events={glanceEvents} />
               </WidgetState>
-            </SectionCard>
+            </DashboardSection>
           )}
         </div>
       )}

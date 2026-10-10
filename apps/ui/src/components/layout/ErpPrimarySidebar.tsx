@@ -46,7 +46,7 @@ const PRIMARY_MODULES: ErpModuleItem[] = [
     id: "settings",
     label: "Settings",
     icon: Settings,
-    path: "/settings/roles",
+    path: "/admin/users",
   },
 ];
 
@@ -60,13 +60,12 @@ export function ErpPrimarySidebar() {
 
   // Determine active module
   const isHrActive =
-    pathname.startsWith("/hr") ||
-    pathname === "/admin/departments" ||
-    pathname === "/admin/users";
+    pathname.startsWith("/hr") || pathname === "/admin/departments";
 
   const isSettingsActive =
     pathname.startsWith("/settings") ||
     pathname.startsWith("/reference") ||
+    pathname.startsWith("/admin/users") ||
     pathname === "/admin/roles" ||
     pathname === "/admin/menu";
 

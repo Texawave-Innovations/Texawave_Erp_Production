@@ -1,66 +1,105 @@
 "use client";
 
-import { cn } from "@texawave-erp/ui-kit";
 import type { OrgChartNode } from "../types";
 import { OrgNodeCard } from "./OrgNodeCard";
 
-interface OrgTreeProps {
+export interface OrgTreeProps {
   nodes: OrgChartNode[];
   matchedIds: Set<number>;
+  selectedId?: number | null | undefined;
   collapsedIds: Set<number>;
   onToggleCollapse: (id: number) => void;
   onSelect: (node: OrgChartNode) => void;
-  depth?: number;
+  depth?: number | undefined;
 }
 
 /**
- * Recursive `<ul>/<li>` layout with CSS-border connectors (no canvas/SVG,
- * no chart library) — the same family of approach the legacy org chart
- * used, rebuilt on production design tokens instead of its bespoke
- * gradients.
+ * Pure CSS hierarchical organization tree.
+ * Renders unbroken manager-to-report connector lines, supporting deep recursive trees,
+ * expand/collapse branches, and keyboard accessibility.
  */
 export function OrgTree({
   nodes,
   matchedIds,
+  selectedId,
   collapsedIds,
   onToggleCollapse,
   onSelect,
   depth = 0,
 }: OrgTreeProps) {
+  if (!nodes || nodes.length === 0) return null;
+
   return (
     <ul
-      className={cn(
-        "flex gap-6",
-        depth === 0
-          ? "flex-wrap"
-          : "border-t border-gray-200 pt-6 dark:border-gray-800",
-      )}
+      className={`flex justify-center ${
+        depth === 0 ? "flex-wrap gap-12" : "w-full"
+      }`}
     >
-      {nodes.map((node) => {
+      {nodes.map((node, index) => {
         const isCollapsed = collapsedIds.has(node.id);
-        const hasChildren = node.children.length > 0;
+        const hasChildren = node.children && node.children.length > 0;
+        const totalSiblings = nodes.length;
+
         return (
-          <li key={node.id} className="flex flex-col items-center">
+          <li
+            key={node.id}
+            className={`relative flex flex-col items-center ${
+              depth > 0 ? "px-4" : ""
+            }`}
+          >
+            {/* Top Connector Lines for Children (Depth > 0) */}
+            {depth > 0 && totalSiblings > 1 && (
+              <div
+                className={`absolute top-0 h-px bg-neutral-300 dark:bg-neutral-700 ${
+                  index === 0
+                    ? "left-1/2 right-0"
+                    : index === totalSiblings - 1
+                      ? "left-0 right-1/2"
+                      : "left-0 right-0"
+                }`}
+                aria-hidden="true"
+              />
+            )}
+
+            {/* Vertical drop line down into the node card */}
+            {depth > 0 && (
+              <div
+                className="h-6 w-px bg-neutral-300 dark:bg-neutral-700 shrink-0"
+                aria-hidden="true"
+              />
+            )}
+
+            {/* Employee Node Card */}
             <OrgNodeCard
               node={node}
               isMatched={matchedIds.has(node.id)}
+              isSelected={selectedId === node.id}
               isCollapsed={isCollapsed}
               onToggleCollapse={() => onToggleCollapse(node.id)}
               onSelect={() => onSelect(node)}
             />
-            {hasChildren && !isCollapsed ? (
-              <div className="mt-4 flex flex-col items-center">
-                <span className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
+
+            {/* Direct Reports Subtree Connectors */}
+            {hasChildren && !isCollapsed && (
+              <div className="flex flex-col items-center w-full">
+                {/* Vertical Trunk Line down from Manager Card */}
+                <div
+                  className="h-6 w-px bg-neutral-300 dark:bg-neutral-700 shrink-0"
+                  aria-hidden="true"
+                />
+
+                {/* Recursive Children Tree */}
                 <OrgTree
                   nodes={node.children}
                   matchedIds={matchedIds}
+                  selectedId={selectedId}
                   collapsedIds={collapsedIds}
                   onToggleCollapse={onToggleCollapse}
                   onSelect={onSelect}
                   depth={depth + 1}
                 />
               </div>
-            ) : null}
+            )}
           </li>
         );
       })}
