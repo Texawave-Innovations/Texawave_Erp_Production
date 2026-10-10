@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  Alert,
   Button,
   Dialog,
   FormField,
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useApproveWorkLog, useRejectWorkLog } from "../hooks";
 import { decideWorkLogSchema } from "../schema";
 import type { WorkLogItem } from "../types";
@@ -87,54 +89,96 @@ export function DecideWorkLogDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <p className="text-theme-sm text-gray-600 dark:text-gray-400">
-          {workLog.employee.fullName} — {workLog.workDate} (
-          {workLog.hoursWorked}h). This decision is final once saved.
-        </p>
-        <FormField
-          label="Note to the employee"
-          hint="Optional. 3–500 characters if provided."
-          error={error ?? undefined}
-        >
-          {(f) => (
-            <Textarea
-              {...f}
-              rows={3}
-              invalid={f.invalid}
-              value={note}
-              disabled={submitting}
-              onChange={(e) => setNote(e.target.value)}
+    <Dialog open={open} onClose={onClose} title={title} size="md">
+      <div className="flex flex-col gap-4">
+        {/* Context Card */}
+        <div className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/70 p-3.5 dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="flex items-center justify-between gap-3">
+            <EmployeeIdentity
+              name={workLog.employee.fullName}
+              avatarSize="sm"
+              size="sm"
             />
-          )}
-        </FormField>
-        {serverError ? (
-          <p
-            role="alert"
-            className="text-theme-xs text-error-600 dark:text-error-400"
-          >
-            {serverError}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant={decision === "reject" ? "destructive" : "primary"}
-            loading={submitting}
-          >
-            {decision === "approve" ? "Approve" : "Reject"}
-          </Button>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-theme-xs font-semibold bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 font-mono">
+              {workLog.hoursWorked} hrs
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-200/60 dark:border-gray-800">
+            <span>Work date: {workLog.workDate}</span>
+            <span className="text-amber-600 dark:text-amber-400 font-medium">
+              Decision is final once saved
+            </span>
+          </div>
         </div>
-      </form>
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+          noValidate
+        >
+          <FormField
+            label="Note to the employee"
+            hint="Optional. 3–500 characters if provided."
+            error={error ?? undefined}
+            labelAction={
+              <span
+                className={`text-[11px] font-mono ${
+                  note.length > 500
+                    ? "text-error-600 dark:text-error-400 font-semibold"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
+                {note.length}/500
+              </span>
+            }
+          >
+            {(f) => (
+              <Textarea
+                {...f}
+                rows={3}
+                placeholder={
+                  decision === "approve"
+                    ? "Optional acknowledgment or notes for the employee..."
+                    : "Provide a reason or feedback for the rejection..."
+                }
+                invalid={f.invalid}
+                value={note}
+                disabled={submitting}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            )}
+          </FormField>
+
+          {serverError ? (
+            <Alert variant="error" title="Could not process decision">
+              {serverError}
+            </Alert>
+          ) : null}
+
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant={decision === "reject" ? "destructive" : "primary"}
+              className={
+                decision === "approve"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : undefined
+              }
+              loading={submitting}
+            >
+              {decision === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </div>
+        </form>
+      </div>
     </Dialog>
   );
 }
