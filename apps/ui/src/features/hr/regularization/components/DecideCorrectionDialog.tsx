@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  Alert,
   Button,
   Dialog,
   FormField,
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import { formatTime } from "@/features/hr/attendance/status";
 import { useApproveCorrection, useRejectCorrection } from "../hooks";
 import { decideCorrectionSchema, rejectCorrectionSchema } from "../schema";
 import { CORRECTION_TYPE_LABELS } from "../status";
@@ -19,7 +23,13 @@ export interface DecideCorrectionDialogProps {
   onClose: () => void;
   correction: Pick<
     AttendanceCorrectionItem,
-    "id" | "employee" | "attendanceDate" | "correctionType" | "reason"
+    | "id"
+    | "employee"
+    | "attendanceDate"
+    | "correctionType"
+    | "reason"
+    | "requestedCheckInAt"
+    | "requestedCheckOutAt"
   >;
   decision: "approve" | "reject";
 }
@@ -89,7 +99,7 @@ export function DecideCorrectionDialog({
       toast({
         title:
           decision === "approve"
-            ? "Correction approved"
+            ? "Correction approved successfully"
             : "Correction rejected",
         variant: "success",
       });
@@ -100,26 +110,73 @@ export function DecideCorrectionDialog({
     }
   }
 
+  const hasIn = Boolean(correction.requestedCheckInAt);
+  const hasOut = Boolean(correction.requestedCheckOutAt);
+
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
+    <Dialog open={open} onClose={onClose} title={title} size="md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1 rounded-lg bg-gray-50 p-3 text-theme-sm dark:bg-gray-800">
-          <p className="font-medium text-gray-900 dark:text-white/90">
-            {correction.employee.fullName} — {correction.attendanceDate}
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            {CORRECTION_TYPE_LABELS[correction.correctionType]}
-          </p>
-          <p className="text-gray-600 dark:text-gray-400">
-            {correction.reason}
-          </p>
+        {/* Request Context Card */}
+        <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-3.5 text-theme-sm dark:border-gray-800 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between gap-2 border-b border-gray-200/60 pb-2.5 dark:border-gray-700/50">
+            <EmployeeIdentity
+              name={correction.employee.fullName}
+              code={correction.employee.employeeCode}
+              size="sm"
+            />
+            <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
+              {correction.attendanceDate}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-theme-xs font-semibold text-brand-700 dark:text-brand-300">
+                {CORRECTION_TYPE_LABELS[correction.correctionType]}
+              </span>
+              {hasIn || hasOut ? (
+                <div className="flex items-center gap-2 font-mono text-[11px] text-gray-600 dark:text-gray-400">
+                  <Clock className="h-3 w-3 text-gray-400" />
+                  {hasIn ? (
+                    <span>
+                      In: {formatTime(correction.requestedCheckInAt!)}
+                    </span>
+                  ) : null}
+                  {hasIn && hasOut ? <span>•</span> : null}
+                  {hasOut ? (
+                    <span>
+                      Out: {formatTime(correction.requestedCheckOutAt!)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <p className="rounded-lg bg-white/80 p-2.5 text-theme-xs text-gray-600 italic dark:bg-gray-900/40 dark:text-gray-300 border border-gray-100 dark:border-gray-800">
+              &ldquo;{correction.reason}&rdquo;
+            </p>
+          </div>
         </div>
+
         {decision === "approve" ? (
-          <p className="text-theme-xs text-success-700 dark:text-success-400">
-            Approving will update this employee&apos;s attendance for{" "}
-            {correction.attendanceDate}. This cannot be undone from here.
-          </p>
-        ) : null}
+          <div className="flex items-start gap-2 rounded-lg bg-emerald-50/70 p-3 text-theme-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/40">
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+            <span>
+              Approving will update this employee&apos;s attendance for{" "}
+              <strong>{correction.attendanceDate}</strong>. This action cannot
+              be undone from here.
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 rounded-lg bg-rose-50/70 p-3 text-theme-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200/50 dark:border-rose-800/40">
+            <XCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+            <span>
+              Rejecting will decline this correction request. The employee will
+              receive the rejection note below.
+            </span>
+          </div>
+        )}
+
         <FormField
           label={
             decision === "approve" ? "Note to the employee" : "Rejection reason"
@@ -139,19 +196,23 @@ export function DecideCorrectionDialog({
               invalid={f.invalid}
               value={note}
               disabled={submitting}
+              placeholder={
+                decision === "approve"
+                  ? "Add an optional note..."
+                  : "Explain why this request is being rejected..."
+              }
               onChange={(e) => setNote(e.target.value)}
             />
           )}
         </FormField>
+
         {serverError ? (
-          <p
-            role="alert"
-            className="text-theme-xs text-error-600 dark:text-error-400"
-          >
+          <Alert variant="error" title="Could not submit decision">
             {serverError}
-          </p>
+          </Alert>
         ) : null}
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"

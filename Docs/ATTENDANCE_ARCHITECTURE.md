@@ -460,3 +460,129 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 - Whole backend E2E: 620/620 (567 baseline + 53 Attendance).
 - No separate integration suite. DB CHECKs, the partial unique index and FK behaviour are covered
   only indirectly through E2E.
+
+---
+
+## 8. Frontend UI/UX Architecture & Screen Implementations
+
+### 8.1 Overview
+
+The Attendance module frontend (`apps/ui/src/features/hr/attendance/`) implements four unified, responsive, enterprise-grade screens conforming strictly to the TEXA ERP design system:
+
+1. **Attendance HR/Admin View (`AttendanceView.tsx`)**: Global monitoring, summary metrics, and management grid.
+2. **My Attendance View (`MyAttendanceView.tsx`)**: Employee self-service punch hero and personal history.
+3. **Attendance Details Modal (`AttendanceDetailDialog.tsx`)**: Centered read-only inspection dialog with employee header and sessions timeline.
+4. **Edit Attendance Modal (`ManualEditAttendanceDialog.tsx`)**: Centered administrative punch/session editor with date bounds and live duration calculations.
+
+### 8.2 Screen 1 — Attendance HR/Admin View
+
+- **Summary Metrics**: Uses `@/features/hr/components/StatCard` for Total Records (`CalendarCheck`), Present (`UserCheck`), Absent (`UserX`), and Half Day / Leave (`Clock`).
+- **Employee Identity Resolution**: Uses `@/features/hr/employees/hooks`'s `useEmployees` to build an in-memory map resolving employee names, human codes, and designations, rendering with `EmployeeIdentity`.
+- **Filters Toolbar & Chips**: Reuses the global `DateRangePicker` alongside Employee ID search and Status filter, with dismissible `FilterChips` and "Reset all filters" shortcuts.
+- **Table Structure**: Includes Employee Identity, Date, First Check-in, Last Check-out, Worked Duration, Overtime, Status Badge, and contextual row actions.
+- **State Handling**: Employs `TableSkeleton` (8 columns matching table layout) for loading states, `EmptyState` with filter reset actions, and `ErrorState` with retry capabilities.
+
+### 8.3 Screen 2 — My Attendance
+
+- **Hero Attendance Banner**: Displays today's formatted date, live status badge with animated pulse indicator (`Currently Checked In` vs `Currently Checked Out`), and active start time.
+- **Punch Actions**: Accessible, distinct `Check In` and `Check Out` buttons with loading spinners, disabled states, and error alerts.
+- **Today's Working Summary**: Real-time summary tiles displaying today's worked minutes, overtime, and current effective status badge.
+- **Personal History**: Reuses `DateRangePicker` and `DataTable` displaying date, status, check-in, check-out, worked, overtime, and session counts.
+
+### 8.4 Screen 3 — Attendance Details Modal
+
+- **Container**: Native `<dialog>` with fixed full-viewport backdrop blur, centered alignment, and responsive sizing (`size="lg"`).
+- **Employee Header**: Card displaying `EmployeeIdentity` avatar, name, code, designation, and current `AttendanceStatusBadge`.
+- **Day Summary**: 6-tile grid covering Date, First Check-in, Last Check-out, Worked Time, Overtime, and Target/Shortfall.
+- **Sessions Timeline**: Chronological punch list showing session numbers, formatted 12h in/out times, calculated durations, and audit source tags (`WEB`, `DEVICE`, `MANUAL`).
+- **Actions**: Secondary `Close` button and primary `Edit Attendance` button (gated to `hr.attendance.write`).
+
+### 8.5 Screen 4 — Edit Attendance Modal
+
+- **Container**: Centered `<dialog>` with `size="xl"`.
+- **Context Banner**: Shows target employee details and target attendance date.
+- **Status Field**: Select field to specify stored status (`PRESENT`, `ABSENT`, `HALF_DAY`) or `Not set` to auto-derive.
+- **Session Editor**:
+  - Add session button (`+ Add session`) initializing punches on the attendance date.
+  - Inputs constrained with `min` and `max` locked strictly to the attendance date (`YYYY-MM-DDT00:00` - `YYYY-MM-DDT23:59`).
+  - Live duration calculator displaying formatted duration badges per row.
+  - Delete session action with `Trash2` icon.
+
+### 8.6 Shared Calendar & Accessibility
+
+- **Calendar Integration**: Reuses `@texawave-erp/ui-kit`'s global `DateRangePicker` without creating localized date pickers. Maintains `fromAriaLabel="From date"` and `toAriaLabel="To date"` on hidden inputs for Playwright locator stability.
+- **Accessibility & Motion**: Complies with WCAG AA standards, supports keyboard navigation, escape-to-close on modals, semantic tables, and prefers-reduced-motion transitions.
+
+### 8.7 Regularization Module UI/UX Architecture (TexaWave ERP Production)
+
+The Regularization module frontend (`apps/ui/src/features/hr/regularization/`) provides full lifecycle management for attendance correction requests:
+
+1. **Regularization Requests Page (`RegularizationView.tsx`)**:
+   - Header with total request count badge and primary self-service action (`Request a correction`).
+   - Compact filter toolbar preserving `Status` and `Employee ID` filters, with dismissible `FilterChips` and clear-all shortcuts.
+   - Enhanced `DataTable` featuring `EmployeeIdentity` avatar and codes, formatted attendance dates, correction types with subtle requested punch pills (`In: HH:mm`, `Out: HH:mm`), truncated reasons with tooltips, `CorrectionStatusBadge`, decider attribution, and contextual `Approve`/`Reject` actions for pending submissions.
+   - Comprehensive state handling with `TableSkeleton` (7 columns), `EmptyState`, and `ErrorState`.
+2. **Request a Correction Modal (`SubmitCorrectionDialog.tsx`)**:
+   - Centered `<dialog>` (`size="lg"`) with fixed blurred-backdrop overlay.
+   - Informative guidance banner explaining approval workflows.
+   - Date picker with timezone-safe localized confirmation label (`Selected date: Mon, 05 Oct 2026 (IST)`).
+   - Strict 5-type correction selector controlling conditional check-in and check-out fields:
+     - `MISSED_CHECK_IN`: In & Out
+     - `MISSED_CHECK_OUT`: Out only
+     - `INCORRECT_TIME`: In & Out
+     - `LATE_ARRIVAL`: In only
+     - `EARLY_DEPARTURE`: Out only
+   - Synchronized date-locking and `min`/`max` bounds on datetime-local inputs preventing date drift.
+   - ISO serialization with explicit `+05:30` IST offset guaranteeing instant parity with the backend attendance date.
+   - Reason textarea with live character counter (`length/500`) and field validation.
+3. **Decide Correction Modal (`DecideCorrectionDialog.tsx`)**:
+   - Centered `<dialog>` (`size="md"`) for approving or rejecting requests.
+   - Elevated context card displaying employee identity, date, correction type, requested punch times, and employee reason.
+   - Rejection/approval warning banners and note input with character validation.
+
+## 11. Full Month Present UI/UX Specification (TexaWave ERP Production)
+
+The Full Month Present report frontend (`apps/ui/src/features/hr/full-month-present/`) delivers an enterprise-grade attendance qualification auditing experience:
+
+1. **Page Header & Scope Counter (`FullMonthPresentView.tsx`)**:
+   - Clear page title "Full Month Present" and description "Review employee attendance and full-month qualification."
+   - Dynamic pill badge showing total active employees in scope for the chosen calendar month.
+
+2. **Summary Metrics Cards**:
+   - Retains the exact three existing summary metrics with strict data integrity:
+     1. **Employees on this page** (`rows.length`): Primary brand accent card with `Users` icon.
+     2. **Full Month Present** (`qualifiedCount`): Emerald success card with `Trophy` icon.
+     3. **Not qualified** (`rows.length - qualifiedCount`): Muted slate card with `XCircle` icon.
+   - Metrics are derived strictly from active page rows, preventing false organization-wide assumptions while reflecting real filtered data.
+
+3. **Compact Filter Toolbar**:
+   - **Month Selector:** Accessible month input (`type="month" aria-label="Month"`) defaulting to the current month (`YYYY-MM`).
+   - **Employee ID & Team ID Filters:** Dedicated numeric search inputs with clear placeholders and validation bounds.
+   - **Dismissible Filter Chips:** Dynamic `FilterChips` for modified month, employee ID, and team ID with a one-click "Reset filters" shortcut.
+
+4. **Employee Qualification Table**:
+   - Accessible `caption="Full Month Present"`.
+   - **Employee Column:** Renders `EmployeeIdentity` with deterministic avatar initials, full name, and employee code.
+   - **Present Days:** Monospace badge (`font-mono text-theme-xs`) showing cumulative days marked present.
+   - **Month Complete:** Accessible `StatusBadge` showing `Yes` (success) when the month's final day is in the past, or `No` (gray) when in progress.
+   - **Employed Whole Month:** Accessible `StatusBadge` showing `Yes` (success) when employment covers the entire month, or `No` (gray) for mid-month joiners/leavers.
+   - **Full Month Present:** Prominent indicator pill displaying `Yes` (emerald with `CheckCircle2`) or `No` (muted with `XCircle`).
+   - **Actions:** Contextual "Details" action button opening the per-day attendance audit dialog.
+   - **States:** `TableSkeleton` (6 columns), `EmptyState` with filter reset action, and `ErrorState` with retry callback.
+
+5. **Per-Day Attendance Drill-Down (`FullMonthPresentDetailDialog.tsx`)**:
+   - Centered `<Dialog size="lg">` titled `${row.employee.fullName} — ${row.month}` with dark translucent backdrop and subtle blur.
+   - Context header panel displaying `EmployeeIdentity` and the selected month.
+   - 4-card qualification grid with exact labels:
+     - "Employee code"
+     - "Full Month Present"
+     - "Month complete"
+     - "Employed whole month"
+   - Days section featuring exact heading "Days" and count summary (`${row.days.length} days counted • ${row.presentDays} present`).
+   - Responsive grid of day status tiles showing day numbers (`Day 01` … `Day 31`) with `FullMonthPresentStatusBadge`.
+   - Secondary "Close" button.
+
+6. **Accessibility & Usability Guarantees**:
+   - Adheres to WCAG 2.1 AA standards: visible focus rings, color contrast ratios, screen-reader text for all table actions.
+   - Status is never communicated by color alone (text badges only).
+   - Lightweight transitions (180–250ms) with zero layout thrashing or external animation dependencies.

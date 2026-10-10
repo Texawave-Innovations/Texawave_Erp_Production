@@ -62,6 +62,20 @@ export function validateCorrectionTimes(
     return "A late arrival needs the corrected check-in";
   if (values.correctionType === "EARLY_DEPARTURE" && !hasOut)
     return "An early departure needs the corrected check-out";
+  if (values.attendanceDate) {
+    if (hasIn && values.requestedCheckInAt) {
+      const inDate = values.requestedCheckInAt.split("T")[0];
+      if (inDate !== values.attendanceDate) {
+        return "A requested check-in time must fall on the attendance date (IST)";
+      }
+    }
+    if (hasOut && values.requestedCheckOutAt) {
+      const outDate = values.requestedCheckOutAt.split("T")[0];
+      if (outDate !== values.attendanceDate) {
+        return "A requested check-out time must fall on the attendance date (IST)";
+      }
+    }
+  }
   if (
     hasIn &&
     hasOut &&
