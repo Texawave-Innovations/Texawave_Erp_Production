@@ -16,7 +16,10 @@
     "permissions:check": "tsx prisma/permissions/sync-cli.ts --check",
     "permissions:sync:dry": "tsx prisma/permissions/sync-cli.ts --dry-run",
     "permissions:sync": "tsx prisma/permissions/sync-cli.ts",
-    "test": "tsx --test prisma/permissions/default-roles.test.ts prisma/permissions/sync.test.ts prisma/permissions/sync.db.test.ts prisma/permissions/validate.test.ts"
+    "menu:check": "tsx prisma/menu/sync-cli.ts --check",
+    "menu:sync:dry": "tsx prisma/menu/sync-cli.ts --dry-run",
+    "menu:sync": "tsx prisma/menu/sync-cli.ts",
+    "test": "tsx --test prisma/permissions/default-roles.test.ts prisma/permissions/sync.test.ts prisma/permissions/sync.db.test.ts prisma/permissions/validate.test.ts prisma/menu/sync.test.ts prisma/menu/sync.db.test.ts prisma/menu/validate.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

@@ -1,11 +1,24 @@
 import { z } from "zod";
 import { strongPasswordSchema } from "./user.schema";
 
+const NAME_RE = /^[A-Za-z][A-Za-z .'-]*$/;
+const NAME_MSG = "Enter a valid name (letters only).";
+
 /** Mirrors apps/api/src/modules/hr/employees/dto/create-employee.dto.ts and
  * the users create DTO, for the HR "New hire" form (TEXA-16 onboarding). */
 export const newHireSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").max(50),
-  lastName: z.string().trim().min(1, "Last name is required").max(50),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, "First name is required")
+    .max(50)
+    .regex(NAME_RE, NAME_MSG),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, "Last name is required")
+    .max(50)
+    .regex(NAME_RE, NAME_MSG),
   mobile: z
     .string()
     .trim()
@@ -14,7 +27,7 @@ export const newHireSchema = z.object({
       "Enter a valid 10-digit mobile number starting with 6 to 9.",
     ),
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
-  roleId: z.number().int().positive("Select a role."),
+  roleId: z.number().int().positive().optional(),
   departmentId: z.number().int().positive("Select a department."),
   teamId: z.number().int().positive("Select a team."),
   designationId: z.number().int().positive("Select a designation."),

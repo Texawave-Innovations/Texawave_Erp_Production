@@ -319,6 +319,7 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 - Own route group: `(employee-portal)`, not nested under `(dashboard)`.
 - Own permission namespace: `employee_self_service.*`, distinct from `hr.*`. An employee's JWT should not carry `hr.employee.read` just because they can see their own record.
 - Mostly reuses HR's tables (`employees`, `attendance_records`, `leave_requests`, `payslips`) scoped down by permission + `WHERE employee.user_id = :currentUserId`, rather than new tables.
+- **Exception**: a portal `MenuItem` may be gated by an `hr.*.team` permission (not `employee_self_service.*`) when the feature is genuinely a team-scoped HR capability surfaced in the portal shell rather than self-service — e.g. `portal-task-assignment` gated by `hr.task.write.team`, for a Team Lead acting on their team's tasks, not their own record. This is still enforced by `@TeamScoped()` + `@RequirePermission()` server-side like any other HR endpoint; the portal shell only decides whether the tab is shown. Don't reach for this to avoid naming a new `employee_self_service.*` permission — it's for operations that are not self-service at all.
 
 ### 7a. Self-onboarding (TEXA-16/onboarding epic) — built
 
