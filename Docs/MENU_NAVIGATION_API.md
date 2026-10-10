@@ -153,9 +153,11 @@ see §6.3.
    match anything in `prisma/permissions/catalog.ts` — a typo'd permission string is caught before it
    ever reaches a database, instead of silently creating a tab nobody can ever see.
 2. Run `pnpm --filter @texawave-erp/database menu:sync` locally to apply it to your dev org.
-3. Build the actual Next.js page at the `path` you chose. `DynamicSidebar`
-   (`apps/ui/src/components/DynamicSidebar.tsx`) renders whatever `GET /menu/my-menu` returns — you
-   do not register routes in the sidebar component itself.
+3. Build the actual Next.js page at the `path` you chose, then make it reachable (§5.1): a **portal**
+   item needs nothing else — the portal sidebar renders whatever `GET /menu/my-menu` returns under
+   `portal`. An **HR or Settings** tab also needs a link in `HR_NAV_GROUPS` / `SETTINGS_NAV_ITEMS`
+   (`apps/ui/src/components/DynamicSidebar.tsx`) with `menuCode` set to the catalogue `code` — that
+   is where its group, label and icon live; the menu only decides whether it is shown.
 4. Grant the gating permission to whichever role(s) should see it, via Settings → Roles → Menu
    access (§4). The catalogue entry existing does **not** grant anyone access to anything.
 5. In the same PR, make sure the API route behind that page independently enforces the same
@@ -164,12 +166,21 @@ see §6.3.
 
 ### 5.1 Dashboard vs portal shells
 
-`DynamicSidebar` takes two mutually exclusive props:
+Both shells render `DynamicSidebar`, and both take their visibility from the same
+`GET /menu/my-menu` response:
 
-- `onlyRootCode="portal"` — the employee-portal shell, flattened to exactly the `portal` root's
-  children. Used so nothing from `hr`/`admin` can ever leak into the self-service shell even if a
-  permission is misconfigured.
-- `excludeRootCodes={["portal"]}` — the dashboard shell, everything except the portal tree.
+- **Portal** (`onlyRootCode="portal"`) — flattened to exactly the `portal` root's children, labels
+  and paths straight from the menu. Used so nothing from `hr`/`admin` can ever leak into the
+  self-service shell even if a permission is misconfigured.
+- **Dashboard** (no prop) — the grouped HR nav (`HR_NAV_GROUPS`) or, under `/settings`,
+  `/reference`, `/admin/users|roles|menu`, the Settings nav (`SETTINGS_NAV_ITEMS`). Every link there
+  carries a `menuCode` and is shown **only if** that code is in the user's menu, so the catalogue
+  `permission` (and the Menu access matrix, §4) decides who sees each tab. A group left with no tab
+  is not rendered. While the menu loads, or if it fails, no link is shown (fail closed).
+
+HR tab permissions are each page's own read family (e.g. `hr-leaves` → `hr.leave_request.read`, any
+scope). Self-service users get their own records through the portal, not through these tabs; only
+`hr-dashboard` stays `permission: null`, because each dashboard widget gates itself.
 
 A root group's `code` (`hr`, `portal`, `admin`) is what decides which shell an item can ever appear
 in — get the `parentCode` right in the catalogue or the page will exist but be unreachable from

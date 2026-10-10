@@ -18,7 +18,17 @@ import {
 import { Button } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
-import { WRITE_TEAM_OR_ALL } from "../../employees/permissions";
+import {
+  READ_ANY_SCOPE as EMPLOYEE_READ,
+  WRITE_TEAM_OR_ALL,
+} from "../../employees/permissions";
+import { READ_ANY_SCOPE as EXPENSE_CLAIM_READ } from "../../expense-approvals/permissions";
+import { READ_ANY_SCOPE as ATTENDANCE_REPORT_READ } from "../../full-month-present/permissions";
+import { READ as HOLIDAY_READ } from "../../holidays/permissions";
+import { READ_ANY_SCOPE as LEAVE_REQUEST_READ } from "../../leaves/permissions";
+import { RECRUITMENT_PERMISSIONS } from "../../recruitment/permissions";
+import { READ_ANY_SCOPE as CORRECTION_READ } from "../../regularization/permissions";
+import { READ_ANY_SCOPE as TICKET_READ } from "../../tickets/permissions";
 import {
   useAbsenceLookback,
   useActivityFeed,
@@ -85,32 +95,25 @@ export function HrDashboardView() {
   const today = useMemo(() => istToday(now), [now]);
   const [leaveMode, setLeaveMode] = useState<"month" | "all">("month");
 
-  // RBAC permissions gating for all metrics and sections
-  const canEmployees = usePermission("hr.employee.read");
-  const canAttendance = usePermission("hr.attendance_report.read");
-  const canLeaves = usePermission("hr.leave_request.read");
-  const canCorrections = usePermission("hr.attendance_correction.read");
+  // RBAC gating for every metric and section. Scoped families are only ever
+  // granted as `.own`/`.team`/`.all` (never the bare code), so each check
+  // reuses the owning feature's any-scope list — the same one its page uses.
+  const canEmployees = usePermission(EMPLOYEE_READ);
+  const canAttendance = usePermission(ATTENDANCE_REPORT_READ);
+  const canLeaves = usePermission(LEAVE_REQUEST_READ);
+  const canCorrections = usePermission(CORRECTION_READ);
   const canApprovals = canLeaves && canCorrections;
-  const canTickets = usePermission([
-    "hr.ticket.read",
-    "hr.ticket.read.own",
-    "hr.ticket.read.team",
-    "hr.ticket.read.all",
-  ]);
-  const canExpenses = usePermission([
-    "hr.expense_claim.read",
-    "hr.expense_claim.read.own",
-    "hr.expense_claim.read.team",
-    "hr.expense_claim.read.all",
-  ]);
+  const canTickets = usePermission(TICKET_READ);
+  const canExpenses = usePermission(EXPENSE_CLAIM_READ);
   const canPipeline = usePermission(
-    ["hr.interview.read", "hr.offer_letter.read"],
+    [
+      ...RECRUITMENT_PERMISSIONS.interviewRead,
+      ...RECRUITMENT_PERMISSIONS.offerRead,
+    ],
     "all",
   );
-  const canGlance = usePermission(
-    ["hr.holiday.read", "hr.employee.read", "hr.attendance_report.read"],
-    "all",
-  );
+  const canHolidays = usePermission(HOLIDAY_READ);
+  const canGlance = canHolidays && canEmployees && canAttendance;
   const canActivity = canTickets && canExpenses;
   const canCreateEmployee = usePermission(WRITE_TEAM_OR_ALL);
   const canQuickActions =

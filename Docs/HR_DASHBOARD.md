@@ -68,7 +68,7 @@ The dashboard occupies the main workspace of the authenticated ERP shell (`(dash
 
 ## 3. Data Contracts & Permissions Mapping
 
-Every section is protected by permission gates (`usePermission`) ensuring users only view data they are authorized to access:
+Every section is protected by permission gates (`usePermission`) ensuring users only view data they are authorized to access. Codes in the table that name a scoped family (`hr.employee.read`, `hr.attendance_report.read`, `hr.leave_request.read`, `hr.attendance_correction.read`, `hr.ticket.read`, `hr.expense_claim.read`) match **any** of its `.own`/`.team`/`.all` grants — roles are only ever granted those, never the bare code — via the owning feature's `READ_ANY_SCOPE` list:
 
 | Section / Widget       | Endpoint(s)                                                                                  | Permission Gate                                                    | Scope / Behavior                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------- |
@@ -212,14 +212,18 @@ The Tier 2 contextual navigation (`apps/ui/src/components/DynamicSidebar.tsx`) h
 
 ### Organizational Grouping
 
-The 18 HR sub-navigation items are now structured into 6 logical, expandable categories:
+The 21 HR sub-navigation items are structured into 6 logical, expandable categories:
 
 1. **Overview:** Dashboard (`/hr/dashboard`)
-2. **Workforce:** Employees, Org Chart, Recruitment, Exit Requests
+2. **Workforce:** Employees, Profiles, Employee Documents, Org Chart, Recruitment, Exit Requests
 3. **Time & Attendance:** Attendance, Regularization, Work Logs, Location Privilege, Full Month Present
 4. **Leave & Calendar:** Leaves, Holidays
-5. **Operations & Claims:** Tasks, Expense Approvals, Employee Tickets, Payroll
+5. **Operations & Claims:** Tasks, Expense Approvals, Employee Tickets, Payroll, Compliance
 6. **Organization:** Departments, Teams
+
+Each item is shown only when the user's permission-filtered menu (`GET /menu/my-menu`) contains its
+`menuCode` — i.e. when the user holds that catalogue item's permission — and a category with no
+visible item is hidden. See `MENU_NAVIGATION_API.md` §5.1.
 
 ### Features & Behavior
 

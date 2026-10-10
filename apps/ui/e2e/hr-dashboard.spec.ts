@@ -278,17 +278,22 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
       });
     }
     if (url.pathname === "/menu/my-menu") {
-      return json(200, {
-        data: [
-          {
-            id: 1,
-            label: "HR",
-            path: "/hr/dashboard",
-            icon: null,
-            children: [],
-          },
-        ],
+      // The HR sidebar links only the codes this (permission-filtered) menu
+      // returns — here, just the dashboard tab.
+      const node = (id: number, code: string, path: string | null) => ({
+        id,
+        code,
+        label: code,
+        path,
+        icon: null,
+        order: id,
+        parentId: null,
+        permission: null,
+        children: [] as unknown[],
       });
+      const hr = node(1, "hr", null);
+      hr.children.push(node(2, "hr-dashboard", "/hr/dashboard"));
+      return json(200, { data: [hr] });
     }
     if (url.pathname === "/reference/tags") {
       return json(200, {
@@ -311,13 +316,19 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
   await page.goto("/login");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("hr@texawave.test");
-  await page.getByLabel("Password").fill("not-checked-by-mock");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("not-checked-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/reference\/tags/);
+  // HR grants land on the HR dashboard (features/auth/landing.ts).
+  await expect(page).toHaveURL(/\/hr$/);
 }
 
 async function openDashboardFromSidebar(page: Page) {
-  await page.getByRole("navigation").getByRole("link", { name: "HR" }).click();
+  await page
+    .getByRole("navigation", { name: "Human Resources Navigation" })
+    .locator("a[href='/hr/dashboard']")
+    .click();
   await expect(page).toHaveURL(/\/hr\/dashboard/);
   await expect(
     page.getByRole("heading", {
@@ -327,13 +338,15 @@ async function openDashboardFromSidebar(page: Page) {
   ).toBeVisible();
 }
 
+// Real grants: scoped families are only ever granted as `.own`/`.team`/`.all`
+// (never the bare code), which is what the widgets must recognise.
 const HR_PERMS = [
-  "hr.employee.read",
-  "hr.attendance_report.read",
-  "hr.leave_request.read",
-  "hr.attendance_correction.read",
-  "hr.ticket.read",
-  "hr.expense_claim.read",
+  "hr.employee.read.all",
+  "hr.attendance_report.read.all",
+  "hr.leave_request.read.all",
+  "hr.attendance_correction.read.all",
+  "hr.ticket.read.all",
+  "hr.expense_claim.read.all",
   "hr.interview.read",
   "hr.offer_letter.read",
   "hr.holiday.read",
@@ -412,7 +425,7 @@ test("shows an error state, never a zero, when an endpoint fails", async ({
 });
 
 test("hides sections the user has no permission to read", async ({ page }) => {
-  await signIn(page, { permissions: ["hr.ticket.read"] });
+  await signIn(page, { permissions: ["hr.ticket.read.team"] });
   await openDashboardFromSidebar(page);
 
   await expect(

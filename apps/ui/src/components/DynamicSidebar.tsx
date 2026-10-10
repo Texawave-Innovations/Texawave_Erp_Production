@@ -1,13 +1,16 @@
 "use client";
 
+import type { MenuTreeNode } from "@texawave-erp/api-types";
 import { Skeleton } from "@texawave-erp/ui-kit";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMyMenu } from "@/features/menu/hooks";
 import {
   LayoutDashboard,
   Users,
+  Contact,
+  FileText,
   Network,
   Briefcase,
   FileSpreadsheet,
@@ -22,6 +25,7 @@ import {
   Ticket,
   UserMinus,
   Banknote,
+  ShieldCheck,
   Building2,
   UsersRound,
   Shield,
@@ -40,10 +44,21 @@ export interface SubNavItem {
   exact?: boolean;
 }
 
+/**
+ * A link of the static HR/Settings nav. It is shown only when the user's
+ * permission-filtered menu (`getMyMenu()`) contains `menuCode` — so who sees
+ * it is decided by that item's `permission` in
+ * packages/database/prisma/menu/catalog.ts, the same thing Settings → Roles →
+ * menu matrix edits. Grouping, labels and icons stay here.
+ */
+export interface GatedNavItem extends SubNavItem {
+  menuCode: string;
+}
+
 export interface NavGroup {
   id: string;
   label: string;
-  items: SubNavItem[];
+  items: GatedNavItem[];
 }
 
 export const HR_NAV_GROUPS: NavGroup[] = [
@@ -53,6 +68,7 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "dashboard",
+        menuCode: "hr-dashboard",
         label: "Dashboard",
         path: "/hr/dashboard",
         icon: LayoutDashboard,
@@ -66,24 +82,42 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "employees",
+        menuCode: "hr-employees",
         label: "Employees",
         path: "/hr/employees",
         icon: Users,
       },
       {
+        id: "profiles",
+        menuCode: "hr-profiles",
+        label: "Profiles",
+        path: "/hr/profiles",
+        icon: Contact,
+      },
+      {
+        id: "employee-documents",
+        menuCode: "hr-employee-documents",
+        label: "Employee Documents",
+        path: "/hr/employee-documents",
+        icon: FileText,
+      },
+      {
         id: "org-chart",
+        menuCode: "hr-org-chart",
         label: "Org Chart",
         path: "/hr/org-chart",
         icon: Network,
       },
       {
         id: "recruitment",
+        menuCode: "hr-recruitment",
         label: "Recruitment",
         path: "/hr/recruitment",
         icon: Briefcase,
       },
       {
         id: "exit-requests",
+        menuCode: "hr-exit-requests",
         label: "Exit Requests",
         path: "/hr/exit-requests",
         icon: UserMinus,
@@ -96,30 +130,35 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "attendance",
+        menuCode: "hr-attendance",
         label: "Attendance",
         path: "/hr/attendance",
         icon: Clock,
       },
       {
         id: "regularization",
+        menuCode: "hr-regularization",
         label: "Regularization",
         path: "/hr/regularization",
         icon: CalendarCheck,
       },
       {
         id: "work-logs",
+        menuCode: "hr-work-logs",
         label: "Work Logs",
         path: "/hr/work-logs",
         icon: FileSpreadsheet,
       },
       {
         id: "location-privilege",
+        menuCode: "hr-location-privilege",
         label: "Location Privilege",
         path: "/hr/location-privilege",
         icon: MapPin,
       },
       {
         id: "full-month-present",
+        menuCode: "hr-full-month-present",
         label: "Full Month Present",
         path: "/hr/full-month-present",
         icon: Award,
@@ -132,12 +171,14 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "leaves",
+        menuCode: "hr-leaves",
         label: "Leaves",
         path: "/hr/leaves",
         icon: Calendar,
       },
       {
         id: "holidays",
+        menuCode: "hr-holidays",
         label: "Holidays",
         path: "/hr/holidays",
         icon: CalendarDays,
@@ -150,27 +191,38 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "tasks",
+        menuCode: "hr-tasks",
         label: "Tasks",
         path: "/hr/tasks",
         icon: ListTodo,
       },
       {
         id: "expense-approvals",
+        menuCode: "hr-expense-approvals",
         label: "Expense Approvals",
         path: "/hr/expense-approvals",
         icon: Receipt,
       },
       {
         id: "tickets",
+        menuCode: "hr-tickets",
         label: "Employee Tickets",
         path: "/hr/tickets",
         icon: Ticket,
       },
       {
         id: "payroll",
+        menuCode: "hr-payroll",
         label: "Payroll",
         path: "/hr/payroll",
         icon: Banknote,
+      },
+      {
+        id: "compliance",
+        menuCode: "hr-compliance",
+        label: "Compliance",
+        path: "/hr/compliance",
+        icon: ShieldCheck,
       },
     ],
   },
@@ -180,12 +232,14 @@ export const HR_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "departments",
+        menuCode: "hr-departments",
         label: "Departments",
         path: "/hr/departments",
         icon: Building2,
       },
       {
         id: "teams",
+        menuCode: "hr-teams",
         label: "Teams",
         path: "/hr/teams",
         icon: UsersRound,
@@ -194,27 +248,31 @@ export const HR_NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const SETTINGS_NAV_ITEMS: SubNavItem[] = [
+const SETTINGS_NAV_ITEMS: GatedNavItem[] = [
   {
     id: "users",
+    menuCode: "admin-users",
     label: "Users & Accounts",
     path: "/admin/users",
     icon: Users,
   },
   {
     id: "roles",
+    menuCode: "admin-roles",
     label: "Roles & Permissions",
     path: "/settings/roles",
     icon: Shield,
   },
   {
     id: "menu",
+    menuCode: "admin-menu",
     label: "Navigation Menu",
     path: "/admin/menu",
     icon: MenuIcon,
   },
   {
     id: "reference-tags",
+    menuCode: "reference-tags",
     label: "Reference Tags",
     path: "/reference/tags",
     icon: Tag,
@@ -226,13 +284,11 @@ export interface DynamicSidebarProps {
   onNavigate?: () => void;
   /**
    * Restricts the sidebar to one root `MenuItem`'s children from `getMyMenu()`,
-   * flattened, instead of the static HR/Settings nav above. Several menu items
-   * are deliberately left ungated (`permission: null`, see
-   * packages/database/prisma/menu/catalog.ts) because the admin dashboard's own
-   * pages do a finer-grained check per section. The employee portal
-   * (Docs/ARCHITECTURE.md §7) has no such per-page check, so it passes
-   * `onlyRootCode="portal"` — the one thing that shell must never show is an
-   * HR or Admin item, ungated or not.
+   * flattened, instead of the static HR/Settings nav above (whose links are
+   * themselves gated by the same menu, see `GatedNavItem`). The employee
+   * portal (Docs/ARCHITECTURE.md §7) passes `onlyRootCode="portal"` — the one
+   * thing that shell must never show is an HR or Admin item, even one the
+   * user may see on the dashboard.
    */
   onlyRootCode?: string;
 }
@@ -376,18 +432,27 @@ export function NavigationGroup({
   );
 }
 
+/** Every code in the user's permission-filtered menu tree. */
+function collectMenuCodes(
+  nodes: readonly MenuTreeNode[],
+  into: Set<string> = new Set(),
+): Set<string> {
+  for (const node of nodes) {
+    into.add(node.code);
+    collectMenuCodes(node.children, into);
+  }
+  return into;
+}
+
 /**
- * Menu-driven list for `onlyRootCode`: the children of one root `MenuItem`
- * from the user's permission-filtered menu, flattened.
+ * Loads the user's permission-filtered menu and renders `children` with it.
+ * While it loads, or if it fails, no link is shown — the sidebar never falls
+ * back to links the user may not be allowed to see.
  */
-function MenuRootNav({
-  rootCode,
-  pathname,
-  onNavigate,
+function WithMyMenu({
+  children,
 }: {
-  rootCode: string;
-  pathname: string;
-  onNavigate?: (() => void) | undefined;
+  children: (menu: MenuTreeNode[]) => ReactNode;
 }) {
   const menuQuery = useMyMenu();
 
@@ -409,29 +474,27 @@ function MenuRootNav({
     );
   }
 
-  const items = (
-    menuQuery.data.find((item) => item.code === rootCode)?.children ?? []
-  ).flatMap((item): SubNavItem[] =>
-    item.path
-      ? [
-          {
-            id: item.code,
-            label: item.label,
-            path: item.path,
-            icon: ChevronRight,
-          },
-        ]
-      : [],
+  return <>{children(menuQuery.data)}</>;
+}
+
+function EmptyNav() {
+  return (
+    <p className="p-2 text-theme-xs text-gray-400">
+      No navigation items available
+    </p>
   );
+}
 
-  if (items.length === 0) {
-    return (
-      <p className="p-2 text-theme-xs text-gray-400">
-        No navigation items available
-      </p>
-    );
-  }
-
+function NavItemList({
+  items,
+  pathname,
+  onNavigate,
+}: {
+  items: readonly SubNavItem[];
+  pathname: string;
+  onNavigate?: (() => void) | undefined;
+}) {
+  if (items.length === 0) return <EmptyNav />;
   return (
     <div className="flex flex-col gap-0.5">
       {items.map((item) => (
@@ -443,6 +506,26 @@ function MenuRootNav({
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * Menu-driven list for `onlyRootCode`: the children of one root `MenuItem`
+ * from the user's permission-filtered menu, flattened.
+ */
+function rootItems(menu: MenuTreeNode[], rootCode: string): SubNavItem[] {
+  return (menu.find((item) => item.code === rootCode)?.children ?? []).flatMap(
+    (item): SubNavItem[] =>
+      item.path
+        ? [
+            {
+              id: item.code,
+              label: item.label,
+              path: item.path,
+              icon: ChevronRight,
+            },
+          ]
+        : [],
   );
 }
 
@@ -539,35 +622,48 @@ export function DynamicSidebar({
         aria-label={`${headerTitle} Navigation`}
         className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3"
       >
-        {onlyRootCode ? (
-          <MenuRootNav
-            rootCode={onlyRootCode}
-            pathname={pathname}
-            onNavigate={onNavigate}
-          />
-        ) : isSettingsContext ? (
-          <div className="flex flex-col gap-0.5">
-            {SETTINGS_NAV_ITEMS.map((item) => (
-              <NavigationItem
-                key={item.id}
-                item={item}
-                isActive={checkIsActive(item, pathname)}
+        <WithMyMenu>
+          {(menu) => {
+            if (onlyRootCode) {
+              return (
+                <NavItemList
+                  items={rootItems(menu, onlyRootCode)}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                />
+              );
+            }
+
+            const allowed = collectMenuCodes(menu);
+            if (isSettingsContext) {
+              return (
+                <NavItemList
+                  items={SETTINGS_NAV_ITEMS.filter((item) =>
+                    allowed.has(item.menuCode),
+                  )}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                />
+              );
+            }
+
+            const groups = HR_NAV_GROUPS.map((group) => ({
+              ...group,
+              items: group.items.filter((item) => allowed.has(item.menuCode)),
+            })).filter((group) => group.items.length > 0);
+            if (groups.length === 0) return <EmptyNav />;
+            return groups.map((group) => (
+              <NavigationGroup
+                key={group.id}
+                group={group}
+                pathname={pathname}
+                isCollapsed={collapsedGroups[group.id] === true}
+                onToggle={() => toggleGroup(group.id)}
                 onNavigate={onNavigate}
               />
-            ))}
-          </div>
-        ) : (
-          HR_NAV_GROUPS.map((group) => (
-            <NavigationGroup
-              key={group.id}
-              group={group}
-              pathname={pathname}
-              isCollapsed={collapsedGroups[group.id] === true}
-              onToggle={() => toggleGroup(group.id)}
-              onNavigate={onNavigate}
-            />
-          ))
-        )}
+            ));
+          }}
+        </WithMyMenu>
       </nav>
     </aside>
   );
