@@ -192,7 +192,7 @@ export function TicketsView() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/self-service/tickets")}
+              onClick={() => router.push("/portal/tickets")}
             >
               My tickets
             </Button>

@@ -1,7 +1,8 @@
-import { MyTasksView } from "@/features/hr/tasks/components/MyTasksView";
+import { redirect } from "next/navigation";
 
-// `app/` stays thin — routing only. The screen lives in `features/hr/tasks/`
-// (Docs/CODING_STANDARDS.md §4).
+// Self-service screens live in the employee portal only — this old dashboard
+// route just forwards there, so bookmarks and old links keep working.
+// Docs/EMPLOYEE_SELF_SERVICE_API.md §4.
 export default function SelfServiceTasksPage() {
-  return <MyTasksView />;
+  redirect("/portal/tasks");
 }

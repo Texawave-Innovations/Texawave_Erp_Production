@@ -191,7 +191,7 @@ export function WorkLogsView() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push("/self-service/work-logs")}
+            onClick={() => router.push("/portal/work-logs")}
             className="text-theme-xs"
           >
             My work logs

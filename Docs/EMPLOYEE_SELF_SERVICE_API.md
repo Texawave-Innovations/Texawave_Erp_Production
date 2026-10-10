@@ -14,7 +14,8 @@ changing a portal page. **Scope:** everything under the `(employee-portal)` rout
 apps/ui/src/app/(employee-portal)/portal/<feature>/page.tsx
             │  thin wrapper, no business logic
             ▼
-apps/ui/src/features/employee-self-service/<feature>/
+apps/ui/src/features/employee-self-service/<feature>/   (profile, documents, leave, expense claims, exit requests)
+apps/ui/src/features/hr/<feature>/components/My*View.tsx (tasks, tickets, work logs, attendance)
             │  components + hooks + api.ts
             ▼
 apps/api/src/modules/employee-self-service/<feature>/*.controller.ts
@@ -161,6 +162,14 @@ feature. `DynamicSidebar` renders the portal shell with `onlyRootCode="portal"` 
 tab. The "Go to HR/Admin" button some screenshots/old docs may still mention **no longer exists** —
 the portal and dashboard are fully separate shells with no cross-navigation button; a user with both
 employee and HR permissions still only sees the portal sidebar while in `/portal/...`.
+
+**One screen per feature.** Tasks, tickets, work logs and attendance have exactly one self-service
+screen, `features/hr/<feature>/components/My*View.tsx`, rendered by the `/portal/<feature>` page —
+the same screen whether an employee or an HR staff member opens their own records (the HR screens'
+"My …" buttons link to `/portal/<feature>`). The old dashboard routes `/self-service/{tasks,tickets,
+work-logs,attendance}` only redirect there. Don't add a second, portal-only copy of a screen that
+already exists under `features/hr/`: the cut-down copies this replaced had no ticket replies, offered
+illegal task moves and capped every list at 50 rows.
 
 **Which shell a user gets.** Every account with an employee record — Employees and Team Leads alike —
 lands on and stays in the portal, whatever `hr.*` reads their role holds. Only holders of
