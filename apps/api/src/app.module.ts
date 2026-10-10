@@ -27,6 +27,7 @@ import { ExitRequestsModule } from "./modules/hr/exit-requests/exit-requests.mod
 import { MyExitRequestsModule } from "./modules/employee-self-service/exit-requests/my-exit-requests.module.js";
 import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
 import { RevisionLettersModule } from "./modules/hr/revision-letters/revision-letters.module.js";
+import { PromotionLettersModule } from "./modules/hr/promotion-letters/promotion-letters.module.js";
 import { InterviewsModule } from "./modules/hr/interviews/interviews.module.js";
 import { OfferLettersModule } from "./modules/hr/offer-letters/offer-letters.module.js";
 import { ProfilesModule } from "./modules/hr/profiles/profiles.module.js";
@@ -35,6 +36,7 @@ import { CalendarModule } from "./modules/hr/calendar/calendar.module.js";
 import { HolidaysModule } from "./modules/hr/holidays/holidays.module.js";
 import { WeeklyOffRulesModule } from "./modules/hr/weekly-off-rules/weekly-off-rules.module.js";
 import { ShiftAssignmentsModule } from "./modules/hr/shift-assignments/shift-assignments.module.js";
+import { PayrollModule } from "./modules/hr/payroll/payroll.module.js";
 import { ShiftsModule } from "./modules/master-data/shifts/shifts.module.js";
 import { DesignationsModule } from "./modules/master-data/designations/designations.module.js";
 import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
@@ -91,6 +93,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CalendarModule,
     LeaveTypesModule,
     LeaveRequestsModule,
+    PayrollModule,
     WorkLogsModule,
     TasksModule,
     TicketsModule,
@@ -98,6 +101,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     ExitRequestsModule,
     AttendanceModule,
     RevisionLettersModule,
+    PromotionLettersModule,
     InterviewsModule,
     OfferLettersModule,
     ProfilesModule,

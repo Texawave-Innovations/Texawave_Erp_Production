@@ -89,12 +89,30 @@ model Organization {
   attendanceRecords       AttendanceRecord[]
   attendanceCorrections   AttendanceCorrection[]
   revisionLetters         RevisionLetter[]
+  promotionLetters        PromotionLetter[]
   interviews              Interview[]
   offerLetters            OfferLetter[]
   employeeProfiles        EmployeeProfile[]
   employeeSensitiveInfos  EmployeeSensitiveInfo[]
   employeeAddresses       EmployeeAddress[]
   employeeGovernmentIds   EmployeeGovernmentId[]
+  payrollPeriods        PayrollPeriod[]
+  payrollRuns           PayrollRun[]
+  payrollEntries        PayrollEntry[]
+  payrollEarnings       PayrollEarning[]
+  payrollDeductions     PayrollDeduction[]
+  employeeSalaries      EmployeeSalary[]
+  employeePfProfiles    EmployeePfProfile[]
+  pfContributions       PfContribution[]
+  employeeEsiProfiles   EmployeeEsiProfile[]
+  esiContributions      EsiContribution[]
+  employeeLoans         EmployeeLoan[]
+  loanRepayments        LoanRepayment[]
+  loanSkipRequests      LoanSkipRequest[]
+  employeeBonuses       EmployeeBonus[]
+  payslips              Payslip[]
+  paymentBatches        PaymentBatch[]
+  payrollPayments       PayrollPayment[]
 
   @@map("organizations")
   @@schema("platform")
@@ -138,6 +156,13 @@ model User {
   passwordResetTokens PasswordResetToken[]
   approvalsRequested  Approval[]              @relation("ApprovalRequester")
   approvalsDecided    Approval[]              @relation("ApprovalDecider")
+  payrollPeriodsFinalized   PayrollPeriod[]         @relation("PayrollPeriodFinalizer")
+  payrollRunsCreated        PayrollRun[]            @relation("PayrollRunCreator")
+  payrollRunsApproved       PayrollRun[]            @relation("PayrollRunApprover")
+  loanSkipRequestsRequested LoanSkipRequest[]       @relation("LoanSkipRequester")
+  loanSkipRequestsApproved  LoanSkipRequest[]       @relation("LoanSkipApprover")
+  bonusesApproved           EmployeeBonus[]         @relation("BonusApprover")
+  paymentBatchesGenerated   PaymentBatch[]          @relation("PaymentBatchGenerator")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -461,8 +486,9 @@ model Designation {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employees    Employee[]
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  employees        Employee[]
+  promotionLetters PromotionLetter[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -621,6 +647,7 @@ model Employee {
   tickets               Ticket[]                   @relation("TicketRequester")
   ticketComments        TicketComment[]            @relation("TicketCommentByEmployee")
   revisionLetters       RevisionLetter[]
+  promotionLetters      PromotionLetter[]
   profile               EmployeeProfile?
   sensitiveInfo         EmployeeSensitiveInfo?
   attendanceRecords     AttendanceRecord[]
@@ -632,6 +659,16 @@ model Employee {
   documents             EmployeeDocument[]
   employeeAddresses     EmployeeAddress[]
   employeeGovernmentId  EmployeeGovernmentId?
+  salaries         EmployeeSalary[]
+  pfProfile        EmployeePfProfile?
+  esiProfile       EmployeeEsiProfile?
+  loans            EmployeeLoan[]
+  bonuses          EmployeeBonus[]
+  payrollEntries   PayrollEntry[]
+  payslips         Payslip[]
+  payrollPayments  PayrollPayment[]
+  pfContributions  PfContribution[]
+  esiContributions EsiContribution[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -1278,6 +1315,50 @@ model RevisionLetter {
   @@schema("hr")
 }
 
+/// Promotion letter issued to an existing employee (Recruitment → Promotion
+/// Letter). Same shape and rules as `RevisionLetter` — employee-linked, so
+/// team-scoped THROUGH `employee`; GENERATED only; the four components are the
+/// stored truth and gross is derived — plus a new designation chosen from the
+/// `designations` master. `designation` and `previous_designation` are name
+/// snapshots taken at issue, so a later rename in the master does not rewrite
+/// an issued letter. Issuing a letter does NOT change the employee's stored
+/// designation or salary. `document_no` is issued once from the per-FY
+/// `platform.document_sequences` counter and is never changed.
+model PromotionLetter {
+  id                   Int      @id @default(autoincrement())
+  organizationId       Int      @map("organization_id")
+  employeeId           Int      @map("employee_id")
+  designationId        Int      @map("designation_id")
+  documentNo           String   @map("document_no")
+  employeeName         String   @map("employee_name")
+  previousDesignation  String   @map("previous_designation")
+  designation          String
+  location             String
+  letterDate           DateTime @map("letter_date") @db.Date
+  effectiveDate        DateTime @map("effective_date") @db.Date
+  basic                Decimal  @db.Decimal(12, 2)
+  da                   Decimal  @db.Decimal(12, 2)
+  hra                  Decimal  @db.Decimal(12, 2)
+  ca                   Decimal  @db.Decimal(12, 2)
+  signatoryName        String   @map("signatory_name")
+  signatoryDesignation String   @map("signatory_designation")
+  status               String   @default("GENERATED")
+  createdBy            Int?     @map("created_by")
+  updatedBy            Int?     @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  employee          Employee     @relation(fields: [employeeId], references: [id])
+  designationMaster Designation  @relation(fields: [designationId], references: [id])
+
+  @@unique([organizationId, documentNo])
+  @@index([organizationId, employeeId])
+  @@index([designationId])
+  @@map("promotion_letters")
+  @@schema("hr")
+}
+
 /// Interview schedule entry (legacy RTDB `interviewSchedule`, Recruitment →
 /// Interview Schedule). Candidate and interviewer are FREE TEXT, as legacy
 /// stores them: there is no candidate or employee reference, so there is no
@@ -1715,3 +1796,542 @@ model EmployeeGovernmentId {
   @@map("employee_government_ids")
   @@schema("hr")
 }
+
+// ---------------------------------------------------------------------------
+// HR Payroll & Compliance (apps/api/src/modules/hr/payroll)
+// ---------------------------------------------------------------------------
+
+model PayrollPeriod {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  year           Int
+  month          Int
+  periodStart    DateTime  @map("period_start") @db.Date
+  periodEnd      DateTime  @map("period_end") @db.Date
+  status         String    @default("DRAFT")
+  finalizedAt    DateTime? @map("finalized_at") @db.Timestamptz(6)
+  finalizedById  Int?      @map("finalized_by_id")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  finalizedBy      User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
+  runs             PayrollRun[]
+  pfContributions  PfContribution[]
+  esiContributions EsiContribution[]
+  paymentBatches   PaymentBatch[]
+  loanSkipRequests LoanSkipRequest[]
+  payslips         Payslip[]
+  bonuses          EmployeeBonus[]
+  arrearsPaidSalaries EmployeeSalary[] @relation("SalaryArrearsPaidPeriod")
+
+  @@unique([organizationId, year, month])
+  @@index([organizationId, status])
+  @@map("payroll_periods")
+  @@schema("hr")
+}
+
+model PayrollRun {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  payrollPeriodId Int       @map("payroll_period_id")
+  runNumber       Int       @default(1) @map("run_number")
+  status          String    @default("DRAFT")
+  startedAt       DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdById     Int?      @map("created_by_id")
+  approvedById    Int?      @map("approved_by_id")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  notes           String?
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  payrollPeriod PayrollPeriod  @relation(fields: [payrollPeriodId], references: [id])
+  runCreator    User?          @relation("PayrollRunCreator", fields: [createdById], references: [id])
+  runApprover   User?          @relation("PayrollRunApprover", fields: [approvedById], references: [id])
+  entries       PayrollEntry[]
+
+  @@unique([payrollPeriodId, runNumber])
+  @@index([organizationId, payrollPeriodId])
+  @@index([organizationId, status])
+  @@map("payroll_runs")
+  @@schema("hr")
+}
+
+model PayrollEntry {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  payrollRunId        Int       @map("payroll_run_id")
+  employeeId          Int       @map("employee_id")
+  totalCalendarDays   Int       @map("total_calendar_days")
+  requiredWorkingDays Int       @map("required_working_days")
+  presentDays         Decimal   @default(0) @map("present_days") @db.Decimal(5, 2)
+  halfDays            Decimal   @default(0) @map("half_days") @db.Decimal(5, 2)
+  holidayDays         Decimal   @default(0) @map("holiday_days") @db.Decimal(5, 2)
+  leaveDays           Decimal   @default(0) @map("leave_days") @db.Decimal(5, 2)
+  lopDays             Decimal   @default(0) @map("lop_days") @db.Decimal(5, 2)
+  payableDays         Decimal   @default(0) @map("payable_days") @db.Decimal(5, 2)
+  monthlyGross        Decimal   @map("monthly_gross") @db.Decimal(12, 2)
+  perDayRate          Decimal   @map("per_day_rate") @db.Decimal(12, 2)
+  earningRatio        Decimal   @map("earning_ratio") @db.Decimal(7, 4)
+  baseEarnings        Decimal   @map("base_earnings") @db.Decimal(12, 2)
+  totalGrossEarnings  Decimal   @map("total_gross_earnings") @db.Decimal(12, 2)
+  totalDeductions     Decimal   @map("total_deductions") @db.Decimal(12, 2)
+  netPayable          Decimal   @map("net_payable") @db.Decimal(12, 2)
+  status              String    @default("CALCULATED")
+  customFields        Json      @default("{}") @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization       @relation(fields: [organizationId], references: [id])
+  payrollRun       PayrollRun         @relation(fields: [payrollRunId], references: [id])
+  employee         Employee           @relation(fields: [employeeId], references: [id])
+  earnings         PayrollEarning[]
+  deductions       PayrollDeduction[]
+  payslip          Payslip?
+  loanRepayments   LoanRepayment[]
+  pfContributions  PfContribution[]
+  esiContributions EsiContribution[]
+  payrollPayments  PayrollPayment[]
+
+  @@unique([payrollRunId, employeeId])
+  @@index([organizationId, payrollRunId])
+  @@index([organizationId, employeeId])
+  @@index([organizationId, status])
+  @@map("payroll_entries")
+  @@schema("hr")
+}
+
+model PayrollEarning {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  payrollEntryId   Int       @map("payroll_entry_id")
+  code             String
+  name             String
+  baseAmount       Decimal   @map("base_amount") @db.Decimal(12, 2)
+  earningRatio     Decimal   @default(1.0000) @map("earning_ratio") @db.Decimal(7, 4)
+  calculatedAmount Decimal   @map("calculated_amount") @db.Decimal(12, 2)
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  payrollEntry PayrollEntry @relation(fields: [payrollEntryId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, payrollEntryId])
+  @@index([payrollEntryId, code])
+  @@map("payroll_earnings")
+  @@schema("hr")
+}
+
+model PayrollDeduction {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  payrollEntryId Int       @map("payroll_entry_id")
+  code           String
+  name           String
+  amount         Decimal   @map("amount") @db.Decimal(12, 2)
+  sourceType     String?   @map("source_type")
+  sourceId       Int?      @map("source_id")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  payrollEntry PayrollEntry @relation(fields: [payrollEntryId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, payrollEntryId])
+  @@index([payrollEntryId, code])
+  @@map("payroll_deductions")
+  @@schema("hr")
+}
+
+model EmployeeSalary {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  employeeId       Int       @map("employee_id")
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  effectiveTo      DateTime? @map("effective_to") @db.Date
+  grossMonthly     Decimal   @map("gross_monthly") @db.Decimal(12, 2)
+  basic            Decimal   @map("basic") @db.Decimal(12, 2)
+  hra              Decimal   @map("hra") @db.Decimal(12, 2)
+  conveyance       Decimal   @default(0) @map("conveyance") @db.Decimal(12, 2)
+  otherAllowance   Decimal   @default(0) @map("other_allowance") @db.Decimal(12, 2)
+  specialAllowance Decimal   @default(0) @map("special_allowance") @db.Decimal(12, 2)
+  arrearsSalary    Decimal   @default(0) @map("arrears_salary") @db.Decimal(12, 2)
+  /// Arrears are a one-time payment: set when the period that paid them is
+  /// finalized, cleared when `arrears_salary` is changed.
+  arrearsPaidPeriodId Int?  @map("arrears_paid_period_id")
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  arrearsPaidPeriod PayrollPeriod? @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
+
+  @@index([organizationId, employeeId, effectiveFrom])
+  @@map("employee_salaries")
+  @@schema("hr")
+}
+
+model EmployeePfProfile {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @unique @map("employee_id")
+  pfApplicable   Boolean   @default(true) @map("pf_applicable")
+  uan            String?
+  pfNumber       String?   @map("pf_number")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  effectiveTo    DateTime? @map("effective_to") @db.Date
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, employeeId])
+  @@map("employee_pf_profiles")
+  @@schema("hr")
+}
+
+model PfContribution {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  payrollPeriodId      Int       @map("payroll_period_id")
+  payrollEntryId       Int       @map("payroll_entry_id")
+  employeeId           Int       @map("employee_id")
+  pfIncluded           Boolean   @default(true) @map("pf_included")
+  pfWage               Decimal   @map("pf_wage") @db.Decimal(12, 2)
+  employeeContribution Decimal   @map("employee_contribution") @db.Decimal(12, 2)
+  employerContribution Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  paymentStatus        String    @default("PENDING") @map("payment_status")
+  salaryCredited       Boolean   @default(false) @map("salary_credited")
+  customFields         Json      @default("{}") @map("custom_fields")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  payrollEntry  PayrollEntry  @relation(fields: [payrollEntryId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollPeriodId, employeeId])
+  @@index([organizationId, payrollPeriodId])
+  @@index([organizationId, employeeId])
+  @@map("pf_contributions")
+  @@schema("hr")
+}
+
+model EmployeeEsiProfile {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @unique @map("employee_id")
+  esiApplicable   Boolean   @default(true) @map("esi_applicable")
+  insuranceNumber String?   @map("insurance_number")
+  effectiveFrom   DateTime  @map("effective_from") @db.Date
+  effectiveTo     DateTime? @map("effective_to") @db.Date
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, employeeId])
+  @@map("employee_esi_profiles")
+  @@schema("hr")
+}
+
+model EsiContribution {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  payrollPeriodId      Int       @map("payroll_period_id")
+  payrollEntryId       Int       @map("payroll_entry_id")
+  employeeId           Int       @map("employee_id")
+  esiIncluded          Boolean   @default(true) @map("esi_included")
+  esiWage              Decimal   @map("esi_wage") @db.Decimal(12, 2)
+  employeeContribution Decimal   @map("employee_contribution") @db.Decimal(12, 2)
+  employerContribution Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  paymentStatus        String    @default("PENDING") @map("payment_status")
+  salaryCredited       Boolean   @default(false) @map("salary_credited")
+  customFields         Json      @default("{}") @map("custom_fields")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  payrollEntry  PayrollEntry  @relation(fields: [payrollEntryId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollPeriodId, employeeId])
+  @@index([organizationId, payrollPeriodId])
+  @@index([organizationId, employeeId])
+  @@map("esi_contributions")
+  @@schema("hr")
+}
+
+model EmployeeLoan {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @map("employee_id")
+  loanNumber      String    @map("loan_number")
+  principalAmount Decimal   @map("principal_amount") @db.Decimal(12, 2)
+  emiAmount       Decimal   @map("emi_amount") @db.Decimal(12, 2)
+  emiMonths       Int       @map("emi_months")
+  disbursedDate   DateTime  @map("disbursed_date") @db.Date
+  status          String    @default("ACTIVE")
+  reason          String?
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  employee     Employee          @relation(fields: [employeeId], references: [id])
+  repayments   LoanRepayment[]
+  skipRequests LoanSkipRequest[]
+
+  @@unique([organizationId, loanNumber])
+  @@index([organizationId, employeeId])
+  @@index([organizationId, status])
+  @@map("employee_loans")
+  @@schema("hr")
+}
+
+model LoanRepayment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  loanId         Int       @map("loan_id")
+  payrollEntryId Int?      @map("payroll_entry_id")
+  installmentNo  Int       @map("installment_no")
+  dueDate        DateTime  @map("due_date") @db.Date
+  amount         Decimal   @map("amount") @db.Decimal(12, 2)
+  status         String    @default("PENDING")
+  paidAt         DateTime? @map("paid_at") @db.Timestamptz(6)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  loan         EmployeeLoan  @relation(fields: [loanId], references: [id])
+  payrollEntry PayrollEntry? @relation(fields: [payrollEntryId], references: [id])
+
+  @@unique([loanId, installmentNo])
+  @@index([organizationId, loanId])
+  @@index([loanId, status])
+  @@map("loan_repayments")
+  @@schema("hr")
+}
+
+model LoanSkipRequest {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  loanId          Int       @map("loan_id")
+  payrollPeriodId Int       @map("payroll_period_id")
+  status          String    @default("PENDING")
+  requestedById   Int       @map("requested_by_id")
+  requestedAt     DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  reason          String
+  approvedById    Int?      @map("approved_by_id")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  loan          EmployeeLoan  @relation(fields: [loanId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  requester     User          @relation("LoanSkipRequester", fields: [requestedById], references: [id])
+  approver      User?         @relation("LoanSkipApprover", fields: [approvedById], references: [id])
+
+  @@unique([loanId, payrollPeriodId])
+  @@index([organizationId, loanId])
+  @@index([organizationId, status])
+  @@map("loan_skip_requests")
+  @@schema("hr")
+}
+
+model EmployeeBonus {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @map("employee_id")
+  payrollPeriodId Int?      @map("payroll_period_id")
+  bonusType       String    @map("bonus_type")
+  calculationBase String?   @map("calculation_base")
+  tenureMonths    Int?      @map("tenure_months")
+  attendanceDays  Decimal?  @map("attendance_days") @db.Decimal(5, 2)
+  amount          Decimal   @map("amount") @db.Decimal(12, 2)
+  status          String    @default("PENDING")
+  reason          String?
+  approvedById    Int?      @map("approved_by_id")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  employee      Employee       @relation(fields: [employeeId], references: [id])
+  payrollPeriod PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id])
+  approver      User?          @relation("BonusApprover", fields: [approvedById], references: [id])
+
+  @@index([organizationId, employeeId])
+  @@index([organizationId, payrollPeriodId])
+  @@index([organizationId, status])
+  @@map("employee_bonuses")
+  @@schema("hr")
+}
+
+model Payslip {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  payrollPeriodId Int       @map("payroll_period_id")
+  payrollEntryId  Int       @unique @map("payroll_entry_id")
+  employeeId      Int       @map("employee_id")
+  payslipNumber   String    @map("payslip_number")
+  netPayable      Decimal   @map("net_payable") @db.Decimal(12, 2)
+  status          String    @default("GENERATED")
+  generatedAt     DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
+  pdfPath         String?   @map("pdf_path")
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
+  payrollEntry  PayrollEntry  @relation(fields: [payrollEntryId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([organizationId, payslipNumber])
+  @@index([organizationId, employeeId])
+  @@index([organizationId, payrollPeriodId])
+  @@map("payslips")
+  @@schema("hr")
+}
+
+model PaymentBatch {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  payrollPeriodId Int       @map("payroll_period_id")
+  batchNumber     String    @map("batch_number")
+  totalEmployees  Int       @map("total_employees")
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(12, 2)
+  fileName        String?   @map("file_name")
+  generatedAt     DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
+  generatedById   Int?      @map("generated_by_id")
+  status          String    @default("PENDING")
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization     @relation(fields: [organizationId], references: [id])
+  payrollPeriod PayrollPeriod    @relation(fields: [payrollPeriodId], references: [id])
+  generator     User?            @relation("PaymentBatchGenerator", fields: [generatedById], references: [id])
+  payments      PayrollPayment[]
+
+  @@unique([organizationId, batchNumber])
+  @@index([organizationId, payrollPeriodId])
+  @@index([organizationId, status])
+  @@map("payment_batches")
+  @@schema("hr")
+}
+
+model PayrollPayment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  paymentBatchId Int       @map("payment_batch_id")
+  payrollEntryId Int       @map("payroll_entry_id")
+  employeeId     Int       @map("employee_id")
+  amount         Decimal   @map("amount") @db.Decimal(12, 2)
+  paymentMethod  String    @default("BANK_TRANSFER") @map("payment_method")
+  status         String    @default("PENDING")
+  bankReference  String?   @map("bank_reference")
+  creditedAt     DateTime? @map("credited_at") @db.Timestamptz(6)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  paymentBatch PaymentBatch @relation(fields: [paymentBatchId], references: [id])
+  payrollEntry PayrollEntry @relation(fields: [payrollEntryId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([paymentBatchId, payrollEntryId])
+  @@index([organizationId, employeeId])
+  @@index([organizationId, status])
+  @@map("payroll_payments")
+  @@schema("hr")
+}
+

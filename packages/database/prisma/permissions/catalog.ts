@@ -226,6 +226,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Issue and edit salary revision letters",
   ),
 
+  // apps/api/src/modules/hr/promotion-letters — same model as revision letters:
+  // employee-linked, team-scoped through the employee, write.own reserved, and
+  // no .team grant to any role by default.
+  ...scopedPermission(
+    "hr.promotion_letter.read",
+    "View promotion letters and an employee's salary history",
+  ),
+  ...scopedPermission(
+    "hr.promotion_letter.write",
+    "Issue and edit promotion letters",
+  ),
+
   // apps/api/src/modules/hr/employees — team-scoped data, so read/write are
   // seeded as .own/.team/.all together. Team leads get read.team only by
   // default; write.team exists but is granted to no role without approval.
@@ -394,6 +406,66 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "audit.log.read",
     description: "Browse the organization's audit trail",
+  },
+
+  // apps/api/src/modules/hr/payroll — team-scoped
+  ...scopedPermission(
+    "hr.payroll.read",
+    "View payroll periods, runs and entries",
+  ),
+  ...scopedPermission(
+    "hr.payroll.write",
+    "Create payroll periods and execute payroll runs",
+  ),
+  ...scopedPermission("hr.payroll.approve", "Approve payroll runs"),
+  ...scopedPermission("hr.payroll.finalize", "Finalize payroll periods"),
+
+  // Salary structures — team-scoped
+  ...scopedPermission("hr.salary.read", "View employee salary structures"),
+  ...scopedPermission(
+    "hr.salary.write",
+    "Create and update employee salary structures",
+  ),
+
+  // PF compliance — team-scoped
+  ...scopedPermission("hr.pf.read", "View PF profiles and contributions"),
+  ...scopedPermission("hr.pf.write", "Manage PF profiles and contributions"),
+
+  // ESI compliance — team-scoped
+  ...scopedPermission("hr.esi.read", "View ESI profiles and contributions"),
+  ...scopedPermission("hr.esi.write", "Manage ESI profiles and contributions"),
+
+  // Employee loans — team-scoped
+  ...scopedPermission("hr.loan.read", "View employee loans and repayments"),
+  ...scopedPermission("hr.loan.write", "Create employee loans and repayments"),
+  ...scopedPermission(
+    "hr.loan.approve",
+    "Approve employee loans and EMI skip requests",
+  ),
+
+  // Employee bonuses — team-scoped
+  ...scopedPermission("hr.bonus.read", "View employee bonuses"),
+  ...scopedPermission("hr.bonus.write", "Create employee bonuses"),
+  ...scopedPermission("hr.bonus.approve", "Approve employee bonuses"),
+
+  // Payslips — team-scoped
+  ...scopedPermission("hr.payslip.read", "View and download payslips"),
+
+  // Payment batches & payouts — team-scoped
+  ...scopedPermission("hr.payment.read", "View payment batches and payouts"),
+  ...scopedPermission(
+    "hr.payment.write",
+    "Generate and process payment batches",
+  ),
+
+  // Self-service payslip & loan read
+  {
+    code: "employee_self_service.payslip.read",
+    description: "View my own payslips",
+  },
+  {
+    code: "employee_self_service.loan.read",
+    description: "View my own loans and repayments",
   },
 ];
 

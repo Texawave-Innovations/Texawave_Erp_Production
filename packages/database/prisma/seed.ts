@@ -238,6 +238,22 @@ async function main() {
       permission: null,
     },
     {
+      code: "hr-payroll",
+      label: "Payroll",
+      path: "/hr/payroll",
+      order: 16,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
+      code: "hr-compliance",
+      label: "Compliance",
+      path: "/hr/compliance",
+      order: 17,
+      parentId: hrParent.id,
+      permission: null,
+    },
+    {
       code: "admin-departments",
       label: "Departments",
       path: "/admin/departments",

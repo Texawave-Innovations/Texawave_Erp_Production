@@ -381,16 +381,16 @@ Covered in §2.5. Additional audit:
 2. **Data:** report rows computed from attendance + holidays + employee salary master. **Does not read any saved payroll run.** It recomputes.
 3. **Workflow:** select month and filters, compute, totals, export to XLSX.
 4. **Calculations:** `perDay`, `presentPay`, `halfDayPay = half × perDay/2`, `holidayPay = holidayDays × perDay`, `totalEarnings = presentPay + halfDayPay + holidayPay`, PF and ESI as §2.1 and §2.2 (third variant), `netPayable = totalEarnings − pf − esi` (`:195`). Rounding to 2 dp everywhere. **Net here excludes loans, ldPay and arrears — differs from Payroll.**
-5. **Production:** none.
-6. **Required backend:** **must read payroll source-of-truth** (master prompt). Production has no payroll. So this report is **blocked** on payroll. Recomputing it independently (as legacy does) would duplicate and diverge from Payroll — an intentional deviation to refuse.
+5. **Production (2026-10-09):** HR → Payroll → **Salary report** tab (`apps/ui/src/features/hr/payroll/components/SalaryReportPanel.tsx`, rules in `salary-report.ts`). Reads the saved run — the approved run, else the latest processed run, flagged "Not yet approved" — via the existing `GET /hr/payroll/entries?payrollRunId=`, all pages. It never recalculates, so net matches Payroll and payslips (includes loans and arrears, which settles SR1/SR2 in favour of Payroll). Totals are summed in the browser; CSV export guards against formula injection. No backend change.
+6. **Required backend:** **must read payroll source-of-truth** (master prompt). Before payroll existed this report was **blocked** on it. Recomputing it independently (as legacy does) would duplicate and diverge from Payroll — an intentional deviation to refuse.
 7. **Models:** none (report only).
-8. **APIs:** `GET /hr/reports/salary?month=&teamId=&departmentId=` — **blocked**.
-9. **Permissions:** `hr.salary_report.read` (new, blocked).
+8. **APIs:** `GET /hr/reports/salary?month=&teamId=&departmentId=` — **deferred.** The shipped tab uses the payroll entries endpoint, so it has no team/department filter; add this endpoint when that filter or server-side totals are needed.
+9. **Permissions:** `hr.salary_report.read` — **deferred** with the endpoint. The shipped tab is gated by `hr.payroll.read` (`.own`/`.team`/`.all`), and entries are team-filtered server-side.
 10. **Audit:** report export is a sensitive read; decision D11.
 11. **Scope:** `.team`/`.all`.
 12. **Dependencies:** Payroll (missing), Attendance (existing), Holiday (existing).
 13. **Unresolved:** SR1 which net is authoritative (Payroll vs Salary Report disagree); SR2 whether the report includes loan/ldPay/arrears; SR3 PF rounding (see §2.1).
-14. **Recommendation:** **blocked on payroll.** Do not build a parallel calculator.
+14. **Recommendation:** built as a read of the payroll run (above). Still do not build a parallel calculator.
 
 ### 3.15 HR Dashboard (`HRDashboard.tsx` 1,100+ lines)
 

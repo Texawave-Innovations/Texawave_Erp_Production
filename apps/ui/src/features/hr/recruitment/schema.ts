@@ -82,7 +82,23 @@ export const revisionFormSchema = z.object({
   signatoryDesignation: text("Signatory designation", 2, 120),
 });
 
+/** Same as a revision letter, but the designation is a master-list id held as
+ * the `<select>` value string ("" = nothing picked). */
+export const promotionFormSchema = revisionFormSchema
+  .omit({ designation: true })
+  .extend({
+    designationId: z.string().regex(/^[1-9]\d*$/, "Select a designation"),
+  });
+
+/** Code for a designation added from the promotion form: upper-case letters,
+ * digits and `_`, 2–30 characters, as the master-data DTO requires. */
+export const designationCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_]{2,30}$/, "2–30 letters, digits or _");
+
 export type InterviewFormValues = z.infer<typeof interviewFormSchema>;
+export type PromotionFormValues = z.infer<typeof promotionFormSchema>;
 export type OfferFormValues = z.infer<typeof offerFormSchema>;
 export type RevisionFormValues = z.infer<typeof revisionFormSchema>;
 
