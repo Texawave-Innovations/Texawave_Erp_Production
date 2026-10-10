@@ -185,6 +185,42 @@ async function main() {
   });
 
   if (swTeam && permanentType) {
+    // The sequence is only ever moved forward here — on a DB that already has
+    // employees created through the app, rewinding it would hand out codes
+    // that are already taken.
+    const employeeSequence = await prisma.documentSequence.upsert({
+      where: {
+        organizationId_docType: { organizationId: org.id, docType: "employee" },
+      },
+      update: {},
+      create: {
+        organizationId: org.id,
+        docType: "employee",
+        prefix: "EMP-",
+        padding: 6,
+        nextNumber: 1,
+      },
+    });
+
+    const existingAdminEmployee = await prisma.employee.findUnique({
+      where: { userId: superAdminUser.id },
+      select: { id: true },
+    });
+
+    // EMP-000001 on a fresh DB; otherwise the next free code from the sequence.
+    let adminEmployeeCode = "EMP-000001";
+    if (!existingAdminEmployee) {
+      const codeTaken = await prisma.employee.findFirst({
+        where: { organizationId: org.id, employeeCode: adminEmployeeCode },
+        select: { id: true },
+      });
+      if (codeTaken || employeeSequence.nextNumber > 1) {
+        adminEmployeeCode = `${employeeSequence.prefix}${String(
+          employeeSequence.nextNumber,
+        ).padStart(employeeSequence.padding, "0")}`;
+      }
+    }
+
     await prisma.employee.upsert({
       where: {
         userId: superAdminUser.id,
@@ -196,7 +232,7 @@ async function main() {
       },
       create: {
         organizationId: org.id,
-        employeeCode: "EMP-000001",
+        employeeCode: adminEmployeeCode,
         userId: superAdminUser.id,
         fullName: "Super Admin",
         workEmail: SUPER_ADMIN_EMAIL,
@@ -210,21 +246,17 @@ async function main() {
       },
     });
 
-    await prisma.documentSequence.upsert({
-      where: {
-        organizationId_docType: { organizationId: org.id, docType: "employee" },
-      },
-      update: {
-        nextNumber: 2,
-      },
-      create: {
-        organizationId: org.id,
-        docType: "employee",
-        prefix: "EMP-",
-        padding: 6,
-        nextNumber: 2,
-      },
-    });
+    if (!existingAdminEmployee) {
+      const usedNumber = Number(
+        adminEmployeeCode.slice(employeeSequence.prefix.length),
+      );
+      await prisma.documentSequence.update({
+        where: { id: employeeSequence.id },
+        data: {
+          nextNumber: Math.max(employeeSequence.nextNumber, usedNumber + 1),
+        },
+      });
+    }
   }
 
   console.log(
