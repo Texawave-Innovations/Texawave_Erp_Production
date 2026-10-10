@@ -118,7 +118,11 @@ export default function DashboardLayout({
             className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
           />
         )}
-        <DynamicSidebar open={navOpen} onNavigate={() => setNavOpen(false)} />
+        <DynamicSidebar
+          open={navOpen}
+          onNavigate={() => setNavOpen(false)}
+          excludeRootCodes={["portal"]}
+        />
         <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
