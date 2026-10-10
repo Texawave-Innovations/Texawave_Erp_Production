@@ -93,7 +93,7 @@ not clickable itself, just a container the UI renders as a collapsible section.
    Redis-cached per user, invalidated the moment an admin changes their role's grants (§4.1).
 3. For each item:
    - `permission: null` → always included (visible to every authenticated user in the org).
-   - `permission: "hr.task.write.team"` (a bare prefix, from `scopedPermission()`) → included if the
+   - `permission: "hr.task.write"` (a bare prefix, from `scopedPermission()`) → included if the
      caller holds **any** of `.own`/`.team`/`.all` for that family. This mirrors exactly how
      `PermissionsGuard`/`@RequireScopedPermission()` decide route access — same rule, so "can see the
      tab" and "can call the route" never disagree.
@@ -146,7 +146,7 @@ see §6.3.
      path: "/portal/task-assignment",
      order: 10,
      parentCode: "portal",       // "portal" | "hr" | "admin" | null (top-level)
-     permission: "hr.task.write.team",
+     permission: "hr.task.write",   // scoped family: any of .own/.team/.all shows it
    },
    ```
    `validate.ts` will reject the catalogue at `menu:check`/`menu:sync` time if `permission` doesn't
@@ -181,6 +181,19 @@ Both shells render `DynamicSidebar`, and both take their visibility from the sam
 HR tab permissions are each page's own read family (e.g. `hr-leaves` → `hr.leave_request.read`, any
 scope). Self-service users get their own records through the portal, not through these tabs; only
 `hr-dashboard` stays `permission: null`, because each dashboard widget gates itself.
+
+**Which shell a user lands in** (`apps/ui/src/features/auth/landing.ts`, guarded again in
+`app/(dashboard)/layout.tsx`): an account with an employee record gets the dashboard only if it holds
+`hr.workspace.access`; otherwise it is portal-only, whatever `hr.*` reads its role holds — so
+Employees and Team Leads both work in the portal, and a Team Lead's team tabs (Task Assignment, Team
+Attendance, Team Leaves) are `portal` items gated by the HR screen's own read family. Accounts with no
+employee record (Super Admin) always get the dashboard. `hr.workspace.access` also gates the `hr` root
+group itself, so it appears in the Menu access matrix as the **"HR"** row, and without it no HR tab is
+in the user's menu at all. Holders of `settings.role.write` always get the dashboard shell too (the
+lock-out guard in `hasWorkspaceAccess`), so after deploying, a Super Admin can still sign in, open
+Settings → Roles → Menu access and tick "HR" for the Super Admin role itself and each role that
+should keep the HR workspace (e.g. HR Manager) — `permissions:sync` never grants anything (the local
+seed grants Super Admin every permission, so a re-seeded dev DB is covered).
 
 A root group's `code` (`hr`, `portal`, `admin`) is what decides which shell an item can ever appear
 in — get the `parentCode` right in the catalogue or the page will exist but be unreachable from

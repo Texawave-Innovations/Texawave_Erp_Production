@@ -45,7 +45,10 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     path: null,
     order: 3,
     parentCode: null,
-    permission: null,
+    // The HR workspace switch: without it the whole group (and so every HR
+    // tab below) is left out of the user's menu, and the UI keeps them in
+    // the portal (apps/ui/src/features/auth/landing.ts).
+    permission: "hr.workspace.access",
   },
   // HR dashboard tabs. The HR sidebar (apps/ui/src/components/DynamicSidebar.tsx)
   // shows a tab only when `getMyMenu()` returns its code, so each `permission`
@@ -317,13 +320,34 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     // Deliberate exception to the employee_self_service.* namespace
     // (Docs/ARCHITECTURE.md §7): assigning tasks to teammates is a
     // team-scoped HR capability, not self-service, so it's gated by the
-    // existing hr.task.write.team permission — the same one the HR
-    // dashboard's Task Assignment page uses. Not granted to Team Lead by
-    // default (see default-roles.ts); an admin opts in via Settings →
-    // Roles. Grant hr.task.read.team alongside it — the reused TasksView
+    // hr.task.write family (any scope) — the same one the HR dashboard's
+    // Task Assignment page uses. Not granted to Team Lead by default (see
+    // default-roles.ts); an admin opts in via Settings → Roles → Menu
+    // access. Grant hr.task.read.team alongside it — the reused TasksView
     // component gates its own list on hr.task.read.*, so write alone shows
     // the tab but an empty "no access" state.
-    permission: "hr.task.write.team",
+    permission: "hr.task.write",
+  },
+  // Team tabs for a Team Lead, who works in the portal like any employee
+  // (they don't hold hr.workspace.access). Same §7 exception as above: each
+  // is gated by the HR screen's own scoped read family, and the API scopes
+  // the rows to the caller's team via @TeamScoped(). The default Employee
+  // role holds none of these families, so plain employees never see them.
+  {
+    code: "portal-team-attendance",
+    label: "Team Attendance",
+    path: "/portal/team-attendance",
+    order: 11,
+    parentCode: "portal",
+    permission: "hr.attendance.read",
+  },
+  {
+    code: "portal-team-leaves",
+    label: "Team Leaves",
+    path: "/portal/team-leaves",
+    order: 12,
+    parentCode: "portal",
+    permission: "hr.leave_request.read",
   },
   {
     code: "admin",

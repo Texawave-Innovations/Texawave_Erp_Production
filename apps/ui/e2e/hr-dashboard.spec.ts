@@ -273,7 +273,8 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
           email: "hr@texawave.test",
           fullName: "Priya Nair",
           roleIds: [1],
-          permissions,
+          // The HR workspace shell itself; the widgets gate on `permissions`.
+          permissions: ["hr.workspace.access", ...permissions],
         },
       });
     }
@@ -320,7 +321,7 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
     .getByLabel("Password", { exact: true })
     .fill("not-checked-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
-  // HR grants land on the HR dashboard (features/auth/landing.ts).
+  // hr.workspace.access lands on the HR workspace (features/auth/landing.ts).
   await expect(page).toHaveURL(/\/hr$/);
 }
 

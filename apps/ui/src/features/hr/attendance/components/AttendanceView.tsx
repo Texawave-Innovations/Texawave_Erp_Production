@@ -278,7 +278,7 @@ export function AttendanceView() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => router.push("/self-service/attendance")}
+            onClick={() => router.push("/portal/attendance")}
             className="inline-flex items-center gap-2"
           >
             <UserCheck className="h-4 w-4 text-brand-600 dark:text-brand-400" />

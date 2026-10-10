@@ -63,7 +63,7 @@ export default function EmployeePortalLayout({
       return;
     }
     if (hasNoEmployeeRecord) {
-      router.replace("/reference/tags");
+      router.replace("/hr");
       return;
     }
     if (!employee.data) return;

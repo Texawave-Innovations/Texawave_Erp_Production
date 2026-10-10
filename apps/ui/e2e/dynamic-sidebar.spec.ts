@@ -58,7 +58,11 @@ async function signInWithMenu(
           email: "lead@texawave.test",
           fullName: "Team Lead",
           roleIds: [1],
-          permissions: ["hr.leave_request.read.team", "hr.holiday.read"],
+          permissions: [
+            "hr.workspace.access",
+            "hr.leave_request.read.team",
+            "hr.holiday.read",
+          ],
         },
       });
     }
@@ -93,7 +97,7 @@ async function signInWithMenu(
     .getByLabel("Password", { exact: true })
     .fill("not-checked-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
-  // HR grants land on the HR dashboard (features/auth/landing.ts).
+  // hr.workspace.access lands on the HR workspace (features/auth/landing.ts).
   await expect(page).toHaveURL(/\/hr$/);
 }
 

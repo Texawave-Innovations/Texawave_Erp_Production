@@ -34,6 +34,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "master.work_location.write",
       "master.shift.read",
       "master.shift.write",
+      "hr.workspace.access",
       "hr.employee.read.all",
       "hr.employee.write.all",
       "hr.employee_document.read.all",

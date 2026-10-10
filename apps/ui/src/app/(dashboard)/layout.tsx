@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useMe } from "@/hooks/usePermission";
+import { hasWorkspaceAccess } from "@/features/auth/landing";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -43,6 +44,19 @@ export default function DashboardLayout({
     employee.data !== undefined &&
     employee.data.onboardingStatus !== "COMPLETE";
 
+  // Employees and Team Leads work in the portal: an account WITH an employee
+  // record needs hr.workspace.access (or settings.role.write) for this shell
+  // (hasWorkspaceAccess in features/auth/landing.ts).
+  // Accounts with no employee record (Super Admin) are never sent away. Wait
+  // for both lookups so the HR shell never flashes for a portal-only user.
+  const checkingShell =
+    (me.data === undefined && !me.isError) ||
+    (employee.data === undefined && !employee.isError);
+  const portalOnly =
+    me.data !== undefined &&
+    employee.data !== undefined &&
+    !hasWorkspaceAccess(me.data.permissions);
+
   async function handleSignOut() {
     void apiClient.post("/auth/logout").catch(() => undefined);
     clear();
@@ -58,10 +72,24 @@ export default function DashboardLayout({
       router.replace("/change-password");
     } else if (onboardingIncomplete) {
       router.replace("/onboarding");
+    } else if (portalOnly) {
+      router.replace("/portal");
     }
-  }, [accessToken, mustChangePassword, onboardingIncomplete, router]);
+  }, [
+    accessToken,
+    mustChangePassword,
+    onboardingIncomplete,
+    portalOnly,
+    router,
+  ]);
 
-  if (!accessToken || mustChangePassword || onboardingIncomplete) {
+  if (
+    !accessToken ||
+    mustChangePassword ||
+    onboardingIncomplete ||
+    portalOnly ||
+    checkingShell
+  ) {
     return null;
   }
 

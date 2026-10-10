@@ -101,6 +101,16 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/update/deactivate shifts",
   },
 
+  // Which shell a user with an employee record gets (UI only — every HR route
+  // still enforces its own permission). Without it, employees and team leads
+  // work in the self-service portal, whatever hr.* reads their role holds;
+  // gates the `hr` menu group (prisma/menu/catalog.ts), so Settings → Roles →
+  // Menu access shows it as the "HR" row. Docs/MENU_NAVIGATION_API.md §5.1.
+  {
+    code: "hr.workspace.access",
+    description: "Open the HR workspace (dashboard) instead of only the portal",
+  },
+
   // apps/api/src/modules/hr/shift-assignments — team-scoped. write.own is
   // reserved: employees cannot choose their own shift.
   ...scopedPermission("hr.shift_assignment.read", "View shift assignments"),

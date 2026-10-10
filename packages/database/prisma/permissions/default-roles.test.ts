@@ -70,6 +70,12 @@ describe("default roles", () => {
     );
   });
 
+  it("Employee and Team Lead work in the portal, HR Manager in the HR workspace", () => {
+    assert.ok(!role("Employee").permissions.includes("hr.workspace.access"));
+    assert.ok(!role("Team Lead").permissions.includes("hr.workspace.access"));
+    assert.ok(role("HR Manager").permissions.includes("hr.workspace.access"));
+  });
+
   it("nobody but Super Admin can correct a terminal employment status", () => {
     for (const r of DEFAULT_ROLES) {
       assert.ok(

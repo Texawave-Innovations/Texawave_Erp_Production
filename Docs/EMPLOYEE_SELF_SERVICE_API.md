@@ -29,8 +29,9 @@ the JWT — never from an `id`/`employeeId` in the request body or URL. This is 
 this whole surface (`ARCHITECTURE.md` §7): an employee cannot pass someone else's id and see their
 data, because there is nowhere in these requests to put one.
 
-One exception exists today, deliberately: **Task Assignment** (`/portal/task-assignment`), where a
-Team Lead acts on their **team's** tasks, not only their own — see §5.
+One exception exists, deliberately: the **team tabs** (`/portal/task-assignment`,
+`/portal/team-attendance`, `/portal/team-leaves`), where a Team Lead works on their **team's**
+records, not only their own — see §5.
 
 ---
 
@@ -161,12 +162,30 @@ tab. The "Go to HR/Admin" button some screenshots/old docs may still mention **n
 the portal and dashboard are fully separate shells with no cross-navigation button; a user with both
 employee and HR permissions still only sees the portal sidebar while in `/portal/...`.
 
+**Which shell a user gets.** Every account with an employee record — Employees and Team Leads alike —
+lands on and stays in the portal, whatever `hr.*` reads their role holds. Only holders of
+`hr.workspace.access` (the "HR" row in Settings → Roles → Menu access) land on `/hr`; the dashboard
+layout sends anyone else with an employee record back to `/portal`. Accounts with no employee record
+(Super Admin) always get the dashboard. See [`MENU_NAVIGATION_API.md`](MENU_NAVIGATION_API.md) §5.1.
+
 ---
 
-## 5. Task Assignment — the one `hr.*` permission in the portal
+## 5. Team tabs — the `hr.*` permissions in the portal
 
-`/portal/task-assignment`, gated by `hr.task.write.team` (+ `hr.task.read.team` for the list to
-actually render — see below), is the **documented exception** to §2's namespace rule
+| Portal tab      | Path                      | Menu code                | Gated by (any scope)                                  |
+| --------------- | ------------------------- | ------------------------ | ----------------------------------------------------- |
+| Task Assignment | `/portal/task-assignment` | `portal-task-assignment` | `hr.task.write` (+ `hr.task.read` for the list)       |
+| Team Attendance | `/portal/team-attendance` | `portal-team-attendance` | `hr.attendance.read`                                  |
+| Team Leaves     | `/portal/team-leaves`     | `portal-team-leaves`     | `hr.leave_request.read` (+ `hr.leave.approve` to act) |
+
+Each reuses the dashboard screen as-is (`TasksView`, `AttendanceView`, `LeavesView`) and the API
+scopes the rows by `@TeamScoped()`, so a `.team` grant shows exactly the caller's team. The default
+Team Lead role already holds `hr.attendance.read.team` and `hr.leave_request.read.team`, so those two
+tabs appear for it out of the box; untick them in Menu access to hide them. The default Employee role
+holds none of these families.
+
+Task Assignment in detail — `/portal/task-assignment`, gated by `hr.task.write.*` (+ `hr.task.read.team`
+for the list to actually render — see below), is the **documented exception** to §2's namespace rule
 (`ARCHITECTURE.md` §7). It exists for a Team Lead who needs to assign/reassign/approve tasks for their
 **team**, which is not self-service data by any definition — it's exactly the same capability and the
 exact same API routes the HR dashboard's Task Assignment page uses (`hr/tasks`, documented in
@@ -197,8 +216,11 @@ exact same API routes the HR dashboard's Task Assignment page uses (`hr/tasks`, 
 3. **Cross-check with the dashboard**: for any entity that exists on both sides (leave, attendance,
    tasks, tickets, expense claims, exit requests), confirm a self-service create is visible to HR on
    the dashboard side and vice versa — they're the same rows, not a shadow copy.
-4. **Task Assignment specifically**: confirm granting only `hr.task.write.team` (without `.read.team`)
+4. **Shell**: sign in as an Employee and as a Team Lead — both land on `/portal`, and typing
+   `/hr/...` sends them back to `/portal`. Tick "HR" in their role's Menu access, sign in again, and
+   they land on `/hr`.
+5. **Task Assignment specifically**: confirm granting only `hr.task.write.team` (without `.read.team`)
    reproduces the "tab visible, list empty/errors" state described in §5 — this is expected, not a bug,
    but worth knowing so it isn't reported as one.
-5. See [`MENU_NAVIGATION_API.md`](MENU_NAVIGATION_API.md) §6 for the general "hidden tab ≠ secure"
+6. See [`MENU_NAVIGATION_API.md`](MENU_NAVIGATION_API.md) §6 for the general "hidden tab ≠ secure"
    testing method and the sign-out/sign-in-again requirement after a permission change.

@@ -365,7 +365,7 @@ export function TasksView() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/self-service/tasks")}
+              onClick={() => router.push("/portal/tasks")}
             >
               My tasks
             </Button>
