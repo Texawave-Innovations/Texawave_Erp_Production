@@ -161,7 +161,7 @@ test("runs payroll for selected employees and drills into one employee", async (
   // Selected-employees mode requires at least one employee.
   await detail.getByRole("button", { name: "Run payroll" }).click();
   const dialog = page.getByRole("dialog", { name: "Run payroll" });
-  await dialog.getByLabel("Selected employees only").check();
+  await dialog.getByLabel("Add or recalculate selected employees").check();
   await dialog.getByRole("button", { name: "Run payroll" }).click();
   await expect(dialog.getByText("Add at least one employee")).toBeVisible();
   expect(state.runBodies).toHaveLength(0);

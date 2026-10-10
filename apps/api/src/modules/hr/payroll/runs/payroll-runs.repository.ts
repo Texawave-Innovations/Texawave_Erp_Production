@@ -8,10 +8,16 @@ import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../../common/tenancy/tenant-where.js";
 import {
+  BusinessRuleConflictException,
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import {
+  bonusesPaidElsewhere,
+  cancelLiveRuns,
+  installmentClaimableBy,
+} from "../shared/payroll-claims.js";
 import { lockPayrollPeriod } from "../shared/payroll-locks.js";
 import type {
   QueryPayrollEntryDto,
@@ -74,6 +80,12 @@ const INCLUDE_ENTRY_DETAILS = {
   },
 } satisfies Prisma.PayrollEntryInclude;
 
+function sameIds(a: number[], b: number[]): boolean {
+  const sa = [...a].sort((x, y) => x - y);
+  const sb = [...b].sort((x, y) => x - y);
+  return sa.length === sb.length && sa.every((id, i) => id === sb[i]);
+}
+
 @Injectable()
 export class PayrollRunsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -118,9 +130,13 @@ export class PayrollRunsRepository {
    * Stores a run under the period row lock, so concurrent runs/approvals of
    * one period serialize:
    * - the period is re-checked (not FINALIZED/CANCELLED) after locking;
+   * - the period's live runs must still be exactly `expectedLiveRunIds` (the
+   *   ones the caller calculated against), else the inputs changed meanwhile;
    * - every earlier PROCESSED/APPROVED run of the period is superseded
-   *   (CANCELLED, its entries too) and loan installments it had linked are
-   *   released, so a period never has two payable runs;
+   *   (`cancelLiveRuns`), so a period never has two payable runs;
+   * - the loan installments and bonuses the calculation pays are row-locked
+   *   and re-checked as still unclaimed by any other open period, so two
+   *   periods never deduct one EMI or pay one bonus twice;
    * - the run number is max+1 read under the same lock (no count() race).
    */
   @OrgScoped()
@@ -130,6 +146,7 @@ export class PayrollRunsRepository {
     notes: string | undefined,
     createdById: number,
     calculations: CalculatedEmployeePayroll[],
+    expectedLiveRunIds: number[],
   ) {
     return this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
@@ -151,33 +168,24 @@ export class PayrollRunsRepository {
           );
         }
 
-        const superseded = await tx.payrollRun.findMany({
-          where: {
-            organizationId: scope.organizationId,
-            payrollPeriodId,
-            status: { in: ["PROCESSED", "APPROVED"] },
-          },
-          select: { id: true },
-        });
-        const supersededIds = superseded.map((r) => r.id);
-        if (supersededIds.length > 0) {
-          await tx.loanRepayment.updateMany({
-            where: {
-              organizationId: scope.organizationId,
-              status: "PENDING",
-              payrollEntry: { payrollRunId: { in: supersededIds } },
-            },
-            data: { payrollEntryId: null, updatedBy: createdById },
-          });
-          await tx.payrollEntry.updateMany({
-            where: { payrollRunId: { in: supersededIds } },
-            data: { status: "CANCELLED", updatedBy: createdById },
-          });
-          await tx.payrollRun.updateMany({
-            where: { id: { in: supersededIds } },
-            data: { status: "CANCELLED", updatedBy: createdById },
-          });
+        const supersededIds = await cancelLiveRuns(
+          tx,
+          scope.organizationId,
+          payrollPeriodId,
+          createdById,
+        );
+        if (!sameIds(supersededIds, expectedLiveRunIds)) {
+          throw new BusinessRuleConflictException(
+            "Payroll for this period changed while it was being calculated. Run it again.",
+            "PAYROLL_INPUTS_CHANGED",
+          );
         }
+        await this.assertStillClaimable(
+          tx,
+          scope.organizationId,
+          payrollPeriodId,
+          calculations,
+        );
 
         const last = await tx.payrollRun.aggregate({
           where: { payrollPeriodId },
@@ -225,6 +233,75 @@ export class PayrollRunsRepository {
     );
   }
 
+  /**
+   * Row-locks the installments and bonuses the calculation pays (in id order,
+   * so two periods' runs never deadlock) and re-checks — now that no other
+   * run can claim them concurrently — that each is still unpaid and not taken
+   * by a live run of another period. A miss means the inputs changed after
+   * the calculation: the whole run is rejected rather than paying twice.
+   */
+  private async assertStillClaimable(
+    tx: Prisma.TransactionClient,
+    organizationId: number,
+    payrollPeriodId: number,
+    calculations: CalculatedEmployeePayroll[],
+  ) {
+    const repaymentIds = calculations
+      .flatMap((c) => c.loanRepayments.map((lr) => lr.repaymentId))
+      .sort((a, b) => a - b);
+    const bonusIds = calculations
+      .flatMap((c) => c.bonusIds)
+      .sort((a, b) => a - b);
+    const changed = () =>
+      new BusinessRuleConflictException(
+        "A loan installment or bonus in this run was changed or paid by another payroll period meanwhile. Run payroll again.",
+        "PAYROLL_INPUTS_CHANGED",
+      );
+
+    if (repaymentIds.length > 0) {
+      await tx.$queryRaw`
+        SELECT id FROM hr.loan_repayments
+         WHERE id IN (${Prisma.join(repaymentIds)})
+         ORDER BY id
+           FOR UPDATE`;
+      const claimable = await tx.loanRepayment.count({
+        where: {
+          id: { in: repaymentIds },
+          organizationId,
+          status: "PENDING",
+          deletedAt: null,
+          ...installmentClaimableBy(payrollPeriodId),
+        },
+      });
+      if (claimable !== new Set(repaymentIds).size) throw changed();
+    }
+
+    if (bonusIds.length > 0) {
+      await tx.$queryRaw`
+        SELECT id FROM hr.employee_bonuses
+         WHERE id IN (${Prisma.join(bonusIds)})
+         ORDER BY id
+           FOR UPDATE`;
+      const approved = await tx.employeeBonus.count({
+        where: {
+          id: { in: bonusIds },
+          organizationId,
+          status: "APPROVED",
+          deletedAt: null,
+        },
+      });
+      const paidElsewhere = await bonusesPaidElsewhere(
+        tx,
+        organizationId,
+        payrollPeriodId,
+        bonusIds,
+      );
+      if (approved !== new Set(bonusIds).size || paidElsewhere.size > 0) {
+        throw changed();
+      }
+    }
+  }
+
   private async storeEntry(
     tx: Prisma.TransactionClient,
     scope: OrgScope,
@@ -269,6 +346,8 @@ export class PayrollRunsRepository {
           baseAmount: e.baseAmount,
           earningRatio: e.earningRatio,
           calculatedAmount: e.calculatedAmount,
+          sourceType: e.sourceType ?? null,
+          sourceId: e.sourceId ?? null,
           createdBy: createdById,
           updatedBy: createdById,
         })),
@@ -292,7 +371,8 @@ export class PayrollRunsRepository {
     }
 
     // PF / ESI contribution snapshots: one per employee per period, so a
-    // re-run overwrites the figures of the run it superseded.
+    // re-run overwrites (and revives — `cancelLiveRuns` retired it) the
+    // snapshot of the run it superseded.
     const key = {
       payrollPeriodId_employeeId: {
         payrollPeriodId,
@@ -306,6 +386,7 @@ export class PayrollRunsRepository {
         pfWage: calc.pf.pfWage,
         employeeContribution: calc.pf.employeeContribution,
         employerContribution: calc.pf.employerContribution,
+        deletedAt: null,
         updatedBy: createdById,
       };
       await tx.pfContribution.upsert({
@@ -329,6 +410,7 @@ export class PayrollRunsRepository {
         esiWage: calc.esi.esiWage,
         employeeContribution: calc.esi.employeeContribution,
         employerContribution: calc.esi.employerContribution,
+        deletedAt: null,
         updatedBy: createdById,
       };
       await tx.esiContribution.upsert({
@@ -346,7 +428,10 @@ export class PayrollRunsRepository {
       });
     }
 
-    // Link exactly the installments the calculator deducted.
+    // Link exactly the installments the calculator deducted (checked as
+    // claimable and row-locked by `assertStillClaimable`). Bonuses need no
+    // link here: their BONUS earnings carry the bonus id, and finalize marks
+    // exactly those PAID.
     for (const lr of calc.loanRepayments) {
       await tx.loanRepayment.updateMany({
         where: {
@@ -355,16 +440,6 @@ export class PayrollRunsRepository {
           status: "PENDING",
         },
         data: { payrollEntryId: entry.id, updatedBy: createdById },
-      });
-    }
-
-    if (calc.bonusIds.length > 0) {
-      await tx.employeeBonus.updateMany({
-        where: {
-          id: { in: calc.bonusIds },
-          organizationId: scope.organizationId,
-        },
-        data: { payrollPeriodId },
       });
     }
   }

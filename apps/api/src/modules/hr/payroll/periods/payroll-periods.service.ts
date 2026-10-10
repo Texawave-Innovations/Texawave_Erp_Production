@@ -99,7 +99,14 @@ export class PayrollPeriodsService {
     }
 
     if (dto.status) {
-      return this.repository.updateStatus(scope, id, dto.status, userId);
+      const updated = await this.repository.updateStatus(
+        scope,
+        id,
+        dto.status,
+        userId,
+      );
+      if (!updated) throw new ResourceNotFoundException("Payroll period", id);
+      return updated;
     }
 
     return current;

@@ -1938,6 +1938,10 @@ model PayrollEarning {
   baseAmount       Decimal   @map("base_amount") @db.Decimal(12, 2)
   earningRatio     Decimal   @default(1.0000) @map("earning_ratio") @db.Decimal(7, 4)
   calculatedAmount Decimal   @map("calculated_amount") @db.Decimal(12, 2)
+  /// What this earning pays out, when it settles a record (e.g. "BONUS" +
+  /// the employee_bonuses id) — finalize marks exactly those records PAID.
+  sourceType       String?   @map("source_type")
+  sourceId         Int?      @map("source_id")
   customFields     Json      @default("{}") @map("custom_fields")
   isActive         Boolean   @default(true) @map("is_active")
   createdBy        Int?      @map("created_by")
@@ -1951,6 +1955,7 @@ model PayrollEarning {
 
   @@index([organizationId, payrollEntryId])
   @@index([payrollEntryId, code])
+  @@index([sourceType, sourceId])
   @@map("payroll_earnings")
   @@schema("hr")
 }

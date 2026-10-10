@@ -25,6 +25,7 @@ function makeService(opts?: {
   period?: unknown;
   activeEmployees?: Array<{ id: number }>;
   run?: unknown;
+  liveRuns?: Array<{ id: number; entries: Array<{ employeeId: number }> }>;
 }) {
   const level = opts?.level ?? "all";
   const teamScope = {
@@ -74,6 +75,9 @@ function makeService(opts?: {
       findMany: vi
         .fn()
         .mockResolvedValue(opts?.activeEmployees ?? [{ id: 1 }, { id: 2 }]),
+    },
+    payrollRun: {
+      findMany: vi.fn().mockResolvedValue(opts?.liveRuns ?? []),
     },
   };
   const service = new PayrollRunsService(
@@ -127,7 +131,46 @@ describe("PayrollRunsService", () => {
           { employeeId: 1, netPayable: 1000 },
           { employeeId: 2, netPayable: 1000 },
         ],
+        [],
       );
+      expect(prisma.payrollRun.findMany).toHaveBeenCalledWith({
+        where: {
+          organizationId: 1,
+          payrollPeriodId: 10,
+          status: { in: ["PROCESSED", "APPROVED"] },
+        },
+        select: {
+          id: true,
+          entries: {
+            where: { deletedAt: null },
+            select: { employeeId: true },
+          },
+        },
+      });
+    });
+
+    it("recalculates selected employees without dropping the rest of the live run", async () => {
+      const { service, repository, calculator, prisma } = makeService({
+        liveRuns: [{ id: 30, entries: [{ employeeId: 1 }, { employeeId: 2 }] }],
+      });
+      prisma.employee.findMany.mockResolvedValueOnce([
+        { id: 1 },
+        { id: 2 },
+        { id: 9 },
+      ]);
+
+      await service.createRun({ payrollPeriodId: 10, employeeIds: [9, 2] });
+
+      const [eligibility] = prisma.employee.findMany.mock.calls[0] as [
+        { where: { id: unknown } },
+      ];
+      expect(eligibility.where.id).toEqual({ in: [9, 2, 1] });
+      expect(
+        calculator.calculateForEmployee.mock.calls.map((c) => c[2]),
+      ).toEqual([1, 2, 9]);
+      // The repository re-checks under the lock that run 30 is still the
+      // period's only live run before superseding it.
+      expect(repository.createRun.mock.calls[0]![5]).toEqual([30]);
     });
 
     it("filters an explicit, de-duplicated employee list to non-INACTIVE employees in the org", async () => {

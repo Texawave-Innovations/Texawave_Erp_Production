@@ -282,7 +282,8 @@ export function RunPayrollDialog({
         <p className="rounded-lg bg-gray-50 p-3 text-theme-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
           Calculates pay for <strong>{periodLabel(period)}</strong> from
           salaries, attendance, leave, loans and bonuses. Running again replaces
-          the previous unapproved run.
+          the previous run (even an approved one, which then needs approving
+          again) and withdraws any payslips generated from it.
         </p>
 
         <fieldset className="flex flex-col gap-2">
@@ -292,7 +293,7 @@ export function RunPayrollDialog({
           {(
             [
               ["all", "All eligible employees"],
-              ["selected", "Selected employees only"],
+              ["selected", "Add or recalculate selected employees"],
             ] as const
           ).map(([value, text]) => (
             <label
@@ -317,7 +318,7 @@ export function RunPayrollDialog({
             <FormField
               label="Add employee"
               error={errors.employees}
-              hint="Pick employees one at a time."
+              hint="Pick employees one at a time. Everyone already in this period's run stays in it and is recalculated too."
             >
               {(f) => (
                 <EmployeePicker

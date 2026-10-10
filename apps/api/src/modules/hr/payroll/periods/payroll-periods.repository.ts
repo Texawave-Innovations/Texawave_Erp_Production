@@ -6,6 +6,7 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../../common/tenancy/tenant-where.js";
 import { BusinessRuleViolationException } from "../../../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { cancelLiveRuns } from "../shared/payroll-claims.js";
 import { lockPayrollPeriod } from "../shared/payroll-locks.js";
 import {
   findApprovedRun,
@@ -116,29 +117,47 @@ export class PayrollPeriodsRepository {
     });
   }
 
+  /**
+   * Resets (DRAFT) or cancels (CANCELLED) a period under its row lock. Either
+   * way its live runs stop being payable (`cancelLiveRuns`: installments
+   * released, payslips voided), so a cancelled or reset period can never be
+   * finalized or paid from a run approved before. Returns `null` for an
+   * unknown id.
+   */
   @OrgScoped()
   async updateStatus(
     scope: OrgScope,
     id: number,
-    status: string,
+    status: "DRAFT" | "CANCELLED",
     updatedById: number,
-  ): Promise<PayrollPeriodRow> {
-    return this.prisma.payrollPeriod.update({
-      where: { id },
-      data: {
-        status,
-        updatedBy: updatedById,
-      },
-      include: INCLUDE_RUNS,
+  ): Promise<PayrollPeriodRow | null> {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const period = await lockPayrollPeriod(tx, scope.organizationId, id);
+      if (!period) return null;
+      if (period.status === "FINALIZED") {
+        throw new BusinessRuleViolationException(
+          "Cannot update a finalized payroll period",
+          "PAYROLL_FINALIZED",
+        );
+      }
+
+      await cancelLiveRuns(tx, scope.organizationId, id, updatedById);
+
+      return tx.payrollPeriod.update({
+        where: { id },
+        data: { status, updatedBy: updatedById },
+        include: INCLUDE_RUNS,
+      });
     });
   }
 
   /**
    * Finalizes the period in ONE transaction, under the period row lock:
-   * re-checks status, takes the single approved run, generates its payslips
-   * and settles what that run deducted or paid — loan installments linked to
-   * its entries become PAID (a loan with no installment left PENDING is
-   * CLOSED), bonuses it paid become PAID, and salary arrears it paid are
+   * re-checks status (must be APPROVED), takes the single approved run,
+   * generates its payslips and settles what that run deducted or paid — loan
+   * installments linked to its entries become PAID (a loan with no
+   * installment left PENDING is CLOSED), the bonuses its BONUS earnings link
+   * to become PAID, and salary arrears it paid are
    * marked so they are never paid again. Returns `null` for an unknown id.
    */
   @OrgScoped()
@@ -156,8 +175,34 @@ export class PayrollPeriodsRepository {
           "PAYROLL_ALREADY_FINALIZED",
         );
       }
+      // Only an APPROVED period (its run approved, not since reset or
+      // cancelled) may be finalized.
+      if (period.status !== "APPROVED") {
+        throw new BusinessRuleViolationException(
+          `Cannot finalize a ${period.status.toLowerCase()} payroll period; its payroll run must be approved first`,
+          "INVALID_STATE_TRANSITION",
+        );
+      }
 
       const run = await findApprovedRun(tx, scope.organizationId, id);
+      const bonusEarnings = await tx.payrollEarning.findMany({
+        where: {
+          organizationId: scope.organizationId,
+          code: "BONUS",
+          deletedAt: null,
+          payrollEntry: { payrollRunId: run.id, deletedAt: null },
+        },
+        select: { sourceId: true },
+      });
+      // Runs calculated before bonus earnings were linked to their bonus
+      // can't tell which bonuses they paid: they must be re-run.
+      if (bonusEarnings.some((e) => e.sourceId === null)) {
+        throw new BusinessRuleViolationException(
+          "This period's approved run predates bonus tracking. Run payroll again and approve it before finalizing.",
+          "PAYROLL_RUN_STALE",
+        );
+      }
+
       await generatePayslipsForRun(
         tx,
         scope.organizationId,
@@ -208,16 +253,26 @@ export class PayrollPeriodsRepository {
         });
       }
 
-      // Bonuses the approved run paid.
-      await tx.employeeBonus.updateMany({
-        where: {
-          organizationId: scope.organizationId,
-          payrollPeriodId: id,
-          status: "APPROVED",
-          employeeId: { in: entries.map((e) => e.employeeId) },
-        },
-        data: { status: "PAID", updatedBy: finalizedById },
-      });
+      // Exactly the bonuses the approved run paid (linked from its BONUS
+      // earnings) — never one approved after the run was calculated. The
+      // period that paid it is recorded on the bonus.
+      const paidBonusIds = bonusEarnings
+        .map((e) => e.sourceId)
+        .filter((bonusId): bonusId is number => bonusId !== null);
+      if (paidBonusIds.length > 0) {
+        await tx.employeeBonus.updateMany({
+          where: {
+            organizationId: scope.organizationId,
+            id: { in: paidBonusIds },
+            status: "APPROVED",
+          },
+          data: {
+            status: "PAID",
+            payrollPeriodId: id,
+            updatedBy: finalizedById,
+          },
+        });
+      }
 
       // Arrears are one-time: mark the salary structures whose arrears this
       // run paid (the same structure the calculator picked: the one in force

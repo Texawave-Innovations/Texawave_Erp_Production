@@ -983,5 +983,150 @@ describe("Payroll & Compliance (e2e)", () => {
     expect(Number(e2?.totalGrossEarnings)).toBe(20000);
     expect(e2?.deductions.some((d) => d.code === "LOAN")).toBe(false);
     expect(Number(e2?.netPayable)).toBe(19850);
+    julyRunId = run.id;
+  });
+
+  let julyRunId: number;
+  let augustPeriodId: number;
+  let floatingBonusId: number;
+
+  const linkedInstallments = (runId: number, employeeId: number) =>
+    prisma.loanRepayment.findMany({
+      where: { payrollEntry: { payrollRunId: runId, employeeId } },
+      select: { id: true },
+    });
+
+  it("13. two open periods never deduct the same EMI or pay the same bonus twice", async () => {
+    // A bonus for no particular period: whichever open period runs first
+    // pays it — and only that one.
+    const bonus = await post("admin", "/hr/bonuses", {
+      employeeId: employeeId1,
+      bonusType: "PERFORMANCE",
+      amount: 700,
+    }).expect(201);
+    floatingBonusId = dataOf<{ id: number }>(bonus).id;
+    await post("checker", `/hr/bonuses/${floatingBonusId}/decide`, {
+      decision: "APPROVED",
+    }).expect(200);
+
+    const julyPeriodId = (
+      await prisma.payrollRun.findUniqueOrThrow({ where: { id: julyRunId } })
+    ).payrollPeriodId;
+    const julyRun = await createRun(julyPeriodId);
+    julyRunId = julyRun.id;
+    const july = (await entriesOf(julyRun.id)).find(
+      (e) => e.employeeId === employeeId1,
+    );
+    expect(july?.earnings.filter((e) => e.code === "BONUS")).toHaveLength(1);
+
+    // August is processed while July is still open (not finalized).
+    augustPeriodId = await createPeriod(8);
+    const augustRun = await createRun(augustPeriodId);
+    const august = (await entriesOf(augustRun.id)).find(
+      (e) => e.employeeId === employeeId1,
+    );
+    expect(august?.earnings.some((e) => e.code === "BONUS")).toBe(false);
+    expect(august?.deductions.filter((d) => d.code === "LOAN")).toHaveLength(1);
+
+    // Each period deducts its own installment, never the same one.
+    const julyLinked = await linkedInstallments(julyRun.id, employeeId1);
+    const augustLinked = await linkedInstallments(augustRun.id, employeeId1);
+    expect(julyLinked).toHaveLength(1);
+    expect(augustLinked).toHaveLength(1);
+    expect(augustLinked[0]?.id).not.toBe(julyLinked[0]?.id);
+  });
+
+  it("14. finalize marks PAID exactly the bonuses the approved run paid", async () => {
+    await post("checker", `/hr/payroll/runs/${julyRunId}/approve`).expect(200);
+    const julyPeriodId = (
+      await prisma.payrollRun.findUniqueOrThrow({ where: { id: julyRunId } })
+    ).payrollPeriodId;
+
+    // Approved for July only AFTER July's run was calculated: July did not
+    // pay it, so finalizing July must not mark it paid.
+    const late = await post("admin", "/hr/bonuses", {
+      employeeId: employeeId2,
+      bonusType: "FESTIVAL",
+      amount: 400,
+      payrollPeriodId: julyPeriodId,
+    }).expect(201);
+    const lateId = dataOf<{ id: number }>(late).id;
+    await post("checker", `/hr/bonuses/${lateId}/decide`, {
+      decision: "APPROVED",
+    }).expect(200);
+
+    await post("admin", `/hr/payroll/periods/${julyPeriodId}/finalize`).expect(
+      200,
+    );
+
+    const paid = await prisma.employeeBonus.findUniqueOrThrow({
+      where: { id: floatingBonusId },
+    });
+    expect(paid.status).toBe("PAID");
+    expect(paid.payrollPeriodId).toBe(julyPeriodId);
+    const notPaid = await prisma.employeeBonus.findUniqueOrThrow({
+      where: { id: lateId },
+    });
+    expect(notPaid.status).toBe("APPROVED");
+  });
+
+  it("15. a 'selected employees' re-run keeps everyone else in the payable run", async () => {
+    const rerun = dataOf<{ id: number }>(
+      await post("admin", "/hr/payroll/runs", {
+        payrollPeriodId: augustPeriodId,
+        employeeIds: [employeeId1],
+      }).expect(201),
+    );
+    const entries = await entriesOf(rerun.id);
+    expect(entries.map((e) => e.employeeId).sort()).toEqual(
+      [employeeId1, employeeId2].sort(),
+    );
+  });
+
+  it("16. re-running voids old payslips; a cancelled period can't be finalized", async () => {
+    const septPeriodId = await createPeriod(9);
+    const run1 = await createRun(septPeriodId);
+    await post("checker", `/hr/payroll/runs/${run1.id}/approve`).expect(200);
+    await post("admin", "/hr/payslips/generate", {
+      payrollPeriodId: septPeriodId,
+    }).expect(200);
+    const mySept = async () =>
+      dataOf<Array<{ payrollEntryId: number }>>(
+        await get(
+          "emp1",
+          `/self-service/payslips?payrollPeriodId=${septPeriodId}`,
+        ).expect(200),
+      );
+    expect(await mySept()).toHaveLength(1);
+
+    // The re-run supersedes run 1: its payslip is voided, not left visible
+    // next to the new figures.
+    const run2 = await createRun(septPeriodId);
+    expect(await mySept()).toHaveLength(0);
+    await post("checker", `/hr/payroll/runs/${run2.id}/approve`).expect(200);
+    const linked = await linkedInstallments(run2.id, employeeId1);
+    expect(linked).toHaveLength(1);
+
+    // Cancelling an approved period takes its run out of play...
+    await patch("admin", `/hr/payroll/periods/${septPeriodId}`, {
+      status: "CANCELLED",
+    }).expect(200);
+    const run2After = dataOf<{ status: string }>(
+      await get("admin", `/hr/payroll/runs/${run2.id}`).expect(200),
+    );
+    expect(run2After.status).toBe("CANCELLED");
+    const released = await prisma.loanRepayment.findUniqueOrThrow({
+      where: { id: linked[0]!.id },
+    });
+    expect(released.status).toBe("PENDING");
+    expect(released.payrollEntryId).toBeNull();
+
+    // ...so it can be neither finalized nor paid.
+    await post("admin", `/hr/payroll/periods/${septPeriodId}/finalize`).expect(
+      422,
+    );
+    await post("admin", "/hr/payment-batches", {
+      payrollPeriodId: septPeriodId,
+    }).expect(422);
   });
 });

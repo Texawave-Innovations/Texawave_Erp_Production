@@ -2,6 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { inclusiveDays } from "../../../../common/dates/date-only.js";
 import { BusinessRuleViolationException } from "../../../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import {
+  bonusesPaidElsewhere,
+  installmentClaimableBy,
+} from "../shared/payroll-claims.js";
 
 export interface CalculatedEmployeePayroll {
   employeeId: number;
@@ -26,6 +30,9 @@ export interface CalculatedEmployeePayroll {
     baseAmount: number;
     earningRatio: number;
     calculatedAmount: number;
+    /** Set when the earning pays out a record ("BONUS" + bonus id). */
+    sourceType?: string | undefined;
+    sourceId?: number | undefined;
   }>;
   deductions: Array<{
     code: string;
@@ -318,15 +325,25 @@ export class PayrollCalculatorService {
       });
     }
 
-    // Bonuses approved for this employee and period
-    const bonuses = await this.prisma.employeeBonus.findMany({
+    // Bonuses approved for this period (or for no particular period) that no
+    // live run of another open period is already paying.
+    const candidateBonuses = await this.prisma.employeeBonus.findMany({
       where: {
         organizationId,
         employeeId,
         status: "APPROVED",
+        deletedAt: null,
         OR: [{ payrollPeriodId }, { payrollPeriodId: null }],
       },
+      orderBy: { id: "asc" },
     });
+    const paidElsewhere = await bonusesPaidElsewhere(
+      this.prisma,
+      organizationId,
+      payrollPeriodId,
+      candidateBonuses.map((b) => b.id),
+    );
+    const bonuses = candidateBonuses.filter((b) => !paidElsewhere.has(b.id));
 
     const bonusIds: number[] = [];
     let bonusTotal = 0;
@@ -339,6 +356,8 @@ export class PayrollCalculatorService {
         baseAmount: Number(b.amount),
         earningRatio: 1.0,
         calculatedAmount: Number(b.amount),
+        sourceType: "BONUS",
+        sourceId: b.id,
       });
     }
 
@@ -411,7 +430,9 @@ export class PayrollCalculatorService {
     // with nothing due yet (before its first due date), or with an approved
     // skip for this period, deducts nothing. Installments are deducted only
     // while net pay stays non-negative; one that does not fit stays PENDING
-    // and is recovered in a later period instead of being marked paid.
+    // and is recovered in a later period instead of being marked paid. An
+    // installment another open period's live run already deducts is skipped,
+    // so the next one (if due) is taken instead of the same EMI twice.
     const activeLoans = await this.prisma.employeeLoan.findMany({
       where: {
         organizationId,
@@ -428,6 +449,7 @@ export class PayrollCalculatorService {
             status: "PENDING",
             deletedAt: null,
             dueDate: { lte: period.periodEnd },
+            ...installmentClaimableBy(payrollPeriodId),
           },
           orderBy: { installmentNo: "asc" },
           take: 1,

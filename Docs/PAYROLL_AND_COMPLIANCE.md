@@ -47,7 +47,8 @@ The **Payroll & Compliance** module provides automated, reproducible, and compli
           ├─ Calculates Holidays/Weekly-offs, Leaves (LOP),
           │  Earnings, Statutory PF, ESI, Loans, Bonuses, Arrears
           └─ Re-running supersedes the previous PROCESSED/APPROVED
-             run (→ CANCELLED): one payable run per period
+             run (→ CANCELLED, its payslips voided): one payable
+             run per period
                     │
                     ▼
        3. Review & Approve Run (APPROVED) — by a different user
@@ -58,7 +59,7 @@ The **Payroll & Compliance** module provides automated, reproducible, and compli
           ├─ Auto-generates Payslips (PS-YYYYMM-NNNNNN)
           ├─ Settles deducted loan installments (PAID);
           │  fully repaid loans → CLOSED
-          ├─ Paid bonuses → PAID; paid arrears marked (never re-paid)
+          ├─ Bonuses the run paid → PAID; paid arrears marked (never re-paid)
                     │
                     ▼
        5. Create Payment Batch (PENDING) — only once FINALIZED,
@@ -98,6 +99,7 @@ For each salary earning component (`BASIC`, `HRA`, `CONVEYANCE`, `OTHER_ALLOWANC
 $$\text{Calculated Component} = \text{Round}\left(\text{Base Component} \times \text{Earning Ratio}, 2\right)$$
 
 - **Arrears & Approved Bonuses:** Added at 100% (earning ratio = `1.0`), not prorated by LOP.
+- **Which bonuses a run pays:** `APPROVED` bonuses whose `payrollPeriodId` is this period or empty, **except** one a live (`PROCESSED`/`APPROVED`) run of another open period already pays. Each `BONUS` earning records the bonus it pays (`payroll_earnings.source_type = 'BONUS'`, `source_id` = bonus id), and finalization marks exactly those bonuses `PAID` (stamping the paying period on them) — never a bonus approved after the run was calculated. A run calculated before this link existed must be re-run before it can be finalized (`422 PAYROLL_RUN_STALE`).
 - **Arrears are one-time:** `arrearsSalary` on a salary structure is paid by the first period that is finalized after it is set; finalization stamps `arrearsPaidPeriodId` on the structure and later runs skip it. Changing `arrearsSalary` (PATCH) clears the stamp, i.e. schedules a new one-time payment. Arrears are **not** part of `grossMonthly` (the recurring monthly wage).
 - **Total Gross Earnings:** Sum of all calculated earning components.
 
@@ -124,7 +126,7 @@ $$\text{Calculated Component} = \text{Round}\left(\text{Base Component} \times \
 ### 3.4 Loans & Advances
 
 - **Schedule:** `emiMonths` installments of `emiAmount`, one month apart starting a month after `disbursedDate`; the **last installment is adjusted** so the schedule sums exactly to `principalAmount`. A loan whose EMI × months does not cover the principal (or over-covers it by a full EMI or more) is rejected (`422 LOAN_SCHEDULE_INVALID`).
-- **Deduction:** at most **one** installment per loan per period — the earliest `PENDING` installment due on or before the period end. A loan with nothing due yet deducts nothing. The amount deducted is that installment's amount (so the adjusted last installment is respected).
+- **Deduction:** at most **one** installment per loan per period — the earliest `PENDING` installment due on or before the period end that no live run of **another** open period has already deducted (so two periods processed side by side recover two different installments, never the same EMI twice). A loan with nothing due yet deducts nothing. The amount deducted is that installment's amount (so the adjusted last installment is respected).
 - **Skip:** approving a `LoanSkipRequest` for a period marks the installment that period would have recovered `SKIPPED` and **appends** a new installment of the same amount one month after the current last one, so the amount is still recovered. The loan deducts nothing in that period. Skip requests cannot be decided for a finalized period. If the period already has a run, re-run it after approving the skip.
 - **Settlement:** finalization marks the installments deducted by the approved run `PAID`; a loan with no `PENDING` installment left becomes `CLOSED` and is never deducted again.
 
@@ -207,16 +209,20 @@ Update period status (cancel or revert to draft).
 
 - **Permission:** `hr.payroll.write.all`
 - **Request Body:** `{ "status": "CANCELLED" }` — only `DRAFT` or `CANCELLED` are accepted.
+- **Effect:** runs under the period lock. Either status takes the period's live runs out of play exactly like a re-run does (runs and entries → `CANCELLED`, deducted loan installments released, payslips voided, PF/ESI snapshots retired), so a reset or cancelled period can be neither finalized nor paid from a run approved earlier. Run payroll again (from `DRAFT`) to continue.
+- **Errors:** `422 PAYROLL_FINALIZED` for a finalized period.
 
 #### `POST /hr/payroll/periods/:id/finalize`
 
 Finalizes an approved payroll period in one transaction (period row-locked): generates payslips from the approved run, settles its loan installments (closing fully repaid loans), marks its bonuses `PAID` and its arrears paid.
 
 - **Permission:** `hr.payroll.finalize.all` (`.team` → `403`)
-- **Preconditions:** Period must have its (single) `APPROVED` payroll run.
+- **Preconditions:** Period status must be `APPROVED`, with its (single) `APPROVED` payroll run.
 - **Response (200 OK):** Period object with `status: "FINALIZED"`.
 - **Errors:**
+  - `422 Unprocessable Entity` (`INVALID_STATE_TRANSITION`): period is not `APPROVED` (e.g. `DRAFT`, `PROCESSED`, `CANCELLED`).
   - `422 Unprocessable Entity` (`NO_APPROVED_RUN`): no approved run exists.
+  - `422 Unprocessable Entity` (`PAYROLL_RUN_STALE`): the approved run predates bonus tracking — re-run and re-approve.
   - `422 Unprocessable Entity` (`PAYROLL_ALREADY_FINALIZED`): period already finalized.
 
 ---
@@ -475,9 +481,10 @@ Executes calculations for all active eligible employees in the specified period.
     "notes": "May 2026 Primary Run"
   }
   ```
-  Optional `employeeIds: number[]` restricts the run to specific employees.
+  Optional `employeeIds: number[]` adds or recalculates specific employees. If the period already has a live run, everyone in it is carried into the new run (and recalculated) too — a partial re-run never drops anyone from the payable run.
 - **Org-wide:** `.team` → `403`. Rejected for a `FINALIZED` or `CANCELLED` period (`422 PAYROLL_FINALIZED`).
-- **Re-run:** any earlier `PROCESSED` or `APPROVED` run of the period becomes `CANCELLED` (entries too) and the period returns to `PROCESSED` — approve the new run before finalizing.
+- **Re-run:** any earlier `PROCESSED` or `APPROVED` run of the period becomes `CANCELLED` (entries too), its payslips are voided (they disappear from `/hr/payslips` and `/self-service/payslips`), and the period returns to `PROCESSED` — approve the new run before finalizing.
+- **Concurrency:** calculation happens before the period lock; under the lock the run is rejected with `409 PAYROLL_INPUTS_CHANGED` if the period's live run changed meanwhile, or if a loan installment / bonus it pays was taken by another period's run or changed status. Just run it again.
 - **Response (201 Created):**
   ```json
   {

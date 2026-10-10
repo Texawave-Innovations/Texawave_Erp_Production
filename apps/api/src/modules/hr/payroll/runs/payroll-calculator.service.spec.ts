@@ -44,6 +44,7 @@ describe("PayrollCalculatorService", () => {
     loans?: unknown[];
     skipRequests?: unknown[];
     bonuses?: unknown[];
+    bonusEarningsElsewhere?: unknown[];
     employeeSalary?: unknown;
   }) {
     const prisma = {
@@ -123,10 +124,20 @@ describe("PayrollCalculatorService", () => {
       employeeBonus: {
         findMany: vi.fn().mockResolvedValue(overrides?.bonuses ?? []),
       },
+      payrollEarning: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue(overrides?.bonusEarningsElsewhere ?? []),
+      },
     };
 
+    lastPrisma = prisma;
     return new PayrollCalculatorService(prisma as never);
   }
+  let lastPrisma: {
+    employeeLoan: { findMany: ReturnType<typeof vi.fn> };
+    payrollEarning: { findMany: ReturnType<typeof vi.fn> };
+  };
 
   it("calculates standard full month payroll with PF deduction", async () => {
     const service = createService();
@@ -240,6 +251,55 @@ describe("PayrollCalculatorService", () => {
       amount: 3000,
     });
     expect(result.bonusIds).toEqual([7]);
+    expect(result.earnings.find((e) => e.code === "BONUS")).toMatchObject({
+      sourceType: "BONUS",
+      sourceId: 7,
+    });
+  });
+
+  it("skips a bonus another open period's live run already pays", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      bonuses: [
+        { id: 7, bonusType: "PERFORMANCE", amount: new Prisma.Decimal(5000) },
+        { id: 8, bonusType: "FESTIVAL", amount: new Prisma.Decimal(2000) },
+      ],
+      bonusEarningsElsewhere: [{ sourceId: 7 }],
+    });
+
+    const result = (await service.calculateForEmployee(1, period.id, 10))!;
+
+    expect(result.bonusIds).toEqual([8]);
+    expect(result.totalGrossEarnings).toBe(52000);
+    expect(lastPrisma.payrollEarning.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: 1,
+        sourceType: "BONUS",
+        sourceId: { in: [7, 8] },
+        deletedAt: null,
+        payrollEntry: {
+          status: { not: "CANCELLED" },
+          payrollRun: { payrollPeriodId: { not: period.id } },
+        },
+      },
+      select: { sourceId: true },
+    });
+  });
+
+  it("only considers loan installments not claimed by another period's live run", async () => {
+    const service = createService({ pfProfile: null, esiProfile: null });
+
+    await service.calculateForEmployee(1, period.id, 10);
+
+    const [args] = lastPrisma.employeeLoan.findMany.mock.calls[0] as [
+      { include: { repayments: { where: { OR: unknown } } } },
+    ];
+    expect(args.include.repayments.where.OR).toEqual([
+      { payrollEntryId: null },
+      { payrollEntry: { status: "CANCELLED" } },
+      { payrollEntry: { payrollRun: { payrollPeriodId: period.id } } },
+    ]);
   });
 
   const loan = (overrides: Record<string, unknown> = {}) => ({

@@ -7,6 +7,7 @@ import {
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { LIVE_RUN_STATUSES } from "../shared/payroll-claims.js";
 import {
   assertNotSelfApproval,
   requireOrgWideScope,
@@ -44,7 +45,9 @@ export class PayrollRunsService {
    * Calculates and stores a new run. A run is org-wide (one approved run per
    * period is what gets paid), so this needs an `.all` grant. Re-running a
    * period supersedes its earlier PROCESSED/APPROVED run (it becomes
-   * CANCELLED) — see `PayrollRunsRepository.createRun`.
+   * CANCELLED) — see `PayrollRunsRepository.createRun`. With `employeeIds`,
+   * the employees already in that run are recalculated too, so a partial
+   * re-run never drops anyone from the period's payable run.
    */
   async createRun(dto: CreatePayrollRunDto) {
     const scope = await this.teamContext.resolveScope(WRITE);
@@ -73,16 +76,38 @@ export class PayrollRunsService {
       );
     }
 
+    // The period's current payable run(s). A new run supersedes them, and the
+    // repository re-checks under the period lock that they are still the
+    // same ones, so the result never silently mixes two runs' inputs.
+    const liveRuns = await this.prisma.payrollRun.findMany({
+      where: {
+        organizationId: orgScope.organizationId,
+        payrollPeriodId: period.id,
+        status: { in: LIVE_RUN_STATUSES },
+      },
+      select: {
+        id: true,
+        entries: { where: { deletedAt: null }, select: { employeeId: true } },
+      },
+    });
+    const liveRunIds = liveRuns.map((r) => r.id);
+
     // Determine target employees
     let employeeIds: number[] = [];
     if (dto.employeeIds && dto.employeeIds.length > 0) {
+      // Recalculating "selected employees" must not drop everyone else from
+      // the period's payable run: the employees already in it are carried
+      // into the new run (and recalculated) alongside the selected ones.
+      const carried = liveRuns.flatMap((r) =>
+        r.entries.map((e) => e.employeeId),
+      );
       // An explicit list may name RESIGNED/TERMINATED employees (that's how a
       // leaver's final partial month gets paid — the calculator's
       // employment-window check handles the dates), but never INACTIVE ones:
       // they're on a break, not working, and must not be paid.
       const eligible = await this.prisma.employee.findMany({
         where: {
-          id: { in: [...new Set(dto.employeeIds)] },
+          id: { in: [...new Set([...dto.employeeIds, ...carried])] },
           organizationId: orgScope.organizationId,
           status: { not: "INACTIVE" },
           deletedAt: null,
@@ -140,6 +165,7 @@ export class PayrollRunsService {
       dto.notes,
       userId,
       calculations,
+      liveRunIds,
     );
   }
 
