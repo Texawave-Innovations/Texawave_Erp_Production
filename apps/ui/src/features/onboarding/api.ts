@@ -5,6 +5,7 @@ import type {
 } from "@texawave-erp/api-types";
 import type { NewHireFormValues } from "@texawave-erp/core";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface Option {
   id: number;
@@ -54,16 +55,28 @@ export const listDepartments = () => listOptions("/departments");
 export const listRoles = () => listOptions("/settings/roles");
 
 /** Two composed calls — see Docs/ARCHITECTURE.md §7a. Step 1 creates the
- * login with a forced password change; step 2 links the new employee to it. */
+ * login with a forced password change; step 2 links the new employee to it.
+ * `employeeRoleId` is always included alongside the admin-picked role so
+ * every new hire gets the self-service baseline needed for onboarding,
+ * regardless of which additional role (Team Lead, HR Manager, ...) they're
+ * given — see the onboarding-landing 403 gap this closes. */
 export async function createNewHire(
   values: NewHireFormValues,
+  employeeRoleId: number,
 ): Promise<CreatedEmployee> {
+  const roleIds = Array.from(
+    new Set(
+      [employeeRoleId, values.roleId].filter(
+        (id): id is number => id !== undefined,
+      ),
+    ),
+  );
   const userInput: CreateUserInput = {
     email: values.email,
     fullName: `${values.firstName} ${values.lastName}`,
     password: values.tempPassword,
     mustChangePassword: true,
-    roleIds: [values.roleId],
+    roleIds,
   };
   const user = await withAuthRetry(() =>
     apiClient.post<User>("/users", userInput),
@@ -219,10 +232,26 @@ export function removeExperience(id: number) {
   );
 }
 
+export function getMyBank(): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(
+      "/employee/profile/bank-details",
+    ),
+  ).then((res) => res.data);
+}
+
 export function saveBank(input: object) {
   return withAuthRetry(() =>
     apiClient.put("/employee/profile/bank-details", input),
   );
+}
+
+export function getMyGovernmentIds(): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(
+      "/employee/profile/government-ids",
+    ),
+  ).then((res) => res.data);
 }
 
 export function saveGovernmentIds(input: object) {
@@ -249,6 +278,33 @@ export function listMyDocuments(): Promise<DocumentRecord[]> {
   return withAuthRetry(() =>
     apiClient.get<DocumentRecord[]>("/employee/profile/documents"),
   ).then((res) => res.data);
+}
+
+/** apiClient only parses JSON, so the binary download goes through fetch
+ * directly, reusing the same bearer token and base URL — same pattern as
+ * apps/ui/src/features/hr/employee-documents/api.ts's downloadEmployeeDocument. */
+export async function downloadMyDocument(
+  documentType: string,
+  fileName: string,
+): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const token = useAuthStore.getState().accessToken;
+  const res = await fetch(
+    `${baseUrl}/employee/profile/documents/${documentType}/file`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok) {
+    throw new Error(`Download failed with status ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /** Multipart upload through the shared client — see `formData` in packages/core. */

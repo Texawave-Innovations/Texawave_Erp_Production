@@ -14,6 +14,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useUsers } from "../../../users/hooks";
+import { RoleMenuMatrixView } from "../../role-menu-matrix/components/RoleMenuMatrixView";
 import {
   useCreateRole,
   usePermissionCatalog,
@@ -43,6 +44,7 @@ export function RolesView() {
   // Modal dialog states
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [menuAccessRole, setMenuAccessRole] = useState<Role | null>(null);
 
   // Local uncommitted permission edits for the selected role
   // null = no uncommitted edits, derive directly from loaded role
@@ -271,6 +273,7 @@ export function RolesView() {
             }
             onSelectRole={handleSelectRole}
             onEditRole={() => setEditOpen(true)}
+            onMenuAccess={() => setMenuAccessRole(selectedRole)}
           />
 
           {/* 3. Main Navigation Tabs: Permissions | Users */}
@@ -343,6 +346,21 @@ export function RolesView() {
             onSubmit={handleUpdateRole}
             onCancel={() => setEditOpen(false)}
             submitLabel="Save Changes"
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={menuAccessRole !== null}
+        onClose={() => setMenuAccessRole(null)}
+        title={menuAccessRole ? `Menu access — ${menuAccessRole.name}` : ""}
+      >
+        {menuAccessRole ? (
+          <RoleMenuMatrixView
+            key={menuAccessRole.id}
+            roleId={menuAccessRole.id}
+            roleName={menuAccessRole.name}
+            onClose={() => setMenuAccessRole(null)}
           />
         ) : null}
       </Dialog>

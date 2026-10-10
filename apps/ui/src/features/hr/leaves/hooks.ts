@@ -7,19 +7,27 @@ import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
   approveLeaveRequest,
   cancelMyLeaveRequest,
+  createLeaveType,
   createMyLeaveRequest,
   hrLeaveBalances,
   type CreateLeaveRequestBody,
   type DecideLeaveBody,
   type LeaveListQuery,
+  type LeaveTypeBody,
+  type LeaveTypeListQuery,
   listLeaveRequests,
+  listLeaveTypes,
   listMyLeaveRequests,
   myLeaveBalances,
   rejectLeaveRequest,
   resubmitMyLeaveRequest,
+  setLeaveEntitlement,
+  setLeaveTypeActive,
+  updateLeaveType,
 } from "./api";
 
 const KEY = "hr-leave-requests" as const;
+const LEAVE_TYPES_KEY = "hr-leave-types" as const;
 
 function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
@@ -103,5 +111,59 @@ export function useCancelMyLeaveRequest() {
 export function useResubmitMyLeaveRequest() {
   return useOrgScopedMutation([KEY], (id: number) =>
     resubmitMyLeaveRequest(id),
+  );
+}
+
+// ---- leave type administration ---------------------------------------------
+
+export function useLeaveTypes(query: LeaveTypeListQuery) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, LEAVE_TYPES_KEY, "list", query),
+    queryFn: () => listLeaveTypes(query),
+    enabled: orgId > 0,
+  });
+}
+
+export function useCreateLeaveType() {
+  return useOrgScopedMutation(
+    [LEAVE_TYPES_KEY],
+    (body: LeaveTypeBody & { code: string }) => createLeaveType(body),
+  );
+}
+
+export function useUpdateLeaveType() {
+  return useOrgScopedMutation(
+    [LEAVE_TYPES_KEY],
+    ({ id, body }: { id: number; body: Omit<LeaveTypeBody, "code"> }) =>
+      updateLeaveType(id, body),
+  );
+}
+
+export function useSetLeaveTypeActive() {
+  return useOrgScopedMutation(
+    [LEAVE_TYPES_KEY],
+    ({ id, isActive }: { id: number; isActive: boolean }) =>
+      setLeaveTypeActive(id, isActive),
+  );
+}
+
+/** Per-employee entitlement override (Docs/HR_LEAVE.md §6, D11). Also
+ * invalidates `KEY` so an open balances view (self-service or HR) reflects
+ * the new entitlement without a manual refresh. */
+export function useSetLeaveEntitlement() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({
+      employeeId,
+      leaveTypeId,
+      year,
+      annualEntitlement,
+    }: {
+      employeeId: number;
+      leaveTypeId: number;
+      year: number;
+      annualEntitlement: number | null;
+    }) => setLeaveEntitlement(employeeId, leaveTypeId, year, annualEntitlement),
   );
 }

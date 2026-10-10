@@ -19,3 +19,9 @@ export const WRITE_ANY_SCOPE = [
   "hr.ticket.write.team",
   "hr.ticket.write.all",
 ] as const;
+
+/** Self-service: the authenticated user's own tickets (raised by them, or
+ * raised by HR for them), via `/self-service/tickets`. */
+export const SELF_SERVICE_READ = "employee_self_service.ticket.read";
+export const SELF_SERVICE_CREATE = "employee_self_service.ticket.create";
+export const SELF_SERVICE_UPDATE = "employee_self_service.ticket.update";

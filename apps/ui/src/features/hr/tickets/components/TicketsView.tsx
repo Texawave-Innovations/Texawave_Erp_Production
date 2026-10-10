@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -26,7 +27,11 @@ import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue, useEmployees } from "@/features/hr/employees/hooks";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useTickets } from "../hooks";
-import { READ_ANY_SCOPE, WRITE_ANY_SCOPE } from "../permissions";
+import {
+  READ_ANY_SCOPE,
+  SELF_SERVICE_READ,
+  WRITE_ANY_SCOPE,
+} from "../permissions";
 import { STATUS_LABELS } from "../status";
 import {
   TICKET_CATEGORIES,
@@ -59,8 +64,10 @@ interface TableTicketRow extends TicketItem {
  * empty states, and modals for raising tickets and viewing ticket details.
  */
 export function TicketsView() {
+  const router = useRouter();
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_ANY_SCOPE);
+  const canSelfService = usePermission(SELF_SERVICE_READ);
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -170,16 +177,27 @@ export function TicketsView() {
           </p>
         </div>
 
-        {canWrite ? (
-          <Button
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Raise Ticket
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {canWrite ? (
+            <Button
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Raise Ticket
+            </Button>
+          ) : null}
+          {canSelfService ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/self-service/tickets")}
+            >
+              My tickets
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* 2. Summary Metric Cards */}

@@ -22,3 +22,10 @@ export const APPROVE_ANY_SCOPE = [
 /** Self-service: the authenticated user's own leave requests and balances. */
 export const SELF_SERVICE_READ = "employee_self_service.leave_request.read";
 export const SELF_SERVICE_CREATE = "employee_self_service.leave_request.create";
+
+/** Leave type administration (organization-wide) and, per
+ * LeaveEntitlementsController, per-employee entitlement overrides — both
+ * gated by the same two codes (Docs/HR_LEAVE.md §6, D11: no separate
+ * permission was added for entitlement overrides). */
+export const LEAVE_TYPE_READ = "hr.leave_type.read";
+export const LEAVE_TYPE_WRITE = "hr.leave_type.write";

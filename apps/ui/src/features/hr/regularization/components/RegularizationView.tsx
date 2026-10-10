@@ -349,6 +349,10 @@ export function RegularizationView() {
                   </div>
                 ),
               },
+              {
+                header: "Note",
+                cell: (c) => c.decisionNote ?? "—",
+              },
               ...(canApprove
                 ? [
                     {

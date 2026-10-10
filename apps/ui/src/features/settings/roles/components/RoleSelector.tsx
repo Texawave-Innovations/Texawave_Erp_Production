@@ -10,6 +10,8 @@ export interface RoleSelectorProps {
   assignedUsersCount: number;
   onSelectRole: (role: Role) => void;
   onEditRole: () => void;
+  /** Opens the role's menu-visibility matrix; the button is hidden when omitted. */
+  onMenuAccess?: () => void;
 }
 
 export function RoleSelector({
@@ -18,6 +20,7 @@ export function RoleSelector({
   assignedUsersCount,
   onSelectRole,
   onEditRole,
+  onMenuAccess,
 }: RoleSelectorProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -195,7 +198,17 @@ export function RoleSelector({
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="flex shrink-0 gap-2">
+            {onMenuAccess ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMenuAccess}
+                className="whitespace-nowrap"
+              >
+                Menu access
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               size="sm"

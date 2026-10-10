@@ -14,6 +14,7 @@ export interface TaskListQuery {
 }
 
 const BASE = "/hr/tasks";
+const SELF_SERVICE_BASE = "/self-service/tasks";
 
 export function listTasks(
   query: TaskListQuery,
@@ -75,6 +76,55 @@ export async function approveTask(id: number): Promise<TaskItem> {
 export async function reopenTask(id: number): Promise<TaskItem> {
   const { data } = await withAuthRetry(() =>
     apiClient.post<TaskItem>(`${BASE}/${id}/reopen`, {}),
+  );
+  return data;
+}
+
+// ---- self-service: tasks assigned to or created by the caller -------------
+
+export interface MyTaskListQuery {
+  page: number;
+  limit: number;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  q?: string;
+  awaitingApproval?: boolean;
+  overdue?: boolean;
+}
+
+export function listMyTasks(
+  query: MyTaskListQuery,
+): Promise<PaginatedEnvelope<TaskItem>> {
+  return withAuthRetry(() =>
+    apiClient.get<TaskItem[]>(SELF_SERVICE_BASE, { query }),
+  ) as Promise<PaginatedEnvelope<TaskItem>>;
+}
+
+export interface CreateMyTaskBody {
+  title: string;
+  description?: string;
+  dueDate: string;
+  priority?: TaskPriority;
+  requestToAdmin?: boolean;
+}
+
+export async function createMyTask(body: CreateMyTaskBody): Promise<TaskItem> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<TaskItem>(SELF_SERVICE_BASE, body),
+  );
+  return data;
+}
+
+/** The employee lifecycle (apps/api .../dto/task.dto.ts `EMPLOYEE_TASK_STATUSES`):
+ * CANCELLED is admin-only and never sent from here. */
+export type MyTaskStatus = Exclude<TaskStatus, "CANCELLED">;
+
+export async function setMyTaskStatus(
+  id: number,
+  status: MyTaskStatus,
+): Promise<TaskItem> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<TaskItem>(`${SELF_SERVICE_BASE}/${id}/status`, { status }),
   );
   return data;
 }

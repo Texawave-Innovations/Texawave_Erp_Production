@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -40,7 +41,11 @@ import {
   useSetTaskStatus,
   useTasks,
 } from "../hooks";
-import { READ_ANY_SCOPE, WRITE_TEAM_OR_ALL } from "../permissions";
+import {
+  READ_ANY_SCOPE,
+  SELF_SERVICE_READ,
+  WRITE_TEAM_OR_ALL,
+} from "../permissions";
 import { STATUS_LABELS } from "../status";
 import { TASK_STATUSES, type TaskItem, type TaskStatus } from "../types";
 import { CreateTaskDialog } from "./CreateTaskDialog";
@@ -111,8 +116,10 @@ interface TableTaskItem extends TaskItem {
  * and track tasks in caller's scope (hr.task.read/write).
  */
 export function TasksView() {
+  const router = useRouter();
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
+  const canSelfService = usePermission(SELF_SERVICE_READ);
 
   const [activeTab, setActiveTab] = useState<TabKey>("assigned");
   const [page, setPage] = useState(1);
@@ -353,16 +360,27 @@ export function TasksView() {
           </p>
         </div>
 
-        {canWrite ? (
-          <Button
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            New Task
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {canSelfService ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/self-service/tasks")}
+            >
+              My tasks
+            </Button>
+          ) : null}
+          {canWrite ? (
+            <Button
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              New Task
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* 2. Tab Navigation */}

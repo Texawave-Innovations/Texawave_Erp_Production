@@ -44,6 +44,9 @@ import { FormSection, PasswordField } from "@/features/hr/components";
 
 type FieldKey = keyof NewHireFormValues;
 
+const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
+const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
+
 interface FormState {
   firstName: string;
   lastName: string;
@@ -125,7 +128,7 @@ export function NewHireView() {
       lastName: values.lastName,
       mobile: values.mobile,
       email: values.email,
-      roleId: Number(values.roleId),
+      roleId: values.roleId ? Number(values.roleId) : undefined,
       departmentId: Number(values.departmentId),
       teamId: Number(values.teamId),
       designationId: Number(values.designationId),
@@ -146,10 +149,18 @@ export function NewHireView() {
       return;
     }
 
+    const employeeRole = roles.data?.find((r) => r.name === "Employee");
+    if (!employeeRole) {
+      setSubmitError(
+        "The 'Employee' role is missing from Settings → Roles. Every new hire needs it for self-service onboarding — ask an administrator to restore it before creating new hires.",
+      );
+      return;
+    }
+
     setErrors({});
     setSubmitting(true);
     try {
-      const employee = await createNewHire(result.data);
+      const employee = await createNewHire(result.data, employeeRole.id);
       setCreated({
         employee,
         email: result.data.email,
@@ -352,7 +363,9 @@ export function NewHireView() {
                     {...p}
                     value={values.firstName}
                     disabled={submitting}
-                    onChange={(e) => set("firstName", e.target.value)}
+                    onChange={(e) =>
+                      set("firstName", sanitizeName(e.target.value))
+                    }
                     placeholder="e.g. Priya"
                   />
                 )}
@@ -364,7 +377,9 @@ export function NewHireView() {
                     {...p}
                     value={values.lastName}
                     disabled={submitting}
-                    onChange={(e) => set("lastName", e.target.value)}
+                    onChange={(e) =>
+                      set("lastName", sanitizeName(e.target.value))
+                    }
                     placeholder="e.g. Sharma"
                   />
                 )}
@@ -382,7 +397,9 @@ export function NewHireView() {
                     inputMode="numeric"
                     value={values.mobile}
                     disabled={submitting}
-                    onChange={(e) => set("mobile", e.target.value)}
+                    onChange={(e) =>
+                      set("mobile", sanitizeMobile(e.target.value))
+                    }
                     placeholder="e.g. 9841055667"
                   />
                 )}
@@ -495,7 +512,11 @@ export function NewHireView() {
                 )}
               </FormField>
 
-              <FormField label="Role" required error={errors.roleId}>
+              <FormField
+                label="Additional role"
+                error={errors.roleId}
+                hint="Every new hire gets the Employee self-service role automatically. Optionally add another role (e.g. Team Lead) on top of that."
+              >
                 {(p) => (
                   <Select
                     {...p}
@@ -504,11 +525,13 @@ export function NewHireView() {
                     onChange={(e) => set("roleId", e.target.value)}
                   >
                     <option value="">Select a role</option>
-                    {roles.data?.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
+                    {roles.data
+                      ?.filter((r) => r.name !== "Employee")
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
                   </Select>
                 )}
               </FormField>
@@ -522,6 +545,8 @@ export function NewHireView() {
                   <Input
                     {...p}
                     type="date"
+                    min="1900-01-01"
+                    max="2099-12-31"
                     value={values.dateOfJoining}
                     disabled={submitting}
                     onChange={(e) => set("dateOfJoining", e.target.value)}

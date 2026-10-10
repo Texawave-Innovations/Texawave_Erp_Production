@@ -6,12 +6,18 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
   approveTask,
+  createMyTask,
   createTask,
+  listMyTasks,
   listTasks,
   reassignTask,
   reopenTask,
+  setMyTaskStatus,
   setTaskStatus,
+  type CreateMyTaskBody,
   type CreateTaskBody,
+  type MyTaskListQuery,
+  type MyTaskStatus,
   type TaskListQuery,
 } from "./api";
 import type { TaskStatus } from "./types";
@@ -59,4 +65,29 @@ export function useApproveTask() {
 
 export function useReopenTask() {
   return useOrgScopedMutation([KEY], (id: number) => reopenTask(id));
+}
+
+// ---- self-service: tasks assigned to or created by the caller -------------
+
+export function useMyTasks(query: MyTaskListQuery) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "mine", query),
+    queryFn: () => listMyTasks(query),
+    enabled: orgId > 0,
+  });
+}
+
+export function useCreateMyTask() {
+  return useOrgScopedMutation([KEY], (body: CreateMyTaskBody) =>
+    createMyTask(body),
+  );
+}
+
+export function useSetMyTaskStatus() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, status }: { id: number; status: MyTaskStatus }) =>
+      setMyTaskStatus(id, status),
+  );
 }

@@ -1,12 +1,12 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsDateString, IsOptional } from "class-validator";
-import { MOBILE, Pattern, RequiredText } from "./onboarding-rules.js";
+import { MOBILE, Pattern, RequiredName } from "./onboarding-rules.js";
 
 export class FamilyMemberDto {
-  @RequiredText()
+  @RequiredName()
   name!: string;
 
-  @RequiredText(50)
+  @RequiredName(50)
   relation!: string;
 
   @ApiPropertyOptional({ example: "1968-07-02" })

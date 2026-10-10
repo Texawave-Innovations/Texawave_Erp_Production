@@ -1,8 +1,10 @@
 "use client";
 
+import { Skeleton } from "@texawave-erp/ui-kit";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMyMenu } from "@/features/menu/hooks";
 import {
   LayoutDashboard,
   Users,
@@ -26,6 +28,7 @@ import {
   Menu as MenuIcon,
   Tag,
   ChevronDown,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -221,6 +224,17 @@ const SETTINGS_NAV_ITEMS: SubNavItem[] = [
 export interface DynamicSidebarProps {
   open?: boolean;
   onNavigate?: () => void;
+  /**
+   * Restricts the sidebar to one root `MenuItem`'s children from `getMyMenu()`,
+   * flattened, instead of the static HR/Settings nav above. Several menu items
+   * are deliberately left ungated (`permission: null`, see
+   * packages/database/prisma/menu/catalog.ts) because the admin dashboard's own
+   * pages do a finer-grained check per section. The employee portal
+   * (Docs/ARCHITECTURE.md §7) has no such per-page check, so it passes
+   * `onlyRootCode="portal"` — the one thing that shell must never show is an
+   * HR or Admin item, ungated or not.
+   */
+  onlyRootCode?: string;
 }
 
 function checkIsActive(item: SubNavItem, pathname: string): boolean {
@@ -363,22 +377,101 @@ export function NavigationGroup({
 }
 
 /**
+ * Menu-driven list for `onlyRootCode`: the children of one root `MenuItem`
+ * from the user's permission-filtered menu, flattened.
+ */
+function MenuRootNav({
+  rootCode,
+  pathname,
+  onNavigate,
+}: {
+  rootCode: string;
+  pathname: string;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const menuQuery = useMyMenu();
+
+  if (menuQuery.isPending) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-4/5" />
+      </div>
+    );
+  }
+
+  if (menuQuery.isError) {
+    return (
+      <p className="p-2 text-theme-xs text-error-600">
+        Could not load navigation.
+      </p>
+    );
+  }
+
+  const items = (
+    menuQuery.data.find((item) => item.code === rootCode)?.children ?? []
+  ).flatMap((item): SubNavItem[] =>
+    item.path
+      ? [
+          {
+            id: item.code,
+            label: item.label,
+            path: item.path,
+            icon: ChevronRight,
+          },
+        ]
+      : [],
+  );
+
+  if (items.length === 0) {
+    return (
+      <p className="p-2 text-theme-xs text-gray-400">
+        No navigation items available
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {items.map((item) => (
+        <NavigationItem
+          key={item.id}
+          item={item}
+          isActive={checkIsActive(item, pathname)}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * Tier 2 Contextual ERP Sub-Navigation Sidebar.
  * Displays dedicated tabs for the active primary module (HR, Settings, etc.).
  * Conforms to Reference C and Docs/DESIGN_SYSTEM.md.
  */
-export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
+export function DynamicSidebar({
+  open,
+  onNavigate,
+  onlyRootCode,
+}: DynamicSidebarProps = {}) {
   const pathname = usePathname();
 
   // Detect whether user is in HR or Settings/Administration
   const isSettingsContext =
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/reference") ||
-    pathname.startsWith("/admin/users") ||
-    pathname === "/admin/roles" ||
-    pathname === "/admin/menu";
+    !onlyRootCode &&
+    (pathname.startsWith("/settings") ||
+      pathname.startsWith("/reference") ||
+      pathname.startsWith("/admin/users") ||
+      pathname === "/admin/roles" ||
+      pathname === "/admin/menu");
 
-  const headerTitle = isSettingsContext ? "Settings" : "Human Resources";
+  const headerTitle = onlyRootCode
+    ? "My Portal"
+    : isSettingsContext
+      ? "Settings"
+      : "Human Resources";
 
   // Track collapsed groups; auto-expand groups that contain active items
   const [collapsedGroups, setCollapsedGroups] = useState<
@@ -387,7 +480,7 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
 
   // Auto-expand group containing current route when pathname changes
   useEffect(() => {
-    if (!isSettingsContext) {
+    if (!onlyRootCode && !isSettingsContext) {
       HR_NAV_GROUPS.forEach((group) => {
         const containsActive = group.items.some((item) =>
           checkIsActive(item, pathname),
@@ -397,7 +490,7 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
         }
       });
     }
-  }, [pathname, isSettingsContext]);
+  }, [pathname, isSettingsContext, onlyRootCode]);
 
   function toggleGroup(groupId: string) {
     setCollapsedGroups((prev) => ({
@@ -446,7 +539,13 @@ export function DynamicSidebar({ open, onNavigate }: DynamicSidebarProps = {}) {
         aria-label={`${headerTitle} Navigation`}
         className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3"
       >
-        {isSettingsContext ? (
+        {onlyRootCode ? (
+          <MenuRootNav
+            rootCode={onlyRootCode}
+            pathname={pathname}
+            onNavigate={onNavigate}
+          />
+        ) : isSettingsContext ? (
           <div className="flex flex-col gap-0.5">
             {SETTINGS_NAV_ITEMS.map((item) => (
               <NavigationItem

@@ -36,6 +36,8 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "master.shift.write",
       "hr.employee.read.all",
       "hr.employee.write.all",
+      "hr.employee_document.read.all",
+      "hr.employee_document.write.all",
       "hr.employee_status.write",
       "hr.employee_account.write",
       "hr.shift_assignment.read.all",
@@ -87,6 +89,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
     description: "Read-only view of their own team (by default).",
     permissions: [
       "hr.employee.read.team",
+      "hr.employee_document.read.team",
       "hr.shift_assignment.read.team",
       "hr.leave_request.read.team",
       "hr.work_log.read.team",

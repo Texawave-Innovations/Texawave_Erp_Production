@@ -22,6 +22,18 @@ export const TICKET_CATEGORIES = [
 ] as const;
 export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 
+/** Employee category set (tickets.rules.ts EMPLOYEE_TICKET_CATEGORIES): an
+ * employee cannot raise a Notice or a Warning, those are HR's to send. */
+export const EMPLOYEE_TICKET_CATEGORIES = [
+  "Attendance",
+  "Salary",
+  "Leave",
+  "Documents",
+  "IT Support",
+  "HR Query",
+  "Other",
+] as const satisfies readonly TicketCategory[];
+
 /** Admin moves allowed per current status (tickets.rules.ts ADMIN_MOVES).
  * Same-status is always a no-op, not listed here. */
 export const ADMIN_MOVES: Readonly<

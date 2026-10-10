@@ -30,6 +30,7 @@ import {
 } from "../hooks";
 import {
   APPROVE_ANY_SCOPE,
+  LEAVE_TYPE_READ,
   READ_ANY_SCOPE,
   SELF_SERVICE_CREATE,
   SELF_SERVICE_READ,
@@ -44,7 +45,17 @@ import { CancelLeaveDialog } from "./CancelLeaveDialog";
 import { DecideLeaveDialog } from "./DecideLeaveDialog";
 import { LeaveBalanceCards } from "./LeaveBalanceCards";
 import { LeaveStatusBadge } from "./LeaveStatusBadge";
+import { LeaveTypesSection } from "./LeaveTypesSection";
 import { RequestLeaveDialog } from "./RequestLeaveDialog";
+
+/** The note that explains a decision or a cancellation — whichever applies
+ * to the row's current status. Fetched by the API (LeaveRequestItem.
+ * decisionNote / cancellationNote) but previously never rendered, the same
+ * gap class Regularization (module 10) fixed for AttendanceCorrection. */
+function noteFor(r: LeaveRequestItem): string {
+  if (r.status === "CANCELLED") return r.cancellationNote ?? "—";
+  return r.decisionNote ?? "—";
+}
 
 const PAGE_SIZE = 10;
 const STATUS_LABEL: Record<LeaveStatus, string> = {
@@ -520,6 +531,10 @@ function ApprovalsSection() {
                   </span>
                 ),
               },
+              {
+                header: "Note",
+                cell: (r) => noteFor(r),
+              },
               ...(canApprove
                 ? [
                     {
@@ -584,9 +599,10 @@ function ApprovalsSection() {
 export function LeavesView() {
   const canReadMine = usePermission(SELF_SERVICE_READ);
   const canReadAny = usePermission(READ_ANY_SCOPE);
+  const canReadTypes = usePermission(LEAVE_TYPE_READ);
   const [activeTab, setActiveTab] = useState<LeavesTab>("all");
 
-  if (!canReadMine && !canReadAny) {
+  if (!canReadMine && !canReadAny && !canReadTypes) {
     return (
       <Alert variant="warning" title="You don't have access to leave">
         Ask an administrator for the{" "}
@@ -661,6 +677,11 @@ export function LeavesView() {
       {(activeTab === "all" || activeTab === "approvals") && canReadAny ? (
         <ApprovalsSection />
       ) : null}
+
+      {canReadTypes && (canReadMine || canReadAny) ? (
+        <hr className="border-gray-200 dark:border-gray-800" />
+      ) : null}
+      <LeaveTypesSection />
     </div>
   );
 }

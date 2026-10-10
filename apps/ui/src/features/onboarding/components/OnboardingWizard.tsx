@@ -66,6 +66,54 @@ export const MISSING_LABELS: Record<string, string> = {
 
 type Errors = Record<string, string>;
 
+/** Name-shaped fields: letters, spaces, and . ' - only — strip digits/symbols as typed. */
+const NAME_FIELDS = new Set([
+  "emergencyContactName",
+  "emergencyContactRelation",
+  "fatherName",
+  "motherName",
+  "accountHolderName",
+  "bankName",
+  "branchName",
+  "areaLocality",
+  "district",
+  "city",
+]);
+/** 10-digit mobile fields — strip non-digits and cap length as typed. */
+const PHONE_FIELDS = new Set([
+  "emergencyContactPhone",
+  "fatherPhone",
+  "motherPhone",
+]);
+/** Fixed-length numeric-only fields — strip non-digits and cap length as typed. */
+const DIGIT_FIELD_LENGTHS: Record<string, number> = {
+  accountNumber: 18,
+  aadhaarNumber: 12,
+  esiNumber: 17,
+  pfNumber: 12,
+  pincode: 6,
+};
+
+/** Filters out-of-range keystrokes per field so the browser never shows an
+ * obviously-wrong value in the first place; the zod schema still re-checks
+ * the final value (length minimums, exact formats) on submit. */
+function sanitizeForField(key: string, raw: string): string {
+  if (NAME_FIELDS.has(key)) return raw.replace(/[^A-Za-z .'-]/g, "");
+  if (PHONE_FIELDS.has(key)) return raw.replace(/\D/g, "").slice(0, 10);
+  const digitMax = DIGIT_FIELD_LENGTHS[key];
+  if (digitMax) return raw.replace(/\D/g, "").slice(0, digitMax);
+  return raw;
+}
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+/** Bounds the native date picker's year sub-field — without min/max, Chrome
+ * lets the year keep accepting digits well past 4 (e.g. "888888"). */
+function dateBounds(type: string): { min?: string; max?: string } {
+  if (type !== "date") return {};
+  return { min: "1900-01-01", max: TODAY };
+}
+
 function collectErrors(
   issues: { path: PropertyKey[]; message: string }[],
 ): Errors {
@@ -242,7 +290,8 @@ export function OnboardingWizard() {
           type={type}
           value={value}
           disabled={busy}
-          onChange={(e) => onChange(e.target.value)}
+          {...dateBounds(type)}
+          onChange={(e) => onChange(sanitizeForField(key, e.target.value))}
         />
       )}
     </FormField>

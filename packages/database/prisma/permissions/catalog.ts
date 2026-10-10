@@ -244,6 +244,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   // .own write is reserved (self-service edits are not built).
   ...scopedPermission("hr.employee.read", "View employees"),
   ...scopedPermission("hr.employee.write", "Create/edit employees"),
+  // apps/api/src/modules/hr/employee-documents — same team-scoped shape as
+  // hr.employee.*. Covers both the read-only view of onboarding's documents
+  // and HR's own ad-hoc uploads for an employee.
+  ...scopedPermission(
+    "hr.employee_document.read",
+    "View an employee's documents",
+  ),
+  ...scopedPermission(
+    "hr.employee_document.write",
+    "Upload or remove an employee's documents",
+  ),
   // Organization-wide administrative actions — deliberately not team-scoped.
   {
     code: "hr.employee_status.write",
