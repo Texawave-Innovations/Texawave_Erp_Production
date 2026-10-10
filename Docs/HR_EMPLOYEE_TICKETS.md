@@ -229,3 +229,43 @@ These are not decided and are not silently filled in.
 | B3  | Handler assignment: should a ticket have an owner in HR?                        | **Not in legacy.** Not built. **Business decision** whether tickets need an owner.                                                                                                                              |
 | B4  | Whether a team lead may view team tickets.                                      | **Open business decision.** Default roles do not grant it.                                                                                                                                                      |
 | B5  | Whether an employee may read the audit trail of their own ticket.               | Not exposed. The audit log is an HR/admin surface. **Open.**                                                                                                                                                    |
+
+---
+
+## 10. UI/UX implementation and design architecture (Production)
+
+The HR Employee Tickets interface (`apps/ui/src/features/hr/tickets/` at `/hr/tickets`) conforms to the TexaWave ERP design system and 4-screen reference specification:
+
+### 10.1 Screen Layout & Summary Metrics
+
+- **Header**: Standard breadcrumb (`Home / HR / Employee Tickets`), page title **Employee Tickets**, explanatory subtitle (_"Raise a ticket and track the status of your requests."_), and prominent `+ Raise Ticket` primary brand button.
+- **Summary Metrics Cards**: Four compact cards calculating deterministic status counts from caller's scope:
+  - `Total Tickets` (purple icon box)
+  - `Open` (amber warning icon box)
+  - `In Progress` (blue brand icon box)
+  - `Resolved` (green success icon box)
+- **Search & Filter Toolbar**: Single compact toolbar containing debounced search (`Search by subject or category...`), Status dropdown (`All statuses`, `Open`, `In Progress`, `Resolved`, `Closed`), Category dropdown (`All categories`, 9 categories), and accessible `Reset` action.
+
+### 10.2 Table & Empty States
+
+- **Enterprise Data Table**: Displays `#`, `Ticket ID` (formatted `TK-YYYY-XXXX`), `Subject`, `Category`, `Created On` (`DD MMM YYYY`), `Status` badge (`TicketStatusBadge`), and `Actions` with direct eye icon button to view details.
+- **Empty States**:
+  - Unfiltered empty state: Restrained inbox icon, _"No tickets yet"_, subtitle _"Your support requests will appear here after you submit them."_, and `+ Raise Ticket` button.
+  - Filtered empty state: _"No tickets match these filters"_, with a `Reset filters` action.
+- **Loading State**: Uses `TableSkeleton` matching the 7-column anatomy.
+
+### 10.3 Raise Ticket Modal (`RaiseTicketDialog`)
+
+- **Centered Dialog**: Native `<Dialog size="lg">` with dark translucent blurred backdrop.
+- **Fields**:
+  - `Employee ID *`: Pre-filled with employee code/ID (e.g. `EMP-0001`) with User icon prefix; allows input parsing.
+  - `Category *`: Dropdown with all 9 valid categories.
+  - `Subject *`: Max 200 characters with live `{len} / 200` counter.
+  - `Description *`: Max 5,000 characters with live `{len} / 5000` counter.
+- **Actions**: `Cancel` secondary button and `Raise Ticket` primary brand button with loading indicator.
+
+### 10.4 View Ticket Details Modal (`TicketDetailDialog`)
+
+- **Centered Dialog**: 2-column info layout showing `Ticket ID`, `Status` badge, `Category` tag, `Subject`, `Created On` (`DD MMM YYYY, hh:mm A`), and `Employee` identity (`EmployeeIdentity` avatar initials, name, code).
+- **Full Description Card**: Clean rounded card displaying multiline description.
+- **Activity & Reply Thread**: Preserves comments thread (oldest first), HR status transition select (`Move to status`), and HR reply textarea.

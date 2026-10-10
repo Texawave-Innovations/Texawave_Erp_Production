@@ -10,6 +10,7 @@ import {
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
+import { User } from "lucide-react";
 import { useCreateTicket } from "../hooks";
 import {
   createTicketSchema,
@@ -22,6 +23,8 @@ import { TICKET_CATEGORIES } from "../types";
 export interface TicketFormProps {
   onSubmitted: () => void;
   onCancel: () => void;
+  defaultEmployeeCode?: string | undefined;
+  defaultEmployeeId?: number | undefined;
 }
 
 function describeCreateError(error: unknown): string {
@@ -45,10 +48,17 @@ function describeCreateError(error: unknown): string {
 
 /** Raise a ticket for an employee (HR/admin write). Does not reset entered
  * values on a failed submit (Docs/DESIGN_SYSTEM.md). */
-export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
+export function TicketForm({
+  onSubmitted,
+  onCancel,
+  defaultEmployeeCode,
+  defaultEmployeeId,
+}: TicketFormProps) {
   const [values, setValues] = useState({
     ...EMPTY_CREATE_TICKET_FORM,
-    employeeId: "",
+    employeeId:
+      defaultEmployeeCode ??
+      (defaultEmployeeId ? String(defaultEmployeeId) : ""),
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -64,7 +74,20 @@ export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const employeeId = Number(values.employeeId);
+    const rawEmp = String(values.employeeId).trim();
+    let employeeId = 0;
+    if (rawEmp.toUpperCase().startsWith("EMP-")) {
+      employeeId = parseInt(rawEmp.replace(/^EMP-/i, ""), 10);
+    } else {
+      employeeId = parseInt(rawEmp, 10);
+    }
+
+    if (isNaN(employeeId) || employeeId <= 0) {
+      if (defaultEmployeeId) {
+        employeeId = defaultEmployeeId;
+      }
+    }
+
     const result = createTicketSchema.safeParse({
       employeeId,
       category: values.category,
@@ -92,21 +115,27 @@ export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-      <FormField label="Employee ID" error={fieldErrors.employeeId}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4.5" noValidate>
+      <FormField label="Employee ID" required error={fieldErrors.employeeId}>
         {(f) => (
-          <Input
-            {...f}
-            type="number"
-            min="1"
-            invalid={f.invalid}
-            value={values.employeeId}
-            disabled={submitting}
-            onChange={(e) => update("employeeId", e.target.value)}
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <User className="h-4 w-4" />
+            </span>
+            <Input
+              {...f}
+              invalid={f.invalid}
+              placeholder="EMP-0001"
+              value={values.employeeId}
+              disabled={submitting}
+              className="pl-9.5 font-mono"
+              onChange={(e) => update("employeeId", e.target.value)}
+            />
+          </div>
         )}
       </FormField>
-      <FormField label="Category" error={fieldErrors.category}>
+
+      <FormField label="Category" required error={fieldErrors.category}>
         {(f) => (
           <Select
             {...f}
@@ -117,7 +146,7 @@ export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
               update("category", e.target.value as typeof values.category)
             }
           >
-            <option value="">Select a category</option>
+            <option value="">Select category</option>
             {TICKET_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -126,43 +155,61 @@ export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
           </Select>
         )}
       </FormField>
+
       <FormField
         label="Subject"
+        required
         error={fieldErrors.subject}
-        hint={`Up to ${TICKET_SUBJECT_MAX} characters`}
+        labelAction={
+          <span className="text-theme-xs text-gray-400 font-normal">
+            {values.subject.length} / {TICKET_SUBJECT_MAX}
+          </span>
+        }
       >
         {(f) => (
           <Input
             {...f}
             invalid={f.invalid}
+            placeholder="Enter ticket subject..."
+            maxLength={TICKET_SUBJECT_MAX}
             value={values.subject}
             disabled={submitting}
             onChange={(e) => update("subject", e.target.value)}
           />
         )}
       </FormField>
+
       <FormField
         label="Description"
+        required
         error={fieldErrors.description}
-        hint={`Up to ${TICKET_DESCRIPTION_MAX} characters`}
+        labelAction={
+          <span className="text-theme-xs text-gray-400 font-normal">
+            {values.description.length} / {TICKET_DESCRIPTION_MAX}
+          </span>
+        }
       >
         {(f) => (
           <Textarea
             {...f}
             rows={4}
             invalid={f.invalid}
+            placeholder="Enter detailed description of your request..."
+            maxLength={TICKET_DESCRIPTION_MAX}
             value={values.description}
             disabled={submitting}
             onChange={(e) => update("description", e.target.value)}
           />
         )}
       </FormField>
+
       {serverError ? (
         <Alert variant="error" title="Could not save">
           {serverError}
         </Alert>
       ) : null}
-      <div className="flex justify-end gap-2">
+
+      <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
         <Button
           type="button"
           variant="secondary"
@@ -171,8 +218,12 @@ export function TicketForm({ onSubmitted, onCancel }: TicketFormProps) {
         >
           Cancel
         </Button>
-        <Button type="submit" loading={submitting}>
-          Raise ticket
+        <Button
+          type="submit"
+          loading={submitting}
+          className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
+        >
+          Raise Ticket
         </Button>
       </div>
     </form>
