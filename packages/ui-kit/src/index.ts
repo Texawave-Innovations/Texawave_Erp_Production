@@ -16,3 +16,5 @@ export * from "./components/data-table/index";
 export * from "./components/pagination/index";
 export * from "./components/toast/toast-context";
 export * from "./components/dialog/index";
+export * from "./components/date-range-picker/index";
+export * from "./components/date-range-picker/utils";

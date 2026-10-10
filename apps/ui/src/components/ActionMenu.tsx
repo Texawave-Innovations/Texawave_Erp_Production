@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreHorizontal, MoreVertical } from "lucide-react";
 
 export interface ActionMenuItem {
   label: string;
@@ -14,6 +14,8 @@ export interface ActionMenuItem {
 export interface ActionMenuProps {
   items: ActionMenuItem[];
   ariaLabel: string;
+  triggerIcon?: "vertical" | "horizontal" | undefined;
+  buttonClassName?: string | undefined;
 }
 
 /**
@@ -21,7 +23,12 @@ export interface ActionMenuProps {
  * Replaces bulky row action buttons with a clean, keyboard-accessible dropdown.
  * Conforms to Docs/DESIGN_SYSTEM.md and Docs/CODING_STANDARDS.md.
  */
-export function ActionMenu({ items, ariaLabel }: ActionMenuProps) {
+export function ActionMenu({
+  items,
+  ariaLabel,
+  triggerIcon = "vertical",
+  buttonClassName,
+}: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -59,9 +66,16 @@ export function ActionMenu({ items, ariaLabel }: ActionMenuProps) {
         aria-expanded={open}
         aria-label={ariaLabel}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+        className={
+          buttonClassName ||
+          "flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+        }
       >
-        <MoreVertical className="h-4 w-4" />
+        {triggerIcon === "horizontal" ? (
+          <MoreHorizontal className="h-4 w-4" />
+        ) : (
+          <MoreVertical className="h-4 w-4" />
+        )}
       </button>
 
       {open && (
