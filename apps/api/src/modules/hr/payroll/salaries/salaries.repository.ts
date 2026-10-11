@@ -7,6 +7,7 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../../common/tenancy/tenant-where.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import type {
   CreateSalaryDto,
@@ -32,13 +33,66 @@ const INCLUDE_EMPLOYEE = {
   },
 } satisfies Prisma.EmployeeSalaryInclude;
 
+/** A create request with its components resolved (given, or split from the
+ * gross by the payroll settings). */
+export type ResolvedSalary = CreateSalaryDto & { basic: number; hra: number };
+
+const ENTITY_TYPE = "employee_salary";
+
+/** The amounts and dates that define a structure — what the audit trail keeps. */
+function salarySnapshot(row: Prisma.EmployeeSalaryGetPayload<object>) {
+  return {
+    employeeId: row.employeeId,
+    effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
+    effectiveTo: row.effectiveTo
+      ? row.effectiveTo.toISOString().slice(0, 10)
+      : null,
+    grossMonthly: row.grossMonthly.toString(),
+    basic: row.basic.toString(),
+    hra: row.hra.toString(),
+    conveyance: row.conveyance.toString(),
+    otherAllowance: row.otherAllowance.toString(),
+    specialAllowance: row.specialAllowance.toString(),
+    arrearsSalary: row.arrearsSalary.toString(),
+  };
+}
+
 export type SalaryRow = Prisma.EmployeeSalaryGetPayload<{
   include: typeof INCLUDE_EMPLOYEE;
 }>;
 
 @Injectable()
 export class SalariesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
+
+  /** Finalized payroll periods that overlap [from, to] (to = null: open-ended).
+   * Their payslips used this structure, so its recurring amounts are fixed. */
+  @OrgScoped()
+  findFinalizedPeriodsOverlapping(
+    scope: OrgScope,
+    from: Date,
+    to: Date | null,
+  ) {
+    return this.prisma.payrollPeriod.findMany({
+      where: tenantWhere(scope, {
+        status: "FINALIZED",
+        deletedAt: null,
+        periodEnd: { gte: from },
+        ...(to ? { periodStart: { lte: to } } : {}),
+      }),
+      select: {
+        id: true,
+        year: true,
+        month: true,
+        periodStart: true,
+        periodEnd: true,
+      },
+      orderBy: { periodEnd: "desc" },
+    });
+  }
 
   @TeamScoped()
   async findMany(
@@ -158,29 +212,38 @@ export class SalariesRepository {
   @OrgScoped()
   async create(
     scope: OrgScope,
-    dto: CreateSalaryDto,
+    dto: ResolvedSalary,
     from: Date,
     to: Date | null,
     grossMonthly: number,
     createdById: number,
   ): Promise<SalaryRow> {
-    return this.prisma.employeeSalary.create({
-      data: {
-        organizationId: scope.organizationId,
-        employeeId: dto.employeeId,
-        effectiveFrom: from,
-        effectiveTo: to,
-        grossMonthly,
-        basic: dto.basic,
-        hra: dto.hra,
-        conveyance: dto.conveyance ?? 0,
-        otherAllowance: dto.otherAllowance ?? 0,
-        specialAllowance: dto.specialAllowance ?? 0,
-        arrearsSalary: dto.arrearsSalary ?? 0,
-        createdBy: createdById,
-        updatedBy: createdById,
-      },
-      include: INCLUDE_EMPLOYEE,
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.employeeSalary.create({
+        data: {
+          organizationId: scope.organizationId,
+          employeeId: dto.employeeId,
+          effectiveFrom: from,
+          effectiveTo: to,
+          grossMonthly,
+          basic: dto.basic,
+          hra: dto.hra,
+          conveyance: dto.conveyance ?? 0,
+          otherAllowance: dto.otherAllowance ?? 0,
+          specialAllowance: dto.specialAllowance ?? 0,
+          arrearsSalary: dto.arrearsSalary ?? 0,
+          createdBy: createdById,
+          updatedBy: createdById,
+        },
+        include: INCLUDE_EMPLOYEE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: created.id,
+        action: "create",
+        after: salarySnapshot(created),
+      });
+      return created;
     });
   }
 
@@ -193,28 +256,43 @@ export class SalariesRepository {
     grossMonthly: number | undefined,
     updatedById: number,
   ): Promise<SalaryRow> {
-    return this.prisma.employeeSalary.update({
-      where: { id },
-      data: {
-        ...(to !== undefined ? { effectiveTo: to } : {}),
-        ...(grossMonthly !== undefined ? { grossMonthly } : {}),
-        ...(dto.basic !== undefined ? { basic: dto.basic } : {}),
-        ...(dto.hra !== undefined ? { hra: dto.hra } : {}),
-        ...(dto.conveyance !== undefined ? { conveyance: dto.conveyance } : {}),
-        ...(dto.otherAllowance !== undefined
-          ? { otherAllowance: dto.otherAllowance }
-          : {}),
-        ...(dto.specialAllowance !== undefined
-          ? { specialAllowance: dto.specialAllowance }
-          : {}),
-        // New arrears are a new one-time payment: clear the "already paid"
-        // marker so the next finalized period pays them.
-        ...(dto.arrearsSalary !== undefined
-          ? { arrearsSalary: dto.arrearsSalary, arrearsPaidPeriodId: null }
-          : {}),
-        updatedBy: updatedById,
-      },
-      include: INCLUDE_EMPLOYEE,
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.employeeSalary.findFirstOrThrow({
+        where: tenantWhere(scope, { id }),
+      });
+      const after = await tx.employeeSalary.update({
+        where: { id },
+        data: {
+          ...(to !== undefined ? { effectiveTo: to } : {}),
+          ...(grossMonthly !== undefined ? { grossMonthly } : {}),
+          ...(dto.basic !== undefined ? { basic: dto.basic } : {}),
+          ...(dto.hra !== undefined ? { hra: dto.hra } : {}),
+          ...(dto.conveyance !== undefined
+            ? { conveyance: dto.conveyance }
+            : {}),
+          ...(dto.otherAllowance !== undefined
+            ? { otherAllowance: dto.otherAllowance }
+            : {}),
+          ...(dto.specialAllowance !== undefined
+            ? { specialAllowance: dto.specialAllowance }
+            : {}),
+          // New arrears are a new one-time payment: clear the "already paid"
+          // marker so the next finalized period pays them.
+          ...(dto.arrearsSalary !== undefined
+            ? { arrearsSalary: dto.arrearsSalary, arrearsPaidPeriodId: null }
+            : {}),
+          updatedBy: updatedById,
+        },
+        include: INCLUDE_EMPLOYEE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "update",
+        before: salarySnapshot(before),
+        after: salarySnapshot(after),
+      });
+      return after;
     });
   }
 }

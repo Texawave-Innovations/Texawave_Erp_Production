@@ -208,13 +208,10 @@ describe("self-service profile (e2e)", () => {
       where: { role: { organizationId: org.id } },
     });
     await prisma.role.deleteMany({ where: { organizationId: org.id } });
-    await prisma.user.deleteMany({ where: { organizationId: org.id } });
-    await prisma.employmentType.deleteMany({
-      where: { organizationId: org.id },
-    });
-    await prisma.designation.deleteMany({ where: { organizationId: org.id } });
-    await prisma.team.deleteMany({ where: { organizationId: org.id } });
-    await prisma.organization.delete({ where: { id: org.id } });
+    // Submitting onboarding writes an audit row (submit_onboarding), and audit
+    // rows are append-only, so the users, masters and organization are left
+    // behind, unique-slugged, on the disposable test DB — the convention in
+    // apps/api/test/README.md for suites that produce audit rows.
     await app.close();
   });
 
@@ -552,8 +549,9 @@ describe("self-service profile (e2e)", () => {
       bankName: "HDFC Bank",
     }).expect(200);
     await put(who, "/employee/profile/government-ids", {
-      aadhaarNumber: "123456789012",
-      panNumber: "ABCDE1234F",
+      // A different person from alice: PAN and Aadhaar are unique per organization.
+      aadhaarNumber: "223456789012",
+      panNumber: "BBCDE1234F",
     }).expect(200);
     for (const documentType of [
       "PROFILE_PHOTO",

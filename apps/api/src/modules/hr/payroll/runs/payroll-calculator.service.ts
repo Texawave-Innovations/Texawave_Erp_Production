@@ -6,6 +6,7 @@ import {
   bonusesPaidElsewhere,
   installmentClaimableBy,
 } from "../shared/payroll-claims.js";
+import { toRules } from "../settings/payroll-settings.rules.js";
 
 export interface CalculatedEmployeePayroll {
   employeeId: number;
@@ -374,11 +375,18 @@ export class PayrollCalculatorService {
 
     // PF Calculation (statutory wage ceiling; see Docs/PAYROLL_AND_COMPLIANCE.md
     // for what is not modelled yet: voluntary PF, EPS/EPF split, DA)
+    // Limits and rates come from the organization's payroll settings; with
+    // no settings row they are the statutory defaults (15,000 at 12% + 12%).
+    const rules = toRules(
+      await this.prisma.payrollSetting.findUnique({
+        where: { organizationId },
+      }),
+    );
     const pfProfile = employee.pfProfile;
     if (pfProfile?.pfApplicable) {
-      const pfWage = Math.min(basicCalc, 15000);
-      const empContribution = round(pfWage * 0.12, 2);
-      const emrContribution = round(pfWage * 0.12, 2);
+      const pfWage = Math.min(basicCalc, rules.pfWageCeiling);
+      const empContribution = round((pfWage * rules.pfEmployeeRate) / 100, 2);
+      const emrContribution = round((pfWage * rules.pfEmployerRate) / 100, 2);
 
       deductions.push({
         code: "PF",
@@ -405,10 +413,13 @@ export class PayrollCalculatorService {
       Number(salary.otherAllowance) +
       Number(salary.specialAllowance);
     const esiProfile = employee.esiProfile;
-    if (esiProfile?.esiApplicable && recurringMonthlyWage <= 21000) {
+    if (
+      esiProfile?.esiApplicable &&
+      recurringMonthlyWage <= rules.esiWageThreshold
+    ) {
       const esiWage = round(totalGrossEarnings - bonusTotal, 2);
-      const empContribution = round(esiWage * 0.0075, 2);
-      const emrContribution = round(esiWage * 0.0325, 2);
+      const empContribution = round((esiWage * rules.esiEmployeeRate) / 100, 2);
+      const emrContribution = round((esiWage * rules.esiEmployerRate) / 100, 2);
 
       deductions.push({
         code: "ESI",

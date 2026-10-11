@@ -36,6 +36,7 @@ import type { ExperienceDto } from "./dto/experience.dto.js";
 import type { FamilyMemberDto } from "./dto/family-member.dto.js";
 import type { GovernmentIdsDto } from "./dto/government-ids.dto.js";
 import type { PersonalDetailsDto } from "./dto/personal-details.dto.js";
+import { asGovernmentIdConflict } from "./government-id-conflict.js";
 import { OnboardingProgressService } from "./onboarding-progress.service.js";
 import { ProfileRepository, type AddressType } from "./profile.repository.js";
 
@@ -140,7 +141,11 @@ export class ProfileService {
 
   async putGovernmentIds(dto: GovernmentIdsDto) {
     const identity = await this.currentIdentity();
-    return this.repository.upsertGovernmentIds(identity, dto);
+    try {
+      return await this.repository.upsertGovernmentIds(identity, dto);
+    } catch (error) {
+      throw asGovernmentIdConflict(error);
+    }
   }
 
   async listFamilyMembers() {
@@ -273,7 +278,8 @@ export class ProfileService {
   }
 
   /** Returns the missing-items list when incomplete; completes onboarding
-   * and returns an empty list when every required item is present. */
+   * (and queues the profile for HR review) and returns an empty list when
+   * every required item is present. */
   async submit(): Promise<{ missing: string[] }> {
     // The real gate is the login flag, not `onboardingStatus` — the stored
     // column only ever holds PENDING_ACTIVATION or COMPLETE (Docs/ARCHITECTURE.md

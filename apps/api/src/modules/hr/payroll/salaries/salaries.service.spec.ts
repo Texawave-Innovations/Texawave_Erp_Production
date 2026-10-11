@@ -34,6 +34,7 @@ function makeService(opts?: {
   employee?: unknown;
   clash?: unknown;
   current?: unknown;
+  finalized?: unknown[];
 }) {
   const level = opts?.level ?? "all";
   const teamScope = {
@@ -53,6 +54,16 @@ function makeService(opts?: {
       ),
     findApplicableOn: vi.fn().mockResolvedValue({ id: 20 }),
     update: vi.fn().mockResolvedValue({ id: 20 }),
+    findFinalizedPeriodsOverlapping: vi
+      .fn()
+      .mockResolvedValue(opts?.finalized ?? []),
+  };
+  const settings = {
+    rules: vi.fn().mockResolvedValue({
+      basicPercent: 35,
+      hraPercent: 30,
+      conveyancePercent: 20,
+    }),
   };
   const tenantContext = {
     getOrgScope: vi.fn().mockReturnValue(ORG_SCOPE),
@@ -73,8 +84,9 @@ function makeService(opts?: {
     tenantContext as never,
     teamContext as never,
     prisma as never,
+    settings as never,
   );
-  return { service, repository, teamContext, teamScope, prisma };
+  return { service, repository, teamContext, teamScope, prisma, settings };
 }
 
 const BASE_DTO = {
@@ -343,6 +355,86 @@ describe("SalariesService", () => {
       );
       expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.salary.write");
       expect(repository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("auto-split", () => {
+    it("splits a gross-only request by the payroll settings; special allowance stays on top", async () => {
+      const { service, repository } = makeService();
+      await service.create({
+        employeeId: 7,
+        effectiveFrom: "2026-04-01",
+        grossMonthly: 42000,
+        specialAllowance: 2000,
+      });
+      const [, resolved, , , gross] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, number>,
+        unknown,
+        unknown,
+        number,
+      ];
+      expect(resolved).toMatchObject({
+        basic: 14000,
+        hra: 12000,
+        conveyance: 8000,
+        otherAllowance: 6000,
+        specialAllowance: 2000,
+      });
+      expect(gross).toBe(42000);
+    });
+
+    it("refuses half-given components or nothing at all", async () => {
+      const { service, repository } = makeService();
+      for (const dto of [
+        { employeeId: 7, effectiveFrom: "2026-04-01", basic: 1000 },
+        {
+          employeeId: 7,
+          effectiveFrom: "2026-04-01",
+          grossMonthly: 9000,
+          conveyance: 10,
+        },
+        { employeeId: 7, effectiveFrom: "2026-04-01" },
+      ]) {
+        const err: unknown = await service.create(dto).catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(BusinessRuleViolationException);
+        expect(errorCode(err)).toBe("SALARY_COMPONENTS_INCOMPLETE");
+      }
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("finalized payroll lock", () => {
+    const MAY = {
+      id: 5,
+      year: 2026,
+      month: 5,
+      periodStart: new Date("2026-05-01T00:00:00.000Z"),
+      periodEnd: new Date("2026-05-31T00:00:00.000Z"),
+    };
+
+    it("refuses changing recurring amounts once a covered period is finalized", async () => {
+      const { service, repository } = makeService({ finalized: [MAY] });
+      const err: unknown = await service
+        .update(20, { basic: 25000 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("SALARY_LOCKED_BY_FINALIZED_PAYROLL");
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses ending the structure before the last finalized period ends", async () => {
+      const { service } = makeService({ finalized: [MAY] });
+      const err: unknown = await service
+        .update(20, { effectiveTo: "2026-05-15" })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("SALARY_LOCKED_BY_FINALIZED_PAYROLL");
+    });
+
+    it("still allows closing after it, and one-time arrears", async () => {
+      const { service, repository } = makeService({ finalized: [MAY] });
+      await service.update(20, { effectiveTo: "2026-06-30" });
+      await service.update(20, { arrearsSalary: 2000 });
+      expect(repository.update).toHaveBeenCalledTimes(2);
     });
   });
 });

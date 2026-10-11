@@ -105,22 +105,27 @@ $$\text{Calculated Component} = \text{Round}\left(\text{Base Component} \times \
 
 ### 3.3 Statutory Compliance
 
+The limits and rates below are the **defaults**. Each organization can change them in its payroll
+settings (`hr.payroll_settings`, §4.2a); with no settings row saved, the calculator uses exactly
+these values, so payroll results are unchanged until someone edits a setting. A change applies
+to runs calculated after it — finalized periods are never recalculated.
+
 #### Provident Fund (PF)
 
 - **Applicability:** Checked against `EmployeePfProfile.pfApplicable`.
-- **Wage Ceiling:** Statutory ceiling is ₹15,000 per month.
-  $$\text{PF Wage} = \min(\text{Calculated Basic}, 15000)$$
-- **Employee Contribution:** $12\%$ of PF Wage.
-- **Employer Contribution:** $12\%$ of PF Wage, stored as one figure — the EPS (8.33%, capped ₹1,250) / EPF (3.67%) split is **not** modelled yet (§3.6).
+- **Wage Ceiling:** `pfWageCeiling`, default ₹15,000 per month.
+  $$\text{PF Wage} = \min(\text{Calculated Basic}, \text{pfWageCeiling})$$
+- **Employee Contribution:** `pfEmployeeRate`% of PF Wage (default $12\%$).
+- **Employer Contribution:** `pfEmployerRate`% of PF Wage (default $12\%$), stored as one figure — the EPS (8.33%, capped ₹1,250) / EPF (3.67%) split is **not** modelled yet (§3.6).
 
 #### Employee State Insurance (ESI)
 
 - **Applicability:** Checked against `EmployeeEsiProfile.esiApplicable`.
-- **Eligibility ceiling:** ₹21,000 per month, tested against the **recurring** monthly wage (Basic + HRA + Conveyance + Other + Special) — arrears and bonuses do not make an employee ineligible.
+- **Eligibility ceiling:** `esiWageThreshold`, default ₹21,000 per month, tested against the **recurring** monthly wage (Basic + HRA + Conveyance + Other + Special) — arrears and bonuses do not make an employee ineligible.
 - If eligible:
   - $\text{ESI Wage} = \text{Total Gross Earnings} - \text{Bonuses}$ (bonus is not an ESI wage; arrears are)
-  - $\text{Employee Contribution} = \text{Round}(\text{ESI Wage} \times 0.0075, 2)$ ($0.75\%$)
-  - $\text{Employer Contribution} = \text{Round}(\text{ESI Wage} \times 0.0325, 2)$ ($3.25\%$)
+  - $\text{Employee Contribution} = \text{Round}(\text{ESI Wage} \times \text{esiEmployeeRate} / 100, 2)$ (default $0.75\%$)
+  - $\text{Employer Contribution} = \text{Round}(\text{ESI Wage} \times \text{esiEmployerRate} / 100, 2)$ (default $3.25\%$)
 - Otherwise ESI deduction is ₹0.00.
 
 ### 3.4 Loans & Advances
@@ -247,7 +252,9 @@ Creates an effective-dated salary structure for an employee. Automatically close
     "effectiveFrom": "2026-01-01"
   }
   ```
-  Required: `employeeId`, `effectiveFrom`, `basic`, `hra`. Optional: `effectiveTo`, `conveyance`, `otherAllowance`, `specialAllowance`, `arrearsSalary`, `grossMonthly`. All amounts must be `>= 0`.
+  Required: `employeeId`, `effectiveFrom`, and **either** `basic` + `hra` (with the other components optional) **or** only `grossMonthly`. Optional: `effectiveTo`, `conveyance`, `otherAllowance`, `specialAllowance`, `arrearsSalary`, `grossMonthly`. All amounts must be `>= 0`.
+- **Auto-split:** when only `grossMonthly` is given (optionally with `specialAllowance`, which stays on top), `grossMonthly − specialAllowance` is split by the organization's payroll settings — `basicPercent` / `hraPercent` / `conveyancePercent` (default 35 / 30 / 20, the legacy form's rule) with the remainder as `otherAllowance`, so the parts always add up to the gross. Giving only some components (e.g. `basic` without `hra`) is `422 SALARY_COMPONENTS_INCOMPLETE`. Preview the split with `GET /hr/payroll/settings/salary-split?grossMonthly=`.
+- **Audit:** create and update write an `employee_salary` audit row (before/after amounts and dates) in the same transaction.
 
 #### `GET /hr/salaries`
 
@@ -274,6 +281,21 @@ Get a single salary structure.
 Update a salary structure (any of `effectiveTo`, `basic`, `hra`, `conveyance`, `otherAllowance`, `specialAllowance`, `arrearsSalary`).
 
 - **Permission:** `hr.salary.write.all`
+- **Locked by finalized payroll:** once a FINALIZED payroll period overlaps the structure, its recurring amounts (`basic`, `hra`, `conveyance`, `otherAllowance`, `specialAllowance`) cannot change, and `effectiveTo` cannot move before the end of the last finalized period it covers — both `422 SALARY_LOCKED_BY_FINALIZED_PAYROLL`. A pay change is a new structure from the next period. One-time `arrearsSalary` stays editable (it is paid by the next finalized period).
+
+---
+
+### 4.2a Payroll settings (`/hr/payroll/settings`)
+
+Organization-wide rules: one row per organization (`hr.payroll_settings`), none until first saved.
+
+| Method & path                           | Permission                  | Notes                                                                                                                                                                           |
+| --------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/payroll/settings`              | `hr.payroll_settings.read`  | `basicPercent, hraPercent, conveyancePercent, pfWageCeiling, pfEmployeeRate, pfEmployerRate, esiWageThreshold, esiEmployeeRate, esiEmployerRate`, plus `isDefault`, `version`   |
+| PATCH `/hr/payroll/settings`            | `hr.payroll_settings.write` | partial; **`version` required** (`0` before the first save; stale → `409 VERSION_CONFLICT`). Basic + HRA + conveyance > 100 → `422 SALARY_SPLIT_OVER_100`. Audited before/after |
+| GET `/hr/payroll/settings/salary-split` | `hr.salary.write` ▲         | `?grossMonthly=` → `{grossMonthly, basic, hra, conveyance, otherAllowance}` under the current settings                                                                          |
+
+Percentages are 0–100 (two decimals); the PF ceiling and ESI threshold are positive amounts. Database CHECKs mirror these rules. Not employee data, so the permissions carry no `.own/.team/.all` scope; no default role holds them (payroll is not in the HR Manager role either).
 
 ---
 

@@ -102,6 +102,7 @@ model Organization {
   payrollEarnings       PayrollEarning[]
   payrollDeductions     PayrollDeduction[]
   employeeSalaries      EmployeeSalary[]
+  payrollSetting        PayrollSetting?
   employeePfProfiles    EmployeePfProfile[]
   pfContributions       PfContribution[]
   employeeEsiProfiles   EmployeeEsiProfile[]
@@ -613,7 +614,19 @@ model Employee {
   reportsToId      Int?      @map("reports_to_id")
   status           String    @default("ACTIVE")
   onboardingStatus String    @default("PENDING_ACTIVATION") @map("onboarding_status")
+  /// HR's review of the submitted onboarding profile, independent of
+  /// `onboarding_status` (Docs/ARCHITECTURE.md §7): NOT_SUBMITTED |
+  /// PENDING_REVIEW | APPROVED | CHANGES_REQUESTED (CHECK in the migration).
+  onboardingReviewStatus String    @default("NOT_SUBMITTED") @map("onboarding_review_status")
+  onboardingSubmittedAt  DateTime? @map("onboarding_submitted_at") @db.Timestamptz(6)
+  onboardingReviewedAt   DateTime? @map("onboarding_reviewed_at") @db.Timestamptz(6)
+  onboardingReviewedBy   Int?      @map("onboarding_reviewed_by")
+  onboardingReviewNote   String?   @map("onboarding_review_note")
   dateOfJoining    DateTime  @map("date_of_joining") @db.Date
+  probationEndDate DateTime? @map("probation_end_date") @db.Date
+  confirmationDate DateTime? @map("confirmation_date") @db.Date
+  referredBy       String?   @map("referred_by")
+  workDomain       String?   @map("work_domain")
   dateOfExit       DateTime? @map("date_of_exit") @db.Date
   exitReason       String?   @map("exit_reason")
   version          Int       @default(1)
@@ -672,6 +685,7 @@ model Employee {
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
+  @@index([organizationId, onboardingReviewStatus])
   @@index([organizationId, teamId])
   @@index([organizationId, departmentId])
   @@index([organizationId, designationId])
@@ -1435,12 +1449,11 @@ model OfferLetter {
   @@schema("hr")
 }
 
-/// Employee profile details that are personal but not sensitive (legacy
-/// `EmployeeForm.tsx`, `EmployeeProfileView.tsx`, `SelfOnboarding.tsx`). One row
-/// per employee, created on first save. Name, contact, joining date and
-/// organisational placement stay on `employees`; they are not duplicated here.
-/// Addresses are JSON objects validated by the API (`{address, area, district,
-/// city, state, pincode, country}`).
+/// RETIRED — no code reads or writes this table. Its data was copied into
+/// `employee_personal_details` and `employee_addresses` by migration
+/// 20261011090000_hr_employee_gaps, which now hold every employee's personal
+/// details. Kept (not dropped) until a reviewer approves the drop; do not add
+/// new readers.
 model EmployeeProfile {
   id                        Int       @id @default(autoincrement())
   organizationId            Int       @map("organization_id")
@@ -1476,10 +1489,12 @@ model EmployeeProfile {
   @@schema("hr")
 }
 
-/// Sensitive identifiers and bank details (PAN, Aadhaar, ESI, PF, bank account)
-/// in their OWN table, per ARCHITECTURE.md §10. Readable and writable only with
-/// `hr.employee_sensitive.{read,write}.all`. Reads are audited before the
-/// response is returned; writes audit the changed field NAMES, never values.
+/// RETIRED — no code reads or writes this table. Identifiers were copied into
+/// `employee_government_ids` by migration 20261011090000_hr_employee_gaps;
+/// bank details are moved into `employee_bank_details` (encrypted) by
+/// `apps/api/scripts/backfill-hr-bank-details.ts`, which then clears the
+/// plain-text account number here. Kept (not dropped) until a reviewer
+/// approves the drop; do not add new readers.
 model EmployeeSensitiveInfo {
   id             Int      @id @default(autoincrement())
   organizationId Int      @map("organization_id")
@@ -1585,13 +1600,23 @@ model Approval {
   @@schema("platform")
 }
 
-/// Employee self-onboarding (Docs/ARCHITECTURE.md §7). 1:1 with `employees`.
-/// Filled in by the employee in the onboarding wizard; read-only for HR.
+/// The single source of truth for an employee's personal details. 1:1 with
+/// `employees`. Written by the employee in the onboarding wizard
+/// (Docs/ARCHITECTURE.md §7) and by HR through `hr/profiles`. The HR-only
+/// fields (title, languages, spouse, experience summary) moved here from the
+/// retired `employee_profiles` table.
 model EmployeePersonalDetail {
   id                       Int       @id @default(autoincrement())
   organizationId           Int       @map("organization_id")
   teamId                   Int       @map("team_id")
   employeeId               Int       @unique @map("employee_id")
+  title                    String?
+  languages                String[]  @default([])
+  spouseName               String?   @map("spouse_name")
+  isFresher                Boolean   @default(false) @map("is_fresher")
+  experienceYears          Decimal?  @map("experience_years") @db.Decimal(4, 1)
+  previousCompany          String?   @map("previous_company")
+  previousRole             String?   @map("previous_role")
   dateOfBirth              DateTime? @map("date_of_birth") @db.Date
   gender                   String?
   maritalStatus            String?   @map("marital_status")
@@ -1759,10 +1784,12 @@ model EmployeeAddress {
   addressType    String    @map("address_type")
   addressLine    String    @map("address_line")
   areaLocality   String?   @map("area_locality")
-  district       String
+  /// Required by the onboarding wizard (its DTO); optional for HR edits.
+  district       String?
   city           String
   state          String
   pincode        String
+  country        String?
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -1812,6 +1839,35 @@ model EmployeeGovernmentId {
 // ---------------------------------------------------------------------------
 // HR Payroll & Compliance (apps/api/src/modules/hr/payroll)
 // ---------------------------------------------------------------------------
+
+/// Organization-wide payroll rules (apps/api/src/modules/hr/payroll/settings).
+/// At most one row per organization; no row means the defaults in
+/// `payroll-settings.rules.ts`, which equal the values that were hard-coded
+/// before this table existed. Percentages are 0–100 (CHECKs in the migration).
+model PayrollSetting {
+  id                Int      @id @default(autoincrement())
+  organizationId    Int      @unique @map("organization_id")
+  /// Auto-split of a gross monthly salary; the remainder is `other_allowance`.
+  basicPercent      Decimal  @default(35) @map("basic_percent") @db.Decimal(5, 2)
+  hraPercent        Decimal  @default(30) @map("hra_percent") @db.Decimal(5, 2)
+  conveyancePercent Decimal  @default(20) @map("conveyance_percent") @db.Decimal(5, 2)
+  pfWageCeiling     Decimal  @default(15000) @map("pf_wage_ceiling") @db.Decimal(12, 2)
+  pfEmployeeRate    Decimal  @default(12) @map("pf_employee_rate") @db.Decimal(5, 2)
+  pfEmployerRate    Decimal  @default(12) @map("pf_employer_rate") @db.Decimal(5, 2)
+  esiWageThreshold  Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
+  esiEmployeeRate   Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
+  esiEmployerRate   Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
+  version           Int      @default(1)
+  createdBy         Int?     @map("created_by")
+  updatedBy         Int?     @map("updated_by")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("payroll_settings")
+  @@schema("hr")
+}
 
 model PayrollPeriod {
   id             Int       @id @default(autoincrement())

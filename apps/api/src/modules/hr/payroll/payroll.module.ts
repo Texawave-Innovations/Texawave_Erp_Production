@@ -7,9 +7,11 @@ import { PayslipsModule } from "./payslips/payslips.module.js";
 import { PayrollPeriodsModule } from "./periods/payroll-periods.module.js";
 import { PayrollRunsModule } from "./runs/payroll-runs.module.js";
 import { SalariesModule } from "./salaries/salaries.module.js";
+import { PayrollSettingsModule } from "./settings/payroll-settings.module.js";
 
 @Module({
   imports: [
+    PayrollSettingsModule,
     PayrollPeriodsModule,
     SalariesModule,
     ComplianceModule,
@@ -20,6 +22,7 @@ import { SalariesModule } from "./salaries/salaries.module.js";
     PaymentsModule,
   ],
   exports: [
+    PayrollSettingsModule,
     PayrollPeriodsModule,
     SalariesModule,
     ComplianceModule,

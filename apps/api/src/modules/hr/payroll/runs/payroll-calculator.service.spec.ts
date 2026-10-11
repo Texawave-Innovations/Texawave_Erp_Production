@@ -46,10 +46,17 @@ describe("PayrollCalculatorService", () => {
     bonuses?: unknown[];
     bonusEarningsElsewhere?: unknown[];
     employeeSalary?: unknown;
+    payrollSetting?: unknown;
   }) {
     const prisma = {
       payrollPeriod: {
         findFirstOrThrow: vi.fn().mockResolvedValue(period),
+      },
+      // No settings row: the statutory defaults apply.
+      payrollSetting: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue(overrides?.payrollSetting ?? null),
       },
       employee: {
         findFirst: vi.fn().mockImplementation(() =>
@@ -162,6 +169,32 @@ describe("PayrollCalculatorService", () => {
     // Deductions should contain PF
     expect(result.totalDeductions).toBe(1800);
     expect(result.netPayable).toBe(50000 - 1800);
+  });
+
+  it("uses the organization's PF ceiling/rates and ESI threshold from payroll settings", async () => {
+    const service = createService({
+      payrollSetting: {
+        basicPercent: new Prisma.Decimal(35),
+        hraPercent: new Prisma.Decimal(30),
+        conveyancePercent: new Prisma.Decimal(20),
+        pfWageCeiling: new Prisma.Decimal(20000),
+        pfEmployeeRate: new Prisma.Decimal(10),
+        pfEmployerRate: new Prisma.Decimal(12),
+        esiWageThreshold: new Prisma.Decimal(60000),
+        esiEmployeeRate: new Prisma.Decimal(1),
+        esiEmployerRate: new Prisma.Decimal(3),
+      },
+      esiProfile: { esiApplicable: true },
+    });
+    const result = (await service.calculateForEmployee(1, period.id, 10))!;
+
+    // Basic 25000 capped at the configured 20000; 10% / 12%.
+    expect(result.pf?.pfWage).toBe(20000);
+    expect(result.pf?.employeeContribution).toBe(2000);
+    expect(result.pf?.employerContribution).toBe(2400);
+    // Gross 50000 is under the configured 60000 threshold: 1% / 3%.
+    expect(result.esi?.employeeContribution).toBe(500);
+    expect(result.esi?.employerContribution).toBe(1500);
   });
 
   it("calculates prorated payroll with LOP leave days", async () => {

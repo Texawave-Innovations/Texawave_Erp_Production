@@ -15,15 +15,20 @@ export class CreateSalaryDto {
   @IsDateOnly()
   effectiveTo?: string;
 
+  /** Give `basic` and `hra` (and optionally the other components), or omit
+   * both and give `grossMonthly` to have it split by the organization's
+   * payroll settings (hr/payroll/settings). */
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  basic!: number;
+  basic?: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  hra!: number;
+  hra?: number;
 
   @IsOptional()
   @Type(() => Number)

@@ -344,6 +344,19 @@ reads `User.mustChangePassword` directly, not `onboardingStatus`. The
 forward-only `WHERE onboarding_status <> 'COMPLETE'`, not a transition out of
 a specific prior value.
 
+**HR review is a third, separate field — not a third onboarding state.**
+`onboarding_status` keeps answering only "has the employee finished the
+wizard" (it opens the portal, and every UI gate reads it). Whether HR has
+checked the submitted profile is `onboarding_review_status`:
+`NOT_SUBMITTED → PENDING_REVIEW → APPROVED`, or `PENDING_REVIEW →
+CHANGES_REQUESTED → PENDING_REVIEW`. Submitting sets `COMPLETE` and
+`PENDING_REVIEW` together, so the employee is never locked out while waiting.
+Sending back (`hr.employee_onboarding.approve`, note required) is the one
+deliberate move of `onboarding_status` back to `PENDING_ACTIVATION`, so the
+wizard reopens for corrections; resubmitting goes forward again. Rules live
+in `modules/hr/employees/onboarding-review.policy.ts`; routes and the full
+contract in `Docs/HR_API.md` (self-service — onboarding).
+
 **Onboarding data model** (`apps/api/src/modules/employee-self-service/profile/`):
 `employee_personal_details`, `employee_bank_details`, `employee_addresses`
 (one row per `PERMANENT`/`PRESENT`; no present-address row means "same as
@@ -351,7 +364,13 @@ permanent"), `employee_government_ids`, `employee_family_members`,
 `employee_experience`, `employee_documents` (one row per
 `documentType` — see §5.6). Every write is resolved from the caller's JWT via
 `EmployeeQueryService.getCurrentEmployee()`; no request ever carries an
-employee id for these routes.
+employee id for these routes. These tables are the **single source of truth**
+for an employee's personal, address, identity and bank data: HR reads and
+writes the same rows through `modules/hr/profiles` (its own team-scoped and
+sensitive permissions). The earlier HR-only `employee_profiles` /
+`employee_sensitive_info` tables are retired (migration
+`20261011090000_hr_employee_gaps`), kept only until their drop is approved.
+PAN and Aadhaar are unique per organization (partial unique indexes).
 
 **Bank account numbers are encrypted at rest**
 (`apps/api/src/common/crypto/field-encryption.service.ts`, AES-256-GCM,
@@ -446,7 +465,7 @@ keep both env vars in sync with whatever you chose.
 - **Don't build microservices to feel "production level."** A modular monolith with clean module/event boundaries is the correct architecture for this team size.
 - **No plaintext credentials, ever, anywhere** — this is the single most important thing this rebuild fixes relative to the old app.
 - **Payslip/salary reads get audit-logged, not just writes.** `hr.payroll.read.*` is exactly the kind of access that gets scrutinized after the fact — log the read, not only the mutation.
-- **PII (Aadhar/PAN/bank account) gets real, narrowly-permissioned columns or its own table** (`employee_sensitive_info`, gated by `hr.employee_sensitive.read.all` only) — never `custom_fields`. Compliance review looks for exactly this separation.
+- **PII (Aadhar/PAN/bank account) gets real, narrowly-permissioned columns or its own table** (`employee_government_ids` and `employee_bank_details` — account number encrypted at rest; HR access gated by the exact `hr.employee_sensitive.{read,write}` permissions, reads audited) — never `custom_fields`. Compliance review looks for exactly this separation.
 - **GPS/attendance raw location data is the one deliberate exception to "never hard-delete."** State a retention window for raw check-in coordinates (derive attendance status, then age the raw trail out) rather than keeping it indefinitely by the same rule that governs business records.
 
 ---

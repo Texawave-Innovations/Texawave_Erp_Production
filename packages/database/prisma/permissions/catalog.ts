@@ -254,6 +254,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   // .own write is reserved (self-service edits are not built).
   ...scopedPermission("hr.employee.read", "View employees"),
   ...scopedPermission("hr.employee.write", "Create/edit employees"),
+  // Bulk CSV export of the employee directory, including work e-mail and phone
+  // — a separate grant because a bulk download is a larger exposure than
+  // reading records one at a time. (CSV import is bulk *create* and rides on
+  // hr.employee.write, with the same scope rules as creating one employee.)
+  ...scopedPermission("hr.employee.export", "Export the employee directory"),
+  // HR review of a submitted onboarding profile (approve or send back).
+  // Team-scoped through the employee; .own is refused in the service (nobody
+  // reviews their own profile). Docs/ARCHITECTURE.md §7.
+  ...scopedPermission(
+    "hr.employee_onboarding.approve",
+    "Approve or send back a submitted onboarding profile",
+  ),
   // apps/api/src/modules/hr/employee-documents — same team-scoped shape as
   // hr.employee.*. Covers both the read-only view of onboarding's documents
   // and HR's own ad-hoc uploads for an employee.
@@ -440,6 +452,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.payroll.approve", "Approve payroll runs"),
   ...scopedPermission("hr.payroll.finalize", "Finalize payroll periods"),
+
+  // apps/api/src/modules/hr/payroll/settings — organization-wide rules (salary
+  // auto-split, PF/ESI limits and rates). Not employee data, so no scope.
+  {
+    code: "hr.payroll_settings.read",
+    description: "View payroll settings (salary split, PF/ESI limits)",
+  },
+  {
+    code: "hr.payroll_settings.write",
+    description: "Change payroll settings (salary split, PF/ESI limits)",
+  },
 
   // Salary structures — team-scoped
   ...scopedPermission("hr.salary.read", "View employee salary structures"),

@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { ProfilesService } from "./profiles.service.js";
 
@@ -15,12 +15,20 @@ function makeService(level: "own" | "team" | "all" = "all") {
     getUserId: vi.fn().mockReturnValue(42),
   };
   const teamContext = { resolveScope: vi.fn().mockResolvedValue(teamScope) };
+  const encryption = {
+    encrypt: vi.fn((v: string) => `enc(${v})`),
+    decrypt: vi.fn((v: string) => v.slice("enc(".length, -1)),
+    mask: vi.fn((v: string) => `XX${v.slice(-4)}`),
+  };
+  const pdf = { render: vi.fn().mockResolvedValue(Buffer.from("%PDF")) };
   const service = new ProfilesService(
     repository as never,
     tenantContext as never,
     teamContext as never,
+    encryption as never,
+    pdf as never,
   );
-  return { service, repository, teamContext, teamScope };
+  return { service, repository, teamContext, teamScope, encryption, pdf };
 }
 
 describe("ProfilesService", () => {
@@ -123,7 +131,7 @@ describe("ProfilesService", () => {
   describe("sensitive record (organization-wide by permission)", () => {
     it("reads with the organization boundary, not a team scope", async () => {
       const { service, repository, teamContext } = makeService("all");
-      repository.readSensitive.mockResolvedValue({ employeeId: 3 });
+      repository.readSensitive.mockResolvedValue({ ids: null, bank: null });
 
       await service.getSensitive(3);
 
@@ -144,7 +152,7 @@ describe("ProfilesService", () => {
 
     it("writes only the sensitive keys the request named, with the actor", async () => {
       const { service, repository } = makeService("all");
-      repository.upsertSensitive.mockResolvedValue({ employeeId: 3 });
+      repository.upsertSensitive.mockResolvedValue({ ids: null, bank: null });
 
       await service.updateSensitive(3, {
         bankIfsc: "SBIN0001234",
@@ -165,6 +173,97 @@ describe("ProfilesService", () => {
       await expect(
         service.updateSensitive(9, { bankIfsc: "SBIN0001234" } as never),
       ).rejects.toBeInstanceOf(ResourceNotFoundException);
+    });
+
+    it("encrypts a new account number before it reaches the repository", async () => {
+      const { service, repository } = makeService("all");
+      repository.upsertSensitive.mockResolvedValue({ ids: null, bank: null });
+      await service.updateSensitive(3, {
+        bankAccountNo: "123456789012",
+      } as never);
+      expect(repository.upsertSensitive.mock.calls[0]?.[2]).toEqual({
+        bankAccount: { encrypted: "enc(123456789012)", masked: "XX9012" },
+      });
+    });
+
+    it("returns the decrypted account number to the sensitive-permission holder", async () => {
+      const { service, repository } = makeService("all");
+      const at = new Date("2026-10-01T00:00:00.000Z");
+      repository.readSensitive.mockResolvedValue({
+        ids: {
+          panNumber: "ABCDE1234F",
+          aadhaarNumber: null,
+          esiNumber: null,
+          pfNumber: null,
+          updatedAt: at,
+        },
+        bank: {
+          bankName: "SBI",
+          branchName: null,
+          ifsc: "SBIN0001234",
+          accountNumberEncrypted: "enc(123456789012)",
+          updatedAt: at,
+        },
+      });
+      await expect(service.getSensitive(3)).resolves.toMatchObject({
+        panNumber: "ABCDE1234F",
+        bankAccountNo: "123456789012",
+        bankIfsc: "SBIN0001234",
+        updatedAt: at,
+      });
+    });
+  });
+
+  describe("codes shared with the onboarding wizard", () => {
+    it("stores common spellings as the wizard's codes", async () => {
+      const { service, repository } = makeService("all");
+      repository.upsertProfile.mockResolvedValue({ employee: {} });
+      await service.updateProfile(3, {
+        gender: "Male",
+        maritalStatus: "unmarried",
+        bloodGroup: "o +",
+      } as never);
+      expect(repository.upsertProfile.mock.calls[0]?.[2]).toEqual({
+        gender: "MALE",
+        maritalStatus: "SINGLE",
+        bloodGroup: "O+",
+      });
+    });
+
+    it("rejects a value that matches no code", async () => {
+      const { service, repository } = makeService("all");
+      await expect(
+        service.updateProfile(3, { gender: "unknown" } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.updateProfile(3, { bloodGroup: "Z+" } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.upsertProfile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("profile PDF", () => {
+    it("renders the scoped profile and names the file after the employee code", async () => {
+      const { service, repository, pdf } = makeService("team");
+      repository.findOne.mockResolvedValue({
+        employee: {
+          employeeCode: "EMP-000007",
+          fullName: "Asha",
+          status: "ACTIVE",
+        },
+        profile: {
+          languages: [],
+          emergencyContact: {},
+          presentAddress: null,
+          permanentAddress: null,
+          isFresher: false,
+        },
+      });
+      const file = await service.getProfilePdf(7);
+      expect(file.fileName).toBe("EMP-000007-profile.pdf");
+      expect(pdf.render).toHaveBeenCalledWith(
+        expect.stringContaining("EMP-000007"),
+      );
     });
   });
 });

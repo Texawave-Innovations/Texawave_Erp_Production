@@ -37,6 +37,8 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.workspace.access",
       "hr.employee.read.all",
       "hr.employee.write.all",
+      "hr.employee.export.all",
+      "hr.employee_onboarding.approve.all",
       "hr.employee_document.read.all",
       "hr.employee_document.write.all",
       "hr.employee_status.write",

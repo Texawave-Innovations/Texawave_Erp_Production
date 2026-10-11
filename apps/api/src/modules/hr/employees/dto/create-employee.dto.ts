@@ -93,6 +93,36 @@ export class CreateEmployeeDto {
   dateOfJoining!: string;
 
   @ApiPropertyOptional({
+    example: "2027-04-01",
+    description: "End of probation; on or after the joining date",
+  })
+  @IsOptional()
+  @IsDateOnly()
+  probationEndDate?: string;
+
+  @ApiPropertyOptional({
+    example: "2027-04-01",
+    description: "Date of confirmation; on or after the joining date",
+  })
+  @IsOptional()
+  @IsDateOnly()
+  confirmationDate?: string;
+
+  @ApiPropertyOptional({ example: "Ravi Kumar (EMP-000012)" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 200)
+  referredBy?: string;
+
+  @ApiPropertyOptional({ example: "Embedded systems" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 100)
+  workDomain?: string;
+
+  @ApiPropertyOptional({
     description:
       "Link an existing platform user account (same organization, active, not linked to another employee)",
   })
