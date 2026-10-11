@@ -354,6 +354,60 @@ Salary amounts (revision and offer letters) are not written to the audit trail. 
 
 ---
 
+### Attendance — month close, export / import, alerts (`modules/hr/attendance`)
+
+The core attendance API (punches, HR view, manual edit, corrections, reports, auto-checkout) is in `ATTENDANCE_ARCHITECTURE.md`. This section covers the additions that close the legacy-spec gaps (`02-attendance.md` §10, §11, §16.9–10). Backend only.
+
+**Month close** (legacy "Send for Approval" → Admin "Accept / Decline"). One row per employee per month in `hr.attendance_month_locks`; no row means the month is OPEN.
+
+| Route                                          | Permission                               | Notes                                                                                                                                                                                                        |
+| ---------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET `/hr/attendance/month-locks?month=YYYY-MM` | `hr.attendance_lock.read.{own,team,all}` | Every employee in scope employed that month, with `status` (`OPEN`/`SUBMITTED`/`APPROVED`/`RETURNED`/`REOPENED`) and the frozen `summary`. Filters `status`, `employeeId`, `teamId` narrow within scope.     |
+| GET `/hr/attendance/month-locks/:id`           | `hr.attendance_lock.read.*`              | 404 outside scope.                                                                                                                                                                                           |
+| POST `/hr/attendance/month-locks/finalize`     | `hr.attendance_lock.finalize.{team,all}` | `{month, employeeIds?, teamId?}` (≤ 500). Each employee in its own transaction; returns `{submitted[], skipped[{employeeId, code, message}]}`. Only an **ended** month (IST), else 422 `MONTH_NOT_COMPLETE`. |
+| POST `/hr/attendance/month-locks/:id/approve`  | `hr.attendance_lock.approve.{team,all}`  | `{note?}`. SUBMITTED → APPROVED (locked for payroll).                                                                                                                                                        |
+| POST `/hr/attendance/month-locks/approve`      | `hr.attendance_lock.approve.*`           | `{ids[], note?}` (≤ 500). Bulk approve; each id decided on its own, failures listed in `skipped`.                                                                                                            |
+| POST `/hr/attendance/month-locks/:id/return`   | `hr.attendance_lock.approve.*`           | `{note}` (3–1000, required). SUBMITTED → RETURNED (editable, may be submitted again). The submitter is notified.                                                                                             |
+| POST `/hr/attendance/month-locks/:id/reopen`   | `hr.attendance_lock.approve.*`           | `{note}` (required). APPROVED → REOPENED (editable; must be submitted and approved again). The submitter is notified.                                                                                        |
+
+- **Lock effect:** while a month is SUBMITTED or APPROVED, a manual edit, a correction request, a correction approval and a punch import for a day in it get 409 `ATTENDANCE_MONTH_LOCKED`. The check runs inside the write transaction under the per-employee advisory lock that submission also takes, so an edit and a submission never interleave. Check-in/out are unaffected (only an ended month can be closed).
+- **Frozen summary:** at submission the month (clipped to joining/exit) is summarised from the same day views as every report: counts by status, worked / overtime / shortfall minutes and `netOvertimeMinutes` (legacy "Net OT"). Later calendar changes do not alter what was approved. Submission is skipped with `OPEN_SESSION_IN_MONTH` while a session in the month is open.
+- **RBAC beyond the permission:** `.own` grants no finalize/approve (reserved, 403); the caller's own employee record is skipped/refused (`SELF_APPROVAL_FORBIDDEN`); **the user who submitted a month cannot approve or return it** (403 `SUBMITTER_CANNOT_DECIDE`, maker-checker). Default roles: HR Manager holds `read.all` + `finalize.all` and approval is Super Admin's (legacy "HR sends, Admin accepts"); Team Lead holds `read.team`.
+- Each transition is a conditional update on `status` (a second decision is 422 `INVALID_STATE_TRANSITION`) and is audited (`attendance_month_lock`: `submit` / `approve` / `return` / `reopen`).
+- ⚠ **Payroll does not read approved months yet.** Wiring payroll to them is a payroll change, left for its own PR.
+
+**Export / import**
+
+| Route                                                   | Permission                            | Notes                                                                                                                                                                                                                                                |
+| ------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/attendance/export?from&to[&employeeId&teamId]` | `hr.attendance.export.{own,team,all}` | CSV, one row per employee per day in scope (unmarked days included): code, name, date, weekday, derived status, first in / last out (IST), sessions, worked / overtime / shortfall hours. ≤ 62 days and ≤ 50,000 rows (else 422 `EXPORT_TOO_LARGE`). |
+| POST `/hr/attendance/import[?dryRun=true]`              | `hr.attendance.import.{team,all}`     | multipart `file`, ≤ 2 MB, ≤ 5,000 rows. Columns `Employee Code, Date, Check In, Check Out`; common biometric names (`Emp Code`, `In Time`, `Out Time`, …) are accepted. Dates `YYYY-MM-DD` or `DD-MM-YYYY`; times `HH:mm` or `h:mm AM`.              |
+
+- **All or nothing:** every row is checked — formats; check-out after check-in on the same day (overnight pairs are not supported); no future punch; employee in the caller's import scope and employed that day; not the caller's own record; no overlap with another row or a stored session; month not locked. If any row fails, nothing is saved and every problem comes back with its file row (`errors[{row, field, message}]`; the header is row 1). A pair identical to a stored session is skipped and counted in `duplicates`, so re-importing a file is harmless.
+- Imported sessions carry `source = IMPORT`; each affected day is audited (`attendance_record` / `import`). `.own` grants no import (reserved).
+
+**Missing check-in / check-out alerts** (replaces legacy `useLateAttendanceAlerts.ts`, which ran in an open HR browser). One in-process job every 5 minutes (`AttendanceAlertsScheduler`, same pattern as auto-checkout):
+
+- **Missing check-in:** from shift start + 30 min until shift end, on a working day (no holiday, weekly off, full- or half-day leave), with no punch and no HR-marked status.
+- **Missing check-out:** from shift end + 120 min, for 6 h, while that day's session is still open (an overnight shift ends the next day). When auto-checkout closes a session, the employee and manager are told it was closed automatically and at what time.
+- Legacy alerted at 10:30 and 20:30 for a 10:00–18:30 shift; the offsets reproduce that for any shift. **No shift assignment → no alert** (there is no due time to compare against).
+- Recipients: the employee (if they have a login) and their **reporting manager** (if that manager has a login). Each alert is stored once per kind, employee and date (dedup key), so repeated runs and several API instances never notify twice.
+
+### Notifications (`platform/notifications`)
+
+In-app inbox (`platform.notifications`). Only server-side code sends notifications (`NotificationsService.notify()`); there is no create route.
+
+| Route                             | Permission              | Notes                                                                                  |
+| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| GET `/notifications`              | authenticated (no code) | The caller's own notifications, newest first; `unreadOnly=true`; paginated.            |
+| GET `/notifications/unread-count` | authenticated           | `{unread}`.                                                                            |
+| POST `/notifications/:id/read`    | authenticated           | Marks one of the caller's own read (keeps the first read time); 404 for anyone else's. |
+| POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                            |
+
+Like `GET /menu/my-menu`, these routes need a login but no permission: every query is keyed to the user in the JWT. Senders so far: `attendance.missing_check_in`, `attendance.missing_check_out`, `attendance.auto_checkout`, `attendance.month_returned`, `attendance.month_reopened`.
+
+---
+
 ### Location Privilege (`modules/hr/location-privilege`)
 
 Legacy: `Shifts.tsx` (the screen is titled "Location Privilege"), `attendanceService.ts` (the check-in gate), `EmployeePortalLayout.tsx` (the portal gate). Full discovery in `HR_LEGACY_PARITY.md` §4. Tables `hr.employee_location_privileges` and `hr.office_network_addresses`. Backend only.
@@ -489,24 +543,25 @@ wizard and `/portal` landing (route group `apps/ui/src/app/(employee-portal)/`, 
 
 ---
 
-## 3. Permission catalogue (133 codes; `packages/database/prisma/permissions/catalog.ts`)
+## 3. Permission catalogue (228 codes; `packages/database/prisma/permissions/catalog.ts`)
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
-| Area               | Codes                                                                                                                                                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                                                                                   |
-| Employees          | `hr.employee.{read,write,export}.{own,team,all}` · `hr.employee_onboarding.approve.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                   |
-| Payroll settings   | `hr.payroll_settings.{read,write}` (organization-wide; see `PAYROLL_AND_COMPLIANCE.md` §4.2a)                                                                                                                             |
-| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                                                                         |
-| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                                                                                  |
-| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                                                                                 |
-| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                                                                                 |
-| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` · `hr.promotion_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
-| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                                                                              |
-| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                                                                            |
-| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                                                                           |
-| Audit              | `audit.log.read`                                                                                                                                                                                                          |
+| Area               | Codes                                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                                                                                         |
+| Employees          | `hr.employee.{read,write,export}.{own,team,all}` · `hr.employee_onboarding.approve.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                         |
+| Payroll settings   | `hr.payroll_settings.{read,write}` (organization-wide; see `PAYROLL_AND_COMPLIANCE.md` §4.2a)                                                                                                                                   |
+| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                                                                               |
+| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                                                                                        |
+| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                                                                                       |
+| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                                                                                       |
+| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` · `hr.promotion_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception)       |
+| Attendance         | `hr.attendance.{read,write,export,import}.{own,team,all}` · `hr.attendance_correction.{read,approve}.{own,team,all}` · `hr.attendance_report.read.{own,team,all}` · `hr.attendance_lock.{read,finalize,approve}.{own,team,all}` |
+| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                                                                                    |
+| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                                                                                  |
+| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                                                                                 |
+| Audit              | `audit.log.read`                                                                                                                                                                                                                |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
 `hr.shift_assignment.write.own`, `hr.leave.approve.own`. Default dev roles (`default-roles.ts`, pinned by a
@@ -520,9 +575,9 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
 `leave_requests` · `revision_letters` · `promotion_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles — **retired**, data moved to the onboarding tables below) · `payroll_settings` (Payroll) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
-`work_logs` (Work logs) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
+`work_logs` (Work logs) · `attendance_month_locks` (Attendance month close) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
 `employee_government_ids` · `employee_family_members` · `employee_experience` · `employee_documents`
-(Onboarding/self-service profile); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
+(Onboarding/self-service profile); all in schema `hr`, except `notifications` (in-app inbox), which is in `platform`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).
 Database-level invariants (CHECKs, partial/expression unique indexes, GiST exclusion constraints, triggers) are in
 the migrations as commented raw SQL and are exercised independently of the API in the e2e suites.
@@ -557,6 +612,9 @@ shift break/grace/overtime policy · weekly-off precedence · probation/notice e
 | 422       | `INVALID_STATE_TRANSITION`                                                                                                                                                                           | status/decision not allowed from here (incl. terminal states, decided leave)                                        |
 | 422       | `INVALID_TEAM · INVALID_DEPARTMENT · INVALID_DESIGNATION · INVALID_EMPLOYMENT_TYPE · INVALID_WORK_LOCATION · INVALID_MANAGER · INVALID_USER · INVALID_SHIFT · INVALID_EMPLOYEE · INVALID_LEAVE_TYPE` | referenced record missing, inactive, or another organization's                                                      |
 | 422       | `REPORTING_LINE_CYCLE · JOINING_AFTER_EXIT · EFFECTIVE_DATE_BEFORE_JOINING · EMPLOYEE_HAS_LEFT · EMPLOYEE_NOT_ACTIVE`                                                                                | employee lifecycle rules                                                                                            |
+| 409       | `ATTENDANCE_MONTH_LOCKED`                                                                                                                                                                            | the day's month is submitted or approved; return or reopen it first                                                 |
+| 403       | `SUBMITTER_CANNOT_DECIDE`                                                                                                                                                                            | the user who submitted an attendance month tried to approve or return it                                            |
+| 422       | `MONTH_NOT_COMPLETE · BATCH_TOO_LARGE`                                                                                                                                                               | attendance month close: month not ended yet / more than 500 employees                                               |
 | 422       | `PROBATION_BEFORE_JOINING · CONFIRMATION_BEFORE_JOINING · EXPORT_TOO_LARGE`                                                                                                                          | employee fields / export                                                                                            |
 | 422       | `ONBOARDING_NOT_PENDING_REVIEW · ONBOARDING_INCOMPLETE · SELF_REVIEW_FORBIDDEN`                                                                                                                      | onboarding review                                                                                                   |
 | 422       | `BANK_DETAILS_INCOMPLETE`                                                                                                                                                                            | sensitive record: bank name, IFSC and account number are needed together                                            |

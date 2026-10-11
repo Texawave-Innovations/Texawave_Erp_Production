@@ -102,7 +102,14 @@ export class AttendanceDayContextRepository {
           teamId: true,
           effectiveFrom: true,
           effectiveTo: true,
-          shift: { select: { workingMinutes: true } },
+          shift: {
+            select: {
+              workingMinutes: true,
+              startTime: true,
+              endTime: true,
+              isOvernight: true,
+            },
+          },
         },
       }),
     ]);
@@ -131,6 +138,9 @@ export class AttendanceDayContextRepository {
         effectiveFrom: formatDateOnly(a.effectiveFrom),
         effectiveTo: a.effectiveTo ? formatDateOnly(a.effectiveTo) : null,
         workingMinutes: a.shift.workingMinutes,
+        startTime: a.shift.startTime,
+        endTime: a.shift.endTime,
+        isOvernight: a.shift.isOvernight,
       })),
     };
   }

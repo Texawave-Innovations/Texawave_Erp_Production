@@ -475,6 +475,16 @@ keep both env vars in sync with whatever you chose.
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
 
+- **2026-10-11 — In-app notifications (`platform.notifications`, `apps/api/src/platform/notifications`).**
+  The first notification delivery in the ERP, added for the attendance missing check-in / check-out
+  alerts. Rules every sender follows: only server-side code sends, through
+  `NotificationsService.notify(scope, items)` (the organization is passed explicitly, because jobs run
+  outside a request); recipients must belong to that organization; a `dedupKey` makes a sender
+  idempotent (unique per user, so a job that runs twice — or on two API instances — notifies once).
+  The inbox routes (`GET /notifications`, unread count, mark read) are self-service: keyed to the JWT
+  user, login required, no permission code (same as `GET /menu/my-menu`). There is no create route.
+  Delivery is in-app only; e-mail/push are not built. Full route list: `HR_API.md` → Notifications.
+
 - **2026-09-22 — `Department` added above `Team`.** `departments` table (`id`, `organizationId`,
   §5.1 baseline) with `teams.department_id` (nullable `Int`, FK to `departments.id`,
   `onDelete: SetNull`). Landed ahead of the RBAC module (Afzal/Ganesh's upcoming work) so it can

@@ -88,6 +88,8 @@ model Organization {
   menuItems               MenuItem[]
   attendanceRecords       AttendanceRecord[]
   attendanceCorrections   AttendanceCorrection[]
+  attendanceMonthLocks    AttendanceMonthLock[]
+  notifications           Notification[]
   revisionLetters         RevisionLetter[]
   promotionLetters        PromotionLetter[]
   interviews              Interview[]
@@ -154,6 +156,9 @@ model User {
   ticketCommentsByMe  TicketComment[]         @relation("TicketCommentByHr")
   attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
   attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
+  attendanceMonthLocksSubmitted  AttendanceMonthLock[]  @relation("AttendanceMonthLockSubmitter")
+  attendanceMonthLocksDecided    AttendanceMonthLock[]  @relation("AttendanceMonthLockDecider")
+  notifications                  Notification[]
   passwordResetTokens PasswordResetToken[]
   approvalsRequested  Approval[]              @relation("ApprovalRequester")
   approvalsDecided    Approval[]              @relation("ApprovalDecider")
@@ -665,6 +670,7 @@ model Employee {
   sensitiveInfo         EmployeeSensitiveInfo?
   attendanceRecords     AttendanceRecord[]
   attendanceCorrections AttendanceCorrection[]
+  attendanceMonthLocks  AttendanceMonthLock[]
   personalDetail        EmployeePersonalDetail?
   bankDetail            EmployeeBankDetail?
   familyMembers         EmployeeFamilyMember[]
@@ -1238,7 +1244,7 @@ model AttendanceSession {
   attendanceRecordId Int       @map("attendance_record_id")
   checkInAt          DateTime  @map("check_in_at") @db.Timestamptz(6)
   checkOutAt         DateTime? @map("check_out_at") @db.Timestamptz(6)
-  /// SELF | HR | CORRECTION (CHECK in the migration)
+  /// SELF | HR | CORRECTION | IMPORT (CHECK in the migration)
   source             String
   createdBy          Int?      @map("created_by")
   updatedBy          Int?      @map("updated_by")
@@ -1288,6 +1294,50 @@ model AttendanceCorrection {
   @@index([organizationId, employeeId, attendanceDate])
   @@index([organizationId, status])
   @@map("attendance_corrections")
+  @@schema("hr")
+}
+
+/// The monthly attendance close for one employee (legacy "Send for Approval"
+/// → Admin "Accept / Decline", Docs/HR_API.md → Attendance month locks).
+/// No row = the month is OPEN. Lifecycle:
+///   SUBMITTED (HR finalized; summary frozen) → APPROVED (locked for payroll)
+///   SUBMITTED → RETURNED (declined with a note; editable, may be re-submitted)
+///   APPROVED  → REOPENED (approver unlocks with a reason; must be re-submitted)
+/// While SUBMITTED or APPROVED no punch, status or correction of that month
+/// may change. `summary` is the snapshot taken at submission, so what was
+/// approved never drifts when the calendar changes later. Team-scoped through
+/// `employee`. Transitions are conditional updates on `status`, so each
+/// decision happens exactly once.
+model AttendanceMonthLock {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  /// First day of the calendar month (CHECK in the migration).
+  month          DateTime  @db.Date
+  /// SUBMITTED | APPROVED | RETURNED | REOPENED (CHECK in the migration)
+  status         String
+  summary        Json
+  submittedBy    Int       @map("submitted_by")
+  submittedAt    DateTime  @map("submitted_at") @db.Timestamptz(6)
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?   @map("decision_note")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  submitter    User         @relation("AttendanceMonthLockSubmitter", fields: [submittedBy], references: [id])
+  decider      User?        @relation("AttendanceMonthLockDecider", fields: [decidedBy], references: [id])
+
+  @@unique([organizationId, employeeId, month])
+  @@index([organizationId, month, status])
+  @@map("attendance_month_locks")
   @@schema("hr")
 }
 
@@ -2408,3 +2458,40 @@ model PayrollPayment {
   @@schema("hr")
 }
 
+// ---------------------------------------------------------------------------
+// In-app notifications (apps/api/src/platform/notifications)
+// ---------------------------------------------------------------------------
+
+/// One message in a user's in-app inbox. Written only by server-side code
+/// (jobs and services), never by a client. A user reads and marks only their
+/// own rows. `dedup_key` makes a sender idempotent: the same key for the same
+/// user is stored once (unique index; NULL keys never collide), so a job that
+/// runs twice never notifies twice.
+model Notification {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  userId         Int       @map("user_id")
+  /// Dotted sender code, e.g. attendance.missing_check_in
+  type           String
+  title          String
+  body           String
+  /// In-app path to open, e.g. /self-service/attendance
+  link           String?
+  dedupKey       String?   @map("dedup_key")
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([userId, dedupKey])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+  @@schema("platform")
+}

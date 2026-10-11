@@ -3,6 +3,7 @@ import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -12,6 +13,7 @@ import {
 } from "class-validator";
 import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
+import { QueryBoolean } from "../../../../common/dto/transforms.js";
 import { STORED_STATUSES } from "../services/attendance-calculation.service.js";
 
 /** Largest from→to window a list endpoint accepts. Keeps a single request
@@ -86,4 +88,15 @@ export class ManualAttendanceEditDto {
   @ValidateNested({ each: true })
   @Type(() => ManualSessionDto)
   sessions?: ManualSessionDto[];
+}
+
+export class ImportAttendanceQueryDto {
+  @ApiPropertyOptional({
+    description: "Check every row (including database checks) but save nothing",
+    default: false,
+  })
+  @IsOptional()
+  @QueryBoolean()
+  @IsBoolean()
+  dryRun?: boolean;
 }

@@ -165,6 +165,29 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Approve or reject attendance correction requests",
   ),
   ...scopedPermission("hr.attendance_report.read", "View attendance reports"),
+  // Export and punch import (Docs/HR_API.md → Attendance). import.own is
+  // reserved: nobody may load punches for themselves.
+  ...scopedPermission("hr.attendance.export", "Export attendance to CSV"),
+  ...scopedPermission(
+    "hr.attendance.import",
+    "Import punches from a CSV / biometric export",
+  ),
+  // Monthly attendance close. finalize/approve .own are reserved (nobody
+  // closes or approves their own month), and the approver must be a
+  // different user from the one who submitted (maker-checker, enforced in
+  // the service).
+  ...scopedPermission(
+    "hr.attendance_lock.read",
+    "View monthly attendance closes",
+  ),
+  ...scopedPermission(
+    "hr.attendance_lock.finalize",
+    "Submit a month of attendance for approval",
+  ),
+  ...scopedPermission(
+    "hr.attendance_lock.approve",
+    "Approve, return or reopen a submitted attendance month",
+  ),
 
   // apps/api/src/modules/hr/location-privilege — organization-wide. Legacy has
   // no team dimension for location privilege (Docs/HR_LEGACY_PARITY.md §12),

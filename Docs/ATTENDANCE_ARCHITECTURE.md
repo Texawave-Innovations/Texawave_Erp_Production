@@ -386,12 +386,15 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 - **Monthly sign-off / lock.** Legacy `src/modules/hr/Approved.tsx` writes `hr/attendanceApprovals`
   with status `pending` / `approved` / `rejected`. Nothing reads that node to lock attendance, so there
   is no lock effect. The stored payload is the monthly row, which includes payroll-coupled fields
-  (pay totals, super-save state). A backend workflow would need a payroll decision first. **Not
-  implemented.**
+  (pay totals, super-save state). **Implemented (2026-10-11)** as the ERP's own month close —
+  `hr.attendance_month_locks`, submit → approve / return → reopen, with a real lock on edits,
+  corrections and imports. Payroll does not read it yet. See `HR_API.md` → Attendance.
 - **Late alerts.** Legacy `src/modules/hr/useLateAttendanceAlerts.ts` raises check-in alerts at
-  10:30 IST and check-out alerts at 20:30 IST. It runs client-side and sends notifications. The ERP has
-  no notification delivery. **Not implemented** (requires notification infrastructure, which is out of
-  scope).
+  10:30 IST and check-out alerts at 20:30 IST. It runs client-side and sends notifications.
+  **Implemented (2026-10-11)** server-side: `AttendanceAlertsScheduler` (shift start + 30 min, shift
+  end + 120 min, shift-relative; no shift → no alert) delivering through the new in-app inbox
+  (`platform/notifications`) to the employee and their reporting manager. See `HR_API.md` →
+  Attendance.
 - **Face verification.** Legacy `src/utils/faceVerification.ts` (client-side face-api models). Requires
   biometric infrastructure. **Not implemented, out of scope.**
 - **Office IP gating.** Legacy `src/services/attendanceService.ts` compares the caller's public IP, fetched

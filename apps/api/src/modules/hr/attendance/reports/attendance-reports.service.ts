@@ -4,6 +4,8 @@ import {
   parseDateOnly,
 } from "../../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../../common/dto/paginated-response.dto.js";
+import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
+import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { AttendanceDayContextRepository } from "../attendance-day-context.repository.js";
@@ -264,6 +266,27 @@ export class AttendanceReportsService {
       };
     });
     return new PaginatedResponseDto(rows, total, query.page, query.limit);
+  }
+
+  /** One page of employees in `scope` (resolved by the caller from its own
+   * permission, e.g. the export permission) with a day view for every date
+   * in the range. Used by the CSV export so it shows exactly what the
+   * reports show. */
+  async daysForExport(
+    scope: TeamScope,
+    query: RangeAttendanceReportQueryDto,
+    pagination: PaginationDto,
+  ): Promise<{ employees: ReportEmployee[]; views: DayView[]; total: number }> {
+    const { items, total } =
+      await this.reportEmployees.findEmployeesEmployedBetween(
+        scope,
+        query.from,
+        query.to,
+        pagination,
+        { employeeId: query.employeeId, teamId: query.teamId },
+      );
+    const views = await this.viewsFor(items, query.from, query.to);
+    return { employees: items, views, total };
   }
 
   /** Every employee in `employees` gets a view for every date in range, whether

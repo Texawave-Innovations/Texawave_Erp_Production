@@ -12,6 +12,9 @@
 //  - `.team`-scoped write/approve permissions are granted to no role: who
 //    among team leads approves leave, and whether team leads may edit
 //    employees, are open decisions.
+//  - HR Manager submits a month of attendance (`hr.attendance_lock.finalize`)
+//    but does not approve it: approval is Super Admin's, the legacy "HR sends,
+//    Admin accepts" split. The service also refuses approval by the submitter.
 //
 // Seeding is ADDITIVE: it grants what is listed here and never removes a
 // grant an administrator added (see seed.ts).
@@ -68,6 +71,10 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.attendance_correction.read.all",
       "hr.attendance_correction.approve.all",
       "hr.attendance_report.read.all",
+      "hr.attendance.export.all",
+      "hr.attendance.import.all",
+      "hr.attendance_lock.read.all",
+      "hr.attendance_lock.finalize.all",
       "hr.location_privilege.read",
       "hr.location_privilege.write",
       "hr.office_network.read",
@@ -99,6 +106,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.attendance.read.team",
       "hr.attendance_correction.read.team",
       "hr.attendance_report.read.team",
+      "hr.attendance_lock.read.team",
       "hr.holiday.read",
       "hr.weekly_off.read",
       "hr.leave_type.read",
