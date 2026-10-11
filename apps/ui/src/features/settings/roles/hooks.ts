@@ -7,7 +7,13 @@ import type {
   UpdateRoleInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { listMenuItems } from "../../menu/api";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   createRole,
@@ -97,5 +103,33 @@ export function useSetRolePermissions() {
         queryKey: orgScopedKey(organizationId ?? 0, "settings-roles"),
       });
     },
+  });
+}
+
+/** Every navigation item (for the role editor's Navigation panel). */
+export function useMenuItemsForRoles() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "menu-items", "role-editor"),
+    queryFn: async () => (await listMenuItems({ limit: 100 })).items,
+    enabled: Boolean(organizationId),
+  });
+}
+
+/** Details (with permissions) of several roles, for a user's effective
+ * access. Shares the per-role cache with useRole(). */
+export function useRoleDetails(ids: readonly number[]) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: orgScopedKey(
+        organizationId ?? 0,
+        "settings-roles",
+        "detail",
+        id,
+      ),
+      queryFn: () => getRole(id),
+      enabled: Boolean(organizationId),
+    })),
   });
 }
