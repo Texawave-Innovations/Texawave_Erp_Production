@@ -212,12 +212,15 @@ export function MyLeaveView() {
             { header: "Reason", cell: (row) => row.reason },
             {
               header: "Status",
-              cell: (row) => (
-                <StatusBadge
-                  label={row.status}
-                  colorToken={STATUS_TOKEN[row.status] ?? "gray"}
-                />
-              ),
+              cell: (row) =>
+                row.status === "PENDING" && row.awaiting === "HR" ? (
+                  <StatusBadge label="Awaiting HR" colorToken="brand" />
+                ) : (
+                  <StatusBadge
+                    label={row.status}
+                    colorToken={STATUS_TOKEN[row.status] ?? "gray"}
+                  />
+                ),
             },
             {
               header: "",

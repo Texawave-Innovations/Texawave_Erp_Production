@@ -506,6 +506,22 @@ describe("HR leave workflow (e2e)", () => {
       await post("mgr", `/hr/leave-delegations/${first.id}/revoke`).expect(200);
       await post("noApprove", "/hr/leave-delegations", {}).expect(403);
     });
+
+    it("lists delegate candidates: other approvers only, never yourself or someone who cannot approve", async () => {
+      const r = await get("mgr", "/hr/leave-delegations/candidates").expect(
+        200,
+      );
+      const ids = (r.body as Body<{ id: number; fullName: string }[]>).data.map(
+        (u) => u.id,
+      );
+      expect(ids).toEqual(
+        expect.arrayContaining([userIds.deputy, userIds.lead1, userIds.hr1]),
+      );
+      expect(ids).not.toContain(userIds.mgr);
+      expect(ids).not.toContain(userIds.noApprove);
+      expect(ids).not.toContain(userIds.hrB);
+      await get("noApprove", "/hr/leave-delegations/candidates").expect(403);
+    });
   });
 
   // ---------------------------------------------------------------------------

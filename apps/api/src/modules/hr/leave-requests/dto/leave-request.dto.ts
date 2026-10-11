@@ -381,3 +381,12 @@ export class QueryLeaveDelegationDto extends PaginationDto {
   @IsBoolean()
   activeOnly?: boolean;
 }
+
+export class DelegationCandidateQueryDto {
+  @ApiPropertyOptional({ description: "Part of the name" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 100)
+  search?: string;
+}

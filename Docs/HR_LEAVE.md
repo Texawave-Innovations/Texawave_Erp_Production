@@ -319,12 +319,23 @@ document describes the design only; it does not state test counts.
 
 ### 11.1 Layout and Navigation Architecture
 
-- **Page Header:** Unified header with title `Leaves` and subtitle `Manage your leave requests and review team requests.`
-- **Navigation Tabs:** When an authenticated account holds both self-service (`employee_self_service.leave_request.read`) and organizational review scopes (`hr.leave_request.read.*`), the page renders a unified tab switcher:
-  - `All` (default): Presents both My Leave and Team/Organization Requests sequentially, maintaining immediate locator visibility for automated test suites.
-  - `My Leave`: Focuses exclusively on personal leave balances, entitlement metrics, and personal request history.
-  - `Team Requests`: Focuses exclusively on the team/organizational approvals queue and filter toolbar.
-- **Permission Decoupling:** Accounts with self-service permission that lack a linked employee profile (e.g. Super Admin) cleanly suppress personal sections without displaying unhandled API errors.
+- **Page Header:** title `Leaves`; one route (`/hr/leaves`, and `/portal/team-leaves` for team leads).
+- **Tabs** (ui-kit `Tabs`), each shown only with its permission; the first available tab opens by
+  default, and `?tab=<id>` selects one (approver notifications link to `?tab=approvals`):
+
+  | Tab          | Shown with                                 | Content                                                                                                              |
+  | ------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+  | My leave     | `employee_self_service.leave_request.read` | balances, request, history, cancel, resubmit (§11.2)                                                                 |
+  | Approvals    | `hr.leave.approve.*` (any level)           | `ApprovalQueueSection` — what waits for MY decision, with its stage                                                  |
+  | Applications | `hr.leave_request.read.*`                  | `ApplicationsSection` (§11.3)                                                                                        |
+  | Allotment    | `hr.leave_request.read.*`                  | `AllotmentSection` — balance report; edit/import with `hr.leave_type.write`; export with `hr.leave_request.export.*` |
+  | Delegations  | `hr.leave.approve.*`                       | `DelegationsSection` — give, revoke and see received delegations                                                     |
+  | Leave types  | `hr.leave_type.read`                       | type administration, including **Approval: one / two (manager, then HR)**                                            |
+
+- **Permission Decoupling:** Accounts with self-service permission that lack a linked employee profile cleanly suppress personal sections without displaying unhandled API errors.
+- **Status:** a two-level request with its first approval reads **Awaiting HR** (also in the portal's
+  My Leave). A request someone else submitted shows "Applied by …"; an HR cancellation shows "Cancelled by …".
+- **Errors:** every leave error code is turned into words in one place, `features/hr/leaves/errors.ts`.
 
 ### 11.2 My Leave & Leave Balance Presentation
 
@@ -342,14 +353,17 @@ document describes the design only; it does not state test counts.
   - Actions provide `Cancel` (when `canCancel(r)` is true) and `Resubmit` (when `canResubmit(r)` is true).
   - Uses `TableSkeleton` for loading states and semantic `EmptyState` when no requests have been logged.
 
-### 11.3 Team / Organization Requests Queue
+### 11.3 Applications (team / organization)
 
-- **Filter Toolbar:**
-  - Compact filter card housing `Filter by status` combobox and `Filter by employee ID` input.
-  - Interactive `FilterChips` bar with individual removal actions and `Clear filters` button.
-- **Approvals Table:**
-  - Columns: `Employee` (rendered with shared `EmployeeIdentity`), `Leave type`, `Dates`, `Days`, `Status` (`LeaveStatusBadge`), `Decided by`, and `Actions`.
-  - Direct `Approve` and `Reject` action buttons for requests with `PENDING` status when holding `hr.leave.approve.*`.
+- Legacy-style **status cards** (Total, Pending, Approved, Rejected, Cancelled) that filter when
+  clicked; counts honour the other filters.
+- Filters: **month** (defaults to this month, sent as `from`/`to`), leave type, employee (shared
+  `EmployeePicker`).
+- **Export CSV** (`hr.leave_request.export.*`) with the current filters.
+- **Apply for an employee** (`hr.leave_request.create.team|all`, `ApplyOnBehalfDialog`).
+- Row actions: Approve / Reject on pending rows (`hr.leave.approve.*`; the server decides authority
+  and stage), **Cancel** on pending or approved rows (`hr.leave.cancel.team|all`,
+  `HrCancelLeaveDialog`, reason mandatory, warns when the leave has already started).
 
 ### 11.4 Centered Modals & Validation
 

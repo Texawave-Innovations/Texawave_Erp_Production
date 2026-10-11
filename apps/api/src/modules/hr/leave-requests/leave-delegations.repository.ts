@@ -98,6 +98,48 @@ export class LeaveDelegationsRepository {
     return { items: rows.map(toView), total };
   }
 
+  /** Users who could act as a delegate: other active users of the
+   * organization holding some `hr.leave.approve` grant. Only id and name. */
+  @OrgScoped()
+  async candidates(
+    scope: OrgScope,
+    excludeUserId: number,
+    search: string | undefined,
+  ): Promise<{ id: number; fullName: string }[]> {
+    return this.prisma.user.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        isActive: true,
+        deletedAt: null,
+        id: { not: excludeUserId },
+        ...(search
+          ? { fullName: { contains: search, mode: "insensitive" } }
+          : {}),
+        userRoles: {
+          some: {
+            isActive: true,
+            role: {
+              organizationId: scope.organizationId,
+              isActive: true,
+              rolePermissions: {
+                some: {
+                  isActive: true,
+                  permission: {
+                    code: { in: Object.values(APPROVE_CODES) },
+                    isActive: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      select: { id: true, fullName: true },
+      orderBy: [{ fullName: "asc" }, { id: "asc" }],
+      take: 50,
+    });
+  }
+
   /**
    * Creates a delegation FROM the caller. The delegate must be another active
    * user of the organization who holds some `hr.leave.approve` grant (without

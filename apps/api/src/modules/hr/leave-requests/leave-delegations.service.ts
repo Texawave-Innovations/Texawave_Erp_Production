@@ -45,6 +45,15 @@ export class LeaveDelegationsService {
     return new PaginatedResponseDto(items, total, query.page, query.limit);
   }
 
+  /** People the caller may name as a delegate (approvers, not themselves). */
+  candidates(search: string | undefined) {
+    return this.repository.candidates(
+      this.tenantContext.getOrgScope(),
+      this.tenantContext.getUserId(),
+      search,
+    );
+  }
+
   async create(dto: CreateLeaveDelegationDto) {
     const me = this.tenantContext.getUserId();
     if (dto.delegateUserId === me) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -10,20 +11,13 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
-  Input,
   Pagination,
-  Select,
+  Tabs,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
-  useLeaveRequests,
   useMyLeaveBalances,
   useMyLeaveRequests,
   useResubmitMyLeaveRequest,
@@ -36,47 +30,22 @@ import {
   SELF_SERVICE_READ,
 } from "../permissions";
 import { DAY_PORTION_LABELS, canCancel, canResubmit } from "../status";
-import {
-  LEAVE_STATUSES,
-  type LeaveRequestItem,
-  type LeaveStatus,
-} from "../types";
+import type { LeaveRequestItem } from "../types";
+import { AllotmentSection } from "./AllotmentSection";
+import { ApplicationsSection } from "./ApplicationsSection";
+import { ApprovalQueueSection } from "./ApprovalQueueSection";
 import { CancelLeaveDialog } from "./CancelLeaveDialog";
-import { DecideLeaveDialog } from "./DecideLeaveDialog";
+import { DelegationsSection } from "./DelegationsSection";
 import { LeaveBalanceCards } from "./LeaveBalanceCards";
 import { LeaveStatusBadge } from "./LeaveStatusBadge";
 import { LeaveTypesSection } from "./LeaveTypesSection";
 import { RequestLeaveDialog } from "./RequestLeaveDialog";
-
-/** The note that explains a decision or a cancellation — whichever applies
- * to the row's current status. Fetched by the API (LeaveRequestItem.
- * decisionNote / cancellationNote) but previously never rendered, the same
- * gap class Regularization (module 10) fixed for AttendanceCorrection. */
-function noteFor(r: LeaveRequestItem): string {
-  if (r.status === "CANCELLED") return r.cancellationNote ?? "—";
-  return r.decisionNote ?? "—";
-}
+import { appliedByOther } from "./cells";
 
 const PAGE_SIZE = 10;
-const STATUS_LABEL: Record<LeaveStatus, string> = {
-  PENDING: "Pending",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CANCELLED: "Cancelled",
-};
 
-interface Filters {
-  status: "" | LeaveStatus;
-  employeeId: string;
-}
-const EMPTY_FILTERS: Filters = { status: "", employeeId: "" };
-
-type Decision = {
-  request: LeaveRequestItem;
-  decision: "approve" | "reject";
-} | null;
-
-type LeavesTab = "all" | "mine" | "approvals";
+type LeavesTab =
+  "mine" | "approvals" | "applications" | "allotment" | "delegations" | "types";
 
 /** My leave: balances, history, request, cancel and resubmit. */
 function MySection() {
@@ -231,7 +200,15 @@ function MySection() {
                   header: "Status",
                   cell: (r) => (
                     <div className="flex flex-col gap-0.5">
-                      <LeaveStatusBadge status={r.status} />
+                      <LeaveStatusBadge
+                        status={r.status}
+                        awaiting={r.awaiting}
+                      />
+                      {appliedByOther(r) ? (
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                          Applied by {appliedByOther(r)}
+                        </span>
+                      ) : null}
                       {r.status === "REJECTED" && r.decisionNote ? (
                         <span
                           className="max-w-45 truncate text-[11px] text-error-600 dark:text-error-400"
@@ -245,7 +222,11 @@ function MySection() {
                           className="max-w-45 truncate text-[11px] text-gray-500 dark:text-gray-400"
                           title={r.cancellationNote}
                         >
-                          Note: {r.cancellationNote}
+                          {r.cancelledBy &&
+                          r.cancelledBy.fullName !== r.employee.fullName
+                            ? `Cancelled by ${r.cancelledBy.fullName}: `
+                            : "Note: "}
+                          {r.cancellationNote}
                         </span>
                       ) : null}
                     </div>
@@ -307,302 +288,48 @@ function MySection() {
   );
 }
 
-/** HR/approver queue: team/all scope, filterable, approve/reject. */
-function ApprovalsSection() {
-  const canRead = usePermission(READ_ANY_SCOPE);
-  const canApprove = usePermission(APPROVE_ANY_SCOPE);
-  const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [decision, setDecision] = useState<Decision>(null);
-
-  const employeeIdNum = Number(filters.employeeId);
-  const hasValidEmployeeId =
-    filters.employeeId !== "" &&
-    Number.isInteger(employeeIdNum) &&
-    employeeIdNum > 0;
-
-  const query = {
-    page,
-    limit: PAGE_SIZE,
-    ...(filters.status ? { status: filters.status } : {}),
-    ...(hasValidEmployeeId ? { employeeId: employeeIdNum } : {}),
-  };
-
-  const list = useLeaveRequests(query, canRead);
-  const hasFilters = filters.status !== "" || filters.employeeId !== "";
-
-  const update = <K extends keyof Filters>(key: K, value: Filters[K]) => {
-    setFilters((f) => ({ ...f, [key]: value }));
-    setPage(1);
-  };
-
-  const activeChips = useMemo<FilterChipItem[]>(() => {
-    const chips: FilterChipItem[] = [];
-    if (filters.status) {
-      chips.push({
-        id: "status",
-        label: "Status",
-        value: STATUS_LABEL[filters.status],
-        onRemove: () => update("status", ""),
-      });
-    }
-    if (filters.employeeId) {
-      chips.push({
-        id: "employeeId",
-        label: "Employee ID",
-        value: filters.employeeId,
-        onRemove: () => update("employeeId", ""),
-      });
-    }
-    return chips;
-  }, [filters]);
-
-  if (!canRead) return null;
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Leave requests (team / organization)
-          </h2>
-          {list.data ? (
-            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              {hasFilters
-                ? `Showing ${list.data.meta.total} matching requests`
-                : `${list.data.meta.total} requests`}
-            </p>
-          ) : (
-            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              Review and decide employee leave requests within your approval
-              scope.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Filter toolbar */}
-      <Card className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <Select
-            aria-label="Filter by status"
-            value={filters.status}
-            onChange={(e) =>
-              update("status", e.target.value as "" | LeaveStatus)
-            }
-          >
-            <option value="">All statuses</option>
-            {LEAVE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </Select>
-          <Input
-            type="number"
-            min="1"
-            aria-label="Filter by employee ID"
-            placeholder="Employee ID"
-            value={filters.employeeId}
-            onChange={(e) => update("employeeId", e.target.value)}
-          />
-          {hasFilters ? (
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFilters(EMPTY_FILTERS);
-                  setPage(1);
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
-          ) : null}
-        </div>
-
-        {hasFilters && activeChips.length > 0 ? (
-          <FilterChips
-            chips={activeChips}
-            onClearAll={() => {
-              setFilters(EMPTY_FILTERS);
-              setPage(1);
-            }}
-          />
-        ) : null}
-      </Card>
-
-      {list.isPending ? (
-        <TableSkeleton rowsCount={5} columnsCount={7} />
-      ) : list.isError ? (
-        list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert
-            variant="warning"
-            title="You don't have access to leave requests"
-          >
-            Your access to this list has changed. Contact an administrator.
-          </Alert>
-        ) : (
-          <ErrorState onRetry={() => void list.refetch()} />
-        )
-      ) : list.data.data.length === 0 ? (
-        <Card>
-          <EmptyState
-            title={
-              hasFilters
-                ? "No requests match these filters"
-                : "No leave requests yet"
-            }
-            description={
-              hasFilters
-                ? "Try a different status or employee, or clear the filters."
-                : "Requests from your team will appear here."
-            }
-          />
-        </Card>
-      ) : (
-        <>
-          <DataTable
-            caption="Leave requests"
-            rows={list.data.data}
-            getRowKey={(r) => String(r.id)}
-            columns={[
-              {
-                header: "Employee",
-                cell: (r) => (
-                  <EmployeeIdentity
-                    name={r.employee.fullName}
-                    code={r.employee.employeeCode}
-                    size="sm"
-                  />
-                ),
-              },
-              {
-                header: "Leave type",
-                cell: (r) => (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 dark:text-white/90">
-                      {r.leaveType.name}
-                    </span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                      {r.leaveType.code}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                header: "Dates",
-                cell: (r) => (
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-900 dark:text-white/90">
-                      {r.startDate === r.endDate
-                        ? r.startDate
-                        : `${r.startDate} – ${r.endDate}`}
-                    </span>
-                    {r.dayPortion !== "FULL" ? (
-                      <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400">
-                        {DAY_PORTION_LABELS[r.dayPortion]}
-                      </span>
-                    ) : null}
-                  </div>
-                ),
-              },
-              {
-                header: "Days",
-                cell: (r) => (
-                  <span className="font-semibold text-gray-900 dark:text-white/90">
-                    {r.leaveDays}{" "}
-                    <span className="text-theme-xs font-normal text-gray-500 dark:text-gray-400">
-                      {r.leaveDays === 1 ? "day" : "days"}
-                    </span>
-                  </span>
-                ),
-              },
-              {
-                header: "Status",
-                cell: (r) => <LeaveStatusBadge status={r.status} />,
-              },
-              {
-                header: "Decided by",
-                cell: (r) => (
-                  <span className="text-theme-sm text-gray-600 dark:text-gray-400">
-                    {r.decidedBy?.fullName ?? "—"}
-                  </span>
-                ),
-              },
-              {
-                header: "Note",
-                cell: (r) => noteFor(r),
-              },
-              ...(canApprove
-                ? [
-                    {
-                      header: "Actions",
-                      cell: (r: LeaveRequestItem) =>
-                        r.status === "PENDING" ? (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                setDecision({ request: r, decision: "approve" })
-                              }
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                setDecision({ request: r, decision: "reject" })
-                              }
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500">
-                            —
-                          </span>
-                        ),
-                    },
-                  ]
-                : []),
-            ]}
-          />
-          <Pagination
-            page={list.data.meta.page}
-            totalPages={list.data.meta.totalPages}
-            onPageChange={setPage}
-          />
-        </>
-      )}
-
-      {decision ? (
-        <DecideLeaveDialog
-          open
-          onClose={() => setDecision(null)}
-          request={decision.request}
-          decision={decision.decision}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 /**
- * Leaves: self-service (balances, request, history, cancel, resubmit) and
- * the HR/approver queue (team/all, filterable, approve/reject with a
- * mandatory rejection reason), on one route — mirrors Regularization's single
- * scoped view with unified navigation tabs for streamlined switching.
+ * Leaves (Docs/HR_LEAVE.md): one route, one tab per job, each shown only
+ * with its permission — the API re-checks every action.
+ *
+ *  - My leave: balances, request, history, cancel, resubmit (self-service).
+ *  - Approvals: what waits for MY decision (reporting line, delegation,
+ *    scope, HR's second approval).
+ *  - Applications: everything in my read scope, legacy-style status cards,
+ *    month filter, export, apply on behalf, HR cancel.
+ *  - Allotment: entitlement and balance per employee; edit, import, export.
+ *  - Delegations: my stand-ins while I'm away.
+ *  - Leave types: administration.
  */
 export function LeavesView() {
   const canReadMine = usePermission(SELF_SERVICE_READ);
   const canReadAny = usePermission(READ_ANY_SCOPE);
+  const canApprove = usePermission(APPROVE_ANY_SCOPE);
   const canReadTypes = usePermission(LEAVE_TYPE_READ);
-  const [activeTab, setActiveTab] = useState<LeavesTab>("all");
 
-  if (!canReadMine && !canReadAny && !canReadTypes) {
+  const tabs = [
+    ...(canReadMine ? [{ id: "mine" as const, label: "My leave" }] : []),
+    ...(canApprove ? [{ id: "approvals" as const, label: "Approvals" }] : []),
+    ...(canReadAny
+      ? [
+          { id: "applications" as const, label: "Applications" },
+          { id: "allotment" as const, label: "Allotment" },
+        ]
+      : []),
+    ...(canApprove
+      ? [{ id: "delegations" as const, label: "Delegations" }]
+      : []),
+    ...(canReadTypes ? [{ id: "types" as const, label: "Leave types" }] : []),
+  ];
+  // A notification links approvers to `?tab=approvals`.
+  const requested = useSearchParams().get("tab");
+  const [chosen, setChosen] = useState<LeavesTab | null>(
+    requested as LeavesTab | null,
+  );
+  const active: LeavesTab | undefined =
+    tabs.find((t) => t.id === chosen)?.id ?? tabs[0]?.id;
+
+  if (!active) {
     return (
       <Alert variant="warning" title="You don't have access to leave">
         Ask an administrator for the{" "}
@@ -612,76 +339,32 @@ export function LeavesView() {
     );
   }
 
-  const showTabs = canReadMine && canReadAny;
-
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header */}
       <div className="flex flex-col gap-1">
         <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
           Leaves
         </h1>
         <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-          Manage your leave requests and review team requests.
+          Request and track leave, approve your team&apos;s requests, and manage
+          allotments.
         </p>
       </div>
 
-      {/* Navigation tabs if user holds both self-service and team/all scopes */}
-      {showTabs ? (
-        <div className="flex border-b border-gray-200 dark:border-gray-800">
-          <button
-            type="button"
-            onClick={() => setActiveTab("all")}
-            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
-              activeTab === "all"
-                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("mine")}
-            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
-              activeTab === "mine"
-                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            }`}
-          >
-            My Leave
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("approvals")}
-            className={`border-b-2 px-4 py-2.5 text-theme-sm font-medium transition-colors ${
-              activeTab === "approvals"
-                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-brand-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            }`}
-          >
-            Team Requests
-          </button>
-        </div>
-      ) : null}
-
-      {/* Content based on permissions and selected tab */}
-      {(activeTab === "all" || activeTab === "mine") && canReadMine ? (
-        <MySection />
-      ) : null}
-
-      {activeTab === "all" && canReadMine && canReadAny ? (
-        <hr className="border-gray-200 dark:border-gray-800" />
-      ) : null}
-
-      {(activeTab === "all" || activeTab === "approvals") && canReadAny ? (
-        <ApprovalsSection />
-      ) : null}
-
-      {canReadTypes && (canReadMine || canReadAny) ? (
-        <hr className="border-gray-200 dark:border-gray-800" />
-      ) : null}
-      <LeaveTypesSection />
+      <Tabs
+        label="Leave sections"
+        idPrefix="leaves"
+        tabs={tabs}
+        value={active}
+        onChange={setChosen}
+      >
+        {active === "mine" ? <MySection /> : null}
+        {active === "approvals" ? <ApprovalQueueSection /> : null}
+        {active === "applications" ? <ApplicationsSection /> : null}
+        {active === "allotment" ? <AllotmentSection /> : null}
+        {active === "delegations" ? <DelegationsSection /> : null}
+        {active === "types" ? <LeaveTypesSection /> : null}
+      </Tabs>
     </div>
   );
 }

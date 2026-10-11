@@ -25,6 +25,7 @@ import {
   ApproveLeaveRequestDto,
   BulkSetLeaveEntitlementsDto,
   CreateLeaveDelegationDto,
+  DelegationCandidateQueryDto,
   ExportLeaveRequestQueryDto,
   HrCancelLeaveRequestDto,
   HrCreateLeaveRequestDto,
@@ -254,6 +255,16 @@ export class LeaveDelegationsController {
   @ApiOperation({ summary: "Delegations you gave or received" })
   findMine(@Paginate(QueryLeaveDelegationDto) query: QueryLeaveDelegationDto) {
     return this.delegations.findMine(query);
+  }
+
+  @Get("candidates")
+  @RequireScopedPermission("hr.leave.approve")
+  @ApiOperation({
+    summary:
+      "Users you may name as a delegate: other active users holding a leave approval permission (id and name only; ?search=; at most 50)",
+  })
+  candidates(@Query() query: DelegationCandidateQueryDto) {
+    return this.delegations.candidates(query.search);
   }
 
   @Post()

@@ -11,7 +11,7 @@ import type { LeaveDelegationView } from "./leave-delegations.repository.js";
 
 /** Where each recipient acts on a leave notification. */
 const EMPLOYEE_LINK = "/portal/leave";
-const APPROVER_LINK = "/hr/leaves";
+const APPROVER_LINK = "/hr/leaves?tab=approvals";
 
 export type LeaveEvent =
   | { kind: "submitted"; onBehalf: boolean; resubmitted: boolean }

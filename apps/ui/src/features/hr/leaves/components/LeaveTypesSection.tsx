@@ -69,6 +69,7 @@ export function LeaveTypesSection() {
         isPaid: v.isPaid,
         annualEntitlement: v.annualEntitlement,
         carryForwardLimit: v.carryForwardLimit,
+        approvalLevels: v.approvalLevels,
       });
       setCreateOpen(false);
       toast({ title: "Leave type created", variant: "success" });
@@ -96,6 +97,7 @@ export function LeaveTypesSection() {
           isPaid: v.isPaid,
           annualEntitlement: v.annualEntitlement,
           carryForwardLimit: v.carryForwardLimit,
+          approvalLevels: v.approvalLevels,
         },
       });
       setEditing(null);
@@ -186,6 +188,11 @@ export function LeaveTypesSection() {
                 cell: (t) => `${t.carryForwardLimit} days`,
               },
               {
+                header: "Approval",
+                cell: (t) =>
+                  t.approvalLevels === 2 ? "Manager, then HR" : "One approval",
+              },
+              {
                 header: "Status",
                 cell: (t) => (
                   <StatusBadge
@@ -268,6 +275,7 @@ export function LeaveTypesSection() {
               isPaid: editing.isPaid,
               annualEntitlement: editing.annualEntitlement,
               carryForwardLimit: editing.carryForwardLimit,
+              approvalLevels: editing.approvalLevels === 2 ? 2 : 1,
             }}
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}

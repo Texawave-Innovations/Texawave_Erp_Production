@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "@texawave-erp/core";
 import {
+  Alert,
   Button,
   Dialog,
   FormField,
@@ -10,6 +10,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useApproveLeaveRequest, useRejectLeaveRequest } from "../hooks";
+import { leaveErrorMessage } from "../errors";
 import { approveLeaveSchema, rejectLeaveSchema } from "../schema";
 import type { LeaveRequestItem } from "../types";
 
@@ -25,38 +26,25 @@ export interface DecideLeaveDialogProps {
     | "endDate"
     | "leaveDays"
     | "reason"
+    | "approvalLevels"
+    | "awaiting"
+    | "firstDecidedBy"
+    | "firstDecisionNote"
   >;
   decision: "approve" | "reject";
 }
 
 function describeDecideError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.errorCode === "SELF_APPROVAL_FORBIDDEN") {
-      return "You cannot approve or reject your own leave request.";
-    }
-    if (error.isPermissionError) {
-      return "You don't have permission to decide this leave request.";
-    }
-    if (error.statusCode === 404) {
-      return "This leave request is no longer in your approval queue.";
-    }
-    if (error.errorCode === "INVALID_STATE_TRANSITION") {
-      return "This request has already been decided.";
-    }
-    if (error.errorCode === "LEAVE_BALANCE_INSUFFICIENT") {
-      return "This request can no longer be approved — the employee's balance no longer covers it.";
-    }
-    if (error.isValidationError) {
-      return "The note was rejected. Check the character limits and try again.";
-    }
-    return error.message;
-  }
-  return "Something went wrong. Try again.";
+  return leaveErrorMessage(
+    error,
+    "You don't have permission to decide this leave request.",
+  );
 }
 
 /** Approve/reject a PENDING leave request. A rejection note is mandatory; an
- * approval note is optional. Decisions are final — maker-checker is enforced
- * server-side (403 SELF_APPROVAL_FORBIDDEN), never by this dialog. */
+ * approval note is optional. On a two-level request the first approval keeps
+ * it pending for HR (Docs/HR_LEAVE.md §6.1). Maker-checker and stage rules
+ * are enforced server-side, never by this dialog. */
 export function DecideLeaveDialog({
   open,
   onClose,
@@ -72,7 +60,16 @@ export function DecideLeaveDialog({
 
   const mutation = decision === "approve" ? approve : reject;
   const submitting = mutation.isPending;
-  const title = decision === "approve" ? "Approve leave" : "Reject leave";
+  const firstOfTwo =
+    request.approvalLevels === 2 && request.awaiting === "FIRST";
+  const title =
+    decision === "reject"
+      ? "Reject leave"
+      : request.awaiting === "HR"
+        ? "Give HR approval"
+        : firstOfTwo
+          ? "Give first approval"
+          : "Approve leave";
   const schema =
     decision === "approve" ? approveLeaveSchema : rejectLeaveSchema;
 
@@ -98,7 +95,12 @@ export function DecideLeaveDialog({
         });
       }
       toast({
-        title: decision === "approve" ? "Leave approved" : "Leave rejected",
+        title:
+          decision === "reject"
+            ? "Leave rejected"
+            : firstOfTwo
+              ? "First approval given — the request now waits for HR"
+              : "Leave approved",
         variant: "success",
       });
       setNote("");
@@ -137,6 +139,22 @@ export function DecideLeaveDialog({
             &ldquo;{request.reason}&rdquo;
           </p>
         </div>
+
+        {decision === "approve" && firstOfTwo ? (
+          <Alert variant="info" title="Two approvals needed">
+            This leave type needs your approval and then an HR approver&apos;s.
+            The request stays pending until HR approves it.
+          </Alert>
+        ) : null}
+        {request.awaiting === "HR" && request.firstDecidedBy ? (
+          <Alert variant="info" title="First approval given">
+            Approved by {request.firstDecidedBy.fullName}
+            {request.firstDecisionNote
+              ? ` — “${request.firstDecisionNote}”`
+              : ""}
+            .
+          </Alert>
+        ) : null}
 
         <FormField
           label={
@@ -195,7 +213,11 @@ export function DecideLeaveDialog({
             variant={decision === "reject" ? "destructive" : "primary"}
             loading={submitting}
           >
-            {decision === "approve" ? "Approve" : "Reject"}
+            {decision === "reject"
+              ? "Reject"
+              : firstOfTwo
+                ? "Give first approval"
+                : "Approve"}
           </Button>
         </div>
       </form>
