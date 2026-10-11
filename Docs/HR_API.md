@@ -393,6 +393,8 @@ The core attendance API (punches, HR view, manual edit, corrections, reports, au
 - Legacy alerted at 10:30 and 20:30 for a 10:00–18:30 shift; the offsets reproduce that for any shift. **No shift assignment → no alert** (there is no due time to compare against).
 - Recipients: the employee (if they have a login) and their **reporting manager** (if that manager has a login). Each alert is stored once per kind, employee and date (dedup key), so repeated runs and several API instances never notify twice.
 
+**UI** (`apps/ui/src/features/hr/attendance`): `/hr/attendance` is tabbed — **Daily roster** (reports/daily: everyone in scope for a date, status buckets, search, 9 AM–9 PM session timeline), **Records** (stored days with filters), **Employee month** (calendar from the full-month-present report + records), **Missing punches** (with a "Fix punches" edit), **Month close** (submit selected / all eligible, approve selected, approve / return / reopen with notes; "Needs another approver" on the caller's own submissions). Header: **Import punches** (template, check file, import) and **Export CSV**. Each tab and button shows only to holders of its endpoint's permission. Search and status counts on the daily roster apply to the loaded page (100 employees).
+
 ### Notifications (`platform/notifications`)
 
 In-app inbox (`platform.notifications`). Only server-side code sends notifications (`NotificationsService.notify()`); there is no create route.
@@ -405,6 +407,8 @@ In-app inbox (`platform.notifications`). Only server-side code sends notificatio
 | POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                            |
 
 Like `GET /menu/my-menu`, these routes need a login but no permission: every query is keyed to the user in the JWT. Senders so far: `attendance.missing_check_in`, `attendance.missing_check_out`, `attendance.auto_checkout`, `attendance.month_returned`, `attendance.month_reopened`.
+
+**UI** (`apps/ui/src/features/notifications`): a bell in the HR header and the employee portal header with an unread badge (polled every minute), the latest 20 notifications, open-and-mark-read (follows `link`) and mark all read.
 
 ---
 

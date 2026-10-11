@@ -21,3 +21,38 @@ export const WRITE_ANY_SCOPE = [
 /** Self-service: the authenticated user's own attendance. */
 export const SELF_SERVICE_READ = "employee_self_service.attendance.read";
 export const SELF_SERVICE_PUNCH = "employee_self_service.attendance.punch";
+
+export const REPORT_READ_ANY_SCOPE = [
+  "hr.attendance_report.read.own",
+  "hr.attendance_report.read.team",
+  "hr.attendance_report.read.all",
+] as const;
+
+export const EXPORT_ANY_SCOPE = [
+  "hr.attendance.export.own",
+  "hr.attendance.export.team",
+  "hr.attendance.export.all",
+] as const;
+
+/** `.own` is reserved server-side: nobody imports their own punches. */
+export const IMPORT_TEAM_OR_ALL = [
+  "hr.attendance.import.team",
+  "hr.attendance.import.all",
+] as const;
+
+export const LOCK_READ_ANY_SCOPE = [
+  "hr.attendance_lock.read.own",
+  "hr.attendance_lock.read.team",
+  "hr.attendance_lock.read.all",
+] as const;
+
+/** `.own` grants no finalize/approve (reserved server-side). */
+export const LOCK_FINALIZE_TEAM_OR_ALL = [
+  "hr.attendance_lock.finalize.team",
+  "hr.attendance_lock.finalize.all",
+] as const;
+
+export const LOCK_APPROVE_TEAM_OR_ALL = [
+  "hr.attendance_lock.approve.team",
+  "hr.attendance_lock.approve.all",
+] as const;

@@ -37,6 +37,9 @@ function describeEditError(error: unknown): string {
     if (error.errorCode === "PUNCH_OUTSIDE_DATE") {
       return "Every punch must fall on the attendance date.";
     }
+    if (error.errorCode === "ATTENDANCE_MONTH_LOCKED") {
+      return "This month is submitted or approved. Ask an approver to return or reopen it (Month close tab) before editing.";
+    }
     if (error.errorCode === "SESSIONS_INCONSISTENT") {
       return "Sessions must be ordered and non-overlapping, and a closed session must end after it starts.";
     }

@@ -6,6 +6,7 @@ import { Button, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DynamicSidebar } from "@/components/DynamicSidebar";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMe } from "@/hooks/usePermission";
 import { apiClient } from "@/lib/api-client";
@@ -162,6 +163,7 @@ export default function EmployeePortalLayout({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign out
           </Button>
