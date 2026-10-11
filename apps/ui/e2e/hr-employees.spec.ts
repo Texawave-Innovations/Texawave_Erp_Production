@@ -29,8 +29,9 @@ test("lists employees and narrows them with search", async ({ page }) => {
   await expect(
     page.getByText("No employees match these filters"),
   ).toBeVisible();
+  // Offered both in the toolbar and in the empty state.
   await expect(
-    page.getByRole("button", { name: "Clear filters" }),
+    page.getByRole("button", { name: "Clear filters" }).first(),
   ).toBeVisible();
 });
 
@@ -75,4 +76,87 @@ test("blocks an empty new-hire submission before calling the API", async ({
   await expect(page.getByText("First name is required")).toBeVisible();
   await expect(page.getByText("Last name is required")).toBeVisible();
   expect(posted).toBe(false);
+});
+
+test("shows the directory stats and filters the onboarding review queue", async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  await page.getByRole("navigation").locator("a[href='/hr/employees']").click();
+
+  for (const name of [
+    "Total employees",
+    "Active",
+    "Awaiting review",
+    "Onboarding in progress",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
+  }
+
+  const toggle = page.getByRole("button", { name: "Awaiting review" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // The review filter shows up as an active chip and can be cleared.
+  await expect(
+    page.getByText("Review submitted details").first(),
+  ).toBeVisible();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+});
+
+test("exports the directory as CSV", async ({ page }) => {
+  await signInAsAdmin(page);
+  await page.getByRole("navigation").locator("a[href='/hr/employees']").click();
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(
+    /^employees-\d{4}-\d{2}-\d{2}\.csv$/,
+  );
+});
+
+test("checks an import file and lists its problems without saving anything", async ({
+  page,
+}) => {
+  let committed = false;
+  page.on("request", (req) => {
+    if (
+      req.method() === "POST" &&
+      req.url().includes("/hr/employees/import") &&
+      !req.url().includes("dryRun=true")
+    )
+      committed = true;
+  });
+
+  await signInAsAdmin(page);
+  await page.getByRole("navigation").locator("a[href='/hr/employees']").click();
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Import employees" }),
+  ).toBeVisible();
+
+  const csv = [
+    "Full Name,Team,Designation,Employment Type,Date of Joining",
+    "E2E Import Person,No Such Team ZZ,No Such Designation ZZ,No Such Type ZZ,not-a-date",
+  ].join("\n");
+  await page.getByLabel("CSV file").setInputFiles({
+    name: "bad-import.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv, "utf8"),
+  });
+  await page.getByRole("button", { name: "Check file" }).click();
+
+  await expect(
+    page.getByRole("table", { name: "Import problems" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Team "No Such Team ZZ" does not exist or is inactive'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Import \d+ employee/ }),
+  ).toHaveCount(0);
+  expect(committed).toBe(false);
 });

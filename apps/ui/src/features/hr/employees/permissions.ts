@@ -17,6 +17,26 @@ export const WRITE_TEAM_OR_ALL = [
   "hr.employee.write.all",
 ] as const;
 
+/** Organization-wide writers only: they may change team, designation,
+ * employment type, joining, probation and confirmation dates (the API
+ * refuses those fields for `.team` writers). */
+export const WRITE_ALL = "hr.employee.write.all";
+
+/** Bulk CSV export — its own grant (contains work e-mail and phone). The API
+ * narrows the rows to the holder's scope. */
+export const EXPORT_ANY_SCOPE = [
+  "hr.employee.export.own",
+  "hr.employee.export.team",
+  "hr.employee.export.all",
+] as const;
+
+/** Approve / send back a submitted onboarding profile. `.own` is refused by
+ * the API (nobody reviews their own profile). */
+export const ONBOARDING_APPROVE_TEAM_OR_ALL = [
+  "hr.employee_onboarding.approve.team",
+  "hr.employee_onboarding.approve.all",
+] as const;
+
 /** Organization-wide exact permissions (not scoped). */
 export const STATUS_WRITE = "hr.employee_status.write";
 export const STATUS_CORRECT = "hr.employee_status.correct";

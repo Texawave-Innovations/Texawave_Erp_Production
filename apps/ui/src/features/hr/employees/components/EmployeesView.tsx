@@ -11,6 +11,9 @@ import {
   ExternalLink,
   Edit,
   Eye,
+  Download,
+  Upload,
+  ClipboardCheck,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -24,16 +27,25 @@ import {
   Input,
   Pagination,
   Select,
+  useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { ActionMenu } from "@/components/ActionMenu";
-import type { EmployeeListQuery } from "../api";
+import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
 import { useDebouncedValue, useEmployees, useLookup } from "../hooks";
-import { READ_ANY_SCOPE, WRITE_TEAM_OR_ALL } from "../permissions";
+import {
+  EXPORT_ANY_SCOPE,
+  ONBOARDING_APPROVE_TEAM_OR_ALL,
+  READ_ANY_SCOPE,
+  WRITE_TEAM_OR_ALL,
+} from "../permissions";
 import { STATUS_LABELS } from "../status";
-import type { EmployeeStatus } from "../types";
-import { EMPLOYEE_STATUSES } from "../types";
+import type { EmployeeStatus, OnboardingReviewStatus } from "../types";
+import { EMPLOYEE_STATUSES, ONBOARDING_REVIEW_STATUSES } from "../types";
+import { EmployeeStatsRow } from "./EmployeeStatsRow";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
+import { ImportEmployeesDialog } from "./ImportEmployeesDialog";
+import { OnboardingReviewBadge, REVIEW_LABELS } from "./OnboardingReviewBadge";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
 import {
   EmployeeIdentity,
@@ -57,6 +69,7 @@ const SORT_OPTIONS: ReadonlyArray<{ value: SortBy; label: string }> = [
 interface Filters {
   search: string;
   status: "" | EmployeeStatus;
+  reviewStatus: "" | OnboardingReviewStatus;
   departmentId: string;
   designationId: string;
   employmentTypeId: string;
@@ -69,6 +82,7 @@ interface Filters {
 const EMPTY_FILTERS: Filters = {
   search: "",
   status: "",
+  reviewStatus: "",
   departmentId: "",
   designationId: "",
   employmentTypeId: "",
@@ -94,6 +108,11 @@ export function EmployeesView() {
 
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
+  const canExport = usePermission(EXPORT_ANY_SCOPE);
+  const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
+  const { toast } = useToast();
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -111,6 +130,9 @@ export function EmployeesView() {
     sortBy: filters.sortBy,
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.reviewStatus
+      ? { onboardingReviewStatus: filters.reviewStatus }
+      : {}),
     ...(departmentId !== undefined ? { departmentId } : {}),
     ...(designationId !== undefined ? { designationId } : {}),
     ...(employmentTypeId !== undefined ? { employmentTypeId } : {}),
@@ -128,6 +150,7 @@ export function EmployeesView() {
   // Active filter count (excluding default search/sort)
   const activeFilterCount = [
     filters.status,
+    filters.reviewStatus,
     filters.departmentId,
     filters.designationId,
     filters.employmentTypeId,
@@ -154,6 +177,14 @@ export function EmployeesView() {
       label: "Status",
       value: STATUS_LABELS[filters.status],
       onRemove: () => update("status", ""),
+    });
+  }
+  if (filters.reviewStatus) {
+    activeChips.push({
+      id: "review",
+      label: "Review",
+      value: REVIEW_LABELS[filters.reviewStatus],
+      onRemove: () => update("reviewStatus", ""),
     });
   }
   if (filters.departmentId) {
@@ -227,6 +258,26 @@ export function EmployeesView() {
     setPage(1);
   };
 
+  /** Same filters as the table; the API narrows rows to the export scope. */
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { page: _p, limit: _l, ...filtersOnly } = query;
+      await exportEmployeesCsv(filtersOnly);
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description:
+          error instanceof Error ? error.message : "Try again in a moment.",
+        variant: "error",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const awaitingReview = filters.reviewStatus === "PENDING_REVIEW";
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 pb-12 animate-reveal">
       {/* Page Header */}
@@ -251,8 +302,29 @@ export function EmployeesView() {
           </p>
         </div>
 
-        {canWrite && (
-          <div className="shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {canExport && (
+            <Button
+              variant="secondary"
+              onClick={() => void handleExport()}
+              loading={exporting}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export CSV</span>
+            </Button>
+          )}
+          {canWrite && (
+            <Button
+              variant="secondary"
+              onClick={() => setImportOpen(true)}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Import CSV</span>
+            </Button>
+          )}
+          {canWrite && (
             <Button
               variant="primary"
               onClick={() => router.push("/hr/employees/new")}
@@ -261,9 +333,11 @@ export function EmployeesView() {
               <UserPlus className="h-4 w-4" />
               <span>New employee</span>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      <EmployeeStatsRow />
 
       {/* Compact Filter Toolbar */}
       <div className="rounded-2xl border border-gray-200 bg-white p-3.5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-gray-800 dark:bg-gray-900 space-y-3">
@@ -323,6 +397,21 @@ export function EmployeesView() {
               />
             </Button>
 
+            {/* Quick filter: HR's onboarding review queue */}
+            <Button
+              type="button"
+              variant={awaitingReview ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={awaitingReview}
+              onClick={() =>
+                update("reviewStatus", awaitingReview ? "" : "PENDING_REVIEW")
+              }
+              className="gap-1.5 h-9 px-3 text-theme-xs"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              <span>Awaiting review</span>
+            </Button>
+
             {/* Sort Option Select */}
             <div className="w-44">
               <Select
@@ -374,6 +463,31 @@ export function EmployeesView() {
                   {EMPLOYEE_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Onboarding review */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
+                  Review
+                </label>
+                <Select
+                  aria-label="Filter by onboarding review"
+                  value={filters.reviewStatus}
+                  onChange={(e) =>
+                    update(
+                      "reviewStatus",
+                      e.target.value as "" | OnboardingReviewStatus,
+                    )
+                  }
+                  className="h-8.5 text-theme-xs py-1"
+                >
+                  <option value="">All review states</option>
+                  {ONBOARDING_REVIEW_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {REVIEW_LABELS[s]}
                     </option>
                   ))}
                 </Select>
@@ -589,9 +703,27 @@ export function EmployeesView() {
                 },
                 {
                   header: "Onboarding",
-                  cell: (e) => (
-                    <OnboardingStatusBadge status={e.onboardingStatus} />
-                  ),
+                  cell: (e) =>
+                    e.onboardingReviewStatus === "NOT_SUBMITTED" ? (
+                      <OnboardingStatusBadge status={e.onboardingStatus} />
+                    ) : e.onboardingReviewStatus === "PENDING_REVIEW" ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/hr/employees/${e.id}/onboarding`)
+                        }
+                        aria-label={`Review submitted details of ${e.fullName}`}
+                        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                      >
+                        <OnboardingReviewBadge
+                          status={e.onboardingReviewStatus}
+                        />
+                      </button>
+                    ) : (
+                      <OnboardingReviewBadge
+                        status={e.onboardingReviewStatus}
+                      />
+                    ),
                 },
                 {
                   header: "Login",
@@ -639,7 +771,11 @@ export function EmployeesView() {
                               ]
                             : []),
                           {
-                            label: "Onboarding progress",
+                            label:
+                              canApprove &&
+                              e.onboardingReviewStatus === "PENDING_REVIEW"
+                                ? "Review onboarding"
+                                : "Onboarding progress",
                             icon: <ExternalLink className="h-3.5 w-3.5" />,
                             onClick: () =>
                               router.push(`/hr/employees/${e.id}/onboarding`),
@@ -660,6 +796,10 @@ export function EmployeesView() {
           />
         </div>
       )}
+
+      {importOpen ? (
+        <ImportEmployeesDialog open onClose={() => setImportOpen(false)} />
+      ) : null}
     </div>
   );
 }

@@ -13,11 +13,18 @@ import {
   ErrorState,
   FormField,
   Input,
+  Select,
   Skeleton,
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import {
+  BLOOD_GROUP_OPTIONS,
+  GENDER_OPTIONS,
+  MARITAL_OPTIONS,
+  type CodeOption,
+} from "../codes";
 import {
   useProfile,
   useSensitive,
@@ -271,24 +278,26 @@ function EditBody({
                 error={errors.dateOfBirth}
                 onChange={(v) => set("dateOfBirth", v)}
               />
-              <TextField
+              <CodeSelectField
                 label="Gender"
                 value={values.gender}
                 error={errors.gender}
+                options={GENDER_OPTIONS}
                 onChange={(v) => set("gender", v)}
               />
-              <TextField
+              <CodeSelectField
                 label="Marital status"
                 value={values.maritalStatus}
                 error={errors.maritalStatus}
+                options={MARITAL_OPTIONS}
                 onChange={(v) => set("maritalStatus", v)}
               />
-              <TextField
+              <CodeSelectField
                 label="Blood group"
                 value={values.bloodGroup}
                 error={errors.bloodGroup}
+                options={BLOOD_GROUP_OPTIONS}
                 onChange={(v) => set("bloodGroup", v)}
-                placeholder="O+"
               />
               <TextField
                 label="Languages"
@@ -437,6 +446,39 @@ function EditBody({
 
       <StatutoryEditSection id={id} />
     </div>
+  );
+}
+
+/** A code field; a stored value outside the list (legacy free text) stays
+ * selectable so opening the form never silently changes it. */
+function CodeSelectField({
+  label,
+  value,
+  error,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  error?: string | undefined;
+  options: readonly CodeOption[];
+  onChange: (v: string) => void;
+}) {
+  const known = value === "" || options.some((o) => o.value === value);
+  return (
+    <FormField label={label} error={error}>
+      {(f) => (
+        <Select {...f} value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Not specified</option>
+          {!known ? <option value={value}>{value}</option> : null}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      )}
+    </FormField>
   );
 }
 

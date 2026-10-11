@@ -116,6 +116,10 @@ export interface MyEmployee {
   fullName: string;
   employeeCode: string;
   onboardingStatus: string;
+  /** HR's review of the submitted profile (see OnboardingWizard's banner). */
+  onboardingReviewStatus?: string;
+  /** On CHANGES_REQUESTED: what HR asked the employee to correct. */
+  onboardingReviewNote?: string | null;
 }
 
 export interface SubmitResult {
