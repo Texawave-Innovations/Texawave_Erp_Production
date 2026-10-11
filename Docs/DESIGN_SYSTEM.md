@@ -32,6 +32,48 @@ Companion docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) (system design), [`CODING_S
 
 All tokens live in `packages/ui-kit/src/theme.css` (Tailwind v4 CSS-first `@theme` block). **No component anywhere hardcodes a hex value, a raw `px` font size, or an ad-hoc `transition` duration** — add the token first, then use it.
 
+### TexaOne approved direction — proposed, not yet implemented
+
+**Official application brand:** TexaOne
+**Tagline:** “Run Your Business as One.”
+**Repository/project name:** TexaWave ERP Production (unchanged).
+
+The approved direction is to transition the application from the existing green brand palette to a restrained blue–cyan TexaOne identity. This section records the approved proposal; it does not claim that the live implementation has changed.
+
+#### Approved brand anchors
+
+| Token / role  | Approved value | Intended use                                |
+| ------------- | -------------- | ------------------------------------------- |
+| Primary Blue  | `#1769F5`      | Primary actions and active states           |
+| Electric Blue | `#2454E8`      | Strong brand accent                         |
+| Cyan          | `#12CFE3`      | Selective accent; not default text on white |
+| Deep Navy     | `#101B36`      | Deep neutral surfaces                       |
+| Slate Gray    | `#64748B`      | Secondary text where contrast is sufficient |
+| Cloud White   | `#F8FAFC`      | Soft background                             |
+| Border Gray   | `#E2E8F0`      | Borders and separators                      |
+| Pure White    | `#FFFFFF`      | Primary light surface                       |
+| Pale Blue     | `#DBEAFE`      | Soft brand-tinted surface                   |
+
+Approved gradient: `linear-gradient(120deg, #2454E8 0%, #1769F5 48%, #12CFE3 100%)`. Use selectively, not as a blanket background.
+
+#### Preserve existing foundations
+
+- Keep the existing Tailwind v4 CSS-first `@theme` architecture and `brand-{25..950}` token names.
+- Preserve Nunito Sans and the existing typography scale.
+- Keep semantic success (green), warning (amber), and error (red) meanings.
+- Use the official TexaOne logo only if an approved asset exists. Otherwise, retain the current fallback.
+- Preserve login layout and authentication behavior; only approved visible branding may change.
+- Target one collapsible sidebar. Submenus expand inside the same sidebar, with one module expanded at a time.
+- Preserve routes, collapse behavior, and permission-aware navigation, including `useMyMenu()` and `collectMenuCodes()` where present.
+- Use existing CSS/Tailwind for dropdowns. Do not add dependencies solely for dropdowns or visual effects.
+- Preserve existing Alert/Toast behavior, calendar presets, month navigation, date-range selection, filtering, and real API-backed dashboard data.
+
+#### Contrast and accessibility
+
+The supplied audit reports approximately 4.79:1 contrast for white text on `#1769F5`. Verify final rendered colors and states before claiming WCAG conformance. Preserve keyboard operation, visible focus, accessible names, reduced-motion support, responsive behavior, and status indicators that do not rely on color alone.
+
+This is a proposed design direction. Actual token changes and UI implementation require a separate reviewed change.
+
 ### 1.1 Color
 
 | Scale                         | Use                                                                                                   | Example classes                  |
@@ -176,3 +218,18 @@ Every screen that fetches or mutates data must account for all of these — the 
 - **How this is actually checked today:** the Playwright e2e test (`apps/ui/e2e/reference-tags.spec.ts`) exercises the login-and-create-tag flow exclusively through `getByRole`/`getByLabel` locators — those only resolve when the accessible name/role tree is correct, so a broken `aria-label` or missing `<label>` fails the test, not just a manual audit. **Not yet added:** an automated axe-core/`@axe-core/playwright` scan — a reasonable next step, not implemented in this foundation pass.
 - **Brand-green contrast (checked 2026-10-01, WCAG relative-luminance formula):** `brand-500` (`#06ba32`) is only 2.6:1 against white, so it is never used behind white text or as light-mode link/body text. Primary `Button` and the active sidebar item pair `brand-500` with `gray-900` text (6.8:1); text links use `brand-800` on white (6.5:1); `brand-50`-tinted badges use `brand-800` text (5.6:1); the `Checkbox` fill uses `brand-600` (3.4:1 against white, above the 3:1 non-text minimum). Don't put white text on `brand-500`/`-600`, or `brand-700` text on a `brand-50` surface (3.8:1), without re-running the numbers.
 - **Not yet verified:** color contrast ratios against WCAG AA for the remaining token pairings in §1.1 — the pairings follow a consistent `-50`/`-700` (light) and `-950`/`-300` (dark) pattern that's a reasonable starting point, but no automated contrast check has been run.
+
+## TexaOne migration acceptance criteria
+
+These criteria apply to a future implementation. They are not claims of completed verification.
+
+1. Update brand tokens centrally in `packages/ui-kit/src/theme.css`; do not hardcode replacement colors across components.
+2. Audit primary buttons, tabs, active navigation, focus rings, and logo/fallback treatment for contrast and consistency.
+3. Preserve semantic status colors, Nunito Sans, login behavior, and existing interaction contracts.
+4. Preserve sidebar routes, collapse behavior, permission filtering, and single-module expansion.
+5. Preserve date-range presets, navigation, selection, and filtering behavior.
+6. Do not add dependencies solely for dropdowns, icons, or decorative effects.
+7. Existing unit and E2E tests must pass without weakening assertions.
+8. Target WCAG 2.2 AA. Verify contrast, keyboard access, focus visibility, reduced motion, 200% zoom, and reflow at 320 CSS pixels.
+9. Run and record appropriate automated and manual accessibility checks before claiming compliance.
+10. Verify component names, logo assets, exports, and tests against the active branch before implementation.
