@@ -29,13 +29,15 @@ function makeService(level: "own" | "team" | "all" = "all") {
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
   };
+  const notifier = { leaveChanged: vi.fn().mockResolvedValue(undefined) };
   const service = new LeaveRequestsService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifier as never,
   );
-  return { service, repository, teamContext, employees, teamScope };
+  return { service, repository, teamContext, employees, teamScope, notifier };
 }
 
 describe("LeaveRequestsService (scope reads, balances, self-service)", () => {
@@ -73,7 +75,12 @@ describe("LeaveRequestsService (scope reads, balances, self-service)", () => {
 
     it("approve() resolves the approve permission, not the read one", async () => {
       const { service, repository, teamContext } = makeService("team");
-      repository.decide.mockResolvedValue({ id: 1, status: "APPROVED" });
+      repository.decide.mockResolvedValue({
+        kind: "decided",
+        view: { id: 1, status: "APPROVED" },
+        stage: 1,
+        final: true,
+      });
       await expect(service.approve(1, {} as never)).resolves.toEqual({
         id: 1,
         status: "APPROVED",

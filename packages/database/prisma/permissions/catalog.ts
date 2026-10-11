@@ -139,12 +139,44 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Create/update/deactivate leave types",
   },
 
-  // apps/api/src/modules/hr/leave-requests — team-scoped. Deciding is its own
-  // permission; hr.leave.approve.own is reserved (nobody may decide their own
-  // request), and who among team leads/HR approves is an open decision, so
-  // approve.team is granted to no role by default.
+  // apps/api/src/modules/hr/leave-requests — team-scoped (Docs/HR_LEAVE.md §6).
+  // Deciding is its own permission. hr.leave.approve.own is the REPORTING
+  // MANAGER level: it decides only the leave of the caller's direct reports
+  // (and of a manager who delegated to the caller) — never the caller's own
+  // request. .team/.all also decide within their scope; only .all gives the
+  // second (HR) approval of a two-level leave type. Who approves is an open
+  // decision, so approve.own/.team are granted to no role by default.
   ...scopedPermission("hr.leave_request.read", "View leave requests"),
-  ...scopedPermission("hr.leave.approve", "Approve or reject leave requests"),
+  {
+    code: "hr.leave.approve.own",
+    description:
+      "Approve or reject leave of employees who report to me (reporting manager)",
+  },
+  {
+    code: "hr.leave.approve.team",
+    description:
+      "Approve or reject leave requests (own team, plus my direct reports)",
+  },
+  {
+    code: "hr.leave.approve.all",
+    description:
+      "Approve or reject leave requests (all teams), including the HR approval",
+  },
+  // Apply on an employee's behalf, and cancel someone's pending/approved
+  // leave. .own of both is reserved: one's own leave goes through
+  // self-service, and the service refuses the caller's own record.
+  ...scopedPermission(
+    "hr.leave_request.create",
+    "Apply for leave on an employee's behalf",
+  ),
+  ...scopedPermission(
+    "hr.leave.cancel",
+    "Cancel an employee's pending or approved leave",
+  ),
+  ...scopedPermission(
+    "hr.leave_request.export",
+    "Export leave requests and balances to CSV",
+  ),
 
   // apps/api/src/modules/hr/attendance — team-scoped (an employee's day is
   // reached through the employee). attendance.write.own and

@@ -31,6 +31,7 @@ function snapshot(row: LeaveTypeRow) {
     isPaid: row.isPaid,
     annualEntitlement: row.annualEntitlement.toNumber(),
     carryForwardLimit: row.carryForwardLimit.toNumber(),
+    approvalLevels: row.approvalLevels,
   };
 }
 

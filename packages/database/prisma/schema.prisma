@@ -78,6 +78,7 @@ model Organization {
   leaveTypes              LeaveType[]
   leaveRequests           LeaveRequest[]
   leaveEntitlements       LeaveEntitlement[]
+  leaveDelegations        LeaveApprovalDelegation[]
   workLogs                WorkLog[]
   expenseClaims           ExpenseClaim[]
   exitRequests            ExitRequest[]
@@ -144,6 +145,10 @@ model User {
   statusChanges       EmployeeStatusHistory[]
   leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
   leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
+  leaveFirstDecided   LeaveRequest[]          @relation("LeaveFirstDecider")
+  leaveCancelled      LeaveRequest[]          @relation("LeaveCanceller")
+  leaveDelegatedFrom  LeaveApprovalDelegation[] @relation("LeaveDelegator")
+  leaveDelegatedTo    LeaveApprovalDelegation[] @relation("LeaveDelegate")
   workLogsRequested   WorkLog[]               @relation("WorkLogRequester")
   workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
   expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
@@ -886,11 +891,10 @@ model WeeklyOffRule {
 // ---------------------------------------------------------------------------
 // Leave (apps/api/src/modules/hr/leave-types, hr/leave-requests)
 // ---------------------------------------------------------------------------
-// Scope is deliberately narrow: types, requests, approve/reject, history.
-// NOT modelled because the business has not approved the rules: leave
-// balances, accrual, carry-forward, half-days, cancellation/withdrawal
-// (reports/HR_IMPLEMENTATION_READINESS.md §3.7, L-1/L-2). No leave types are
-// seeded — the list of types is business data.
+// Types, requests (half-days, cancellation, resubmission, one- or two-level
+// approval), per-employee entitlements and approval delegations. Balances are
+// derived, never stored (Docs/HR_LEAVE.md §5). No leave types are seeded —
+// the list of types is business data.
 
 model LeaveType {
   id             Int       @id @default(autoincrement())
@@ -904,6 +908,9 @@ model LeaveType {
   annualEntitlement Decimal  @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
   /** Unused days carried into the next year are capped at this value. */
   carryForwardLimit Decimal  @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
+  /** 1 = one approval (reporting manager or a scoped approver); 2 = the
+   * reporting manager (or a scoped approver) first, then HR (`.all`). */
+  approvalLevels Int       @default(1) @map("approval_levels")
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -945,9 +952,18 @@ model LeaveRequest {
   leaveDays      Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
   reason         String
   status         String    @default("PENDING")
+  /** Copied from the leave type at (re)submission, so changing the type
+   * never changes a request already in flight. */
+  approvalLevels Int       @default(1) @map("approval_levels")
   cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(6)
   cancellationNote String?   @map("cancellation_note")
+  /** Who cancelled: the employee, or HR (`hr.leave.cancel`). */
+  cancelledBy      Int?      @map("cancelled_by")
   requestedBy    Int       @map("requested_by")
+  /** First of two approvals (approval_levels = 2); status stays PENDING. */
+  firstDecidedBy    Int?      @map("first_decided_by")
+  firstDecidedAt    DateTime? @map("first_decided_at") @db.Timestamptz(6)
+  firstDecisionNote String?   @map("first_decision_note")
   decidedBy      Int?      @map("decided_by")
   decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
   decisionNote   String?   @map("decision_note")
@@ -964,11 +980,42 @@ model LeaveRequest {
   leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id])
   requester    User         @relation("LeaveRequester", fields: [requestedBy], references: [id])
   decider      User?        @relation("LeaveDecider", fields: [decidedBy], references: [id])
+  firstDecider User?        @relation("LeaveFirstDecider", fields: [firstDecidedBy], references: [id])
+  canceller    User?        @relation("LeaveCanceller", fields: [cancelledBy], references: [id])
 
   @@index([organizationId, employeeId, startDate])
   @@index([organizationId, status])
   @@index([organizationId, leaveTypeId])
   @@map("leave_requests")
+  @@schema("hr")
+}
+
+/// A reporting manager's stand-in for leave approval over an inclusive date
+/// range (e.g. while the manager is on leave). During the range the delegate
+/// may decide what the delegator could decide AS REPORTING MANAGER — never
+/// more: team/all approval still comes only from the delegate's own roles.
+/// Not edited: a delegation is revoked (`is_active = false`) and re-created.
+model LeaveApprovalDelegation {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  delegatorUserId Int       @map("delegator_user_id")
+  delegateUserId  Int       @map("delegate_user_id")
+  startDate       DateTime  @map("start_date") @db.Date
+  endDate         DateTime  @map("end_date") @db.Date
+  reason          String?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  delegator    User         @relation("LeaveDelegator", fields: [delegatorUserId], references: [id])
+  delegate     User         @relation("LeaveDelegate", fields: [delegateUserId], references: [id])
+
+  @@index([organizationId, delegateUserId, startDate])
+  @@index([organizationId, delegatorUserId])
+  @@map("leave_approval_delegations")
   @@schema("hr")
 }
 

@@ -475,6 +475,22 @@ keep both env vars in sync with whatever you chose.
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
 
+- **2026-10-13 — Leave workflow (`hr.leave_*`, `apps/api/src/modules/hr/leave-requests`).**
+  Migration `20261013090000_hr_leave_workflow`: `leave_types.approval_levels` (1 or 2);
+  `leave_requests` gains `approval_levels` (copied at submission; the protect trigger lets it change
+  only on resubmission), `first_decided_by/at/first_decision_note` (first of two approvals; status
+  stays PENDING) and `cancelled_by`; new table `leave_approval_delegations` (user → user, date range,
+  revoked not edited). CHECKs: levels in (1, 2), a first approval only on two-level rows, and two
+  different approvers. Approval authority is now the reporting line (`Employee.reportsTo`, or the
+  manager's active delegate) **or** the `hr.leave.approve` team/all scope; `hr.leave.approve.own`
+  changes meaning from "reserved, grants nothing" to "the reporting-manager level", and only `.all`
+  gives the second approval. New team-scoped permissions `hr.leave_request.create`
+  (apply on behalf), `hr.leave.cancel` (HR cancellation, also of started leave) and
+  `hr.leave_request.export`; `.own` of the first two is reserved. Approving, or cancelling approved,
+  leave in a SUBMITTED/APPROVED attendance month is refused (409 `ATTENDANCE_MONTH_LOCKED`) under
+  Attendance's own per-employee lock, always taken after the leave lock. Leave is the second
+  notification sender (`leave.*`). Full rules: `HR_LEAVE.md` §2, §6–§9; routes: `HR_API.md` → Leave.
+
 - **2026-10-12 — Role lifecycle rules (`platform.roles`, `apps/api/src/modules/settings/roles`).**
   Roles gained `version` (optimistic lock), `is_system` and `description`
   (migration `20261012090000_platform_role_lifecycle`; the four seeded roles are marked system).

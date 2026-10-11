@@ -173,6 +173,7 @@ const VERBS: Record<string, string> = {
   update_status: "Update status",
   approve: "Approve",
   decide: "Decide",
+  cancel: "Cancel",
   finalize: "Finalize",
   export: "Export",
   import: "Import",
@@ -185,7 +186,8 @@ const VERBS: Record<string, string> = {
 /** `.own` variants that the API refuses (documented in catalog.ts). */
 const OWN_RESERVED = new Set([
   "hr.shift_assignment.write",
-  "hr.leave.approve",
+  "hr.leave_request.create",
+  "hr.leave.cancel",
   "hr.attendance.write",
   "hr.attendance_correction.approve",
   "hr.attendance.import",

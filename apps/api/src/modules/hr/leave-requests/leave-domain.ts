@@ -202,3 +202,92 @@ export function yearBalance(
 export function covers(balance: YearBalance, days: number): boolean {
   return balance.available + 1e-9 >= days;
 }
+
+// ---- Approval routing ------------------------------------------------------
+
+/** 1 = one approval; 2 = a first approval, then HR (`hr.leave.approve.all`). */
+export const APPROVAL_LEVELS = [1, 2] as const;
+export type ApprovalLevels = (typeof APPROVAL_LEVELS)[number];
+
+/** Who a PENDING request waits for: the first approver (the reporting
+ * manager, a delegate, or a team/all approver) or, on a two-level request
+ * already approved once, HR. */
+export type AwaitingStage = "FIRST" | "HR";
+
+export function awaitingStage(request: {
+  status: string;
+  approvalLevels: number;
+  firstDecidedAt: Date | null;
+}): AwaitingStage | null {
+  if (request.status !== "PENDING") return null;
+  return request.approvalLevels === 2 && request.firstDecidedAt !== null
+    ? "HR"
+    : "FIRST";
+}
+
+export interface ApprovalFacts {
+  approvalLevels: number;
+  firstDecidedAt: Date | null;
+  firstDecidedBy: number | null;
+  actorId: number;
+  employeeUserId: number | null;
+  requestedBy: number;
+  /** The actor is the employee's reporting manager, or that manager's active
+   * delegate today. */
+  isManager: boolean;
+  /** The actor's `hr.leave.approve` scope is team/all and covers the employee. */
+  inScope: boolean;
+  /** The actor's resolved `hr.leave.approve` level. */
+  scopeLevel: "own" | "team" | "all";
+}
+
+export type ApprovalRefusal =
+  "NOT_VISIBLE" | "SELF" | "REQUESTER" | "AWAITING_HR" | "SAME_APPROVER";
+
+export type ApprovalVerdict =
+  | { ok: true; stage: 1 | 2; final: boolean }
+  | { ok: false; reason: ApprovalRefusal };
+
+/**
+ * Whether the actor may decide this PENDING request now, and at which stage.
+ *
+ *  - Nobody outside the reporting line and outside their approve scope sees
+ *    the request at all (NOT_VISIBLE → 404).
+ *  - Nobody decides their own request, nor one they submitted on someone's
+ *    behalf (maker-checker).
+ *  - Stage 1: the reporting manager (or delegate) or a team/all approver.
+ *  - Stage 2 (two-level only): an `.all` approver who did not give stage 1.
+ */
+export function approvalVerdict(f: ApprovalFacts): ApprovalVerdict {
+  const hrInScope = f.inScope && f.scopeLevel === "all";
+  const firstDone = f.approvalLevels === 2 && f.firstDecidedAt !== null;
+  if (!f.isManager && !f.inScope) return { ok: false, reason: "NOT_VISIBLE" };
+  if (f.employeeUserId !== null && f.employeeUserId === f.actorId)
+    return { ok: false, reason: "SELF" };
+  if (f.requestedBy === f.actorId) return { ok: false, reason: "REQUESTER" };
+  if (!firstDone) {
+    return { ok: true, stage: 1, final: f.approvalLevels !== 2 };
+  }
+  if (!hrInScope) return { ok: false, reason: "AWAITING_HR" };
+  if (f.firstDecidedBy === f.actorId)
+    return { ok: false, reason: "SAME_APPROVER" };
+  return { ok: true, stage: 2, final: true };
+}
+
+/** First day of every calendar month the inclusive range touches. */
+export function monthsTouched(start: string, end: string): string[] {
+  const out: string[] = [];
+  let y = Number(start.slice(0, 4));
+  let m = Number(start.slice(5, 7));
+  const lastY = Number(end.slice(0, 4));
+  const lastM = Number(end.slice(5, 7));
+  while (y < lastY || (y === lastY && m <= lastM)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}-01`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
