@@ -24,16 +24,6 @@ export class RoleInUseException extends BusinessException {
   }
 }
 
-/** A change that would leave nobody — or the caller — able to manage roles
- * (409). Prevents locking the organization out of its own access control. */
-export class AccessLockoutException extends BusinessException {
-  constructor(reason: "nobody" | "self") {
-    super(
-      reason === "nobody"
-        ? "This change would leave nobody able to manage roles. Keep “Manage roles” on at least one role that an active user holds."
-        : "This change would remove “Manage roles” from you. Ask another administrator to make it.",
-      HttpStatus.CONFLICT,
-      "ACCESS_LOCKOUT",
-    );
-  }
-}
+// The lock-out rule is shared with the users module, so it lives in the
+// platform layer (platform/roles-permissions/role-admin-guard.ts).
+export { AccessLockoutException } from "../../../platform/roles-permissions/role-admin-guard.js";

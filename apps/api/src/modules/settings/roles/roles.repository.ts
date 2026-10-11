@@ -10,8 +10,8 @@ import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
+import { withRoleAdminGuard } from "../../../platform/roles-permissions/role-admin-guard.js";
 import {
-  AccessLockoutException,
   RoleInUseException,
   SystemRoleProtectedException,
 } from "./roles.exceptions.js";
@@ -21,8 +21,6 @@ export interface RoleFilter {
 }
 
 const ENTITY_TYPE = "role";
-/** The permission that manages roles; the lock-out guard keeps it alive. */
-export const ROLE_ADMIN_PERMISSION = "settings.role.write";
 
 /** A user counts as a member when both the assignment and the user are live. */
 const LIVE_MEMBER = {
@@ -44,7 +42,8 @@ export interface RoleChange {
  * Every write runs in one transaction that (1) bumps `version` with a
  * conditional update — which also row-locks the role, so two editors are
  * serialised and a stale `expectedVersion` is refused — (2) applies the
- * change, (3) re-checks that someone (and the caller) can still manage roles,
+ * change, (3) re-checks that someone (and the caller) can still manage roles
+ * (withRoleAdminGuard),
  * and (4) writes the audit row. Any failure rolls all of it back. */
 @Injectable()
 export class RolesRepository {
@@ -251,7 +250,6 @@ export class RolesRepository {
         .catch((error: unknown) =>
           this.rethrowDuplicate(error, change.name ?? role.name),
         );
-      await this.assertRoleAdminsRemain(tx, scope, userId);
       await this.audit.write(tx, {
         entityType: ENTITY_TYPE,
         entityId: id,
@@ -309,7 +307,6 @@ export class RolesRepository {
           updatedBy,
           true,
         );
-        await this.assertRoleAdminsRemain(tx, scope, updatedBy);
         if (added.length + removed.length > 0) {
           await this.audit.write(tx, {
             entityType: ENTITY_TYPE,
@@ -460,7 +457,11 @@ export class RolesRepository {
         data: { version: { increment: 1 }, updatedBy: userId },
       });
       if (count !== 1) throw new VersionConflictException("Role");
-      await change(tx, role);
+      // Runs the change and refuses it if nobody — or the caller — would
+      // still be able to manage roles (shared with the users module).
+      await withRoleAdminGuard(tx, scope.organizationId, userId, () =>
+        change(tx, role),
+      );
       return true as const;
     });
   }
@@ -512,42 +513,6 @@ export class RolesRepository {
       });
     }
     return { added: [...toCreate, ...toReactivate], removed: toRevoke };
-  }
-
-  /** After a change (inside its transaction, so it sees the change): at
-   * least one active user must still hold “Manage roles” through an active
-   * role, and the caller must be one of them. */
-  private async assertRoleAdminsRemain(
-    tx: Prisma.TransactionClient,
-    scope: OrgScope,
-    callerId: number,
-  ): Promise<void> {
-    const admins = await tx.user.findMany({
-      where: {
-        organizationId: scope.organizationId,
-        isActive: true,
-        deletedAt: null,
-        userRoles: {
-          some: {
-            isActive: true,
-            role: {
-              organizationId: scope.organizationId,
-              isActive: true,
-              rolePermissions: {
-                some: {
-                  isActive: true,
-                  permission: { code: ROLE_ADMIN_PERMISSION, isActive: true },
-                },
-              },
-            },
-          },
-        },
-      },
-      select: { id: true },
-    });
-    if (admins.length === 0) throw new AccessLockoutException("nobody");
-    if (!admins.some((a) => a.id === callerId))
-      throw new AccessLockoutException("self");
   }
 
   private rethrowDuplicate(error: unknown, name: string): never {

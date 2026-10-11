@@ -51,6 +51,7 @@ const CODES = [
   "settings.role.read",
   "settings.role.write",
   "users.user.read",
+  "users.user.write",
   "hr.holiday.read",
   "hr.holiday.write",
 ];
@@ -432,5 +433,111 @@ describe("Access control — role lifecycle (e2e)", () => {
     await expect(
       prisma.$executeRaw`UPDATE "platform"."roles" SET "version" = 0 WHERE "id" = ${roles.unused}`,
     ).rejects.toThrow();
+  });
+
+  describe("lock-out guard on Admin → Users", () => {
+    let lockOrg: { id: number; slug: string };
+    const del = (who: string, path: string) =>
+      http().delete(path).set(auth(who));
+    const userAudit = (userId: number) =>
+      prisma.auditLog.findMany({
+        where: { entityType: "user", entityId: BigInt(userId) },
+        orderBy: { id: "asc" },
+        select: { action: true, after: true },
+      });
+
+    beforeAll(async () => {
+      lockOrg = await prisma.organization.create({
+        data: { name: `ACL ${suffix}`, slug: `acl-${suffix}` },
+      });
+      // One role admin (who can also manage users), and a users-only admin.
+      await mkRole(lockOrg, "lockRoleAdmin", [
+        "settings.role.read",
+        "settings.role.write",
+        "users.user.read",
+        "users.user.write",
+      ]);
+      await mkRole(lockOrg, "lockUserAdmin", [
+        "users.user.read",
+        "users.user.write",
+      ]);
+      await mkRole(lockOrg, "lockPlain", ["hr.holiday.read"]);
+      await mkUser(lockOrg, "lockAdmin", [roles.lockRoleAdmin!]);
+      await mkUser(lockOrg, "lockUsers", [roles.lockUserAdmin!]);
+      await mkUser(lockOrg, "lockSpare", [roles.lockPlain!]);
+    });
+
+    it("a users-only admin cannot unassign, disable or delete the last role admin", async () => {
+      const target = users.lockAdmin!;
+      const unassign = await post("lockUsers", `/users/${target}/roles`, {
+        roleIds: [roles.lockPlain!],
+      });
+      expect(unassign.status).toBe(409);
+      expect(errorOf(unassign)).toBe("ACCESS_LOCKOUT");
+      const disable = await patch("lockUsers", `/users/${target}`, {
+        isActive: false,
+      });
+      expect(errorOf(disable)).toBe("ACCESS_LOCKOUT");
+      const remove = await del("lockUsers", `/users/${target}`);
+      expect(errorOf(remove)).toBe("ACCESS_LOCKOUT");
+
+      const still = await prisma.user.findUniqueOrThrow({
+        where: { id: target },
+        include: { userRoles: { where: { isActive: true } } },
+      });
+      expect(still.isActive).toBe(true);
+      expect(still.deletedAt).toBeNull();
+      expect(still.userRoles.map((r) => r.roleId)).toEqual([
+        roles.lockRoleAdmin,
+      ]);
+    });
+
+    it("a role admin cannot take Manage roles away from themselves", async () => {
+      const res = await post("lockAdmin", `/users/${users.lockAdmin}/roles`, {
+        roleIds: [roles.lockPlain!],
+      });
+      expect(res.status).toBe(409);
+      expect(errorOf(res)).toBe("ACCESS_LOCKOUT");
+    });
+
+    it("changes that keep a role admin go through and are audited", async () => {
+      // Make the spare user a second role admin, then the first can be disabled.
+      const promote = await post(
+        "lockUsers",
+        `/users/${users.lockSpare}/roles`,
+        {
+          roleIds: [roles.lockRoleAdmin!, roles.lockPlain!],
+        },
+      );
+      expect(promote.status).toBe(201);
+      const disable = await patch("lockUsers", `/users/${users.lockAdmin}`, {
+        isActive: false,
+      });
+      expect(disable.status).toBe(200);
+
+      expect((await userAudit(users.lockSpare!)).map((a) => a.action)).toEqual([
+        "assign_roles",
+      ]);
+      const spareAudit = await userAudit(users.lockSpare!);
+      expect(spareAudit[0]!.after).toMatchObject({
+        addedRoleIds: [roles.lockRoleAdmin],
+        removedRoleIds: [],
+      });
+      expect((await userAudit(users.lockAdmin!)).map((a) => a.action)).toEqual([
+        "deactivate",
+      ]);
+    });
+
+    it("team assignment changes are audited", async () => {
+      const team = await prisma.team.create({
+        data: { organizationId: lockOrg.id, name: "T", code: `ACL${suffix}` },
+      });
+      const res = await post("lockUsers", `/users/${users.lockSpare}/teams`, {
+        teamIds: [team.id],
+      });
+      expect(res.status).toBe(201);
+      const actions = (await userAudit(users.lockSpare!)).map((a) => a.action);
+      expect(actions).toContain("assign_teams");
+    });
   });
 });

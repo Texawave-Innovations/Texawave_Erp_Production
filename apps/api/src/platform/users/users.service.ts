@@ -135,6 +135,8 @@ export class UsersService {
     if (!updated) {
       throw new ResourceNotFoundException("User", id);
     }
+    // Activation changes what the permission guard resolves for this user.
+    if (dto.isActive !== undefined) await this.permissions.invalidate(id);
     return updated;
   }
 

@@ -487,8 +487,15 @@ full doc pass folds them into the sections above.
   (`entityType = role`; grant changes record permission ids, not codes, to stay under the
   audit snapshot limit). New reads: `GET /settings/roles/:id/history`,
   `POST /settings/roles/:id/clone`, `GET /users/:id/effective-permissions` (active roles and
-  grants only, each permission with the roles that grant it). Not yet guarded: removing the
-  last role administrator through `POST /users/:id/roles` or by disabling a user.
+  grants only, each permission with the roles that grant it).
+  **Lock-out guard everywhere (same day, phase 3):** the rule lives in
+  `platform/roles-permissions/role-admin-guard.ts` (`withRoleAdminGuard`) and wraps every write
+  that can take “Manage roles” away — role grants and status, and on the users side
+  `POST /users/:id/roles`, disabling a user (`PATCH /users/:id`) and `DELETE /users/:id`. It
+  compares who can manage roles before and after the change inside the transaction: refused if
+  nobody would be left, or if the caller could and no longer would (a users-only administrator is
+  not held to the "self" part). User writes (create, update/activate/deactivate, delete, role and
+  team assignment) are now audited too (`entityType = user`; assignments record ids).
 
 - **2026-10-11 — In-app notifications (`platform.notifications`, `apps/api/src/platform/notifications`).**
   The first notification delivery in the ERP, added for the attendance missing check-in / check-out

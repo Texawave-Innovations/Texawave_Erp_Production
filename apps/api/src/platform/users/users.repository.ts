@@ -5,6 +5,10 @@ import type { PaginationDto } from "../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../common/tenancy/tenant-where.js";
 import { PrismaService } from "../../shared/prisma/prisma.service.js";
+import { AuditWriter } from "../audit/audit-writer.js";
+import { withRoleAdminGuard } from "../roles-permissions/role-admin-guard.js";
+
+const ENTITY_TYPE = "user";
 
 export interface UserFilter {
   search?: string | undefined;
@@ -56,7 +60,10 @@ const USER_SELECT = {
  */
 @Injectable()
 export class UsersRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @OrgScoped()
   findByEmail(scope: OrgScope, email: string) {
@@ -219,17 +226,30 @@ export class UsersRepository {
     },
     createdBy?: number,
   ) {
-    const user = await this.prisma.user.create({
-      data: {
-        organizationId: scope.organizationId,
-        email: data.email,
-        fullName: data.fullName,
-        passwordHash: data.passwordHash,
-        mustChangePassword: data.mustChangePassword ?? false,
-        createdBy: createdBy ?? null,
-        updatedBy: createdBy ?? null,
-      },
-      select: USER_SELECT,
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          organizationId: scope.organizationId,
+          email: data.email,
+          fullName: data.fullName,
+          passwordHash: data.passwordHash,
+          mustChangePassword: data.mustChangePassword ?? false,
+          createdBy: createdBy ?? null,
+          updatedBy: createdBy ?? null,
+        },
+        select: USER_SELECT,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: created.id,
+        action: "create",
+        after: {
+          email: created.email,
+          fullName: created.fullName,
+          isActive: created.isActive,
+        },
+      });
+      return created;
     });
 
     return {
@@ -241,31 +261,64 @@ export class UsersRepository {
     };
   }
 
+  /** Edits name / e-mail / active state. Disabling a user is refused when it
+   * would leave nobody (or the caller) able to manage roles. */
   @OrgScoped()
   async update(
     scope: OrgScope,
     id: number,
     data: { email?: string; fullName?: string; isActive?: boolean },
-    updatedBy?: number,
+    updatedBy: number,
   ) {
-    const result = await this.prisma.user.updateMany({
-      where: tenantWhere(scope, { id, deletedAt: null }),
-      data: {
-        ...data,
-        updatedBy: updatedBy ?? null,
-      },
+    const found = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.user.findFirst({
+        where: tenantWhere(scope, { id, deletedAt: null }),
+        select: { email: true, fullName: true, isActive: true },
+      });
+      if (!before) return false;
+      await withRoleAdminGuard(tx, scope.organizationId, updatedBy, () =>
+        tx.user.update({ where: { id }, data: { ...data, updatedBy } }),
+      );
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action:
+          data.isActive === false && before.isActive
+            ? "deactivate"
+            : data.isActive === true && !before.isActive
+              ? "activate"
+              : "update",
+        before,
+        after: { ...before, ...data },
+      });
+      return true;
     });
-    if (result.count === 0) return null;
-    return this.findOneDetail(scope, id);
+    return found ? this.findOneDetail(scope, id) : null;
   }
 
+  /** Soft-deletes the user; refused like a deactivation by the lock-out rule. */
   @OrgScoped()
-  async softDelete(scope: OrgScope, id: number, deletedBy?: number) {
-    const result = await this.prisma.user.updateMany({
-      where: tenantWhere(scope, { id, deletedAt: null }),
-      data: { deletedAt: new Date(), updatedBy: deletedBy ?? null },
+  async softDelete(scope: OrgScope, id: number, deletedBy: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.user.findFirst({
+        where: tenantWhere(scope, { id, deletedAt: null }),
+        select: { email: true, fullName: true, isActive: true },
+      });
+      if (!before) return false;
+      await withRoleAdminGuard(tx, scope.organizationId, deletedBy, () =>
+        tx.user.update({
+          where: { id },
+          data: { deletedAt: new Date(), updatedBy: deletedBy },
+        }),
+      );
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "delete",
+        before,
+      });
+      return true;
     });
-    return result.count > 0;
   }
 
   /** Validates that all supplied roleIds belong to the caller's organization. */
@@ -277,7 +330,9 @@ export class UsersRepository {
     });
   }
 
-  /** Assigns roles to user, flipping isActive to false for removed roles. */
+  /** Sets the user's roles (removed ones are flipped to isActive=false, never
+   * deleted), refused when it would leave nobody (or the caller) able to
+   * manage roles. Audited with the role ids added and removed. */
   @OrgScoped()
   async assignRoles(
     scope: OrgScope,
@@ -285,49 +340,74 @@ export class UsersRepository {
     roleIds: number[],
     updatedBy: number,
   ) {
-    const user = await this.prisma.user.findFirst({
-      where: tenantWhere(scope, { id: userId, deletedAt: null }),
-    });
-    if (!user) return false;
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findFirst({
+        where: tenantWhere(scope, { id: userId, deletedAt: null }),
+        select: { id: true },
+      });
+      if (!user) return false;
 
-    const existing = await this.prisma.userRole.findMany({
-      where: { userId },
-      select: { roleId: true, isActive: true },
-    });
-    const existingMap = new Map(existing.map((ur) => [ur.roleId, ur.isActive]));
-    const targetSet = new Set(roleIds);
+      const existing = await tx.userRole.findMany({
+        where: { userId },
+        select: { roleId: true, isActive: true },
+      });
+      const existingMap = new Map(
+        existing.map((ur) => [ur.roleId, ur.isActive]),
+      );
+      const targetSet = new Set(roleIds);
 
-    const toCreate = roleIds.filter((id) => !existingMap.has(id));
-    const toReactivate = roleIds.filter((id) => existingMap.get(id) === false);
-    const toDeactivate = existing
-      .filter((ur) => ur.isActive && !targetSet.has(ur.roleId))
-      .map((ur) => ur.roleId);
+      const toCreate = roleIds.filter((id) => !existingMap.has(id));
+      const toReactivate = roleIds.filter(
+        (id) => existingMap.get(id) === false,
+      );
+      const toDeactivate = existing
+        .filter((ur) => ur.isActive && !targetSet.has(ur.roleId))
+        .map((ur) => ur.roleId);
 
-    await this.prisma.$transaction([
-      ...toCreate.map((roleId) =>
-        this.prisma.userRole.create({
-          data: { userId, roleId, createdBy: updatedBy, updatedBy },
-        }),
-      ),
-      ...(toReactivate.length > 0
-        ? [
-            this.prisma.userRole.updateMany({
+      await withRoleAdminGuard(
+        tx,
+        scope.organizationId,
+        updatedBy,
+        async () => {
+          if (toCreate.length > 0) {
+            await tx.userRole.createMany({
+              data: toCreate.map((roleId) => ({
+                userId,
+                roleId,
+                createdBy: updatedBy,
+                updatedBy,
+              })),
+            });
+          }
+          if (toReactivate.length > 0) {
+            await tx.userRole.updateMany({
               where: { userId, roleId: { in: toReactivate } },
               data: { isActive: true, updatedBy },
-            }),
-          ]
-        : []),
-      ...(toDeactivate.length > 0
-        ? [
-            this.prisma.userRole.updateMany({
+            });
+          }
+          if (toDeactivate.length > 0) {
+            await tx.userRole.updateMany({
               where: { userId, roleId: { in: toDeactivate } },
               data: { isActive: false, updatedBy },
-            }),
-          ]
-        : []),
-    ]);
+            });
+          }
+        },
+      );
 
-    return true;
+      const added = [...toCreate, ...toReactivate];
+      if (added.length + toDeactivate.length > 0) {
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: userId,
+          action: "assign_roles",
+          after: {
+            addedRoleIds: [...added].sort((a, b) => a - b),
+            removedRoleIds: [...toDeactivate].sort((a, b) => a - b),
+          },
+        });
+      }
+      return true;
+    });
   }
 
   /** Validates that all supplied teamIds belong to the caller's organization. */
@@ -339,7 +419,8 @@ export class UsersRepository {
     });
   }
 
-  /** Assigns teams to user in user_team_access. */
+  /** Sets the user's team access (what `.team` scope covers). Removed teams
+   * are flipped to isActive=false, never deleted. Audited. */
   @OrgScoped()
   async assignTeams(
     scope: OrgScope,
@@ -347,60 +428,73 @@ export class UsersRepository {
     assignments: Array<{ teamId: number; isLead: boolean }>,
     updatedBy: number,
   ) {
-    const user = await this.prisma.user.findFirst({
-      where: tenantWhere(scope, { id: userId, deletedAt: null }),
-    });
-    if (!user) return false;
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findFirst({
+        where: tenantWhere(scope, { id: userId, deletedAt: null }),
+        select: { id: true },
+      });
+      if (!user) return false;
 
-    const existing = await this.prisma.userTeamAccess.findMany({
-      where: { userId },
-      select: { teamId: true, isLead: true, isActive: true },
-    });
-    const existingMap = new Map(existing.map((ta) => [ta.teamId, ta]));
-    const targetMap = new Map(assignments.map((a) => [a.teamId, a.isLead]));
+      const existing = await tx.userTeamAccess.findMany({
+        where: { userId },
+        select: { teamId: true, isLead: true, isActive: true },
+      });
+      const existingMap = new Map(existing.map((ta) => [ta.teamId, ta]));
+      const targetMap = new Map(assignments.map((a) => [a.teamId, a.isLead]));
 
-    const toCreate = assignments.filter((a) => !existingMap.has(a.teamId));
-    const toUpdate = assignments.filter(
-      (a) =>
-        existingMap.has(a.teamId) &&
-        (!existingMap.get(a.teamId)!.isActive ||
-          existingMap.get(a.teamId)!.isLead !== a.isLead),
-    );
-    const toDeactivate = existing
-      .filter((ta) => ta.isActive && !targetMap.has(ta.teamId))
-      .map((ta) => ta.teamId);
+      const toCreate = assignments.filter((a) => !existingMap.has(a.teamId));
+      const toUpdate = assignments.filter(
+        (a) =>
+          existingMap.has(a.teamId) &&
+          (!existingMap.get(a.teamId)!.isActive ||
+            existingMap.get(a.teamId)!.isLead !== a.isLead),
+      );
+      const toDeactivate = existing
+        .filter((ta) => ta.isActive && !targetMap.has(ta.teamId))
+        .map((ta) => ta.teamId);
 
-    await this.prisma.$transaction([
-      ...toCreate.map((a) =>
-        this.prisma.userTeamAccess.create({
-          data: {
+      if (toCreate.length > 0) {
+        await tx.userTeamAccess.createMany({
+          data: toCreate.map((a) => ({
             organizationId: scope.organizationId,
             userId,
             teamId: a.teamId,
             isLead: a.isLead,
             createdBy: updatedBy,
             updatedBy,
-          },
-        }),
-      ),
-      ...toUpdate.map((a) =>
-        this.prisma.userTeamAccess.updateMany({
+          })),
+        });
+      }
+      for (const a of toUpdate) {
+        await tx.userTeamAccess.updateMany({
           where: { userId, teamId: a.teamId },
           data: { isActive: true, isLead: a.isLead, updatedBy },
-        }),
-      ),
-      ...(toDeactivate.length > 0
-        ? [
-            this.prisma.userTeamAccess.updateMany({
-              where: { userId, teamId: { in: toDeactivate } },
-              data: { isActive: false, updatedBy },
-            }),
-          ]
-        : []),
-    ]);
+        });
+      }
+      if (toDeactivate.length > 0) {
+        await tx.userTeamAccess.updateMany({
+          where: { userId, teamId: { in: toDeactivate } },
+          data: { isActive: false, updatedBy },
+        });
+      }
 
-    return true;
+      if (toCreate.length + toUpdate.length + toDeactivate.length > 0) {
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: userId,
+          action: "assign_teams",
+          after: {
+            teams: assignments
+              .map((a) => ({ teamId: a.teamId, isLead: a.isLead }))
+              .sort((x, y) => x.teamId - y.teamId),
+            removedTeamIds: [...toDeactivate].sort((a, b) => a - b),
+          },
+        });
+      }
+      return true;
+    });
   }
+
   /** Reset-password: `scope` comes from the user row already loaded via the
    * matched PasswordResetToken (platform/auth), not from an authenticated
    * request — same shape as `findByEmail` above. */
