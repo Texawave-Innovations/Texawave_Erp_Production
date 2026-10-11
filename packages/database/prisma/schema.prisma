@@ -199,10 +199,17 @@ model Permission {
 
 /// Roles are per-organization — each client can shape its own roles against
 /// the global permission catalog.
+/// `is_system` marks the roles the platform ships (Super Admin, HR Manager,
+/// Team Lead, Employee): their permissions are editable, but they cannot be
+/// renamed or deactivated. `version` is the optimistic lock for every change
+/// to the role or its grants (Docs/ARCHITECTURE.md §11, 2026-10-11).
 model Role {
   id             Int      @id @default(autoincrement())
   organizationId Int      @map("organization_id")
   name           String
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  version        Int      @default(1)
   isActive       Boolean  @default(true) @map("is_active")
   createdBy      Int?     @map("created_by")
   updatedBy      Int?     @map("updated_by")

@@ -7,16 +7,14 @@ import type {
   UpdateRoleInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listMenuItems } from "../../menu/api";
 import { useAuthStore } from "@/stores/auth-store";
 import {
+  cloneRole,
   createRole,
+  getEffectivePermissions,
+  getRoleHistory,
   getRole,
   listPermissionCatalog,
   listRoles,
@@ -116,20 +114,53 @@ export function useMenuItemsForRoles() {
   });
 }
 
-/** Details (with permissions) of several roles, for a user's effective
- * access. Shares the per-role cache with useRole(). */
-export function useRoleDetails(ids: readonly number[]) {
+export function useCloneRole() {
+  const queryClient = useQueryClient();
   const organizationId = useAuthStore((s) => s.organizationId);
-  return useQueries({
-    queries: ids.map((id) => ({
-      queryKey: orgScopedKey(
-        organizationId ?? 0,
-        "settings-roles",
-        "detail",
-        id,
-      ),
-      queryFn: () => getRole(id),
-      enabled: Boolean(organizationId),
-    })),
+  return useMutation({
+    mutationFn: ({
+      id,
+      name,
+      description,
+    }: {
+      id: number;
+      name: string;
+      description?: string;
+    }) => cloneRole(id, description ? { name, description } : { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "settings-roles"),
+      });
+    },
+  });
+}
+
+export function useRoleHistory(id: number | undefined, page: number) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "settings-roles",
+      "history",
+      id ?? 0,
+      page,
+    ),
+    queryFn: () => getRoleHistory(id as number, { page, limit: 20 }),
+    enabled: Boolean(organizationId) && id !== undefined,
+  });
+}
+
+/** Under the roles key, so saving any role refreshes it. */
+export function useEffectivePermissions(userId: number | null) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "settings-roles",
+      "effective",
+      userId ?? 0,
+    ),
+    queryFn: () => getEffectivePermissions(userId as number),
+    enabled: Boolean(organizationId) && userId !== null,
   });
 }

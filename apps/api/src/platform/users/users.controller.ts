@@ -39,6 +39,16 @@ export class UsersController {
     return this.users.findOne(id);
   }
 
+  @Get(":id/effective-permissions")
+  @RequirePermission("users.user.read")
+  @ApiOperation({
+    summary:
+      "Everything the user can do: active permissions of their active roles, each with the roles that grant it",
+  })
+  effectivePermissions(@Param("id", ParseIntPipe) id: number) {
+    return this.users.effectivePermissions(id);
+  }
+
   @Post()
   @RequirePermission("users.user.write")
   @ApiOperation({ summary: "Create a new user in current organization" })

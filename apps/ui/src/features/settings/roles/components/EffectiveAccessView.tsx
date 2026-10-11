@@ -12,27 +12,19 @@ import {
   Select,
   Skeleton,
 } from "@texawave-erp/ui-kit";
-import { useRoleDetails } from "../hooks";
+import { useEffectivePermissions } from "../hooks";
 import {
   buildAccessModel,
   levelLabel,
   levelOf,
-  type Level,
+  SCOPES,
 } from "../utils/access-model";
 
-const RANK: Record<Level, number> = {
-  none: 0,
-  own: 1,
-  team: 2,
-  all: 3,
-  granted: 3,
-};
-
 /**
- * "Who has access": pick a user and see everything they can do — the union
- * of their ACTIVE roles, the widest scope per permission, and which role
- * grants it. Computed in the browser from the roles' permission lists (the
- * same rule the API applies: inactive roles grant nothing).
+ * "Who has access": pick a user and see everything they can do, at what
+ * scope, and which role grants it — from GET /users/:id/effective-permissions
+ * (the server applies the same rule as at request time: only active roles
+ * and active grants count).
  */
 export function EffectiveAccessView({
   users,
@@ -46,51 +38,50 @@ export function EffectiveAccessView({
   const [userId, setUserId] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
   const sections = useMemo(() => buildAccessModel(catalog), [catalog]);
-  const user = users.find((u) => u.id === userId) ?? null;
-  const activeRoles = useMemo(
-    () => (user ? user.roles.filter((r) => r.isActive) : []),
-    [user],
-  );
-  const details = useRoleDetails(activeRoles.map((r) => r.id));
+  const effective = useEffectivePermissions(userId);
 
-  const loading = details.some((d) => d.isPending);
-  const failed = details.find((d) => d.isError);
-
-  const rows = useMemo(() => {
-    if (loading || failed) return [];
-    const grants = details.map((d) => ({
-      name: d.data!.name,
-      ids: new Set(d.data!.permissions.map((p) => p.id)),
-    }));
+  const groups = useMemo(() => {
+    if (!effective.data) return [];
+    const granted = new Set(effective.data.permissions.map((p) => p.id));
+    const sourcesById = new Map(
+      effective.data.permissions.map((p) => [p.id, p.grantedBy]),
+    );
     const needle = filter.trim().toLowerCase();
     return sections
       .map((s) => ({
         section: s,
         items: s.resources.flatMap((r) =>
           r.actions.flatMap((a) => {
-            let best: Level = "none";
-            const from: string[] = [];
-            for (const g of grants) {
-              const level = levelOf(a, g.ids);
-              if (level === "none") continue;
-              from.push(
-                `${g.name} (${levelLabel(level).replace(" scope", "")})`,
-              );
-              if (RANK[level] > RANK[best]) best = level;
-            }
-            if (best === "none") return [];
+            const level = levelOf(a, granted);
+            if (level === "none") return [];
             const text = `${r.label} ${a.label} ${a.description}`.toLowerCase();
             if (needle && !text.includes(needle)) return [];
-            return [
-              { key: a.code, resource: r.label, action: a, level: best, from },
-            ];
+            // Sources per granted variant, e.g. "HR Manager (All)".
+            const variants =
+              a.kind === "flat"
+                ? [{ id: a.id, tag: "" }]
+                : SCOPES.map((sc) => ({
+                    id: a.ids[sc],
+                    tag: ` (${sc[0]!.toUpperCase()}${sc.slice(1)})`,
+                  }));
+            const from = variants.flatMap((v) =>
+              v.id !== undefined && v.id !== null && granted.has(v.id)
+                ? (sourcesById.get(v.id) ?? []).map(
+                    (g) => `${g.roleName}${v.tag}`,
+                  )
+                : [],
+            );
+            return [{ key: a.code, resource: r.label, action: a, level, from }];
           }),
         ),
       }))
       .filter((g) => g.items.length > 0);
-  }, [loading, failed, details, sections, filter]);
+  }, [effective.data, sections, filter]);
 
-  const teamScoped = rows.some((g) => g.items.some((i) => i.level === "team"));
+  const data = effective.data;
+  const teamScoped = groups.some((g) =>
+    g.items.some((i) => i.level === "team"),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,7 +107,7 @@ export function EffectiveAccessView({
               aria-label="Filter effective permissions"
               placeholder="Filter permissions…"
               value={filter}
-              disabled={!user}
+              disabled={userId === null}
               onChange={(e) => setFilter(e.target.value)}
               className="pl-9"
             />
@@ -130,30 +121,34 @@ export function EffectiveAccessView({
         ) : null}
       </Card>
 
-      {!user ? (
+      {userId === null ? (
         <Card>
           <EmptyState
             title="Choose a user"
             description="See exactly what they can do, at what scope, and which role gives it — useful for “why can this person see payroll?”."
           />
         </Card>
+      ) : effective.isPending ? (
+        <Skeleton className="h-72 w-full" />
+      ) : effective.isError || !data ? (
+        <ErrorState onRetry={() => void effective.refetch()} />
       ) : (
         <>
           <Card>
             <div className="flex flex-col gap-2 text-theme-sm">
               <p>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {user.fullName}
+                  {data.user.fullName}
                 </span>{" "}
                 <span className="text-gray-500">
-                  {user.isActive ? "" : "(disabled — cannot sign in)"}
+                  {data.user.isActive ? "" : "(disabled — cannot sign in)"}
                 </span>
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 Roles:{" "}
-                {user.roles.length === 0
+                {data.roles.length === 0
                   ? "none"
-                  : user.roles
+                  : data.roles
                       .map(
                         (r) =>
                           `${r.name}${r.isActive ? "" : " (inactive, grants nothing)"}`,
@@ -162,23 +157,19 @@ export function EffectiveAccessView({
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 Teams (what “Team” scope covers):{" "}
-                {user.teams.length === 0
+                {data.teams.length === 0
                   ? "none"
-                  : user.teams.map((t) => t.name).join(", ")}
+                  : data.teams.map((t) => t.name).join(", ")}
               </p>
             </div>
           </Card>
-          {teamScoped && user.teams.length === 0 ? (
+          {teamScoped && data.teams.length === 0 ? (
             <Alert variant="warning" title="Team scope with no team">
               This user has Team-scoped permissions but no team, so those
               permissions show them nothing.
             </Alert>
           ) : null}
-          {loading ? (
-            <Skeleton className="h-72 w-full" />
-          ) : failed ? (
-            <ErrorState onRetry={() => void failed.refetch()} />
-          ) : rows.length === 0 ? (
+          {groups.length === 0 ? (
             <Card>
               <EmptyState
                 title={filter ? "Nothing matches" : "No permissions"}
@@ -190,7 +181,7 @@ export function EffectiveAccessView({
               />
             </Card>
           ) : (
-            rows.map(({ section, items }) => (
+            groups.map(({ section, items }) => (
               <Card key={section.key} className="overflow-hidden p-0">
                 <p className="border-b border-gray-100 px-4 py-2.5 text-theme-sm font-semibold text-gray-900 dark:border-gray-800 dark:text-white">
                   {section.label}{" "}
@@ -229,7 +220,7 @@ export function EffectiveAccessView({
                             ) : null}
                           </span>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-4 py-2">
                           {levelLabel(i.level)}
                         </td>
                         <td className="px-4 py-2 text-gray-600 dark:text-gray-400">

@@ -115,6 +115,80 @@ export class UsersRepository {
     return { items: formatted, total };
   }
 
+  /** What a user can effectively do: the active permissions of their
+   * active roles (the same rule PermissionsRepository applies at request
+   * time), each with the roles that grant it. Null when the user is not in
+   * this organization. */
+  @OrgScoped()
+  async findEffectivePermissions(scope: OrgScope, id: number) {
+    const user = await this.prisma.user.findFirst({
+      where: tenantWhere(scope, { id, deletedAt: null }),
+      select: {
+        id: true,
+        fullName: true,
+        isActive: true,
+        userRoles: {
+          where: { isActive: true },
+          select: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                isActive: true,
+                isSystem: true,
+                rolePermissions: {
+                  where: { isActive: true, permission: { isActive: true } },
+                  select: {
+                    permission: {
+                      select: { id: true, code: true, description: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        teamAccess: {
+          select: { isLead: true, team: { select: { id: true, name: true } } },
+        },
+      },
+    });
+    if (!user) return null;
+    const byCode = new Map<
+      string,
+      {
+        id: number;
+        code: string;
+        description: string;
+        grantedBy: { roleId: number; roleName: string }[];
+      }
+    >();
+    for (const { role } of user.userRoles) {
+      if (!role.isActive) continue;
+      for (const { permission } of role.rolePermissions) {
+        const entry = byCode.get(permission.code) ?? {
+          ...permission,
+          grantedBy: [],
+        };
+        entry.grantedBy.push({ roleId: role.id, roleName: role.name });
+        byCode.set(permission.code, entry);
+      }
+    }
+    return {
+      user: { id: user.id, fullName: user.fullName, isActive: user.isActive },
+      roles: user.userRoles.map(({ role }) => ({
+        id: role.id,
+        name: role.name,
+        isActive: role.isActive,
+        isSystem: role.isSystem,
+      })),
+      teams: user.teamAccess.map((t) => ({ ...t.team, isLead: t.isLead })),
+      permissions: [...byCode.values()].sort((x, y) =>
+        x.code.localeCompare(y.code),
+      ),
+    };
+  }
+
   @OrgScoped()
   async findOneDetail(scope: OrgScope, id: number) {
     const user = await this.prisma.user.findFirst({

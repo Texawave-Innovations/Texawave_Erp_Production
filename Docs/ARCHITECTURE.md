@@ -475,6 +475,21 @@ keep both env vars in sync with whatever you chose.
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
 
+- **2026-10-12 — Role lifecycle rules (`platform.roles`, `apps/api/src/modules/settings/roles`).**
+  Roles gained `version` (optimistic lock), `is_system` and `description`
+  (migration `20261012090000_platform_role_lifecycle`; the four seeded roles are marked system).
+  Rules the API enforces on every role write: a write that sends `version` is refused with
+  409 `VERSION_CONFLICT` when the role changed since it was read (the UI always sends it);
+  system roles keep their name and stay active (422 `SYSTEM_ROLE_PROTECTED`) but their grants
+  are editable; a role active users still hold cannot be deactivated (409 `ROLE_IN_USE`); no
+  change may leave nobody — or the caller — holding `settings.role.write` (409
+  `ACCESS_LOCKOUT`, checked inside the same transaction). Every role change is now audited
+  (`entityType = role`; grant changes record permission ids, not codes, to stay under the
+  audit snapshot limit). New reads: `GET /settings/roles/:id/history`,
+  `POST /settings/roles/:id/clone`, `GET /users/:id/effective-permissions` (active roles and
+  grants only, each permission with the roles that grant it). Not yet guarded: removing the
+  last role administrator through `POST /users/:id/roles` or by disabling a user.
+
 - **2026-10-11 — In-app notifications (`platform.notifications`, `apps/api/src/platform/notifications`).**
   The first notification delivery in the ERP, added for the attendance missing check-in / check-out
   alerts. Rules every sender follows: only server-side code sends, through

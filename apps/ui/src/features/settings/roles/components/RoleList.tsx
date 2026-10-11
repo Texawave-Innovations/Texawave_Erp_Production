@@ -2,27 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search, ShieldCheck, Users } from "lucide-react";
-import type { Role } from "@texawave-erp/api-types";
+import type { RoleListItem } from "@texawave-erp/api-types";
 import { Button, Input } from "@texawave-erp/ui-kit";
-import { SYSTEM_ROLE_NAMES } from "../utils/access-model";
 
-/** Searchable list of roles with member counts; the selected one is edited
- * on the right. Inactive roles are listed last and dimmed. */
+/** Searchable list of roles with member and permission counts (from the
+ * API); the selected one is edited on the right. Inactive roles are listed
+ * last and dimmed. */
 export function RoleList({
   roles,
   selectedId,
-  memberCounts,
-  countsPartial,
   canWrite,
   onSelect,
   onCreate,
 }: {
-  roles: readonly Role[];
+  roles: readonly RoleListItem[];
   selectedId: number | null;
-  memberCounts: ReadonlyMap<number, number>;
-  countsPartial: boolean;
   canWrite: boolean;
-  onSelect: (role: Role) => void;
+  onSelect: (role: RoleListItem) => void;
   onCreate: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -33,6 +29,7 @@ export function RoleList({
       .sort(
         (a, b) =>
           Number(b.isActive) - Number(a.isActive) ||
+          Number(b.isSystem) - Number(a.isSystem) ||
           a.name.localeCompare(b.name),
       );
   }, [roles, query]);
@@ -65,7 +62,6 @@ export function RoleList({
       <ul className="flex flex-col gap-1.5">
         {shown.map((role) => {
           const selected = role.id === selectedId;
-          const count = memberCounts.get(role.id) ?? 0;
           return (
             <li key={role.id}>
               <button
@@ -81,7 +77,7 @@ export function RoleList({
                 <span className="flex min-w-0 flex-col">
                   <span className="flex items-center gap-1.5 truncate text-theme-sm font-semibold text-gray-900 dark:text-white">
                     {role.name}
-                    {SYSTEM_ROLE_NAMES.has(role.name) ? (
+                    {role.isSystem ? (
                       <ShieldCheck
                         className="h-3.5 w-3.5 shrink-0 text-brand-600"
                         aria-label="System role"
@@ -89,20 +85,16 @@ export function RoleList({
                     ) : null}
                   </span>
                   <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                    {role.isActive ? "Active" : "Inactive"}
+                    {role.isActive ? "Active" : "Inactive"} ·{" "}
+                    {role.permissionCount} permissions
                   </span>
                 </span>
                 <span
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-theme-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  title={
-                    countsPartial
-                      ? "Counted from the first 100 users"
-                      : "Users with this role"
-                  }
+                  title="Active users with this role"
                 >
                   <Users className="h-3 w-3" aria-hidden />
-                  {count}
-                  {countsPartial ? "+" : ""}
+                  {role.userCount}
                 </span>
               </button>
             </li>

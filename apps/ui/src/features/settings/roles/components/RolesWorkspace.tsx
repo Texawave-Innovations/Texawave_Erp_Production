@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, ShieldCheck } from "lucide-react";
-import type { Permission, Role, User } from "@texawave-erp/api-types";
+import { Copy, Pencil, ShieldCheck } from "lucide-react";
+import type { Permission, RoleListItem, User } from "@texawave-erp/api-types";
+import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -17,8 +18,8 @@ import {
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
-import { getRole } from "../api";
 import {
+  useCloneRole,
   useCreateRole,
   useRole,
   useSetRolePermissions,
@@ -29,26 +30,42 @@ import {
   diffGrants,
   dutyConflicts,
   levelOf,
-  SYSTEM_ROLE_NAMES,
   type AccessSection,
 } from "../utils/access-model";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { ReviewChangesDialog, type ReviewWarning } from "./ReviewChangesDialog";
 import { RoleForm } from "./RoleForm";
+import { RoleHistoryPanel } from "./RoleHistoryPanel";
 import { RoleList } from "./RoleList";
 import { RoleMembersPanel } from "./RoleMembersPanel";
 import { RoleNavigationPanel } from "./RoleNavigationPanel";
 
-type EditorTab = "permissions" | "navigation" | "members";
+type EditorTab = "permissions" | "navigation" | "members" | "history";
 
 const sameSet = (a: ReadonlySet<number>, b: ReadonlySet<number>) =>
   a.size === b.size && [...a].every((id) => b.has(id));
+
+/** Readable message for a failed save; the review dialog shows it. */
+function saveError(error: unknown): Error {
+  if (error instanceof ApiError) {
+    if (error.errorCode === "VERSION_CONFLICT") {
+      return new Error(
+        "Someone else changed this role while you were editing. Their version is now loaded underneath and your edits are kept — review the changes again.",
+      );
+    }
+    if (error.errorCode === "ACCESS_LOCKOUT") return new Error(error.message);
+  }
+  return error instanceof Error
+    ? error
+    : new Error("Saving failed. Try again.");
+}
 
 /**
  * Roles tab of Access control: pick a role on the left, edit it on the right.
  * Permissions and Navigation edit ONE draft grant set; nothing reaches the
  * API until "Review & save", which shows the diff and warnings and then
- * replaces the role's permissions in one call.
+ * replaces the role's permissions in one versioned call. The API enforces
+ * the version, system-role, in-use and lock-out rules; the UI explains them.
  */
 export function RolesWorkspace({
   roles,
@@ -56,7 +73,7 @@ export function RolesWorkspace({
   users,
   usersPartial,
 }: {
-  roles: readonly Role[];
+  roles: readonly RoleListItem[];
   catalog: readonly Permission[];
   users: readonly User[];
   usersPartial: boolean;
@@ -75,12 +92,15 @@ export function RolesWorkspace({
   const [tab, setTab] = useState<EditorTab>("permissions");
   const [draft, setDraft] = useState<Set<number> | null>(null);
   const [reviewing, setReviewing] = useState(false);
-  const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
-  const [pendingSwitch, setPendingSwitch] = useState<Role | null>(null);
+  const [dialog, setDialog] = useState<"create" | "edit" | "clone" | null>(
+    null,
+  );
+  const [pendingSwitch, setPendingSwitch] = useState<RoleListItem | null>(null);
 
   const selected = roles.find((r) => r.id === selectedId) ?? roles[0] ?? null;
   const detail = useRole(selected?.id);
   const createRole = useCreateRole();
+  const cloneRole = useCloneRole();
   const updateRole = useUpdateRole();
   const savePermissions = useSetRolePermissions();
 
@@ -103,12 +123,6 @@ export function RolesWorkspace({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const memberCounts = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const u of users)
-      for (const r of u.roles) map.set(r.id, (map.get(r.id) ?? 0) + 1);
-    return map;
-  }, [users]);
   const members = useMemo(
     () =>
       selected
@@ -127,7 +141,7 @@ export function RolesWorkspace({
     [sections, current],
   );
 
-  function select(role: Role) {
+  function select(role: RoleListItem) {
     if (role.id === selected?.id) return;
     if (dirty) {
       setPendingSwitch(role);
@@ -158,7 +172,7 @@ export function RolesWorkspace({
       out.push({
         id: "lockout",
         blocking: true,
-        text: "You hold this role and are removing “Manage roles”. Unless another of your roles grants it, you will lose access to this page.",
+        text: "You hold this role and are removing “Manage roles”. The system refuses this if no other role of yours grants it.",
       });
     }
     const sensitive = changes.filter(
@@ -181,38 +195,55 @@ export function RolesWorkspace({
         });
       }
     }
-    if (
-      selected.name === "Super Admin" &&
-      changes.some((c) => c.to === "none")
-    ) {
+    if (selected.isSystem && changes.some((c) => c.to === "none")) {
       out.push({
-        id: "superadmin",
+        id: "system",
         blocking: true,
-        text: "Super Admin is expected to hold every permission; removing some may lock administrators out of features.",
+        text: `“${selected.name}” is a system role; users and defaults across the product expect what it grants.`,
       });
     }
     return out;
   }, [selected, sections, members, myUserId, baseline, current, changes]);
 
   async function save() {
-    if (!selected) return;
-    // Optimistic check: refuse if someone else saved this role since we loaded it.
-    const latest = await getRole(selected.id);
-    const latestIds = new Set(latest.permissions.map((p) => p.id));
-    if (!sameSet(latestIds, baseline)) {
-      await detail.refetch();
-      throw new Error(
-        "Someone else changed this role while you were editing. Your edits are kept; the matrix now shows their version underneath — review again.",
-      );
+    if (!selected || !detail.data) return;
+    try {
+      await savePermissions.mutateAsync({
+        id: selected.id,
+        input: { permissionIds: [...current], version: detail.data.version },
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.errorCode === "VERSION_CONFLICT") {
+        await detail.refetch();
+      }
+      throw saveError(error);
     }
-    await savePermissions.mutateAsync({
-      id: selected.id,
-      input: { permissionIds: [...current] },
-    });
     setDraft(null);
     setReviewing(false);
     toast({ title: `Saved “${selected.name}”`, variant: "success" });
   }
+
+  const createDialog = (
+    <Dialog open onClose={() => setDialog(null)} title="Create role">
+      <RoleForm
+        submitLabel="Create role"
+        onCancel={() => setDialog(null)}
+        onSubmit={async (v) => {
+          const created = await createRole.mutateAsync({
+            name: v.name,
+            ...(v.description ? { description: v.description } : {}),
+          });
+          setSelectedId(created.id);
+          setDraft(null);
+          setDialog(null);
+          toast({
+            title: `Role “${created.name}” created — choose its permissions`,
+            variant: "success",
+          });
+        }}
+      />
+    </Dialog>
+  );
 
   if (!selected) {
     return (
@@ -226,19 +257,7 @@ export function RolesWorkspace({
             ) : undefined
           }
         />
-        {dialog === "create" ? (
-          <Dialog open onClose={() => setDialog(null)} title="Create role">
-            <RoleForm
-              submitLabel="Create role"
-              onCancel={() => setDialog(null)}
-              onSubmit={async (v) => {
-                const created = await createRole.mutateAsync({ name: v.name });
-                setSelectedId(created.id);
-                setDialog(null);
-              }}
-            />
-          </Dialog>
-        ) : null}
+        {dialog === "create" ? createDialog : null}
       </Card>
     );
   }
@@ -247,19 +266,16 @@ export function RolesWorkspace({
   const editorTabs = [
     { id: "permissions" as const, label: "Permissions" },
     { id: "navigation" as const, label: "Navigation" },
-    {
-      id: "members" as const,
-      label: `Members (${memberCounts.get(selected.id) ?? 0}${usersPartial ? "+" : ""})`,
-    },
+    { id: "members" as const, label: `Members (${selected.userCount})` },
+    { id: "history" as const, label: "History" },
   ];
+  const lastChangedBy = detail.data?.lastChangedBy?.fullName;
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[18rem_1fr]">
       <RoleList
         roles={roles}
         selectedId={selected.id}
-        memberCounts={memberCounts}
-        countsPartial={usersPartial}
         canWrite={canWrite}
         onSelect={select}
         onCreate={() => setDialog("create")}
@@ -276,7 +292,7 @@ export function RolesWorkspace({
                 <h2 className="text-theme-lg font-bold text-gray-900 dark:text-white">
                   {selected.name}
                 </h2>
-                {SYSTEM_ROLE_NAMES.has(selected.name) ? (
+                {selected.isSystem ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-theme-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                     <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
                     System role
@@ -287,29 +303,45 @@ export function RolesWorkspace({
                   colorToken={selected.isActive ? "success" : "gray"}
                 />
               </div>
+              {selected.description ? (
+                <p className="mt-1 text-theme-sm text-gray-700 dark:text-gray-300">
+                  {selected.description}
+                </p>
+              ) : null}
               <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-                {detail.data
-                  ? `${detail.data.permissions.length} permissions granted`
-                  : "Loading…"}{" "}
-                · last changed{" "}
+                {selected.permissionCount} permissions · {selected.userCount}{" "}
+                user{selected.userCount === 1 ? "" : "s"} · last changed{" "}
                 {new Intl.DateTimeFormat("en-IN", {
                   dateStyle: "medium",
                 }).format(new Date(selected.updatedAt))}
-                {SYSTEM_ROLE_NAMES.has(selected.name)
-                  ? " · ships with the system, editable"
+                {lastChangedBy ? ` by ${lastChangedBy}` : ""}
+                {selected.isSystem
+                  ? " · permissions editable; name and status fixed"
                   : ""}
               </p>
             </div>
             {canWrite ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setDialog("edit")}
-              >
-                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                Rename / status
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setDialog("clone")}
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Clone
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setDialog("edit")}
+                  disabled={!detail.data}
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Edit details
+                </Button>
+              </div>
             ) : null}
           </div>
           {!canWrite ? (
@@ -318,6 +350,12 @@ export function RolesWorkspace({
             </p>
           ) : null}
         </Card>
+
+        {!selected.isActive ? (
+          <Alert variant="warning" title="This role is inactive">
+            An inactive role grants nothing. Reactivate it from “Edit details”.
+          </Alert>
+        ) : null}
 
         {detail.isPending ? (
           <Skeleton className="h-96 w-full" />
@@ -355,6 +393,9 @@ export function RolesWorkspace({
                 partial={usersPartial}
                 hasTeamScope={hasTeamScope}
               />
+            ) : null}
+            {tab === "history" ? (
+              <RoleHistoryPanel roleId={selected.id} catalog={catalog} />
             ) : null}
           </Tabs>
         )}
@@ -394,7 +435,7 @@ export function RolesWorkspace({
         <ReviewChangesDialog
           roleName={selected.name}
           changes={changes}
-          affectedUsers={members.length}
+          affectedUsers={selected.userCount}
           warnings={warnings}
           saving={savePermissions.isPending}
           onConfirm={save}
@@ -435,50 +476,82 @@ export function RolesWorkspace({
         </Dialog>
       ) : null}
 
-      {dialog === "create" ? (
-        <Dialog open onClose={() => setDialog(null)} title="Create role">
+      {dialog === "create" ? createDialog : null}
+      {dialog === "clone" ? (
+        <Dialog
+          open
+          onClose={() => setDialog(null)}
+          title={`Clone role — ${selected.name}`}
+        >
+          <p className="mb-3 text-theme-xs text-gray-500 dark:text-gray-400">
+            The copy gets the same {selected.permissionCount} permissions, no
+            members, and is never a system role.
+          </p>
           <RoleForm
-            submitLabel="Create role"
+            submitLabel="Create copy"
+            initialValues={{
+              name: `${selected.name} (copy)`,
+              description: selected.description,
+            }}
+            createMode
             onCancel={() => setDialog(null)}
             onSubmit={async (v) => {
-              const created = await createRole.mutateAsync({ name: v.name });
-              setSelectedId(created.id);
+              const copy = await cloneRole.mutateAsync({
+                id: selected.id,
+                name: v.name,
+                ...(v.description ? { description: v.description } : {}),
+              });
+              setSelectedId(copy.id);
               setDraft(null);
               setDialog(null);
-              toast({
-                title: `Role “${created.name}” created — choose its permissions`,
-                variant: "success",
-              });
+              toast({ title: `Created “${copy.name}”`, variant: "success" });
             }}
           />
         </Dialog>
       ) : null}
-      {dialog === "edit" ? (
+      {dialog === "edit" && detail.data ? (
         <Dialog
           open
           onClose={() => setDialog(null)}
           title={`Edit role — ${selected.name}`}
         >
           <RoleForm
-            key={selected.id}
+            key={`${selected.id}-${detail.data.version}`}
             submitLabel="Save"
-            initialValues={{ name: selected.name, isActive: selected.isActive }}
+            system={selected.isSystem}
+            initialValues={{
+              name: selected.name,
+              description: selected.description,
+              isActive: selected.isActive,
+            }}
             onCancel={() => setDialog(null)}
             onSubmit={async (v) => {
-              await updateRole.mutateAsync({ id: selected.id, input: v });
+              try {
+                await updateRole.mutateAsync({
+                  id: selected.id,
+                  input: {
+                    ...(selected.isSystem ? {} : { name: v.name }),
+                    description: v.description || null,
+                    ...(selected.isSystem
+                      ? {}
+                      : { isActive: v.isActive ?? true }),
+                    version: detail.data!.version,
+                  },
+                });
+              } catch (error) {
+                if (
+                  error instanceof ApiError &&
+                  error.errorCode === "VERSION_CONFLICT"
+                ) {
+                  void detail.refetch();
+                }
+                throw error;
+              }
               setDialog(null);
               toast({ title: "Role updated", variant: "success" });
             }}
           />
         </Dialog>
-      ) : null}
-      {selected && !selected.isActive ? (
-        <div className="lg:col-start-2">
-          <Alert variant="warning" title="This role is inactive">
-            Users keep the role, but an inactive role grants nothing. Reactivate
-            it from “Rename / status”.
-          </Alert>
-        </div>
       ) : null}
     </div>
   );

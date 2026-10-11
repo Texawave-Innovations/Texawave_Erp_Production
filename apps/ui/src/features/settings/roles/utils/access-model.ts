@@ -257,15 +257,6 @@ export const DUTY_CONFLICTS: {
   },
 ];
 
-/** Names the seeded roles use (default-roles.ts + seed.ts). Editable — the
- * badge only says they ship with the system. */
-export const SYSTEM_ROLE_NAMES = new Set([
-  "Super Admin",
-  "HR Manager",
-  "Team Lead",
-  "Employee",
-]);
-
 export const SCOPE_LABELS: Record<Scope, string> = {
   own: "Own",
   team: "Team",

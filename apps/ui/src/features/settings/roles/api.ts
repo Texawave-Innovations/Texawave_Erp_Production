@@ -1,5 +1,9 @@
 import type {
+  CloneRoleInput,
   CreateRoleInput,
+  EffectivePermissions,
+  RoleHistoryEntry,
+  RoleListItem,
   PaginatedEnvelope,
   Permission,
   QueryRolesInput,
@@ -18,10 +22,10 @@ import { apiClient, withAuthRetry } from "@/lib/api-client";
  */
 export function listRoles(
   query: QueryRolesInput,
-): Promise<PaginatedEnvelope<Role>> {
+): Promise<PaginatedEnvelope<RoleListItem>> {
   return withAuthRetry(() =>
-    apiClient.get<Role[]>("/settings/roles", { query }),
-  ) as Promise<PaginatedEnvelope<Role>>;
+    apiClient.get<RoleListItem[]>("/settings/roles", { query }),
+  ) as Promise<PaginatedEnvelope<RoleListItem>>;
 }
 
 export async function getRole(id: number): Promise<RoleDetail> {
@@ -61,6 +65,39 @@ export async function setRolePermissions(
 ): Promise<RoleDetail> {
   const { data } = await withAuthRetry(() =>
     apiClient.put<RoleDetail>(`/settings/roles/${id}/permissions`, input),
+  );
+  return data;
+}
+
+export async function cloneRole(
+  id: number,
+  input: CloneRoleInput,
+): Promise<RoleDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<RoleDetail>(`/settings/roles/${id}/clone`, input),
+  );
+  return data;
+}
+
+export function getRoleHistory(
+  id: number,
+  query: { page: number; limit: number },
+): Promise<PaginatedEnvelope<RoleHistoryEntry>> {
+  return withAuthRetry(() =>
+    apiClient.get<RoleHistoryEntry[]>(`/settings/roles/${id}/history`, {
+      query,
+    }),
+  ) as Promise<PaginatedEnvelope<RoleHistoryEntry>>;
+}
+
+/** Lives under users (users.user.read), but belongs to access control. */
+export async function getEffectivePermissions(
+  userId: number,
+): Promise<EffectivePermissions> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<EffectivePermissions>(
+      `/users/${userId}/effective-permissions`,
+    ),
   );
   return data;
 }

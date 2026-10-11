@@ -12,7 +12,8 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import { AttachRolePermissionsDto } from "./dto/attach-role-permissions.dto.js";
-import { CreateRoleDto } from "./dto/create-role.dto.js";
+import { CloneRoleDto, CreateRoleDto } from "./dto/create-role.dto.js";
+import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { QueryRoleDto } from "./dto/query-role.dto.js";
 import { SetRolePermissionsDto } from "./dto/set-role-permissions.dto.js";
 import { UpdateRoleDto } from "./dto/update-role.dto.js";
@@ -49,9 +50,35 @@ export class RolesController {
     return this.roles.create(dto);
   }
 
+  @Get(":id/history")
+  @RequirePermission("settings.role.read")
+  @ApiOperation({
+    summary:
+      "The role's audit trail: creation, renames, status and grant changes",
+  })
+  history(
+    @Param("id", ParseIntPipe) id: number,
+    @Paginate(PaginationDto) pagination: PaginationDto,
+  ) {
+    return this.roles.history(id, pagination);
+  }
+
+  @Post(":id/clone")
+  @RequirePermission("settings.role.write")
+  @ApiOperation({
+    summary:
+      "Copy a role and its active grants under a new name (never a system role)",
+  })
+  clone(@Param("id", ParseIntPipe) id: number, @Body() dto: CloneRoleDto) {
+    return this.roles.clone(id, dto);
+  }
+
   @Patch(":id")
   @RequirePermission("settings.role.write")
-  @ApiOperation({ summary: "Rename a role or toggle isActive" })
+  @ApiOperation({
+    summary:
+      "Rename, describe or (de)activate a role. Send version to refuse stale edits; system roles cannot be renamed or deactivated; a role in use cannot be deactivated",
+  })
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) {
     return this.roles.update(id, dto);
   }
@@ -71,7 +98,10 @@ export class RolesController {
 
   @Put(":id/permissions")
   @RequirePermission("settings.role.write")
-  @ApiOperation({ summary: "Replace a role's granted permission set" })
+  @ApiOperation({
+    summary:
+      "Replace a role's granted permission set. Send version to refuse stale edits; refused if nobody (or you) would keep Manage roles",
+  })
   setPermissions(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: SetRolePermissionsDto,

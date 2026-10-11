@@ -136,3 +136,56 @@ test("the menu's legacy /settings/roles link lands on /admin/roles", async ({
 }) => {
   await openRoles(page);
 });
+
+test("clone copies a role, and its history records the changes", async ({
+  page,
+}) => {
+  await openRoles(page);
+  const name = await createRole(page);
+
+  await page
+    .getByRole("searchbox", { name: "Search permissions" })
+    .fill("holiday calendar");
+  await page.getByRole("switch", { name: "Holidays: View" }).click();
+  await page.getByRole("button", { name: "Review & save" }).click();
+  await page
+    .getByRole("dialog", { name: `Review changes — ${name}` })
+    .getByRole("button", { name: "Save 1 change" })
+    .click();
+  await expect(page.getByText(`Saved “${name}”`)).toBeVisible();
+
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("Changed permissions")).toBeVisible();
+  await expect(page.getByText(/Granted: Holidays · View/)).toBeVisible();
+  await expect(page.getByText("Created the role")).toBeVisible();
+
+  await page.getByRole("button", { name: "Clone" }).click();
+  const dialog = page.getByRole("dialog", { name: `Clone role — ${name}` });
+  await dialog.getByLabel("Role name").fill(`${name} copy`);
+  await dialog.getByRole("button", { name: "Create copy" }).click();
+  await expect(
+    page.getByRole("heading", { level: 2, name: `${name} copy` }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Permissions" }).click();
+  await page.getByRole("checkbox", { name: "Show granted only" }).check();
+  await expect(
+    page.getByRole("switch", { name: "Holidays: View" }),
+  ).toHaveAttribute("aria-checked", "true");
+});
+
+test("a system role's name and status are locked in Edit details", async ({
+  page,
+}) => {
+  await openRoles(page);
+  await page
+    .getByRole("navigation", { name: "Roles" })
+    .getByRole("button")
+    .filter({ hasText: "Super Admin" })
+    .click();
+  await expect(page.getByText("System role", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Edit details" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit role — Super Admin" });
+  await expect(dialog.getByLabel("Role name")).toBeDisabled();
+  await expect(dialog.getByRole("checkbox")).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+});
