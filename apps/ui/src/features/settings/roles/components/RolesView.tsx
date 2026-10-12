@@ -16,6 +16,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { RoleMenuMatrixView } from "../../role-menu-matrix/components/RoleMenuMatrixView";
 import { useCreateRole, useRoles } from "../hooks";
 import { RoleForm } from "./RoleForm";
 import { RolePermissionsForm } from "./RolePermissionsForm";
@@ -34,6 +35,7 @@ export function RolesView() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [menuAccessRole, setMenuAccessRole] = useState<Role | null>(null);
   const { toast } = useToast();
 
   const query = useRoles({ page, limit: PAGE_SIZE });
@@ -106,13 +108,22 @@ export function RolesView() {
                 headerClassName: "sr-only",
                 className: "text-right",
                 cell: (role) => (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingRole(role)}
-                  >
-                    Edit permissions
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setMenuAccessRole(role)}
+                    >
+                      Menu access
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingRole(role)}
+                    >
+                      Edit permissions
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -150,6 +161,21 @@ export function RolesView() {
             roleId={editingRole.id}
             roleName={editingRole.name}
             onClose={() => setEditingRole(null)}
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={menuAccessRole !== null}
+        onClose={() => setMenuAccessRole(null)}
+        title={menuAccessRole ? `Menu access — ${menuAccessRole.name}` : ""}
+      >
+        {menuAccessRole ? (
+          <RoleMenuMatrixView
+            key={menuAccessRole.id}
+            roleId={menuAccessRole.id}
+            roleName={menuAccessRole.name}
+            onClose={() => setMenuAccessRole(null)}
           />
         ) : null}
       </Dialog>

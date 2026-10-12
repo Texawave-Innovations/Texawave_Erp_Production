@@ -7,16 +7,21 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   createInterview,
   createOfferLetter,
+  createPromotionLetter,
   createRevisionLetter,
   getInterview,
   getOfferLetter,
+  getPromotionLetter,
   getRevisionLetter,
+  getSalaryHistory,
   listInterviews,
   listOfferLetters,
+  listPromotionLetters,
   listRecruitmentEmployees,
   listRevisionLetters,
   setInterviewStatus,
   updateOfferLetter,
+  updatePromotionLetter,
   updateRevisionLetter,
   type InterviewQuery,
   type PageQuery,
@@ -25,14 +30,16 @@ import {
 import type {
   CreateInterviewInput,
   CreateOfferLetterInput,
+  CreatePromotionLetterInput,
   CreateRevisionLetterInput,
   InterviewStatus,
   UpdateOfferLetterInput,
+  UpdatePromotionLetterInput,
   UpdateRevisionLetterInput,
 } from "./types";
 
 /** Every Recruitment query lives under this prefix, so one invalidation
- * refreshes all three tabs after any write. */
+ * refreshes every tab after any write. */
 const ROOT = "hr-recruitment";
 
 function useOrgId() {
@@ -93,6 +100,35 @@ export function useRevision(id: number | undefined) {
   });
 }
 
+export function usePromotions(query: RevisionQuery, enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, ROOT, "promotions", query),
+    queryFn: () => listPromotionLetters(query),
+    enabled: Boolean(orgId) && enabled,
+  });
+}
+
+export function usePromotion(id: number | undefined) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, ROOT, "promotions", "detail", id ?? 0),
+    queryFn: () => getPromotionLetter(id as number),
+    enabled: Boolean(orgId) && id !== undefined,
+  });
+}
+
+/** Loaded only while an employee's history is expanded. Under ROOT, so issuing
+ * or editing a letter refreshes an open history too. */
+export function useSalaryHistory(employeeId: number | undefined) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, ROOT, "salary-history", employeeId ?? 0),
+    queryFn: () => getSalaryHistory(employeeId as number),
+    enabled: Boolean(orgId) && employeeId !== undefined,
+  });
+}
+
 export function useRecruitmentEmployees(query: PageQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
@@ -133,6 +169,20 @@ export function useUpdateOffer() {
 export function useCreateRevision() {
   return useOrgScopedMutation([ROOT], (input: CreateRevisionLetterInput) =>
     createRevisionLetter(input),
+  );
+}
+
+export function useCreatePromotion() {
+  return useOrgScopedMutation([ROOT], (input: CreatePromotionLetterInput) =>
+    createPromotionLetter(input),
+  );
+}
+
+export function useUpdatePromotion() {
+  return useOrgScopedMutation(
+    [ROOT],
+    ({ id, input }: { id: number; input: UpdatePromotionLetterInput }) =>
+      updatePromotionLetter(id, input),
   );
 }
 

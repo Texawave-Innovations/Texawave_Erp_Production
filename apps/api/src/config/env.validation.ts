@@ -60,6 +60,12 @@ export const envSchema = z.object({
   // this folder up together with the database — rows point at these files.
   UPLOAD_DIR: z.string().min(1).default("storage/uploads"),
 
+  // Optional: which browser renders payslip PDFs (hr/payroll/payslips/
+  // payslip-pdf.renderer.ts). Unset = the Chromium that
+  // `playwright install chromium` downloads; `msedge`/`chrome` = the browser
+  // already installed on the host, for machines that can't download it.
+  PDF_BROWSER_CHANNEL: z.enum(["msedge", "chrome"]).optional(),
+
   FIELD_ENCRYPTION_KEY: z
     .string()
     .regex(

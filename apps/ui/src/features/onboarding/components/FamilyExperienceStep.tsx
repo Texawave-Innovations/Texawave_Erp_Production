@@ -1,8 +1,14 @@
 "use client";
 
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, familyMemberSchema } from "@texawave-erp/core";
 import { Alert, Button, FormField, Input } from "@texawave-erp/ui-kit";
-import { useState } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import {
   addExperience,
   addFamilyMember,
@@ -16,8 +22,21 @@ function apiMessage(error: unknown): string {
   return "Could not save. Check your connection and try again.";
 }
 
-/** Optional step: family members and past employers. Nothing here blocks
- * submission, so the user can add none and continue. */
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
+const sanitizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
+
+/** Exposed by each sub-section so Continue can refuse to navigate while the
+ * user has started filling an Add form but not submitted it — otherwise
+ * typed-but-unsaved details silently vanish when the step changes. */
+interface SectionHandle {
+  hasPendingInput(): boolean;
+}
+
+/** Optional step: family members and past employers. Submitted (added)
+ * entries are never required to continue, but an unsaved, partly-filled Add
+ * form blocks navigation until it's finished or cleared. */
 export function FamilyExperienceStep({
   onBack,
   onContinue,
@@ -25,25 +44,57 @@ export function FamilyExperienceStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const familyRef = useRef<SectionHandle>(null);
+  const experienceRef = useRef<SectionHandle>(null);
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+
+  function handleContinue() {
+    const pendingFamily = familyRef.current?.hasPendingInput() ?? false;
+    const pendingExperience = experienceRef.current?.hasPendingInput() ?? false;
+    if (pendingFamily || pendingExperience) {
+      setBlockedMessage(
+        "You've started adding a " +
+          [
+            pendingFamily && "family member",
+            pendingExperience && "work experience entry",
+          ]
+            .filter(Boolean)
+            .join(" and ") +
+          " but haven't saved it. Click Add to save it, or clear those fields, before continuing.",
+      );
+      return;
+    }
+    setBlockedMessage(null);
+    onContinue();
+  }
+
   return (
     <div className="mt-6 flex flex-col gap-8">
       <p className="text-theme-sm text-gray-700 dark:text-gray-300">
         Both sections are optional. Add anyone you want on record, or continue
         without adding.
       </p>
-      <FamilySection />
-      <ExperienceSection />
+      {blockedMessage && (
+        <Alert variant="warning" title="Unsaved details">
+          {blockedMessage}
+        </Alert>
+      )}
+      <FamilySection ref={familyRef} />
+      <ExperienceSection ref={experienceRef} />
       <div className="flex justify-between">
         <Button variant="secondary" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={onContinue}>Continue to documents</Button>
+        <Button onClick={handleContinue}>Continue to documents</Button>
       </div>
     </div>
   );
 }
 
-function FamilySection() {
+const FamilySection = forwardRef(function FamilySection(
+  _props,
+  ref: Ref<SectionHandle>,
+) {
   const family = useMyFamilyMembers();
   const [form, setForm] = useState({
     name: "",
@@ -53,21 +104,41 @@ function FamilySection() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      hasPendingInput: () => Object.values(form).some((v) => v.trim() !== ""),
+    }),
+    [form],
+  );
 
   async function onAdd(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    if (!form.name.trim() || !form.relation.trim()) {
-      setError("Name and relation are required.");
+    const parsed = familyMemberSchema.safeParse(form);
+    if (!parsed.success) {
+      const out: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (typeof key === "string" && !(key in out)) out[key] = issue.message;
+      }
+      setFieldErrors(out);
       return;
     }
+    setFieldErrors({});
     setBusy(true);
     try {
       await addFamilyMember({
-        name: form.name.trim(),
-        relation: form.relation.trim(),
-        ...(form.dateOfBirth ? { dateOfBirth: form.dateOfBirth } : {}),
-        ...(form.contactPhone ? { contactPhone: form.contactPhone } : {}),
+        name: parsed.data.name,
+        relation: parsed.data.relation,
+        ...(parsed.data.dateOfBirth
+          ? { dateOfBirth: parsed.data.dateOfBirth }
+          : {}),
+        ...(parsed.data.contactPhone
+          ? { contactPhone: parsed.data.contactPhone }
+          : {}),
       });
       setForm({ name: "", relation: "", dateOfBirth: "", contactPhone: "" });
       await family.refetch();
@@ -124,31 +195,37 @@ function FamilySection() {
         ))}
       </ul>
       <form onSubmit={onAdd} noValidate className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Name" required>
+        <FormField label="Name" error={fieldErrors.name}>
           {(p) => (
             <Input
               {...p}
               value={form.name}
               disabled={busy}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, name: sanitizeName(e.target.value) })
+              }
             />
           )}
         </FormField>
-        <FormField label="Relation" required>
+        <FormField label="Relation" error={fieldErrors.relation}>
           {(p) => (
             <Input
               {...p}
               value={form.relation}
               disabled={busy}
-              onChange={(e) => setForm({ ...form, relation: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, relation: sanitizeName(e.target.value) })
+              }
             />
           )}
         </FormField>
-        <FormField label="Date of birth">
+        <FormField label="Date of birth" error={fieldErrors.dateOfBirth}>
           {(p) => (
             <Input
               {...p}
               type="date"
+              min="1900-01-01"
+              max={TODAY}
               value={form.dateOfBirth}
               disabled={busy}
               onChange={(e) =>
@@ -157,14 +234,17 @@ function FamilySection() {
             />
           )}
         </FormField>
-        <FormField label="Contact phone">
+        <FormField label="Contact phone" error={fieldErrors.contactPhone}>
           {(p) => (
             <Input
               {...p}
               value={form.contactPhone}
               disabled={busy}
               onChange={(e) =>
-                setForm({ ...form, contactPhone: e.target.value })
+                setForm({
+                  ...form,
+                  contactPhone: sanitizePhone(e.target.value),
+                })
               }
             />
           )}
@@ -182,9 +262,12 @@ function FamilySection() {
       </form>
     </section>
   );
-}
+});
 
-function ExperienceSection() {
+const ExperienceSection = forwardRef(function ExperienceSection(
+  _props,
+  ref: Ref<SectionHandle>,
+) {
   const experience = useMyExperience();
   const [form, setForm] = useState({
     employer: "",
@@ -195,6 +278,14 @@ function ExperienceSection() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      hasPendingInput: () => Object.values(form).some((v) => v.trim() !== ""),
+    }),
+    [form],
+  );
 
   async function onAdd(event: React.FormEvent) {
     event.preventDefault();
@@ -275,7 +366,7 @@ function ExperienceSection() {
         ))}
       </ul>
       <form onSubmit={onAdd} noValidate className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Employer" required>
+        <FormField label="Employer">
           {(p) => (
             <Input
               {...p}
@@ -285,7 +376,7 @@ function ExperienceSection() {
             />
           )}
         </FormField>
-        <FormField label="Designation" required>
+        <FormField label="Designation">
           {(p) => (
             <Input
               {...p}
@@ -297,11 +388,13 @@ function ExperienceSection() {
             />
           )}
         </FormField>
-        <FormField label="From" required>
+        <FormField label="From">
           {(p) => (
             <Input
               {...p}
               type="date"
+              min="1900-01-01"
+              max={TODAY}
               value={form.fromDate}
               disabled={busy}
               onChange={(e) => setForm({ ...form, fromDate: e.target.value })}
@@ -313,6 +406,8 @@ function ExperienceSection() {
             <Input
               {...p}
               type="date"
+              min="1900-01-01"
+              max={TODAY}
               value={form.toDate}
               disabled={busy}
               onChange={(e) => setForm({ ...form, toDate: e.target.value })}
@@ -344,4 +439,4 @@ function ExperienceSection() {
       </form>
     </section>
   );
-}
+});

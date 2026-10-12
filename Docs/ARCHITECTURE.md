@@ -319,6 +319,7 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 - Own route group: `(employee-portal)`, not nested under `(dashboard)`.
 - Own permission namespace: `employee_self_service.*`, distinct from `hr.*`. An employee's JWT should not carry `hr.employee.read` just because they can see their own record.
 - Mostly reuses HR's tables (`employees`, `attendance_records`, `leave_requests`, `payslips`) scoped down by permission + `WHERE employee.user_id = :currentUserId`, rather than new tables.
+- **Exception**: a portal `MenuItem` may be gated by an `hr.*.team` permission (not `employee_self_service.*`) when the feature is genuinely a team-scoped HR capability surfaced in the portal shell rather than self-service — e.g. `portal-task-assignment` gated by `hr.task.write.team`, for a Team Lead acting on their team's tasks, not their own record. This is still enforced by `@TeamScoped()` + `@RequirePermission()` server-side like any other HR endpoint; the portal shell only decides whether the tab is shown. Don't reach for this to avoid naming a new `employee_self_service.*` permission — it's for operations that are not self-service at all.
 
 ### 7a. Self-onboarding (TEXA-16/onboarding epic) — built
 
@@ -432,6 +433,8 @@ keep both env vars in sync with whatever you chose.
 **Why `apps/api`'s `nest-cli.json` specifies `"builder": "swc"`:** plain `tsc`-then-`node` (the default) fails at runtime with `ERR_UNKNOWN_FILE_EXTENSION` on `packages/database`'s workspace import, because Node's ESM loader can't resolve a `.js`-extension import to a same-named `.ts` file without a transpiling loader in front of it. SWC produces real runtime-loadable output; don't remove the `builder: "swc"` line to "simplify" the config without re-verifying `node dist/main.js` still boots.
 
 **Why `packages/database`'s Prisma generator is `"prisma-client-js"`, not the newer `"prisma-client"`:** the newer generator emits raw `.ts` with no build step of its own, which only a TS-aware runtime (tsx/vitest) can load — the classic generator emits ready-to-run compiled JS, which every consumer in this repo (vitest, the swc-built API, plain `node`) can load uniformly. If you ever change this, re-run `pnpm --filter database build` and re-verify `node apps/api/dist/main.js` actually boots, not just that it typechecks.
+
+**Payslip PDFs need a Chromium binary on the API host.** `GET /hr/payslips/:id/pdf` and `GET /self-service/payslips/:id/pdf` render HTML to PDF with headless Chromium through `playwright` (`apps/api/src/modules/hr/payroll/payslips/payslip-pdf.renderer.ts`). Run `pnpm --filter api exec playwright install chromium` once on every machine/image that serves the API (add `--with-deps` on a bare Linux image), or, where that download is blocked, set `PDF_BROWSER_CHANNEL=msedge` (or `chrome`) in `apps/api/.env` to use the browser already installed on the host. Without either, everything else works and only those two routes fail with a 500. The e2e suite swaps the renderer for a stub, so CI doesn't need the browser. Any future server-side PDF should reuse this renderer rather than adding a second PDF library.
 
 ---
 

@@ -2,7 +2,9 @@
 
 `permissions` rows are **data**, not schema, so no Prisma migration creates them. Before this
 mechanism the only source was `prisma/seed.ts`, which is local-dev only — staging and production
-had no way to receive a new permission. This folder is that way.
+had no way to receive a new permission. This folder is that way. `prisma/menu/` mirrors it for
+`MenuItem` (per-organization, hierarchical) — run `permissions:sync` before `menu:sync`, since a
+menu item's `permission` must already exist.
 
 | File          | Role                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |

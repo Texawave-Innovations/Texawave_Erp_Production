@@ -190,6 +190,25 @@ Legacy: Recruitment → Revision Letter (`RevisionLetter.tsx`). Table `hr.revisi
 - **Not implemented (legacy has no such thing, or it is undecided):** delete (legacy has a delete; the platform rule is "no DELETE route" — decision pending), approval/signing, signature and seal images (no file storage exists yet), document rendering/PDF, an employee salary write-back, share/e-mail/WhatsApp actions, a link to offer letters (legacy has none).
 - **Salary audit rule (R4):** the audit trail never records salary amounts. An `update` records the changed field **names** in `changedFields`. The amounts are readable only through the `hr.revision_letter` read permission, never through the generic `audit.log.read`.
 
+### Recruitment — promotion letters (`modules/hr/promotion-letters`)
+
+Recruitment → Promotion Letter. Table `hr.promotion_letters`. Same rules as revision letters above, except where noted. UI spec and QA test cases: [PROMOTION_LETTERS.md](PROMOTION_LETTERS.md).
+
+| Method & path                                          | Permission                    | Notes                                                                                                                                          |
+| ------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/hr/promotion-letters`                            | `hr.promotion_letter.read` ▲  | `?employeeId`, `page`, `limit`, `order`; pagination meta                                                                                       |
+| GET `/hr/promotion-letters/:id`                        | `hr.promotion_letter.read` ▲  | 404 outside scope                                                                                                                              |
+| GET `/hr/promotion-letters/salary-history/:employeeId` | `hr.promotion_letter.read` ▲  | the employee (with current designation) and their past revision + promotion letters, newest effective date first; 404 outside scope            |
+| POST `/hr/promotion-letters`                           | `hr.promotion_letter.write` ▲ | `{employeeId, designationId, location?, letterDate?, effectiveDate?, basic?, da?, hra?, ca?, signatoryName?, signatoryDesignation?}` → **201** |
+| PATCH `/hr/promotion-letters/:id`                      | `hr.promotion_letter.write` ▲ | any field above except `employeeId` (400)                                                                                                      |
+
+- **Designation from the master:** `designationId` must be an active designation of the caller's organization (the dropdown is `GET /master-data/designations?isActive=true`; new entries are added with `POST /master-data/designations`, `master.designation.*`). Otherwise **422 `INVALID_DESIGNATION`**. A free-text `designation` is refused (400).
+- **Snapshots:** `designation` (the new name) and `previousDesignation` (the employee's master designation at issue) are copied as text, so renaming a master entry does not rewrite an issued letter. A PATCH with a new `designationId` re-snapshots `designation`; `previousDesignation` never changes.
+- **Issuing a promotion letter changes neither the employee's stored designation nor salary** (same as revision letters) — whether it should is an open decision.
+- **Document number:** `TW/HR/PRO/{FY}/{NNN}`, counter doc type `hr_promotion_letter_{FY}`, same locking as revision letters.
+- **Salary history and R4:** revision letters are included only when the caller also holds `hr.revision_letter.read` and the employee is inside that scope; otherwise they are left out and `revisionsIncluded` is `false`. Audit rows never hold amounts (changed field names only).
+- **Defaults, team scope, `.own` write refused, no delete, `GENERATED` only:** as revision letters.
+
 ### Recruitment — interview schedule (`modules/hr/interviews`)
 
 Legacy: Recruitment → Interview Schedule (`InterviewSchedule.tsx`). Table `hr.interviews`. Backend only.
@@ -314,19 +333,19 @@ wizard and `/portal` landing (route group `apps/ui/src/app/(employee-portal)/`, 
 
 Synced to every environment by `pnpm --filter @texawave-erp/database permissions:sync` (additive; never deletes, never touches role grants, never re-enables a disabled permission).
 
-| Area               | Codes                                                                                                                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                               |
-| Employees          | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                        |
-| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                     |
-| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                              |
-| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                             |
-| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                             |
-| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
-| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                          |
-| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                        |
-| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                       |
-| Audit              | `audit.log.read`                                                                                                                                                      |
+| Area               | Codes                                                                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master data        | `master.{designation,employment_type,work_location,shift}.{read,write}`                                                                                                                                                   |
+| Employees          | `hr.employee.{read,write}.{own,team,all}` · `hr.employee_status.{write,correct}` · `hr.employee_account.write`                                                                                                            |
+| Shifts             | `hr.shift_assignment.{read,write}.{own,team,all}`                                                                                                                                                                         |
+| Calendar           | `hr.holiday.{read,write}` · `hr.weekly_off.{read,write}`                                                                                                                                                                  |
+| Leave              | `hr.leave_type.{read,write}` · `hr.leave_request.read.{own,team,all}` · `hr.leave.approve.{own,team,all}`                                                                                                                 |
+| Profiles           | `hr.employee_profile.{read,write}.{own,team,all}` (team-scoped) · `hr.employee_sensitive.{read,write}` (organization-wide, audited reads)                                                                                 |
+| Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` · `hr.promotion_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception) |
+| Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                                                                              |
+| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                                                                            |
+| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                                                                           |
+| Audit              | `audit.log.read`                                                                                                                                                                                                          |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
 `hr.shift_assignment.write.own`, `hr.leave.approve.own`. Default dev roles (`default-roles.ts`, pinned by a
@@ -339,7 +358,7 @@ types), **Employee** (self-service + calendar). No default role holds any `.team
 
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
-`leave_requests` · `revision_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
+`leave_requests` · `revision_letters` · `promotion_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
 `work_logs` (Work logs) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
 `employee_government_ids` · `employee_family_members` · `employee_experience` · `employee_documents`
 (Onboarding/self-service profile); all in schema `hr`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —

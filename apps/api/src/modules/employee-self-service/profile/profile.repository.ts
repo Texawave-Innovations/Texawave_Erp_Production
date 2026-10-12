@@ -239,22 +239,27 @@ export class ProfileRepository {
 
   listDocuments(employeeId: number) {
     return this.prisma.employeeDocument.findMany({
-      where: { employeeId, deletedAt: null },
+      where: { employeeId, source: "ONBOARDING", deletedAt: null },
       orderBy: { documentType: "asc" },
     });
   }
 
-  /** Includes soft-deleted rows: the unique key covers them too, so a
-   * re-upload must reuse the same row (see upsertDocumentFile). */
+  /** Includes soft-deleted rows: a re-upload must reuse the same row (see
+   * upsertDocumentFile). Onboarding's one-row-per-type guarantee is a
+   * partial unique index scoped to source="ONBOARDING" (see schema.prisma's
+   * comment on EmployeeDocument), so there is no compound-key shorthand to
+   * query by here — filter explicitly instead. */
   getDocument(employeeId: number, documentType: string) {
-    return this.prisma.employeeDocument.findUnique({
-      where: { employeeId_documentType: { employeeId, documentType } },
+    return this.prisma.employeeDocument.findFirst({
+      where: { employeeId, documentType, source: "ONBOARDING" },
     });
   }
 
-  /** One row per documentType: a re-upload replaces the file and clears any
-   * earlier soft delete. */
-  upsertDocumentFile(
+  /** One row per documentType among source="ONBOARDING" rows: a re-upload
+   * replaces the file and clears any earlier soft delete. No DB-level
+   * compound unique key exists to upsert against (see getDocument), so this
+   * does the find-then-create/update explicitly. */
+  async upsertDocumentFile(
     identity: Identity,
     documentType: string,
     file: {
@@ -265,27 +270,33 @@ export class ProfileRepository {
     },
   ) {
     const data = { ...file, uploadedAt: new Date(), deletedAt: null };
-    return this.prisma.employeeDocument.upsert({
-      where: {
-        employeeId_documentType: {
-          employeeId: identity.employeeId,
-          documentType,
-        },
-      },
-      create: {
+    const existing = await this.getDocument(identity.employeeId, documentType);
+    if (existing) {
+      return this.prisma.employeeDocument.update({
+        where: { id: existing.id },
+        data,
+      });
+    }
+    return this.prisma.employeeDocument.create({
+      data: {
         organizationId: identity.organizationId,
         teamId: identity.teamId,
         employeeId: identity.employeeId,
         documentType,
+        source: "ONBOARDING",
         ...data,
       },
-      update: data,
     });
   }
 
   removeDocument(employeeId: number, documentType: string) {
     return this.prisma.employeeDocument.updateMany({
-      where: { employeeId, documentType, deletedAt: null },
+      where: {
+        employeeId,
+        documentType,
+        source: "ONBOARDING",
+        deletedAt: null,
+      },
       data: { deletedAt: new Date() },
     });
   }

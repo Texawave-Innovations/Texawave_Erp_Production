@@ -4,7 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { orgScopedKey } from "@texawave-erp/core";
 import { useAuthStore } from "@/stores/auth-store";
 import {
+  getMyBank,
+  getMyAddress,
   getMyEmployee,
+  getMyGovernmentIds,
+  getMyPersonal,
   listExperience,
   listFamilyMembers,
   listMyDocuments,
@@ -69,6 +73,46 @@ export function useMyDocuments() {
   return useQuery({
     queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "documents"),
     queryFn: listMyDocuments,
+    enabled: Boolean(accessToken && organizationId),
+  });
+}
+
+export function useMyPersonal() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "personal"),
+    queryFn: getMyPersonal,
+    enabled: Boolean(accessToken && organizationId),
+  });
+}
+
+export function useMyAddress(type: "PERMANENT" | "PRESENT") {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "address", type),
+    queryFn: () => getMyAddress(type),
+    enabled: Boolean(accessToken && organizationId),
+  });
+}
+
+export function useMyBank() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "bank"),
+    queryFn: getMyBank,
+    enabled: Boolean(accessToken && organizationId),
+  });
+}
+
+export function useMyGovernmentIds() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "government-ids"),
+    queryFn: getMyGovernmentIds,
     enabled: Boolean(accessToken && organizationId),
   });
 }

@@ -99,9 +99,32 @@ function sidebarClass(open: boolean): string {
 export function DynamicSidebar({
   open,
   onNavigate,
+  onlyRootCode,
+  excludeRootCodes,
 }: {
   open: boolean;
   onNavigate: () => void;
+  /**
+   * Restricts the sidebar to one root `MenuItem`'s children, flattened (no
+   * group wrapper — a single-purpose shell doesn't need one). `getMyMenu()`
+   * returns the full org-wide tree regardless of which shell is asking for
+   * it, and several HR items are deliberately left ungated
+   * (`permission: null`, see packages/database/prisma/seed.ts) because the
+   * admin dashboard's own pages do a finer-grained check per section. The
+   * employee portal (Docs/ARCHITECTURE.md §7) has no such per-page check, so
+   * it passes `onlyRootCode="portal"` here instead of relying on permission
+   * filtering alone — the one thing this shell must never show is an HR or
+   * Admin item, ungated or not.
+   */
+  onlyRootCode?: string;
+  /**
+   * The inverse: hides specific root `MenuItem`s outright, tree intact
+   * otherwise. The admin dashboard passes `["portal"]` — the `portal` root
+   * is also ungated (same reason as `hr`/`admin`), so any account would
+   * otherwise see "My Portal" here too, including Super Admin, who has no
+   * Employee record and would just get an error page from every link in it.
+   */
+  excludeRootCodes?: readonly string[];
 }) {
   const pathname = usePathname();
   const menuQuery = useMyMenu();
@@ -137,7 +160,10 @@ export function DynamicSidebar({
     );
   }
 
-  const items = menuQuery.data ?? [];
+  const allItems = menuQuery.data ?? [];
+  const items = onlyRootCode
+    ? (allItems.find((item) => item.code === onlyRootCode)?.children ?? [])
+    : allItems.filter((item) => !excludeRootCodes?.includes(item.code));
 
   return (
     <aside

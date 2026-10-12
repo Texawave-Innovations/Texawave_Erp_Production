@@ -1,5 +1,5 @@
 // Wire types for the Recruitment API (apps/api/src/modules/hr/{interviews,
-// offer-letters,revision-letters}). Hand-written from the DTOs and the
+// offer-letters,revision-letters,promotion-letters}). Hand-written from the DTOs and the
 // `*View` mappers; keep in step with those files.
 
 export const INTERVIEW_STATUSES = [
@@ -137,6 +137,77 @@ export type UpdateRevisionLetterInput = Omit<
   Partial<CreateRevisionLetterInput>,
   "employeeId"
 >;
+
+export interface PromotionLetterView {
+  id: number;
+  documentNo: string;
+  employee: { id: number; employeeCode: string; fullName: string };
+  employeeName: string;
+  designationId: number;
+  designation: string;
+  previousDesignation: string;
+  location: string;
+  letterDate: string;
+  effectiveDate: string;
+  components: MoneyComponents;
+  grossMonthly: string;
+  grossAnnual: string;
+  signatoryName: string;
+  signatoryDesignation: string;
+  status: "GENERATED";
+  createdBy: number | null;
+  updatedBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePromotionLetterInput {
+  employeeId: number;
+  designationId: number;
+  location?: string;
+  letterDate?: string;
+  effectiveDate?: string;
+  basic?: number;
+  da?: number;
+  hra?: number;
+  ca?: number;
+  signatoryName?: string;
+  signatoryDesignation?: string;
+}
+
+export type UpdatePromotionLetterInput = Omit<
+  Partial<CreatePromotionLetterInput>,
+  "employeeId"
+>;
+
+export type SalaryHistoryKind = "REVISION" | "PROMOTION";
+
+export interface SalaryHistoryEntry {
+  kind: SalaryHistoryKind;
+  id: number;
+  documentNo: string;
+  designation: string;
+  /** Promotions only; null for a revision. */
+  previousDesignation: string | null;
+  letterDate: string;
+  effectiveDate: string;
+  components: MoneyComponents;
+  grossMonthly: string;
+  grossAnnual: string;
+}
+
+/** `GET /hr/promotion-letters/salary-history/:employeeId`. Revisions are left
+ * out (and `revisionsIncluded` is false) when the caller cannot read them. */
+export interface SalaryHistoryView {
+  employee: {
+    id: number;
+    employeeCode: string;
+    fullName: string;
+    currentDesignation: string;
+  };
+  revisionsIncluded: boolean;
+  entries: SalaryHistoryEntry[];
+}
 
 /** Subset of `EmployeeListItem` the revision picker reads. Salary is not
  * part of the list response (see the data-gap note in the PR). */

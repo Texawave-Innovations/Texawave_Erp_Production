@@ -19,6 +19,10 @@ const ALL_RECRUITMENT_PERMISSIONS = [
   "hr.offer_letter.write",
   "hr.revision_letter.read.team",
   "hr.revision_letter.write.team",
+  "hr.promotion_letter.read.team",
+  "hr.promotion_letter.write.team",
+  "master.designation.read",
+  "master.designation.write",
   "hr.employee.read.team",
 ];
 
@@ -494,14 +498,26 @@ test("the Recruitment screens fit a 375px phone without horizontal scroll", asyn
         return { json: { data: [], meta: PAGE_META(0) } };
       }
       if (req.method === "GET" && req.path === "/hr/employees") {
-        return { json: { data: [], meta: PAGE_META(0) } };
+        return { json: { data: [EMPLOYEE], meta: PAGE_META(1) } };
       }
-      return undefined;
+      return promotionApi({ letters: [PROMOTION] })(req);
     },
   });
 
-  for (const tab of ["Interview schedule", "Offer letter", "Revision letter"]) {
+  for (const tab of [
+    "Interview schedule",
+    "Offer letter",
+    "Revision letter",
+    "Promotion letter",
+  ]) {
     await page.getByRole("tab", { name: tab }).click();
+    if (tab === "Promotion letter") {
+      // The widest state: an employee expanded with their history table.
+      await page
+        .getByRole("button", { name: "Show salary history of Arun Kumar" })
+        .click();
+      await expect(page.getByText("PR-HIST-1")).toBeVisible();
+    }
     const overflow = await page.evaluate(
       () =>
         document.documentElement.scrollWidth -
@@ -515,4 +531,383 @@ test("the Recruitment screens fit a 375px phone without horizontal scroll", asyn
     path: testInfo.outputPath("recruitment-375-interviews.png"),
     fullPage: true,
   });
+});
+
+// --- Promotion letter -------------------------------------------------------
+
+const EMPLOYEE = {
+  id: 5,
+  employeeCode: "EMP-000005",
+  fullName: "Arun Kumar",
+  status: "ACTIVE",
+  designation: { id: 9, name: "Software Engineer" },
+  team: { id: 3, name: "Platform" },
+};
+
+function designation(id: number, name: string, code: string, isActive = true) {
+  return {
+    id,
+    organizationId: 1,
+    code,
+    name,
+    description: null,
+    isActive,
+    customFields: {},
+    createdBy: 1,
+    updatedBy: 1,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    deletedAt: null,
+  };
+}
+
+const DESIGNATIONS = [
+  designation(9, "Software Engineer", "SE"),
+  designation(10, "Team Lead", "TL"),
+  designation(11, "Retired Title", "OLD", false),
+];
+
+const COMPONENTS = {
+  basic: "35000.00",
+  da: "15000.00",
+  hra: "30000.00",
+  ca: "20000.00",
+};
+
+const HISTORY = {
+  employee: {
+    id: 5,
+    employeeCode: "EMP-000005",
+    fullName: "Arun Kumar",
+    currentDesignation: "Software Engineer",
+  },
+  revisionsIncluded: true,
+  entries: [
+    {
+      kind: "PROMOTION",
+      id: 2,
+      documentNo: "PR-HIST-1",
+      designation: "Software Engineer",
+      previousDesignation: "Associate Engineer" as string | null,
+      letterDate: "2026-03-20",
+      effectiveDate: "2026-04-01",
+      components: COMPONENTS,
+      grossMonthly: "100000.00",
+      grossAnnual: "1200000.00",
+    },
+    {
+      kind: "REVISION",
+      id: 1,
+      documentNo: "RV-HIST-1",
+      designation: "Associate Engineer",
+      previousDesignation: null,
+      letterDate: "2025-03-20",
+      effectiveDate: "2025-04-01",
+      components: COMPONENTS,
+      grossMonthly: "70000.00",
+      grossAnnual: "840000.00",
+    },
+  ],
+};
+
+const PROMOTION = {
+  id: 7,
+  documentNo: "TW/HR/PRO/26-27/001",
+  employee: { id: 5, employeeCode: "EMP-000005", fullName: "Arun Kumar" },
+  employeeName: "Arun Kumar",
+  designationId: 10,
+  designation: "Team Lead",
+  previousDesignation: "Software Engineer",
+  location: "Chennai",
+  letterDate: "2026-10-09",
+  effectiveDate: "2026-11-01",
+  components: COMPONENTS,
+  grossMonthly: "100000.00",
+  grossAnnual: "1200000.00",
+  signatoryName: "Amanullah Khan",
+  signatoryDesignation: "Co-Founder",
+  status: "GENERATED",
+  createdBy: 1,
+  updatedBy: 1,
+  createdAt: "2026-10-09T09:00:00.000Z",
+  updatedAt: "2026-10-09T09:00:00.000Z",
+};
+
+/** Answers every Promotion-tab read; `extra` is consulted first (writes). */
+function promotionApi(
+  options: {
+    history?: typeof HISTORY;
+    letters?: (typeof PROMOTION)[];
+    designations?: ReturnType<typeof designation>[];
+    extra?: ApiHandler;
+  } = {},
+): ApiHandler {
+  return (req) => {
+    const extra = options.extra?.(req);
+    if (extra) return extra;
+    if (req.method === "GET" && req.path === "/hr/interviews") {
+      return { json: { data: [], meta: PAGE_META(0) } };
+    }
+    if (req.method === "GET" && req.path === "/hr/employees") {
+      return { json: { data: [EMPLOYEE], meta: PAGE_META(1) } };
+    }
+    if (req.method === "GET" && req.path === "/hr/promotion-letters") {
+      const letters = options.letters ?? [];
+      return { json: { data: letters, meta: PAGE_META(letters.length) } };
+    }
+    if (
+      req.method === "GET" &&
+      req.path === "/hr/promotion-letters/salary-history/5"
+    ) {
+      return { json: { data: options.history ?? HISTORY } };
+    }
+    if (req.method === "GET" && req.path === "/master-data/designations") {
+      const rows = options.designations ?? DESIGNATIONS;
+      return { json: { data: rows, meta: PAGE_META(rows.length) } };
+    }
+    return undefined;
+  };
+}
+
+test("expanding an employee loads and shows their salary history", async ({
+  page,
+}) => {
+  let historyCalls = 0;
+  await signInAndOpenRecruitment(page, {
+    recruitment: promotionApi({
+      extra: (req) => {
+        if (req.path === "/hr/promotion-letters/salary-history/5") {
+          historyCalls += 1;
+        }
+        return undefined;
+      },
+    }),
+  });
+
+  await page.getByRole("tab", { name: "Promotion letter" }).click();
+  const toggle = page.getByRole("button", {
+    name: "Show salary history of Arun Kumar",
+  });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // Fetched only once the employee is expanded.
+  expect(historyCalls).toBe(0);
+
+  await toggle.click();
+  const history = page.getByRole("table", {
+    name: "Salary history of Arun Kumar",
+  });
+  await expect(history).toBeVisible();
+  await expect(page.getByText("Current designation:")).toBeVisible();
+  await expect(history.getByText("Promotion", { exact: true })).toBeVisible();
+  await expect(history.getByText("Revision", { exact: true })).toBeVisible();
+  await expect(
+    history.getByText("Associate Engineer → Software Engineer"),
+  ).toBeVisible();
+  // Rows keep the API's order: newest effective date first.
+  await expect(history.locator("tbody tr td:nth-child(2)")).toHaveText([
+    "PR-HIST-1",
+    "RV-HIST-1",
+  ]);
+  expect(historyCalls).toBe(1);
+
+  await page
+    .getByRole("button", { name: "Hide salary history of Arun Kumar" })
+    .click();
+  await expect(history).toHaveCount(0);
+});
+
+test("salary history says when revision letters are hidden", async ({
+  page,
+}) => {
+  await signInAndOpenRecruitment(page, {
+    recruitment: promotionApi({
+      history: {
+        ...HISTORY,
+        revisionsIncluded: false,
+        entries: HISTORY.entries.filter((e) => e.kind === "PROMOTION"),
+      },
+    }),
+  });
+
+  await page.getByRole("tab", { name: "Promotion letter" }).click();
+  await page
+    .getByRole("button", { name: "Show salary history of Arun Kumar" })
+    .click();
+  await expect(
+    page.getByText(
+      "Revision letters are hidden — you do not have access to them.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("RV-HIST-1")).toHaveCount(0);
+});
+
+test("a promotion letter needs a master designation and sends its id", async ({
+  page,
+}) => {
+  const issued: unknown[] = [];
+  await signInAndOpenRecruitment(page, {
+    recruitment: promotionApi({
+      extra: (req) => {
+        if (req.method === "POST" && req.path === "/hr/promotion-letters") {
+          issued.push(req.body);
+          return { status: 201, json: { data: PROMOTION } };
+        }
+        return undefined;
+      },
+    }),
+  });
+
+  await page.getByRole("tab", { name: "Promotion letter" }).click();
+  await page
+    .getByRole("button", { name: "Issue promotion letter to Arun Kumar" })
+    .click();
+  await expect(page.getByLabel("Previous designation")).toHaveValue(
+    "Software Engineer",
+  );
+
+  // Only active designations are offered.
+  const select = page.getByLabel(/^New designation/);
+  await expect(select.locator("option")).toHaveText([
+    "Select a designation",
+    "Software Engineer",
+    "Team Lead",
+  ]);
+
+  const submit = page.getByRole("button", {
+    name: "Issue promotion letter",
+    exact: true,
+  });
+  await submit.click();
+  await expect(select).toHaveAttribute("aria-invalid", "true");
+  expect(issued).toHaveLength(0);
+
+  await select.selectOption({ label: "Team Lead" });
+  await page.getByLabel("Monthly salary").fill("100000");
+  await page.getByLabel(/^Effective date/).fill("2026-11-01");
+  await submit.click();
+
+  await expect(page.getByText("Promotion letter issued")).toBeVisible();
+  expect(issued).toHaveLength(1);
+  expect(issued[0]).toMatchObject({
+    employeeId: 5,
+    designationId: 10,
+    effectiveDate: "2026-11-01",
+    location: "Chennai",
+    basic: 35000,
+    da: 15000,
+    hra: 30000,
+    ca: 20000,
+  });
+  expect(issued[0]).not.toHaveProperty("designation");
+});
+
+test("an inactive-designation refusal is shown on the designation field", async ({
+  page,
+}) => {
+  await signInAndOpenRecruitment(page, {
+    recruitment: promotionApi({
+      extra: (req) => {
+        if (req.method === "POST" && req.path === "/hr/promotion-letters") {
+          return {
+            status: 422,
+            json: {
+              statusCode: 422,
+              message: "Designation not found or inactive",
+              error: "INVALID_DESIGNATION",
+              path: req.path,
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+        return undefined;
+      },
+    }),
+  });
+
+  await page.getByRole("tab", { name: "Promotion letter" }).click();
+  await page
+    .getByRole("button", { name: "Issue promotion letter to Arun Kumar" })
+    .click();
+  await page
+    .getByLabel(/^New designation/)
+    .selectOption({ label: "Team Lead" });
+  await page
+    .getByRole("button", { name: "Issue promotion letter", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "That designation is inactive or no longer exists. Pick another.",
+    ),
+  ).toBeVisible();
+});
+
+test("a designation can be added to the master from the promotion form", async ({
+  page,
+}) => {
+  const designations = [...DESIGNATIONS];
+  let created: unknown;
+  let posts = 0;
+  await signInAndOpenRecruitment(page, {
+    recruitment: promotionApi({
+      designations,
+      extra: (req) => {
+        if (req.method === "POST" && req.path === "/master-data/designations") {
+          posts += 1;
+          created = req.body;
+          const row = designation(12, "Tech Architect", "TECH_ARCHITECT");
+          designations.push(row);
+          return { status: 201, json: { data: row } };
+        }
+        return undefined;
+      },
+    }),
+  });
+
+  await page.getByRole("tab", { name: "Promotion letter" }).click();
+  await page
+    .getByRole("button", { name: "Issue promotion letter to Arun Kumar" })
+    .click();
+  await page.getByRole("button", { name: "+ Add designation" }).click();
+  await page.getByLabel(/^Designation name/).fill("Tech Architect");
+  // The code is the user's own entry — typing a name never fills it in.
+  const code = page.getByLabel(/^Code/);
+  await expect(code).toHaveValue("");
+  const add = page.getByRole("button", {
+    name: "Add designation",
+    exact: true,
+  });
+  await add.click();
+  await expect(page.getByText("Code: 2–30 letters, digits or _")).toBeVisible();
+  expect(posts).toBe(0);
+
+  // Typed in lower case; sent upper-cased, as the master-data API stores it.
+  await code.fill("tech_architect");
+  await expect(page.getByLabel(/^Designation name/)).toHaveValue(
+    "Tech Architect",
+  );
+  await add.click();
+
+  await expect(page.getByLabel(/^New designation/)).toHaveValue("12");
+  expect(created).toEqual({ name: "Tech Architect", code: "TECH_ARCHITECT" });
+});
+
+test("a promotion reader without write sees no issue or edit actions", async ({
+  page,
+}) => {
+  await signInAndOpenRecruitment(page, {
+    permissions: ["hr.promotion_letter.read.team", "hr.employee.read.team"],
+    recruitment: promotionApi({ letters: [PROMOTION] }),
+  });
+
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.getByText("TW/HR/PRO/26-27/001")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Issue promotion letter to Arun Kumar" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Edit promotion TW/HR/PRO/26-27/001" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "View promotion TW/HR/PRO/26-27/001" }),
+  ).toBeVisible();
 });

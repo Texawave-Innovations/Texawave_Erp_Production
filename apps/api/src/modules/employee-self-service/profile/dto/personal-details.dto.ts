@@ -6,6 +6,7 @@ import {
   MARITAL_STATUSES,
   MOBILE,
   Pattern,
+  RequiredName,
   RequiredText,
 } from "./onboarding-rules.js";
 
@@ -31,24 +32,24 @@ export class PersonalDetailsDto {
   @IsIn(BLOOD_GROUPS, { message: "Select a valid blood group." })
   bloodGroup?: (typeof BLOOD_GROUPS)[number];
 
-  @RequiredText()
+  @RequiredName()
   emergencyContactName!: string;
 
-  @RequiredText()
+  @RequiredName()
   emergencyContactRelation!: string;
 
   @RequiredText(15)
   @Pattern(MOBILE.regex, MOBILE.message)
   emergencyContactPhone!: string;
 
-  @RequiredText()
+  @RequiredName()
   fatherName!: string;
 
   @RequiredText(15)
   @Pattern(MOBILE.regex, MOBILE.message)
   fatherPhone!: string;
 
-  @RequiredText()
+  @RequiredName()
   motherName!: string;
 
   @RequiredText(15)

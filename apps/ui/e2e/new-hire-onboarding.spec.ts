@@ -34,9 +34,12 @@ test("admin creates a new hire, who must change the temporary password before co
   await signIn(admin, "admin@texawave.com", "ChangeMe123!");
   await expect(admin).toHaveURL(/\/reference\/tags|\/$/);
 
-  // Navigate with the sidebar link, not a URL: a typed address reloads the page
-  // and the in-memory session is lost (see Docs note on auth-store).
-  await admin.getByRole("link", { name: "New hire" }).click();
+  // Navigate with the sidebar link and the page's own button, not a typed
+  // URL: a typed address reloads the page and the in-memory session is lost
+  // (see Docs note on auth-store). There is no dedicated sidebar entry for
+  // the new-hire form — it's reached from Employees, like in the real app.
+  await admin.getByRole("link", { name: "Employees" }).click();
+  await admin.getByRole("button", { name: "New employee" }).click();
   await expect(admin.getByRole("heading", { name: "New hire" })).toBeVisible();
 
   await admin.getByLabel("First name").fill("Priya");
@@ -47,19 +50,25 @@ test("admin creates a new hire, who must change the temporary password before co
   await admin.getByLabel("Team").selectOption({ index: 1 });
   await admin.getByLabel("Designation").selectOption({ index: 1 });
   await admin.getByLabel("Employment type").selectOption({ index: 1 });
-  // Never hand a test hire the Super Admin role: pick the first non-admin role.
+  // Give the hire an additional role on top of the Employee baseline that
+  // every new hire now gets automatically (see createNewHire). Never hand a
+  // test hire the Super Admin role, and Employee itself is excluded from
+  // this dropdown since it's implicit.
   const roleOptions = await admin
-    .getByLabel("Role")
+    .getByLabel("Additional role")
     .locator("option")
     .allTextContents();
-  const nonAdminRole = roleOptions.find(
+  const addOnRole = roleOptions.find(
     (text) =>
       text && !text.startsWith("Select") && !text.includes("Super Admin"),
   );
-  expect(nonAdminRole, "seed must provide a non-admin role").toBeTruthy();
+  expect(
+    addOnRole,
+    "seed must provide a non-admin additional role",
+  ).toBeTruthy();
   await admin
-    .getByLabel("Role")
-    .selectOption({ label: nonAdminRole as string });
+    .getByLabel("Additional role")
+    .selectOption({ label: addOnRole as string });
   await admin.getByLabel("Date of joining").fill("2026-10-01");
   await admin.getByLabel("Temporary password").fill(TEMP_PASSWORD);
   await admin.getByRole("button", { name: "Create new hire" }).click();
@@ -102,5 +111,11 @@ test("admin creates a new hire, who must change the temporary password before co
 
   await signIn(hire, hireEmail, NEW_PASSWORD);
   await expect(hire).not.toHaveURL(/\/change-password/);
+  // Regression coverage for the bug this test caught: a hire whose only
+  // extra role lacked employee_self_service.profile.read used to 403 on
+  // /employee/profile and land on /reference/tags (the admin HR screen)
+  // instead of the onboarding wizard. Every new hire now also gets the
+  // Employee role automatically, so this must land on /onboarding.
+  await expect(hire).toHaveURL(/\/onboarding/);
   await hireContext.close();
 });

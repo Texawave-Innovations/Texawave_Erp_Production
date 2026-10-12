@@ -6,16 +6,18 @@ import { usePermission } from "@/hooks/usePermission";
 import { RECRUITMENT_PERMISSIONS as P } from "../permissions";
 import { InterviewsPanel } from "./InterviewsPanel";
 import { OffersPanel } from "./OffersPanel";
+import { PromotionsPanel } from "./PromotionsPanel";
 import { RevisionsPanel } from "./RevisionsPanel";
 
-type TabId = "interviews" | "offers" | "revisions";
+type TabId = "interviews" | "offers" | "revisions" | "promotions";
 
 interface TabDef {
   id: TabId;
   label: string;
 }
 
-/** HR → Recruitment. Three tabs, mirroring legacy `Recruitment.tsx`. Each tab
+/** HR → Recruitment. Three tabs mirror legacy `Recruitment.tsx`; Promotion
+ * letter is new. Each tab
  * shows only when the user can read it; writes are gated per tab. */
 export function RecruitmentView() {
   const canReadInterviews = usePermission(P.interviewRead);
@@ -24,6 +26,10 @@ export function RecruitmentView() {
   const canWriteOffers = usePermission(P.offerWrite);
   const canReadRevisions = usePermission(P.revisionRead);
   const canWriteRevisions = usePermission(P.revisionWrite);
+  const canReadPromotions = usePermission(P.promotionRead);
+  const canWritePromotions = usePermission(P.promotionWrite);
+  const canReadDesignations = usePermission(P.designationRead);
+  const canWriteDesignations = usePermission(P.designationWrite);
   const canReadEmployees = usePermission(P.employeeRead);
 
   const tabs: TabDef[] = [];
@@ -32,6 +38,8 @@ export function RecruitmentView() {
   if (canReadOffers) tabs.push({ id: "offers", label: "Offer letter" });
   if (canReadRevisions)
     tabs.push({ id: "revisions", label: "Revision letter" });
+  if (canReadPromotions)
+    tabs.push({ id: "promotions", label: "Promotion letter" });
 
   const [requested, setRequested] = useState<TabId>("interviews");
   const active = tabs.find((t) => t.id === requested) ?? tabs[0];
@@ -47,7 +55,7 @@ export function RecruitmentView() {
         </h1>
         <p className="mt-1 max-w-2xl text-theme-sm text-brand-50">
           Manage the interview pipeline, generate offer letters, and issue
-          salary revision letters.
+          salary revision and promotion letters.
         </p>
       </header>
 
@@ -103,6 +111,14 @@ export function RecruitmentView() {
               <RevisionsPanel
                 canWrite={canWriteRevisions}
                 canReadEmployees={canReadEmployees}
+              />
+            ) : null}
+            {active?.id === "promotions" ? (
+              <PromotionsPanel
+                canWrite={canWritePromotions}
+                canReadEmployees={canReadEmployees}
+                canReadDesignations={canReadDesignations}
+                canAddDesignation={canWriteDesignations}
               />
             ) : null}
           </div>
