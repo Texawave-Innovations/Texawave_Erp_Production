@@ -6,6 +6,13 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor.js";
 import { LoggerModule } from "./common/logger/logger.module.js";
 import { ConfigModule } from "./config/config.module.js";
+import { AccountsModule } from "./modules/crm/accounts/accounts.module.js";
+import { ContactsModule } from "./modules/crm/contacts/contacts.module.js";
+import { LeadsModule } from "./modules/crm/leads/leads.module.js";
+import { PipelineStagesModule } from "./modules/crm/pipeline-stages/pipeline-stages.module.js";
+import { OpportunitiesModule } from "./modules/crm/opportunities/opportunities.module.js";
+import { ProductsModule } from "./modules/crm/products/products.module.js";
+import { QuotationsModule } from "./modules/crm/quotations/quotations.module.js";
 import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
@@ -118,6 +125,13 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     DepartmentsModule,
     UsersModule,
     MenuModule,
+    AccountsModule,
+    ContactsModule,
+    LeadsModule,
+    PipelineStagesModule,
+    OpportunitiesModule,
+    ProductsModule,
+    QuotationsModule,
   ],
   controllers: [AppController],
   providers: [

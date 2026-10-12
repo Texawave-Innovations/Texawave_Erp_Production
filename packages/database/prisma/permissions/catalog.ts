@@ -516,6 +516,125 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.loan.read",
     description: "View my own loans and repayments",
   },
+
+  // apps/api/src/modules/crm/accounts — minimal CRM Account foundation
+  // (Phase 4B). Organization-wide reference data (any contact's required
+  // parent), no team dimension — same shape as master-data/* above.
+  { code: "crm.account.read", description: "View CRM accounts" },
+  {
+    code: "crm.account.write",
+    description: "Create/update CRM accounts",
+  },
+
+  // apps/api/src/modules/crm/contacts — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/domain/contactsService.ts (RTDB
+  // `crm/contacts`). `teamId` exists on the table but no production
+  // decision has been made about who owns a contact's team, so read/write
+  // are seeded `.own/.team/.all` per the standard pattern (CODING_STANDARDS
+  // §10a); `.team` is granted to no default role in this phase — see
+  // default-roles.ts.
+  ...scopedPermission("crm.contact.read", "View CRM contacts"),
+  ...scopedPermission("crm.contact.write", "Create/update/delete CRM contacts"),
+
+  // apps/api/src/modules/crm/leads — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Leads.tsx + domain/LeadConvertDialog.tsx
+  // (RTDB `crm/leads`). Same `.own/.team/.all` shape as crm.contact.* —
+  // legacy gates Delete behind "CRM Admin only" (isCrmAdmin), but this app
+  // has no separate CRM-admin role concept yet, so `.write` is the
+  // documented stand-in, same as crm.contact.write. Converting a lead
+  // (create/link Account + Contact) also requires `.write`; it does not
+  // get its own permission since it is just a multi-record write.
+  ...scopedPermission("crm.lead.read", "View CRM leads"),
+  ...scopedPermission(
+    "crm.lead.write",
+    "Create/update/delete/convert CRM leads",
+  ),
+
+  // apps/api/src/modules/crm/pipeline-stages — migrated from the LIVE
+  // legacy TexaWave_ERP/src/modules/crm/domain/pipelineStagesService.ts.
+  // Organization-wide configuration (every opportunity references a
+  // stage), no team dimension — same shape as crm.account.*. Legacy gates
+  // stage management behind "CRM Admin / Sales Head"
+  // (`canManagePipelineConfig`); this app has no separate role concept for
+  // that yet, so `.write` is the stand-in, same convention as
+  // crm.lead.write.
+  { code: "crm.pipeline_stage.read", description: "View CRM pipeline stages" },
+  {
+    code: "crm.pipeline_stage.write",
+    description: "Create/update/reorder/delete CRM pipeline stages",
+  },
+
+  // apps/api/src/modules/crm/opportunities — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Pipeline.tsx + domain/opportunitiesService.ts
+  // + domain/OpportunityDrawer.tsx (RTDB `crm/opportunities` +
+  // `crm/opportunityStageHistory`). Same `.own/.team/.all` shape as
+  // crm.lead.*. Legacy's `canManageOpportunity` lets "CRM Admin"/"Sales
+  // Head" manage any opportunity but a "Sales Executive" only their own —
+  // the closest existing mapping is `.all` for admin/manager-equivalent
+  // roles and `.own` for everyone else, same stand-in pattern as
+  // crm.lead.write for the admin-only Delete gate. Stage-transition
+  // actions (change-stage, won/lost/on-hold/reopen) and reading stage
+  // history all require only the base read/write permission — none of
+  // them are separately permissioned, since legacy does not gate them
+  // more narrowly than "can edit this opportunity" either.
+  ...scopedPermission("crm.opportunity.read", "View CRM opportunities"),
+  ...scopedPermission(
+    "crm.opportunity.write",
+    "Create/update/delete/change-stage CRM opportunities",
+  ),
+
+  // apps/api/src/modules/crm/products — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Products.tsx + domain/productsService.ts
+  // (RTDB `crm/products`). Organization-wide reference data, no team
+  // dimension — same shape as crm.account.*/crm.pipeline_stage.*, not the
+  // `.own/.team/.all` shape used by crm.lead.*/crm.opportunity.*. Legacy
+  // gates Create/Update behind "CRM Admin / Sales Head"
+  // (`canManageProducts`) and Delete behind "CRM Admin only"
+  // (`isCrmAdmin`) — strictly narrower than Create/Update. This app has
+  // no separate CRM-admin role concept, so `.write` is the single-tier
+  // stand-in for BOTH gates, same convention as crm.pipeline_stage.write.
+  { code: "crm.product.read", description: "View CRM products" },
+  {
+    code: "crm.product.write",
+    description: "Create/update/archive/delete CRM products",
+  },
+
+  // apps/api/src/modules/crm/opportunities (deal line items) — migrated
+  // from the LIVE legacy TexaWave_ERP/src/modules/crm/domain/
+  // dealProductsService.ts + domain/AddDealProductsDialog.tsx
+  // (RTDB `crm/dealProducts`). Adding/editing/removing a line item on an
+  // Opportunity is governed by the SAME permission as editing the
+  // Opportunity itself (crm.opportunity.*) — it is not a separately
+  // permissioned action in legacy either (the Products tab UI gate is
+  // whatever already gates the surrounding DealDetail screen), so no new
+  // permission code is introduced for it.
+
+  // apps/api/src/modules/crm/quotations — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/QuoteForm.tsx + Quotes.tsx +
+  // domain/quotationsService.ts (RTDB `crm/quotations` +
+  // `crm/quotationItems`). Organization-wide reference data, no team
+  // dimension — same shape as crm.product.*/crm.pipeline_stage.*
+  // (approved decision D1, Docs/CRM_QUOTES_LEGACY_PARITY.md §4/§6).
+  //
+  // UNLIKE every other CRM entity so far, Delete here is its OWN
+  // permission, `crm.quotation.delete`, deliberately NOT folded into
+  // `.write`. Legacy's Delete is `isCrmAdmin`-only while Create/Update
+  // have NO permission gate at all (verified — `canManageQuotes` does
+  // not exist in roles.ts); this phase's approved decision requires that
+  // an ordinary `.write` grant must NOT be able to delete a quotation,
+  // so collapsing the two tiers the way crm.product.write/
+  // crm.pipeline_stage.write do would violate that explicitly. Grant
+  // `.delete` only to admin-equivalent roles via Settings → Roles.
+  { code: "crm.quotation.read", description: "View CRM quotations" },
+  {
+    code: "crm.quotation.write",
+    description: "Create/update CRM quotations (does not include delete)",
+  },
+  {
+    code: "crm.quotation.delete",
+    description:
+      "Delete CRM quotations — granted separately from crm.quotation.write",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [];

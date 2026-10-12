@@ -105,7 +105,14 @@ export class MenuService {
     }
     roots.sort((a, b) => a.order - b.order);
 
-    return roots;
+    // A parent-only root (no `path` of its own, e.g. "CRM"/"HR"/"Admin")
+    // exists purely to group its children. If every one of its children
+    // was just filtered out above, it would render as a dead-end chevron
+    // with nothing underneath — drop it. A root with its own `path`
+    // (e.g. "Dashboard") is never dropped, even with zero children.
+    return roots.filter(
+      (node) => node.path !== null || node.children.length > 0,
+    );
   }
 
   async findAll(query: QueryMenuItemDto) {

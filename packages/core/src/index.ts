@@ -12,3 +12,8 @@ export * from "./schemas/new-hire.schema";
 export * from "./schemas/onboarding.schema";
 export * from "./schemas/menu.schema";
 export * from "./schemas/auth.schema";
+export * from "./schemas/crm-contact.schema";
+export * from "./schemas/crm-lead.schema";
+export * from "./schemas/crm-opportunity.schema";
+export * from "./schemas/crm-product.schema";
+export * from "./schemas/crm-quotation.schema";

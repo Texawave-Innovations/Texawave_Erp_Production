@@ -276,6 +276,62 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "hr.task.write.team",
   },
   {
+    code: "crm",
+    label: "CRM",
+    path: null,
+    order: 4,
+    parentCode: null,
+    // Unlike HR's children above, every CRM child below is gated by a real
+    // crm.*.read permission (no ungated items like HR's Dashboard/
+    // Employees), so a user with zero CRM permissions would otherwise see
+    // an empty "CRM" chevron with nothing under it. The parent itself stays
+    // ungated (`permission: null`, same convention as hr/admin/portal) —
+    // menu.service.ts's `getMyMenu` prunes root items left with no path and
+    // no visible children instead, so this doesn't need a bespoke parent
+    // permission.
+    permission: null,
+  },
+  {
+    code: "crm-leads",
+    label: "Leads",
+    path: "/crm/leads",
+    order: 1,
+    parentCode: "crm",
+    permission: "crm.lead.read",
+  },
+  {
+    code: "crm-pipeline",
+    label: "Pipeline",
+    path: "/crm/pipeline",
+    order: 2,
+    parentCode: "crm",
+    permission: "crm.opportunity.read",
+  },
+  {
+    code: "crm-contacts",
+    label: "Contacts",
+    path: "/crm/contacts",
+    order: 3,
+    parentCode: "crm",
+    permission: "crm.contact.read",
+  },
+  {
+    code: "crm-products",
+    label: "Products",
+    path: "/crm/products",
+    order: 4,
+    parentCode: "crm",
+    permission: "crm.product.read",
+  },
+  {
+    code: "crm-quotes",
+    label: "Quotes",
+    path: "/crm/quotes",
+    order: 5,
+    parentCode: "crm",
+    permission: "crm.quotation.read",
+  },
+  {
     code: "admin",
     label: "Admin",
     path: null,
