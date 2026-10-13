@@ -8,9 +8,7 @@ import { hasWorkspaceAccess } from "@/features/auth/landing";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
-import { DynamicSidebar } from "@/components/DynamicSidebar";
-import { ErpPrimarySidebar } from "@/components/layout/ErpPrimarySidebar";
-import { GlobalHeader } from "@/components/layout/GlobalHeader";
+import { HorizontalNavbar } from "@/components/layout/HorizontalNavbar";
 
 /**
  * Client-side route guard ONLY — see Docs/CODING_STANDARDS.md "Frontend
@@ -94,18 +92,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900">
-      {/* Tier 1: Leftmost ERP Primary Module Sidebar */}
-      <ErpPrimarySidebar />
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-gray-50/50 dark:bg-gray-900">
+      {/* Full-width horizontal navigation — replaces left sidebar + old header */}
+      <HorizontalNavbar onSignOut={() => void handleSignOut()} />
 
-      {/* Tier 2: Dynamic RBAC Navigation Sidebar */}
-      <DynamicSidebar />
-
-      {/* Main Content Workspace Column with Top Global Header */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <GlobalHeader onSignOut={() => void handleSignOut()} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
-      </div>
+      {/* Page content — full width, no left offset */}
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
     </div>
   );
 }
