@@ -132,6 +132,7 @@ describe("default roles", () => {
       "hr.loan.write.all",
       "hr.payslip.read.all",
       "hr.payment.write.all",
+      "hr.loan.review.all",
     ]) {
       assert.ok(perms.has(needed), `HR Manager should hold ${needed}`);
     }
@@ -160,6 +161,7 @@ describe("default roles", () => {
     for (const needed of [
       "employee_self_service.payslip.read",
       "employee_self_service.loan.read",
+      "employee_self_service.loan.write",
       "employee_self_service.tax_declaration.read",
       "employee_self_service.tax_declaration.write",
       "employee_self_service.form16.read",

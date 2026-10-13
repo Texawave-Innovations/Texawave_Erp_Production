@@ -18,7 +18,8 @@
 //  - Payroll follows the same split (Docs/PAYROLL_AND_COMPLIANCE.md "Default
 //    roles"): HR Manager prepares — salaries, runs, loans, bonuses, payments,
 //    statutory files, tax-declaration checks — and finalizes once approved,
-//    but approving a run, a loan, a skip/prepayment or a bonus, reopening a
+//    and reviews employee loan requests (the HR step), but approving a run,
+//    giving a loan its final approval, a skip/prepayment or a bonus, reopening a
 //    finalized month and changing payroll settings stay with Super Admin.
 //    Team Lead sees no pay data (salary is confidential, even within a team).
 //    Employee reads only their own payslips, loans and Form 16 and fills in
@@ -116,6 +117,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.esi.write.all",
       "hr.loan.read.all",
       "hr.loan.write.all",
+      "hr.loan.review.all",
       "hr.bonus.read.all",
       "hr.bonus.write.all",
       "hr.payslip.read.all",
@@ -169,6 +171,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "employee_self_service.attendance_correction.create",
       "employee_self_service.payslip.read",
       "employee_self_service.loan.read",
+      "employee_self_service.loan.write",
       "employee_self_service.tax_declaration.read",
       "employee_self_service.tax_declaration.write",
       "employee_self_service.form16.read",

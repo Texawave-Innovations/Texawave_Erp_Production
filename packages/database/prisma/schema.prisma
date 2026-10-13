@@ -184,6 +184,7 @@ model User {
   paymentBatchesGenerated   PaymentBatch[]          @relation("PaymentBatchGenerator")
   payrollPeriodsReopened    PayrollPeriod[]         @relation("PayrollPeriodReopener")
   loansApproved             EmployeeLoan[]          @relation("LoanApprover")
+  loansHrReviewed           EmployeeLoan[]          @relation("LoanHrReviewer")
   loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
   loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
@@ -2390,9 +2391,17 @@ model EmployeeLoan {
   emiAmount       Decimal   @map("emi_amount") @db.Decimal(12, 2)
   emiMonths       Int       @map("emi_months")
   disbursedDate   DateTime  @map("disbursed_date") @db.Date
-  /// PENDING_APPROVAL → ACTIVE | REJECTED; ACTIVE → CLOSED (CHECK).
-  status          String    @default("PENDING_APPROVAL")
+  /// Two-step approval: PENDING_HR (HR review) → PENDING_ADMIN (final
+  /// approval) → ACTIVE; either step may reject → REJECTED; ACTIVE → CLOSED
+  /// (CHECK).
+  status          String    @default("PENDING_HR")
+  /// SELF (the employee, from the portal) or HR (recorded on their behalf).
+  requestedVia    String    @default("HR") @map("requested_via")
   reason          String?
+  /// The HR review (first step): who forwarded or rejected it, when, why.
+  hrReviewedById  Int?      @map("hr_reviewed_by_id")
+  hrReviewedAt    DateTime? @map("hr_reviewed_at") @db.Timestamptz(6)
+  hrReviewNote    String?   @map("hr_review_note")
   /// The principal exceeds `loan_max_multiple` × gross; needs a reason and
   /// an organization-wide (`.all`) approver.
   limitOverride   Boolean   @default(false) @map("limit_override")
@@ -2411,6 +2420,7 @@ model EmployeeLoan {
   organization Organization      @relation(fields: [organizationId], references: [id])
   employee     Employee          @relation(fields: [employeeId], references: [id])
   approver     User?             @relation("LoanApprover", fields: [approvedById], references: [id])
+  hrReviewer   User?             @relation("LoanHrReviewer", fields: [hrReviewedById], references: [id])
   repayments   LoanRepayment[]
   skipRequests LoanSkipRequest[]
   prepayments  LoanPrepayment[]

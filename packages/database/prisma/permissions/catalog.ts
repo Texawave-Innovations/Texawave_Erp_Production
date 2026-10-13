@@ -550,7 +550,11 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ...scopedPermission("hr.loan.write", "Create employee loans and repayments"),
   ...scopedPermission(
     "hr.loan.approve",
-    "Approve employee loans, EMI skip requests and prepayments",
+    "Give the final approval to employee loans (after HR review); approve EMI skip requests and prepayments",
+  ),
+  ...scopedPermission(
+    "hr.loan.review",
+    "Review employee loan requests (HR step): forward for final approval or reject",
   ),
 
   // Employee bonuses — team-scoped
@@ -590,6 +594,10 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "employee_self_service.loan.read",
     description: "View my own loans and repayments",
+  },
+  {
+    code: "employee_self_service.loan.write",
+    description: "Request a loan for myself (HR review, then final approval)",
   },
   {
     code: "employee_self_service.tax_declaration.read",

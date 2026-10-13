@@ -368,6 +368,14 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "employee_self_service.loan.read",
   },
   {
+    code: "portal-tax",
+    label: "My Tax",
+    path: "/portal/tax",
+    order: 15,
+    parentCode: "portal",
+    permission: "employee_self_service.tax_declaration.read",
+  },
+  {
     code: "admin",
     label: "Admin",
     path: null,
