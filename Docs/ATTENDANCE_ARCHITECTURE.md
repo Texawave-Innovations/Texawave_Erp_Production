@@ -476,7 +476,7 @@ The Attendance module frontend (`apps/ui/src/features/hr/attendance/`) implement
 
 ### 8.2 Screen 1 — Attendance HR/Admin View
 
-- **Summary Metrics**: Uses `@/features/hr/components/StatCard` for Total Records (`CalendarCheck`), Present (`UserCheck`), Absent (`UserX`), and Half Day / Leave (`Clock`).
+- **Summary Metrics**: Uses `StatCard` (promoted to `@texawave-erp/ui-kit`, re-exported via `@/features/hr/components/StatCard` for backward compatibility) for Total Records (`CalendarCheck`), Present (`UserCheck`), Absent (`UserX`), and Half Day / Leave (`Clock`).
 - **Employee Identity Resolution**: Uses `@/features/hr/employees/hooks`'s `useEmployees` to build an in-memory map resolving employee names, human codes, and designations, rendering with `EmployeeIdentity`.
 - **Filters Toolbar & Chips**: Reuses the global `DateRangePicker` alongside Employee ID search and Status filter, with dismissible `FilterChips` and "Reset all filters" shortcuts.
 - **Table Structure**: Includes Employee Identity, Date, First Check-in, Last Check-out, Worked Duration, Overtime, Status Badge, and contextual row actions.

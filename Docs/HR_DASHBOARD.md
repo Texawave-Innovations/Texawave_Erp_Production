@@ -21,23 +21,24 @@ The HR Dashboard serves as the central operational cockpit and telemetry console
 
 ## 2. Dashboard Architecture & Layout
 
-The dashboard occupies the main workspace of the authenticated ERP shell (`(dashboard)/hr/page.tsx` and `(dashboard)/hr/dashboard/page.tsx`), sitting alongside the leftmost ERP Primary Module Sidebar (`ErpPrimarySidebar`) and the dynamic contextual sub-navigation (`DynamicSidebar`).
+The dashboard occupies the main workspace of the authenticated ERP shell (`(dashboard)/hr/page.tsx` and `(dashboard)/hr/dashboard/page.tsx`), sitting directly below the full-width Top Horizontal Navigation (`HorizontalNavbar`).
 
 ### Layout Hierarchy
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ GlobalHeader (Live IST Clock, Search, Notifications, User Profile)     │
-├──────────────┬──────────────┬──────────────────────────────────────────┤
-│ Primary      │ Contextual   │ MAIN WORKSPACE                           │
-│ Module Nav   │ HR Nav       │                                          │
-│ (ErpPrimary  │ (Dynamic     │ A. Compact Introduction Header           │
-│  Sidebar)    │  Sidebar)    ├──────────────────────────────────────────┤
-│              │              │ B. Workforce & Operational KPIs (Grid)   │
-│              │              │    [Total] [Active] [Present] [Approvals]│
-│              │              │    [Tickets] [Expenses]                  │
-│              │              ├──────────────────────────────────────────┤
-│              │              │ C. Quick Actions (Interactive Tiles)     │
+│ Top Horizontal Navbar (TexaOne Brand, Modules, Search, Actions, Profile)│
+├────────────────────────────────────────────────────────────────────────┤
+│ Contextual Sub-Nav Strip (HR sub-tabs: Overview, Employees, Leaves...) │
+├────────────────────────────────────────────────────────────────────────┤
+│ MAIN WORKSPACE (Full Width)                                            │
+│                                                                        │
+│ A. Compact Introduction Header                                         │
+├────────────────────────────────────────────────────────────────────────┤
+│ B. Workforce & Operational KPIs (Grid)                                 │
+│    [Total] [Active] [Present] [Approvals] [Tickets] [Expenses]         │
+├────────────────────────────────────────────────────────────────────────┤
+│ C. Quick Actions (Interactive Tiles)                                   │
 │              │              ├──────────────────────────────────────────┤
 │              │              │ D. Recruitment & Talent Pipeline         │
 │              │              ├────────────────────┬─────────────────────┤
@@ -87,7 +88,7 @@ Every section is protected by permission gates (`usePermission`) ensuring users 
 
 ## 4. Shared Reusable UI Components
 
-All components below live in `apps/ui/src/features/hr/components/`, are exported via `index.ts`, and are designed for consumption across all HR screens.
+Foundational display primitives (`StatCard`, `AnimatedNumber`, `MetricTrend`) have been promoted to the global UI Kit (`@texawave-erp/ui-kit` under `packages/ui-kit/src/components/stat-card/`) and are re-exported from `apps/ui/src/features/hr/components/` for backward compatibility. Remaining dashboard-specific domain widgets live in `apps/ui/src/features/hr/components/`, are exported via `index.ts`, and are designed for consumption across HR screens.
 
 ### 4.1 `StatCard`
 
@@ -206,13 +207,13 @@ All components below live in `apps/ui/src/features/hr/components/`, are exported
 
 ---
 
-## 5. Navigation Enhancement (`DynamicSidebar`)
+## 5. Navigation Architecture (`HorizontalNavbar`)
 
-The Tier 2 contextual navigation (`apps/ui/src/components/DynamicSidebar.tsx`) has been enhanced to implement Reference C principles:
+The dashboard navigation uses the top horizontal navbar (`apps/ui/src/components/layout/HorizontalNavbar.tsx`) with contextual sub-navigation:
 
 ### Organizational Grouping
 
-The 21 HR sub-navigation items are structured into 6 logical, expandable categories:
+The 21 HR sub-navigation items are structured into 6 logical categories rendered in the contextual sub-nav strip or module dropdown:
 
 1. **Overview:** Dashboard (`/hr/dashboard`)
 2. **Workforce:** Employees, Profiles, Employee Documents, Org Chart, Recruitment, Exit Requests
@@ -221,17 +222,16 @@ The 21 HR sub-navigation items are structured into 6 logical, expandable categor
 5. **Operations & Claims:** Tasks, Expense Approvals, Employee Tickets, Payroll, Compliance
 6. **Organization:** Departments, Teams
 
-Each item is shown only when the user's permission-filtered menu (`GET /menu/my-menu`) contains its
-`menuCode` — i.e. when the user holds that catalogue item's permission — and a category with no
-visible item is hidden. See `MENU_NAVIGATION_API.md` §5.1.
+Each item is shown only when the user's permission-filtered menu (`GET /menu/my-menu`) contains its `menuCode` — i.e. when the user holds that catalogue item's permission — and unpermitted items are hidden. See `MENU_NAVIGATION_API.md` §5.1.
 
 ### Features & Behavior
 
-- **Collapsible Groups (`NavigationGroup`):** Each category header includes an expand/collapse toggle with a rotating chevron and active child indicator dot.
-- **Route-Aware Auto-Expansion:** When the route changes, the navigation group containing the active page automatically expands so the current location is always in view.
-- **Active State Highlights:** Active links display a left accent bar (`bg-brand-500`), bold font weight, and brand-tinted background (`bg-brand-50 text-brand-800`).
-- **Full Keyboard Navigation:** Enter / Space toggles expandable groups; standard Tab navigation traverses items.
-- **Settings Context Preservation:** If the user enters the admin or settings section, `DynamicSidebar` seamlessly swaps to the settings navigation menu.
+- **Top Horizontal Bar:** Edge-to-edge navbar with module switchers, active module indicators, and brand logo.
+- **Contextual Sub-Nav Strip:** Directly below the main navbar, active module sub-pages (e.g. Overview, Employees, Attendance, etc.) are displayed horizontally with smooth horizontal scrolling when needed.
+- **Floating Flyout Menus:** Hovering or clicking on modules opens an accessible floating flyout menu listing all authorized sub-items.
+- **Active State Highlights:** Active links display a crisp brand-tinted pill indicator and high-contrast text.
+- **Full Keyboard Navigation:** Tab navigation, Enter to select, and Escape dismissal for dropdowns.
+- **Settings Context Preservation:** If the user enters the admin or settings section, the sub-navigation dynamically switches to settings navigation items.
 
 ---
 

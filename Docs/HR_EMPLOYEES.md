@@ -217,7 +217,7 @@ All new components reside in `apps/ui/src/features/hr/components/` and are expor
 
 ### 6.2 `FilterChip` & `FilterChips`
 
-- **Location:** `apps/ui/src/features/hr/components/FilterChip.tsx`
+- **Location:** `@texawave-erp/ui-kit` (`packages/ui-kit/src/components/filter-chip/index.tsx`; re-exported via `apps/ui/src/features/hr/components/FilterChip.tsx` for backward compatibility)
 - **Purpose:** Removable token indicators for active query filters with global reset.
 - **Features:**
   - Compact badge style with dismiss button (`aria-label="Remove filter {label}"`).
@@ -227,7 +227,7 @@ All new components reside in `apps/ui/src/features/hr/components/` and are expor
 
 ### 6.3 `TableSkeleton`
 
-- **Location:** `apps/ui/src/features/hr/components/TableSkeleton.tsx`
+- **Location:** `@texawave-erp/ui-kit` (`packages/ui-kit/src/components/table-skeleton/index.tsx`; re-exported via `apps/ui/src/features/hr/components/TableSkeleton.tsx` for backward compatibility)
 - **Purpose:** High-fidelity loading skeleton for tabular layouts.
 - **Features:**
   - Customizable row count and column configurations.
@@ -237,7 +237,7 @@ All new components reside in `apps/ui/src/features/hr/components/` and are expor
 
 ### 6.4 `PasswordField`
 
-- **Location:** `apps/ui/src/features/hr/components/PasswordField.tsx`
+- **Location:** `@texawave-erp/ui-kit` (`packages/ui-kit/src/components/password-field/index.tsx`; re-exported via `apps/ui/src/features/hr/components/PasswordField.tsx` for backward compatibility)
 - **Purpose:** Enterprise-grade password input with live rule evaluation.
 - **Features:**
   - Show / hide toggle with keyboard accessibility (`aria-label`).
