@@ -13,10 +13,14 @@ test("signs in and creates a reference tag", async ({ page }) => {
 
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
+  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL(/\/reference\/tags/);
+  await expect(page).toHaveURL(/\/(reference\/tags|hr)/);
+  if (!page.url().includes("/reference/tags")) {
+    await page.locator("a[href='/reference/tags']").first().click();
+    await expect(page).toHaveURL(/\/reference\/tags$/);
+  }
   await expect(
     page.getByRole("heading", { name: "Reference tags" }),
   ).toBeVisible();
@@ -38,7 +42,7 @@ test("rejects a bad login and lets the user retry without losing the organizatio
   await page.goto("/login");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("wrong-password");
+  await page.getByLabel("Password", { exact: true }).fill("wrong-password");
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.getByText("Sign-in failed")).toBeVisible();

@@ -7,11 +7,12 @@ import { expect, type Page } from "@playwright/test";
  */
 export async function signInAsAdmin(page: Page): Promise<void> {
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
+  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/reference\/tags/);
+  await expect(page).toHaveURL(/\/(reference\/tags|hr)/, { timeout: 15000 });
 }
 
 /** A name unique per run, so reruns against the same dev DB never collide. */

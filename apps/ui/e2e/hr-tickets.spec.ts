@@ -49,7 +49,9 @@ test("opens raise ticket dialog and validates required fields", async ({
     page.getByRole("heading", { name: "Employee Tickets" }),
   ).toBeVisible();
 
-  const raiseBtn = page.getByRole("button", { name: "Raise Ticket" });
+  const raiseBtn = page
+    .locator("header")
+    .getByRole("button", { name: "Raise Ticket" });
   if (await raiseBtn.isVisible()) {
     await raiseBtn.click();
     await expect(

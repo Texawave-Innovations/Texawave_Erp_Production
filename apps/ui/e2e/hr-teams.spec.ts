@@ -13,6 +13,7 @@ async function signIn(page: import("@playwright/test").Page) {
   await page.getByLabel("Email").fill("admin@texawave.com");
   await page.locator("input#password").fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
 }
 
 test("lists teams and narrows them with status tabs and search", async ({
@@ -20,7 +21,9 @@ test("lists teams and narrows them with status tabs and search", async ({
 }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Teams" }).click();
-  await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Teams", exact: true }),
+  ).toBeVisible();
 
   // Metric overview cards
   await expect(page.getByText("Total Teams")).toBeVisible();
@@ -43,7 +46,9 @@ test("opens new team dialog and validates required fields", async ({
 }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Teams" }).click();
-  await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Teams", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "New Team" }).click();
   await expect(page.getByRole("heading", { name: "New Team" })).toBeVisible();

@@ -12,7 +12,7 @@ async function signIn(page: import("@playwright/test").Page) {
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password").fill("ChangeMe123!");
+  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
@@ -24,7 +24,9 @@ test("lists holidays and narrows them with year/status filters", async ({
   // auth store (Docs/CODING_STANDARDS.md "Frontend API/state/error
   // standard" — tokens are deliberately not persisted across reloads).
   await page.getByRole("link", { name: "Holidays" }).click();
-  await expect(page.getByRole("heading", { name: "Holidays" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Holidays", exact: true }),
+  ).toBeVisible();
 
   await page
     .getByRole("combobox", { name: "Filter by status" })
@@ -43,12 +45,14 @@ test("lists holidays and narrows them with year/status filters", async ({
 test("creates a holiday and then deactivates it", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Holidays" }).click();
-  await expect(page.getByRole("heading", { name: "Holidays" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Holidays", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "New holiday" }).click();
   const year = new Date().getFullYear();
   const uniqueName = `E2E Test Holiday ${Date.now()}`;
-  await page.getByLabel("Date").fill(`${year}-12-30`);
+  await page.getByLabel("Date", { exact: true }).fill(`${year}-12-30`);
   await page.getByLabel("Holiday name").fill(uniqueName);
   await page.getByRole("button", { name: "Create holiday" }).click();
 
@@ -70,7 +74,9 @@ test("blocks an invalid holiday submission", async ({ page }) => {
 
   await signIn(page);
   await page.getByRole("link", { name: "Holidays" }).click();
-  await expect(page.getByRole("heading", { name: "Holidays" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Holidays", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "New holiday" }).click();
   await page.getByRole("button", { name: "Create holiday" }).click();
