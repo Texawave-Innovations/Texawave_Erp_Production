@@ -4,7 +4,8 @@ import { expect, test, type Page, type Route } from "@playwright/test";
  * The portal's "My Payslips" and "My Loans" tabs (menu codes portal-payslips
  * and portal-loans): an employee with only the self-service codes sees their
  * own payslips and loans without any HR payroll permission, and the screens
- * call only the self-service endpoints. The API is mocked; `calls` records
+ * call only the self-service endpoints. An employee can also request a loan
+ * (HR reviews it, then a final approver decides). The API is mocked; `calls` records
  * every API path the page requests. Scope (own rows only) is proven by
  * apps/api test/payroll.e2e-spec.ts and payroll-statutory.e2e-spec.ts.
  */
@@ -20,6 +21,7 @@ const PERMS = [
   "employee_self_service.profile.read",
   "employee_self_service.payslip.read",
   "employee_self_service.loan.read",
+  "employee_self_service.loan.write",
 ];
 
 const ME = {
@@ -85,9 +87,11 @@ const LOAN = {
   emiAmount: "1000",
   emiMonths: 3,
   disbursedDate: "2031-01-15T00:00:00.000Z",
-  status: "PENDING_APPROVAL",
+  status: "PENDING_HR",
   reason: "Medical",
   createdAt: "2031-01-15T00:00:00.000Z",
+  requestedVia: "SELF",
+  hrReviewer: null,
   employee: ME,
   repayments: [],
   skipRequests: [],
@@ -99,8 +103,11 @@ const page1 = (rows: unknown[]) => ({
   meta: { page: 1, limit: 20, total: rows.length, totalPages: 1 },
 });
 
-async function signIntoPortal(page: Page): Promise<{ calls: string[] }> {
+async function signIntoPortal(
+  page: Page,
+): Promise<{ calls: string[]; posted: unknown[] }> {
   const calls: string[] = [];
+  const posted: unknown[] = [];
   await page.route(`${API}/**`, async (route: Route) => {
     const req = route.request();
     const { pathname } = new URL(req.url());
@@ -164,6 +171,20 @@ async function signIntoPortal(page: Page): Promise<{ calls: string[] }> {
     if (pathname === "/self-service/payslips") {
       return json(200, page1([PAYSLIP]));
     }
+    if (pathname === "/self-service/loans" && req.method() === "POST") {
+      const body = req.postDataJSON() as { overrideReason?: string };
+      posted.push(body);
+      // Above the limit only with a reason (the API's LOAN_OVER_LIMIT).
+      if (!body.overrideReason)
+        return json(422, {
+          statusCode: 422,
+          error: "LOAN_OVER_LIMIT",
+          message: "The principal exceeds the limit",
+        });
+      return json(201, {
+        data: { ...LOAN, id: 62, loanNumber: "LOAN-000062" },
+      });
+    }
     if (pathname === "/self-service/loans") return json(200, page1([LOAN]));
     return json(404, {
       statusCode: 404,
@@ -181,7 +202,7 @@ async function signIntoPortal(page: Page): Promise<{ calls: string[] }> {
     .fill("not-checked-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/portal$/);
-  return { calls };
+  return { calls, posted };
 }
 
 const portalNav = (page: Page) =>
@@ -209,6 +230,54 @@ test("an employee sees their loan awaiting approval in the portal", async ({
   await expect(page).toHaveURL(/\/portal\/loans$/);
   await expect(page.getByRole("heading", { name: "My loans" })).toBeVisible();
   await expect(page.getByText("LOAN-000061")).toBeVisible();
-  await expect(page.getByText("Awaiting approval").first()).toBeVisible();
+  await expect(page.getByText("Awaiting HR review").first()).toBeVisible();
+  await page.getByRole("button", { name: "View loan LOAN-000061" }).click();
+  await expect(
+    page
+      .getByRole("list", { name: "Approval steps" })
+      .getByText("By the employee", { exact: false }),
+  ).toBeVisible();
+  expect(calls.filter((c) => c.startsWith("/hr/"))).toEqual([]);
+});
+
+test("an employee requests a loan above the limit with a reason, never naming an employee", async ({
+  page,
+}) => {
+  const { calls, posted } = await signIntoPortal(page);
+  await portalNav(page).getByRole("link", { name: "My Loans" }).click();
+  await page.getByRole("button", { name: "Request a loan" }).click();
+  const dialog = page.getByRole("dialog", { name: "Request a loan" });
+  await expect(dialog.getByText("HR reviews your request")).toBeVisible();
+  await expect(dialog.getByLabel(/^Employee/)).toHaveCount(0);
+
+  await dialog.getByLabel(/^Principal/).fill("200000");
+  await dialog.getByLabel(/^Months/).fill("20");
+  await dialog.getByLabel(/^EMI/).fill("10000");
+  await dialog.getByLabel(/^Disbursed on/).fill("2031-02-01");
+  await dialog.getByRole("button", { name: "Request loan" }).click();
+  // Over the limit: the reason field appears.
+  const override = dialog.getByLabel(/^Override reason/);
+  await expect(override).toBeVisible();
+  await override.fill("House repair after the flood");
+  await dialog.getByRole("button", { name: "Request loan" }).click();
+  await expect(
+    page.getByText("Loan LOAN-000062 requested — HR will review it"),
+  ).toBeVisible();
+
+  expect(posted).toEqual([
+    {
+      principalAmount: 200000,
+      emiAmount: 10000,
+      emiMonths: 20,
+      disbursedDate: "2031-02-01",
+    },
+    {
+      principalAmount: 200000,
+      emiAmount: 10000,
+      emiMonths: 20,
+      disbursedDate: "2031-02-01",
+      overrideReason: "House repair after the flood",
+    },
+  ]);
   expect(calls.filter((c) => c.startsWith("/hr/"))).toEqual([]);
 });

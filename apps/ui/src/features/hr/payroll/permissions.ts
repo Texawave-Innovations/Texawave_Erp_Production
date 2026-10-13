@@ -38,6 +38,8 @@ export const BONUS_APPROVE = teamOrAll("hr.bonus.approve");
 
 export const LOAN_READ = anyScope("hr.loan.read");
 export const LOAN_WRITE = teamOrAll("hr.loan.write");
+/** The HR review of a loan request, before the final approval. */
+export const LOAN_REVIEW = teamOrAll("hr.loan.review");
 export const LOAN_APPROVE = teamOrAll("hr.loan.approve");
 
 export const PAYSLIP_READ = anyScope("hr.payslip.read");
@@ -59,3 +61,31 @@ export const ESI_WRITE = teamOrAll("hr.esi.write");
 /** Self-service: organization-wide, exact codes. */
 export const MY_PAYSLIP_READ = "employee_self_service.payslip.read";
 export const MY_LOAN_READ = "employee_self_service.loan.read";
+export const MY_LOAN_WRITE = "employee_self_service.loan.write";
+
+// ---- statutory engine (Docs/PAYROLL_AND_COMPLIANCE.md §1, §4.10–§4.16) ----
+
+/** Reopening a finalized month and downloading statutory files cover the
+ * whole organization: `.all` only. */
+export const PAYROLL_REOPEN = orgWide("hr.payroll.reopen");
+export const PAYROLL_EXPORT = orgWide("hr.payroll.export");
+
+/** Organization configuration (settings, components, templates, tax and PT
+ * masters): exact, unscoped codes. */
+export const PAYROLL_SETTINGS_READ = "hr.payroll_settings.read";
+export const PAYROLL_SETTINGS_WRITE = "hr.payroll_settings.write";
+
+/** The statutory-bonus calculation covers the whole organization. */
+export const BONUS_WRITE_ALL = orgWide("hr.bonus.write");
+/** A loan above the principal limit needs an organization-wide approver. */
+export const LOAN_APPROVE_ALL = orgWide("hr.loan.approve");
+
+export const TAX_DECLARATION_READ = anyScope("hr.tax_declaration.read");
+export const TAX_DECLARATION_WRITE = teamOrAll("hr.tax_declaration.write");
+export const TAX_DECLARATION_APPROVE = teamOrAll("hr.tax_declaration.approve");
+
+export const MY_TAX_DECLARATION_READ =
+  "employee_self_service.tax_declaration.read";
+export const MY_TAX_DECLARATION_WRITE =
+  "employee_self_service.tax_declaration.write";
+export const MY_FORM16_READ = "employee_self_service.form16.read";

@@ -82,6 +82,55 @@ const ERROR_TEXT: Record<string, string> = {
   BATCH_ALREADY_PROCESSED: "This batch was already processed.",
   INVALID_STATE_TRANSITION:
     "That action is not allowed in the current status. Refresh and try again.",
+  ATTENDANCE_NOT_APPROVED:
+    "Payroll reads approved attendance. Approve these employees' attendance month first (HR → Attendance → Month close).",
+  TAX_REGIME_NOT_CONFIGURED:
+    "TDS is on, but this financial year's tax slabs are missing. Add them under Payroll settings → Tax regimes.",
+  SALARY_GROSS_MISMATCH:
+    "The earning lines do not add up to the gross. Fix the amounts or leave the gross empty.",
+  SALARY_COMPONENTS_INCOMPLETE:
+    "Give the salary lines, a template with its gross, or a gross to split.",
+  SALARY_OVERLAP:
+    "This employee already has a salary structure for these dates. End the current one first.",
+  SALARY_LOCKED_BY_FINALIZED_PAYROLL:
+    "A finalized payroll used this structure. Create a new structure from the next month instead.",
+  SALARY_COMPONENT_INACTIVE: "One of the components is inactive.",
+  SALARY_COMPONENT_DUPLICATE: "A component appears more than once.",
+  COMPONENT_CODE_RESERVED:
+    "That code is used by the payroll engine itself (PF, ESI, PT, TDS, LOAN, BONUS, ARREARS, OVERTIME, GRATUITY).",
+  COMPONENT_REQUIRED: "Basic Salary cannot be deactivated.",
+  TEMPLATE_EXCEEDS_GROSS: "The template's earnings are more than the gross.",
+  TEMPLATE_GROSS_MISMATCH:
+    "The template's earnings do not add up to the gross. Add a REMAINDER line.",
+  TEMPLATE_BASIC_MISSING:
+    "A percent-of-Basic line needs a fixed or percent-of-gross BASIC line.",
+  TEMPLATE_REMAINDER_DUPLICATE: "A template can have only one REMAINDER line.",
+  TEMPLATE_REMAINDER_NOT_EARNING: "Only an earning can take the remainder.",
+  TEMPLATE_VALUE_REQUIRED: "Every line except the REMAINDER needs a value.",
+  TAX_SLABS_INVALID:
+    "Slabs must start at 0 and follow on without gaps; only the last may have no upper limit.",
+  PT_SLAB_OVERLAP:
+    "This wage range overlaps another slab of the same state in force at the same time.",
+  TAX_DECLARATION_LOCKED:
+    "The declaration is submitted or verified and can no longer be changed.",
+  DECISION_NOTE_REQUIRED: "Give a note when rejecting.",
+  FORM16_NO_PAYROLL: "No finalized payroll for this employee in that year.",
+  FINANCIAL_YEAR_INVALID: "Write the financial year like 2026-27.",
+  LOAN_OVER_LIMIT:
+    "The principal is above the organization's limit. Give an override reason; an organization-wide approver must then approve it.",
+  LOAN_EMI_OVER_LIMIT:
+    "The employee's EMIs together would exceed the allowed share of their salary.",
+  LOAN_PREPAYMENT_EXCEEDS_BALANCE:
+    "The prepayment is more than the outstanding balance.",
+  PAYROLL_ALREADY_PAID:
+    "Salary for this month is already paid, so it cannot be reopened. Correct it in the next period.",
+  STATUTORY_ALREADY_REMITTED:
+    "PF or ESI for this month is already remitted, so it cannot be reopened.",
+  PAYSLIP_REGENERATION_REASON_REQUIRED:
+    "A generated payslip would change. Give a reason to regenerate it.",
+  PAYSLIP_SUPERSEDED: "This payslip belongs to a superseded run.",
+  GRATUITY_NOT_ELIGIBLE: "No gratuity is due.",
+  UAN_MISSING: "Some PF members have no UAN. Add it under Compliance.",
 };
 
 export function describeError(error: unknown): string {
@@ -100,3 +149,31 @@ export function describeError(error: unknown): string {
   }
   return "Something went wrong. Try again.";
 }
+
+/** The financial year a date falls in: April–March, written "2026-27". */
+export function financialYearOf(date: Date): string {
+  const y = date.getFullYear();
+  const start = date.getMonth() + 1 >= 4 ? y : y - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
+export function currentFinancialYear(): string {
+  return financialYearOf(new Date());
+}
+
+/** The current and the previous few financial years, newest first. */
+export function recentFinancialYears(count = 4): string[] {
+  const start = Number(currentFinancialYear().slice(0, 4));
+  return Array.from({ length: count }, (_, i) => {
+    const y = start - i;
+    return `${y}-${String((y + 1) % 100).padStart(2, "0")}`;
+  });
+}
+
+/** Pay-days policy names (settings `payDaysMode`). */
+export const PAY_DAYS_LABEL = {
+  CALENDAR: "Calendar days",
+  FIXED_30: "Fixed 30 days",
+  FIXED_26: "Fixed 26 days",
+  WORKING_DAYS: "Working days",
+} as const;
