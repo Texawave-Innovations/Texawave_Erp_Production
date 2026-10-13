@@ -4,7 +4,10 @@ import { cn } from "../../lib/cn";
 export function Spinner({ className, ...props }: SVGAttributes<SVGSVGElement>) {
   return (
     <svg
-      className={cn("animate-spin text-current", className)}
+      className={cn(
+        "animate-spin motion-reduce:animate-none text-current",
+        className,
+      )}
       viewBox="0 0 24 24"
       fill="none"
       {...props}

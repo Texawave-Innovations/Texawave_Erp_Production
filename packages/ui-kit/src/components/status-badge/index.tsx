@@ -27,6 +27,14 @@ const COLOR_CLASSES: Record<StatusColorToken, string> = {
  * (Docs/CODING_STANDARDS.md §12). Renders the label as text, never a bare
  * color swatch — see Docs/DESIGN_SYSTEM.md "never rely on color alone".
  */
+const DOT_CLASSES: Record<StatusColorToken, string> = {
+  brand: "bg-brand-500",
+  gray: "bg-gray-400",
+  success: "bg-success-500",
+  warning: "bg-warning-500",
+  error: "bg-error-500",
+};
+
 export function StatusBadge({
   label,
   colorToken,
@@ -35,11 +43,18 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-theme-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium",
         COLOR_CLASSES[colorToken],
         className,
       )}
     >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full shrink-0",
+          DOT_CLASSES[colorToken],
+        )}
+        aria-hidden="true"
+      />
       {label}
     </span>
   );

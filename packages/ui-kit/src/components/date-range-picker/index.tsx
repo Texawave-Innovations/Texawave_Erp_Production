@@ -331,9 +331,9 @@ export function DateRangePicker({
         aria-label={placeholder}
         className={cn(
           "inline-flex items-center justify-between w-full h-10 rounded-lg border px-3.5 py-2 text-theme-xs font-medium shadow-theme-xs transition-all",
-          "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-gray-300",
+          "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-gray-500 hover:border-gray-700",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-500",
-          "dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-white",
+          "dark:bg-gray-900 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:border-gray-400 dark:hover:text-white",
           isOpen &&
             "border-brand-500 ring-2 ring-brand-500/20 text-brand-700 dark:text-brand-300",
           disabled && "opacity-50 cursor-not-allowed",
@@ -391,7 +391,7 @@ export function DateRangePicker({
           aria-modal="true"
           aria-label="Choose date range"
           className={cn(
-            "absolute z-50 mt-1.5 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-2xl p-4",
+            "glass-dropdown absolute z-50 mt-1.5 rounded-2xl p-4 shadow-2xl",
             "w-85 sm:w-135 max-w-[calc(100vw-2rem)]",
             "animate-in fade-in-0 zoom-in-95 duration-150",
             effectiveAlign === "right"

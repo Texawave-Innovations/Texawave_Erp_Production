@@ -10,8 +10,8 @@ export interface DialogProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  size?: DialogSize;
-  className?: string;
+  size?: DialogSize | undefined;
+  className?: string | undefined;
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {

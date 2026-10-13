@@ -91,7 +91,7 @@ export function Tabs<T extends string>({
                 "flex-1 rounded-lg px-4 py-2 text-theme-sm font-medium transition-colors sm:flex-none",
                 "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/20",
                 selected
-                  ? "bg-brand-500 text-gray-900 shadow-theme-xs"
+                  ? "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white shadow-theme-xs"
                   : "text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
               )}
             >
