@@ -110,7 +110,7 @@ function LoansTable({
 
 /** The signed-in employee's own loans (read-only). Hidden for an account
  * with no employee record, as the other "My …" sections are. */
-function MyLoansSection() {
+export function MyLoansSection() {
   const canRead = usePermission(MY_LOAN_READ);
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<number | null>(null);

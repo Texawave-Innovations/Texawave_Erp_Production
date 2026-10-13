@@ -12,6 +12,7 @@ export const PERIOD_STATUSES = [
   "PROCESSED",
   "APPROVED",
   "FINALIZED",
+  "REOPENED",
   "CANCELLED",
 ] as const;
 export type PeriodStatus = (typeof PERIOD_STATUSES)[number];
@@ -192,14 +193,16 @@ export interface EsiContribution extends ContributionBase {
 // ---- Loans (apps/api/.../payroll/loans) -----------------------------------
 
 export const LOAN_STATUSES = [
+  "PENDING_APPROVAL",
   "ACTIVE",
+  "REJECTED",
   "CLOSED",
   "DEFAULTED",
   "CANCELLED",
 ] as const;
 export type LoanStatus = (typeof LOAN_STATUSES)[number];
 
-export type RepaymentStatus = "PENDING" | "PAID" | "SKIPPED";
+export type RepaymentStatus = "PENDING" | "PAID" | "SKIPPED" | "PREPAID";
 export type DecisionStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface LoanRepayment {

@@ -363,7 +363,7 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
 
 /** The signed-in employee's own payslips. Hidden for an account with no
  * employee record, as the other "My …" sections are. */
-function MyPayslipsSection() {
+export function MyPayslipsSection() {
   const canRead = usePermission(MY_PAYSLIP_READ);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<Payslip | null>(null);
