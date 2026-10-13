@@ -12,6 +12,7 @@ import {
   Input,
   Pagination,
   Select,
+  TableSkeleton,
 } from "@texawave-erp/ui-kit";
 import {
   Ban,
@@ -27,9 +28,9 @@ import {
   X,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useExpenseClaims, useMyExpenseClaims } from "../hooks";
 import {
   DECIDE_ANY_SCOPE,
@@ -249,37 +250,22 @@ export function ExpenseApprovalsView() {
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Home</span>
-            <span>/</span>
-            <span>HR</span>
-            <span>/</span>
-            <span className="text-gray-700 dark:text-gray-200 font-medium">
-              Expense Approvals
-            </span>
-          </div>
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white/90">
-            Expense Approvals
-          </h1>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Submit personal claims and review expense claims you are authorized
-            to access.
-          </p>
-        </div>
-
-        {canCreateMine ? (
-          <Button
-            size="sm"
-            onClick={() => setSubmitOpen(true)}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Submit Expense Claim
-          </Button>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Expense Approvals"
+        description="Submit reimbursement claims and review organizational expenses you are authorized to access."
+        icon={Receipt}
+        action={
+          canCreateMine ? (
+            <Button
+              onClick={() => setSubmitOpen(true)}
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Submit Expense Claim</span>
+            </Button>
+          ) : null
+        }
+      />
 
       {/* 2. Navigation Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-800">

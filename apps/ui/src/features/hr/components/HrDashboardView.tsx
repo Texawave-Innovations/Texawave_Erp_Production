@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Users, Zap, Building2, CheckCircle2 } from "lucide-react";
-import { Skeleton, StatusBadge } from "@texawave-erp/ui-kit";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageHeader, Skeleton, StatusBadge } from "@texawave-erp/ui-kit";
 import { useDepartments } from "@/features/departments/hooks";
 import { useUsers } from "@/features/users/hooks";
 

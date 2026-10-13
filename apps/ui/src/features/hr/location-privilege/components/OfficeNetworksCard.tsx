@@ -14,10 +14,10 @@ import {
   FormField,
   Input,
   StatusBadge,
+  TableSkeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
   useAddOfficeNetwork,
   useOfficeNetworks,

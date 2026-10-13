@@ -2,7 +2,8 @@
 
 import { Alert } from "@texawave-erp/ui-kit";
 import { useState } from "react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { Briefcase } from "lucide-react";
+import { HrPageHeader } from "@/features/hr/components";
 import { usePermission } from "@/hooks/usePermission";
 import { RECRUITMENT_PERMISSIONS as P } from "../permissions";
 import { CandidatesPanel } from "./CandidatesPanel";
@@ -54,11 +55,18 @@ export function RecruitmentView() {
     // `contain: inline-size` stops wide table content from widening the
     // dashboard's flex <main> (its min-width is auto), so tables scroll inside
     // their own wrapper instead of pushing the page sideways.
-    <div className="flex min-w-0 flex-col gap-6 [contain:inline-size]">
-      <PageHeader
-        title="Recruitment & onboarding"
+    <div className="flex min-w-0 flex-col gap-6 contain-[inline-size]">
+      <HrPageHeader
+        title="Recruitment & Onboarding"
         description="Schedule interviews, generate offer letters, issue salary revision and promotion letters, and manage the talent pipeline."
-        breadcrumbs={["Home", "HR", "Recruitment"]}
+        icon={Briefcase}
+        badge={
+          tabs.length > 0 ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {tabs.length} sections
+            </span>
+          ) : null
+        }
       />
 
       {tabs.length === 0 ? (

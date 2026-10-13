@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Search, ShieldCheck, Users, X } from "lucide-react";
+import {
+  ChevronRight,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,6 +19,7 @@ import {
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useDebouncedValue, useEmployees } from "../../employees/hooks";
 import { READ_ANY_SCOPE } from "../../employees/permissions";
@@ -65,16 +73,18 @@ export function LocationPrivilegeView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Location privilege
-          </h1>
-        </div>
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          Manage office-network restrictions for employee attendance check-ins.
-        </p>
-      </div>
+      <HrPageHeader
+        title="Location Privilege"
+        description="Configure office-network restrictions and geo-location attendance check-in permissions."
+        icon={MapPin}
+        badge={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {list.data.meta.total} employees
+            </span>
+          ) : null
+        }
+      />
 
       {/* Main Grid: Left = Employee Selector, Right = Selected Privilege Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

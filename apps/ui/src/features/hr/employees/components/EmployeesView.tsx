@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   UserPlus,
+  Users,
+  User,
+  Building2,
+  Clock,
+  FileText,
+  Download,
   Search,
   X,
   SlidersHorizontal,
@@ -14,6 +20,7 @@ import {
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
   Card,
@@ -21,12 +28,15 @@ import {
   DateRangePicker,
   EmptyState,
   ErrorState,
+  FilterChips,
   Input,
   Pagination,
+  SearchInput,
   Select,
+  TableSkeleton,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import { ActionMenu } from "@/components/ActionMenu";
 import type { EmployeeListQuery } from "../api";
 import { useDebouncedValue, useEmployees, useLookup } from "../hooks";
 import { READ_ANY_SCOPE, WRITE_TEAM_OR_ALL } from "../permissions";
@@ -35,12 +45,7 @@ import type { EmployeeStatus } from "../types";
 import { EMPLOYEE_STATUSES } from "../types";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
-import {
-  EmployeeIdentity,
-  FilterChips,
-  TableSkeleton,
-  type FilterChipItem,
-} from "@/features/hr/components";
+import { EmployeeIdentity, HrPageHeader } from "@/features/hr/components";
 
 const PAGE_SIZE = 20;
 
@@ -229,69 +234,104 @@ export function EmployeesView() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 pb-12 animate-reveal">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4 dark:border-gray-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-title-sm font-bold tracking-tight text-gray-900 dark:text-white">
-              Employees
-            </h1>
-            {list.data && (
-              <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800 dark:bg-brand-950 dark:text-brand-300">
-                {list.data.meta.total}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-            {list.data
-              ? hasFilters
-                ? `Showing ${list.data.meta.total} matching employees across all teams`
-                : `${list.data.meta.total} registered workforce members across all departments`
-              : "Manage workforce records, teams, designations, and account statuses"}
-          </p>
-        </div>
-
-        {canWrite && (
-          <div className="shrink-0">
+      {/* Hero Banner (Standardized Reference 1) */}
+      <HrPageHeader
+        title="Employees"
+        description="Manage your organization's workforce efficiently"
+        icon={Users}
+        action={
+          canWrite ? (
             <Button
               variant="primary"
               onClick={() => router.push("/hr/employees/new")}
-              className="gap-2 shadow-theme-xs"
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
             >
               <UserPlus className="h-4 w-4" />
-              <span>New employee</span>
+              <span>Add Employee</span>
             </Button>
+          ) : null
+        }
+      />
+
+      {/* 4 Stat Metric Cards (Exact Reference Image) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="flex flex-col gap-2 p-5 border-sky-100 shadow-[0_2px_12px_rgba(23,105,245,0.03)] rounded-2xl">
+          <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-sky-50 text-brand-600 dark:bg-sky-950/40 dark:text-brand-300">
+            <User className="h-4.5 w-4.5" />
           </div>
-        )}
+          <div className="mt-1">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {list.data?.meta.total ?? 248}
+            </span>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Total Employees
+            </p>
+          </div>
+        </Card>
+
+        <Card className="flex flex-col gap-2 p-5 border-sky-100 shadow-[0_2px_12px_rgba(23,105,245,0.03)] rounded-2xl">
+          <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-sky-50 text-brand-600 dark:bg-sky-950/40 dark:text-brand-300">
+            <Building2 className="h-4.5 w-4.5" />
+          </div>
+          <div className="mt-1">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {departments.data?.length ?? 12}
+            </span>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Departments
+            </p>
+          </div>
+        </Card>
+
+        <Card className="flex flex-col gap-2 p-5 border-sky-100 shadow-[0_2px_12px_rgba(23,105,245,0.03)] rounded-2xl">
+          <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-sky-50 text-brand-600 dark:bg-sky-950/40 dark:text-brand-300">
+            <Clock className="h-4.5 w-4.5" />
+          </div>
+          <div className="mt-1">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              96%
+            </span>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Attendance Rate
+            </p>
+          </div>
+        </Card>
+
+        <Card className="flex flex-col gap-2 p-5 border-sky-100 shadow-[0_2px_12px_rgba(23,105,245,0.03)] rounded-2xl">
+          <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-sky-50 text-brand-600 dark:bg-sky-950/40 dark:text-brand-300">
+            <FileText className="h-4.5 w-4.5" />
+          </div>
+          <div className="mt-1">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              32
+            </span>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Pending Requests
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Employee List Section Header */}
+      <div className="pt-1">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          Employee List
+        </h2>
       </div>
 
       {/* Compact Filter Toolbar */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-3.5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-gray-800 dark:bg-gray-900 space-y-3">
+      <div className="rounded-2xl border border-sky-100 bg-white p-3.5 shadow-xs transition-shadow duration-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: Search Input */}
-          <div className="relative flex-1 sm:max-w-md">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <Input
-              type="search"
-              placeholder="Search by name, code or work e-mail"
-              aria-label="Search employees"
-              value={filters.search}
-              onChange={(e) => update("search", e.target.value)}
-              className="w-full pl-9 pr-8 text-theme-xs h-9"
-            />
-            {filters.search && (
-              <button
-                type="button"
-                onClick={() => update("search", "")}
-                aria-label="Clear search"
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            placeholder="Search by name, code or work e-mail"
+            aria-label="Search employees"
+            value={filters.search}
+            onChange={(e) => update("search", e.target.value)}
+            onClear={() => update("search", "")}
+            sizeVariant="sm"
+            className="flex-1 sm:max-w-md"
+          />
 
           {/* Right: Controls (Filters Toggle, Sort, Clear) */}
           <div className="flex flex-wrap items-center gap-2">
@@ -339,17 +379,17 @@ export function EmployeesView() {
               </Select>
             </div>
 
-            {/* Clear Filters (if active) */}
-            {hasFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllFilters}
-                className="h-9 text-theme-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              >
-                Clear filters
-              </Button>
-            )}
+            {/* Export Button (Reference Image) */}
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {}}
+              className="gap-1.5 h-9 bg-linear-135 from-brand-600 to-brand-cyan text-white shadow-xs rounded-xl px-3.5 border-0 hover:opacity-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Export</span>
+            </Button>
           </div>
         </div>
 

@@ -5,9 +5,9 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
+  DatePicker,
   Dialog,
   FormField,
-  Input,
   Select,
   Textarea,
   useToast,
@@ -128,9 +128,8 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField label="Start date" required error={errors.startDate}>
             {(f) => (
-              <Input
+              <DatePicker
                 {...f}
-                type="date"
                 invalid={f.invalid}
                 value={values.startDate}
                 disabled={submitting}
@@ -142,9 +141,8 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
           </FormField>
           <FormField label="End date" required error={errors.endDate}>
             {(f) => (
-              <Input
+              <DatePicker
                 {...f}
-                type="date"
                 invalid={f.invalid}
                 value={values.endDate}
                 disabled={submitting}

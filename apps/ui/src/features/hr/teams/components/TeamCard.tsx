@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, StatusBadge } from "@texawave-erp/ui-kit";
+import { ActionMenu, Button, StatusBadge } from "@texawave-erp/ui-kit";
 import {
   Briefcase,
   CheckCircle,
@@ -14,7 +14,6 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import { ActionMenu } from "@/components/ActionMenu";
 import type { TeamItem } from "../types";
 
 export interface TeamCardProps {

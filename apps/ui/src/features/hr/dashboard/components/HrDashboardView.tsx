@@ -15,7 +15,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { Button } from "@texawave-erp/ui-kit";
+import { Button, StatCard } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -48,7 +48,6 @@ import {
   leaveTypeBreakdown,
 } from "../metrics";
 import {
-  StatCard,
   QuickAction,
   DashboardSection,
   DonutChart,
@@ -58,6 +57,7 @@ import {
   ActivityFeed,
   GlanceSection,
   WidgetState,
+  HrPageHeader,
   type SegmentTone,
 } from "../../components";
 
@@ -188,52 +188,31 @@ export function HrDashboardView() {
       role="main"
       aria-label="HR dashboard"
     >
-      {/* Introduction Header Card */}
-      <header className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
-        {/* Subtle Brand Accent Line */}
-        <span
-          className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-brand-600 via-brand-500 to-emerald-400"
-          aria-hidden="true"
-        />
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full border border-brand-200/80 bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-800 dark:border-brand-500/30 dark:bg-brand-950 dark:text-brand-300">
-                <Sparkles className="h-3 w-3 text-brand-600 dark:text-brand-400" />
-                Enterprise HR &amp; People Operations
-              </span>
-
-              <span className="hidden items-center gap-1 text-[11px] font-medium text-gray-400 dark:text-gray-500 sm:inline-flex">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Telemetry
-              </span>
-            </div>
-
-            <h1 className="mt-1.5 text-title-sm sm:text-title-md font-bold tracking-tight text-gray-900 dark:text-white">
-              {greeting(now)}
-              {fullName ? `, ${fullName}` : ""}
-            </h1>
-
-            <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400 font-medium">
-              {now.toLocaleDateString("en-IN", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                timeZone: "Asia/Kolkata",
-              })}
-              {" · Attendance, leave, recruitment and workforce figures"}
-            </p>
-          </div>
-
-          {(canCreateEmployee || canEmployees) && (
+      {/* Standardized Enterprise Header Banner */}
+      <HrPageHeader
+        title={`${greeting(now)}${fullName ? `, ${fullName}` : ""}`}
+        description={`${now.toLocaleDateString("en-IN", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone: "Asia/Kolkata",
+        })} · Attendance, leave, recruitment and workforce figures`}
+        icon={Sparkles}
+        badge={
+          <span className="hidden items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-xs px-2.5 py-0.5 text-[11px] font-semibold text-white sm:inline-flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            Live Telemetry
+          </span>
+        }
+        action={
+          (canCreateEmployee || canEmployees) && (
             <div className="flex flex-wrap items-center gap-2.5 shrink-0">
               {canCreateEmployee && (
                 <Button
                   variant="primary"
                   onClick={() => router.push("/hr/employees/new")}
-                  className="gap-2 shadow-theme-xs"
+                  className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
                 >
                   <UserPlus className="h-4 w-4" />
                   <span>Add employee</span>
@@ -243,16 +222,16 @@ export function HrDashboardView() {
                 <Button
                   variant="secondary"
                   onClick={() => router.push("/hr/employees")}
-                  className="gap-2"
+                  className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
                 >
-                  <Users className="h-4 w-4 text-gray-500" />
+                  <Users className="h-4 w-4 text-white" />
                   <span>Employee directory</span>
                 </Button>
               )}
             </div>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       {/* KPI Workforce & Operational Metrics Row */}
       {(canEmployees ||

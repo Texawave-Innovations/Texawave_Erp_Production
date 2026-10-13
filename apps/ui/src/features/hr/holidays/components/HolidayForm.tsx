@@ -5,6 +5,7 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
+  DatePicker,
   FormField,
   Input,
   Select,
@@ -116,9 +117,8 @@ export function HolidayForm({
       {mode === "create" ? (
         <FormField label="Date" required error={errors.holidayDate}>
           {(f) => (
-            <Input
+            <DatePicker
               {...f}
-              type="date"
               aria-label="Date"
               invalid={f.invalid}
               value={values.holidayDate}
@@ -132,9 +132,8 @@ export function HolidayForm({
       ) : (
         <FormField label="Date" hint="Date cannot be modified once created.">
           {(f) => (
-            <Input
+            <DatePicker
               {...f}
-              type="date"
               aria-label="Date"
               disabled
               value={values.holidayDate}

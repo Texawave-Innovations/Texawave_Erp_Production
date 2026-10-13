@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Contact, Users } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
+  Button,
   Card,
   DataTable,
   EmptyState,
@@ -14,6 +17,7 @@ import {
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components";
 import { useDebouncedValue, useEmployees } from "@/features/hr/employees/hooks";
 import { EmployeeStatusBadge } from "@/features/hr/employees/components/EmployeeStatusBadge";
 import { PROFILE_READ_ANY_SCOPE } from "../permissions";
@@ -26,6 +30,7 @@ const PAGE_SIZE = 20;
  * links each row to its profile screen rather than the employee record.
  */
 export function ProfilesListView() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim());
@@ -50,16 +55,28 @@ export function ProfilesListView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-          Profiles
-        </h1>
-        {list.data ? (
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            {list.data.meta.total} employees
-          </p>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Profiles"
+        description="Detailed employee career records, qualifications, and personal profiles."
+        icon={Contact}
+        badge={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {list.data.meta.total} employees
+            </span>
+          ) : null
+        }
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => router.push("/hr/employees")}
+            className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+          >
+            <Users className="h-4 w-4 text-white" />
+            <span>Employee Directory</span>
+          </Button>
+        }
+      />
 
       <Card>
         <Input

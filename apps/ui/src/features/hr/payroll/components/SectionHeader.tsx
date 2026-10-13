@@ -1,22 +1,30 @@
+import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Alert } from "@texawave-erp/ui-kit";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 
-/** Page header shared by the Payroll and Compliance screens. */
+/** Page header shared across HR screens. */
 export function SectionHeader({
   title,
   description,
+  icon,
+  badge,
+  action,
 }: {
   title: string;
   description: string;
+  icon?: LucideIcon;
+  badge?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
-    <header className="rounded-2xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 p-6 text-white shadow-theme-md sm:p-8">
-      <h1 className="text-theme-xl font-bold tracking-tight sm:text-2xl">
-        {title}
-      </h1>
-      <p className="mt-1 max-w-2xl text-theme-sm text-brand-50">
-        {description}
-      </p>
-    </header>
+    <HrPageHeader
+      title={title}
+      description={description}
+      icon={icon}
+      badge={badge}
+      action={action}
+    />
   );
 }
 

@@ -18,15 +18,13 @@ import {
   DateRangePicker,
   EmptyState,
   ErrorState,
+  FilterChips,
   Pagination,
+  TableSkeleton,
   useToast,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useCheckIn, useCheckOut, useMyAttendance } from "../hooks";
 import { SELF_SERVICE_PUNCH, SELF_SERVICE_READ } from "../permissions";
 import { formatMinutes, formatTime } from "../status";

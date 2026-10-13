@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Clock, Plus, Search, X } from "lucide-react";
+import { CalendarCheck, Check, Clock, Plus, Search, X } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -10,17 +10,16 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  FilterChips,
   Input,
   Pagination,
   Select,
+  TableSkeleton,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { formatTime } from "@/features/hr/attendance/status";
 import { useCorrections } from "../hooks";
 import {
@@ -125,33 +124,29 @@ export function RegularizationView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Regularization
-            </h1>
-            {list.data ? (
-              <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
-                {list.data.meta.total} requests
-              </span>
-            ) : null}
-          </div>
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Review and manage employee attendance correction requests.
-          </p>
-        </div>
-
-        {canCreate ? (
-          <Button
-            onClick={() => setSubmitOpen(true)}
-            className="inline-flex items-center gap-1.5 shadow-xs"
-          >
-            <Plus className="h-4 w-4" />
-            Request a correction
-          </Button>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Regularization"
+        description="Review and manage employee attendance correction and regularizations."
+        icon={CalendarCheck}
+        badge={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {list.data.meta.total} requests
+            </span>
+          ) : null
+        }
+        action={
+          canCreate ? (
+            <Button
+              onClick={() => setSubmitOpen(true)}
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Request a correction</span>
+            </Button>
+          ) : null
+        }
+      />
 
       {/* Filters Card */}
       <Card>

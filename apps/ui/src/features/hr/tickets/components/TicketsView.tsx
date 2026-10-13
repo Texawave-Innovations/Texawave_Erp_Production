@@ -6,11 +6,13 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
+  Card,
   DataTable,
   ErrorState,
-  Input,
   Pagination,
   Select,
+  TableSkeleton,
+  TableToolbar,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -20,12 +22,11 @@ import {
   Inbox,
   Plus,
   RotateCcw,
-  Search,
   Ticket,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue, useEmployees } from "@/features/hr/employees/hooks";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { HrPageHeader } from "@/features/hr/components";
 import { useTickets } from "../hooks";
 import {
   READ_ANY_SCOPE,
@@ -158,52 +159,47 @@ export function TicketsView() {
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Home</span>
-            <span>/</span>
-            <span>HR</span>
-            <span>/</span>
-            <span className="text-gray-700 dark:text-gray-200 font-medium">
-              Employee Tickets
+      <HrPageHeader
+        icon={Ticket}
+        title="Employee Tickets"
+        description="Raise a ticket and track the status of your employee service requests."
+        badge={
+          metrics.total > 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/70 text-brand-500 shadow-xs dark:bg-white/10 dark:text-cyan-300">
+              {metrics.total} tickets
             </span>
+          ) : undefined
+        }
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {canSelfService ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push("/portal/tickets")}
+                className="bg-white/80 hover:bg-white text-gray-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
+              >
+                My tickets
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Raise Ticket
+              </Button>
+            ) : null}
           </div>
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white/90">
-            Employee Tickets
-          </h1>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Raise a ticket and track the status of your requests.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {canWrite ? (
-            <Button
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Raise Ticket
-            </Button>
-          ) : null}
-          {canSelfService ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/portal/tickets")}
-            >
-              My tickets
-            </Button>
-          ) : null}
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Summary Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Total Tickets */}
-        <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
+        <Card className="flex items-center gap-3.5 p-4 shadow-xs">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
             <Ticket className="h-5 w-5" />
           </div>
@@ -215,10 +211,13 @@ export function TicketsView() {
               Total Tickets
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* Open */}
-        <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
+        <Card
+          tone="warning"
+          className="flex items-center gap-3.5 p-4 shadow-xs"
+        >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-warning-50 text-warning-600 dark:bg-warning-950/50 dark:text-warning-400">
             <AlertCircle className="h-5 w-5" />
           </div>
@@ -230,10 +229,10 @@ export function TicketsView() {
               Open
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* In Progress */}
-        <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
+        <Card tone="info" className="flex items-center gap-3.5 p-4 shadow-xs">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
             <Clock className="h-5 w-5" />
           </div>
@@ -245,10 +244,13 @@ export function TicketsView() {
               In Progress
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* Resolved */}
-        <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
+        <Card
+          tone="success"
+          className="flex items-center gap-3.5 p-4 shadow-xs"
+        >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-success-50 text-success-600 dark:bg-success-950/50 dark:text-success-400">
             <CheckCircle2 className="h-5 w-5" />
           </div>
@@ -260,28 +262,26 @@ export function TicketsView() {
               Resolved
             </p>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* 3. Search and Filters Toolbar */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <TableToolbar
+        search={{
+          value: searchInput,
+          onChange: (val) => {
+            setSearchInput(val);
+            setPage(1);
+          },
+          onClear: () => {
+            setSearchInput("");
+            setPage(1);
+          },
+          placeholder: "Search by subject or category...",
+          ariaLabel: "Search tickets",
+        }}
+        filters={
           <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:items-center">
-            {/* Search by subject or category */}
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                aria-label="Search tickets"
-                placeholder="Search by subject or category..."
-                value={searchInput}
-                onChange={(e) => {
-                  setSearchInput(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10"
-              />
-            </div>
-
             {/* Status filter */}
             <div className="w-full sm:w-48">
               <Select
@@ -318,19 +318,11 @@ export function TicketsView() {
               </Select>
             </div>
           </div>
-
-          {/* Reset button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!hasFilters}
-            onClick={handleResetFilters}
-            className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 self-end lg:self-auto"
-          >
-            Reset
-          </Button>
-        </div>
-      </div>
+        }
+        hasActiveFilters={hasFilters}
+        onClearFilters={handleResetFilters}
+        clearFiltersLabel="Reset"
+      />
 
       {/* 4. Table or Loading or Empty State */}
       {list.isPending ? (

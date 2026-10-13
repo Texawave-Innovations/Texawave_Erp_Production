@@ -1,9 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Plus, Search, User, Users } from "lucide-react";
-import { Button, Input, useToast } from "@texawave-erp/ui-kit";
-import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import {
+  CheckCircle2,
+  Plus,
+  Search,
+  User,
+  Users,
+  UsersRound,
+} from "lucide-react";
+import {
+  Button,
+  DeleteConfirmDialog,
+  Input,
+  StatCard,
+  useToast,
+} from "@texawave-erp/ui-kit";
+import { HrPageHeader } from "@/features/hr/components";
 import { useUsers } from "@/features/users/hooks";
 import type { TeamFormData, TeamItem, TeamStatusFilter } from "../types";
 import { generateTeamCode, getStoredTeams, saveStoredTeams } from "../utils";
@@ -203,85 +216,54 @@ export function TeamsView() {
   return (
     <div className="flex flex-col gap-6">
       {/* 1. Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400 mb-1"
+      <HrPageHeader
+        title="Teams"
+        description="Organizational team divisions with scoped access permissions and leadership roles."
+        icon={UsersRound}
+        badge={
+          <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+            {teams.length} teams
+          </span>
+        }
+        action={
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleCreateClick}
+            className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0 shrink-0 self-start sm:self-auto"
           >
-            <span>Home</span>
-            <span>/</span>
-            <span>HR</span>
-            <span>/</span>
-            <span className="font-medium text-gray-800 dark:text-gray-200">
-              Teams
-            </span>
-          </nav>
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Teams
-          </h1>
-          <p className="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">
-            Organizational team divisions with scoped access permissions.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          variant="primary"
-          onClick={handleCreateClick}
-          className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="h-4 w-4" />
-          New Team
-        </Button>
-      </div>
+            <Plus className="h-4 w-4" />
+            <span>New Team</span>
+          </Button>
+        }
+      />
 
       {/* 2. Summary Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Total Teams */}
-        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="text-theme-xl font-bold text-gray-900 dark:text-white">
-              {totalTeams}
-            </div>
-            <div className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-              Total Teams
-            </div>
-          </div>
-        </div>
-
-        {/* Active Teams */}
-        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="text-theme-xl font-bold text-gray-900 dark:text-white">
-              {activeTeams}
-            </div>
-            <div className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-              Active Teams
-            </div>
-          </div>
-        </div>
-
-        {/* Leads Pending */}
-        <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 dark:bg-teal-950/60 dark:text-teal-400">
-            <User className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="text-theme-xl font-bold text-gray-900 dark:text-white">
-              {leadsPending}
-            </div>
-            <div className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-              Leads Pending
-            </div>
-          </div>
-        </div>
+        <StatCard
+          headingId="stat-total-teams"
+          label="Total Teams"
+          value={totalTeams}
+          note="Active and pending teams"
+          tone="info"
+          icon={Users}
+        />
+        <StatCard
+          headingId="stat-active-teams"
+          label="Active Teams"
+          value={activeTeams}
+          note="Operational units"
+          tone="success"
+          icon={CheckCircle2}
+        />
+        <StatCard
+          headingId="stat-leads-pending"
+          label="Leads Pending"
+          value={leadsPending}
+          note="Unassigned leadership"
+          tone="warning"
+          icon={User}
+        />
       </div>
 
       {/* 3. Search and Filter Toolbar */}

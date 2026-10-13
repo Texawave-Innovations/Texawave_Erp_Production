@@ -5,6 +5,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Minus,
+  Network,
   Plus,
   Search,
   Users,
@@ -20,6 +21,7 @@ import {
   Select,
   Skeleton,
 } from "@texawave-erp/ui-kit";
+import { HrPageHeader } from "@/features/hr/components";
 import { useDepartments } from "@/features/departments/hooks";
 import { usePermission } from "@/hooks/usePermission";
 import { useOrgChart } from "../hooks";
@@ -167,24 +169,41 @@ export function OrgChartView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Page Header */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
-              Org chart
-            </h1>
-            {totalMembers > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-300">
-                <Users className="h-3 w-3" />
-                {totalMembers} {totalMembers === 1 ? "member" : "members"}
-              </span>
-            ) : null}
+      <HrPageHeader
+        title="Org Chart"
+        description="Visual reporting hierarchy and organizational structure for your team."
+        icon={Network}
+        badge={
+          totalMembers > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-xs px-2.5 py-0.5 text-xs font-semibold text-white">
+              <Users className="h-3 w-3" />
+              {totalMembers} {totalMembers === 1 ? "member" : "members"}
+            </span>
+          ) : null
+        }
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleExpandAll}
+              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+              <span>Expand All</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCollapseAll}
+              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+            >
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+              <span>Collapse All</span>
+            </Button>
           </div>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 sm:text-sm">
-            Reporting structure for the employees visible to you.
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {/* Interactive Control Toolbar */}
       <Card className="border-neutral-200/80 bg-white p-3.5 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">

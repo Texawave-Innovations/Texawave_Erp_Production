@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check, FileSpreadsheet, X } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,16 +12,15 @@ import {
   DateRangePicker,
   EmptyState,
   ErrorState,
+  FilterChips,
   Pagination,
   Select,
+  TableSkeleton,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useWorkLogApprovals, useWorkLogs } from "../hooks";
 import { APPROVE, READ_ANY_SCOPE, SELF_SERVICE_READ } from "../permissions";
 import { STATUS_LABELS } from "../status";
@@ -132,73 +131,70 @@ export function WorkLogsView() {
   const isApprovalsTab = tab === "approvals";
 
   const header = (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Work Logs
-          </h1>
-          {list.data ? (
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-theme-xs font-semibold border ${
-                isApprovalsTab
-                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800"
-                  : "bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-950/70 dark:text-brand-300 dark:border-brand-800"
-              }`}
-            >
-              {list.data.meta.total}{" "}
-              {isApprovalsTab ? "pending approvals" : "work logs"}
-            </span>
-          ) : null}
-        </div>
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          {isApprovalsTab
-            ? "Review and approve employee work logs."
-            : "View organization and team work log records."}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {canApprove ? (
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50/50 p-1 dark:border-gray-800 dark:bg-gray-900/50">
-            <Button
-              variant={isApprovalsTab ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setTab("approvals");
-                setPage(1);
-              }}
-              className="text-theme-xs font-medium"
-            >
-              Approvals
-            </Button>
-            {canRead ? (
-              <Button
-                variant={tab === "scope" ? "primary" : "ghost"}
-                size="sm"
+    <HrPageHeader
+      title="Work Logs"
+      description={
+        isApprovalsTab
+          ? "Review and approve employee work logs and project timesheets."
+          : "View organization and team work log records."
+      }
+      icon={FileSpreadsheet}
+      badge={
+        list.data ? (
+          <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+            {list.data.meta.total}{" "}
+            {isApprovalsTab ? "pending approvals" : "work logs"}
+          </span>
+        ) : null
+      }
+      action={
+        <div className="flex flex-wrap items-center gap-2">
+          {canApprove ? (
+            <div className="inline-flex rounded-xl bg-white/20 backdrop-blur-xs p-1 border border-white/30">
+              <button
+                type="button"
                 onClick={() => {
-                  setTab("scope");
+                  setTab("approvals");
                   setPage(1);
                 }}
-                className="text-theme-xs font-medium"
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                  isApprovalsTab
+                    ? "bg-white text-brand-700 shadow-xs"
+                    : "text-white/80 hover:text-white"
+                }`}
               >
-                All work logs
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        {canSelfService ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.push("/portal/work-logs")}
-            className="text-theme-xs"
-          >
-            My work logs
-          </Button>
-        ) : null}
-      </div>
-    </div>
+                Approvals
+              </button>
+              {canRead ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("scope");
+                    setPage(1);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                    tab === "scope"
+                      ? "bg-white text-brand-700 shadow-xs"
+                      : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  All work logs
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {canSelfService ? (
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/portal/work-logs")}
+              className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2 font-medium text-xs"
+            >
+              <span>My work logs</span>
+            </Button>
+          ) : null}
+        </div>
+      }
+    />
   );
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Calendar, Plus } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -10,18 +10,17 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  FilterChips,
   Input,
   Pagination,
   Select,
+  TableSkeleton,
   useToast,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
   useLeaveRequests,
   useMyLeaveBalances,
@@ -617,14 +616,11 @@ export function LeavesView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-          Leaves
-        </h1>
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-          Manage your leave requests and review team requests.
-        </p>
-      </div>
+      <HrPageHeader
+        title="Leaves"
+        description="Manage your leave requests, track entitlements, and review team time-off approvals."
+        icon={Calendar}
+      />
 
       {/* Navigation tabs if user holds both self-service and team/all scopes */}
       {showTabs ? (

@@ -22,12 +22,13 @@ import {
   ErrorState,
   Pagination,
   Select,
+  StatCard,
   StatusBadge,
+  TableSkeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
-import { StatCard } from "@/features/hr/components/StatCard";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import {
   useCreateHoliday,
   useHolidays,
@@ -192,22 +193,27 @@ export function HolidaysView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-            Holidays
-          </h1>
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            Manage organization holidays and their applicability.
-          </p>
-        </div>
-        {canWrite ? (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            New holiday
-          </Button>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Holidays"
+        description="Company annual holiday calendar, official observances, and regional leaves."
+        icon={CalendarDays}
+        badge={
+          <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+            Year {filters.year} ({stats.total} holidays)
+          </span>
+        }
+        action={
+          canWrite ? (
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New holiday</span>
+            </Button>
+          ) : null
+        }
+      />
 
       {/* 4 Summary Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

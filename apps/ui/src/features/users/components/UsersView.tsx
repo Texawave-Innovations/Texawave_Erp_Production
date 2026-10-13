@@ -8,22 +8,22 @@ import {
   type UpdateUserFormValues,
 } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
   Card,
   DataTable,
+  DeleteConfirmDialog,
   Dialog,
   EmptyState,
   ErrorState,
+  PageHeader,
   Pagination,
   Skeleton,
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { Plus, Pencil, Shield, Users as UsersIcon, Trash2 } from "lucide-react";
-import { ActionMenu } from "@/components/ActionMenu";
-import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
 import {
   useCreateUser,

@@ -2,6 +2,7 @@
 
 import { type TabItem, Tabs } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { Banknote } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import {
   BONUS_READ,
@@ -59,10 +60,18 @@ export function PayrollView() {
   return (
     // `contain: inline-size` keeps wide tables scrolling inside their own
     // wrapper instead of widening the dashboard's flex <main>.
-    <div className="flex min-w-0 flex-col gap-6 [contain:inline-size]">
+    <div className="flex min-w-0 flex-col gap-6 contain-[inline-size]">
       <SectionHeader
+        icon={Banknote}
         title="Payroll"
         description="Run monthly payroll, manage salary structures, bonuses and loans, and issue payslips and payouts."
+        badge={
+          tabs.length > 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/70 text-brand-500 shadow-xs dark:bg-white/10 dark:text-cyan-300">
+              {tabs.length} {tabs.length === 1 ? "section" : "sections"}
+            </span>
+          ) : undefined
+        }
       />
       {!active ? (
         <NoAccess area="Payroll" />

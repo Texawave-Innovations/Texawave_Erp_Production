@@ -21,18 +21,17 @@ import {
   DateRangePicker,
   EmptyState,
   ErrorState,
+  FilterChips,
   Input,
   Pagination,
   Select,
+  StatCard,
+  TableSkeleton,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { StatCard } from "@/features/hr/components/StatCard";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useAttendanceList } from "../hooks";
 import {
@@ -257,35 +256,30 @@ export function AttendanceView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Attendance
-            </h1>
-            {list.data ? (
-              <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
-                {list.data.meta.total} records
-              </span>
-            ) : null}
-          </div>
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Monitor and manage employee attendance records.
-          </p>
-        </div>
-
-        {canSelfService ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => router.push("/portal/attendance")}
-            className="inline-flex items-center gap-2"
-          >
-            <UserCheck className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-            My attendance
-          </Button>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Attendance"
+        description="Monitor, verify, and manage daily employee attendance records and work shifts."
+        icon={Clock}
+        badge={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {list.data.meta.total} records
+            </span>
+          ) : null
+        }
+        action={
+          canSelfService ? (
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/portal/attendance")}
+              className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+            >
+              <UserCheck className="h-4 w-4 text-white" />
+              <span>My Attendance</span>
+            </Button>
+          ) : null
+        }
+      />
 
       {/* Summary Metrics */}
       {summaryMetrics ? (

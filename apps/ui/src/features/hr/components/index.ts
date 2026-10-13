@@ -15,3 +15,4 @@ export * from "./FilterChip";
 export * from "./TableSkeleton";
 export * from "./PasswordField";
 export * from "./FormSection";
+export * from "./HrPageHeader";

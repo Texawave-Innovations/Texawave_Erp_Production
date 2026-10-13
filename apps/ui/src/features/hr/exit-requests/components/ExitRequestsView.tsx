@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { UserMinus } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -14,6 +15,7 @@ import {
   Select,
   Skeleton,
 } from "@texawave-erp/ui-kit";
+import { HrPageHeader } from "@/features/hr/components";
 import { usePermission } from "@/hooks/usePermission";
 import { useExitRequests, useMyExitRequests } from "../hooks";
 import {
@@ -358,10 +360,12 @@ export function ExitRequestsView() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-        Exit Requests
-      </h1>
+    <div className="flex flex-col gap-6">
+      <HrPageHeader
+        title="Exit Requests"
+        description="Employee offboarding, resignation workflows, handover tracking, and final settlement approvals."
+        icon={UserMinus}
+      />
       <MySection />
       {canReadMine && canReadAny ? (
         <hr className="border-gray-200 dark:border-gray-800" />

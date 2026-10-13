@@ -4,14 +4,19 @@ import { useMemo, useState } from "react";
 import type { Department } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
   DataTable,
+  DeleteConfirmDialog,
   ErrorState,
   Input,
   Pagination,
+  SearchInput,
   Select,
   StatusBadge,
+  TableSkeleton,
+  TableToolbar,
   useToast,
 } from "@texawave-erp/ui-kit";
 import {
@@ -22,10 +27,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { ActionMenu } from "@/components/ActionMenu";
-import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { HrPageHeader } from "@/features/hr/components";
 import {
   useCreateDepartment,
   useDeleteDepartment,
@@ -178,85 +181,66 @@ export function DepartmentsView() {
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Home</span>
-            <span>/</span>
-            <span>HR</span>
-            <span>/</span>
-            <span className="text-gray-700 dark:text-gray-200 font-medium">
-              Departments
+      <HrPageHeader
+        title="Departments"
+        description="Manage organizational departments, structural hierarchy, and active operating status."
+        icon={Building2}
+        badge={
+          meta ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
+              {meta.total} departments
             </span>
-          </div>
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white/90">
-            Departments
-          </h1>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Manage organizational departments and their active status.
-          </p>
-        </div>
-
-        <Button
-          size="sm"
-          onClick={() => setCreateOpen(true)}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Department</span>
-        </Button>
-      </div>
+          ) : null
+        }
+        action={
+          <Button
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+            className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Department</span>
+          </Button>
+        }
+      />
 
       {/* 2. Compact Search & Status Filter Toolbar */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:items-center">
-            {/* Search Input */}
-            <div className="relative flex-1 sm:max-w-md">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                aria-label="Search departments"
-                placeholder="Search departments..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Status Filter Dropdown */}
-            <div className="w-full sm:w-48">
-              <Select
-                aria-label="Filter by status"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(
-                    e.target.value as "all" | "active" | "inactive",
-                  );
-                  setPage(1);
-                }}
-              >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </div>
+      <TableToolbar
+        search={{
+          value: searchTerm,
+          onChange: (val) => {
+            setSearchTerm(val);
+            setPage(1);
+          },
+          onClear: () => {
+            setSearchTerm("");
+            setPage(1);
+          },
+          placeholder: "Search departments...",
+          ariaLabel: "Search departments",
+        }}
+        filters={
+          <div className="w-full sm:w-48">
+            <Select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(
+                  e.target.value as "all" | "active" | "inactive",
+                );
+                setPage(1);
+              }}
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
           </div>
-
-          {/* Reset Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!hasActiveFilters}
-            onClick={handleResetFilters}
-            className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 self-end sm:self-auto"
-          >
-            Reset
-          </Button>
-        </div>
-      </div>
+        }
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={handleResetFilters}
+        clearFiltersLabel="Reset"
+      />
 
       {/* 3. Data Table or Empty States */}
       {rawDepartments.length === 0 ? (

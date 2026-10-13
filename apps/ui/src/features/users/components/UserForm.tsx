@@ -6,7 +6,13 @@ import {
   type CreateUserFormValues,
   type UpdateUserFormValues,
 } from "@texawave-erp/core";
-import { Button, Checkbox, FormField, Input } from "@texawave-erp/ui-kit";
+import {
+  Button,
+  Checkbox,
+  FormField,
+  Input,
+  PasswordField,
+} from "@texawave-erp/ui-kit";
 import { useState } from "react";
 
 export interface UserFormProps {
@@ -124,10 +130,8 @@ export function UserForm({
       {!isEdit && (
         <FormField label="Password" required error={errors.password}>
           {(fieldProps) => (
-            <Input
+            <PasswordField
               {...fieldProps}
-              invalid={fieldProps.invalid}
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={submitting}

@@ -14,6 +14,7 @@ import {
   Pagination,
   Select,
   StatusBadge,
+  TableSkeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import {
@@ -24,6 +25,7 @@ import {
   Clock,
   Eye,
   FileText,
+  ListTodo,
   Loader2,
   Pencil,
   Plus,
@@ -32,9 +34,9 @@ import {
   X,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import {
   useApproveTask,
   useReopenTask,
@@ -341,47 +343,33 @@ export function TasksView() {
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Home</span>
-            <span>/</span>
-            <span>HR</span>
-            <span>/</span>
-            <span className="text-gray-700 dark:text-gray-200 font-medium">
-              Tasks
-            </span>
+      <HrPageHeader
+        title="Task Assignment"
+        description="Create tasks, delegate operational assignments, and review employee completion requests."
+        icon={ListTodo}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {canSelfService ? (
+              <Button
+                variant="secondary"
+                onClick={() => router.push("/portal/tasks")}
+                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium text-xs"
+              >
+                <span>My tasks</span>
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+              >
+                <Plus className="h-4 w-4" />
+                <span>New Task</span>
+              </Button>
+            ) : null}
           </div>
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white/90">
-            Task Assignment
-          </h1>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Create tasks, track progress, and review employee requests.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {canSelfService ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/portal/tasks")}
-            >
-              My tasks
-            </Button>
-          ) : null}
-          {canWrite ? (
-            <Button
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              New Task
-            </Button>
-          ) : null}
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Tab Navigation */}
       <div className="flex border-b border-gray-200 dark:border-gray-800">

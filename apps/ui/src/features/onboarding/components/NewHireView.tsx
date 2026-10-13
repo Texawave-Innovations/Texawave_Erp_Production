@@ -22,9 +22,11 @@ import {
   Alert,
   Button,
   Card,
+  DatePicker,
   ErrorState,
   FormField,
   Input,
+  PasswordField,
   Select,
   Skeleton,
 } from "@texawave-erp/ui-kit";
@@ -40,7 +42,7 @@ import {
   useRoleOptions,
   useTeamOptions,
 } from "../hooks";
-import { FormSection, PasswordField } from "@/features/hr/components";
+import { FormSection } from "@/features/hr/components";
 
 type FieldKey = keyof NewHireFormValues;
 
@@ -542,9 +544,8 @@ export function NewHireView() {
                 error={errors.dateOfJoining}
               >
                 {(p) => (
-                  <Input
+                  <DatePicker
                     {...p}
-                    type="date"
                     min="1900-01-01"
                     max="2099-12-31"
                     value={values.dateOfJoining}

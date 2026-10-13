@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  Award,
   Calendar,
   CheckCircle2,
   Search,
@@ -18,17 +19,16 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  FilterChips,
   Input,
   Pagination,
   StatusBadge,
+  TableSkeleton,
+  type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import {
-  FilterChips,
-  type FilterChipItem,
-} from "@/features/hr/components/FilterChip";
-import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useFullMonthPresentList } from "../hooks";
 import { READ_ANY_SCOPE } from "../permissions";
 import { currentMonth } from "../status";
@@ -137,21 +137,27 @@ export function FullMonthPresentView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Full Month Present
-          </h1>
-          {list.data ? (
-            <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+      <HrPageHeader
+        title="Full Month Present"
+        description="Review monthly attendance streaks, 100% full-month qualifications, and attendance awards."
+        icon={Award}
+        badge={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
               {list.data.meta.total} in scope
             </span>
-          ) : null}
-        </div>
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          Review employee attendance and full-month qualification.
-        </p>
-      </div>
+          ) : null
+        }
+        action={
+          <span className="rounded-full bg-white/20 backdrop-blur-xs px-3.5 py-1.5 text-xs font-semibold text-white">
+            {qualifiedCount} qualified (
+            {rows.length > 0
+              ? Math.round((qualifiedCount / rows.length) * 100)
+              : 0}
+            %)
+          </span>
+        }
+      />
 
       {/* Summary Metrics (Preserving exact 3 metrics) */}
       {list.data && rows.length > 0 ? (

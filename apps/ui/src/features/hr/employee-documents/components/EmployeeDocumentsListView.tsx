@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -14,6 +15,7 @@ import {
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components";
 import { useDebouncedValue, useEmployees } from "../../employees/hooks";
 import { READ_ANY_SCOPE } from "../../employees/permissions";
 
@@ -56,17 +58,18 @@ export function EmployeeDocumentsListView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-gradient-to-r from-green-500 to-lime-500 p-6 text-white">
-        <h1 className="text-theme-xl font-bold">Employee Documents</h1>
-        <p className="mt-1 text-white/90">
-          View and download all uploaded documents
-        </p>
-        {list.data ? (
-          <span className="mt-3 inline-block rounded-full bg-white/20 px-4 py-1 text-sm">
-            Total: {list.data.meta.total} Employees
-          </span>
-        ) : null}
-      </div>
+      <HrPageHeader
+        title="Employee Documents"
+        description="Upload and review onboarding, identity, and compliance documents for every team member."
+        icon={FileText}
+        action={
+          list.data ? (
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3.5 py-1.5 text-xs font-semibold text-white">
+              Total: {list.data.meta.total} Employees
+            </span>
+          ) : null
+        }
+      />
 
       <Card>
         <Input

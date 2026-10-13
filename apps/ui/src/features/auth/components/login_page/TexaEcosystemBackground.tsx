@@ -46,7 +46,7 @@ export const TexaEcosystemBackground = React.memo(
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
-                {/* Texa Brand Green Gradient for Data Conduits */}
+                {/* Texa Brand Blue/Cyan Gradient for Data Conduits */}
                 <linearGradient
                   id="texaPulseGreen"
                   x1="0%"
@@ -54,10 +54,10 @@ export const TexaEcosystemBackground = React.memo(
                   x2="100%"
                   y2="100%"
                 >
-                  <stop offset="0%" stopColor="#06ba32" stopOpacity="0" />
-                  <stop offset="40%" stopColor="#06ba32" stopOpacity="0.9" />
-                  <stop offset="60%" stopColor="#34d399" stopOpacity="1" />
-                  <stop offset="100%" stopColor="#06ba32" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#1769F5" stopOpacity="0" />
+                  <stop offset="40%" stopColor="#1769F5" stopOpacity="0.9" />
+                  <stop offset="60%" stopColor="#12CFE3" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#2454E8" stopOpacity="0" />
                 </linearGradient>
 
                 {/* High-Tech Cyan Gradient for Core & Telemetry Streams */}
@@ -83,7 +83,7 @@ export const TexaEcosystemBackground = React.memo(
                   y2="0%"
                 >
                   <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.8" />
-                  <stop offset="30%" stopColor="#06ba32" stopOpacity="0.6" />
+                  <stop offset="30%" stopColor="#1769F5" stopOpacity="0.6" />
                   <stop offset="70%" stopColor="#38bdf8" stopOpacity="0.3" />
                   <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
                 </linearGradient>
@@ -91,9 +91,9 @@ export const TexaEcosystemBackground = React.memo(
                 {/* Core Breathing Radial Glow */}
                 <radialGradient id="coreRadialGlow" cx="50%" cy="50%" r="50%">
                   <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.45" />
-                  <stop offset="40%" stopColor="#06ba32" stopOpacity="0.25" />
-                  <stop offset="80%" stopColor="#06ba32" stopOpacity="0.05" />
-                  <stop offset="100%" stopColor="#06ba32" stopOpacity="0" />
+                  <stop offset="40%" stopColor="#1769F5" stopOpacity="0.25" />
+                  <stop offset="80%" stopColor="#2454E8" stopOpacity="0.05" />
+                  <stop offset="100%" stopColor="#1769F5" stopOpacity="0" />
                 </radialGradient>
 
                 {/* Soft Beacon Glow Filter */}
@@ -200,7 +200,7 @@ export const TexaEcosystemBackground = React.memo(
                 {/* CONDUIT 2: Central Hub <---> ELECTRICAL (Top-Right Microchip Lab) */}
                 <path
                   d="M 372 262 C 410 240, 450 220, 485 200 C 515 182, 535 170, 560 155"
-                  stroke="#06ba32"
+                  stroke="#1769F5"
                   strokeWidth="2.5"
                   strokeOpacity="0.3"
                 />
@@ -246,7 +246,7 @@ export const TexaEcosystemBackground = React.memo(
                 {/* CONDUIT 4: Central Hub <---> MECHANICAL (Bottom-Right Robotics Line) */}
                 <path
                   d="M 380 298 C 415 322, 450 345, 485 372 C 515 395, 540 412, 570 435"
-                  stroke="#06ba32"
+                  stroke="#1769F5"
                   strokeWidth="2.5"
                   strokeOpacity="0.3"
                 />
@@ -304,7 +304,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="372"
                   cy="262"
                   r="4.5"
-                  fill="#06ba32"
+                  fill="#1769F5"
                   className="ecosystem-beacon-delayed"
                 />
                 <circle
@@ -318,7 +318,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="380"
                   cy="298"
                   r="4.5"
-                  fill="#06ba32"
+                  fill="#1769F5"
                   className="ecosystem-beacon-delayed"
                 />
 
@@ -334,7 +334,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="215"
                   cy="195"
                   r="4"
-                  fill="#34d399"
+                  fill="#12CFE3"
                   className="ecosystem-beacon-delayed"
                 />
 
@@ -343,7 +343,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="560"
                   cy="155"
                   r="5"
-                  fill="#06ba32"
+                  fill="#1769F5"
                   className="ecosystem-beacon-delayed"
                 />
                 <circle
@@ -366,7 +366,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="225"
                   cy="375"
                   r="4"
-                  fill="#34d399"
+                  fill="#12CFE3"
                   className="ecosystem-beacon-delayed"
                 />
 
@@ -375,7 +375,7 @@ export const TexaEcosystemBackground = React.memo(
                   cx="570"
                   cy="435"
                   r="5"
-                  fill="#06ba32"
+                  fill="#1769F5"
                   className="ecosystem-beacon-delayed"
                 />
                 <circle
@@ -392,7 +392,7 @@ export const TexaEcosystemBackground = React.memo(
               Layer 2: Ambient Studio Lighting & Vignettes
               Ensures luminous depth on the left without harsh contrast steps.
               ===================================================================== */}
-            <div className="absolute inset-0 bg-radial-[at_35%_50%] from-emerald-400/5 via-cyan-400/5 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-radial-[at_35%_50%] from-cyan-400/5 via-blue-400/5 to-transparent pointer-events-none" />
           </div>
         </div>
 
@@ -400,7 +400,7 @@ export const TexaEcosystemBackground = React.memo(
           Layer 3: Ethereal Ambient Aura Behind Frosted Glass Card
           Allows the background ecosystem and conduits to show through the glass card.
           ========================================================================= */}
-        <div className="hidden lg:block absolute right-16 top-1/4 w-130 h-130 rounded-full bg-linear-to-tr from-emerald-400/20 via-sky-400/25 to-blue-400/15 blur-3xl pointer-events-none z-10" />
+        <div className="hidden lg:block absolute right-16 top-1/4 w-130 h-130 rounded-full bg-linear-to-tr from-cyan-400/20 via-sky-400/25 to-blue-400/15 blur-3xl pointer-events-none z-10" />
         <div className="hidden lg:block absolute right-32 bottom-1/4 w-90 h-90 rounded-full bg-cyan-300/15 blur-2xl pointer-events-none z-10" />
         <div className="lg:hidden absolute inset-0 bg-slate-50/70 backdrop-blur-[2px] pointer-events-none z-10" />
       </div>
