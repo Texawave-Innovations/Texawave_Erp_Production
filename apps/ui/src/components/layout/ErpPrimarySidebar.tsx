@@ -76,7 +76,7 @@ export function ErpPrimarySidebar() {
         <div className="flex items-center gap-2.5">
           <TexaLogo size="sm" is3d className="h-7 w-auto" />
           <span className="text-theme-sm font-bold text-gray-900 dark:text-white">
-            TexaWave ERP
+            TexaOne
           </span>
         </div>
       </div>
@@ -98,10 +98,10 @@ export function ErpPrimarySidebar() {
                 {isClickable ? (
                   <Link
                     href={mod.path}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-theme-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand-500 ${
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-theme-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-brand-500 ${
                       active
-                        ? "bg-brand-50/90 text-brand-700 font-semibold dark:bg-brand-950/60 dark:text-brand-300 border-l-4 border-brand-500"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/50"
+                        ? "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white font-semibold shadow-theme-xs"
+                        : "text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/50 dark:hover:text-white"
                     }`}
                   >
                     <mod.icon className="h-4 w-4 shrink-0" />

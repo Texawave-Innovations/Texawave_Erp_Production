@@ -6,6 +6,7 @@ import {
   Calendar,
   Clock,
   Bell,
+  Menu,
   ChevronDown,
   LogOut,
 } from "lucide-react";
@@ -13,6 +14,8 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export interface GlobalHeaderProps {
   onSignOut: () => void;
+  onToggleNav?: () => void;
+  navOpen?: boolean;
 }
 
 function LiveClockBadge() {
@@ -46,14 +49,14 @@ function LiveClockBadge() {
   return (
     <>
       {currentDate && (
-        <div className="hidden items-center gap-2 rounded-lg bg-indigo-50/70 px-3 py-1.5 text-theme-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 md:flex">
+        <div className="hidden items-center gap-2 rounded-lg border border-brand-200/60 bg-brand-50/80 px-3 py-1.5 text-theme-xs font-semibold text-brand-700 dark:border-brand-900/40 dark:bg-brand-950/40 dark:text-brand-300 md:flex">
           <Calendar className="h-3.5 w-3.5" />
           <span>{currentDate}</span>
         </div>
       )}
 
       {currentTime && (
-        <div className="hidden items-center gap-2 rounded-lg bg-blue-50/70 px-3 py-1.5 text-theme-xs font-bold font-mono text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 sm:flex">
+        <div className="hidden items-center gap-2 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-3 py-1.5 text-theme-xs font-bold font-mono text-cyan-800 dark:border-cyan-900/40 dark:bg-cyan-950/40 dark:text-cyan-300 sm:flex">
           <Clock className="h-3.5 w-3.5" />
           <span>{currentTime}</span>
         </div>
@@ -62,7 +65,11 @@ function LiveClockBadge() {
   );
 }
 
-export function GlobalHeader({ onSignOut }: GlobalHeaderProps) {
+export function GlobalHeader({
+  onSignOut,
+  onToggleNav,
+  navOpen,
+}: GlobalHeaderProps) {
   const user = useAuthStore((s) => s.user);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -90,18 +97,30 @@ export function GlobalHeader({ onSignOut }: GlobalHeaderProps) {
     .toUpperCase();
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 lg:px-6 dark:border-gray-800 dark:bg-gray-dark">
-      {/* Left: Global Search Input */}
-      <div className="flex items-center gap-4">
-        <div className="relative w-48 sm:w-64 lg:w-72">
-          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-100/50 via-cyan-50/60 to-emerald-50/40 px-4 lg:px-6 dark:border-gray-800 dark:bg-gray-dark dark:bg-none">
+      {/* Left: Mobile Nav Toggle + Global Search Input */}
+      <div className="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl">
+        {onToggleNav && (
+          <button
+            type="button"
+            onClick={onToggleNav}
+            aria-label={navOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={navOpen}
+            aria-controls="app-sidebar"
+            className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-brand-500 lg:hidden dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        <div className="relative w-full max-w-md">
+          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
             <Search className="h-4 w-4" />
           </span>
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search anything..."
             aria-label="Search"
-            className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50/70 pl-8 pr-3 text-theme-xs text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800 transition-colors"
+            className="h-10 w-full rounded-xl border border-slate-200/90 bg-white/95 pl-10 pr-4 text-theme-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-gray-800 dark:bg-gray-800/80 dark:text-white transition-all"
           />
         </div>
       </div>
@@ -115,10 +134,10 @@ export function GlobalHeader({ onSignOut }: GlobalHeaderProps) {
         <button
           type="button"
           aria-label="Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+          className="relative flex h-9.5 w-9.5 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
         >
           <Bell className="h-4.5 w-4.5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500" />
+          <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-gray-900" />
         </button>
 
         {/* User Profile Dropdown */}
@@ -128,24 +147,24 @@ export function GlobalHeader({ onSignOut }: GlobalHeaderProps) {
             aria-haspopup="menu"
             aria-expanded={profileOpen}
             onClick={() => setProfileOpen((prev) => !prev)}
-            className="flex items-center gap-2.5 rounded-lg p-1 text-left hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800/50 transition-colors"
+            className="flex items-center gap-2.5 rounded-xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:hover:bg-gray-800 transition-colors"
           >
             {/* Avatar Circle */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white shadow-theme-xs">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white shadow-xs">
               {initials}
             </div>
 
             {/* User Name & Role */}
             <div className="hidden flex-col md:flex">
-              <span className="text-theme-xs font-bold leading-tight text-gray-900 dark:text-white/90">
+              <span className="text-theme-xs font-bold leading-tight text-slate-900 dark:text-white/90">
                 {displayName}
               </span>
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
-                Super Admin
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                Software Engineer
               </span>
             </div>
 
-            <ChevronDown className="hidden h-3.5 w-3.5 text-gray-400 md:inline-block" />
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 md:inline-block" />
           </button>
 
           {/* Profile Dropdown Menu */}
