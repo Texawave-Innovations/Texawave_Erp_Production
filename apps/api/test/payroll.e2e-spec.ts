@@ -163,6 +163,12 @@ describe("Payroll & Compliance (e2e)", () => {
       data: { name: `Payroll Org ${suffix}`, slug: `payroll-org-${suffix}` },
     });
 
+    // This suite tests the leave-based engine; reading approved attendance
+    // (the default) is covered by payroll-statutory.e2e-spec.ts.
+    await prisma.payrollSetting.create({
+      data: { organizationId: org.id, useAttendance: false },
+    });
+
     // A second organization with a payroll period of its own — used to prove
     // its ids are "not found" from this org.
     const otherOrg = await prisma.organization.create({
@@ -517,11 +523,26 @@ describe("Payroll & Compliance (e2e)", () => {
     const loanData = dataOf<{
       id: number;
       loanNumber: string;
+      status: string;
       repayments: unknown[];
     }>(loanRes);
     expect(loanData.loanNumber).toMatch(/^LOAN-/);
-    expect(loanData.repayments).toHaveLength(12);
+    // A loan is a request until a second person approves it; the schedule
+    // is built on approval.
+    expect(loanData.status).toBe("PENDING_APPROVAL");
+    expect(loanData.repayments).toHaveLength(0);
     loanId1 = loanData.id;
+
+    await post("admin", `/hr/loans/${loanId1}/decide`, {
+      decision: "APPROVED",
+    }).expect(403);
+    const approved = dataOf<{ status: string; repayments: unknown[] }>(
+      await post("checker", `/hr/loans/${loanId1}/decide`, {
+        decision: "APPROVED",
+      }).expect(200),
+    );
+    expect(approved.status).toBe("ACTIVE");
+    expect(approved.repayments).toHaveLength(12);
 
     // Create performance bonus for Employee 1: 5000
     const bonusRes = await post("admin", "/hr/bonuses", {
@@ -879,6 +900,9 @@ describe("Payroll & Compliance (e2e)", () => {
       disbursedDate: "2026-05-01",
     }).expect(201);
     loanId2 = dataOf<{ id: number }>(loan2).id;
+    await post("checker", `/hr/loans/${loanId2}/decide`, {
+      decision: "APPROVED",
+    }).expect(200);
 
     // One-time arrears of 2000 for Employee 1
     await patch("admin", `/hr/salaries/${salaryId1}`, {

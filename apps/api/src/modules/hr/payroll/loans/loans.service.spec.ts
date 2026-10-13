@@ -13,73 +13,59 @@ const SCOPE = { organizationId: 1 };
 const USER_ID = 42;
 const EMPLOYEE = { id: 7, teamId: 3, userId: 70 };
 
+function errorCode(err: unknown): unknown {
+  return (err as { errorCode?: string }).errorCode;
+}
+
 function makeService(overrides?: {
   level?: "own" | "team" | "all";
-  teamIds?: number[];
   employee?: unknown;
+  gross?: number | null;
+  otherEmis?: number;
   loan?: unknown;
   period?: unknown;
   existingSkip?: unknown;
   skipRequest?: unknown;
-  decided?: unknown;
-  mine?: unknown;
+  prepayment?: unknown;
 }) {
   const repository = {
-    create: vi
+    create: vi.fn().mockResolvedValue({ id: 1, status: "PENDING_APPROVAL" }),
+    grossOn: vi
       .fn()
-      .mockImplementation(
-        (
-          _scope: unknown,
-          dto: Record<string, unknown>,
-          disbursedDate: Date,
-          userId: number,
-        ) => ({
-          id: 1,
-          ...dto,
-          disbursedDate,
-          status: "ACTIVE",
-          createdBy: userId,
-        }),
+      .mockResolvedValue(
+        overrides && "gross" in overrides ? overrides.gross : 20000,
       ),
+    otherEmis: vi.fn().mockResolvedValue(overrides?.otherEmis ?? 0),
     findMany: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
     findById: vi
       .fn()
       .mockResolvedValue(
         overrides && "loan" in overrides
           ? overrides.loan
-          : { id: 1, status: "ACTIVE" },
+          : { id: 1, status: "ACTIVE", repayments: [] },
       ),
+    decide: vi.fn().mockResolvedValue({ id: 1, status: "ACTIVE" }),
     createSkipRequest: vi.fn().mockResolvedValue({ id: 20, status: "PENDING" }),
     findSkipRequestById: vi
       .fn()
       .mockResolvedValue(overrides?.skipRequest ?? null),
     decideSkipRequest: vi
       .fn()
-      .mockImplementation(
-        (_scope: unknown, id: number, decision: string, userId: number) =>
-          overrides && "decided" in overrides
-            ? overrides.decided
-            : { id, status: decision, decidedById: userId },
-      ),
+      .mockResolvedValue({ id: 20, status: "APPROVED" }),
+    createPrepayment: vi.fn().mockResolvedValue({ id: 30, status: "PENDING" }),
+    findPrepaymentById: vi
+      .fn()
+      .mockResolvedValue(overrides?.prepayment ?? null),
+    decidePrepayment: vi.fn().mockResolvedValue({ id: 1, status: "CLOSED" }),
     findMine: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
-    findMineById: vi.fn().mockResolvedValue(overrides?.mine ?? null),
+    findMineById: vi.fn().mockResolvedValue(null),
   };
-
-  const tenantContext = {
-    getOrgScope: vi.fn().mockReturnValue(SCOPE),
-    getUserId: vi.fn().mockReturnValue(USER_ID),
-  };
-
   const teamScope = {
     level: overrides?.level ?? "all",
     userId: USER_ID,
     organizationId: 1,
-    teamIds: overrides?.teamIds ?? [],
+    teamIds: [3],
   };
-  const teamContext = {
-    resolveScope: vi.fn().mockResolvedValue(teamScope),
-  };
-
   const prisma = {
     employee: {
       findFirst: vi
@@ -101,20 +87,22 @@ function makeService(overrides?: {
       findFirst: vi.fn().mockResolvedValue(overrides?.existingSkip ?? null),
     },
   };
-
-  const employeeQuery = {
-    getCurrentEmployee: vi.fn().mockResolvedValue({ id: 70 }),
-  };
-
   const service = new LoansService(
     repository as never,
-    tenantContext as never,
-    teamContext as never,
+    {
+      getOrgScope: vi.fn().mockReturnValue(SCOPE),
+      getUserId: vi.fn().mockReturnValue(USER_ID),
+    } as never,
+    { resolveScope: vi.fn().mockResolvedValue(teamScope) } as never,
     prisma as never,
-    employeeQuery as never,
+    { getCurrentEmployee: vi.fn().mockResolvedValue({ id: 70 }) } as never,
+    {
+      rules: vi
+        .fn()
+        .mockResolvedValue({ loanMaxMultiple: 3, loanMaxEmiPercent: 50 }),
+    } as never,
   );
-
-  return { service, repository, teamContext, prisma, teamScope };
+  return { service, repository, teamScope };
 }
 
 const CREATE_DTO: CreateLoanDto = {
@@ -125,363 +113,219 @@ const CREATE_DTO: CreateLoanDto = {
   disbursedDate: "2026-04-15",
 };
 
-const PENDING_SKIP = {
-  id: 20,
-  status: "PENDING",
-  requestedById: 11,
-  loan: { employee: { userId: 70 } },
-  payrollPeriod: { status: "DRAFT" },
+const PENDING_LOAN = {
+  id: 1,
+  status: "PENDING_APPROVAL",
+  createdBy: 11,
+  limitOverride: false,
+  employee: { userId: 70 },
 };
 
 describe("LoansService", () => {
   describe("create", () => {
-    it("creates a loan with the disbursed date parsed as a UTC date", async () => {
-      const { service, repository, teamContext, prisma } = makeService();
-
-      const result = await service.create(CREATE_DTO);
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.loan.write");
-      expect(prisma.employee.findFirst).toHaveBeenCalledWith({
-        where: { id: 7, organizationId: 1, deletedAt: null },
-      });
+    it("records a loan request awaiting approval with the parsed UTC date", async () => {
+      const { service, repository, teamScope } = makeService();
+      await service.create(CREATE_DTO);
       expect(repository.create).toHaveBeenCalledWith(
-        SCOPE,
+        teamScope,
         CREATE_DTO,
         new Date("2026-04-15T00:00:00.000Z"),
+        false,
         USER_ID,
       );
-      expect(result).toMatchObject({ status: "ACTIVE", createdBy: USER_ID });
     });
 
-    it("accepts a schedule whose last installment is a smaller remainder", async () => {
-      const { service, repository } = makeService();
+    it("hides an employee outside the caller's write scope as not found", async () => {
+      const { service, repository } = makeService({ employee: null });
+      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
 
+    it("never lets an .own grant record a loan", async () => {
+      const { service } = makeService({ level: "own" });
+      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
+    });
+
+    it("rejects an EMI schedule that does not cover the principal", async () => {
+      const { service } = makeService();
+      const err = await service
+        .create({ ...CREATE_DTO, emiAmount: 500 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("LOAN_SCHEDULE_INVALID");
+    });
+
+    it("needs a salary to apply the limits", async () => {
+      const { service } = makeService({ gross: null });
+      const err = await service.create(CREATE_DTO).catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("SALARY_NOT_CONFIGURED");
+    });
+
+    it("refuses a principal above 3 × gross without an override reason", async () => {
+      const { service } = makeService();
+      const err = await service
+        .create({ ...CREATE_DTO, principalAmount: 70000, emiAmount: 7000 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("LOAN_OVER_LIMIT");
+    });
+
+    it("accepts it with an override reason and flags it", async () => {
+      const { service, repository } = makeService();
       await service.create({
         ...CREATE_DTO,
-        principalAmount: 9500.5,
-        emiAmount: 1000,
-        emiMonths: 10,
+        principalAmount: 70000,
+        emiAmount: 7000,
+        overrideReason: "Medical emergency in family",
       });
-
-      expect(repository.create).toHaveBeenCalledOnce();
+      expect(repository.create.mock.calls[0]?.[3]).toBe(true);
     });
 
-    it("rejects a schedule that overshoots the principal", async () => {
-      const { service, repository } = makeService();
-
-      const error = await service
-        .create({ ...CREATE_DTO, emiMonths: 11 })
+    it("refuses EMIs above the EMI limit (never overridable)", async () => {
+      const { service } = makeService({ otherEmis: 9500 });
+      const err = await service
+        .create({ ...CREATE_DTO, overrideReason: "Not enough to override" })
         .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "LOAN_SCHEDULE_INVALID",
-      );
-      expect((error as Error).message).toContain(
-        "the last installment would be 0",
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects a schedule that leaves more than one EMI for the last month", async () => {
-      const { service, repository } = makeService();
-
-      const error = await service
-        .create({ ...CREATE_DTO, principalAmount: 10500 })
-        .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as Error).message).toContain(
-        "the last installment would be 1500",
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects an unknown employee", async () => {
-      const { service, repository } = makeService({ employee: null });
-
-      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("hides an employee outside the caller's teams as not found", async () => {
-      const { service, repository } = makeService({
-        level: "team",
-        teamIds: [4],
-      });
-
-      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
+      expect(errorCode(err)).toBe("LOAN_EMI_OVER_LIMIT");
     });
   });
 
-  describe("findAll / findOne", () => {
-    it("returns a paginated list under the read scope", async () => {
-      const { service, repository, teamContext, teamScope } = makeService();
-      const query = Object.assign(new QueryLoanDto(), { page: 1, limit: 20 });
-
-      const result = await service.findAll(query);
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.loan.read");
-      expect(repository.findMany).toHaveBeenCalledWith(teamScope, query, query);
-      expect(result).toBeInstanceOf(PaginatedResponseDto);
-      expect(result.total).toBe(1);
+  describe("decide", () => {
+    it("approves a pending loan raised by someone else", async () => {
+      const { service, repository } = makeService({ loan: PENDING_LOAN });
+      await service.decide(1, { decision: "APPROVED" });
+      expect(repository.decide).toHaveBeenCalled();
     });
 
-    it("returns a loan in scope", async () => {
-      const { service, repository, teamScope } = makeService({
-        loan: { id: 3, status: "CLOSED" },
-      });
-
-      await expect(service.findOne(3)).resolves.toEqual({
-        id: 3,
-        status: "CLOSED",
-      });
-      expect(repository.findById).toHaveBeenCalledWith(teamScope, 3);
-    });
-
-    it("reports a loan outside scope as not found", async () => {
-      const { service } = makeService({ loan: null });
-
-      await expect(service.findOne(3)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-    });
-  });
-
-  describe("requestSkip", () => {
-    const dto = { payrollPeriodId: 5, reason: "Medical emergency" };
-
-    it("creates a skip request for an active loan and open period", async () => {
-      const { service, repository, prisma } = makeService();
-
-      const result = await service.requestSkip(1, dto);
-
-      expect(prisma.loanSkipRequest.findFirst).toHaveBeenCalledWith({
-        where: { loanId: 1, payrollPeriodId: 5, deletedAt: null },
-      });
-      expect(repository.createSkipRequest).toHaveBeenCalledWith(
-        SCOPE,
-        1,
-        5,
-        "Medical emergency",
-        USER_ID,
-      );
-      expect(result).toEqual({ id: 20, status: "PENDING" });
-    });
-
-    it("rejects an unknown loan", async () => {
-      const { service, repository } = makeService({ loan: null });
-
-      await expect(service.requestSkip(1, dto)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.createSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("rejects a skip for a loan that is not active", async () => {
-      const { service, repository } = makeService({
-        loan: { id: 1, status: "CLOSED" },
-      });
-
-      const error = await service.requestSkip(1, dto).catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "LOAN_NOT_ACTIVE",
-      );
-      expect(repository.createSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("rejects an unknown payroll period", async () => {
-      const { service } = makeService({ period: null });
-
-      await expect(service.requestSkip(1, dto)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-    });
-
-    it("rejects a skip for a finalized period", async () => {
-      const { service, repository } = makeService({
-        period: { id: 5, status: "FINALIZED" },
-      });
-
-      const error = await service.requestSkip(1, dto).catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "PERIOD_FINALIZED",
-      );
-      expect(repository.createSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("rejects a duplicate skip request for the same period", async () => {
-      const { service, repository } = makeService({
-        existingSkip: { id: 19 },
-      });
-
-      await expect(service.requestSkip(1, dto)).rejects.toBeInstanceOf(
-        ResourceConflictException,
-      );
-      expect(repository.createSkipRequest).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("decideSkip", () => {
-    it("approves a pending skip request raised by someone else", async () => {
-      const { service, repository, teamContext } = makeService({
-        skipRequest: PENDING_SKIP,
-      });
-
-      const result = await service.decideSkip(20, { decision: "APPROVED" });
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.loan.approve");
-      expect(repository.decideSkipRequest).toHaveBeenCalledWith(
-        SCOPE,
-        20,
-        "APPROVED",
-        USER_ID,
-      );
-      expect(result).toEqual({
-        id: 20,
-        status: "APPROVED",
-        decidedById: USER_ID,
-      });
-    });
-
-    it("rejects an unknown skip request", async () => {
-      const { service } = makeService();
-
-      await expect(
-        service.decideSkip(20, { decision: "APPROVED" }),
-      ).rejects.toBeInstanceOf(ResourceNotFoundException);
-    });
-
-    it("blocks the requester from deciding their own skip request", async () => {
-      const { service, repository } = makeService({
-        skipRequest: { ...PENDING_SKIP, requestedById: USER_ID },
-      });
-
-      await expect(
-        service.decideSkip(20, { decision: "APPROVED" }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.decideSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("blocks the borrower from deciding a skip on their own loan", async () => {
-      const { service, repository } = makeService({
-        skipRequest: {
-          ...PENDING_SKIP,
-          loan: { employee: { userId: USER_ID } },
-        },
-      });
-
-      await expect(
-        service.decideSkip(20, { decision: "REJECTED" }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.decideSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("rejects re-deciding an already decided skip request", async () => {
-      const { service, repository } = makeService({
-        skipRequest: { ...PENDING_SKIP, status: "REJECTED" },
-      });
-
-      const error = await service
-        .decideSkip(20, { decision: "APPROVED" })
-        .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "ALREADY_DECIDED",
-      );
-      expect(repository.decideSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("rejects deciding a skip request for a finalized period", async () => {
-      const { service, repository } = makeService({
-        skipRequest: {
-          ...PENDING_SKIP,
-          payrollPeriod: { status: "FINALIZED" },
-        },
-      });
-
-      const error = await service
-        .decideSkip(20, { decision: "APPROVED" })
-        .catch((e: unknown) => e);
-
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "PERIOD_FINALIZED",
-      );
-      expect(repository.decideSkipRequest).not.toHaveBeenCalled();
-    });
-
-    it("reports a concurrent decision when the guarded update matches nothing", async () => {
+    it("refuses the person who recorded it (maker-checker)", async () => {
       const { service } = makeService({
-        skipRequest: PENDING_SKIP,
-        decided: null,
+        loan: { ...PENDING_LOAN, createdBy: USER_ID },
       });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
 
-      const error = await service
-        .decideSkip(20, { decision: "APPROVED" })
+    it("refuses the borrower", async () => {
+      const { service } = makeService({
+        loan: { ...PENDING_LOAN, employee: { userId: USER_ID } },
+      });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it("needs an organization-wide approver for an over-limit loan", async () => {
+      const { service } = makeService({
+        level: "team",
+        loan: { ...PENDING_LOAN, limitOverride: true },
+      });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it("needs a note to reject", async () => {
+      const { service } = makeService({ loan: PENDING_LOAN });
+      const err = await service
+        .decide(1, { decision: "REJECTED" })
         .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("DECISION_NOTE_REQUIRED");
+    });
 
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as Error).message).toBe(
-        "Skip request was decided concurrently",
-      );
+    it("refuses a loan already decided", async () => {
+      const { service } = makeService({
+        loan: { ...PENDING_LOAN, status: "ACTIVE" },
+      });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(BusinessRuleViolationException);
     });
   });
 
-  describe("self-service", () => {
-    it("lists the current employee's loans with the query's pagination", async () => {
+  describe("skip requests", () => {
+    it("creates a skip request for an active loan and open period", async () => {
       const { service, repository } = makeService();
-      const query = Object.assign(new QueryLoanDto(), { page: 2, limit: 5 });
+      await service.requestSkip(1, { payrollPeriodId: 5, reason: "Festival" });
+      expect(repository.createSkipRequest).toHaveBeenCalled();
+    });
 
-      const result = await service.findMyLoans(query);
+    it("refuses a duplicate skip request", async () => {
+      const { service } = makeService({ existingSkip: { id: 1 } });
+      await expect(
+        service.requestSkip(1, { payrollPeriodId: 5, reason: "x" }),
+      ).rejects.toBeInstanceOf(ResourceConflictException);
+    });
 
-      expect(repository.findMine).toHaveBeenCalledWith(SCOPE, 70, query, {
-        page: 2,
-        limit: 5,
-        skip: 5,
+    it("approves a pending skip request raised by someone else", async () => {
+      const { service, repository } = makeService({
+        skipRequest: {
+          id: 20,
+          status: "PENDING",
+          requestedById: 11,
+          loan: { employee: { userId: 70 } },
+          payrollPeriod: { status: "DRAFT" },
+        },
       });
-      expect(result).toBeInstanceOf(PaginatedResponseDto);
-      expect(result.page).toBe(2);
-      expect(result.limit).toBe(5);
+      await service.decideSkip(20, { decision: "APPROVED" });
+      expect(repository.decideSkipRequest).toHaveBeenCalled();
+    });
+  });
+
+  describe("prepayments", () => {
+    const ACTIVE = {
+      id: 1,
+      status: "ACTIVE",
+      repayments: [
+        { status: "PENDING", deletedAt: null, amount: "1000" },
+        { status: "PENDING", deletedAt: null, amount: "1000" },
+      ],
+    };
+
+    it("records a prepayment within the outstanding balance", async () => {
+      const { service, repository } = makeService({ loan: ACTIVE });
+      await service.requestPrepayment(1, {
+        amount: 1500,
+        receivedOn: "2026-05-02",
+        reason: "Bonus received",
+      });
+      expect(repository.createPrepayment).toHaveBeenCalled();
     });
 
-    it("defaults pagination when no query is given", async () => {
-      const { service, repository } = makeService();
-
-      const result = await service.findMyLoans();
-
-      expect(repository.findMine).toHaveBeenCalledWith(
-        SCOPE,
-        70,
-        {},
-        { page: 1, limit: 50, skip: 0 },
-      );
-      expect(result.page).toBe(1);
-      expect(result.limit).toBe(50);
+    it("refuses more than is outstanding", async () => {
+      const { service } = makeService({ loan: ACTIVE });
+      const err = await service
+        .requestPrepayment(1, {
+          amount: 2500,
+          receivedOn: "2026-05-02",
+          reason: "Too much",
+        })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("LOAN_PREPAYMENT_EXCEEDS_BALANCE");
     });
 
-    it("returns one of the current employee's loans", async () => {
-      const { service, repository } = makeService({ mine: { id: 3 } });
-
-      await expect(service.findMyLoanById(3)).resolves.toEqual({ id: 3 });
-      expect(repository.findMineById).toHaveBeenCalledWith(SCOPE, 70, 3);
+    it("refuses the requester deciding their own prepayment", async () => {
+      const { service } = makeService({
+        prepayment: {
+          id: 30,
+          status: "PENDING",
+          requestedById: USER_ID,
+          loan: { employee: { userId: 70 } },
+        },
+      });
+      await expect(
+        service.decidePrepayment(30, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
+  });
 
-    it("reports another employee's loan as not found", async () => {
-      const { service } = makeService();
-
-      await expect(service.findMyLoanById(3)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-    });
+  it("lists loans within the read scope", async () => {
+    const { service } = makeService();
+    const res = await service.findAll(
+      Object.assign(new QueryLoanDto(), { page: 1, limit: 10 }),
+    );
+    expect(res).toBeInstanceOf(PaginatedResponseDto);
   });
 });

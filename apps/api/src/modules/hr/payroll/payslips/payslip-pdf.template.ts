@@ -11,6 +11,14 @@ export interface PayslipPdfView {
   payslipNumber: string;
   netPayable: Amount;
   generatedAt: Date | string;
+  /** 1 for the original; higher after a regeneration. */
+  version?: number;
+  /** Employer details from payroll settings (frozen in the snapshot). */
+  company?: {
+    name: string | null;
+    address: string | null;
+    gstin: string | null;
+  } | null;
   employee: {
     employeeCode: string;
     fullName: string;
@@ -106,10 +114,20 @@ export function renderPayslipHtml(p: PayslipPdfView): string {
   .lines thead th { background: #f5f5f5; }
   .num { text-align: right; }
   .net { margin-top: 16px; font-size: 14px; font-weight: 700; }
+  .company { margin-bottom: 10px; font-size: 12px; }
 </style></head>
 <body>
+  ${
+    p.company?.name
+      ? `<div class="company"><strong>${esc(p.company.name)}</strong>${
+          p.company.address ? `<br />${esc(p.company.address)}` : ""
+        }${p.company.gstin ? `<br />GSTIN ${esc(p.company.gstin)}` : ""}</div>`
+      : ""
+  }
   <h1>Payslip — ${esc(periodLabel(p.payrollPeriod))}</h1>
-  <div class="muted">Payslip no. ${esc(p.payslipNumber)}</div>
+  <div class="muted">Payslip no. ${esc(p.payslipNumber)}${
+    p.version && p.version > 1 ? ` · version ${esc(p.version)}` : ""
+  }</div>
   <table class="info">
     ${row("Employee", `${e.fullName} (${e.employeeCode})`)}
     ${row("Designation", e.designation?.name)}

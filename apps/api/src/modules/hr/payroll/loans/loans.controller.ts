@@ -16,7 +16,10 @@ import {
 } from "../../../../common/decorators/require-permission.decorator.js";
 import {
   CreateLoanDto,
+  CreateLoanPrepaymentDto,
   CreateLoanSkipRequestDto,
+  DecideLoanDto,
+  DecideLoanPrepaymentDto,
   DecideLoanSkipRequestDto,
   QueryLoanDto,
 } from "./dto/loan.dto.js";
@@ -29,7 +32,10 @@ export class LoansController {
 
   @Post()
   @RequireScopedPermission("hr.loan.write")
-  @ApiOperation({ summary: "Disburse / record a new employee loan" })
+  @ApiOperation({
+    summary:
+      "Request a loan (PENDING_APPROVAL); limits apply, above the principal limit only with an override reason",
+  })
   create(@Body() dto: CreateLoanDto) {
     return this.service.create(dto);
   }
@@ -48,6 +54,43 @@ export class LoansController {
   })
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.service.findOne(id);
+  }
+
+  @Post(":id/decide")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.loan.approve")
+  @ApiOperation({
+    summary:
+      "Approve (builds the EMI schedule) or reject a loan — not by its requester or borrower",
+  })
+  decide(@Param("id", ParseIntPipe) id: number, @Body() dto: DecideLoanDto) {
+    return this.service.decide(id, dto);
+  }
+
+  @Post(":id/prepayments")
+  @RequireScopedPermission("hr.loan.write")
+  @ApiOperation({
+    summary: "Record money repaid outside payroll (settles on approval)",
+  })
+  requestPrepayment(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: CreateLoanPrepaymentDto,
+  ) {
+    return this.service.requestPrepayment(id, dto);
+  }
+
+  @Post("prepayments/:id/decide")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.loan.approve")
+  @ApiOperation({
+    summary:
+      "Approve (settles the last installments first) or reject a prepayment",
+  })
+  decidePrepayment(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: DecideLoanPrepaymentDto,
+  ) {
+    return this.service.decidePrepayment(id, dto);
   }
 
   @Post(":id/skip-request")

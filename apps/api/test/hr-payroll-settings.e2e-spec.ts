@@ -299,9 +299,11 @@ describe("HR payroll settings (e2e)", () => {
           action: "create",
         },
       });
-      expect(audit.after).toMatchObject({
-        basic: "20000",
-        grossMonthly: "52000",
+      // The audit keeps the structure as component lines.
+      expect(audit.after).toMatchObject({ grossMonthly: "52000" });
+      expect((audit.after as { lines: unknown[] }).lines).toContainEqual({
+        code: "BASIC",
+        monthlyAmount: "20000",
       });
     });
 
@@ -327,8 +329,14 @@ describe("HR payroll settings (e2e)", () => {
         },
         orderBy: { id: "desc" },
       });
-      expect(audit.before).toMatchObject({ hra: "10000" });
-      expect(audit.after).toMatchObject({ hra: "11000" });
+      expect((audit.before as { lines: unknown[] }).lines).toContainEqual({
+        code: "HRA",
+        monthlyAmount: "10000",
+      });
+      expect((audit.after as { lines: unknown[] }).lines).toContainEqual({
+        code: "HRA",
+        monthlyAmount: "11000",
+      });
     });
 
     it("once a covered period is finalized, amounts are locked; arrears and a later end date are not", async () => {

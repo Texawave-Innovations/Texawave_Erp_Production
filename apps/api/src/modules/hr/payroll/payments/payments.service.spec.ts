@@ -350,7 +350,7 @@ describe("PaymentsService", () => {
 
       expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.payment.write");
       expect(repository.updatePayment).toHaveBeenCalledWith(
-        SCOPE,
+        expect.objectContaining({ level: "all", organizationId: 1 }),
         100,
         "PENDING",
         dto,
@@ -403,7 +403,7 @@ describe("PaymentsService", () => {
       await service.updatePayment(100, { status: "PENDING" });
 
       expect(repository.updatePayment).toHaveBeenCalledWith(
-        SCOPE,
+        expect.objectContaining({ level: "all", organizationId: 1 }),
         100,
         "FAILED",
         { status: "PENDING" },

@@ -6,7 +6,10 @@ import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
+import { ResourceNotFoundException } from "../../../../common/exceptions/business.exception.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
+import { findEmployeeInWriteScope } from "../shared/payroll-scope.js";
 import type { CreateBonusDto, QueryBonusDto } from "./dto/bonus.dto.js";
 
 const VIA_EMPLOYEE = {
@@ -38,7 +41,10 @@ export type BonusRow = Prisma.EmployeeBonusGetPayload<{
 
 @Injectable()
 export class BonusesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @TeamScoped()
   async findMany(
@@ -89,55 +95,214 @@ export class BonusesRepository {
     });
   }
 
-  @OrgScoped()
+  /** Within the caller's write scope (`.team`: own teams; `.own`: never). */
+  @TeamScoped()
   async create(
-    scope: OrgScope,
+    scope: TeamScope,
     dto: CreateBonusDto,
     createdById: number,
   ): Promise<BonusRow> {
-    return this.prisma.employeeBonus.create({
-      data: {
-        organizationId: scope.organizationId,
-        employeeId: dto.employeeId,
-        payrollPeriodId: dto.payrollPeriodId ?? null,
-        bonusType: dto.bonusType,
-        calculationBase: dto.calculationBase ?? null,
-        tenureMonths: dto.tenureMonths ?? null,
-        attendanceDays: dto.attendanceDays ?? null,
-        amount: dto.amount,
-        status: "PENDING",
-        reason: dto.reason ?? null,
-        createdBy: createdById,
-        updatedBy: createdById,
-      },
-      include: INCLUDE_DETAILS,
+    return this.prisma.$transaction(async (tx) => {
+      await findEmployeeInWriteScope(tx, scope, dto.employeeId);
+      const created = await tx.employeeBonus.create({
+        data: {
+          organizationId: scope.organizationId,
+          employeeId: dto.employeeId,
+          payrollPeriodId: dto.payrollPeriodId ?? null,
+          bonusType: dto.bonusType,
+          calculationBase: dto.calculationBase ?? null,
+          tenureMonths: dto.tenureMonths ?? null,
+          attendanceDays: dto.attendanceDays ?? null,
+          amount: dto.amount,
+          status: "PENDING",
+          reason: dto.reason ?? null,
+          createdBy: createdById,
+          updatedBy: createdById,
+        },
+        include: INCLUDE_DETAILS,
+      });
+      await this.audit.write(tx, {
+        entityType: "employee_bonus",
+        entityId: created.id,
+        action: "create",
+        after: {
+          employeeId: created.employeeId,
+          bonusType: created.bonusType,
+          amount: created.amount.toString(),
+          payrollPeriodId: created.payrollPeriodId,
+        },
+        reason: dto.reason,
+      });
+      return created;
     });
   }
 
-  @OrgScoped()
+  @TeamScoped()
   async decide(
-    scope: OrgScope,
+    scope: TeamScope,
     id: number,
     status: "APPROVED" | "REJECTED",
     approvedById: number,
+    note?: string,
   ): Promise<BonusRow | null> {
-    // Conditional on PENDING so two approvers racing on the same bonus can't
-    // both win — the loser's update matches 0 rows and gets null back
-    // (same pattern as LoansRepository.decideSkipRequest).
-    const { count } = await this.prisma.employeeBonus.updateMany({
-      where: { id, organizationId: scope.organizationId, status: "PENDING" },
-      data: {
-        status,
-        approvedById,
-        approvedAt: new Date(),
-        updatedBy: approvedById,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const bonus = await tx.employeeBonus.findFirst({
+        where: teamWhere(
+          scope,
+          { id, deletedAt: null },
+          VIA_EMPLOYEE,
+        ) as Prisma.EmployeeBonusWhereInput,
+        select: { employeeId: true },
+      });
+      if (!bonus) throw new ResourceNotFoundException("Employee bonus", id);
+      await findEmployeeInWriteScope(tx, scope, bonus.employeeId);
+      // Conditional on PENDING so two approvers racing on the same bonus
+      // can't both win — the loser's update matches 0 rows and gets null.
+      const { count } = await tx.employeeBonus.updateMany({
+        where: { id, organizationId: scope.organizationId, status: "PENDING" },
+        data: {
+          status,
+          approvedById,
+          approvedAt: new Date(),
+          updatedBy: approvedById,
+        },
+      });
+      if (count === 0) return null;
+      await this.audit.write(tx, {
+        entityType: "employee_bonus",
+        entityId: id,
+        action: status === "APPROVED" ? "approve" : "reject",
+        before: { status: "PENDING" },
+        after: { status },
+        reason: note,
+      });
+      return tx.employeeBonus.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE_DETAILS,
+      });
     });
-    if (count === 0) return null;
+  }
 
-    return this.prisma.employeeBonus.findUniqueOrThrow({
-      where: { id },
-      include: INCLUDE_DETAILS,
+  /**
+   * Per employee, the finalized months of a financial year: Basic + DA
+   * earned and payable days, from the approved run of every FINALIZED
+   * period in [fyStart, fyEnd]. For the statutory bonus.
+   */
+  @OrgScoped()
+  async finalizedYearEntries(scope: OrgScope, fyStart: Date, fyEnd: Date) {
+    return this.prisma.payrollEntry.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        deletedAt: null,
+        status: { not: "CANCELLED" },
+        payrollRun: {
+          status: "APPROVED",
+          payrollPeriod: {
+            status: "FINALIZED",
+            periodStart: { gte: fyStart, lte: fyEnd },
+          },
+        },
+      },
+      select: {
+        employeeId: true,
+        payableDays: true,
+        employee: {
+          select: { id: true, employeeCode: true, fullName: true },
+        },
+        earnings: {
+          where: { code: { in: ["BASIC", "DA"] }, deletedAt: null },
+          select: { code: true, baseAmount: true, calculatedAmount: true },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+  }
+
+  /** Employees who already have a live statutory bonus for this year. */
+  @OrgScoped()
+  async statutoryBonusAlreadyRaised(scope: OrgScope, financialYear: string) {
+    const rows = await this.prisma.employeeBonus.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        bonusType: "STATUTORY",
+        calculationBase: `FY ${financialYear}`,
+        status: { not: "REJECTED" },
+        deletedAt: null,
+      },
+      select: { employeeId: true },
+    });
+    return new Set(rows.map((r) => r.employeeId));
+  }
+
+  /** Raises the year's statutory bonuses (PENDING approval) in one go. */
+  @OrgScoped()
+  async createStatutoryBonuses(
+    scope: OrgScope,
+    financialYear: string,
+    rows: Array<{ employeeId: number; amount: number; workedDays: number }>,
+    userId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const ids: number[] = [];
+      for (const r of rows) {
+        const created = await tx.employeeBonus.create({
+          data: {
+            organizationId: scope.organizationId,
+            employeeId: r.employeeId,
+            bonusType: "STATUTORY",
+            calculationBase: `FY ${financialYear}`,
+            attendanceDays: r.workedDays,
+            amount: r.amount,
+            status: "PENDING",
+            reason: `Statutory bonus for FY ${financialYear}`,
+            createdBy: userId,
+            updatedBy: userId,
+          },
+          select: { id: true },
+        });
+        ids.push(created.id);
+      }
+      await this.audit.write(tx, {
+        entityType: "employee_bonus",
+        entityId: ids[0] ?? 0,
+        action: "statutory_calculate",
+        after: { financialYear, bonusIds: ids },
+      });
+      return ids;
+    });
+  }
+
+  /** The employee (in read scope) with Basic + DA in force on `asOf`. */
+  @TeamScoped()
+  async gratuityInputs(scope: TeamScope, employeeId: number, asOf: Date) {
+    return this.prisma.employee.findFirst({
+      where: teamWhere(scope, {
+        id: employeeId,
+        deletedAt: null,
+      }) as Prisma.EmployeeWhereInput,
+      select: {
+        id: true,
+        employeeCode: true,
+        fullName: true,
+        dateOfJoining: true,
+        dateOfExit: true,
+        salaries: {
+          where: {
+            deletedAt: null,
+            effectiveFrom: { lte: asOf },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: asOf } }],
+          },
+          orderBy: { effectiveFrom: "desc" },
+          take: 1,
+          select: {
+            basic: true,
+            components: {
+              where: { component: { code: { in: ["BASIC", "DA"] } } },
+              select: { monthlyAmount: true },
+            },
+          },
+        },
+      },
     });
   }
 }
