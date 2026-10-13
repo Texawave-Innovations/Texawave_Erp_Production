@@ -16,8 +16,14 @@ import { usePeriods, useRuns } from "../hooks";
 import {
   PAYROLL_APPROVE,
   PAYROLL_FINALIZE,
+  PAYROLL_REOPEN,
   PAYROLL_WRITE,
 } from "../permissions";
+import {
+  PeriodReportsSection,
+  ReopenedNotice,
+  ReopenPeriodDialog,
+} from "./PeriodExtras";
 import {
   PERIOD_STATUSES,
   type PayrollPeriod,
@@ -51,6 +57,8 @@ function PeriodDetail({
   const canWrite = usePermission(PAYROLL_WRITE);
   const canApprove = usePermission(PAYROLL_APPROVE);
   const canFinalize = usePermission(PAYROLL_FINALIZE);
+  const canReopen = usePermission(PAYROLL_REOPEN);
+  const [reopening, setReopening] = useState(false);
   const userId = useAuthStore((s) => s.user?.userId ?? null);
   const runs = useRuns({ page: 1, limit: 50, payrollPeriodId: period.id });
   const [runOpen, setRunOpen] = useState(false);
@@ -102,15 +110,24 @@ function PeriodDetail({
                 Cancel period
               </Button>
             ) : null}
+            {canReopen && period.status === "FINALIZED" ? (
+              <Button variant="secondary" onClick={() => setReopening(true)}>
+                Reopen
+              </Button>
+            ) : null}
             <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
           </div>
         </div>
 
+        <ReopenedNotice period={period} />
+
         {runs.isSuccess ? (
           <PayrollLifecycle period={period} runs={rows} />
         ) : null}
+
+        <PeriodReportsSection period={period} hasApprovedRun={hasApprovedRun} />
 
         <QueryState query={runs} area="payroll runs" />
         {runs.isSuccess && rows.length === 0 ? (
@@ -232,6 +249,12 @@ function PeriodDetail({
       ) : null}
       {viewing ? (
         <EntriesDialog run={viewing} onClose={() => setViewing(null)} />
+      ) : null}
+      {reopening ? (
+        <ReopenPeriodDialog
+          period={period}
+          onClose={() => setReopening(false)}
+        />
       ) : null}
     </Card>
   );

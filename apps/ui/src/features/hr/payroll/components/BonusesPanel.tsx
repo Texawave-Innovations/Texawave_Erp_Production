@@ -22,7 +22,13 @@ import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, isoDate, money, periodLabel } from "../format";
 import { useBonuses, useCreateBonus, useDecideBonus } from "../hooks";
-import { BONUS_APPROVE, BONUS_WRITE } from "../permissions";
+import {
+  BONUS_APPROVE,
+  BONUS_READ,
+  BONUS_WRITE,
+  BONUS_WRITE_ALL,
+} from "../permissions";
+import { GratuityDialog, StatutoryBonusDialog } from "./BonusToolsDialogs";
 import { createBonusSchema, fieldErrors } from "../schema";
 import {
   BONUS_FILTER_STATUSES,
@@ -44,7 +50,11 @@ const TYPE_LABEL: Record<BonusType, string> = {
   STATUTORY: "Statutory",
   ANNUAL: "Annual",
   SPOT: "Spot",
+  GRATUITY: "Gratuity",
 };
+
+/** Raised by hand; gratuity comes from its own calculation (Gratuity). */
+const MANUAL_TYPES = BONUS_TYPES.filter((t) => t !== "GRATUITY");
 
 function NewBonusDialog({ onClose }: { onClose: () => void }) {
   const create = useCreateBonus();
@@ -101,7 +111,7 @@ function NewBonusDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setBonusType(e.target.value as BonusType)}
               >
                 <option value="">Choose a type</option>
-                {BONUS_TYPES.map((t) => (
+                {MANUAL_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {TYPE_LABEL[t]}
                   </option>
@@ -233,6 +243,9 @@ function DecideBonusDialog({
 export function BonusesPanel() {
   const canWrite = usePermission(BONUS_WRITE);
   const canApprove = usePermission(BONUS_APPROVE);
+  const canRead = usePermission(BONUS_READ);
+  const canWriteAll = usePermission(BONUS_WRITE_ALL);
+  const [tool, setTool] = useState<"statutory" | "gratuity" | null>(null);
   const userId = useAuthStore((s) => s.user?.userId ?? null);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<
@@ -292,9 +305,21 @@ export function BonusesPanel() {
               }}
             />
           </div>
-          {canWrite ? (
-            <Button onClick={() => setCreating(true)}>New bonus</Button>
-          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {canWriteAll ? (
+              <Button variant="secondary" onClick={() => setTool("statutory")}>
+                Statutory bonus
+              </Button>
+            ) : null}
+            {canRead ? (
+              <Button variant="secondary" onClick={() => setTool("gratuity")}>
+                Gratuity
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button onClick={() => setCreating(true)}>New bonus</Button>
+            ) : null}
+          </div>
         </div>
       </Card>
 
@@ -397,6 +422,12 @@ export function BonusesPanel() {
       ) : null}
 
       {creating ? <NewBonusDialog onClose={() => setCreating(false)} /> : null}
+      {tool === "statutory" ? (
+        <StatutoryBonusDialog onClose={() => setTool(null)} />
+      ) : null}
+      {tool === "gratuity" ? (
+        <GratuityDialog onClose={() => setTool(null)} />
+      ) : null}
       {deciding ? (
         <DecideBonusDialog
           bonus={deciding.bonus}

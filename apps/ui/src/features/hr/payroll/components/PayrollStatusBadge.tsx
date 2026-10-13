@@ -35,8 +35,13 @@ export function periodStatusLabel(status: PeriodStatus): string {
 
 /** Loan, repayment, skip-request, bonus and contribution statuses. */
 const OTHER: Record<string, { label: string; color: StatusColorToken }> = {
-  PENDING_APPROVAL: { label: "Awaiting approval", color: "warning" },
+  PENDING_HR: { label: "Awaiting HR review", color: "warning" },
+  PENDING_ADMIN: { label: "Awaiting final approval", color: "warning" },
   ACTIVE: { label: "Active", color: "brand" },
+  INACTIVE: { label: "Inactive", color: "gray" },
+  DRAFT: { label: "Draft", color: "gray" },
+  SUBMITTED: { label: "Submitted", color: "warning" },
+  VERIFIED: { label: "Verified", color: "success" },
   PREPAID: { label: "Prepaid", color: "success" },
   CLOSED: { label: "Closed", color: "success" },
   DEFAULTED: { label: "Defaulted", color: "error" },

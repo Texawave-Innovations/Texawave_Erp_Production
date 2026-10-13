@@ -10,6 +10,7 @@ import {
   FormField,
   Pagination,
   Select,
+  Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
@@ -30,6 +31,7 @@ import {
 import { MY_PAYSLIP_READ, PAYROLL_WRITE, PAYSLIP_READ } from "../permissions";
 import type { Payslip } from "../types";
 import { DialogActions, ServerError } from "./DialogParts";
+import { RegeneratePayslipDialog } from "./RegeneratePayslipDialog";
 import { PeriodFilterSelect } from "./PeriodFilterSelect";
 import { QueryState } from "./QueryState";
 
@@ -124,7 +126,13 @@ function PayslipDetailDialog({
         <p className="text-theme-sm text-gray-700 dark:text-gray-300">
           {p.employee.fullName} ({p.employee.employeeCode}) ·{" "}
           {periodLabel(p.payrollPeriod)} · issued {isoDate(p.generatedAt)}
+          {p.version && p.version > 1 ? ` · version ${p.version}` : ""}
         </p>
+        {p.regenerationReason ? (
+          <p className="rounded-lg bg-gray-50 p-3 text-theme-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            Regenerated {isoDate(p.regeneratedAt)}: {p.regenerationReason}
+          </p>
+        ) : null}
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Fact
             label="Designation"
@@ -221,11 +229,14 @@ function PayslipsTable({
   rows,
   selfService,
   onOpen,
+  onRegenerate,
 }: {
   caption: string;
   rows: Payslip[];
   selfService: boolean;
   onOpen: (p: Payslip) => void;
+  /** HR with an org-wide payroll write grant only. */
+  onRegenerate?: ((p: Payslip) => void) | undefined;
 }) {
   return (
     <DataTable<Payslip>
@@ -256,7 +267,13 @@ function PayslipsTable({
           className: "text-right whitespace-nowrap",
           headerClassName: "text-right",
         },
-        { header: "Issued", cell: (r) => isoDate(r.generatedAt) },
+        {
+          header: "Issued",
+          cell: (r) =>
+            r.version && r.version > 1
+              ? `${isoDate(r.generatedAt)} · v${r.version}`
+              : isoDate(r.generatedAt),
+        },
         {
           header: "Actions",
           cell: (r) => (
@@ -270,6 +287,16 @@ function PayslipsTable({
                 View
               </Button>
               <DownloadPdfButton payslip={r} selfService={selfService} />
+              {onRegenerate ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Regenerate payslip ${r.payslipNumber}`}
+                  onClick={() => onRegenerate(r)}
+                >
+                  Regenerate
+                </Button>
+              ) : null}
             </div>
           ),
         },
@@ -287,6 +314,7 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
   const periods = usePeriods({ page: 1, limit: 100 });
   const { toast } = useToast();
   const [periodId, setPeriodId] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [serverError, setServerError] = useState<string | null>(null);
   const ready = (periods.data?.data ?? []).filter(
@@ -302,7 +330,10 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
     setError(undefined);
     setServerError(null);
     try {
-      const rows = await generate.mutateAsync(periodId);
+      const rows = await generate.mutateAsync({
+        payrollPeriodId: periodId,
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
+      });
       toast({
         title: `${rows.length} payslip${rows.length === 1 ? "" : "s"} generated`,
         variant: "success",
@@ -346,6 +377,19 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
                 </option>
               ))}
             </Select>
+          )}
+        </FormField>
+        <FormField
+          label="Reason"
+          hint="Needed only when an issued payslip would change (at least 10 characters); it becomes a new version."
+        >
+          {(f) => (
+            <Textarea
+              {...f}
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
           )}
         </FormField>
         <ServerError message={serverError} />
@@ -431,6 +475,7 @@ function HrPayslipsSection() {
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [open, setOpen] = useState<Payslip | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [regenerating, setRegenerating] = useState<Payslip | null>(null);
   const query = usePayslips(
     {
       page,
@@ -508,6 +553,7 @@ function HrPayslipsSection() {
             rows={rows}
             selfService={false}
             onOpen={setOpen}
+            onRegenerate={canGenerate ? setRegenerating : undefined}
           />
           <Pagination
             page={page}
@@ -525,6 +571,12 @@ function HrPayslipsSection() {
       ) : null}
       {generating ? (
         <GeneratePayslipsDialog onClose={() => setGenerating(false)} />
+      ) : null}
+      {regenerating ? (
+        <RegeneratePayslipDialog
+          payslip={regenerating}
+          onClose={() => setRegenerating(null)}
+        />
       ) : null}
     </section>
   );
