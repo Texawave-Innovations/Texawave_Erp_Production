@@ -15,6 +15,14 @@
 //  - HR Manager submits a month of attendance (`hr.attendance_lock.finalize`)
 //    but does not approve it: approval is Super Admin's, the legacy "HR sends,
 //    Admin accepts" split. The service also refuses approval by the submitter.
+//  - Payroll follows the same split (Docs/PAYROLL_AND_COMPLIANCE.md "Default
+//    roles"): HR Manager prepares — salaries, runs, loans, bonuses, payments,
+//    statutory files, tax-declaration checks — and finalizes once approved,
+//    but approving a run, a loan, a skip/prepayment or a bonus, reopening a
+//    finalized month and changing payroll settings stay with Super Admin.
+//    Team Lead sees no pay data (salary is confidential, even within a team).
+//    Employee reads only their own payslips, loans and Form 16 and fills in
+//    their own tax declaration.
 //
 // Seeding is ADDITIVE: it grants what is listed here and never removes a
 // grant an administrator added (see seed.ts).
@@ -95,6 +103,27 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.offer_letter.read",
       "hr.offer_letter.write",
       "audit.log.read",
+      "hr.payroll.read.all",
+      "hr.payroll.write.all",
+      "hr.payroll.finalize.all",
+      "hr.payroll.export.all",
+      "hr.payroll_settings.read",
+      "hr.salary.read.all",
+      "hr.salary.write.all",
+      "hr.pf.read.all",
+      "hr.pf.write.all",
+      "hr.esi.read.all",
+      "hr.esi.write.all",
+      "hr.loan.read.all",
+      "hr.loan.write.all",
+      "hr.bonus.read.all",
+      "hr.bonus.write.all",
+      "hr.payslip.read.all",
+      "hr.payment.read.all",
+      "hr.payment.write.all",
+      "hr.tax_declaration.read.all",
+      "hr.tax_declaration.write.all",
+      "hr.tax_declaration.approve.all",
     ],
   },
   {
@@ -138,6 +167,11 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "employee_self_service.attendance.punch",
       "employee_self_service.attendance.read",
       "employee_self_service.attendance_correction.create",
+      "employee_self_service.payslip.read",
+      "employee_self_service.loan.read",
+      "employee_self_service.tax_declaration.read",
+      "employee_self_service.tax_declaration.write",
+      "employee_self_service.form16.read",
       "hr.attendance_correction.read.own",
       "hr.shift_assignment.read.own",
       "hr.holiday.read",

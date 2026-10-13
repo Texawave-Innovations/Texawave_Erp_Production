@@ -117,6 +117,14 @@ model Organization {
   payslips              Payslip[]
   paymentBatches        PaymentBatch[]
   payrollPayments       PayrollPayment[]
+  salaryComponents          SalaryComponent[]
+  salaryTemplates           SalaryTemplate[]
+  employeeSalaryComponents  EmployeeSalaryComponent[]
+  professionalTaxSlabs      ProfessionalTaxSlab[]
+  ptLocationStates          PtLocationState[]
+  incomeTaxRegimes          IncomeTaxRegime[]
+  employeeTaxDeclarations   EmployeeTaxDeclaration[]
+  loanPrepayments           LoanPrepayment[]
 
   @@map("organizations")
   @@schema("platform")
@@ -174,6 +182,11 @@ model User {
   loanSkipRequestsApproved  LoanSkipRequest[]       @relation("LoanSkipApprover")
   bonusesApproved           EmployeeBonus[]         @relation("BonusApprover")
   paymentBatchesGenerated   PaymentBatch[]          @relation("PaymentBatchGenerator")
+  payrollPeriodsReopened    PayrollPeriod[]         @relation("PayrollPeriodReopener")
+  loansApproved             EmployeeLoan[]          @relation("LoanApprover")
+  loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
+  loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
+  taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -565,6 +578,7 @@ model WorkLocation {
   employees      Employee[]
   holidays       Holiday[]
   weeklyOffRules WeeklyOffRule[]
+  ptLocationState PtLocationState?
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -700,6 +714,7 @@ model Employee {
   payrollPayments  PayrollPayment[]
   pfContributions  PfContribution[]
   esiContributions EsiContribution[]
+  taxDeclarations  EmployeeTaxDeclaration[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -1426,6 +1441,7 @@ model RevisionLetter {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
+  salaries     EmployeeSalary[]
 
   @@unique([organizationId, documentNo])
   @@index([organizationId, employeeId])
@@ -1961,6 +1977,48 @@ model PayrollSetting {
   esiWageThreshold  Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
   esiEmployeeRate   Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
   esiEmployerRate   Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
+  /// Pay-days policy (Docs/PAYROLL_AND_COMPLIANCE.md §3.1): the per-day
+  /// divisor. CALENDAR | FIXED_30 | FIXED_26 | WORKING_DAYS (CHECK).
+  payDaysMode       String   @default("CALENDAR") @map("pay_days_mode")
+  /// Read the employee's APPROVED attendance month lock (absences, half days,
+  /// overtime); a run refuses employees whose month is not approved.
+  useAttendance     Boolean  @default(true) @map("use_attendance")
+  /// A working day with no attendance at all counts as an absence (LOP).
+  unmarkedDaysAsAbsent Boolean @default(true) @map("unmarked_days_as_absent")
+  overtimeEnabled   Boolean  @default(false) @map("overtime_enabled")
+  /// Fixed rupees per overtime hour; when null the rate is the hourly wage
+  /// (gross ÷ divisor ÷ standard hours) × `overtime_multiplier`.
+  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(10, 2)
+  overtimeMultiplier Decimal @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
+  standardHoursPerDay Decimal @default(8) @map("standard_hours_per_day") @db.Decimal(4, 2)
+  /// PF: when false, PF is on the full PF wage (voluntary higher wage).
+  pfCapAtCeiling    Boolean  @default(true) @map("pf_cap_at_ceiling")
+  epsRate           Decimal  @default(8.33) @map("eps_rate") @db.Decimal(5, 2)
+  epsWageCeiling    Decimal  @default(15000) @map("eps_wage_ceiling") @db.Decimal(12, 2)
+  epsAgeLimit       Int      @default(58) @map("eps_age_limit")
+  edliRate          Decimal  @default(0.5) @map("edli_rate") @db.Decimal(5, 2)
+  edliWageCeiling   Decimal  @default(15000) @map("edli_wage_ceiling") @db.Decimal(12, 2)
+  pfAdminRate       Decimal  @default(0.5) @map("pf_admin_rate") @db.Decimal(5, 2)
+  ptEnabled         Boolean  @default(false) @map("pt_enabled")
+  ptDefaultStateCode String? @map("pt_default_state_code")
+  tdsEnabled        Boolean  @default(false) @map("tds_enabled")
+  /// OLD | NEW (CHECK): the regime of an employee with no declaration.
+  defaultTaxRegime  String   @default("NEW") @map("default_tax_regime")
+  bonusEligibilityLimit Decimal @default(21000) @map("bonus_eligibility_limit") @db.Decimal(12, 2)
+  bonusCalculationCeiling Decimal @default(7000) @map("bonus_calculation_ceiling") @db.Decimal(12, 2)
+  bonusPercent      Decimal  @default(8.33) @map("bonus_percent") @db.Decimal(5, 2)
+  gratuityCap       Decimal  @default(2000000) @map("gratuity_cap") @db.Decimal(12, 2)
+  gratuityMinYears  Int      @default(5) @map("gratuity_min_years")
+  loanMaxMultiple   Decimal  @default(3) @map("loan_max_multiple") @db.Decimal(5, 2)
+  loanMaxEmiPercent Decimal  @default(100) @map("loan_max_emi_percent") @db.Decimal(5, 2)
+  /// Employer details printed on payslips, Form 16 and statutory files.
+  companyName       String?  @map("company_name")
+  companyAddress    String?  @map("company_address")
+  companyGstin      String?  @map("company_gstin")
+  companyPan        String?  @map("company_pan")
+  companyTan        String?  @map("company_tan")
+  pfEstablishmentCode String? @map("pf_establishment_code")
+  esiEmployerCode   String?  @map("esi_employer_code")
   version           Int      @default(1)
   createdBy         Int?     @map("created_by")
   updatedBy         Int?     @map("updated_by")
@@ -1983,6 +2041,11 @@ model PayrollPeriod {
   status         String    @default("DRAFT")
   finalizedAt    DateTime? @map("finalized_at") @db.Timestamptz(6)
   finalizedById  Int?      @map("finalized_by_id")
+  /// Last reopen of a FINALIZED period (reason mandatory; audit-logged).
+  reopenedAt     DateTime? @map("reopened_at") @db.Timestamptz(6)
+  reopenedById   Int?      @map("reopened_by_id")
+  reopenReason   String?   @map("reopen_reason")
+  reopenCount    Int       @default(0) @map("reopen_count")
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -1993,6 +2056,7 @@ model PayrollPeriod {
 
   organization     Organization      @relation(fields: [organizationId], references: [id])
   finalizedBy      User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
+  reopenedBy       User?             @relation("PayrollPeriodReopener", fields: [reopenedById], references: [id])
   runs             PayrollRun[]
   pfContributions  PfContribution[]
   esiContributions EsiContribution[]
@@ -2061,6 +2125,14 @@ model PayrollEntry {
   totalGrossEarnings  Decimal   @map("total_gross_earnings") @db.Decimal(12, 2)
   totalDeductions     Decimal   @map("total_deductions") @db.Decimal(12, 2)
   netPayable          Decimal   @map("net_payable") @db.Decimal(12, 2)
+  /// What the calculation was based on (Docs/PAYROLL_AND_COMPLIANCE.md §3).
+  absentDays          Decimal   @default(0) @map("absent_days") @db.Decimal(5, 2)
+  overtimeMinutes     Int       @default(0) @map("overtime_minutes")
+  payDaysMode         String?   @map("pay_days_mode")
+  payDaysDivisor      Decimal?  @map("pay_days_divisor") @db.Decimal(5, 2)
+  attendanceLockId    Int?      @map("attendance_lock_id")
+  taxRegime           String?   @map("tax_regime")
+  taxableEarnings     Decimal   @default(0) @map("taxable_earnings") @db.Decimal(12, 2)
   status              String    @default("CALCULATED")
   customFields        Json      @default("{}") @map("custom_fields")
   isActive            Boolean   @default(true) @map("is_active")
@@ -2162,6 +2234,11 @@ model EmployeeSalary {
   /// Arrears are a one-time payment: set when the period that paid them is
   /// finalized, cleared when `arrears_salary` is changed.
   arrearsPaidPeriodId Int?  @map("arrears_paid_period_id")
+  /// The template the lines were built from, if any (a copy is stored in
+  /// the lines; changing the template later does not change this salary).
+  salaryTemplateId Int?      @map("salary_template_id")
+  /// The revision letter this structure implements, if any.
+  revisionLetterId Int?      @map("revision_letter_id")
   customFields     Json      @default("{}") @map("custom_fields")
   isActive         Boolean   @default(true) @map("is_active")
   createdBy        Int?      @map("created_by")
@@ -2173,6 +2250,9 @@ model EmployeeSalary {
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
   arrearsPaidPeriod PayrollPeriod? @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
+  salaryTemplate   SalaryTemplate? @relation(fields: [salaryTemplateId], references: [id])
+  revisionLetter   RevisionLetter? @relation(fields: [revisionLetterId], references: [id])
+  components       EmployeeSalaryComponent[]
 
   @@index([organizationId, employeeId, effectiveFrom])
   @@map("employee_salaries")
@@ -2214,6 +2294,15 @@ model PfContribution {
   pfWage               Decimal   @map("pf_wage") @db.Decimal(12, 2)
   employeeContribution Decimal   @map("employee_contribution") @db.Decimal(12, 2)
   employerContribution Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  /// Employer share split (ECR): EPS (pension) and the EPF difference.
+  epsWage              Decimal   @default(0) @map("eps_wage") @db.Decimal(12, 2)
+  epsContribution      Decimal   @default(0) @map("eps_contribution") @db.Decimal(12, 2)
+  epfEmployerContribution Decimal @default(0) @map("epf_employer_contribution") @db.Decimal(12, 2)
+  edliWage             Decimal   @default(0) @map("edli_wage") @db.Decimal(12, 2)
+  edliContribution     Decimal   @default(0) @map("edli_contribution") @db.Decimal(12, 2)
+  adminCharges         Decimal   @default(0) @map("admin_charges") @db.Decimal(12, 2)
+  grossWage            Decimal   @default(0) @map("gross_wage") @db.Decimal(12, 2)
+  ncpDays              Decimal   @default(0) @map("ncp_days") @db.Decimal(5, 2)
   paymentStatus        String    @default("PENDING") @map("payment_status")
   salaryCredited       Boolean   @default(false) @map("salary_credited")
   customFields         Json      @default("{}") @map("custom_fields")
@@ -2301,8 +2390,16 @@ model EmployeeLoan {
   emiAmount       Decimal   @map("emi_amount") @db.Decimal(12, 2)
   emiMonths       Int       @map("emi_months")
   disbursedDate   DateTime  @map("disbursed_date") @db.Date
-  status          String    @default("ACTIVE")
+  /// PENDING_APPROVAL → ACTIVE | REJECTED; ACTIVE → CLOSED (CHECK).
+  status          String    @default("PENDING_APPROVAL")
   reason          String?
+  /// The principal exceeds `loan_max_multiple` × gross; needs a reason and
+  /// an organization-wide (`.all`) approver.
+  limitOverride   Boolean   @default(false) @map("limit_override")
+  overrideReason  String?   @map("override_reason")
+  approvedById    Int?      @map("approved_by_id")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  decisionNote    String?   @map("decision_note")
   customFields    Json      @default("{}") @map("custom_fields")
   isActive        Boolean   @default(true) @map("is_active")
   createdBy       Int?      @map("created_by")
@@ -2313,8 +2410,10 @@ model EmployeeLoan {
 
   organization Organization      @relation(fields: [organizationId], references: [id])
   employee     Employee          @relation(fields: [employeeId], references: [id])
+  approver     User?             @relation("LoanApprover", fields: [approvedById], references: [id])
   repayments   LoanRepayment[]
   skipRequests LoanSkipRequest[]
+  prepayments  LoanPrepayment[]
 
   @@unique([organizationId, loanNumber])
   @@index([organizationId, employeeId])
@@ -2429,6 +2528,16 @@ model Payslip {
   status          String    @default("GENERATED")
   generatedAt     DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
   pdfPath         String?   @map("pdf_path")
+  /// Frozen copy of everything the payslip shows, taken at generation, so a
+  /// later change to the employee, bank or company never alters it.
+  snapshot        Json?
+  /// The PDF as first rendered; later downloads return these exact bytes.
+  pdfContent      Bytes?    @map("pdf_content")
+  pdfRenderedAt   DateTime? @map("pdf_rendered_at") @db.Timestamptz(6)
+  /// 1 at first generation, +1 per regeneration (reason mandatory).
+  version         Int       @default(1)
+  regeneratedAt   DateTime? @map("regenerated_at") @db.Timestamptz(6)
+  regenerationReason String? @map("regeneration_reason")
   customFields    Json      @default("{}") @map("custom_fields")
   isActive        Boolean   @default(true) @map("is_active")
   createdBy       Int?      @map("created_by")
@@ -2509,6 +2618,298 @@ model PayrollPayment {
   @@index([organizationId, employeeId])
   @@index([organizationId, status])
   @@map("payroll_payments")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Payroll masters & statutory engine (apps/api/src/modules/hr/payroll,
+// Docs/PAYROLL_AND_COMPLIANCE.md §3, §4.10–§4.15)
+// ---------------------------------------------------------------------------
+
+/// The organization's list of salary components (earnings and deductions).
+/// A salary structure is a set of lines over this list; nothing about Basic,
+/// HRA or conveyance is fixed in code. `code` is immutable once created and
+/// may not be one the engine produces itself (ARREARS, BONUS, OVERTIME, PF,
+/// ESI, PT, TDS, LOAN — CHECK). System components (BASIC, HRA, CONVEYANCE,
+/// DA, OTHER_ALLOWANCE, SPECIAL_ALLOWANCE) are seeded per organization and
+/// cannot be deleted, only deactivated.
+model SalaryComponent {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  /// EARNING | DEDUCTION (CHECK)
+  kind           String
+  /// Reduced in proportion to loss-of-pay days (false = paid in full).
+  isProrated     Boolean   @default(true) @map("is_prorated")
+  /// Counted as taxable salary for TDS.
+  isTaxable      Boolean   @default(true) @map("is_taxable")
+  /// Part of the PF wage (Basic + DA by default).
+  pfApplicable   Boolean   @default(false) @map("pf_applicable")
+  /// Part of the ESI wage.
+  esiApplicable  Boolean   @default(true) @map("esi_applicable")
+  isSystem       Boolean   @default(false) @map("is_system")
+  displayOrder   Int       @default(100) @map("display_order")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization              @relation(fields: [organizationId], references: [id])
+  templateLines SalaryTemplateComponent[]
+  salaryLines   EmployeeSalaryComponent[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@map("salary_components")
+  @@schema("hr")
+}
+
+/// A reusable salary breakup (e.g. per grade). Applying it to a gross amount
+/// produces the lines of an employee's structure; the structure keeps its own
+/// copy, so editing a template never changes an existing salary.
+model SalaryTemplate {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  lines        SalaryTemplateComponent[]
+  salaries     EmployeeSalary[]
+
+  @@unique([organizationId, code])
+  @@map("salary_templates")
+  @@schema("hr")
+}
+
+/// One line of a template. `calculation_type`: FIXED (value = rupees),
+/// PERCENT_OF_GROSS, PERCENT_OF_BASIC (value = percent), REMAINDER (gross
+/// minus every other earning; at most one per template — partial unique
+/// index).
+model SalaryTemplateComponent {
+  id                Int     @id @default(autoincrement())
+  salaryTemplateId  Int     @map("salary_template_id")
+  salaryComponentId Int     @map("salary_component_id")
+  calculationType   String  @map("calculation_type")
+  value             Decimal @default(0) @db.Decimal(12, 2)
+  displayOrder      Int     @default(100) @map("display_order")
+
+  template  SalaryTemplate  @relation(fields: [salaryTemplateId], references: [id], onDelete: Cascade)
+  component SalaryComponent @relation(fields: [salaryComponentId], references: [id])
+
+  @@unique([salaryTemplateId, salaryComponentId])
+  @@map("salary_template_components")
+  @@schema("hr")
+}
+
+/// The monthly amount of one component in one salary structure: the source
+/// of truth the payroll engine reads. The legacy columns on
+/// `employee_salaries` (basic, hra, ...) are kept in step for the system
+/// components only.
+model EmployeeSalaryComponent {
+  id                Int      @id @default(autoincrement())
+  organizationId    Int      @map("organization_id")
+  employeeSalaryId  Int      @map("employee_salary_id")
+  salaryComponentId Int      @map("salary_component_id")
+  monthlyAmount     Decimal  @map("monthly_amount") @db.Decimal(12, 2)
+  createdBy         Int?     @map("created_by")
+  updatedBy         Int?     @map("updated_by")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  employeeSalary EmployeeSalary  @relation(fields: [employeeSalaryId], references: [id], onDelete: Cascade)
+  component      SalaryComponent @relation(fields: [salaryComponentId], references: [id])
+
+  @@unique([employeeSalaryId, salaryComponentId])
+  @@index([organizationId, employeeSalaryId])
+  @@map("employee_salary_components")
+  @@schema("hr")
+}
+
+/// Professional Tax slab for one state: employees whose gross earnings for
+/// the month fall in [min, max] pay `monthly_amount`, or `special_amount` in
+/// `special_month` (e.g. a higher February instalment). An empty
+/// `applicable_months` means every month; otherwise only those months
+/// (half-yearly states).
+model ProfessionalTaxSlab {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  stateCode        String    @map("state_code")
+  minMonthlyWage   Decimal   @map("min_monthly_wage") @db.Decimal(12, 2)
+  maxMonthlyWage   Decimal?  @map("max_monthly_wage") @db.Decimal(12, 2)
+  monthlyAmount    Decimal   @map("monthly_amount") @db.Decimal(10, 2)
+  specialMonth     Int?      @map("special_month")
+  specialAmount    Decimal?  @map("special_amount") @db.Decimal(10, 2)
+  applicableMonths Int[]     @default([]) @map("applicable_months")
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  effectiveTo      DateTime? @map("effective_to") @db.Date
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, stateCode])
+  @@map("professional_tax_slabs")
+  @@schema("hr")
+}
+
+/// The state whose Professional Tax applies at a work location (payroll's
+/// own mapping; the work-location master has no state). A location without
+/// a row uses `payroll_settings.pt_default_state_code`.
+model PtLocationState {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  workLocationId Int      @unique @map("work_location_id")
+  stateCode      String   @map("state_code")
+  createdBy      Int?     @map("created_by")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  workLocation WorkLocation @relation(fields: [workLocationId], references: [id])
+
+  @@index([organizationId])
+  @@map("pt_location_states")
+  @@schema("hr")
+}
+
+/// Income-tax rules of one regime for one financial year ("2026-27"). HR
+/// enters them from the Finance Act; nothing about tax law is hard-coded.
+model IncomeTaxRegime {
+  id                    Int      @id @default(autoincrement())
+  organizationId        Int      @map("organization_id")
+  financialYear         String   @map("financial_year")
+  /// OLD | NEW (CHECK)
+  regime                String
+  standardDeduction     Decimal  @default(0) @map("standard_deduction") @db.Decimal(12, 2)
+  /// Section 87A: taxable income up to this gets a rebate of up to `rebate_max_amount`.
+  rebateIncomeLimit     Decimal  @default(0) @map("rebate_income_limit") @db.Decimal(12, 2)
+  rebateMaxAmount       Decimal  @default(0) @map("rebate_max_amount") @db.Decimal(12, 2)
+  cessPercent           Decimal  @default(4) @map("cess_percent") @db.Decimal(5, 2)
+  /// Old regime caps: 80C (including employee PF) and home-loan interest.
+  section80cLimit       Decimal  @default(150000) @map("section_80c_limit") @db.Decimal(12, 2)
+  homeLoanInterestLimit Decimal  @default(200000) @map("home_loan_interest_limit") @db.Decimal(12, 2)
+  version               Int      @default(1)
+  createdBy             Int?     @map("created_by")
+  updatedBy             Int?     @map("updated_by")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  slabs        IncomeTaxSlab[]
+
+  @@unique([organizationId, financialYear, regime])
+  @@map("income_tax_regimes")
+  @@schema("hr")
+}
+
+/// One slab of a regime: income above `from_income` (and up to `to_income`,
+/// null = no upper limit) is taxed at `rate_percent`.
+model IncomeTaxSlab {
+  id          Int      @id @default(autoincrement())
+  regimeId    Int      @map("regime_id")
+  fromIncome  Decimal  @map("from_income") @db.Decimal(14, 2)
+  toIncome    Decimal? @map("to_income") @db.Decimal(14, 2)
+  ratePercent Decimal  @map("rate_percent") @db.Decimal(5, 2)
+
+  regime IncomeTaxRegime @relation(fields: [regimeId], references: [id], onDelete: Cascade)
+
+  @@unique([regimeId, fromIncome])
+  @@map("income_tax_slabs")
+  @@schema("hr")
+}
+
+/// An employee's tax declaration for one financial year. Lifecycle:
+/// DRAFT → SUBMITTED → VERIFIED | REJECTED; REJECTED → SUBMITTED (resubmit).
+/// The employee declares; HR verifies against proofs and records the
+/// accepted (`verified_*`) amounts. TDS uses the verified amounts once
+/// VERIFIED, the declared ones while SUBMITTED, and only the regime choice of
+/// a DRAFT or REJECTED declaration.
+model EmployeeTaxDeclaration {
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @map("employee_id")
+  financialYear            String    @map("financial_year")
+  regime                   String
+  section80c               Decimal   @default(0) @map("section_80c") @db.Decimal(12, 2)
+  section80d               Decimal   @default(0) @map("section_80d") @db.Decimal(12, 2)
+  hraExemption             Decimal   @default(0) @map("hra_exemption") @db.Decimal(12, 2)
+  homeLoanInterest         Decimal   @default(0) @map("home_loan_interest") @db.Decimal(12, 2)
+  otherDeductions          Decimal   @default(0) @map("other_deductions") @db.Decimal(12, 2)
+  otherIncome              Decimal   @default(0) @map("other_income") @db.Decimal(12, 2)
+  previousEmployerIncome   Decimal   @default(0) @map("previous_employer_income") @db.Decimal(12, 2)
+  previousEmployerTds      Decimal   @default(0) @map("previous_employer_tds") @db.Decimal(12, 2)
+  verifiedSection80c       Decimal?  @map("verified_section_80c") @db.Decimal(12, 2)
+  verifiedSection80d       Decimal?  @map("verified_section_80d") @db.Decimal(12, 2)
+  verifiedHraExemption     Decimal?  @map("verified_hra_exemption") @db.Decimal(12, 2)
+  verifiedHomeLoanInterest Decimal?  @map("verified_home_loan_interest") @db.Decimal(12, 2)
+  verifiedOtherDeductions  Decimal?  @map("verified_other_deductions") @db.Decimal(12, 2)
+  status                   String    @default("DRAFT")
+  submittedAt              DateTime? @map("submitted_at") @db.Timestamptz(6)
+  verifiedById             Int?      @map("verified_by_id")
+  verifiedAt               DateTime? @map("verified_at") @db.Timestamptz(6)
+  verificationNote         String?   @map("verification_note")
+  version                  Int       @default(1)
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  verifier     User?        @relation("TaxDeclarationVerifier", fields: [verifiedById], references: [id])
+
+  @@unique([employeeId, financialYear])
+  @@index([organizationId, financialYear, status])
+  @@map("employee_tax_declarations")
+  @@schema("hr")
+}
+
+/// Money an employee repays outside payroll. Lifecycle PENDING → APPROVED |
+/// REJECTED (maker-checker). On approval the amount settles the LAST pending
+/// installments first (the tenure shrinks; the monthly EMI is unchanged);
+/// those become PREPAID, and a loan with nothing left pending is CLOSED.
+model LoanPrepayment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  loanId         Int       @map("loan_id")
+  amount         Decimal   @db.Decimal(12, 2)
+  receivedOn     DateTime  @map("received_on") @db.Date
+  reference      String?
+  reason         String
+  status         String    @default("PENDING")
+  requestedById  Int       @map("requested_by_id")
+  decidedById    Int?      @map("decided_by_id")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  loan         EmployeeLoan @relation(fields: [loanId], references: [id])
+  requester    User         @relation("LoanPrepaymentRequester", fields: [requestedById], references: [id])
+  decider      User?        @relation("LoanPrepaymentDecider", fields: [decidedById], references: [id])
+
+  @@index([organizationId, loanId])
+  @@index([organizationId, status])
+  @@map("loan_prepayments")
   @@schema("hr")
 }
 

@@ -349,6 +349,24 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     parentCode: "portal",
     permission: "hr.leave_request.read",
   },
+  // Own pay records. Self-service codes only, so an employee never needs the
+  // HR payroll workspace (hr.payroll.read) to see their own payslip.
+  {
+    code: "portal-payslips",
+    label: "My Payslips",
+    path: "/portal/payslips",
+    order: 13,
+    parentCode: "portal",
+    permission: "employee_self_service.payslip.read",
+  },
+  {
+    code: "portal-loans",
+    label: "My Loans",
+    path: "/portal/loans",
+    order: 14,
+    parentCode: "portal",
+    permission: "employee_self_service.loan.read",
+  },
   {
     code: "admin",
     label: "Admin",

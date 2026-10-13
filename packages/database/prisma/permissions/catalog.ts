@@ -507,16 +507,27 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.payroll.approve", "Approve payroll runs"),
   ...scopedPermission("hr.payroll.finalize", "Finalize payroll periods"),
+  ...scopedPermission(
+    "hr.payroll.reopen",
+    "Reopen a finalized payroll period (reason required)",
+  ),
+  ...scopedPermission(
+    "hr.payroll.export",
+    "Download payroll statutory files and reports (PF ECR, ESI, PT, TDS, journal, salary register)",
+  ),
 
-  // apps/api/src/modules/hr/payroll/settings — organization-wide rules (salary
-  // auto-split, PF/ESI limits and rates). Not employee data, so no scope.
+  // apps/api/src/modules/hr/payroll/settings — organization-wide rules and
+  // masters: pay-days/attendance/overtime policy, PF/ESI/PT/TDS rules, salary
+  // components and templates, tax regimes. Not employee data, so no scope.
   {
     code: "hr.payroll_settings.read",
-    description: "View payroll settings (salary split, PF/ESI limits)",
+    description:
+      "View payroll settings and masters (policy, statutory rules, salary components, templates, tax slabs)",
   },
   {
     code: "hr.payroll_settings.write",
-    description: "Change payroll settings (salary split, PF/ESI limits)",
+    description:
+      "Change payroll settings and masters (policy, statutory rules, salary components, templates, tax slabs)",
   },
 
   // Salary structures — team-scoped
@@ -539,7 +550,7 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ...scopedPermission("hr.loan.write", "Create employee loans and repayments"),
   ...scopedPermission(
     "hr.loan.approve",
-    "Approve employee loans and EMI skip requests",
+    "Approve employee loans, EMI skip requests and prepayments",
   ),
 
   // Employee bonuses — team-scoped
@@ -549,6 +560,20 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
 
   // Payslips — team-scoped
   ...scopedPermission("hr.payslip.read", "View and download payslips"),
+
+  // Income-tax declarations and Form 16 — team-scoped
+  ...scopedPermission(
+    "hr.tax_declaration.read",
+    "View employees' tax declarations, TDS working and Form 16",
+  ),
+  ...scopedPermission(
+    "hr.tax_declaration.write",
+    "Enter or correct a tax declaration on an employee's behalf",
+  ),
+  ...scopedPermission(
+    "hr.tax_declaration.approve",
+    "Verify or reject submitted tax declarations against proofs",
+  ),
 
   // Payment batches & payouts — team-scoped
   ...scopedPermission("hr.payment.read", "View payment batches and payouts"),
@@ -565,6 +590,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "employee_self_service.loan.read",
     description: "View my own loans and repayments",
+  },
+  {
+    code: "employee_self_service.tax_declaration.read",
+    description: "View my own income-tax declarations",
+  },
+  {
+    code: "employee_self_service.tax_declaration.write",
+    description: "Fill in and submit my own income-tax declaration",
+  },
+  {
+    code: "employee_self_service.form16.read",
+    description: "Download my own Form 16",
   },
 ];
 
