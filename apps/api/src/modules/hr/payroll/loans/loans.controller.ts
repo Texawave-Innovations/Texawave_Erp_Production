@@ -18,10 +18,12 @@ import {
   CreateLoanDto,
   CreateLoanPrepaymentDto,
   CreateLoanSkipRequestDto,
+  CreateMyLoanDto,
   DecideLoanDto,
   DecideLoanPrepaymentDto,
   DecideLoanSkipRequestDto,
   QueryLoanDto,
+  ReviewLoanDto,
 } from "./dto/loan.dto.js";
 import { LoansService } from "./loans.service.js";
 
@@ -34,7 +36,7 @@ export class LoansController {
   @RequireScopedPermission("hr.loan.write")
   @ApiOperation({
     summary:
-      "Request a loan (PENDING_APPROVAL); limits apply, above the principal limit only with an override reason",
+      "Request a loan for an employee (PENDING_HR, reviewed by another HR user); limits apply, above the principal limit only with an override reason",
   })
   create(@Body() dto: CreateLoanDto) {
     return this.service.create(dto);
@@ -56,12 +58,23 @@ export class LoansController {
     return this.service.findOne(id);
   }
 
+  @Post(":id/review")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.loan.review")
+  @ApiOperation({
+    summary:
+      "HR review: forward a PENDING_HR loan for final approval, or reject it — not by its requester or borrower",
+  })
+  review(@Param("id", ParseIntPipe) id: number, @Body() dto: ReviewLoanDto) {
+    return this.service.review(id, dto);
+  }
+
   @Post(":id/decide")
   @HttpCode(HttpStatus.OK)
   @RequireScopedPermission("hr.loan.approve")
   @ApiOperation({
     summary:
-      "Approve (builds the EMI schedule) or reject a loan — not by its requester or borrower",
+      "Final approval of a forwarded loan (builds the EMI schedule) or rejection — not by its requester, borrower or HR reviewer",
   })
   decide(@Param("id", ParseIntPipe) id: number, @Body() dto: DecideLoanDto) {
     return this.service.decide(id, dto);
@@ -119,6 +132,16 @@ export class LoansController {
 @Controller("self-service/loans")
 export class MyLoansController {
   constructor(private readonly service: LoansService) {}
+
+  @Post()
+  @RequirePermission("employee_self_service.loan.write")
+  @ApiOperation({
+    summary:
+      "Request a loan for myself (PENDING_HR); HR reviews it, then a final approver decides",
+  })
+  requestMine(@Body() dto: CreateMyLoanDto) {
+    return this.service.requestMine(dto);
+  }
 
   @Get()
   @RequirePermission("employee_self_service.loan.read")

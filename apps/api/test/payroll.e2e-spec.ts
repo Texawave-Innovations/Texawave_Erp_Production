@@ -64,8 +64,16 @@ const TEAM_LEAD_PERMS = [
   "hr.payment.write.team",
 ];
 
+/** The HR review step of a loan, before the checker's final approval. */
+const REVIEWER_PERMS = ["hr.loan.read.all", "hr.loan.review.all"];
+
 const PERMS = [
-  ...new Set([...ADMIN_PERMS, ...CHECKER_PERMS, ...TEAM_LEAD_PERMS]),
+  ...new Set([
+    ...ADMIN_PERMS,
+    ...CHECKER_PERMS,
+    ...TEAM_LEAD_PERMS,
+    ...REVIEWER_PERMS,
+  ]),
 ];
 
 describe("Payroll & Compliance (e2e)", () => {
@@ -245,6 +253,8 @@ describe("Payroll & Compliance (e2e)", () => {
     await mkUser("admin", ADMIN_PERMS);
     // Approver (the "checker")
     await mkUser("checker", CHECKER_PERMS);
+    // HR loan reviewer (the step before the checker's final approval)
+    await mkUser("reviewer", REVIEWER_PERMS);
     // Team lead with only team-level grants
     const teamLead = await mkUser("teamlead", TEAM_LEAD_PERMS);
 
@@ -527,11 +537,15 @@ describe("Payroll & Compliance (e2e)", () => {
       repayments: unknown[];
     }>(loanRes);
     expect(loanData.loanNumber).toMatch(/^LOAN-/);
-    // A loan is a request until a second person approves it; the schedule
-    // is built on approval.
-    expect(loanData.status).toBe("PENDING_APPROVAL");
+    // A loan is a request until another HR user reviews it and a third
+    // person approves it; the schedule is built on approval.
+    expect(loanData.status).toBe("PENDING_HR");
     expect(loanData.repayments).toHaveLength(0);
     loanId1 = loanData.id;
+
+    await post("reviewer", `/hr/loans/${loanId1}/review`, {
+      decision: "FORWARD",
+    }).expect(200);
 
     await post("admin", `/hr/loans/${loanId1}/decide`, {
       decision: "APPROVED",
@@ -900,6 +914,9 @@ describe("Payroll & Compliance (e2e)", () => {
       disbursedDate: "2026-05-01",
     }).expect(201);
     loanId2 = dataOf<{ id: number }>(loan2).id;
+    await post("reviewer", `/hr/loans/${loanId2}/review`, {
+      decision: "FORWARD",
+    }).expect(200);
     await post("checker", `/hr/loans/${loanId2}/decide`, {
       decision: "APPROVED",
     }).expect(200);

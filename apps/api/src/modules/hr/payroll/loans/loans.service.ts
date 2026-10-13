@@ -18,18 +18,26 @@ import {
 import type {
   CreateLoanDto,
   CreateLoanPrepaymentDto,
+  CreateMyLoanDto,
   CreateLoanSkipRequestDto,
   DecideLoanDto,
   DecideLoanPrepaymentDto,
   DecideLoanSkipRequestDto,
   QueryLoanDto,
+  ReviewLoanDto,
 } from "./dto/loan.dto.js";
-import { buildSchedule, checkLoanLimits } from "./loan.rules.js";
+import {
+  buildSchedule,
+  checkLoanLimits,
+  loanActionRefusal,
+} from "./loan.rules.js";
+import { LoanNotificationsService } from "./loan-notifications.service.js";
 import { LoansRepository } from "./loans.repository.js";
 
 const READ = "hr.loan.read";
 const WRITE = "hr.loan.write";
 const APPROVE = "hr.loan.approve";
+const REVIEW = "hr.loan.review";
 
 /**
  * Employee loans (Docs/PAYROLL_AND_COMPLIANCE.md §4.6): a request within the
@@ -46,15 +54,58 @@ export class LoansService {
     private readonly prisma: PrismaService,
     private readonly employeeQuery: EmployeeQueryService,
     private readonly settings: PayrollSettingsService,
+    private readonly loanNotifications: LoanNotificationsService,
   ) {}
 
+  /** HR records a loan request for an employee in its write scope. It
+   * starts at the HR review (by someone else) and every HR reviewer is
+   * notified. */
   async create(dto: CreateLoanDto) {
     const orgScope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
     const teamScope = await this.teamContext.resolveScope(WRITE);
     // Out of scope = not found, before anything about the employee is read.
     await findEmployeeInWriteScope(this.prisma, teamScope, dto.employeeId);
+    const checked = await this.checkRequest(orgScope, dto.employeeId, dto);
+    const loan = await this.repository.create(
+      teamScope,
+      dto,
+      checked.disbursedDate,
+      checked.overLimit,
+      userId,
+    );
+    await this.loanNotifications.loanChanged(loan.id, "requested");
+    return loan;
+  }
 
+  /**
+   * An employee requests a loan for themselves from the portal (always
+   * their own employee record). The same limits apply; above the principal
+   * limit they give a reason and it needs an organization-wide approver.
+   */
+  async requestMine(dto: CreateMyLoanDto) {
+    const employee = await this.employeeQuery.getCurrentEmployee();
+    const orgScope = this.tenantContext.getOrgScope();
+    const body: CreateLoanDto = { ...dto, employeeId: employee.id };
+    const checked = await this.checkRequest(orgScope, employee.id, body);
+    const loan = await this.repository.createForSelf(
+      orgScope,
+      employee.id,
+      body,
+      checked.disbursedDate,
+      checked.overLimit,
+      this.tenantContext.getUserId(),
+    );
+    await this.loanNotifications.loanChanged(loan.id, "requested");
+    return loan;
+  }
+
+  /** The schedule and the organization's loan limits (§3.7). */
+  private async checkRequest(
+    orgScope: ReturnType<TenantContextService["getOrgScope"]>,
+    employeeId: number,
+    dto: CreateLoanDto,
+  ): Promise<{ disbursedDate: Date; overLimit: boolean }> {
     if (
       !buildSchedule(
         dto.principalAmount,
@@ -75,7 +126,7 @@ export class LoansService {
     const disbursedDate = parseDateOnly(dto.disbursedDate);
     const gross = await this.repository.grossOn(
       orgScope,
-      dto.employeeId,
+      employeeId,
       disbursedDate,
     );
     if (gross === null) {
@@ -89,47 +140,105 @@ export class LoansService {
       grossMonthly: gross,
       principal: dto.principalAmount,
       emiAmount: dto.emiAmount,
-      otherEmis: await this.repository.otherEmis(orgScope, dto.employeeId),
+      otherEmis: await this.repository.otherEmis(orgScope, employeeId),
       maxMultiple: rules.loanMaxMultiple,
       maxEmiPercent: rules.loanMaxEmiPercent,
     });
     if (limits.emiOverLimit) {
       throw new BusinessRuleViolationException(
-        `The employee's EMIs would exceed ${rules.loanMaxEmiPercent}% of the gross salary (at most ${limits.maxTotalEmi} a month in total)`,
+        `The EMIs would exceed ${rules.loanMaxEmiPercent}% of the gross salary (at most ${limits.maxTotalEmi} a month in total)`,
         "LOAN_EMI_OVER_LIMIT",
       );
     }
     if (limits.overLimit && !dto.overrideReason) {
       throw new BusinessRuleViolationException(
-        `The principal exceeds the limit of ${limits.maxPrincipal} (${rules.loanMaxMultiple} × gross). Give an override reason; an organization-wide approver must then approve it.`,
+        `The principal exceeds the limit of ${limits.maxPrincipal} (${rules.loanMaxMultiple} × gross). Give a reason; an organization-wide approver must then approve it.`,
         "LOAN_OVER_LIMIT",
       );
     }
-
-    return this.repository.create(
-      teamScope,
-      dto,
-      disbursedDate,
-      limits.overLimit,
-      userId,
-    );
+    return { disbursedDate, overLimit: limits.overLimit };
   }
 
-  /** Maker-checker: neither the person who recorded it nor the borrower may
-   * decide; a loan over the limit needs an organization-wide approver. */
+  /** Refuses a step the caller may not take (status or maker-checker). */
+  private assertMayAct(
+    step: "review" | "approve",
+    loan: {
+      status: string;
+      createdBy: number | null;
+      hrReviewedById: number | null;
+      employee: { userId: number | null };
+    },
+    userId: number,
+  ) {
+    const refusal = loanActionRefusal(
+      step,
+      {
+        status: loan.status,
+        createdBy: loan.createdBy,
+        hrReviewedById: loan.hrReviewedById,
+        borrowerUserId: loan.employee.userId,
+      },
+      userId,
+    );
+    if (refusal === "status") {
+      throw new BusinessRuleViolationException(
+        step === "review"
+          ? `Only a loan awaiting HR review can be reviewed (this one is ${loan.status})`
+          : `Only a loan HR forwarded can get the final approval (this one is ${loan.status})`,
+        "INVALID_STATE_TRANSITION",
+      );
+    }
+    if (refusal) {
+      throw new ForbiddenException(
+        refusal === "reviewer"
+          ? "Maker-checker: the final approval must come from someone other than the HR reviewer"
+          : "Maker-checker: you cannot decide a loan you requested or that is yours",
+      );
+    }
+  }
+
+  /** The HR step: forward for final approval, or reject with a note. */
+  async review(id: number, dto: ReviewLoanDto) {
+    const scope = await this.teamContext.resolveScope(REVIEW);
+    const userId = this.tenantContext.getUserId();
+    const loan = await this.repository.findById(scope, id);
+    if (!loan) throw new ResourceNotFoundException("Employee loan", id);
+    this.assertMayAct("review", loan, userId);
+    if (dto.decision === "REJECT" && (dto.note?.trim().length ?? 0) < 3) {
+      throw new BusinessRuleViolationException(
+        "Give a note (at least 3 characters) when rejecting a loan",
+        "DECISION_NOTE_REQUIRED",
+      );
+    }
+    const reviewed = await this.repository.review(
+      scope,
+      id,
+      dto.decision,
+      dto.note?.trim(),
+      userId,
+    );
+    if (!reviewed) {
+      throw new BusinessRuleViolationException(
+        "Loan was reviewed concurrently",
+        "ALREADY_DECIDED",
+      );
+    }
+    await this.loanNotifications.loanChanged(
+      id,
+      dto.decision === "FORWARD" ? "forwarded" : "hr_rejected",
+    );
+    return reviewed;
+  }
+
+  /** The final approval of a loan HR forwarded. Maker-checker: not the
+   * requester, the borrower or the HR reviewer; a loan over the limit needs
+   * an organization-wide approver. Approval builds the EMI schedule. */
   async decide(id: number, dto: DecideLoanDto) {
     const scope = await this.teamContext.resolveScope(APPROVE);
     const userId = this.tenantContext.getUserId();
     const loan = await this.repository.findById(scope, id);
     if (!loan) throw new ResourceNotFoundException("Employee loan", id);
-    assertNotSelfApproval(loan.createdBy, userId, "loan");
-    assertNotSelfApproval(loan.employee.userId, userId, "loan");
-    if (loan.status !== "PENDING_APPROVAL") {
-      throw new BusinessRuleViolationException(
-        `Loan is already decided: ${loan.status}`,
-        "ALREADY_DECIDED",
-      );
-    }
+    this.assertMayAct("approve", loan, userId);
     if (loan.limitOverride && scope.level !== "all") {
       throw new ForbiddenException(
         "This loan is above the organization's limit; only an organization-wide (.all) approver may decide it",
@@ -154,6 +263,10 @@ export class LoansService {
         "ALREADY_DECIDED",
       );
     }
+    await this.loanNotifications.loanChanged(
+      id,
+      dto.decision === "APPROVED" ? "approved" : "rejected",
+    );
     return decided;
   }
 

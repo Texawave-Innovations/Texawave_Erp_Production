@@ -3,6 +3,7 @@ import {
   applyPrepayment,
   buildSchedule,
   checkLoanLimits,
+  loanActionRefusal,
 } from "./loan.rules.js";
 
 describe("loan rules", () => {
@@ -66,5 +67,36 @@ describe("loan rules", () => {
       reduced: null,
       applied: 2500,
     });
+  });
+});
+
+describe("loan approval steps", () => {
+  const base = {
+    status: "PENDING_HR",
+    createdBy: 10,
+    hrReviewedById: null as number | null,
+    borrowerUserId: 20,
+  };
+
+  it("lets a third person review a loan awaiting HR", () => {
+    expect(loanActionRefusal("review", base, 30)).toBeNull();
+  });
+
+  it("never lets the borrower or the requester act", () => {
+    expect(loanActionRefusal("review", base, 20)).toBe("borrower");
+    expect(loanActionRefusal("review", base, 10)).toBe("requester");
+  });
+
+  it("needs a different final approver than the HR reviewer", () => {
+    const forwarded = { ...base, status: "PENDING_ADMIN", hrReviewedById: 30 };
+    expect(loanActionRefusal("approve", forwarded, 30)).toBe("reviewer");
+    expect(loanActionRefusal("approve", forwarded, 40)).toBeNull();
+  });
+
+  it("acts only at the matching step", () => {
+    expect(loanActionRefusal("approve", base, 40)).toBe("status");
+    expect(
+      loanActionRefusal("review", { ...base, status: "PENDING_ADMIN" }, 30),
+    ).toBe("status");
   });
 });

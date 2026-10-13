@@ -37,6 +37,7 @@ const INCLUDE_DETAILS = {
     },
   },
   approver: { select: { id: true, fullName: true } },
+  hrReviewer: { select: { id: true, fullName: true } },
   repayments: {
     orderBy: { installmentNo: "asc" },
   },
@@ -146,7 +147,7 @@ export class LoansRepository {
         organizationId: scope.organizationId,
         employeeId,
         deletedAt: null,
-        status: { in: ["ACTIVE", "PENDING_APPROVAL"] },
+        status: { in: ["ACTIVE", "PENDING_HR", "PENDING_ADMIN"] },
       },
       _sum: { emiAmount: true },
     });
@@ -175,7 +176,8 @@ export class LoansRepository {
   }
 
   /**
-   * Records a loan request: PENDING_APPROVAL, no schedule yet (the schedule
+   * Records a loan request HR makes for an employee: PENDING_HR (the HR
+   * review, by someone else), no schedule yet (the schedule
    * is built when it is approved). The loan number comes from the
    * per-organization counter.
    */
@@ -203,7 +205,8 @@ export class LoansRepository {
           emiAmount: dto.emiAmount,
           emiMonths: dto.emiMonths,
           disbursedDate,
-          status: "PENDING_APPROVAL",
+          status: "PENDING_HR",
+          requestedVia: "HR",
           reason: dto.reason ?? null,
           limitOverride,
           overrideReason: limitOverride ? (dto.overrideReason ?? null) : null,
@@ -226,7 +229,7 @@ export class LoansRepository {
   }
 
   /**
-   * Decides a PENDING_APPROVAL loan (conditional update — decided exactly
+   * Final approval of a loan HR forwarded (PENDING_ADMIN; conditional update — decided exactly
    * once). Approval builds the repayment schedule from the recorded
    * disbursement date (HR may record a loan given earlier); the first EMI
    * falls due one month after it. Returns `null` if it was decided meanwhile.
@@ -252,7 +255,12 @@ export class LoansRepository {
 
       const disbursedOn = loan.disbursedDate;
       const { count } = await tx.employeeLoan.updateMany({
-        where: { id, status: "PENDING_APPROVAL" },
+        where: {
+          id,
+          status: "PENDING_ADMIN",
+          // Maker-checker, also under concurrency: never the HR reviewer.
+          NOT: { hrReviewedById: userId },
+        },
         data: {
           status: decision === "APPROVED" ? "ACTIVE" : "REJECTED",
           approvedById: userId,
@@ -288,7 +296,7 @@ export class LoansRepository {
         entityType: "employee_loan",
         entityId: id,
         action: decision === "APPROVED" ? "approve" : "reject",
-        before: { status: "PENDING_APPROVAL" },
+        before: { status: "PENDING_ADMIN" },
         after: {
           status: decision === "APPROVED" ? "ACTIVE" : "REJECTED",
           disbursedDate: disbursedOn.toISOString().slice(0, 10),
@@ -300,6 +308,177 @@ export class LoansRepository {
         include: INCLUDE_DETAILS,
       });
     });
+  }
+
+  /**
+   * The employee's own loan request from the portal (`requested_via` SELF):
+   * PENDING_HR, no schedule yet. `employeeId` is always the caller's own
+   * employee record (the service resolves it), never a client value.
+   */
+  @OrgScoped()
+  async createForSelf(
+    scope: OrgScope,
+    employeeId: number,
+    dto: CreateLoanDto,
+    disbursedDate: Date,
+    limitOverride: boolean,
+    userId: number,
+  ): Promise<LoanRow> {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const seq = await issuePayrollNumber(
+        tx,
+        scope.organizationId,
+        "employee_loan",
+      );
+      const loan = await tx.employeeLoan.create({
+        data: {
+          organizationId: scope.organizationId,
+          employeeId,
+          loanNumber: `LOAN-${String(seq).padStart(6, "0")}`,
+          principalAmount: dto.principalAmount,
+          emiAmount: dto.emiAmount,
+          emiMonths: dto.emiMonths,
+          disbursedDate,
+          status: "PENDING_HR",
+          requestedVia: "SELF",
+          reason: dto.reason ?? null,
+          limitOverride,
+          overrideReason: limitOverride ? (dto.overrideReason ?? null) : null,
+          createdBy: userId,
+          updatedBy: userId,
+        },
+      });
+      await this.audit.write(tx, {
+        entityType: "employee_loan",
+        entityId: loan.id,
+        action: "request",
+        after: { ...loanSnapshot(loan), requestedVia: "SELF" },
+        reason: limitOverride ? dto.overrideReason : dto.reason,
+      });
+      return tx.employeeLoan.findUniqueOrThrow({
+        where: { id: loan.id },
+        include: INCLUDE_DETAILS,
+      });
+    });
+  }
+
+  /**
+   * The HR step (PENDING_HR → PENDING_ADMIN or REJECTED), within the
+   * caller's review scope; conditional update, so it happens exactly once.
+   * A rejection keeps its note as the loan's decision note too. Returns
+   * `null` if it was reviewed meanwhile.
+   */
+  @TeamScoped()
+  async review(
+    scope: TeamScope,
+    id: number,
+    decision: "FORWARD" | "REJECT",
+    note: string | undefined,
+    userId: number,
+  ): Promise<LoanRow | null> {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const loan = await tx.employeeLoan.findFirst({
+        where: teamWhere(
+          scope,
+          { id, deletedAt: null },
+          VIA_EMPLOYEE,
+        ) as Prisma.EmployeeLoanWhereInput,
+        select: { employeeId: true },
+      });
+      if (!loan) throw new ResourceNotFoundException("Employee loan", id);
+      await findEmployeeInWriteScope(tx, scope, loan.employeeId);
+      const rejecting = decision === "REJECT";
+      const { count } = await tx.employeeLoan.updateMany({
+        where: { id, status: "PENDING_HR" },
+        data: {
+          status: rejecting ? "REJECTED" : "PENDING_ADMIN",
+          hrReviewedById: userId,
+          hrReviewedAt: new Date(),
+          hrReviewNote: note ?? null,
+          ...(rejecting ? { decisionNote: note ?? null } : {}),
+          updatedBy: userId,
+        },
+      });
+      if (count === 0) return null;
+      await this.audit.write(tx, {
+        entityType: "employee_loan",
+        entityId: id,
+        action: rejecting ? "hr_reject" : "hr_forward",
+        before: { status: "PENDING_HR" },
+        after: { status: rejecting ? "REJECTED" : "PENDING_ADMIN" },
+        reason: note,
+      });
+      return tx.employeeLoan.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE_DETAILS,
+      });
+    });
+  }
+
+  /** What the loan notifications need (organization-filtered). */
+  @OrgScoped()
+  notificationFacts(scope: OrgScope, id: number) {
+    return this.prisma.employeeLoan.findFirst({
+      where: { id, organizationId: scope.organizationId },
+      select: {
+        id: true,
+        loanNumber: true,
+        principalAmount: true,
+        status: true,
+        limitOverride: true,
+        createdBy: true,
+        hrReviewedById: true,
+        hrReviewNote: true,
+        decisionNote: true,
+        employee: { select: { fullName: true, userId: true, teamId: true } },
+      },
+    });
+  }
+
+  /**
+   * Active users who hold `<prefix>.all`, or `<prefix>.team` with access to
+   * `teamId` — whom a loan step notifies (`.team` only when allowed).
+   */
+  @OrgScoped()
+  async usersHolding(
+    scope: OrgScope,
+    prefix: "hr.loan.review" | "hr.loan.approve",
+    teamId: number,
+    includeTeam: boolean,
+  ): Promise<number[]> {
+    const holding = (code: string): Prisma.UserWhereInput => ({
+      userRoles: {
+        some: {
+          isActive: true,
+          role: {
+            organizationId: scope.organizationId,
+            isActive: true,
+            rolePermissions: {
+              some: { isActive: true, permission: { code, isActive: true } },
+            },
+          },
+        },
+      },
+    });
+    const or: Prisma.UserWhereInput[] = [holding(`${prefix}.all`)];
+    if (includeTeam) {
+      or.push({
+        AND: [
+          holding(`${prefix}.team`),
+          { teamAccess: { some: { teamId, isActive: true } } },
+        ],
+      });
+    }
+    const rows = await this.prisma.user.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        isActive: true,
+        deletedAt: null,
+        OR: or,
+      },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 
   @TeamScoped()

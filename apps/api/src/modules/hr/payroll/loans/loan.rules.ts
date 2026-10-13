@@ -100,3 +100,31 @@ export function applyPrepayment(
   }
   return { prepaidIds, reduced, applied: (cents(amount) - left) / 100 };
 }
+
+/** The two approval steps of a loan request (Docs/PAYROLL_AND_COMPLIANCE.md
+ * §3.7): HR review, then the final approval. */
+export const LOAN_PENDING_STATUSES = ["PENDING_HR", "PENDING_ADMIN"] as const;
+
+/**
+ * Why a user may not act on a loan at its current step, or null when they
+ * may. Maker-checker: the borrower never acts on their own loan, whoever
+ * recorded it never reviews or approves it, and the final approver is never
+ * the person who did the HR review.
+ */
+export function loanActionRefusal(
+  step: "review" | "approve",
+  loan: {
+    status: string;
+    createdBy: number | null;
+    hrReviewedById: number | null;
+    borrowerUserId: number | null;
+  },
+  userId: number,
+): string | null {
+  const expected = step === "review" ? "PENDING_HR" : "PENDING_ADMIN";
+  if (loan.status !== expected) return "status";
+  if (loan.borrowerUserId === userId) return "borrower";
+  if (loan.createdBy === userId) return "requester";
+  if (step === "approve" && loan.hrReviewedById === userId) return "reviewer";
+  return null;
+}

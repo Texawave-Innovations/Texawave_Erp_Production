@@ -62,9 +62,12 @@ const TEAM_LEAD_PERMS = [
   "hr.loan.read.team",
   "hr.loan.approve.team",
 ];
+/** The HR review step of a loan, before the final approval. */
+const REVIEWER_PERMS = ["hr.loan.read.all", "hr.loan.review.all"];
 const EMPLOYEE_PERMS = [
   "employee_self_service.payslip.read",
   "employee_self_service.loan.read",
+  "employee_self_service.loan.write",
   "employee_self_service.tax_declaration.read",
   "employee_self_service.tax_declaration.write",
   "employee_self_service.form16.read",
@@ -80,6 +83,7 @@ const PERMS = [
     ...TEAM_LEAD_PERMS,
     ...EMPLOYEE_PERMS,
     ...READER_PERMS,
+    ...REVIEWER_PERMS,
   ]),
 ];
 
@@ -120,6 +124,10 @@ describe("Payroll statutory engine (e2e)", () => {
     (res.body as Body<T>).data;
   const errorOf = (res: { body: unknown }) =>
     (res.body as { error?: string }).error;
+  const noticeTypes = async (who: string) =>
+    dataOf<Array<{ type: string }>>(
+      await get(who, "/notifications").expect(200),
+    ).map((n) => n.type);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -186,6 +194,7 @@ describe("Payroll statutory engine (e2e)", () => {
     const lead = await mkUser("lead", TEAM_LEAD_PERMS);
     const empUser = await mkUser("emp", EMPLOYEE_PERMS);
     await mkUser("reader", READER_PERMS);
+    await mkUser("reviewer", REVIEWER_PERMS);
 
     const dept = await prisma.department.create({
       data: { organizationId: org.id, name: `Dept ${suffix}` },
@@ -685,8 +694,21 @@ describe("Payroll statutory engine (e2e)", () => {
     );
     expect(loan).toMatchObject({
       limitOverride: true,
-      status: "PENDING_APPROVAL",
+      status: "PENDING_HR",
     });
+
+    // The final approval only comes after the HR review.
+    const early = await post("checker", `/hr/loans/${loan.id}/decide`, {
+      decision: "APPROVED",
+    }).expect(422);
+    expect(errorOf(early)).toBe("INVALID_STATE_TRANSITION");
+    expect(
+      dataOf<{ status: string }>(
+        await post("reviewer", `/hr/loans/${loan.id}/review`, {
+          decision: "FORWARD",
+        }).expect(200),
+      ).status,
+    ).toBe("PENDING_ADMIN");
 
     // A team-level approver may not decide an over-limit loan.
     await post("lead", `/hr/loans/${loan.id}/decide`, {
@@ -728,6 +750,85 @@ describe("Payroll statutory engine (e2e)", () => {
       await get("emp", "/self-service/loans").expect(200),
     );
     expect(mine.map((l) => l.id)).toContain(loan.id);
+    expect(await noticeTypes("emp")).toContain("loan.approved");
+  });
+
+  it("10b. an employee requests a loan: HR reviews, someone else decides, each step notifies", async () => {
+    const body = {
+      principalAmount: 5000,
+      emiAmount: 1000,
+      emiMonths: 5,
+      disbursedDate: "2026-09-01",
+      reason: "School fees",
+    };
+    // The self-service route needs the self-service grant.
+    await post("admin", "/self-service/loans", body).expect(403);
+    // The employee is always the caller; a client employeeId is not accepted.
+    await post("emp", "/self-service/loans", {
+      ...body,
+      employeeId: otherTeamEmployeeId,
+    }).expect(400);
+    const request1 = dataOf<{
+      id: number;
+      status: string;
+      requestedVia: string;
+      employeeId: number;
+    }>(await post("emp", "/self-service/loans", body).expect(201));
+    expect(request1).toMatchObject({
+      status: "PENDING_HR",
+      requestedVia: "SELF",
+      employeeId,
+    });
+    expect(await noticeTypes("reviewer")).toContain("loan.requested");
+
+    // The borrower has no HR grant to review or decide their own loan.
+    await post("emp", `/hr/loans/${request1.id}/review`, {
+      decision: "FORWARD",
+    }).expect(403);
+    const noNote = await post("reviewer", `/hr/loans/${request1.id}/review`, {
+      decision: "REJECT",
+    }).expect(422);
+    expect(errorOf(noNote)).toBe("DECISION_NOTE_REQUIRED");
+    await post("reviewer", `/hr/loans/${request1.id}/review`, {
+      decision: "FORWARD",
+    }).expect(200);
+    // Reviewed exactly once.
+    await post("reviewer", `/hr/loans/${request1.id}/review`, {
+      decision: "FORWARD",
+    }).expect(422);
+    // Every final approver in scope is told: org-wide and the team's lead.
+    expect(await noticeTypes("checker")).toContain("loan.forwarded");
+    expect(await noticeTypes("lead")).toContain("loan.forwarded");
+
+    const rejected = dataOf<{ status: string; hrReviewedById: number }>(
+      await post("checker", `/hr/loans/${request1.id}/decide`, {
+        decision: "REJECTED",
+        note: "Budget closed this quarter",
+      }).expect(200),
+    );
+    expect(rejected).toMatchObject({
+      status: "REJECTED",
+      hrReviewedById: users.reviewer,
+    });
+    expect(await noticeTypes("emp")).toContain("loan.rejected");
+
+    // HR may also reject at the review step; the employee is told why.
+    const request2 = dataOf<{ id: number }>(
+      await post("emp", "/self-service/loans", body).expect(201),
+    );
+    const hrRejected = dataOf<{ status: string; decisionNote: string }>(
+      await post("reviewer", `/hr/loans/${request2.id}/review`, {
+        decision: "REJECT",
+        note: "Probation not completed",
+      }).expect(200),
+    );
+    expect(hrRejected).toMatchObject({
+      status: "REJECTED",
+      decisionNote: "Probation not completed",
+    });
+    await post("checker", `/hr/loans/${request2.id}/decide`, {
+      decision: "APPROVED",
+    }).expect(422);
   });
 
   it("11. statutory bonus preview, gratuity and Form 16", async () => {

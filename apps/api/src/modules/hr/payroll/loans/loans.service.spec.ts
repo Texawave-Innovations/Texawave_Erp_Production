@@ -29,7 +29,9 @@ function makeService(overrides?: {
   prepayment?: unknown;
 }) {
   const repository = {
-    create: vi.fn().mockResolvedValue({ id: 1, status: "PENDING_APPROVAL" }),
+    create: vi.fn().mockResolvedValue({ id: 1, status: "PENDING_HR" }),
+    createForSelf: vi.fn().mockResolvedValue({ id: 2, status: "PENDING_HR" }),
+    review: vi.fn().mockResolvedValue({ id: 1, status: "PENDING_ADMIN" }),
     grossOn: vi
       .fn()
       .mockResolvedValue(
@@ -87,6 +89,7 @@ function makeService(overrides?: {
       findFirst: vi.fn().mockResolvedValue(overrides?.existingSkip ?? null),
     },
   };
+  const notifier = { loanChanged: vi.fn().mockResolvedValue(undefined) };
   const service = new LoansService(
     repository as never,
     {
@@ -101,8 +104,9 @@ function makeService(overrides?: {
         .fn()
         .mockResolvedValue({ loanMaxMultiple: 3, loanMaxEmiPercent: 50 }),
     } as never,
+    notifier as never,
   );
-  return { service, repository, teamScope };
+  return { service, repository, teamScope, notifier };
 }
 
 const CREATE_DTO: CreateLoanDto = {
@@ -115,17 +119,25 @@ const CREATE_DTO: CreateLoanDto = {
 
 const PENDING_LOAN = {
   id: 1,
-  status: "PENDING_APPROVAL",
+  status: "PENDING_ADMIN",
   createdBy: 11,
+  hrReviewedById: 12,
   limitOverride: false,
   employee: { userId: 70 },
+};
+
+const HR_PENDING_LOAN = {
+  ...PENDING_LOAN,
+  status: "PENDING_HR",
+  hrReviewedById: null,
 };
 
 describe("LoansService", () => {
   describe("create", () => {
     it("records a loan request awaiting approval with the parsed UTC date", async () => {
-      const { service, repository, teamScope } = makeService();
+      const { service, repository, teamScope, notifier } = makeService();
       await service.create(CREATE_DTO);
+      expect(notifier.loanChanged).toHaveBeenCalledWith(1, "requested");
       expect(repository.create).toHaveBeenCalledWith(
         teamScope,
         CREATE_DTO,
@@ -192,11 +204,109 @@ describe("LoansService", () => {
     });
   });
 
+  describe("requestMine", () => {
+    const MINE = {
+      principalAmount: 10000,
+      emiAmount: 1000,
+      emiMonths: 10,
+      disbursedDate: "2026-04-15",
+    };
+
+    it("records the caller's own request and notifies HR reviewers", async () => {
+      const { service, repository, notifier } = makeService();
+      await service.requestMine({ ...MINE, employeeId: 999 } as never);
+      expect(repository.createForSelf).toHaveBeenCalledWith(
+        SCOPE,
+        70,
+        expect.objectContaining({ employeeId: 70 }),
+        new Date("2026-04-15T00:00:00.000Z"),
+        false,
+        USER_ID,
+      );
+      expect(notifier.loanChanged).toHaveBeenCalledWith(2, "requested");
+    });
+
+    it("applies the limits: above 3 × gross only with a reason", async () => {
+      const { service, repository } = makeService();
+      const err = await service
+        .requestMine({ ...MINE, principalAmount: 70000, emiAmount: 7000 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("LOAN_OVER_LIMIT");
+      await service.requestMine({
+        ...MINE,
+        principalAmount: 70000,
+        emiAmount: 7000,
+        overrideReason: "House repair after flooding",
+      });
+      expect(repository.createForSelf.mock.calls[0]?.[4]).toBe(true);
+    });
+  });
+
+  describe("review", () => {
+    it("forwards a loan awaiting HR review and notifies approvers", async () => {
+      const { service, repository, notifier } = makeService({
+        loan: HR_PENDING_LOAN,
+      });
+      await service.review(1, { decision: "FORWARD" });
+      expect(repository.review).toHaveBeenCalled();
+      expect(notifier.loanChanged).toHaveBeenCalledWith(1, "forwarded");
+    });
+
+    it("needs a note to reject and notifies the employee", async () => {
+      const { service, notifier } = makeService({ loan: HR_PENDING_LOAN });
+      const err = await service
+        .review(1, { decision: "REJECT" })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("DECISION_NOTE_REQUIRED");
+      await service.review(1, { decision: "REJECT", note: "Not eligible" });
+      expect(notifier.loanChanged).toHaveBeenCalledWith(1, "hr_rejected");
+    });
+
+    it("refuses the requester and the borrower", async () => {
+      for (const loan of [
+        { ...HR_PENDING_LOAN, createdBy: USER_ID },
+        { ...HR_PENDING_LOAN, employee: { userId: USER_ID } },
+      ]) {
+        const { service } = makeService({ loan });
+        await expect(
+          service.review(1, { decision: "FORWARD" }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      }
+    });
+
+    it("refuses a loan not awaiting HR review", async () => {
+      const { service } = makeService({ loan: PENDING_LOAN });
+      const err = await service
+        .review(1, { decision: "FORWARD" })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("INVALID_STATE_TRANSITION");
+    });
+  });
+
   describe("decide", () => {
-    it("approves a pending loan raised by someone else", async () => {
-      const { service, repository } = makeService({ loan: PENDING_LOAN });
+    it("approves a forwarded loan and notifies the employee", async () => {
+      const { service, repository, notifier } = makeService({
+        loan: PENDING_LOAN,
+      });
       await service.decide(1, { decision: "APPROVED" });
       expect(repository.decide).toHaveBeenCalled();
+      expect(notifier.loanChanged).toHaveBeenCalledWith(1, "approved");
+    });
+
+    it("refuses the HR reviewer (maker-checker)", async () => {
+      const { service } = makeService({
+        loan: { ...PENDING_LOAN, hrReviewedById: USER_ID },
+      });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it("refuses a loan HR has not forwarded yet", async () => {
+      const { service } = makeService({ loan: HR_PENDING_LOAN });
+      await expect(
+        service.decide(1, { decision: "APPROVED" }),
+      ).rejects.toBeInstanceOf(BusinessRuleViolationException);
     });
 
     it("refuses the person who recorded it (maker-checker)", async () => {

@@ -13,7 +13,8 @@ import { IsDateOnly } from "../../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../../common/dto/pagination.dto.js";
 
 export const LOAN_STATUSES = [
-  "PENDING_APPROVAL",
+  "PENDING_HR",
+  "PENDING_ADMIN",
   "ACTIVE",
   "REJECTED",
   "CLOSED",
@@ -57,6 +58,52 @@ export class CreateLoanDto {
   @MinLength(10)
   @MaxLength(500)
   overrideReason?: string;
+}
+
+/** An employee's own request from the portal: the employee is always the
+ * caller (never a client value). */
+export class CreateMyLoanDto {
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  principalAmount!: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  emiAmount!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  emiMonths!: number;
+
+  @IsDateOnly()
+  disbursedDate!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+
+  /** Required above the principal limit (see CreateLoanDto). */
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  overrideReason?: string;
+}
+
+/** The HR review step. */
+export class ReviewLoanDto {
+  @IsIn(["FORWARD", "REJECT"])
+  decision!: "FORWARD" | "REJECT";
+
+  /** Mandatory when rejecting. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 export class DecideLoanDto {
