@@ -79,7 +79,6 @@ model Organization {
   leaveRequests           LeaveRequest[]
   leaveEntitlements       LeaveEntitlement[]
   leaveDelegations        LeaveApprovalDelegation[]
-  workLogs                WorkLog[]
   expenseClaims           ExpenseClaim[]
   exitRequests            ExitRequest[]
   tasks                   Task[]
@@ -157,8 +156,6 @@ model User {
   leaveCancelled      LeaveRequest[]          @relation("LeaveCanceller")
   leaveDelegatedFrom  LeaveApprovalDelegation[] @relation("LeaveDelegator")
   leaveDelegatedTo    LeaveApprovalDelegation[] @relation("LeaveDelegate")
-  workLogsRequested   WorkLog[]               @relation("WorkLogRequester")
-  workLogsDecided     WorkLog[]               @relation("WorkLogDecider")
   expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
   expenseClaimsDecided   ExpenseClaim[]       @relation("ExpenseClaimDecider")
   exitRequestsRequested  ExitRequest[]        @relation("ExitRequestRequester")
@@ -684,7 +681,6 @@ model Employee {
   shiftAssignments      ShiftAssignment[]
   leaveRequests         LeaveRequest[]
   leaveEntitlements     LeaveEntitlement[]
-  workLogs              WorkLog[]
   expenseClaims         ExpenseClaim[]
   exitRequests          ExitRequest[]
   tasksAssigned         Task[]                     @relation("TaskAssignee")
@@ -1035,42 +1031,11 @@ model LeaveApprovalDelegation {
   @@schema("hr")
 }
 
-/// Daily task-time submission (legacy `hr/timeLogs`). Independent of
-/// attendance: hours are typed by the employee, never derived from punches.
-/// Approval is by the employee's reporting manager (`Employee.reportsToId`).
-model WorkLog {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  employeeId      Int       @map("employee_id")
-  workDate        DateTime  @map("work_date") @db.Date
-  taskDescription String    @map("task_description")
-  hoursWorked     Decimal   @map("hours_worked") @db.Decimal(5, 2)
-  status          String    @default("PENDING")
-  requestedBy     Int       @map("requested_by")
-  decidedBy       Int?      @map("decided_by")
-  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
-  decisionNote    String?   @map("decision_note")
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employee     Employee     @relation(fields: [employeeId], references: [id])
-  requester    User         @relation("WorkLogRequester", fields: [requestedBy], references: [id])
-  decider      User?        @relation("WorkLogDecider", fields: [decidedBy], references: [id], onDelete: Restrict)
-
-  @@index([organizationId, employeeId, workDate])
-  @@index([organizationId, status])
-  @@map("work_logs")
-  @@schema("hr")
-}
-
 // ---------------------------------------------------------------------------
 // Expense claims (apps/api/src/modules/hr/expense-claims). Legacy:
 // hr/expenseRequests in RTDB (ExpenseApprovals.tsx, MyExpenses.tsx). Three
 // legacy statuses, six legacy categories, no edit/cancel/resubmit, no payment
-// link. Decisions are final, as in work logs. See Docs/HR_LEGACY_PARITY.md §3.11.
+// link. Decisions are final. See Docs/HR_LEGACY_PARITY.md §3.11.
 // ---------------------------------------------------------------------------
 
 /// One expense claim submitted by an employee and decided by HR.

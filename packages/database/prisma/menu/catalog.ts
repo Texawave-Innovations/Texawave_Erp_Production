@@ -132,14 +132,6 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "hr.attendance_correction.read",
   },
   {
-    code: "hr-work-logs",
-    label: "Work Logs",
-    path: "/hr/work-logs",
-    order: 10,
-    parentCode: "hr",
-    permission: "hr.work_log.read",
-  },
-  {
     code: "hr-location-privilege",
     label: "Location Privilege",
     path: "/hr/location-privilege",
@@ -251,14 +243,6 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     order: 2,
     parentCode: "portal",
     permission: "employee_self_service.leave_request.read",
-  },
-  {
-    code: "portal-work-logs",
-    label: "Work Logs",
-    path: "/portal/work-logs",
-    order: 3,
-    parentCode: "portal",
-    permission: "employee_self_service.work_log.read",
   },
   {
     code: "portal-tasks",

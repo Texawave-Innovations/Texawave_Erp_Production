@@ -1,9 +1,9 @@
 # HR backend — API contract
 
 **Scope:** audit platform, HR master data, employees, shifts and shift assignments, holiday and
-weekly-off calendar, leave, work logs, and employee self-service onboarding/profile. **Backend
+weekly-off calendar, leave, and employee self-service onboarding/profile. **Backend
 only** for most of this file — UI exists for Employees, Recruitment, Profiles, Location Privilege,
-Org Chart, **Work Logs** (§2a) and the **onboarding wizard/portal** (§2b); everything else here
+Org Chart and the **onboarding wizard/portal** (§2b); everything else here
 has no UI yet.
 **Status:** implemented and tested, merged to `feature/HR`. **Owner:** unassigned (see the readiness
 report). Companion documents: `reports/HR_BACKEND_COMPLETION_REPORT.md` (what was verified, what is open),
@@ -219,65 +219,9 @@ Full design, rules and open decisions: [HR_LEAVE.md](HR_LEAVE.md).
 - **Notifications** (in-app, after commit, best effort): submitted → reporting manager and delegates (no manager: the team's approvers); on behalf → also the employee; first approval → employee and HR; decision / HR cancellation → employee; withdrawal of approved leave → whoever approved it. Types `leave.*` (HR_LEAVE.md §6.3).
 - **Not built (open decisions, see HR_LEAVE.md §9.3):** past-date policy, encashment, attachments, sandwich rule, partial cancellation of started leave.
 
-### Work logs (`modules/hr/work-logs`, `modules/employee-self-service/work-logs`)
+### Work logs — removed
 
-Legacy: HR `WorkLogs.tsx` (approve/reject queue) and employee `MyTimesheet.tsx` (self-submission),
-both Firebase-backed. Table `hr.work_logs`. **UI exists**: `/hr/work-logs` (approver) and
-`/self-service/work-logs` (own logs), under `apps/ui/src/features/hr/work-logs/`.
-
-| Method & path                    | Permission                              | Notes                                                                                                                  |
-| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| GET `/hr/work-logs`              | `hr.work_log.read` ▲                    | filters `employeeId, status, from, to`, pagination                                                                     |
-| GET `/hr/work-logs/approvals`    | `hr.work_log.approve`                   | the caller's direct reports (`Employee.reportsToId`); defaults `status=PENDING`                                        |
-| GET `/hr/work-logs/:id`          | `hr.work_log.read` ▲                    | 404 outside scope                                                                                                      |
-| POST `/hr/work-logs/:id/approve` | `hr.work_log.approve`                   | `{note?}` — optional, 3–500 chars if sent                                                                              |
-| POST `/hr/work-logs/:id/reject`  | `hr.work_log.approve`                   | same body shape                                                                                                        |
-| GET `/self-service/work-logs`    | `employee_self_service.work_log.read`   | my logs; filters `status, from, to` (no `employeeId` — always "me")                                                    |
-| POST `/self-service/work-logs`   | `employee_self_service.work_log.create` | `{workDate, hoursWorked, taskDescription}` → starts `PENDING`. `employeeId` resolved from the JWT, never from the body |
-
-- **Status:** `PENDING → APPROVED | REJECTED`, final once decided — **no edit or delete route** (matches legacy).
-- **Approval is by direct manager, not team**: `hr.work_log.approve` carries no `.own/.team/.all` suffix; the service narrows to `employee.reportsToId = caller`. A decider cannot approve/reject their own log (403 `SELF_APPROVAL_FORBIDDEN`), even with the permission. Deciding an already-decided log is 422 `INVALID_STATE_TRANSITION`.
-- **Fields:** `hoursWorked` 0.01–24, 2 decimals; `taskDescription` 3–500 chars; `workDate` is a plain date, no time zone.
-- **Not built:** edit/delete, a project/task selector (legacy's task field is free text), bulk approve.
-
-#### UI/UX Architecture & Design System Integration (TexaWave ERP Production)
-
-1. **Screen 1 — Approvals (`/hr/work-logs` — tab `approvals`):**
-   - **Header:** Displays page title "Work Logs" with a live count badge pill showing the exact count of pending items awaiting the supervisor's decision (`${count} pending approvals`).
-   - **Tabs Switcher:** Segmented control toggling between "Approvals" and "All work logs", plus a shortcut to "My work logs".
-   - **Compact Filter Toolbar:** Status filter (`Select`), shared `DateRangePicker` (`fromAriaLabel="Logged on or after"`, `toAriaLabel="Logged on or before"`), dismissible `FilterChips`, and a quick "Reset filters" action.
-   - **Approval Table:** Renders `EmployeeIdentity` (with avatar initials and name), work date, formatted hours badge (`${hours} hrs`), readable task description with title tooltip, `WorkLogStatusBadge`, decider note preview, and distinct action buttons for `PENDING` rows:
-     - **Approve:** Emerald action button (`bg-emerald-600 hover:bg-emerald-700 text-white`) with `Check` icon.
-     - **Reject:** Destructive action button with `X` icon.
-   - **States:** `TableSkeleton` (6 rows × 7 columns), `EmptyState` with filter reset actions, and `ErrorState` with retry callback.
-
-2. **Screen 2 — All Work Logs (`/hr/work-logs` — tab `scope`):**
-   - **Scope-wide View:** Accessible to users with `hr.work_log.read` permission.
-   - **Columns:** Employee identity, work date, hours, task summary, status badge, and decider information (decision-maker name and note).
-
-3. **Screen 3 — My Work Logs (`/self-service/work-logs`):**
-   - **Employee Self-Service:** Header with page title "My Work Logs", subtitle "Track and manage your submitted work logs", total count badge pill, and a prominent primary action button `+ Submit work log`.
-   - **Compact Summary Metrics:** Derived safely from current data: Total Logs, Page Hours, Approved, and Pending.
-   - **Shared Filters & History Table:** Status selector, global shared `DateRangePicker`, filter chips, and history rows showing work date, hours worked, task description, status badge, and decider feedback note.
-
-4. **Screen 4 — Submit Work Log Modal (`CreateWorkLogDialog`):**
-   - **Dialog UX:** Native HTML `<dialog>` with focus trap, dark translucent backdrop, subtle backdrop blur, and Escape key / outside click dismissal.
-   - **Fields & Validation:**
-     - Date input with default `today` in ISO format (`YYYY-MM-DD`).
-     - Hours worked numeric input (`step="0.01"`, `min="0.01"`, `max="24"`).
-     - Task description textarea with live character counter in `labelAction` (`${len}/500`), validating between 3 and 500 characters.
-   - **Actions:** Secondary "Cancel" and Primary "Submit" with async loading spinner.
-
-5. **Approval Decision Modal (`DecideWorkLogDialog`):**
-   - Modal dialog with an employee preview card summarizing the requester's name, work date, and hours.
-   - Finality reminder: "Decision is final once saved".
-   - Optional note textarea with character counter in `labelAction` (3–500 chars if provided).
-   - Distinct Approve (emerald) or Reject (destructive) action with async mutation state.
-
-6. **Accessibility & Performance:**
-   - Strict WCAG 2.1 AA compliance: visible focus rings, color contrast ratios, screen-reader text for all table actions, ARIA attributes on inputs and comboboxes.
-   - Status is never communicated by color alone (text badges only).
-   - Transitions kept light (180–250ms) with zero unnecessary animation libraries or layout thrashing.
+The work-logs module (legacy `WorkLogs.tsx` / `MyTimesheet.tsx`) was removed: its API, UI, permissions (`hr.work_log.*`, `employee_self_service.work_log.*`, now in `RETIRED_PERMISSIONS`), menu items and the `hr.work_logs` table (migration `20261016090000_drop_hr_work_logs`).
 
 ### Recruitment — revision letters (`modules/hr/revision-letters`)
 
@@ -578,8 +522,7 @@ Synced to every environment by `pnpm --filter @texawave-erp/database permissions
 | Recruitment        | `hr.revision_letter.{read,write}.{own,team,all}` · `hr.promotion_letter.{read,write}.{own,team,all}` (team-scoped) · `hr.interview.{read,write}` · `hr.offer_letter.{read,write}` (organization-wide, explicit exception)                                                                                                |
 | Attendance         | `hr.attendance.{read,write,export,import}.{own,team,all}` · `hr.attendance_correction.{read,approve}.{own,team,all}` · `hr.attendance_report.read.{own,team,all}` · `hr.attendance_lock.{read,finalize,approve}.{own,team,all}`                                                                                          |
 | Location privilege | `hr.location_privilege.{read,write}` (organization-wide; no team dimension in legacy) · `hr.office_network.{read,write}` (organization-wide)                                                                                                                                                                             |
-| Work logs          | `hr.work_log.read.{own,team,all}` · `hr.work_log.approve` (flat — by direct manager, not team)                                                                                                                                                                                                                           |
-| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create, work_log.read, work_log.create}`                                                                                                                                                                                          |
+| Self-service       | `employee_self_service.{profile.read, profile.write, leave_request.read, leave_request.create}`                                                                                                                                                                                                                          |
 | Audit              | `audit.log.read`                                                                                                                                                                                                                                                                                                         |
 
 Reserved-but-inert variants (seeded so the family is complete, granting nothing): `hr.employee.write.own`,
@@ -596,7 +539,7 @@ types; no pay data), **Employee** (self-service + calendar + own payslips, loans
 `audit_logs`¹ · `designations` · `employment_types` · `work_locations` · `document_sequences` · `employees` ·
 `employee_status_history`¹ · `shifts` · `shift_assignments` · `holidays` · `weekly_off_rules` · `leave_types` ·
 `leave_requests` · `leave_entitlements` · `leave_approval_delegations` · `revision_letters` · `promotion_letters` · `interviews` · `offer_letters` (Recruitment) · `employee_profiles` · `employee_sensitive_info` (Profiles — **retired**, data moved to the onboarding tables below) · `payroll_settings` (Payroll) · `employee_location_privileges` · `office_network_addresses` (Location Privilege) ·
-`work_logs` (Work logs) · `attendance_month_locks` (Attendance month close) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
+`attendance_month_locks` (Attendance month close) · `employee_personal_details` · `employee_addresses` · `employee_bank_details` ·
 `employee_government_ids` · `employee_family_members` · `employee_experience` · `employee_documents`
 (Onboarding/self-service profile); all in schema `hr`, except `notifications` (in-app inbox), which is in `platform`. ¹ append-only (triggers). All follow the baseline (`Int` id — `BigInt` for the two logs —
 organization scoped, `custom_fields`, `is_active`, audit columns, `timestamptz`, soft-delete column unused because nothing is deleted).

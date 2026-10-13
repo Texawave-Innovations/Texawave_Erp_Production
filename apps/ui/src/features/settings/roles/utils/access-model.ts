@@ -77,7 +77,7 @@ const SECTIONS: { key: string; label: string; description: string }[] = [
   {
     key: "workflows",
     label: "HR · Requests & work",
-    description: "Work logs, tasks, tickets, expense claims and exit requests.",
+    description: "Tasks, tickets, expense claims and exit requests.",
   },
   {
     key: "recruitment",
@@ -131,7 +131,6 @@ const RESOURCES: Record<string, [string, string]> = {
   "hr.leave_type": ["time", "Leave types"],
   "hr.leave_request": ["time", "Leave requests"],
   "hr.leave": ["time", "Leave requests"],
-  "hr.work_log": ["workflows", "Work logs"],
   "hr.task": ["workflows", "Tasks"],
   "hr.ticket": ["workflows", "Tickets"],
   "hr.expense_claim": ["workflows", "Expense claims"],
@@ -156,7 +155,6 @@ const SELF_LABELS: Record<string, string> = {
   leave_request: "My leave",
   attendance: "My attendance",
   attendance_correction: "My attendance corrections",
-  work_log: "My work logs",
   ticket: "My tickets",
   expense_claim: "My expense claims",
   exit_request: "My exit request",

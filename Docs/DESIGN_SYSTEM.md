@@ -159,7 +159,7 @@ Every screen that fetches or mutates data must account for all of these — the 
 - **Tables:** `DataTable` + `Pagination`, driven by a `PaginationMeta` from the API envelope — never re-derive `totalPages` client-side when the server already computed it.
 - **Dialogs:** one open/close boolean in the parent, native `<dialog>` underneath — don't build a second modal mechanism (a manually-positioned `fixed` div) alongside this one.
 - **Toasts:** fire-and-forget via `useToast().toast(...)` for the _result_ of an action (created/deleted/failed) — not for validation errors, which belong inline via `FormField`.
-- **Date Range Filters (`DateRangePicker`):** Reusable across all filter toolbars (`Attendance`, `My Attendance`, `Work Logs`, `My Work Logs`, `Employees`, `Interviews`). Supports:
+- **Date Range Filters (`DateRangePicker`):** Reusable across all filter toolbars (`Attendance`, `My Attendance`, `Employees`, `Interviews`). Supports:
   - **Single Unified Trigger:** Renders a single compact ERP trigger field displaying `📅  01 Oct 2026 – 09 Oct 2026      ✕  ⌄` (or custom placeholder). No duplicate browser native date boxes.
   - **A11y & E2E Testing:** Visually hidden textboxes (`sr-only`) for `"From date"` and `"To date"` ensure Playwright tests and screen readers find and interact with the range seamlessly.
   - **Interaction:** Calendar popover with quick presets (Today, Yesterday, This Week, This Month, Last Month, Last 30 Days), Month/Year jump controls, interactive 7x6 calendar grid with range highlighting (`brand-500` ends, `brand-50` fill), day count display, `Clear`, `Cancel`, and `Apply`.

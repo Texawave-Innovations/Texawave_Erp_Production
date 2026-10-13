@@ -19,7 +19,7 @@ The HR Employees module represents the unified workforce identity and personnel 
 
 - **Zero Breaking Changes:** Preserves all backend API contracts (`/employees`, `/lookups/departments`, `/lookups/teams`, `/lookups/designations`, `/roles`, `/employee/profile`, `/hr/employees/:id/onboarding`), RBAC permissions (`READ_ANY_SCOPE`, `WRITE_TEAM_OR_ALL`, `STATUS_WRITE`, `STATUS_CORRECT`, `PROFILE_READ_ANY_SCOPE`, `ACCOUNT_WRITE`), and validation schemas.
 - **Strict Architecture Compliance:** Adheres strictly to `Docs/CODING_STANDARDS.md` §4. Thin Next.js App Router files (`apps/ui/src/app/`), shared HR components in `apps/ui/src/features/hr/components/`, and domain views in `apps/ui/src/features/hr/employees/` and `apps/ui/src/features/onboarding/`. Zero rogue folders created.
-- **Build Once, Reuse Everywhere:** All foundational components (`EmployeeIdentity`, `FilterChips`, `TableSkeleton`, `PasswordField`, `FormSection`) are packaged as shared building blocks reusable across Attendance, Leaves, Work Logs, Regularization, Payroll, and Tickets.
+- **Build Once, Reuse Everywhere:** All foundational components (`EmployeeIdentity`, `FilterChips`, `TableSkeleton`, `PasswordField`, `FormSection`) are packaged as shared building blocks reusable across Attendance, Leaves, Regularization, Payroll, and Tickets.
 
 ---
 
@@ -207,13 +207,13 @@ All new components reside in `apps/ui/src/features/hr/components/` and are expor
 ### 6.1 `EmployeeIdentity`
 
 - **Location:** `apps/ui/src/features/hr/components/EmployeeIdentity.tsx`
-- **Purpose:** Standard presentation of an employee across all HR tables, cards, work logs, and approval queues.
+- **Purpose:** Standard presentation of an employee across all HR tables, cards and approval queues.
 - **Features:**
   - Avatar initials computed from full name.
   - Consistent deterministic color palette derived from string hashing (6 distinct color pairs).
   - Sizes: `sm` (28px), `md` (36px), `lg` (48px).
   - Optional link navigation and subtitle.
-- **Reuse Locations:** Employees, Attendance, Leaves, Work Logs, Regularization, Payroll, Org Chart, Tickets.
+- **Reuse Locations:** Employees, Attendance, Leaves, Regularization, Payroll, Org Chart, Tickets.
 
 ### 6.2 `FilterChip` & `FilterChips`
 

@@ -15,7 +15,7 @@ apps/ui/src/app/(employee-portal)/portal/<feature>/page.tsx
             │  thin wrapper, no business logic
             ▼
 apps/ui/src/features/employee-self-service/<feature>/   (profile, documents, leave, expense claims, exit requests)
-apps/ui/src/features/hr/<feature>/components/My*View.tsx (tasks, tickets, work logs, attendance)
+apps/ui/src/features/hr/<feature>/components/My*View.tsx (tasks, tickets, attendance)
             │  components + hooks + api.ts
             ▼
 apps/api/src/modules/employee-self-service/<feature>/*.controller.ts
@@ -144,13 +144,6 @@ Decision (approve/reject) is dashboard-only (`hr.expense_claim.decide.*`).
 
 Decision is dashboard-only (`hr.exit_request.decide.*`).
 
-### Work logs (`self-service/work-logs`)
-
-| Method & path                  | Permission                              | Notes |
-| ------------------------------ | --------------------------------------- | ----- |
-| GET `/self-service/work-logs`  | `employee_self_service.work_log.read`   |       |
-| POST `/self-service/work-logs` | `employee_self_service.work_log.create` |       |
-
 ---
 
 ## 4. The portal sidebar for all of this
@@ -163,11 +156,11 @@ tab. The "Go to HR/Admin" button some screenshots/old docs may still mention **n
 the portal and dashboard are fully separate shells with no cross-navigation button; a user with both
 employee and HR permissions still only sees the portal sidebar while in `/portal/...`.
 
-**One screen per feature.** Tasks, tickets, work logs and attendance have exactly one self-service
+**One screen per feature.** Tasks, tickets and attendance have exactly one self-service
 screen, `features/hr/<feature>/components/My*View.tsx`, rendered by the `/portal/<feature>` page —
 the same screen whether an employee or an HR staff member opens their own records (the HR screens'
 "My …" buttons link to `/portal/<feature>`). The old dashboard routes `/self-service/{tasks,tickets,
-work-logs,attendance}` only redirect there. Don't add a second, portal-only copy of a screen that
+attendance}` only redirect there. Don't add a second, portal-only copy of a screen that
 already exists under `features/hr/`: the cut-down copies this replaced had no ticket replies, offered
 illegal task moves and capped every list at 50 rows.
 

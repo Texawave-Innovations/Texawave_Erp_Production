@@ -383,25 +383,6 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Request a correction to my own attendance",
   },
 
-  // apps/api/src/modules/employee-self-service/work-logs — own records only.
-  {
-    code: "employee_self_service.work_log.create",
-    description: "Submit a work log for myself",
-  },
-  {
-    code: "employee_self_service.work_log.read",
-    description: "View my own work logs",
-  },
-
-  // apps/api/src/modules/hr/work-logs — team-scoped read; approval is by the
-  // employee's reporting manager (Employee.reportsToId), not by team, so the
-  // approve permission carries no scope suffix.
-  ...scopedPermission("hr.work_log.read", "View work logs"),
-  {
-    code: "hr.work_log.approve",
-    description: "Approve or reject work logs of my direct reports",
-  },
-
   // apps/api/src/modules/hr/tasks — team-scoped by the ASSIGNEE's team. There is
   // no separate approve permission: in legacy the same admin who assigns a
   // task approves or reopens it, so approval rides on the write scope.
@@ -613,4 +594,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
 ];
 
-export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [];
+export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [
+  {
+    code: "employee_self_service.work_log.create",
+    reason: "Work logs module removed",
+  },
+  {
+    code: "employee_self_service.work_log.read",
+    reason: "Work logs module removed",
+  },
+  { code: "hr.work_log.read.own", reason: "Work logs module removed" },
+  { code: "hr.work_log.read.team", reason: "Work logs module removed" },
+  { code: "hr.work_log.read.all", reason: "Work logs module removed" },
+  { code: "hr.work_log.approve", reason: "Work logs module removed" },
+];
