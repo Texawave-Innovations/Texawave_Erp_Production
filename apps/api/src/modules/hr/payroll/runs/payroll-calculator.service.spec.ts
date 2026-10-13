@@ -46,17 +46,48 @@ describe("PayrollCalculatorService", () => {
     bonuses?: unknown[];
     bonusEarningsElsewhere?: unknown[];
     employeeSalary?: unknown;
-    payrollSetting?: unknown;
+    payrollSetting?: Record<string, unknown>;
+    attendanceLock?: unknown;
+    esiCoveredBefore?: number;
+    ptState?: unknown;
+    ptSlabs?: unknown[];
+    taxDeclaration?: unknown;
+    taxRegime?: unknown;
+    ytdEntries?: unknown[];
   }) {
     const prisma = {
       payrollPeriod: {
         findFirstOrThrow: vi.fn().mockResolvedValue(period),
       },
-      // No settings row: the statutory defaults apply.
+      // Defaults, except attendance (tested on its own below).
       payrollSetting: {
+        findUnique: vi.fn().mockResolvedValue({
+          useAttendance: false,
+          ...(overrides?.payrollSetting ?? {}),
+        }),
+      },
+      attendanceMonthLock: {
+        findFirst: vi.fn().mockResolvedValue(overrides?.attendanceLock ?? null),
+      },
+      esiContribution: {
+        count: vi.fn().mockResolvedValue(overrides?.esiCoveredBefore ?? 0),
+      },
+      ptLocationState: {
+        findFirst: vi.fn().mockResolvedValue(overrides?.ptState ?? null),
+      },
+      professionalTaxSlab: {
+        findMany: vi.fn().mockResolvedValue(overrides?.ptSlabs ?? []),
+      },
+      employeeTaxDeclaration: {
         findUnique: vi
           .fn()
-          .mockResolvedValue(overrides?.payrollSetting ?? null),
+          .mockResolvedValue(overrides?.taxDeclaration ?? null),
+      },
+      incomeTaxRegime: {
+        findUnique: vi.fn().mockResolvedValue(overrides?.taxRegime ?? null),
+      },
+      payrollEntry: {
+        findMany: vi.fn().mockResolvedValue(overrides?.ytdEntries ?? []),
       },
       employee: {
         findFirst: vi.fn().mockImplementation(() =>
@@ -142,6 +173,7 @@ describe("PayrollCalculatorService", () => {
     return new PayrollCalculatorService(prisma as never);
   }
   let lastPrisma: {
+    employee: { findFirst: ReturnType<typeof vi.fn> };
     employeeLoan: { findMany: ReturnType<typeof vi.fn> };
     payrollEarning: { findMany: ReturnType<typeof vi.fn> };
   };
@@ -154,7 +186,7 @@ describe("PayrollCalculatorService", () => {
     expect(result.payableDays).toBe(30);
     expect(result.earningRatio).toBe(1);
     expect(result.monthlyGross).toBe(50000);
-    expect(result.baseEarnings).toBe(40000); // Basic (25000) + HRA (15000)
+    expect(result.baseEarnings).toBe(50000); // every structure line
     expect(result.totalGrossEarnings).toBe(50000);
 
     // PF ceiling is 15000, 12% is 1800
@@ -197,13 +229,16 @@ describe("PayrollCalculatorService", () => {
     expect(result.esi?.employerContribution).toBe(1500);
   });
 
-  it("calculates prorated payroll with LOP leave days", async () => {
+  it("calculates prorated payroll with LOP leave days (working days only)", async () => {
     const service = createService({
       leaves: [
         {
-          startDate: new Date("2026-04-10T00:00:00.000Z"),
-          endDate: new Date("2026-04-15T00:00:00.000Z"), // 6 days
-          leaveType: { code: "LOP" },
+          // Mon 13 – Mon 20 April: 6 working days; the weekend inside the
+          // leave is not loss of pay.
+          startDate: new Date("2026-04-13T00:00:00.000Z"),
+          endDate: new Date("2026-04-20T00:00:00.000Z"),
+          dayPortion: "FULL",
+          leaveType: { code: "UNPAID_LEAVE", isPaid: false },
         },
       ],
     });
@@ -214,7 +249,7 @@ describe("PayrollCalculatorService", () => {
     expect(result.lopDays).toBe(6);
     expect(result.payableDays).toBe(24);
     expect(result.earningRatio).toBe(0.8);
-    expect(result.baseEarnings).toBe(32000); // 40000 * 0.8
+    expect(result.baseEarnings).toBe(40000); // 50000 * 0.8
     expect(result.totalGrossEarnings).toBe(40000); // 50000 * 0.8
   });
 
@@ -461,5 +496,240 @@ describe("PayrollCalculatorService", () => {
     // Wage = 20000 recurring + 3000 arrears; the 10000 bonus is excluded.
     expect(result.esi?.esiWage).toBe(23000);
     expect(result.esi?.employeeContribution).toBe(172.5);
+  });
+
+  // ---- statutory engine (Docs/PAYROLL_AND_COMPLIANCE.md §3) ------------------
+
+  const lock = (counts: Record<string, number>, overtimeMinutes = 0) => ({
+    id: 900,
+    summary: { countsByStatus: counts, overtimeMinutes },
+  });
+
+  it("refuses an employee whose attendance month is not approved", async () => {
+    const service = createService({ payrollSetting: { useAttendance: true } });
+    await expect(
+      service.calculateForEmployee(1, period.id, 10),
+    ).rejects.toMatchObject({ errorCode: "ATTENDANCE_NOT_APPROVED" });
+  });
+
+  it("deducts attendance absences once; a half-day leave is not also absence", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      payrollSetting: { useAttendance: true },
+      // 2 absent, 1 unmarked, 2 half days (one of them is a half-day leave)
+      attendanceLock: lock({
+        PRESENT: 17,
+        ABSENT: 2,
+        HALF_DAY: 2,
+        NOT_MARKED: 1,
+        WEEKLY_OFF: 8,
+      }),
+      leaves: [
+        {
+          startDate: new Date("2026-04-07T00:00:00.000Z"),
+          endDate: new Date("2026-04-07T00:00:00.000Z"),
+          dayPortion: "FIRST_HALF",
+          leaveType: { code: "CL", isPaid: true },
+        },
+      ],
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    // 2 absent + 1 unmarked + 0.5 (the half day that is not leave) = 3.5
+    expect(r.absentDays).toBe(3.5);
+    expect(r.lopDays).toBe(3.5);
+    expect(r.attendanceLockId).toBe(900);
+    expect(r.leaveDays).toBe(0.5);
+    // 50000 × (1 − 3.5/30), the ratio rounded to 4 decimals (0.8833)
+    expect(r.earningRatio).toBe(0.8833);
+    expect(r.totalGrossEarnings).toBe(44165);
+  });
+
+  it("FIXED_26 pay days: each LOP day costs gross ÷ 26", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      payrollSetting: { payDaysMode: "FIXED_26" },
+      leaves: [
+        {
+          startDate: new Date("2026-04-14T00:00:00.000Z"),
+          endDate: new Date("2026-04-15T00:00:00.000Z"),
+          dayPortion: "FULL",
+          leaveType: { code: "LWP", isPaid: false },
+        },
+      ],
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    expect(r.payDaysDivisor).toBe(26);
+    expect(r.perDayRate).toBe(1923.08);
+    expect(r.lopDays).toBe(2);
+    expect(r.payableDays).toBe(24);
+  });
+
+  it("pays approved overtime from the attendance month", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      payrollSetting: {
+        useAttendance: true,
+        overtimeEnabled: true,
+        overtimeRatePerHour: 70,
+      },
+      attendanceLock: lock({ PRESENT: 22, WEEKLY_OFF: 8 }, 600),
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    expect(r.overtimeMinutes).toBe(600);
+    expect(
+      r.earnings.find((e) => e.code === "OVERTIME")?.calculatedAmount,
+    ).toBe(700);
+  });
+
+  it("reads the structure's component lines: PF on Basic + DA, deduction lines deducted", async () => {
+    const component = (
+      code: string,
+      kind: string,
+      flags: Record<string, unknown> = {},
+    ) => ({
+      code,
+      name: code,
+      kind,
+      isProrated: true,
+      isTaxable: true,
+      pfApplicable: false,
+      esiApplicable: true,
+      displayOrder: 10,
+      ...flags,
+    });
+    const service = createService({
+      esiProfile: null,
+      employeeSalary: {
+        ...salary,
+        components: [
+          {
+            monthlyAmount: new Prisma.Decimal(8000),
+            component: component("BASIC", "EARNING", { pfApplicable: true }),
+          },
+          {
+            monthlyAmount: new Prisma.Decimal(4000),
+            component: component("DA", "EARNING", { pfApplicable: true }),
+          },
+          {
+            monthlyAmount: new Prisma.Decimal(6000),
+            component: component("SHIFT_ALLOWANCE", "EARNING", {
+              isProrated: false,
+            }),
+          },
+          {
+            monthlyAmount: new Prisma.Decimal(200),
+            component: component("CANTEEN", "DEDUCTION", { isProrated: false }),
+          },
+        ],
+      },
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    expect(r.monthlyGross).toBe(18000);
+    expect(r.pf?.pfWage).toBe(12000); // Basic + DA
+    expect(r.pf?.employeeContribution).toBe(1440);
+    // Employer 12% = 1440 → EPS 8.33% of 12000 = 999.6, EPF difference 440.4
+    expect(r.pf?.epsContribution).toBe(999.6);
+    expect(r.pf?.epfEmployerContribution).toBe(440.4);
+    expect(r.deductions.find((d) => d.code === "CANTEEN")?.amount).toBe(200);
+  });
+
+  it("gives no EPS at or above the EPS age limit", async () => {
+    const prismaService = createService({ esiProfile: null });
+    // Employee born 1960: 66 in April 2026.
+    (
+      lastPrisma as unknown as {
+        employee: { findFirst: ReturnType<typeof vi.fn> };
+      }
+    ).employee.findFirst.mockResolvedValueOnce({
+      ...employee,
+      pfProfile: { pfApplicable: true },
+      esiProfile: null,
+      personalDetail: { dateOfBirth: new Date("1960-01-01T00:00:00.000Z") },
+    });
+    const r = (await prismaService.calculateForEmployee(1, period.id, 10))!;
+    expect(r.pf?.epsContribution).toBe(0);
+    expect(r.pf?.epfEmployerContribution).toBe(1800);
+  });
+
+  it("keeps ESI within a contribution period after the wage crosses the threshold", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: { esiApplicable: true },
+      esiCoveredBefore: 1,
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    expect(r.esi?.esiWage).toBe(50000);
+  });
+
+  it("deducts Professional Tax from the work location's state slabs", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      payrollSetting: { ptEnabled: true },
+      ptState: { stateCode: "KA" },
+      ptSlabs: [
+        {
+          minMonthlyWage: new Prisma.Decimal(0),
+          maxMonthlyWage: new Prisma.Decimal(24999),
+          monthlyAmount: new Prisma.Decimal(0),
+          specialMonth: null,
+          specialAmount: null,
+          applicableMonths: [],
+        },
+        {
+          minMonthlyWage: new Prisma.Decimal(25000),
+          maxMonthlyWage: null,
+          monthlyAmount: new Prisma.Decimal(200),
+          specialMonth: null,
+          specialAmount: null,
+          applicableMonths: [],
+        },
+      ],
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    expect(r.deductions.find((d) => d.code === "PT")?.amount).toBe(200);
+  });
+
+  it("deducts TDS by projecting the year under the regime's slabs", async () => {
+    const service = createService({
+      pfProfile: null,
+      esiProfile: null,
+      payrollSetting: { tdsEnabled: true },
+      taxRegime: {
+        standardDeduction: new Prisma.Decimal(75000),
+        rebateIncomeLimit: new Prisma.Decimal(0),
+        rebateMaxAmount: new Prisma.Decimal(0),
+        cessPercent: new Prisma.Decimal(4),
+        section80cLimit: new Prisma.Decimal(150000),
+        homeLoanInterestLimit: new Prisma.Decimal(200000),
+        slabs: [
+          {
+            fromIncome: new Prisma.Decimal(0),
+            toIncome: new Prisma.Decimal(400000),
+            ratePercent: new Prisma.Decimal(0),
+          },
+          {
+            fromIncome: new Prisma.Decimal(400000),
+            toIncome: null,
+            ratePercent: new Prisma.Decimal(10),
+          },
+        ],
+      },
+    });
+    const r = (await service.calculateForEmployee(1, period.id, 10))!;
+    // April: 12 × 50000 = 600000 − 75000 = 525000; tax 12500 + 4% = 13000;
+    // spread over 12 months = 1083.
+    expect(r.taxRegime).toBe("NEW");
+    expect(r.deductions.find((d) => d.code === "TDS")?.amount).toBe(1083);
+  });
+
+  it("refuses TDS when the year's regime has no slabs", async () => {
+    const service = createService({ payrollSetting: { tdsEnabled: true } });
+    await expect(
+      service.calculateForEmployee(1, period.id, 10),
+    ).rejects.toMatchObject({ errorCode: "TAX_REGIME_NOT_CONFIGURED" });
   });
 });

@@ -4,8 +4,8 @@ import { TenantContextService } from "../../../../platform/tenancy/tenant-contex
 import type { UpdatePayrollSettingsDto } from "./dto/payroll-settings.dto.js";
 import { PayrollSettingsRepository } from "./payroll-settings.repository.js";
 import {
-  DEFAULT_PAYROLL_RULES,
   type PayrollRules,
+  RULE_KEYS,
   splitGross,
   toRules,
 } from "./payroll-settings.rules.js";
@@ -38,14 +38,16 @@ export class PayrollSettingsService {
 
   async update(dto: UpdatePayrollSettingsDto) {
     const current = await this.rules();
-    const next: PayrollRules = { ...current };
-    for (const key of Object.keys(DEFAULT_PAYROLL_RULES) as Array<
-      keyof PayrollRules
-    >) {
+    const next = { ...current } as Record<keyof PayrollRules, unknown>;
+    for (const key of RULE_KEYS) {
       const value = dto[key];
       if (value !== undefined) next[key] = value;
     }
-    if (next.basicPercent + next.hraPercent + next.conveyancePercent > 100) {
+    const merged = next as PayrollRules;
+    if (
+      merged.basicPercent + merged.hraPercent + merged.conveyancePercent >
+      100
+    ) {
       throw new BusinessRuleViolationException(
         "Basic, HRA and conveyance together cannot exceed 100% of the gross salary",
         "SALARY_SPLIT_OVER_100",
@@ -54,7 +56,7 @@ export class PayrollSettingsService {
     await this.repository.save(
       this.tenantContext.getOrgScope(),
       dto.version,
-      next,
+      merged,
       this.tenantContext.getUserId(),
     );
     return this.get();

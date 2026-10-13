@@ -15,6 +15,7 @@ import { RequireScopedPermission } from "../../../../common/decorators/require-p
 import {
   CreatePayrollPeriodDto,
   QueryPayrollPeriodDto,
+  ReopenPayrollPeriodDto,
   UpdatePayrollPeriodDto,
 } from "./dto/payroll-period.dto.js";
 import { PayrollPeriodsService } from "./payroll-periods.service.js";
@@ -66,5 +67,19 @@ export class PayrollPeriodsController {
   })
   finalize(@Param("id", ParseIntPipe) id: number) {
     return this.service.finalize(id);
+  }
+
+  @Post(":id/reopen")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.payroll.reopen")
+  @ApiOperation({
+    summary:
+      "Reopen a finalized period with a reason (refused once salary or PF/ESI is paid); the run then needs a fresh approval",
+  })
+  reopen(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ReopenPayrollPeriodDto,
+  ) {
+    return this.service.reopen(id, dto);
   }
 }

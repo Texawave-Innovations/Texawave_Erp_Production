@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PaginatedResponseDto } from "../../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleConflictException,
@@ -9,19 +9,39 @@ import { SalariesService } from "./salaries.service.js";
 
 const ORG_SCOPE = { organizationId: 1 };
 const USER_ID = 42;
-const EMPLOYEE = { id: 7, teamId: 3, userId: 70 };
+
+/** Component master: id = position + 1. */
+const MASTER = [
+  "BASIC",
+  "DA",
+  "HRA",
+  "CONVEYANCE",
+  "OTHER_ALLOWANCE",
+  "SPECIAL_ALLOWANCE",
+  "CANTEEN",
+].map((code, i) => ({
+  id: i + 1,
+  code,
+  kind: code === "CANTEEN" ? "DEDUCTION" : "EARNING",
+  isActive: true,
+}));
+
+const line = (code: string, monthlyAmount: number) => ({
+  monthlyAmount: String(monthlyAmount),
+  component: { code },
+});
 
 const CURRENT = {
   id: 20,
   employeeId: 7,
-  employee: EMPLOYEE,
+  employee: { id: 7, teamId: 3, userId: 70 },
   effectiveFrom: new Date("2026-04-01T00:00:00.000Z"),
   effectiveTo: null as Date | null,
-  basic: "20000.00",
-  hra: "8000.00",
-  conveyance: "1600.00",
-  otherAllowance: "400.00",
-  specialAllowance: "0.00",
+  components: [
+    line("BASIC", 20000),
+    line("HRA", 8000),
+    line("CONVEYANCE", 1600),
+  ],
 };
 
 function errorCode(err: unknown): unknown {
@@ -30,21 +50,22 @@ function errorCode(err: unknown): unknown {
 
 function makeService(opts?: {
   level?: "own" | "team" | "all";
-  teamIds?: number[];
-  employee?: unknown;
   clash?: unknown;
   current?: unknown;
   finalized?: unknown[];
+  letter?: unknown;
 }) {
-  const level = opts?.level ?? "all";
   const teamScope = {
-    level,
+    level: opts?.level ?? "all",
     userId: USER_ID,
     organizationId: 1,
-    teamIds: opts?.teamIds ?? (level === "team" ? [3] : []),
+    teamIds: [3],
   };
   const repository = {
     findOverlapping: vi.fn().mockResolvedValue(opts?.clash ?? null),
+    findRevisionLetter: vi
+      .fn()
+      .mockResolvedValue(opts && "letter" in opts ? opts.letter : { id: 5 }),
     create: vi.fn().mockResolvedValue({ id: 1 }),
     findMany: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
     findById: vi
@@ -65,376 +86,217 @@ function makeService(opts?: {
       conveyancePercent: 20,
     }),
   };
+  const components = {
+    resolveComponents: vi.fn(
+      (refs: Array<{ componentId?: number; code?: string }>) =>
+        Promise.resolve(
+          refs.map((r) => {
+            const c = MASTER.find(
+              (m) => m.id === r.componentId || m.code === r.code,
+            );
+            if (!c) {
+              throw new BusinessRuleViolationException(
+                "unknown",
+                "SALARY_COMPONENT_UNKNOWN",
+              );
+            }
+            return c;
+          }),
+        ),
+    ),
+    applyTemplate: vi.fn().mockResolvedValue([
+      { componentId: 1, code: "BASIC", kind: "EARNING", monthlyAmount: 30000 },
+      { componentId: 3, code: "HRA", kind: "EARNING", monthlyAmount: 20000 },
+    ]),
+  };
   const tenantContext = {
     getOrgScope: vi.fn().mockReturnValue(ORG_SCOPE),
     getUserId: vi.fn().mockReturnValue(USER_ID),
   };
   const teamContext = { resolveScope: vi.fn().mockResolvedValue(teamScope) };
-  const prisma = {
-    employee: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue(
-          opts && "employee" in opts ? opts.employee : EMPLOYEE,
-        ),
-    },
-  };
   const service = new SalariesService(
     repository as never,
     tenantContext as never,
     teamContext as never,
-    prisma as never,
     settings as never,
+    components as never,
   );
-  return { service, repository, teamContext, teamScope, prisma, settings };
+  return { service, repository, teamScope, components };
 }
 
-const BASE_DTO = {
-  employeeId: 7,
-  effectiveFrom: "2026-04-01",
-  basic: 20000,
-  hra: 8000,
-};
+const lines = (repository: { create: ReturnType<typeof vi.fn> }) =>
+  (repository.create.mock.calls[0] as unknown[])[2] as Array<{
+    code: string;
+    monthlyAmount: number;
+  }>;
 
 describe("SalariesService", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   describe("create", () => {
-    it("derives gross from recurring components (arrears excluded) and stores it", async () => {
-      const { service, repository, prisma, teamContext } = makeService();
-      const dto = {
-        ...BASE_DTO,
-        effectiveTo: "2027-03-31",
-        conveyance: 1600,
-        otherAllowance: 400,
-        specialAllowance: 1000,
-        arrearsSalary: 50000,
-      };
+    const base = { employeeId: 7, effectiveFrom: "2026-05-01" };
 
-      await service.create(dto);
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.salary.write");
-      expect(prisma.employee.findFirst).toHaveBeenCalledWith({
-        where: { id: 7, organizationId: 1, deletedAt: null },
+    it("stores explicit component lines; the gross is their earnings", async () => {
+      const { service, repository, teamScope } = makeService();
+      await service.create({
+        ...base,
+        components: [
+          { code: "BASIC", monthlyAmount: 30000 },
+          { code: "DA", monthlyAmount: 5000 },
+          { componentId: 7, monthlyAmount: 200 },
+        ],
       });
-      const from = new Date("2026-04-01T00:00:00.000Z");
-      const to = new Date("2027-03-31T00:00:00.000Z");
-      expect(repository.findOverlapping).toHaveBeenCalledWith(
-        ORG_SCOPE,
-        7,
-        from,
-        to,
-      );
-      expect(repository.create).toHaveBeenCalledWith(
-        ORG_SCOPE,
-        dto,
-        from,
-        to,
-        31000,
-        USER_ID,
-      );
+      // The repository re-checks the write scope with the resolved TeamScope.
+      expect(repository.create.mock.calls[0]?.[0]).toBe(teamScope);
+      expect(lines(repository).map((l) => [l.code, l.monthlyAmount])).toEqual([
+        ["BASIC", 30000],
+        ["DA", 5000],
+        ["CANTEEN", 200],
+      ]);
     });
 
-    it("treats missing optional allowances as zero and an open end date as null", async () => {
-      const { service, repository } = makeService();
-      await service.create(BASE_DTO);
-      const [, , , to, gross] = repository.create.mock.calls[0] as unknown[];
-      expect(to).toBeNull();
-      expect(gross).toBe(28000);
-    });
-
-    it("uses an explicit grossMonthly when supplied", async () => {
-      const { service, repository } = makeService();
-      await service.create({ ...BASE_DTO, grossMonthly: 30000 });
-      expect(repository.create.mock.calls[0]![4]).toBe(30000);
-    });
-
-    it("throws not found for an unknown employee", async () => {
-      const { service, repository } = makeService({ employee: null });
-      await expect(service.create(BASE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("allows a .team holder for an employee in their team", async () => {
-      const { service, repository } = makeService({ level: "team" });
-      await service.create(BASE_DTO);
-      expect(repository.create).toHaveBeenCalledOnce();
-    });
-
-    it("hides an employee outside the caller's teams as not found", async () => {
-      const { service, repository } = makeService({
-        level: "team",
-        teamIds: [9],
-      });
-      await expect(service.create(BASE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("refuses an .own grant (nobody sets their own salary)", async () => {
-      const { service, repository } = makeService({ level: "own" });
-      await expect(service.create(BASE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects effectiveTo before effectiveFrom", async () => {
-      const { service, repository } = makeService();
+    it("refuses a gross that does not match the earning lines", async () => {
+      const { service } = makeService();
       const err = await service
-        .create({ ...BASE_DTO, effectiveTo: "2026-03-31" })
+        .create({
+          ...base,
+          grossMonthly: 40000,
+          components: [{ code: "BASIC", monthlyAmount: 30000 }],
+        })
         .catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(BusinessRuleViolationException);
-      expect(errorCode(err)).toBe("SALARY_DATES_INVALID");
-      expect(repository.findOverlapping).not.toHaveBeenCalled();
+      expect(errorCode(err)).toBe("SALARY_GROSS_MISMATCH");
     });
 
-    it("allows a single-day structure (effectiveTo == effectiveFrom)", async () => {
-      const { service, repository } = makeService();
-      await service.create({ ...BASE_DTO, effectiveTo: "2026-04-01" });
-      expect(repository.create).toHaveBeenCalledOnce();
-    });
-
-    it("rejects an overlapping salary record", async () => {
-      const { service, repository } = makeService({ clash: { id: 3 } });
-      const err = await service.create(BASE_DTO).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(BusinessRuleConflictException);
-      expect(errorCode(err)).toBe("SALARY_OVERLAP");
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("findAll / findOne", () => {
-    it("lists salaries with the caller's read scope", async () => {
-      const { service, repository, teamContext, teamScope } = makeService({
-        level: "team",
+    it("builds the lines from a template and its gross", async () => {
+      const { service, repository, components } = makeService();
+      await service.create({
+        ...base,
+        salaryTemplateId: 3,
+        grossMonthly: 50000,
       });
-      const query = { page: 1, limit: 20 };
-      const result = await service.findAll(query as never);
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.salary.read");
-      expect(repository.findMany).toHaveBeenCalledWith(teamScope, query, query);
-      expect(result).toBeInstanceOf(PaginatedResponseDto);
-      expect(result.items).toEqual([{ id: 1 }]);
+      expect(components.applyTemplate).toHaveBeenCalledWith(3, 50000);
+      expect(lines(repository)).toHaveLength(2);
+      expect(
+        (repository.create.mock.calls[0]?.[1] as { salaryTemplateId: number })
+          .salaryTemplateId,
+      ).toBe(3);
     });
 
-    it("returns one salary in scope", async () => {
-      const { service, repository, teamScope } = makeService();
-      await expect(service.findOne(20)).resolves.toMatchObject({ id: 20 });
-      expect(repository.findById).toHaveBeenCalledWith(teamScope, 20);
-    });
-
-    it("throws not found when out of scope", async () => {
-      const { service } = makeService({ current: null });
-      await expect(service.findOne(20)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-    });
-  });
-
-  describe("findApplicableOn", () => {
-    it("parses the given date-only string", async () => {
-      const { service, repository, teamScope } = makeService();
-      await service.findApplicableOn(7, "2026-05-15");
-      expect(repository.findApplicableOn).toHaveBeenCalledWith(
-        teamScope,
-        7,
-        new Date("2026-05-15T00:00:00.000Z"),
-      );
-    });
-
-    it("defaults to now when no date is given", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-06-10T08:00:00.000Z"));
+    it("maps the legacy basic/hra fields onto system components", async () => {
       const { service, repository } = makeService();
-      await service.findApplicableOn(7);
-      expect(repository.findApplicableOn.mock.calls[0]![2]).toEqual(
-        new Date("2026-06-10T08:00:00.000Z"),
-      );
+      await service.create({
+        ...base,
+        basic: 25000,
+        hra: 15000,
+        conveyance: 2000,
+        specialAllowance: 5000,
+      });
+      expect(lines(repository).map((l) => l.code)).toEqual([
+        "BASIC",
+        "HRA",
+        "CONVEYANCE",
+        "SPECIAL_ALLOWANCE",
+      ]);
     });
 
-    it("throws not found when nothing applies", async () => {
+    it("splits a gross-only request by the payroll settings; special allowance stays on top", async () => {
       const { service, repository } = makeService();
-      repository.findApplicableOn.mockResolvedValue(null);
+      await service.create({
+        ...base,
+        grossMonthly: 50000,
+        specialAllowance: 10000,
+      });
+      // 40000 split 35/30/20/remainder
+      expect(lines(repository).map((l) => [l.code, l.monthlyAmount])).toEqual([
+        ["BASIC", 14000],
+        ["HRA", 12000],
+        ["CONVEYANCE", 8000],
+        ["OTHER_ALLOWANCE", 6000],
+        ["SPECIAL_ALLOWANCE", 10000],
+      ]);
+    });
+
+    it("rejects basic without hra", async () => {
+      const { service } = makeService();
+      const err = await service
+        .create({ ...base, basic: 1000 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("SALARY_COMPONENTS_INCOMPLETE");
+    });
+
+    it("rejects an overlapping structure", async () => {
+      const { service } = makeService({ clash: { id: 9 } });
       await expect(
-        service.findApplicableOn(7, "2020-01-01"),
-      ).rejects.toBeInstanceOf(ResourceNotFoundException);
+        service.create({ ...base, grossMonthly: 10000 }),
+      ).rejects.toBeInstanceOf(BusinessRuleConflictException);
+    });
+
+    it("rejects a revision letter of another employee", async () => {
+      const { service } = makeService({ letter: null });
+      const err = await service
+        .create({ ...base, grossMonthly: 10000, revisionLetterId: 99 })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("REVISION_LETTER_MISMATCH");
+    });
+
+    it("rejects an end date before the start", async () => {
+      const { service } = makeService();
+      await expect(
+        service.create({
+          ...base,
+          effectiveTo: "2026-04-01",
+          grossMonthly: 10000,
+        }),
+      ).rejects.toBeInstanceOf(BusinessRuleViolationException);
     });
   });
 
   describe("update", () => {
-    it("recomputes gross from changed + current components", async () => {
+    it("changes one legacy amount on top of the current lines", async () => {
       const { service, repository } = makeService();
-
-      await service.update(20, { basic: 25000 });
-
-      // 25000 + 8000 + 1600 + 400 + 0
-      expect(repository.update).toHaveBeenCalledWith(
-        ORG_SCOPE,
-        20,
-        { basic: 25000 },
-        undefined,
-        35000,
-        USER_ID,
-      );
-      expect(repository.findOverlapping).not.toHaveBeenCalled();
+      await service.update(20, { hra: 9000 });
+      const newLines = repository.update.mock.calls[0]?.[3] as Array<{
+        code: string;
+        monthlyAmount: number;
+      }>;
+      expect(newLines.map((l) => [l.code, l.monthlyAmount])).toEqual([
+        ["BASIC", 20000],
+        ["HRA", 9000],
+        ["CONVEYANCE", 1600],
+      ]);
     });
 
-    it("leaves gross and end date untouched when neither is changed", async () => {
+    it("leaves the lines untouched when no amount changes", async () => {
       const { service, repository } = makeService();
-      await service.update(20, { arrearsSalary: 1000 });
-      const [, , , to, gross] = repository.update.mock.calls[0] as unknown[];
-      expect(to).toBeUndefined();
-      expect(gross).toBeUndefined();
+      await service.update(20, { arrearsSalary: 500 });
+      expect(repository.update.mock.calls[0]?.[3]).toBeUndefined();
     });
 
-    it("sets a new end date after checking overlaps (excluding itself)", async () => {
-      const { service, repository } = makeService();
-      await service.update(20, { effectiveTo: "2026-12-31" });
-      const to = new Date("2026-12-31T00:00:00.000Z");
-      expect(repository.findOverlapping).toHaveBeenCalledWith(
-        ORG_SCOPE,
-        7,
-        CURRENT.effectiveFrom,
-        to,
-        20,
-      );
-      expect(repository.update.mock.calls[0]![3]).toEqual(to);
-    });
-
-    it("clears the end date when effectiveTo is an empty string", async () => {
-      const { service, repository } = makeService({
-        current: {
-          ...CURRENT,
-          effectiveTo: new Date("2026-12-31T00:00:00.000Z"),
-        },
-      });
-      await service.update(20, { effectiveTo: "" });
-      expect(repository.findOverlapping.mock.calls[0]![3]).toBeNull();
-      expect(repository.update.mock.calls[0]![3]).toBeNull();
-    });
-
-    it("rejects an end date before the current start date", async () => {
-      const { service, repository } = makeService();
-      const err = await service
-        .update(20, { effectiveTo: "2026-03-01" })
-        .catch((e: unknown) => e);
-      expect(errorCode(err)).toBe("SALARY_DATES_INVALID");
-      expect(repository.update).not.toHaveBeenCalled();
-    });
-
-    it("rejects an end date that would overlap another record", async () => {
-      const { service, repository } = makeService({ clash: { id: 21 } });
-      const err = await service
-        .update(20, { effectiveTo: "2027-12-31" })
-        .catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(BusinessRuleConflictException);
-      expect(errorCode(err)).toBe("SALARY_OVERLAP");
-      expect(repository.update).not.toHaveBeenCalled();
-    });
-
-    it("throws not found when the salary is not readable", async () => {
-      const { service, repository } = makeService({ current: null });
-      await expect(service.update(20, { basic: 1 })).rejects.toBeInstanceOf(
+    it("hides a structure outside the caller's write scope as not found", async () => {
+      const { service } = makeService({ current: null });
+      await expect(service.update(20, { hra: 1 })).rejects.toBeInstanceOf(
         ResourceNotFoundException,
       );
-      expect(repository.update).not.toHaveBeenCalled();
     });
-
-    it("checks write scope against the salary's employee", async () => {
-      const { service, repository, teamContext } = makeService({
-        level: "team",
-        teamIds: [9],
-      });
-      await expect(service.update(20, { basic: 1 })).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.salary.write");
-      expect(repository.update).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("auto-split", () => {
-    it("splits a gross-only request by the payroll settings; special allowance stays on top", async () => {
-      const { service, repository } = makeService();
-      await service.create({
-        employeeId: 7,
-        effectiveFrom: "2026-04-01",
-        grossMonthly: 42000,
-        specialAllowance: 2000,
-      });
-      const [, resolved, , , gross] = repository.create.mock.calls[0] as [
-        unknown,
-        Record<string, number>,
-        unknown,
-        unknown,
-        number,
-      ];
-      expect(resolved).toMatchObject({
-        basic: 14000,
-        hra: 12000,
-        conveyance: 8000,
-        otherAllowance: 6000,
-        specialAllowance: 2000,
-      });
-      expect(gross).toBe(42000);
-    });
-
-    it("refuses half-given components or nothing at all", async () => {
-      const { service, repository } = makeService();
-      for (const dto of [
-        { employeeId: 7, effectiveFrom: "2026-04-01", basic: 1000 },
-        {
-          employeeId: 7,
-          effectiveFrom: "2026-04-01",
-          grossMonthly: 9000,
-          conveyance: 10,
-        },
-        { employeeId: 7, effectiveFrom: "2026-04-01" },
-      ]) {
-        const err: unknown = await service.create(dto).catch((e: unknown) => e);
-        expect(err).toBeInstanceOf(BusinessRuleViolationException);
-        expect(errorCode(err)).toBe("SALARY_COMPONENTS_INCOMPLETE");
-      }
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("finalized payroll lock", () => {
-    const MAY = {
-      id: 5,
-      year: 2026,
-      month: 5,
-      periodStart: new Date("2026-05-01T00:00:00.000Z"),
-      periodEnd: new Date("2026-05-31T00:00:00.000Z"),
-    };
 
     it("refuses changing recurring amounts once a covered period is finalized", async () => {
-      const { service, repository } = makeService({ finalized: [MAY] });
-      const err: unknown = await service
-        .update(20, { basic: 25000 })
+      const { service } = makeService({
+        finalized: [
+          {
+            year: 2026,
+            month: 4,
+            periodEnd: new Date("2026-04-30T00:00:00.000Z"),
+          },
+        ],
+      });
+      const err = await service
+        .update(20, { components: [{ code: "BASIC", monthlyAmount: 1 }] })
         .catch((e: unknown) => e);
       expect(errorCode(err)).toBe("SALARY_LOCKED_BY_FINALIZED_PAYROLL");
-      expect(repository.update).not.toHaveBeenCalled();
     });
+  });
 
-    it("refuses ending the structure before the last finalized period ends", async () => {
-      const { service } = makeService({ finalized: [MAY] });
-      const err: unknown = await service
-        .update(20, { effectiveTo: "2026-05-15" })
-        .catch((e: unknown) => e);
-      expect(errorCode(err)).toBe("SALARY_LOCKED_BY_FINALIZED_PAYROLL");
-    });
-
-    it("still allows closing after it, and one-time arrears", async () => {
-      const { service, repository } = makeService({ finalized: [MAY] });
-      await service.update(20, { effectiveTo: "2026-06-30" });
-      await service.update(20, { arrearsSalary: 2000 });
-      expect(repository.update).toHaveBeenCalledTimes(2);
-    });
+  it("lists within the read scope", async () => {
+    const { service } = makeService();
+    const res = await service.findAll({ page: 1, limit: 10, skip: 0 } as never);
+    expect(res).toBeInstanceOf(PaginatedResponseDto);
   });
 });

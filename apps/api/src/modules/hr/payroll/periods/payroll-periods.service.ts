@@ -12,12 +12,14 @@ import { requireOrgWideScope } from "../shared/payroll-scope.js";
 import type {
   CreatePayrollPeriodDto,
   QueryPayrollPeriodDto,
+  ReopenPayrollPeriodDto,
   UpdatePayrollPeriodDto,
 } from "./dto/payroll-period.dto.js";
 import { PayrollPeriodsRepository } from "./payroll-periods.repository.js";
 
 const WRITE = "hr.payroll.write";
 const FINALIZE = "hr.payroll.finalize";
+const REOPEN = "hr.payroll.reopen";
 
 @Injectable()
 export class PayrollPeriodsService {
@@ -119,6 +121,20 @@ export class PayrollPeriodsService {
     const userId = this.tenantContext.getUserId();
 
     const period = await this.repository.finalize(scope, id, userId);
+    if (!period) throw new ResourceNotFoundException("Payroll period", id);
+    return period;
+  }
+
+  /** Org-wide (`.all`) only; the reason is mandatory (DTO + DB CHECK). */
+  async reopen(id: number, dto: ReopenPayrollPeriodDto) {
+    const teamScope = await this.teamContext.resolveScope(REOPEN);
+    requireOrgWideScope(teamScope, "reopen payroll periods");
+    const period = await this.repository.reopen(
+      this.tenantContext.getOrgScope(),
+      id,
+      dto.reason.trim(),
+      this.tenantContext.getUserId(),
+    );
     if (!period) throw new ResourceNotFoundException("Payroll period", id);
     return period;
   }
