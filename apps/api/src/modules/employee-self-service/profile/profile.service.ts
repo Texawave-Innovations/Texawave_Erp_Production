@@ -71,13 +71,33 @@ export class ProfileService {
     };
   }
 
+  /** Who am I, for a WRITE: the profile is editable only while the
+   * onboarding wizard is open — before the first submit, or after HR sends it
+   * back (which reopens it, onboarding-review.policy.ts). Once onboarding is
+   * COMPLETE the employee can no longer change their own data; HR edits it
+   * through hr/profiles until profile change requests exist. */
+  private async editableIdentity() {
+    const employee = await this.employees.getCurrentEmployee();
+    if (employee.onboardingStatus === "COMPLETE") {
+      throw new BusinessRuleViolationException(
+        "Your profile is locked after onboarding. Ask HR to update it.",
+        "PROFILE_LOCKED",
+      );
+    }
+    return {
+      organizationId: this.tenantContext.getOrgScope().organizationId,
+      teamId: employee.team.id,
+      employeeId: employee.id,
+    };
+  }
+
   async getPersonal() {
     const { employeeId } = await this.currentIdentity();
     return this.repository.getPersonal(employeeId);
   }
 
   async putPersonal(dto: PersonalDetailsDto) {
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     return this.repository.upsertPersonal(identity, dto);
   }
 
@@ -99,14 +119,14 @@ export class ProfileService {
 
   async putAddress(addressType: string, dto: AddressDto) {
     this.assertAddressType(addressType);
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     return this.repository.upsertAddress(identity, addressType, dto);
   }
 
   /** "Present address same as permanent" — clears any stored present
    * address so completeness treats it as not required (Docs decision). */
   async clearPresentAddress() {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     await this.repository.deleteAddress(employeeId, "PRESENT");
   }
 
@@ -121,7 +141,7 @@ export class ProfileService {
   }
 
   async putBank(dto: BankDetailsDto) {
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     const encrypted = this.encryption.encrypt(dto.accountNumber);
     const masked = this.encryption.mask(dto.accountNumber);
     const row = await this.repository.upsertBank(
@@ -140,7 +160,7 @@ export class ProfileService {
   }
 
   async putGovernmentIds(dto: GovernmentIdsDto) {
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     try {
       return await this.repository.upsertGovernmentIds(identity, dto);
     } catch (error) {
@@ -154,12 +174,12 @@ export class ProfileService {
   }
 
   async addFamilyMember(dto: FamilyMemberDto) {
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     return this.repository.addFamilyMember(identity, dto);
   }
 
   async updateFamilyMember(id: number, dto: FamilyMemberDto) {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     const result = await this.repository.updateFamilyMember(
       employeeId,
       id,
@@ -170,7 +190,7 @@ export class ProfileService {
   }
 
   async removeFamilyMember(id: number) {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     const result = await this.repository.removeFamilyMember(employeeId, id);
     if (result.count === 0)
       throw new ResourceNotFoundException("Family member", id);
@@ -182,19 +202,19 @@ export class ProfileService {
   }
 
   async addExperience(dto: ExperienceDto) {
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     return this.repository.addExperience(identity, dto);
   }
 
   async updateExperience(id: number, dto: ExperienceDto) {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     const result = await this.repository.updateExperience(employeeId, id, dto);
     if (result.count === 0)
       throw new ResourceNotFoundException("Experience", id);
   }
 
   async removeExperience(id: number) {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     const result = await this.repository.removeExperience(employeeId, id);
     if (result.count === 0)
       throw new ResourceNotFoundException("Experience", id);
@@ -227,7 +247,7 @@ export class ProfileService {
       );
     }
 
-    const identity = await this.currentIdentity();
+    const identity = await this.editableIdentity();
     const previous = await this.repository.getDocument(
       identity.employeeId,
       documentType,
@@ -268,7 +288,7 @@ export class ProfileService {
   }
 
   async removeDocument(documentType: string) {
-    const { employeeId } = await this.currentIdentity();
+    const { employeeId } = await this.editableIdentity();
     const row = await this.repository.getDocument(employeeId, documentType);
     if (!row || row.deletedAt) {
       throw new ResourceNotFoundException("Document", documentType);

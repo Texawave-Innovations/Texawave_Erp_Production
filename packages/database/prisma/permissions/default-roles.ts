@@ -149,6 +149,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "Self-service: own profile and own leave; may read the calendar.",
     permissions: [
       "employee_self_service.profile.read",
+      "employee_self_service.profile.write",
       "employee_self_service.leave_request.read",
       "employee_self_service.leave_request.create",
       "employee_self_service.expense_claim.create",

@@ -73,6 +73,8 @@ All require a bearer token; 401 without one. Response envelope is the same as th
 | PUT/GET/DELETE `/employee/profile/documents/:documentType/file` | `.write` / `.read` / `.write`        | upload, download, remove one required document                                                            |
 | POST `/employee/profile/submit`                                 | `.write`                             | finalizes onboarding — `{ missing: string[] }` in the response; empty array = ready to flip to `COMPLETE` |
 
+**Writes are locked after onboarding.** Every `.write` route except `submit` answers `422 PROFILE_LOCKED` once the employee's `onboardingStatus` is `COMPLETE`; reads keep working. HR sending the profile back reopens it (`PENDING_ACTIVATION`). After that, HR edits the data through `hr/profiles` — there are no self-service change requests yet. The default Employee role holds both `employee_self_service.profile.read` and `.write` (every new hire gets it, so they can fill in the wizard).
+
 The Portal's **My Documents** tab (`portal-documents` menu item) reuses `employee_self_service.profile.read` — documents are onboarding data, not a separate module, so there's no `employee_self_service.document.*` permission to look for.
 
 ### Leave (`self-service/leave-requests`)
