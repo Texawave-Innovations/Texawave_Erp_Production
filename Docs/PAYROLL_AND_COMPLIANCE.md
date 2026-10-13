@@ -44,7 +44,7 @@ The **Payroll & Compliance** module is the single payroll engine of TexaWave ERP
      - a bonus;
      - a tax declaration.
 
-     The creator cannot approve it, and nobody approves something that pays themselves (→ `403 Forbidden`). A loan above the organization's limit needs an approver holding `hr.loan.approve.all`.
+     The creator cannot approve it, and nobody approves something that pays themselves (→ `403 Forbidden`). A loan above the organization's limit needs an approver holding `hr.loan.approve.all`. A loan has **two** steps after the request — an HR review (`hr.loan.review`) and a final approval (`hr.loan.approve`) by someone other than the reviewer (§3.7).
 3. **Response Envelope:**
    - Single item responses: `{ "data": { ... } }`
    - Paginated list responses: `{ "data": [ ... ], "meta": { "page": 1, "limit": 20, "total": 45, "totalPages": 3 } }`
@@ -67,11 +67,11 @@ The **Payroll & Compliance** module is the single payroll engine of TexaWave ERP
 
 Payroll follows the attendance "HR prepares, Admin approves" split:
 
-| Role       | Payroll grants                                                                                                                                                                                                                                                                                                                                                   |
-| :--------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HR Manager | `.all` read/write of payroll, salary, PF, ESI, loans, bonuses, payslips, payments, tax declarations (incl. verifying them); `hr.payroll.finalize.all`, `hr.payroll.export.all`, `hr.payroll_settings.read`. **Not** `hr.payroll.approve`, `hr.payroll.reopen`, `hr.loan.approve`, `hr.bonus.approve`, `hr.payroll_settings.write` — those stay with Super Admin. |
-| Team Lead  | none — pay is confidential even within a team.                                                                                                                                                                                                                                                                                                                   |
-| Employee   | `employee_self_service.payslip.read`, `.loan.read`, `.tax_declaration.read`, `.tax_declaration.write`, `.form16.read` — own records only, in the portal (**My Payslips** `/portal/payslips`, **My Loans** `/portal/loans`), never the HR payroll workspace.                                                                                                      |
+| Role       | Payroll grants                                                                                                                                                                                                                                                                                                                                                                                                         |
+| :--------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HR Manager | `.all` read/write of payroll, salary, PF, ESI, loans, bonuses, payslips, payments, tax declarations (incl. verifying them); `hr.payroll.finalize.all`, `hr.payroll.export.all`, `hr.payroll_settings.read`. `hr.loan.review.all` (the HR step of a loan request). **Not** `hr.payroll.approve`, `hr.payroll.reopen`, `hr.loan.approve`, `hr.bonus.approve`, `hr.payroll_settings.write` — those stay with Super Admin. |
+| Team Lead  | none — pay is confidential even within a team.                                                                                                                                                                                                                                                                                                                                                                         |
+| Employee   | `employee_self_service.payslip.read`, `.loan.read`, `.loan.write` (request a loan), `.tax_declaration.read`, `.tax_declaration.write`, `.form16.read` — own records only, in the portal (**My Payslips** `/portal/payslips`, **My Loans** `/portal/loans`), never the HR payroll workspace.                                                                                                                            |
 
 ---
 
@@ -272,13 +272,16 @@ The engine is `runs/payroll-calculator.service.ts`. It loads the inputs and leav
 
 ### 3.7 Loans & Advances
 
-- **Request:** a loan starts `PENDING_APPROVAL` with no schedule. The limits use the gross salary on the disbursement date (`422 SALARY_NOT_CONFIGURED` without one):
+- **Request:** by the employee from the portal (`POST /self-service/loans`, `requested_via = SELF`) or by HR for an employee (`POST /hr/loans`, `HR`). Either way the loan starts `PENDING_HR` with no schedule. The limits use the gross salary on the disbursement date (`422 SALARY_NOT_CONFIGURED` without one):
   - **Principal** ≤ `loanMaxMultiple` × gross (default 3). Above that needs an `overrideReason`, at least 10 characters (`422 LOAN_OVER_LIMIT` without one). The loan is flagged `limitOverride` and only a `.all` approver may decide it.
-  - **All the employee's EMIs** (active + awaiting approval + this one) ≤ `loanMaxEmiPercent`% of gross (default 100). This limit is never overridable (`422 LOAN_EMI_OVER_LIMIT`).
+  - **All the employee's EMIs** (active + `PENDING_HR` + `PENDING_ADMIN` + this one) ≤ `loanMaxEmiPercent`% of gross (default 100). This limit is never overridable (`422 LOAN_EMI_OVER_LIMIT`).
   - An EMI that does not fit the principal → `422 LOAN_SCHEDULE_INVALID`.
-- **Approval** (second person; not the requester or borrower):
-  - approval builds the schedule: `emiMonths` installments one month apart from the recorded disbursement date, the last adjusted to the remainder;
-  - a rejection needs a note.
+- **Two-step approval** (`PENDING_HR` → `PENDING_ADMIN` → `ACTIVE`; either step may reject → `REJECTED`, a rejection needs a note):
+  1. **HR review** (`hr.loan.review`, team-scoped): forward or reject. Never the requester or the borrower (`403`).
+  2. **Final approval** (`hr.loan.approve`; `.all` when `limitOverride`): never the requester, the borrower or the HR reviewer (`403`; the DB also refuses `hr_reviewed_by_id = approved_by_id`). Out of order → `422 INVALID_STATE_TRANSITION`.
+  - Every HR-created loan goes through the HR review too, by a different HR user.
+  - **Notifications** (in-app, after commit, best effort; the actor is never notified): request → every `hr.loan.review` holder (`.all`, and `.team` with access to the employee's team); forwarded → every `hr.loan.approve` holder (`.team` only when not over the limit); approved / rejected at either step → the employee (link `/portal/loans`) and the HR user who recorded it (link `/hr/payroll?tab=loans`).
+  - Final approval builds the schedule: `emiMonths` installments one month apart from the recorded disbursement date, the last adjusted to the remainder;
 - **Deduction:** at most one installment per loan per period.
   - It is the earliest `PENDING` installment due by the period end that no live run of another open period has claimed.
   - It is taken only while net pay stays ≥ 0; otherwise it stays `PENDING`.
@@ -539,9 +542,9 @@ Get a single ESI contribution.
 
 #### `POST /hr/loans`
 
-Issues a new loan and automatically generates scheduled repayment installments.
+Requests a loan for an employee. It starts `PENDING_HR` (§3.7); the schedule is built on final approval.
 
-- **Permission:** `hr.loan.write.all`
+- **Permission:** `hr.loan.write.team` / `.all`
 - **Request Body:**
   ```json
   {
@@ -561,13 +564,29 @@ Issues a new loan and automatically generates scheduled repayment installments.
 List loans with repayment installments.
 
 - **Permission:** `hr.loan.read.own` / `.team` / `.all`
-- **Query Params:** `employeeId`, `status` (`PENDING_APPROVAL`, `ACTIVE`, `REJECTED`, `CLOSED`, `DEFAULTED`, `CANCELLED`), `page`, `limit`
+- **Query Params:** `employeeId`, `status` (`PENDING_HR`, `PENDING_ADMIN`, `ACTIVE`, `REJECTED`, `CLOSED`, `DEFAULTED`, `CANCELLED`), `page`, `limit`
 
 #### `GET /hr/loans/:id`
 
 Get single loan details and repayment schedule.
 
 - **Permission:** `hr.loan.read.own` / `.team` / `.all`
+
+#### `POST /hr/loans/:id/review`
+
+The HR step of a loan request.
+
+- **Permission:** `hr.loan.review.team` / `.all`
+- **Request Body:** `{ "decision": "FORWARD" | "REJECT", "note": "…" }` — the note is required to reject (`422 DECISION_NOTE_REQUIRED`).
+- `PENDING_HR` → `PENDING_ADMIN` or `REJECTED`. Not by the requester or the borrower (`403`); a loan not awaiting review → `422 INVALID_STATE_TRANSITION`.
+
+#### `POST /hr/loans/:id/decide`
+
+The final approval of a forwarded loan.
+
+- **Permission:** `hr.loan.approve.team` / `.all` (`.all` for an over-limit loan)
+- **Request Body:** `{ "decision": "APPROVED" | "REJECTED", "note": "…" }` — the note is required to reject.
+- `PENDING_ADMIN` → `ACTIVE` (schedule built) or `REJECTED`. Not by the requester, the borrower or the HR reviewer (`403`).
 
 #### `POST /hr/loans/:id/skip-request`
 
@@ -596,6 +615,14 @@ Maker-checker decision on skip request.
   ```
   `decision` is `APPROVED` or `REJECTED`.
 - The requester and the borrower cannot decide it (`403`). Not allowed for a finalized period (`422 PERIOD_FINALIZED`). Approval re-schedules the skipped installment at the end of the loan (§3.4).
+
+#### `POST /self-service/loans`
+
+The signed-in employee requests a loan for themselves.
+
+- **Permission:** `employee_self_service.loan.write`
+- **Request Body:** `principalAmount`, `emiAmount`, `emiMonths`, `disbursedDate`, `reason?`, `overrideReason?` — no `employeeId` (always the caller's own record; sending one → `400`).
+- Same limits as `POST /hr/loans`; above the principal limit only with `overrideReason`. Starts `PENDING_HR`, `requestedVia: "SELF"`.
 
 #### `GET /self-service/loans` / `GET /self-service/loans/:id`
 
@@ -1013,11 +1040,12 @@ All need `hr.payroll.export.all` (org-wide; `.team` → `403`) and the period's 
 - **`POST /hr/payslips/generate`** now takes an optional `reason`. It is required (`422 PAYSLIP_REGENERATION_REASON_REQUIRED`) when an already generated payslip would change.
 - **Payslip JSON:** responses include `version`, `regeneratedAt` and `regenerationReason`, but never the stored PDF bytes.
 - **Loans:**
-  - `POST /hr/loans` now takes `overrideReason?` and returns a `PENDING_APPROVAL` loan.
-  - `POST /hr/loans/:id/decide` (`hr.loan.approve`) takes `{ decision: APPROVED|REJECTED, note? }`.
+  - `POST /hr/loans` now takes `overrideReason?` and returns a `PENDING_HR` loan.
+  - `POST /hr/loans/:id/review` (`hr.loan.review`) takes `{ decision: FORWARD|REJECT, note? }`; `POST /self-service/loans` (`employee_self_service.loan.write`) is the employee's own request.
+  - `POST /hr/loans/:id/decide` (`hr.loan.approve`) takes `{ decision: APPROVED|REJECTED, note? }` on a `PENDING_ADMIN` loan.
   - `POST /hr/loans/:id/prepayments` (`hr.loan.write`) takes `{ amount, receivedOn, reference?, reason }`.
   - `POST /hr/loans/prepayments/:id/decide` (`hr.loan.approve`) takes `{ decision }`.
-  - Loan responses include `approver` and `prepayments`.
+  - Loan responses include `approver`, `hrReviewer`, `hrReviewedAt`, `hrReviewNote`, `requestedVia` and `prepayments`.
 - **Bonuses:**
   - `POST /hr/bonuses/statutory` (`hr.bonus.write.all`) takes `{ financialYear, create? }`.
   - `GET /hr/bonuses/gratuity/:employeeId?asOf=` (`hr.bonus.read`).
@@ -1037,23 +1065,28 @@ All need `hr.payroll.export.all` (org-wide; `.team` → `403`) and the period's 
 
 ## 5. UI/UX Designer & Frontend Engineering Guide
 
-### 5.0 What is built (status 2026-10-09)
+### 5.0 What is built (status 2026-10-13)
 
 A deliberately simple, standards-compliant first version — meant as the base for UI polish, not the final design.
 
 **Navigation.** Two sidebar entries under HR (menu rows `hr-payroll` order 16, `hr-compliance` order 17, `permission: null` in `packages/database/prisma/seed.ts` — run `pnpm --filter database seed`). Each screen is a tab bar; a tab appears only when the user can read it, and with no readable tab the screen shows a "No access" alert.
 
-| Route            | Tab            | Shown when the user has (any of `.own`/`.team`/`.all` unless noted) | Status                                          |
-| :--------------- | :------------- | :------------------------------------------------------------------ | :---------------------------------------------- |
-| `/hr/payroll`    | Periods & runs | `hr.payroll.read`                                                   | **Built**                                       |
-|                  | Salaries       | `hr.salary.read`                                                    | Placeholder                                     |
-|                  | Bonuses        | `hr.bonus.read`                                                     | **Built**                                       |
-|                  | Loans          | `hr.loan.read` or `employee_self_service.loan.read` (exact)         | **Built**                                       |
-|                  | Payslips       | `hr.payslip.read` or `employee_self_service.payslip.read` (exact)   | **Built**                                       |
-|                  | Payments       | `hr.payment.read`                                                   | **Built** (batches need an `.all` grant — §4.8) |
-|                  | Salary report  | `hr.payroll.read`                                                   | **Built**                                       |
-| `/hr/compliance` | PF             | `hr.pf.read`                                                        | **Built**                                       |
-|                  | ESI            | `hr.esi.read`                                                       | **Built**                                       |
+| Route              | Tab              | Shown when the user has (any of `.own`/`.team`/`.all` unless noted)   | Status                                          |
+| :----------------- | :--------------- | :-------------------------------------------------------------------- | :---------------------------------------------- |
+| `/hr/payroll`      | Periods & runs   | `hr.payroll.read`                                                     | **Built**                                       |
+|                    | Salaries         | `hr.salary.read`                                                      | **Built**                                       |
+|                    | Bonuses          | `hr.bonus.read`                                                       | **Built**                                       |
+|                    | Loans            | `hr.loan.read` or `employee_self_service.loan.read` (exact)           | **Built**                                       |
+|                    | Payslips         | `hr.payslip.read` or `employee_self_service.payslip.read` (exact)     | **Built**                                       |
+|                    | Payments         | `hr.payment.read`                                                     | **Built** (batches need an `.all` grant — §4.8) |
+|                    | Salary report    | `hr.payroll.read`                                                     | **Built**                                       |
+|                    | Tax declarations | `hr.tax_declaration.read`                                             | **Built**                                       |
+|                    | Settings         | `hr.payroll_settings.read` (exact)                                    | **Built** (editable with `.write`)              |
+| `/portal/payslips` | —                | `employee_self_service.payslip.read` (exact)                          | **Built**                                       |
+| `/portal/loans`    | —                | `employee_self_service.loan.read` (exact)                             | **Built**                                       |
+| `/portal/tax`      | —                | `employee_self_service.tax_declaration.read` / `.form16.read` (exact) | **Built**                                       |
+| `/hr/compliance`   | PF               | `hr.pf.read`                                                          | **Built**                                       |
+|                    | ESI              | `hr.esi.read`                                                         | **Built**                                       |
 
 **Periods & runs** (`components/PeriodsPanel.tsx`, `PeriodDialogs.tsx`, `EntriesDialog.tsx`, `PayrollLifecycle.tsx`)
 
@@ -1062,7 +1095,13 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - **Run payroll** (`hr.payroll.write`, period not finalized/cancelled): _All eligible employees_ or _Selected employees only_ (added one at a time with the employee picker, at least one required) plus optional notes.
 - **Approve** (`hr.payroll.approve`, run `PROCESSED`): optional notes. Not offered to the run's creator ("You ran this — someone else must approve"); if the API still refuses (plain `403`, `error: "Forbidden"`, message starting "Maker-checker:") the dialog explains why (§5.2).
 - **Finalize** (`hr.payroll.finalize`): disabled until a run is `APPROVED`; confirmation warns that the period gets locked and payslips generated. **Cancel period** (`hr.payroll.write`).
-- **View entries**: per-employee table (payable/LOP days, gross, deductions, net) → **View** shows one employee's calculation (attendance, monthly gross, per-day rate, earning ratio, base earnings, earnings and deductions tables, totals, payslip number once issued).
+- **View entries**: per-employee table (payable/LOP days, gross, deductions, net) → **View** shows one employee's calculation:
+  - attendance, including absences from the approved month, overtime hours, and whether attendance was used;
+  - monthly gross, per-day rate, earning ratio, base earnings;
+  - pay-days basis and divisor, tax regime, taxable earnings;
+  - earnings and deductions tables, totals, and the payslip number once issued.
+- **Reopen** (`hr.payroll.reopen.all`, period `FINALIZED`): the reason is mandatory (at least 10 characters). The dialog explains what reopening undoes. The detail shows "Reopened N time(s)" with the last reason (`components/PeriodExtras.tsx`).
+- **Statutory files & reports** (`hr.payroll.export.all`, once the period has an approved run): PF ECR, ESI upload, Professional Tax, TDS, Salary journal, Salary register. The first four are disabled until the period is `FINALIZED`. Each downloads the file the API produces (§4.15).
 
 **Salary report** (`components/SalaryReportPanel.tsx`, rules in `salary-report.ts`)
 
@@ -1079,9 +1118,20 @@ A deliberately simple, standards-compliant first version — meant as the base f
 
 **Loans** (`components/LoansPanel.tsx`, `LoanDialogs.tsx`)
 
-- **My loans** (`employee_self_service.loan.read`): the signed-in employee's loans, read-only. Hidden — not an error — for an account with no employee record (`403 NOT_AN_EMPLOYEE`), like the other "My …" sections.
-- **Employee loans** (`hr.loan.read`): status filter (default Active); columns loan #, employee, principal, EMI × months, outstanding (sum of `PENDING` installments), disbursed, status + "N skip requests pending".
-- **Issue loan** (`hr.loan.write`): employee, principal, months, EMI (with a suggested EMI = principal ÷ months, rounded up), disbursed date, reason. The API's schedule rule is checked first: EMI × months must cover the principal, and EMI × (months − 1) must not.
+- **My loans** (`employee_self_service.loan.read`): the signed-in employee's loans, with the approval steps (Requested → HR review → Final approval) in the detail. **Request a loan** (`employee_self_service.loan.write`) opens the request form without an employee picker; `LOAN_OVER_LIMIT` shows the override reason field. Hidden — not an error — for an account with no employee record (`403 NOT_AN_EMPLOYEE`), like the other "My …" sections.
+- **Employee loans** (`hr.loan.read`): status filter, defaulting to **Awaiting HR review** for reviewers, **Awaiting final approval** for approvers, and Active otherwise. `/hr/payroll?tab=loans` (the notification link) opens the Loans tab. Columns: loan #, employee, principal, EMI × months, outstanding (sum of `PENDING` installments), disbursed, status + "N skip requests pending".
+- **Request loan** (`hr.loan.write`): employee, principal, months, EMI (with a suggested EMI = principal ÷ months, rounded up), disbursed date, reason.
+  - The API's schedule rule is checked first: EMI × months must cover the principal, and EMI × (months − 1) must not.
+  - If the API answers `LOAN_OVER_LIMIT`, an **Override reason** field (at least 10 characters) appears.
+  - The loan is created as `PENDING_HR`.
+- **Loan approval** (`components/LoanApprovalParts.tsx`): the step tracker, then
+  - at `PENDING_HR` (`hr.loan.review`): optional note, **Forward for approval** or **Reject** (note first);
+  - at `PENDING_ADMIN` (`hr.loan.approve`): **Approve loan** builds the schedule, **Reject** asks for a note first.
+  - Hidden from the person who recorded the loan and from the borrower; the final step also from the HR reviewer ("You reviewed this loan — someone else must give the final approval").
+  - An over-limit loan shows the override reason and needs `hr.loan.approve.all` ("Needs an organization-wide approver").
+- **Prepayments**: **Record prepayment** (`hr.loan.write`, active loan) takes an amount (at most the outstanding balance), a received date, a reference and a reason.
+  - The prepayments table offers **Approve / Reject** (`hr.loan.approve`), never to the requester or the borrower.
+  - Approval settles the last EMIs first.
 - **Loan detail:** summary, repayment schedule (installment, due, amount, Pending / Paid / Skipped, paid on), EMI skip requests. **Request EMI skip** (`hr.loan.write`, active loan) picks a non-finalized period and a reason. **Approve / Reject** (`hr.loan.approve`, pending) is not offered to the request's requester or the borrower — "Someone else must decide" instead (mirrors the API's maker-checker rule).
 
 **Bonuses** (`components/BonusesPanel.tsx`)
@@ -1089,6 +1139,8 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - Filters: status (default **Pending** = the approval queue), payroll period. Columns: employee, type, amount, period, reason, status + who decided.
 - **New bonus** (`hr.bonus.write`): employee, type, amount ≥ ₹1, optional non-finalized period ("an approved bonus is paid by this period's payroll run"), reason.
 - **Approve / Reject** (`hr.bonus.approve`, pending) with an optional note. Not offered to the bonus's creator (`createdBy`) or its recipient (`employee.userId`).
+- **Statutory bonus** (`hr.bonus.write.all`, `components/BonusToolsDialogs.tsx`): financial year → **Calculate** (preview table: Basic + DA, days, bonus, eligibility note) → **Raise N bonus(es)** (PENDING, approved like any bonus).
+- **Gratuity** (`hr.bonus.read`): employee + optional "as of" date → completed / counted years, Basic + DA and the amount, or why it is not due. With `hr.bonus.write`, **Raise gratuity** (optionally tied to a period) creates a GRATUITY bonus. "Gratuity" is not offered under New bonus.
 - Known API inconsistency: finalization sets a paid bonus to **`PAID`**, but the list filter (`QueryBonusDto`) accepts `PENDING`/`APPROVED`/`PROCESSED`/`REJECTED` and rejects `PAID`, so the UI offers no "Paid" filter. Paid bonuses still show under "All statuses".
 
 **Payslips** (`components/PayslipsPanel.tsx`)
@@ -1096,7 +1148,50 @@ A deliberately simple, standards-compliant first version — meant as the base f
 - **My payslips** (`employee_self_service.payslip.read`): own payslips, hidden for `403 NOT_AN_EMPLOYEE`. **Employee payslips** (`hr.payslip.read`): period and employee filters sent to the API; columns payslip #, employee, period, net pay, issued.
 - **View** shows the payslip as issued (no extra request — the list row carries everything): designation, department, payable / LOP days, bank + account, PAN, UAN, ESI number, earnings and deductions tables, gross / deductions / net. Account number and PAN arrive **masked** from the API (last four characters).
 - **Download PDF** (row and detail): `GET /hr/payslips/:id/pdf`, or `/self-service/payslips/:id/pdf` from "My payslips"; saved as `<payslip number>.pdf`. The button shows a spinner while the API renders it; a failure (e.g. no PDF browser on the server — `PDF_BROWSER_CHANNEL`, Docs/ARCHITECTURE.md §9) becomes an error toast.
-- **Generate payslips** (`hr.payroll.write`): lists only periods with status `APPROVED` or `FINALIZED`; re-generating refreshes existing payslips, never duplicates them. Finalizing a period already generates them.
+- **Generate payslips** (`hr.payroll.write`): lists only periods with status `APPROVED` or `FINALIZED`; re-generating refreshes existing payslips, never duplicates them. Finalizing a period already generates them. An optional **Reason** is required by the API when an issued payslip would change.
+- **Regenerate** (row action, `hr.payroll.write.all`, `components/RegeneratePayslipDialog.tsx`): the reason is mandatory (at least 10 characters).
+  - A changed payslip becomes the next version: the list shows "· v2" and the detail shows the regeneration date and reason.
+  - An unchanged one is reported as unchanged.
+
+**Salaries** (`components/SalariesPanel.tsx`, `SalaryLinesEditor.tsx`)
+
+- **List** (`hr.salary.read`, team-scoped by the API): employee and "in force on" filters. Columns: employee, effective range, gross, every line (deductions marked "(−)"), template, arrears ("paid" once settled).
+- **New salary** (`hr.salary.write`): employee, effective from/to, and how to build it:
+  - **From a template** + gross, with a live breakup preview;
+  - **Enter the lines** (component + monthly amount; each component once; gross = earning lines);
+  - **Split a gross** (settings percentages).
+
+  Templates and lines need `hr.payroll_settings.read` (the component list); without it only the split is offered. Optional one-time arrears.
+
+- **Edit**: replace the lines, end date and arrears. Only changed fields are sent. A structure used by a finalized payroll is refused by the API with `SALARY_LOCKED_BY_FINALIZED_PAYROLL`, shown in words.
+
+**Tax declarations** (`components/TaxDeclarationsPanel.tsx`, `TaxDeclarationParts.tsx`)
+
+- **Filters:** financial year and status (default **Submitted** for verifiers).
+- **Verify** (`hr.tax_declaration.approve`, `SUBMITTED`): accepted amounts per deduction (default = declared), an optional note (required to reject), Verify / Reject. The employee's own declaration shows "Your own — someone else must verify".
+- **Declaration on behalf** (`hr.tax_declaration.write`): employee, regime, the eight annual amounts, and "Submit for verification" or save as draft. Rows in DRAFT or REJECTED have **Edit**.
+- **Form 16**: per row, or for any employee in scope via the picker. Opens Part B (months, totals, tax payable, TDS) with **Download Form 16 (PDF)**.
+
+**Settings** (`components/PayrollSettingsPanel.tsx`, `SalaryMastersSections.tsx`, `TaxSetupSections.tsx`)
+
+The section is read-only without `hr.payroll_settings.write`. It has five sub-tabs:
+
+- **Policy & statutory** — every field of §4.16 in groups: pay days and attendance, overtime, PF (with EPS/EDLI/admin), ESI, PT and TDS, statutory bonus and gratuity, loans, salary auto-split, employer details. Only changed fields are sent, with the `version`. A stale version → `409`.
+- **Components** — the component master (show inactive; new / edit: code and kind fixed once created; treatment flags; order; active).
+- **Templates** — lines of fixed / % of gross / % of Basic / remainder; a saved template can be previewed for a gross.
+- **Tax regimes** — per financial year, the NEW and OLD cards with their slabs. **Set up / Edit** opens the amounts and slab editor ("Add slab" starts at the previous upper limit).
+- **Professional Tax** — slabs (state, gross range, amount, special month, the months it applies, effective dates; **Deactivate**) and the PT state of each work location.
+
+**Employee portal** (`/portal/payslips`, `/portal/loans`, `/portal/tax`)
+
+- **My Payslips** and **My Loans** reuse the self-service sections.
+- **My Tax** (`components/MyTaxView.tsx`): financial year, then the declaration form.
+  - Save draft / Submit for verification.
+  - Locked once submitted or verified; a rejection shows HR's note and the form opens again.
+  - **Form 16** with the PDF download.
+  - Self-service routes only.
+
+**Error codes** of the statutory engine are shown in words (`format.ts` `describeError`): `ATTENDANCE_NOT_APPROVED`, `TAX_REGIME_NOT_CONFIGURED`, `LOAN_OVER_LIMIT`, `PAYROLL_ALREADY_PAID` and the rest of §4.10–§4.16.
 
 **Payments** (`components/PaymentsPanel.tsx`)
 
@@ -1241,19 +1336,23 @@ HR
   - The PDF renderer is replaced by a stub in this suite, so it needs no browser; the PDF layout itself is covered by the template unit test.
 - **Browser (UI) E2E Tests — Playwright:** `apps/ui/e2e/`
 
-  | Spec                               | Covers                                                                                                                                                                                                                                                                              | Data                                                         |
-  | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period                                                                                    | Real API + dev DB                                            |
-  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                                                                                                          | Real sign-in, payroll API from fixtures                      |
-  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                                                                                                            | Real sign-in, payroll API from fixtures                      |
-  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters                                                                                       | Real API (test 1), then fixtures                             |
-  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip                                                                                 | Real sign-in, loans API from fixtures                        |
-  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                                                                                                            | Real sign-in, bonuses API from fixtures                      |
-  | `hr-payroll-payslips.spec.ts`      | "My payslips" hidden for `NOT_AN_EMPLOYEE`; HR list; payslip breakdown with masked bank/PAN; PDF download from the HR route and from "My payslips" (self-service route); period + employee filters; Generate validation and body; error state → Try again → empty state             | Real sign-in, payslips API from fixtures                     |
-  | `hr-payroll-payments.spec.ts`      | Empty state; New batch offers only finalized periods, validation, exact POST body, opens the batch; payments table; bank-file download; Process batch confirm / cancel / confirm; Update offers only allowed statuses, exact PATCH body; PAID payment not editable; `403` explained | Real sign-in, payments API from fixtures                     |
-  | `hr-payroll-permissions.spec.ts`   | Team lead: no New period / Generate payslips / payment batches (info alert, no request) but New bonus; `.own` employee: only readable tabs, no write buttons, "My payslips" only                                                                                                    | Real sign-in, `/auth/me` permissions swapped, empty fixtures |
-  | `portal-payslips-loans.spec.ts`    | Portal **My Payslips** / **My Loans** tabs for an employee with only self-service codes: own payslip and loan (incl. "Awaiting approval") shown; no `/hr/*` request made                                                                                                            | API fully mocked                                             |
-  | `hr-payroll-responsive.spec.ts`    | 375px viewport: every payroll and compliance tab without page-level horizontal scroll; filters stack; tabs operable by Arrow keys                                                                                                                                                   | Real sign-in, empty fixtures                                 |
+  | Spec                               | Covers                                                                                                                                                                                                                                                                                                                                                                                                                    | Data                                                         |
+  | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------- |
+  | `hr-payroll.spec.ts`               | Sidebar → Payroll / Compliance; every tab; mouse + keyboard (Arrow / Home) tab switching; period form blocks end < start without a request; create period → Manage → Run payroll → Cancel period                                                                                                                                                                                                                          | Real API + dev DB                                            |
+  | `hr-payroll-processing.spec.ts`    | Lifecycle tracker steps; run for _selected_ employees (validation, exact POST body); run notes; entries → one employee's calculation → back; maker-checker `403` explained                                                                                                                                                                                                                                                | Real sign-in, payroll API from fixtures                      |
+  | `hr-payroll-salary-report.spec.ts` | Reads **all** pages of a run; paise-exact totals; search; Team / Department filters; "Not yet approved" warning; CSV name, header, rows, totals row, formula neutralised                                                                                                                                                                                                                                                  | Real sign-in, payroll API from fixtures                      |
+  | `hr-compliance.spec.ts`            | PF and ESI tabs load (real API); PF registration from "no profile yet" with UAN check and exact PUT body; ESI profile prefilled, end-before-start blocked, update body; contributions filters                                                                                                                                                                                                                             | Real API (test 1), then fixtures                             |
+  | `hr-payroll-loans.spec.ts`         | "My loans" hidden for `NOT_AN_EMPLOYEE`; Issue loan schedule checks (under-/over-covering EMI) and exact POST body; outstanding; schedule; skip approve; requester sees no decision; request a skip                                                                                                                                                                                                                       | Real sign-in, loans API from fixtures                        |
+  | `hr-payroll-bonuses.spec.ts`       | Create-bonus validation and exact POST body; default Pending queue; Approve/Reject hidden for a bonus the admin created; reject with note; status filter                                                                                                                                                                                                                                                                  | Real sign-in, bonuses API from fixtures                      |
+  | `hr-payroll-payslips.spec.ts`      | "My payslips" hidden for `NOT_AN_EMPLOYEE`; HR list; payslip breakdown with masked bank/PAN; PDF download from the HR route and from "My payslips" (self-service route); period + employee filters; Generate validation and body; error state → Try again → empty state                                                                                                                                                   | Real sign-in, payslips API from fixtures                     |
+  | `hr-payroll-payments.spec.ts`      | Empty state; New batch offers only finalized periods, validation, exact POST body, opens the batch; payments table; bank-file download; Process batch confirm / cancel / confirm; Update offers only allowed statuses, exact PATCH body; PAID payment not editable; `403` explained                                                                                                                                       | Real sign-in, payments API from fixtures                     |
+  | `hr-payroll-permissions.spec.ts`   | Team lead: no New period / Generate payslips / payment batches (info alert, no request) but New bonus; `.own` employee: only readable tabs, no write buttons, "My payslips" only                                                                                                                                                                                                                                          | Real sign-in, `/auth/me` permissions swapped, empty fixtures |
+  | `portal-payslips-loans.spec.ts`    | Portal **My Payslips** / **My Loans** tabs for an employee with only self-service codes: own payslip and loan (incl. "Awaiting HR review" and the step tracker) shown; **Request a loan** (no employee field; over-limit → override reason; exact bodies); no `/hr/*` request made                                                                                                                                        | API fully mocked                                             |
+  | `hr-payroll-settings.spec.ts`      | Policy form sends only changed fields + version; reader sees it read-only (no write calls); new component and template (exact bodies); tax regime with slabs; PT slab with months                                                                                                                                                                                                                                         | API fully mocked (`helpers/mock-api.ts`)                     |
+  | `hr-payroll-salaries.spec.ts`      | Lines listed; salary from a template with preview; from lines (deduction not in the gross); editing lines; no template/lines mode without settings read; read-only grant shows no buttons                                                                                                                                                                                                                                 | API fully mocked                                             |
+  | `hr-payroll-workflows.spec.ts`     | Loan HR review forward (exact body, reviewers default to Awaiting HR review); HR reviewer never gets the final approval; approve / reject-needs-note; over-limit needs `.all`; prepayment over the balance refused, recorded, approved; reopen reason + body; statutory files disabled before finalize; payslip regenerate; statutory bonus preview → raise; gratuity raise; `.team` bonus writer has no statutory button | API fully mocked                                             |
+  | `payroll-tax.spec.ts`              | HR verifies with accepted amounts, not their own; Form 16 dialog; portal My Tax submit → locked; Form 16 PDF download; no `/hr/*` call from the portal                                                                                                                                                                                                                                                                    | API fully mocked                                             |
+  | `hr-payroll-responsive.spec.ts`    | 375px viewport: every payroll and compliance tab without page-level horizontal scroll; filters stack; tabs operable by Arrow keys                                                                                                                                                                                                                                                                                         | Real sign-in, empty fixtures                                 |
 
   Fixture-backed specs exist because a dev DB usually has no employees, salaries or processed runs, and approval needs a second user. They prove UI behaviour; the API e2e suite proves the numbers.
 
