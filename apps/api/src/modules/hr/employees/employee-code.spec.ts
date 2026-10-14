@@ -40,7 +40,7 @@ describe("issueEmployeeCode", () => {
 
     await expect(issueEmployeeCode(tx as never, 3)).resolves.toBe("EMP-000017");
 
-    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
     const insert = tx.$executeRaw.mock.calls[0]!;
     expect(sqlOf(insert)).toContain("INSERT INTO platform.document_sequences");
     expect(sqlOf(insert)).toContain(
@@ -51,6 +51,18 @@ describe("issueEmployeeCode", () => {
       EMPLOYEE_CODE_DOC_TYPE,
       EMPLOYEE_CODE_PREFIX,
       EMPLOYEE_CODE_PADDING,
+      3,
+      EMPLOYEE_CODE_PREFIX + "%",
+    ]);
+
+    const sync = tx.$executeRaw.mock.calls[1]!;
+    expect(sqlOf(sync)).toContain("UPDATE platform.document_sequences");
+    expect(sqlOf(sync)).toContain("SET next_number = GREATEST");
+    expect(sync.slice(1)).toEqual([
+      3,
+      EMPLOYEE_CODE_PREFIX + "%",
+      3,
+      EMPLOYEE_CODE_DOC_TYPE,
     ]);
 
     const update = tx.$queryRaw.mock.calls[0]!;
@@ -63,16 +75,16 @@ describe("issueEmployeeCode", () => {
     const order: string[] = [];
     const tx = {
       $executeRaw: vi.fn(async () => {
-        order.push("insert");
+        order.push("executeRaw");
         return 1;
       }),
       $queryRaw: vi.fn(async () => {
-        order.push("update");
+        order.push("queryRaw");
         return [{ prefix: "EMP-", padding: 6, issued: 1 }];
       }),
     };
     await issueEmployeeCode(tx as never, 1);
-    expect(order).toEqual(["insert", "update"]);
+    expect(order).toEqual(["executeRaw", "executeRaw", "queryRaw"]);
   });
 
   it("formats with the stored prefix/padding, not the constants", async () => {

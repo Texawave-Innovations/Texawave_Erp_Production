@@ -36,11 +36,12 @@ import {
   ListTodo,
   Receipt,
   Ticket,
-  Banknote,
   ShieldCheck,
   Shield,
   Tag,
   CheckCircle2,
+  Wallet,
+  UserCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -53,6 +54,7 @@ export interface NavLeafItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  iconColor?: string;
   menuCode: string;
 }
 
@@ -60,6 +62,7 @@ export interface NavCategory {
   id: string;
   label: string;
   icon: LucideIcon;
+  iconColor?: string;
   /** If category is a direct link without children (e.g. Overview) */
   path?: string;
   menuCode?: string;
@@ -86,6 +89,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "overview",
     label: "Overview",
     icon: BarChart3,
+    iconColor: "text-sky-500",
     path: "/hr/dashboard",
     menuCode: "hr-dashboard",
   },
@@ -93,12 +97,14 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "people",
     label: "People",
     icon: Users,
+    iconColor: "text-blue-600",
     children: [
       {
         id: "employees",
         label: "Employees",
         path: "/hr/employees",
         icon: Users,
+        iconColor: "text-blue-600",
         menuCode: "hr-employees",
       },
       {
@@ -106,6 +112,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Profiles",
         path: "/hr/profiles",
         icon: Contact,
+        iconColor: "text-cyan-600",
         menuCode: "hr-profiles",
       },
       {
@@ -113,6 +120,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Employee Documents",
         path: "/hr/employee-documents",
         icon: FileText,
+        iconColor: "text-sky-600",
         menuCode: "hr-employee-documents",
       },
       {
@@ -120,6 +128,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Org Chart",
         path: "/hr/org-chart",
         icon: Network,
+        iconColor: "text-blue-500",
         menuCode: "hr-org-chart",
       },
       {
@@ -127,6 +136,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Departments",
         path: "/hr/departments",
         icon: Building2,
+        iconColor: "text-purple-600",
         menuCode: "hr-departments",
       },
       {
@@ -134,6 +144,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Teams",
         path: "/hr/teams",
         icon: UsersRound,
+        iconColor: "text-blue-600",
         menuCode: "hr-teams",
       },
     ],
@@ -142,6 +153,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "time-leave",
     label: "Time & Leave",
     icon: Calendar,
+    iconColor: "text-rose-500",
     children: [
       {
         id: "attendance",
@@ -198,6 +210,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "operations",
     label: "Operations",
     icon: Settings,
+    iconColor: "text-blue-600",
     children: [
       {
         id: "tasks",
@@ -225,7 +238,8 @@ const HR_CATEGORIES: NavCategory[] = [
   {
     id: "recruitment",
     label: "Recruitment",
-    icon: Briefcase,
+    icon: UserCheck,
+    iconColor: "text-sky-600",
     children: [
       {
         id: "recruitment-pipeline",
@@ -246,13 +260,15 @@ const HR_CATEGORIES: NavCategory[] = [
   {
     id: "payroll",
     label: "Payroll",
-    icon: Banknote,
+    icon: Wallet,
+    iconColor: "text-cyan-600",
     children: [
       {
         id: "payroll-overview",
         label: "Payroll Processing",
         path: "/hr/payroll",
-        icon: Banknote,
+        icon: Wallet,
+        iconColor: "text-cyan-600",
         menuCode: "hr-payroll",
       },
     ],
@@ -261,12 +277,14 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "compliance",
     label: "Compliance",
     icon: ShieldCheck,
+    iconColor: "text-indigo-600",
     children: [
       {
         id: "compliance-overview",
         label: "Statutory Compliance",
         path: "/hr/compliance",
         icon: ShieldCheck,
+        iconColor: "text-indigo-600",
         menuCode: "hr-compliance",
       },
     ],
@@ -416,6 +434,46 @@ function LiveClock() {
   );
 }
 
+function findRouteNavigationState(pathname: string) {
+  for (const mod of ERP_MODULES) {
+    if (!mod.categories) continue;
+    for (const cat of mod.categories) {
+      if (
+        cat.path &&
+        (pathname === cat.path || pathname.startsWith(`${cat.path}/`))
+      ) {
+        return { moduleId: mod.id, categoryId: cat.id, leafId: null };
+      }
+      if (cat.children) {
+        for (const leaf of cat.children) {
+          if (pathname === leaf.path || pathname.startsWith(`${leaf.path}/`)) {
+            return { moduleId: mod.id, categoryId: cat.id, leafId: leaf.id };
+          }
+        }
+      }
+    }
+  }
+  if (pathname === "/admin/departments") {
+    return { moduleId: "hr", categoryId: "people", leafId: "departments" };
+  }
+  if (pathname.startsWith("/hr")) {
+    return { moduleId: "hr", categoryId: "overview", leafId: null };
+  }
+  if (pathname === "/admin" || pathname === "/admin/dashboard") {
+    return { moduleId: "dashboard", categoryId: null, leafId: null };
+  }
+  if (
+    pathname.startsWith("/admin/users") ||
+    pathname.startsWith("/admin/roles") ||
+    pathname.startsWith("/admin/menu") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/reference")
+  ) {
+    return { moduleId: "settings", categoryId: "access-control", leafId: null };
+  }
+  return { moduleId: null, categoryId: null, leafId: null };
+}
+
 export interface HorizontalNavbarProps {
   onSignOut: () => void;
 }
@@ -426,11 +484,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const user = useAuthStore((s) => s.user);
   const menuQuery = useMyMenu();
 
-  // Navigation Dropdown state
-  const [openModuleId, setOpenModuleId] = useState<string | null>(null);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    "people",
+  // Navigation Dropdown state: separate hovered preview from pinned selection
+  const [hoveredModuleId, setHoveredModuleId] = useState<string | null>(null);
+  const [pinnedModuleId, setPinnedModuleId] = useState<string | null>(null);
+
+  const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(
+    null,
   );
+  const [pinnedCategoryId, setPinnedCategoryId] = useState<string | null>(null);
+
   const [submenuAlignLeft, setSubmenuAlignLeft] = useState(false);
 
   // Shell popover states
@@ -446,6 +508,27 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  // Derive active module, category, and leaf from current URL route
+  const routeState = useMemo(
+    () => findRouteNavigationState(pathname),
+    [pathname],
+  );
+  const currentActiveModuleId = routeState.moduleId;
+
+  const closeAllMenus = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setHoveredModuleId(null);
+    setPinnedModuleId(null);
+    setHoveredCategoryId(null);
+    setPinnedCategoryId(null);
+    setProfileOpen(false);
+    setNotificationsOpen(false);
+    setMobileMenuOpen(false);
+  }, []);
+
   // Clear pending timers on unmount
   useEffect(() => {
     return () => {
@@ -457,10 +540,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        setOpenModuleId(null);
-        setProfileOpen(false);
-        setNotificationsOpen(false);
-        setMobileMenuOpen(false);
+        closeAllMenus();
       }
     }
 
@@ -470,7 +550,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         navContainerRef.current &&
         !navContainerRef.current.contains(target)
       ) {
-        setOpenModuleId(null);
+        closeAllMenus();
       }
       if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
@@ -486,24 +566,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
-
-  // Detect which ERP module is active based on current route
-  const currentActiveModuleId = (() => {
-    if (pathname.startsWith("/hr") || pathname === "/admin/departments")
-      return "hr";
-    if (pathname === "/admin" || pathname === "/admin/dashboard")
-      return "dashboard";
-    if (
-      pathname.startsWith("/admin/users") ||
-      pathname.startsWith("/admin/roles") ||
-      pathname.startsWith("/admin/menu") ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/reference")
-    )
-      return "settings";
-    return null;
-  })();
+  }, [closeAllMenus]);
 
   // Filter categories and leaves based on user RBAC permissions
   const allowedCodes: Set<string> = useMemo(
@@ -543,8 +606,62 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     [menuQuery.data, allowedCodes],
   );
 
+  // Effective open module: hovered module previews; otherwise pinned module stays open
+  const openModuleId = hoveredModuleId ?? pinnedModuleId;
+
   const activeModuleConfig = ERP_MODULES.find((m) => m.id === openModuleId);
   const activeCategories = filterCategories(activeModuleConfig?.categories);
+
+  // Effective selected category:
+  // 1. Actively hovered category
+  // 2. Explicitly pinned category
+  // 3. Route-derived category (if current route is within this module)
+  // 4. Fallback to first category with children
+  const effectiveCategoryId = useMemo(() => {
+    if (
+      hoveredCategoryId &&
+      activeCategories.some((c) => c.id === hoveredCategoryId)
+    ) {
+      return hoveredCategoryId;
+    }
+    if (
+      pinnedCategoryId &&
+      activeCategories.some((c) => c.id === pinnedCategoryId)
+    ) {
+      return pinnedCategoryId;
+    }
+    const routeCat = activeCategories.find(
+      (c) => c.id === routeState.categoryId,
+    );
+    if (routeCat && routeCat.children && routeCat.children.length > 0) {
+      return routeCat.id;
+    }
+    const firstWithChildren = activeCategories.find(
+      (c) => c.children && c.children.length > 0,
+    );
+    return firstWithChildren
+      ? firstWithChildren.id
+      : (activeCategories[0]?.id ?? null);
+  }, [
+    hoveredCategoryId,
+    pinnedCategoryId,
+    routeState.categoryId,
+    activeCategories,
+  ]);
+
+  const activeCategoryObj = activeCategories.find(
+    (c) => c.id === effectiveCategoryId,
+  );
+  const activeSubmenuItems = activeCategoryObj?.children ?? [];
+
+  const activeCategoryIndex = activeCategories.findIndex(
+    (c) => c.id === effectiveCategoryId,
+  );
+  const submenuTopOffset = useMemo(() => {
+    if (activeCategoryIndex <= 0) return 0;
+    // Align with active category item (each category item is ~40px)
+    return Math.min(activeCategoryIndex * 40, 160);
+  }, [activeCategoryIndex]);
 
   // Check submenu viewport overflow
   useEffect(() => {
@@ -557,9 +674,9 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         setSubmenuAlignLeft(false);
       }
     }
-  }, [openModuleId, activeCategoryId]);
+  }, [openModuleId, effectiveCategoryId]);
 
-  // Hover handlers with debounce intent timer
+  // Hover handlers
   const handleMouseEnterModule = (moduleId: string) => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
@@ -567,30 +684,26 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     }
     const mod = ERP_MODULES.find((m) => m.id === moduleId);
     if (mod && mod.categories && mod.categories.length > 0) {
-      setOpenModuleId(moduleId);
-      // Auto-select category matching current route or first category with children
-      const filtered = filterCategories(mod.categories);
-      const matchingCat = filtered.find((c) =>
-        c.children?.some((child) => pathname.startsWith(child.path)),
-      );
-      if (matchingCat) {
-        setActiveCategoryId(matchingCat.id);
-      } else {
-        const firstWithChildren = filtered.find(
-          (c) => c.children && c.children.length > 0,
-        );
-        setActiveCategoryId(
-          firstWithChildren ? firstWithChildren.id : (filtered[0]?.id ?? null),
-        );
-      }
+      setHoveredModuleId(moduleId);
     } else {
-      setOpenModuleId(null);
+      setHoveredModuleId(null);
     }
   };
 
   const handleMouseLeaveNav = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    // If user explicitly pinned a module, do not close on mouse leave
+    if (pinnedModuleId) {
+      setHoveredModuleId(null);
+      setHoveredCategoryId(null);
+      return;
+    }
+    // Transient hover close timer
     closeTimerRef.current = setTimeout(() => {
-      setOpenModuleId(null);
+      setHoveredModuleId(null);
+      setHoveredCategoryId(null);
     }, 220);
   };
 
@@ -601,28 +714,60 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     }
   };
 
+  const handleModuleClick = (mod: ErpModuleConfig) => {
+    const hasCategories = Boolean(mod.categories && mod.categories.length > 0);
+    if (hasCategories) {
+      if (pinnedModuleId === mod.id) {
+        // Toggle closed
+        setPinnedModuleId(null);
+        setHoveredModuleId(null);
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+      } else {
+        // Pin open
+        setPinnedModuleId(mod.id);
+        setHoveredModuleId(mod.id);
+        const cats = filterCategories(mod.categories);
+        const routeCat = cats.find((c) => c.id === routeState.categoryId);
+        const firstWithChildren = cats.find(
+          (c) => c.children && c.children.length > 0,
+        );
+        setPinnedCategoryId(
+          routeCat && routeCat.children && routeCat.children.length > 0
+            ? routeCat.id
+            : firstWithChildren
+              ? firstWithChildren.id
+              : null,
+        );
+      }
+    } else {
+      closeAllMenus();
+      router.push(mod.path);
+    }
+  };
+
   const handleCategoryHover = (catId: string) => {
-    setActiveCategoryId(catId);
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setHoveredCategoryId(catId);
   };
 
   const handleCategoryClick = (cat: NavCategory) => {
-    if (cat.path) {
-      setOpenModuleId(null);
+    if (cat.path && (!cat.children || cat.children.length === 0)) {
+      closeAllMenus();
       router.push(cat.path);
-    } else {
-      setActiveCategoryId((prev) => (prev === cat.id ? prev : cat.id));
+    } else if (cat.children && cat.children.length > 0) {
+      // Pin category submenu open
+      setPinnedCategoryId(cat.id);
+      setHoveredCategoryId(cat.id);
     }
   };
 
   const handleLeafClick = () => {
-    setOpenModuleId(null);
-    setMobileMenuOpen(false);
+    closeAllMenus();
   };
-
-  const activeCategoryObj = activeCategories.find(
-    (c) => c.id === activeCategoryId,
-  );
-  const activeSubmenuItems = activeCategoryObj?.children ?? [];
 
   const displayName = user?.fullName || "Super Admin";
   const initials = displayName
@@ -708,15 +853,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   type="button"
                   aria-haspopup={hasCategories ? "menu" : undefined}
                   aria-expanded={hasCategories ? isDropdownOpen : undefined}
-                  onClick={() => {
-                    if (hasCategories) {
-                      setOpenModuleId((prev) =>
-                        prev === mod.id ? null : mod.id,
-                      );
-                    } else {
-                      router.push(mod.path);
-                    }
-                  }}
+                  onClick={() => handleModuleClick(mod)}
                   className={`group relative flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-all focus-visible:outline-2 focus-visible:outline-brand-500 lg:px-3 ${
                     isDropdownOpen || (isRouteActive && !openModuleId)
                       ? "border border-sky-200/90 bg-white/95 text-brand-700 shadow-xs dark:border-sky-800/60 dark:bg-gray-800/95 dark:text-cyan-300 font-semibold"
@@ -743,65 +880,98 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     role="menu"
                     aria-label={`${mod.label} categories`}
                     onMouseEnter={handleMouseEnterDropdown}
-                    className="glass-dropdown absolute left-0 top-full mt-2 z-50 flex min-w-56 rounded-2xl p-2 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150"
+                    className="glass-dropdown absolute left-0 top-full mt-2.5 z-50 flex min-w-56 rounded-[22px] p-2.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
                   >
                     {/* Level 2: Categories Column */}
-                    <div className="flex w-52 flex-col gap-0.5 border-r border-sky-100/80 pr-1.5 dark:border-gray-800">
+                    <div className="flex w-52 flex-col gap-1">
                       {activeCategories.map((cat) => {
-                        const isCatSelected = cat.id === activeCategoryId;
+                        const isCatSelected = cat.id === effectiveCategoryId;
+                        const isCatRouteActive =
+                          cat.id === routeState.categoryId;
                         const hasChildren = Boolean(
                           cat.children && cat.children.length > 0,
                         );
 
-                        return (
-                          <div key={cat.id} className="relative">
-                            {cat.path && !hasChildren ? (
+                        if (cat.path && !hasChildren) {
+                          const isOverviewActive =
+                            pathname === cat.path ||
+                            (cat.id === "overview" &&
+                              (pathname === "/hr" ||
+                                pathname === "/hr/dashboard"));
+                          const isItemActive =
+                            isOverviewActive || isCatSelected;
+
+                          return (
+                            <div key={cat.id} className="relative">
                               <Link
                                 href={cat.path}
                                 onClick={handleLeafClick}
-                                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium transition-all ${
-                                  pathname === cat.path
-                                    ? "bg-brand-500/15 text-brand-700 font-bold dark:bg-brand-500/25 dark:text-cyan-300"
-                                    : "text-gray-700 hover:bg-sky-50/80 hover:text-brand-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                                }`}
-                              >
-                                <cat.icon className="h-4 w-4 shrink-0 text-brand-600 dark:text-cyan-400" />
-                                <span>{cat.label}</span>
-                              </Link>
-                            ) : (
-                              <button
-                                type="button"
-                                aria-haspopup="menu"
-                                aria-expanded={isCatSelected}
-                                onMouseEnter={() => handleCategoryHover(cat.id)}
-                                onClick={() => handleCategoryClick(cat)}
-                                className={`group flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all ${
-                                  isCatSelected
-                                    ? "bg-brand-500/15 text-brand-700 font-bold dark:bg-brand-500/25 dark:text-cyan-300 shadow-2xs"
-                                    : "text-gray-700 hover:bg-sky-50/80 hover:text-brand-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                                  isItemActive
+                                    ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
+                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5">
                                   <cat.icon
                                     className={`h-4 w-4 shrink-0 ${
-                                      isCatSelected
+                                      cat.iconColor ??
+                                      (isItemActive
                                         ? "text-brand-600 dark:text-cyan-400"
-                                        : "text-gray-500 group-hover:text-brand-600 dark:text-gray-400"
+                                        : "text-slate-600 dark:text-gray-400")
                                     }`}
                                   />
                                   <span>{cat.label}</span>
                                 </div>
-                                {hasChildren && (
-                                  <ChevronRight
-                                    className={`h-3.5 w-3.5 transition-transform ${
-                                      isCatSelected
-                                        ? "text-brand-600 translate-x-0.5 dark:text-cyan-400"
-                                        : "text-gray-400 group-hover:text-brand-600"
-                                    }`}
-                                  />
-                                )}
-                              </button>
-                            )}
+                                <ChevronRight
+                                  className={`h-3.5 w-3.5 ${
+                                    isItemActive
+                                      ? "text-brand-600 dark:text-cyan-400"
+                                      : "text-slate-400/80"
+                                  }`}
+                                />
+                              </Link>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={cat.id} className="relative">
+                            <button
+                              type="button"
+                              aria-haspopup="menu"
+                              aria-expanded={isCatSelected}
+                              onMouseEnter={() => handleCategoryHover(cat.id)}
+                              onClick={() => handleCategoryClick(cat)}
+                              className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
+                                isCatSelected
+                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
+                                  : isCatRouteActive
+                                    ? "text-brand-800 font-semibold hover:bg-sky-50/80 dark:text-cyan-300"
+                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <cat.icon
+                                  className={`h-4 w-4 shrink-0 ${
+                                    cat.iconColor ??
+                                    (isCatSelected || isCatRouteActive
+                                      ? "text-brand-600 dark:text-cyan-400"
+                                      : "text-slate-600 group-hover:text-brand-600 dark:text-gray-400")
+                                  }`}
+                                />
+                                <span>{cat.label}</span>
+                              </div>
+                              {hasChildren && (
+                                <ChevronRight
+                                  className={`h-3.5 w-3.5 transition-transform ${
+                                    isCatSelected || isCatRouteActive
+                                      ? "text-brand-600 translate-x-0.5 dark:text-cyan-400"
+                                      : "text-slate-400/80 group-hover:text-brand-600"
+                                  }`}
+                                />
+                              )}
+                            </button>
                           </div>
                         );
                       })}
@@ -812,15 +982,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                       <div
                         role="menu"
                         aria-label={`${activeCategoryObj?.label} items`}
-                        className={`absolute top-0 z-50 flex min-w-56 flex-col gap-0.5 rounded-2xl glass-dropdown p-2 shadow-2xl animate-in fade-in-0 duration-150 ${
+                        onMouseEnter={handleMouseEnterDropdown}
+                        style={{ top: `${submenuTopOffset}px` }}
+                        className={`absolute z-50 flex min-w-60 flex-col gap-1 rounded-[22px] glass-dropdown p-2.5 shadow-2xl animate-in fade-in-0 duration-150 ${
                           submenuAlignLeft
-                            ? "right-full mr-1.5"
-                            : "left-full ml-1.5"
+                            ? "right-full mr-2.5 after:absolute after:-right-3.5 after:top-0 after:bottom-0 after:w-3.5"
+                            : "left-full ml-2.5 before:absolute before:-left-3.5 before:top-0 before:bottom-0 before:w-3.5"
                         }`}
                       >
-                        <div className="mb-1 border-b border-sky-100/80 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-gray-800 dark:text-gray-500">
-                          {activeCategoryObj?.label}
-                        </div>
                         {activeSubmenuItems.map((item) => {
                           const isLeafActive =
                             pathname === item.path ||
@@ -831,17 +1000,18 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               key={item.id}
                               href={item.path}
                               onClick={handleLeafClick}
-                              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                              className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
                                 isLeafActive
-                                  ? "bg-brand-500/15 text-brand-700 font-bold dark:bg-brand-500/25 dark:text-cyan-300"
-                                  : "text-gray-700 hover:bg-sky-50/80 hover:text-brand-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
+                                  : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
                               }`}
                             >
                               <item.icon
                                 className={`h-4 w-4 shrink-0 ${
-                                  isLeafActive
+                                  item.iconColor ??
+                                  (isLeafActive
                                     ? "text-brand-600 dark:text-cyan-400"
-                                    : "text-gray-500 dark:text-gray-400"
+                                    : "text-slate-600 dark:text-gray-400")
                                 }`}
                               />
                               <span>{item.label}</span>
@@ -910,7 +1080,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               <div
                 role="region"
                 aria-label="Recent notifications"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-2xl p-3 shadow-xl animate-in fade-in-0 zoom-in-95 duration-100"
+                className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-[22px] p-3 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
                 <div className="flex items-center justify-between border-b border-sky-100/80 pb-2 dark:border-gray-800">
                   <h4 className="text-xs font-bold text-gray-900 dark:text-white">
@@ -981,7 +1151,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             {profileOpen && (
               <div
                 role="menu"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-2xl p-1.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-100"
+                className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-[22px] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
                 <div className="border-b border-sky-100/80 px-3 py-2 dark:border-gray-800">
                   <p className="text-xs font-bold text-gray-900 dark:text-white/90">
@@ -1028,7 +1198,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     type="button"
                     onClick={() => {
                       if (categories.length > 0) {
-                        setOpenModuleId((prev) =>
+                        setPinnedModuleId((prev) =>
                           prev === mod.id ? null : mod.id,
                         );
                       } else {
@@ -1054,7 +1224,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   {isModuleExpanded && categories.length > 0 && (
                     <div className="mt-2 flex flex-col gap-1 border-t border-sky-100/60 pt-2 dark:border-gray-800">
                       {categories.map((cat) => {
-                        const isCatExpanded = activeCategoryId === cat.id;
+                        const isCatExpanded =
+                          (hoveredCategoryId ?? pinnedCategoryId) === cat.id;
 
                         if (
                           cat.path &&
@@ -1078,7 +1249,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             <button
                               type="button"
                               onClick={() =>
-                                setActiveCategoryId((prev) =>
+                                setPinnedCategoryId((prev) =>
                                   prev === cat.id ? null : cat.id,
                                 )
                               }

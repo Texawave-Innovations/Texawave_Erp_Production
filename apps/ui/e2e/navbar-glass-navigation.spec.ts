@@ -13,8 +13,7 @@ import { signInAsAdmin } from "./helpers/auth";
 test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsAdmin(page);
-    await page.goto("/hr/dashboard");
-    await page.waitForLoadState("domcontentloaded");
+    await expect(page).toHaveURL(/\/hr/, { timeout: 15000 });
   });
 
   test("Navbar displays TexaOne branding, modules, and utilities", async ({
@@ -81,6 +80,36 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     ).toBeVisible();
   });
 
+  test("Payroll category opens Level 3 nested submenu matching Image 2", async ({
+    page,
+  }) => {
+    const hrModule = page.getByRole("button", { name: "Human Resources" });
+    await hrModule.click();
+
+    const categoryMenu = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await expect(categoryMenu).toBeVisible();
+
+    // Hover Payroll category
+    const payrollCat = categoryMenu.getByRole("button", { name: "Payroll" });
+    await payrollCat.hover();
+
+    // Level 3 nested submenu appears with frosted glass styling and single child
+    const payrollSubmenu = page.getByRole("menu", { name: "Payroll items" });
+    await expect(payrollSubmenu).toBeVisible();
+    await expect(payrollSubmenu).toHaveClass(/glass-dropdown/);
+
+    const payrollProcessing = payrollSubmenu.getByRole("link", {
+      name: "Payroll Processing",
+    });
+    await expect(payrollProcessing).toBeVisible();
+
+    await page.screenshot({
+      path: "C:/Users/aslam/.gemini/antigravity-ide/brain/8db39722-3c54-483a-ac36-dee6f74649cd/payroll_dropdown_verified.png",
+    });
+  });
+
   test("People category opens Level 3 nested submenu with frosted glass styling", async ({
     page,
   }) => {
@@ -120,6 +149,11 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     await expect(
       peopleSubmenu.getByRole("link", { name: "Teams" }),
     ).toBeVisible();
+
+    await page.screenshot({
+      path: "C:/Users/aslam/.gemini/antigravity-ide/brain/8db39722-3c54-483a-ac36-dee6f74649cd/dashboard_full_reference_verified.png",
+      fullPage: false,
+    });
   });
 
   test("Escape key closes all open navigation submenus", async ({ page }) => {
@@ -132,6 +166,76 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     await expect(categoryMenu).toBeVisible();
 
     await page.keyboard.press("Escape");
+    await expect(categoryMenu).not.toBeVisible();
+  });
+
+  test("Hovering module and category opens menus; clicking pins selection across mouse movement", async ({
+    page,
+  }) => {
+    const hrModule = page.getByRole("button", { name: "Human Resources" });
+
+    // 1. Hover opens Level 2
+    await hrModule.hover();
+    const categoryMenu = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await expect(categoryMenu).toBeVisible();
+
+    // 2. Click module to pin it
+    await hrModule.click();
+
+    // 3. Move mouse away to page content (e.g. heading)
+    const pageHeading = page.getByRole("heading", { name: /Good/i });
+    await pageHeading.hover();
+
+    // 4. Pinned menu remains visible!
+    await expect(categoryMenu).toBeVisible();
+
+    // 5. Switching category updates Level 3 submenu
+    const timeLeaveCat = categoryMenu.getByRole("button", {
+      name: "Time & Leave",
+    });
+    await timeLeaveCat.click();
+    const timeLeaveSubmenu = page.getByRole("menu", {
+      name: "Time & Leave items",
+    });
+    await expect(timeLeaveSubmenu).toBeVisible();
+    await expect(
+      timeLeaveSubmenu.getByRole("link", { name: "Attendance" }),
+    ).toBeVisible();
+
+    // 6. Switch back to People
+    const peopleCat = categoryMenu.getByRole("button", { name: "People" });
+    await peopleCat.click();
+    const peopleSubmenu = page.getByRole("menu", { name: "People items" });
+    await expect(peopleSubmenu).toBeVisible();
+    await expect(
+      peopleSubmenu.getByRole("link", { name: "Employees" }),
+    ).toBeVisible();
+
+    // 7. Click leaf navigates and closes transient menus
+    const employeesLeaf = peopleSubmenu.getByRole("link", {
+      name: "Employees",
+    });
+    await employeesLeaf.click();
+    await expect(page).toHaveURL(/\/hr\/employees/);
+    await expect(categoryMenu).not.toBeVisible();
+
+    // 8. Human Resources remains active module on the new route
+    await expect(hrModule).toBeVisible();
+  });
+
+  test("Clicking outside dismisses open menus", async ({ page }) => {
+    const hrModule = page.getByRole("button", { name: "Human Resources" });
+    await hrModule.click();
+
+    const categoryMenu = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await expect(categoryMenu).toBeVisible();
+
+    // Click outside on the main area
+    await page.locator("main").click({ position: { x: 10, y: 10 } });
     await expect(categoryMenu).not.toBeVisible();
   });
 

@@ -16,3 +16,6 @@ export * from "./TableSkeleton";
 export * from "./PasswordField";
 export * from "./FormSection";
 export * from "./HrPageHeader";
+export * from "./DepartmentBarChart";
+export * from "./EmployeeDistributionDonut";
+export * from "./RecentActivitiesCard";

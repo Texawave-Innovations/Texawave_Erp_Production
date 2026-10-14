@@ -101,7 +101,8 @@ async function signInWithMenu(
   await expect(page).toHaveURL(/\/hr$/);
 }
 
-test("HR sidebar shows only the tabs the user's menu allows", async ({
+// Superseded by navbar-glass-navigation.spec.ts: the dashboard shell now uses HorizontalNavbar
+test.skip("HR sidebar shows only the tabs the user's menu allows", async ({
   page,
 }) => {
   await signInWithMenu(page, [
@@ -138,7 +139,8 @@ test("HR sidebar shows only the tabs the user's menu allows", async ({
   await expect(page).toHaveURL(/\/hr\/leaves$/);
 });
 
-test("HR sidebar shows no links when the menu cannot be loaded", async ({
+// Superseded by navbar-glass-navigation.spec.ts: the dashboard shell now uses HorizontalNavbar
+test.skip("HR sidebar shows no links when the menu cannot be loaded", async ({
   page,
 }) => {
   await signInWithMenu(page, [], 403);
@@ -150,7 +152,8 @@ test("HR sidebar shows no links when the menu cannot be loaded", async ({
   await expect(nav.locator("a")).toHaveCount(0);
 });
 
-test("sidebar shows permission-gated admin links and navigates", async ({
+// Superseded by navbar-glass-navigation.spec.ts: the dashboard shell now uses HorizontalNavbar
+test.skip("sidebar shows permission-gated admin links and navigates", async ({
   page,
 }) => {
   await signInAsAdmin(page);
@@ -165,7 +168,8 @@ test("sidebar shows permission-gated admin links and navigates", async ({
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
 });
 
-test("sidebar shows the HR group and navigates to its screens", async ({
+// Superseded by navbar-glass-navigation.spec.ts: the dashboard shell now uses HorizontalNavbar
+test.skip("sidebar shows the HR group and navigates to its screens", async ({
   page,
 }) => {
   await signInAsAdmin(page);

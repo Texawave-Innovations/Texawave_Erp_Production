@@ -12,10 +12,12 @@ import {
   listRecentExpenseClaims,
   listRecentTickets,
 } from "./api";
+import { listDepartments } from "@/features/departments/api";
 import {
   absencesByWeekday,
   addDays,
   countAttendance,
+  istToday,
   monthRange,
   workdayLookback,
 } from "./metrics";
@@ -38,15 +40,56 @@ function useOrgKey(...parts: (string | number)[]) {
 
 export function useHeadcount(enabled: boolean) {
   const org = useOrgKey("headcount");
+  const today = istToday();
+  const currentMonth = monthRange(today);
+  const lastMonthDate = addDays(`${today.slice(0, 7)}-01`, -1);
+  const lastMonth = monthRange(lastMonthDate);
+
+  return useQuery({
+    queryKey: org.keyFor(today.slice(0, 7)),
+    enabled: enabled && org.enabled,
+    queryFn: async () => {
+      const [total, active, newJoinersThisMonth, newJoinersLastMonth] =
+        await Promise.all([
+          countRows("/hr/employees", {}),
+          countRows("/hr/employees", { status: "ACTIVE" }),
+          countRows("/hr/employees", {
+            joinedFrom: currentMonth.from,
+            joinedTo: currentMonth.to,
+          }),
+          countRows("/hr/employees", {
+            joinedFrom: lastMonth.from,
+            joinedTo: lastMonth.to,
+          }),
+        ]);
+      return { total, active, newJoinersThisMonth, newJoinersLastMonth };
+    },
+  });
+}
+
+export interface DepartmentMetric {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export function useDepartmentMetrics(enabled: boolean) {
+  const org = useOrgKey("department-metrics");
   return useQuery({
     queryKey: org.key,
     enabled: enabled && org.enabled,
-    queryFn: async () => {
-      const [total, active] = await Promise.all([
-        countRows("/hr/employees", {}),
-        countRows("/hr/employees", { status: "ACTIVE" }),
-      ]);
-      return { total, active };
+    queryFn: async (): Promise<DepartmentMetric[]> => {
+      const res = await listDepartments({ limit: 50 });
+      const departments = res.data ?? [];
+      const metrics = await Promise.all(
+        departments.map(async (d) => {
+          const count = await countRows("/hr/employees", {
+            departmentId: d.id,
+          });
+          return { id: d.id, name: d.name, count };
+        }),
+      );
+      return metrics;
     },
   });
 }

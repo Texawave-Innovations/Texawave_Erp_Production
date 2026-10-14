@@ -68,7 +68,7 @@ export function PageHeader({
     return (
       <header
         className={cn(
-          "relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan p-6 sm:p-7 text-white shadow-sm",
+          "relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-linear-135 from-[#38bdf8] via-[#0ea5e9] to-[#2dd4bf] p-6 sm:p-7 text-white shadow-sm dark:from-sky-800 dark:via-blue-900 dark:to-teal-900",
           className,
         )}
         {...rest}

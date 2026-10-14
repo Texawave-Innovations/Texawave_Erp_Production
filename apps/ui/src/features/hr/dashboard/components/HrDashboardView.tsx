@@ -7,7 +7,6 @@ import {
   UserCheck,
   UserPlus,
   Clock,
-  CheckCircle2,
   Ticket,
   Receipt,
   Calendar,
@@ -15,7 +14,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { Button, StatCard } from "@texawave-erp/ui-kit";
+import { Button } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -34,6 +33,7 @@ import {
   useActivityFeed,
   useApprovalsPending,
   useDailyAttendance,
+  useDepartmentMetrics,
   useGlanceSupport,
   useHeadcount,
   useLeaveBreakdown,
@@ -58,6 +58,10 @@ import {
   GlanceSection,
   WidgetState,
   HrPageHeader,
+  DepartmentBarChart,
+  EmployeeDistributionDonut,
+  RecentActivitiesCard,
+  StatCard,
   type SegmentTone,
 } from "../../components";
 
@@ -82,6 +86,20 @@ function greeting(date: Date): string {
 
 function pct(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
+}
+
+function formatTimeAgo(dateStr: string | number): string {
+  const ts = typeof dateStr === "number" ? dateStr : Date.parse(dateStr);
+  if (isNaN(ts)) return "recently";
+  const diff = Math.max(0, Date.now() - ts);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return `${Math.floor(days / 30)} mo ago`;
 }
 
 /**
@@ -126,6 +144,7 @@ export function HrDashboardView() {
 
   // React Query telemetry hooks
   const headcount = useHeadcount(canEmployees);
+  const deptMetrics = useDepartmentMetrics(canEmployees);
   const attendance = useDailyAttendance(today, canAttendance);
   const lookback = useAbsenceLookback(today, canAttendance);
   const approvals = useApprovalsPending(canApprovals);
@@ -139,11 +158,136 @@ export function HrDashboardView() {
   // Derived metric values
   const totalEmployees = headcount.data?.total ?? 0;
   const activeWorkforce = headcount.data?.active ?? 0;
+  const newJoinersThisMonth = headcount.data?.newJoinersThisMonth ?? 0;
+  const newJoinersLastMonth = headcount.data?.newJoinersLastMonth ?? 0;
   const counts = attendance.data?.counts;
   const presentToday = counts?.present ?? 0;
   const absentToday = counts?.absent ?? 0;
   const onLeaveToday = counts?.onLeave ?? 0;
   const scopedHeadcount = attendance.data?.rows.length ?? 0;
+
+  const departmentData = useMemo(() => {
+    if (!deptMetrics.data || deptMetrics.data.length === 0) return [];
+    return deptMetrics.data.map((d) => ({
+      name: d.name,
+      count: d.count,
+    }));
+  }, [deptMetrics.data]);
+
+  const distributionSegments = useMemo(() => {
+    if (!deptMetrics.data || deptMetrics.data.length === 0) return [];
+    const COLOR_PALETTE = [
+      "#38bdf8",
+      "#2dd4bf",
+      "#f59e0b",
+      "#ec4899",
+      "#8b5cf6",
+      "#3b82f6",
+      "#10b981",
+      "#f97316",
+    ];
+
+    if (totalEmployees === 0) {
+      return deptMetrics.data.map((d, i) => ({
+        name: d.name,
+        percentage: 0,
+        color: COLOR_PALETTE[i % COLOR_PALETTE.length] ?? "#38bdf8",
+      }));
+    }
+
+    const assignedTotal = deptMetrics.data.reduce((sum, d) => sum + d.count, 0);
+    const segments = deptMetrics.data.map((d, i) => ({
+      name: d.name,
+      percentage: Math.round((d.count / totalEmployees) * 100),
+      color: COLOR_PALETTE[i % COLOR_PALETTE.length] ?? "#38bdf8",
+    }));
+
+    const unassigned = totalEmployees - assignedTotal;
+    if (unassigned > 0) {
+      segments.push({
+        name: "Other",
+        percentage: Math.round((unassigned / totalEmployees) * 100),
+        color: "#94a3b8",
+      });
+    }
+
+    return segments;
+  }, [deptMetrics.data, totalEmployees]);
+
+  const recentActivities = useMemo(() => {
+    const items: Array<{
+      id: string;
+      title: string;
+      description: string;
+      timeAgo: string;
+      timestamp: number;
+      icon: typeof Users;
+      tone: "blue" | "emerald" | "purple" | "cyan";
+    }> = [];
+
+    if (activity.data?.tickets) {
+      for (const t of activity.data.tickets) {
+        items.push({
+          id: `ticket-${t.id}`,
+          title: `Ticket: ${t.subject}`,
+          description: `${t.employee?.fullName || "Employee"} · ${t.category.replace(/_/g, " ").toLowerCase()} (${t.status.toLowerCase()})`,
+          timeAgo: formatTimeAgo(t.createdAt),
+          timestamp: Date.parse(t.createdAt) || 0,
+          icon: Ticket,
+          tone: "purple",
+        });
+      }
+    }
+
+    if (activity.data?.expenses) {
+      for (const e of activity.data.expenses) {
+        items.push({
+          id: `expense-${e.id}`,
+          title: `Expense: ${e.expenseType.replace(/_/g, " ").toLowerCase()}`,
+          description: `${e.employee?.fullName || "Employee"} · ₹${Number(e.amount).toLocaleString("en-IN")} (${e.status.toLowerCase()})`,
+          timeAgo: formatTimeAgo(e.createdAt),
+          timestamp: Date.parse(e.createdAt) || 0,
+          icon: Receipt,
+          tone: "cyan",
+        });
+      }
+    }
+
+    if (leaves.data) {
+      for (const l of leaves.data.slice(0, 5)) {
+        items.push({
+          id: `leave-${l.id}`,
+          title: `Leave request ${l.status.toLowerCase()}`,
+          description: `${l.employee?.fullName || "Employee"} · ${l.leaveType?.name || "Leave"} (${l.startDate})`,
+          timeAgo: formatTimeAgo(l.startDate),
+          timestamp: Date.parse(l.startDate) || 0,
+          icon: Calendar,
+          tone: "emerald",
+        });
+      }
+    }
+
+    if (glance.data?.employees) {
+      const sortedEmps = [...glance.data.employees].sort(
+        (a, b) =>
+          (Date.parse(b.dateOfJoining) || 0) -
+          (Date.parse(a.dateOfJoining) || 0),
+      );
+      for (const emp of sortedEmps.slice(0, 3)) {
+        items.push({
+          id: `emp-${emp.id}`,
+          title: "New employee registered",
+          description: `${emp.fullName} (${emp.employeeCode}) joined`,
+          timeAgo: formatTimeAgo(emp.dateOfJoining),
+          timestamp: Date.parse(emp.dateOfJoining) || 0,
+          icon: Users,
+          tone: "blue",
+        });
+      }
+    }
+
+    return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
+  }, [activity.data, leaves.data, glance.data]);
 
   const pipelineStages = pipeline.data
     ? [
@@ -233,157 +377,157 @@ export function HrDashboardView() {
         }
       />
 
-      {/* KPI Workforce & Operational Metrics Row */}
-      {(canEmployees ||
-        canAttendance ||
-        canApprovals ||
-        canTickets ||
-        canExpenses) && (
-        <section
-          aria-labelledby="hr-kpi-heading"
-          className="space-y-3 stagger-1 animate-reveal"
-        >
-          <div className="flex items-center justify-between">
-            <h2
-              id="hr-kpi-heading"
-              className="text-theme-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
-            >
-              Workforce &amp; operational metrics
-            </h2>
+      {/* KPI Workforce & Operational Metrics Row (Exact Reference) */}
+      <section
+        aria-labelledby="hr-kpi-heading"
+        className="space-y-3.5 stagger-1 animate-reveal"
+      >
+        <div className="flex items-center justify-between">
+          <h2
+            id="hr-kpi-heading"
+            className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400"
+          >
+            Workforce &amp; operational metrics
+          </h2>
 
-            <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">
-              IST Real-time Sync
-            </span>
-          </div>
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-gray-400">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            IST Real-time Sync
+          </span>
+        </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {canEmployees && (
-              <WidgetState
-                isPending={headcount.isPending}
-                isError={headcount.isError}
-                onRetry={() => void headcount.refetch()}
-                label="headcount"
-              >
-                <StatCard
-                  headingId="kpi-total"
-                  label="Total employees"
-                  value={String(totalEmployees)}
-                  note="Registered headcount"
-                  tone="neutral"
-                  icon={Users}
-                  href="/hr/employees"
-                />
-              </WidgetState>
-            )}
-
-            {canEmployees && (
-              <WidgetState
-                isPending={headcount.isPending}
-                isError={headcount.isError}
-                onRetry={() => void headcount.refetch()}
-                label="active workforce"
-              >
-                <StatCard
-                  headingId="kpi-active"
-                  label="Active workforce"
-                  value={String(activeWorkforce)}
-                  note="Status: active"
-                  tone="brand"
-                  icon={UserCheck}
-                  trend={{
-                    value: `${pct(activeWorkforce, totalEmployees)}%`,
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            headingId="kpi-total"
+            label="TOTAL EMPLOYEES"
+            value={totalEmployees}
+            note={
+              newJoinersThisMonth > 0
+                ? `+${newJoinersThisMonth} new this month`
+                : `${activeWorkforce} active in workforce`
+            }
+            tone="blue"
+            variant="kpi"
+            icon={Users}
+            trend={
+              newJoinersThisMonth > 0
+                ? {
+                    value: `+${newJoinersThisMonth}`,
                     direction: "up",
-                    label: "active ratio",
                     isPositive: true,
-                  }}
-                  href="/hr/employees"
-                />
-              </WidgetState>
-            )}
+                  }
+                : totalEmployees > 0
+                  ? {
+                      value: `${Math.round((activeWorkforce / totalEmployees) * 100)}%`,
+                      direction: "up",
+                      isPositive: true,
+                    }
+                  : undefined
+            }
+            href="/hr/employees"
+          />
 
-            {canAttendance && (
-              <WidgetState
-                isPending={attendance.isPending}
-                isError={attendance.isError}
-                onRetry={() => void attendance.refetch()}
-                label="attendance today"
-              >
-                <StatCard
-                  headingId="kpi-present"
-                  label="Present today"
-                  value={String(presentToday)}
-                  note={`${pct(presentToday, scopedHeadcount)}% of ${scopedHeadcount} in scope`}
-                  tone="info"
-                  icon={Clock}
-                  trend={{
-                    value: `${pct(presentToday, scopedHeadcount)}%`,
-                    direction: "neutral",
-                    label: "turnout",
-                  }}
-                  href="/hr/attendance"
-                />
-              </WidgetState>
-            )}
+          <StatCard
+            headingId="kpi-present"
+            label="PRESENT TODAY"
+            value={presentToday}
+            note={
+              scopedHeadcount > 0
+                ? `${Math.round((presentToday / scopedHeadcount) * 100)}% attendance rate`
+                : "No attendance logged today"
+            }
+            tone="purple"
+            variant="kpi"
+            icon={Calendar}
+            trend={
+              scopedHeadcount > 0
+                ? {
+                    value: `${Math.round((presentToday / scopedHeadcount) * 100)}%`,
+                    direction: presentToday > 0 ? "up" : "down",
+                    isPositive: presentToday > 0,
+                  }
+                : undefined
+            }
+            href="/hr/attendance"
+          />
 
-            {canApprovals && (
-              <WidgetState
-                isPending={approvals.isPending}
-                isError={approvals.isError}
-                onRetry={() => void approvals.refetch()}
-                label="pending approvals"
-              >
-                <StatCard
-                  headingId="kpi-approvals"
-                  label="Pending approvals"
-                  value={String(approvals.data?.total ?? 0)}
-                  note={`${approvals.data?.leaves ?? 0} leave · ${approvals.data?.corrections ?? 0} attendance corrections`}
-                  tone="error"
-                  icon={CheckCircle2}
-                  href="/hr/leaves"
-                />
-              </WidgetState>
-            )}
+          <StatCard
+            headingId="kpi-on-leave"
+            label="ON LEAVE"
+            value={onLeaveToday}
+            note={
+              totalEmployees > 0
+                ? `${((onLeaveToday / totalEmployees) * 100).toFixed(1)}% of total employees`
+                : "No approved leaves today"
+            }
+            tone="emerald"
+            variant="kpi"
+            icon={UserCheck}
+            trend={
+              onLeaveToday > 0
+                ? {
+                    value: `${onLeaveToday}`,
+                    direction: "down",
+                    isPositive: false,
+                  }
+                : {
+                    value: "0%",
+                    direction: "up",
+                    isPositive: true,
+                  }
+            }
+            href="/hr/leaves"
+          />
 
-            {canTickets && (
-              <WidgetState
-                isPending={openTickets.isPending}
-                isError={openTickets.isError}
-                onRetry={() => void openTickets.refetch()}
-                label="open tickets"
-              >
-                <StatCard
-                  headingId="kpi-tickets"
-                  label="Open tickets"
-                  value={String(openTickets.data ?? 0)}
-                  note="Open and in progress"
-                  tone="warning"
-                  icon={Ticket}
-                  href="/hr/tickets"
-                />
-              </WidgetState>
-            )}
+          <StatCard
+            headingId="kpi-new-joiners"
+            label="NEW JOINERS"
+            value={newJoinersThisMonth}
+            note="Joined this month"
+            tone="amber"
+            variant="kpi"
+            icon={UserPlus}
+            trend={
+              newJoinersLastMonth > 0
+                ? {
+                    value: `${Math.round(((newJoinersThisMonth - newJoinersLastMonth) / newJoinersLastMonth) * 100)}%`,
+                    direction:
+                      newJoinersThisMonth >= newJoinersLastMonth
+                        ? "up"
+                        : "down",
+                    isPositive: newJoinersThisMonth >= newJoinersLastMonth,
+                  }
+                : newJoinersThisMonth > 0
+                  ? {
+                      value: `+${newJoinersThisMonth}`,
+                      direction: "up",
+                      isPositive: true,
+                    }
+                  : undefined
+            }
+            href="/hr/employees"
+          />
+        </div>
+      </section>
 
-            {canExpenses && (
-              <WidgetState
-                isPending={pendingExpenses.isPending}
-                isError={pendingExpenses.isError}
-                onRetry={() => void pendingExpenses.refetch()}
-                label="pending expenses"
-              >
-                <StatCard
-                  headingId="kpi-expenses"
-                  label="Pending expenses"
-                  value={String(pendingExpenses.data ?? 0)}
-                  note="Claims awaiting decision"
-                  tone="warning"
-                  icon={Receipt}
-                  href="/hr/expense-approvals"
-                />
-              </WidgetState>
-            )}
-          </div>
-        </section>
-      )}
+      {/* Middle Row: Analytics & Activities (Exact Reference) */}
+      <section
+        aria-label="Workforce analytics and activities"
+        className="grid grid-cols-1 gap-6 lg:grid-cols-12 stagger-2 animate-reveal"
+      >
+        <div className="lg:col-span-5">
+          <DepartmentBarChart data={departmentData} />
+        </div>
+        <div className="lg:col-span-4">
+          <EmployeeDistributionDonut
+            totalCount={totalEmployees}
+            segments={distributionSegments}
+          />
+        </div>
+        <div className="lg:col-span-3">
+          <RecentActivitiesCard activities={recentActivities} />
+        </div>
+      </section>
 
       {/* Quick Actions Row */}
       {canQuickActions && (
