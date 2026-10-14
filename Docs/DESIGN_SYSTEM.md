@@ -116,7 +116,7 @@ linear-gradient(135deg, #2454E8 0%, #1769F5 45%, #12CFE3 100%)
 
 - **Background:** Rich 3-stop mixed gradient `bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white rounded-2xl p-6 sm:p-7 shadow-sm`.
 - **Content:** White rounded icon squircle (`flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm`), bold white title, `text-white/85` subtitle, optional count badge pill, and right-aligned contextual shortcut/action button area.
-- **Scope & Standardization:** Reused across all 21 HR routes:
+- **Scope & Standardization:** Reused across all 20 HR routes:
   1. Dashboard (`Sparkles` icon, live telemetry badge, contextual directory/add actions)
   2. Employees (`Users` icon, count pill, `+ Add Employee` action)
   3. Profiles (`Contact` icon, directory shortcut)
@@ -128,16 +128,15 @@ linear-gradient(135deg, #2454E8 0%, #1769F5 45%, #12CFE3 100%)
   9. Exit Requests (`UserMinus` icon)
   10. Attendance (`Clock` icon, records count, `My Attendance` shortcut)
   11. Regularization (`CalendarCheck` icon, request count, `+ Request a correction` action)
-  12. Work Logs (`FileSpreadsheet` icon, logs count, approvals filter, `My work logs` shortcut)
-  13. Location Privilege (`MapPin` icon, employees count)
-  14. Full Month Present (`Award` icon, count pill, qualified badge)
-  15. Leaves (`Calendar` icon)
-  16. Holidays (`CalendarDays` icon, year badge, `+ New holiday` action)
-  17. Tasks (`ListTodo` icon, `My tasks`, `+ New Task` action)
-  18. Expense Approvals (`Receipt` icon, `+ Submit Expense Claim` action)
-  19. Employee Tickets (`Ticket` icon, count pill, `My tickets`, `+ Raise Ticket` action)
-  20. Payroll (`Banknote` icon, sections badge)
-  21. Compliance (`ShieldCheck` icon, sections badge)
+  12. Location Privilege (`MapPin` icon, employees count)
+  13. Full Month Present (`Award` icon, count pill, qualified badge)
+  14. Leaves (`Calendar` icon)
+  15. Holidays (`CalendarDays` icon, year badge, `+ New holiday` action)
+  16. Tasks (`ListTodo` icon, `My tasks`, `+ New Task` action)
+  17. Expense Approvals (`Receipt` icon, `+ Submit Expense Claim` action)
+  18. Employee Tickets (`Ticket` icon, count pill, `My tickets`, `+ Raise Ticket` action)
+  19. Payroll (`Banknote` icon, sections badge)
+  20. Compliance (`ShieldCheck` icon, sections badge)
 - **Responsive Behavior:** Full-width rounded container with column layout below `640px` and flex row on desktop; actions wrap cleanly with `shrink-0` to avoid viewport overflow.
 
 ##### 5. Card Surfaces & Full-Perimeter Gradient Borders
@@ -652,7 +651,7 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `apps/ui/src/components/layout/PageHeader.tsx`: Re-exports `GlobalPageHeader` as `PageHeader` and `HrPageHeader = PageHeader`.
 - **Verified Migrated Consumers:**
   - Direct UI Kit imports: `RolesHeader.tsx`, `UsersView.tsx`, `MenuView.tsx`.
-  - HR banner instances via `HrPageHeader`: `EmployeesView`, `DepartmentsView`, `AttendanceView`, `LeavesView`, `HolidaysView`, `TasksView`, `TicketsView`, `TeamsView`, `RecruitmentView`, `OrgChartView`, `ProfilesListView`, `WorkLogsView`, `RegularizationView`, `ExpenseApprovalsView`, `ExitRequestsView`, `LocationPrivilegeView`, `FullMonthPresentView`, `EmployeeDocumentsListView`, `HrDashboardView`, `PayrollView`, `ComplianceView`.
+  - HR banner instances via `HrPageHeader`: `EmployeesView`, `DepartmentsView`, `AttendanceView`, `LeavesView`, `HolidaysView`, `TasksView`, `TicketsView`, `TeamsView`, `RecruitmentView`, `OrgChartView`, `ProfilesListView`, `RegularizationView`, `ExpenseApprovalsView`, `ExitRequestsView`, `LocationPrivilegeView`, `FullMonthPresentView`, `EmployeeDocumentsListView`, `HrDashboardView`, `PayrollView`, `ComplianceView`.
 
 ---
 

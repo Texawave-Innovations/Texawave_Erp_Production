@@ -13,7 +13,11 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../../../common/decorators/paginate.decorator.js";
 import { RawResponse } from "../../../../common/decorators/raw-response.decorator.js";
 import { RequireScopedPermission } from "../../../../common/decorators/require-permission.decorator.js";
-import { GeneratePayslipsDto, QueryPayslipDto } from "./dto/payslip.dto.js";
+import {
+  GeneratePayslipsDto,
+  QueryPayslipDto,
+  RegeneratePayslipDto,
+} from "./dto/payslip.dto.js";
 import { PayslipPdfService } from "./payslip-pdf.service.js";
 import { PayslipsService } from "./payslips.service.js";
 
@@ -56,6 +60,20 @@ export class PayslipsController {
   @RequireScopedPermission("hr.payroll.write")
   @ApiOperation({ summary: "Generate payslips for an approved payroll period" })
   generate(@Body() dto: GeneratePayslipsDto) {
-    return this.service.generateForPeriod(dto.payrollPeriodId);
+    return this.service.generateForPeriod(dto.payrollPeriodId, dto.reason);
+  }
+
+  @Post(":id/regenerate")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.payroll.write")
+  @ApiOperation({
+    summary:
+      "Regenerate one payslip with a reason (new version; picks up corrected details)",
+  })
+  regenerate(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: RegeneratePayslipDto,
+  ) {
+    return this.service.regenerate(id, dto.reason);
   }
 }

@@ -145,6 +145,54 @@ describe("ProfileService", () => {
     });
   });
 
+  describe("after onboarding is complete", () => {
+    function completed() {
+      const built = buildService();
+      built.employees.getCurrentEmployee.mockResolvedValue({
+        ...EMPLOYEE,
+        onboardingStatus: "COMPLETE",
+      });
+      return built;
+    }
+
+    it("refuses every self-edit with PROFILE_LOCKED and writes nothing", async () => {
+      const { service, repository, files } = completed();
+      const locked = { errorCode: "PROFILE_LOCKED" };
+      await expect(
+        service.putPersonal({ dateOfBirth: "1998-04-12" } as never),
+      ).rejects.toMatchObject(locked);
+      await expect(
+        service.putAddress("PERMANENT", {} as never),
+      ).rejects.toMatchObject(locked);
+      await expect(service.clearPresentAddress()).rejects.toMatchObject(locked);
+      await expect(
+        service.putBank({ accountNumber: "123456789012" } as never),
+      ).rejects.toMatchObject(locked);
+      await expect(service.putGovernmentIds({} as never)).rejects.toMatchObject(
+        locked,
+      );
+      await expect(service.removeFamilyMember(1)).rejects.toMatchObject(locked);
+      await expect(service.removeExperience(1)).rejects.toMatchObject(locked);
+      await expect(
+        service.uploadDocument("PAN", {
+          buffer: Buffer.from("%PDF-1.4"),
+          size: 8,
+          originalname: "pan.pdf",
+        }),
+      ).rejects.toMatchObject(locked);
+      expect(repository.upsertPersonal).not.toHaveBeenCalled();
+      expect(repository.upsertBank).not.toHaveBeenCalled();
+      expect(repository.deleteAddress).not.toHaveBeenCalled();
+      expect(files.save).not.toHaveBeenCalled();
+    });
+
+    it("still lets the employee read their own data", async () => {
+      const { service, repository } = completed();
+      await service.getPersonal();
+      expect(repository.getPersonal).toHaveBeenCalledWith(77);
+    });
+  });
+
   describe("submit()", () => {
     it("blocks submission while the login still needs a password change, before checking completeness", async () => {
       const { service, loginState, repository } = buildService();

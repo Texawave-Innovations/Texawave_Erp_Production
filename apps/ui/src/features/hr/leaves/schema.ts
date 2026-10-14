@@ -95,6 +95,7 @@ export const createLeaveTypeSchema = z.object({
   isPaid: z.boolean(),
   annualEntitlement: z.number().min(0).max(366),
   carryForwardLimit: z.number().min(0).max(366),
+  approvalLevels: z.union([z.literal(1), z.literal(2)]),
 });
 export type CreateLeaveTypeFormValues = z.infer<typeof createLeaveTypeSchema>;
 
@@ -110,6 +111,7 @@ export const EMPTY_LEAVE_TYPE_FORM: CreateLeaveTypeFormValues = {
   isPaid: true,
   annualEntitlement: 0,
   carryForwardLimit: 0,
+  approvalLevels: 1,
 };
 
 /** Mirrors SetLeaveEntitlementDto. `annualEntitlement: null` clears the

@@ -1,0 +1,10 @@
+/** Escapes text for interpolation into HTML (PDF templates). Every
+ * user-entered value must pass through this. */
+export function esc(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

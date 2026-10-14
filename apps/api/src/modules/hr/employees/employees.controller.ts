@@ -6,9 +6,19 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
-import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../../common/decorators/paginate.decorator.js";
+import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
+import {
+  ImportEmployeesQueryDto,
+  MAX_IMPORT_BYTES,
+} from "./dto/import-employees.dto.js";
 import { RequireScopedPermission } from "../../../common/decorators/require-permission.decorator.js";
 import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { CreateEmployeeDto } from "./dto/create-employee.dto.js";
@@ -32,6 +42,51 @@ export class EmployeesController {
   })
   findAll(@Paginate(QueryEmployeeDto) query: QueryEmployeeDto) {
     return this.employees.findAll(query);
+  }
+
+  // Fixed paths are declared before ":id" so they are not parsed as an id.
+
+  @Get("stats")
+  @RequireScopedPermission("hr.employee.read")
+  @ApiOperation({
+    summary:
+      "Directory counts in the caller's scope: by status, onboarding, team",
+  })
+  stats() {
+    return this.employees.stats();
+  }
+
+  @Get("export")
+  @RequireScopedPermission("hr.employee.export")
+  @RawResponse()
+  @ApiOperation({
+    summary:
+      "CSV of the employees in the caller's export scope (same filters as the list; at most 10,000 rows)",
+  })
+  async exportCsv(@Paginate(QueryEmployeeDto) query: QueryEmployeeDto) {
+    const csv = await this.employees.exportCsv(query);
+    const day = new Date().toISOString().slice(0, 10);
+    return new StreamableFile(Buffer.from(csv, "utf8"), {
+      type: "text/csv; charset=utf-8",
+      disposition: `attachment; filename="employees-${day}.csv"`,
+    });
+  }
+
+  @Post("import")
+  @RequireScopedPermission("hr.employee.write")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: MAX_IMPORT_BYTES } }),
+  )
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary:
+      "Create employees from a CSV (field: file; at most 500 rows). All rows or none; ?dryRun=true validates without saving",
+  })
+  importCsv(
+    @Query() query: ImportEmployeesQueryDto,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+  ) {
+    return this.employees.importCsv(file, query.dryRun ?? false);
   }
 
   @Get(":id")

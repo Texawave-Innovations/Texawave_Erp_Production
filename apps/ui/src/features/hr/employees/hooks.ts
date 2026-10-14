@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgScopedKey } from "@texawave-erp/core";
 import { useAuthStore } from "@/stores/auth-store";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
+import { listTeams } from "@/features/onboarding/api";
 import {
+  approveOnboarding,
   changeEmployeeStatus,
   createEmployee,
   getEmployee,
+  getEmployeeStats,
+  importEmployeesCsv,
+  sendBackOnboarding,
   linkEmployeeUser,
   listEmployees,
   listLookup,
@@ -118,6 +123,72 @@ export function useLinkEmployeeUser() {
     ({ id, body }: { id: number; body: LinkAccountBody }) =>
       linkEmployeeUser(id, body),
   );
+}
+
+export function useEmployeeStats(enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "stats"),
+    queryFn: getEmployeeStats,
+    enabled: enabled && orgId > 0,
+  });
+}
+
+/** Active teams for the form's team picker (GET /hr/teams needs write access). */
+export function useTeams(enabled: boolean) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, "hr-lookup", "/hr/teams"),
+    queryFn: listTeams,
+    enabled: enabled && orgId > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Approve / send back. Also refreshes the onboarding progress page's query
+ * (`features/onboarding`), which is keyed outside the employees prefix. */
+export function useReviewOnboarding() {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+  return useMutation({
+    mutationFn: ({
+      id,
+      decision,
+      note,
+    }: {
+      id: number;
+      decision: "approve" | "send_back";
+      note: string;
+    }) =>
+      decision === "approve"
+        ? approveOnboarding(id, note || undefined)
+        : sendBackOnboarding(id, note),
+    onSuccess: (_data, { id }) => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(orgId, KEY),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["onboarding", "hr-progress", id],
+      });
+    },
+  });
+}
+
+/** A dry run changes nothing, so only a committed import refreshes the list. */
+export function useImportEmployees() {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+  return useMutation({
+    mutationFn: ({ file, dryRun }: { file: File; dryRun: boolean }) =>
+      importEmployeesCsv(file, dryRun),
+    onSuccess: (report) => {
+      if (report.created.length > 0) {
+        void queryClient.invalidateQueries({
+          queryKey: orgScopedKey(orgId, KEY),
+        });
+      }
+    },
+  });
 }
 
 export function useUnlinkEmployeeUser() {

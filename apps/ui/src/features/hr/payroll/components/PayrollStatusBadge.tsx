@@ -7,6 +7,7 @@ const COLOR: Record<PeriodStatus | RunStatus, StatusColorToken> = {
   PROCESSED: "brand",
   APPROVED: "success",
   FINALIZED: "success",
+  REOPENED: "warning",
   CANCELLED: "error",
 };
 
@@ -16,6 +17,7 @@ const LABEL: Record<PeriodStatus | RunStatus, string> = {
   PROCESSED: "Processed",
   APPROVED: "Approved",
   FINALIZED: "Finalized",
+  REOPENED: "Reopened",
   CANCELLED: "Cancelled",
 };
 
@@ -33,7 +35,14 @@ export function periodStatusLabel(status: PeriodStatus): string {
 
 /** Loan, repayment, skip-request, bonus and contribution statuses. */
 const OTHER: Record<string, { label: string; color: StatusColorToken }> = {
+  PENDING_HR: { label: "Awaiting HR review", color: "warning" },
+  PENDING_ADMIN: { label: "Awaiting final approval", color: "warning" },
   ACTIVE: { label: "Active", color: "brand" },
+  INACTIVE: { label: "Inactive", color: "gray" },
+  DRAFT: { label: "Draft", color: "gray" },
+  SUBMITTED: { label: "Submitted", color: "warning" },
+  VERIFIED: { label: "Verified", color: "success" },
+  PREPAID: { label: "Prepaid", color: "success" },
   CLOSED: { label: "Closed", color: "success" },
   DEFAULTED: { label: "Defaulted", color: "error" },
   CANCELLED: { label: "Cancelled", color: "gray" },

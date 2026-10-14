@@ -114,12 +114,14 @@ function makeService(
       ],
     }),
   };
+  const notifications = { notify: vi.fn().mockResolvedValue(0) };
   const service = new AttendanceAutoCheckoutService(
     prisma as never,
     audit as never,
     dayContext as never,
+    notifications as never,
   );
-  return { service, prisma, tx, audit, dayContext };
+  return { service, prisma, tx, audit, dayContext, notifications };
 }
 
 describe("AttendanceAutoCheckoutService", () => {

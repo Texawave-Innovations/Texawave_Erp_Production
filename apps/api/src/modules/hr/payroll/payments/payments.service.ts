@@ -166,7 +166,7 @@ export class PaymentsService {
     }
 
     const updated = await this.repository.updatePayment(
-      orgScope,
+      scope,
       paymentId,
       payment.status,
       dto,

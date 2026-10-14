@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../../common/decorators/org-scoped.decorator.js";
+import { TeamScoped } from "../../../../common/decorators/team-scoped.decorator.js";
+import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
+import { teamWhere } from "../../../../common/tenancy/team-where.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import {
@@ -68,7 +72,10 @@ const INCLUDE_PAYMENT_DETAILS = {
 
 @Injectable()
 export class PaymentsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @OrgScoped()
   async findBatches(
@@ -216,7 +223,7 @@ export class PaymentsRepository {
         new Prisma.Decimal(0),
       );
 
-      return tx.paymentBatch.create({
+      const batch = await tx.paymentBatch.create({
         data: {
           organizationId: scope.organizationId,
           payrollPeriodId,
@@ -248,6 +255,19 @@ export class PaymentsRepository {
           },
         },
       });
+      await this.audit.write(tx, {
+        entityType: "payment_batch",
+        entityId: batch.id,
+        action: "create",
+        after: {
+          payrollPeriodId,
+          batchNumber,
+          paymentMethod,
+          totalEmployees: entries.length,
+          totalAmount: totalAmount.toString(),
+        },
+      });
+      return batch;
     });
   }
 
@@ -290,6 +310,13 @@ export class PaymentsRepository {
         },
         data: { status: "PAID", creditedAt: now, updatedBy: userId },
       });
+      await this.audit.write(tx, {
+        entityType: "payment_batch",
+        entityId: batch.id,
+        action: "process",
+        before: { status: "PENDING" },
+        after: { status: "PROCESSED" },
+      });
 
       return tx.paymentBatch.findUniqueOrThrow({
         where: { id: batch.id },
@@ -304,34 +331,60 @@ export class PaymentsRepository {
     });
   }
 
-  /** Applies the change only if the payment is still in `expectedStatus`
-   * (the service validated the transition from it); `null` otherwise. */
-  @OrgScoped()
+  /**
+   * Applies the change only if the payment is still in `expectedStatus`
+   * (the service validated the transition from it) and its employee is in
+   * the caller's write scope (`.team`: own teams, `.own`: never); `null`
+   * otherwise. Audited.
+   */
+  @TeamScoped()
   async updatePayment(
-    scope: OrgScope,
+    scope: TeamScope,
     paymentId: number,
     expectedStatus: string,
     dto: UpdatePaymentDto,
     userId: number,
   ) {
-    const { count } = await this.prisma.payrollPayment.updateMany({
-      where: {
-        id: paymentId,
-        organizationId: scope.organizationId,
-        status: expectedStatus,
-        deletedAt: null,
-      },
-      data: {
-        ...(dto.status ? { status: dto.status } : {}),
-        ...(dto.bankReference !== undefined
-          ? { bankReference: dto.bankReference }
-          : {}),
-        ...(dto.creditedAt ? { creditedAt: new Date(dto.creditedAt) } : {}),
-        updatedBy: userId,
-      },
+    if (scope.level === "own") return null;
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.payrollPayment.updateMany({
+        where: {
+          AND: [
+            teamWhere(
+              scope,
+              { id: paymentId, status: expectedStatus, deletedAt: null },
+              { teamField: "employee.teamId", ownerField: "employee.userId" },
+            ) as Prisma.PayrollPaymentWhereInput,
+          ],
+        },
+        data: {
+          ...(dto.status ? { status: dto.status } : {}),
+          ...(dto.bankReference !== undefined
+            ? { bankReference: dto.bankReference }
+            : {}),
+          ...(dto.creditedAt ? { creditedAt: new Date(dto.creditedAt) } : {}),
+          updatedBy: userId,
+        },
+      });
+      if (count === 0) return null;
+      await this.audit.write(tx, {
+        entityType: "payroll_payment",
+        entityId: paymentId,
+        action:
+          dto.status && dto.status !== expectedStatus
+            ? "status_change"
+            : "update",
+        before: { status: expectedStatus },
+        after: {
+          status: dto.status ?? expectedStatus,
+          bankReference: dto.bankReference,
+        },
+      });
+      return tx.payrollPayment.findFirst({
+        where: { id: paymentId, organizationId: scope.organizationId },
+        include: INCLUDE_PAYMENT_DETAILS,
+      });
     });
-    if (count === 0) return null;
-    return this.findPaymentById(scope, paymentId);
   }
 
   @OrgScoped()

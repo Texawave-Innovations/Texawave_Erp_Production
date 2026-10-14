@@ -10,9 +10,13 @@ export async function signInAsAdmin(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("admin@texawave.com");
-  await page.getByLabel("Password", { exact: true }).fill("ChangeMe123!");
+  // The field has a "Show password" toggle, so the label alone matches two
+  // elements; target the textbox itself.
+  await page.getByRole("textbox", { name: "Password" }).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/(reference\/tags|hr)/, { timeout: 15000 });
+  // The landing page depends on the user's menu (features/auth/landing.ts),
+  // so wait for leaving /login rather than for one fixed URL.
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
 }
 
 /** A name unique per run, so reruns against the same dev DB never collide. */

@@ -34,6 +34,7 @@ import {
 import { AssignRolesModal } from "./AssignRolesModal";
 import { AssignTeamsModal } from "./AssignTeamsModal";
 import { UserForm } from "./UserForm";
+import { userErrorDescription } from "../errors";
 
 const PAGE_SIZE = 10;
 
@@ -149,8 +150,13 @@ export function UsersView() {
       });
       setEditingUser(null);
       toast({ title: "User updated", variant: "success" });
-    } catch {
-      toast({ title: "Could not update user", variant: "error" });
+    } catch (error) {
+      const description = userErrorDescription(error);
+      toast({
+        title: "Could not update user",
+        ...(description ? { description } : {}),
+        variant: "error",
+      });
     }
   }
 
@@ -163,9 +169,11 @@ export function UsersView() {
         variant: "success",
       });
       setDeletingUser(null);
-    } catch {
+    } catch (error) {
+      const description = userErrorDescription(error);
       toast({
         title: `Could not delete "${deletingUser.fullName}"`,
+        ...(description ? { description } : {}),
         variant: "error",
       });
     }

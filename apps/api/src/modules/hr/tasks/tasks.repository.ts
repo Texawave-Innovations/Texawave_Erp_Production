@@ -124,7 +124,7 @@ function toView(row: TaskRow, today: string): TaskView {
 }
 
 /** Audit snapshot: business facts only. Title and description are free text
- * and are kept out, as the work-log snapshot keeps its task description out. */
+ * and are kept out of the audit row. */
 function snapshot(row: TaskRow) {
   return {
     assigneeId: row.assigneeId,

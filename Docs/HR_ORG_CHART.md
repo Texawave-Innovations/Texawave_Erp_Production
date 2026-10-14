@@ -14,7 +14,7 @@ The HR Organization Chart (`/hr/org-chart`) delivers a responsive, visual report
 
 1. **Hierarchy as Primary Focus:** Replaces empty cards with a clear parent-child structure connected by unbroken tree lines. Instantly answers "Who reports to whom?", "Which team/department does each person belong to?", and "How many direct reports are managed?".
 2. **Zero Backend Modifications:** Operates entirely over the existing backend endpoints (`GET /hr/org-chart` and `GET /hr/employees/:id`), preserving all role-based scoping (`all`, `team`, `own`), cycle prevention, and permission boundaries (`hr.employee.read`).
-3. **Component Reusability:** Leverages canonical shared HR primitives (`EmployeeIdentity`, `EmployeeStatusBadge`, `@texawave-erp/ui-kit`), ensuring visual consistency across Employees, Attendance, Leaves, Work Logs, and Directory.
+3. **Component Reusability:** Leverages canonical shared HR primitives (`EmployeeIdentity`, `EmployeeStatusBadge`, `@texawave-erp/ui-kit`), ensuring visual consistency across Employees, Attendance, Leaves, and Directory.
 4. **Lightweight Pure-CSS Rendering:** Avoids heavy third-party canvas or SVG dependencies. Connector lines, expand/collapse transitions, and branch layouts use semantic HTML `<ul>`/`<li>` lists and CSS layout geometry for top performance across large organizations.
 5. **Non-Destructive Filtering:** Free-text search and department filters operate without re-fetching or destroying tree context; matching nodes are highlighted and their ancestor branches are automatically expanded so search hits are never hidden.
 

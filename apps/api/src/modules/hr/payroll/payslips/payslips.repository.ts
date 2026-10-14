@@ -6,6 +6,8 @@ import type { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../../common/tenancy/team-where.js";
+import { BusinessRuleViolationException } from "../../../../common/exceptions/business.exception.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { lockPayrollPeriod } from "../shared/payroll-locks.js";
 import {
@@ -76,13 +78,20 @@ const INCLUDE_PAYSLIP_DETAILS = {
   },
 } satisfies Prisma.PayslipInclude;
 
+/** The stored PDF bytes never go into a JSON response. */
+const OMIT_PDF = { pdfContent: true } as const;
+
 export type PayslipRow = Prisma.PayslipGetPayload<{
   include: typeof INCLUDE_PAYSLIP_DETAILS;
+  omit: typeof OMIT_PDF;
 }>;
 
 @Injectable()
 export class PayslipsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @TeamScoped()
   async findMany(
@@ -108,6 +117,7 @@ export class PayslipsRepository {
       this.prisma.payslip.findMany({
         where,
         include: INCLUDE_PAYSLIP_DETAILS,
+        omit: OMIT_PDF,
         skip: pagination.skip,
         take: pagination.limit,
         orderBy: [{ id: "desc" }],
@@ -129,6 +139,7 @@ export class PayslipsRepository {
     return this.prisma.payslip.findFirst({
       where,
       include: INCLUDE_PAYSLIP_DETAILS,
+      omit: OMIT_PDF,
     });
   }
 
@@ -152,6 +163,7 @@ export class PayslipsRepository {
       this.prisma.payslip.findMany({
         where,
         include: INCLUDE_PAYSLIP_DETAILS,
+        omit: OMIT_PDF,
         skip: pagination.skip,
         take: pagination.limit,
         orderBy: [{ id: "desc" }],
@@ -176,6 +188,7 @@ export class PayslipsRepository {
         deletedAt: null,
       },
       include: INCLUDE_PAYSLIP_DETAILS,
+      omit: OMIT_PDF,
     });
   }
 
@@ -189,6 +202,7 @@ export class PayslipsRepository {
     scope: OrgScope,
     payrollPeriodId: number,
     createdById: number,
+    reason?: string,
   ): Promise<PayslipRow[] | null> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const period = await lockPayrollPeriod(
@@ -203,19 +217,125 @@ export class PayslipsRepository {
         scope.organizationId,
         payrollPeriodId,
       );
-      const ids = await generatePayslipsForRun(
+      const { ids, regeneratedIds } = await generatePayslipsForRun(
         tx,
         scope.organizationId,
         period,
         run.id,
         createdById,
+        reason,
       );
+      await this.audit.write(tx, {
+        entityType: "payroll_period",
+        entityId: payrollPeriodId,
+        action: "generate_payslips",
+        after: { payrollRunId: run.id, payslips: ids.length, regeneratedIds },
+        reason,
+      });
 
       return tx.payslip.findMany({
         where: { id: { in: ids }, organizationId: scope.organizationId },
         include: INCLUDE_PAYSLIP_DETAILS,
+        omit: OMIT_PDF,
         orderBy: { id: "asc" },
       });
+    });
+  }
+
+  /**
+   * Regenerates ONE payslip from its (still current) payroll entry: picks up
+   * corrected employee, bank or company details. Only while its run is the
+   * period's approved one; the reason is mandatory and versioned. Returns
+   * `null` for an unknown id.
+   */
+  @OrgScoped()
+  async regenerateOne(
+    scope: OrgScope,
+    id: number,
+    reason: string,
+    userId: number,
+  ): Promise<PayslipRow | null> {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const payslip = await tx.payslip.findFirst({
+        where: { id, organizationId: scope.organizationId, deletedAt: null },
+        select: {
+          id: true,
+          version: true,
+          payrollPeriodId: true,
+          payrollEntryId: true,
+          payrollEntry: { select: { payrollRunId: true } },
+        },
+      });
+      if (!payslip) return null;
+      const period = await lockPayrollPeriod(
+        tx,
+        scope.organizationId,
+        payslip.payrollPeriodId,
+      );
+      if (!period) return null;
+      const run = await findApprovedRun(
+        tx,
+        scope.organizationId,
+        payslip.payrollPeriodId,
+      );
+      if (run.id !== payslip.payrollEntry.payrollRunId) {
+        throw new BusinessRuleViolationException(
+          "This payslip belongs to a superseded run and cannot be regenerated",
+          "PAYSLIP_SUPERSEDED",
+        );
+      }
+      const { regeneratedIds } = await generatePayslipsForRun(
+        tx,
+        scope.organizationId,
+        period,
+        run.id,
+        userId,
+        reason,
+        [payslip.payrollEntryId],
+      );
+      await this.audit.write(tx, {
+        entityType: "payslip",
+        entityId: id,
+        action: "regenerate",
+        before: { version: payslip.version },
+        after: { changed: regeneratedIds.includes(id) },
+        reason,
+      });
+      return tx.payslip.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE_PAYSLIP_DETAILS,
+        omit: OMIT_PDF,
+      });
+    });
+  }
+
+  /** What the PDF download needs: stored bytes, or the snapshot to render. */
+  @OrgScoped()
+  findPdfState(scope: OrgScope, id: number) {
+    return this.prisma.payslip.findFirst({
+      where: { id, organizationId: scope.organizationId, deletedAt: null },
+      select: {
+        payslipNumber: true,
+        generatedAt: true,
+        version: true,
+        snapshot: true,
+        pdfContent: true,
+      },
+    });
+  }
+
+  /** Stores the first rendering of a snapshot so every later download
+   * returns the same bytes (only while none is stored). */
+  @OrgScoped()
+  async storePdf(scope: OrgScope, id: number, version: number, pdf: Buffer) {
+    await this.prisma.payslip.updateMany({
+      where: {
+        id,
+        organizationId: scope.organizationId,
+        version,
+        pdfContent: null,
+      },
+      data: { pdfContent: new Uint8Array(pdf), pdfRenderedAt: new Date() },
     });
   }
 }

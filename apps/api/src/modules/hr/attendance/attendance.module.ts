@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { EmployeesModule } from "../employees/employees.module.js";
+import { NotificationsModule } from "../../../platform/notifications/notifications.module.js";
 import { LocationPrivilegeModule } from "../location-privilege/location-privilege.module.js";
 import { AttendanceController } from "./attendance.controller.js";
 import { AttendanceDayContextRepository } from "./attendance-day-context.repository.js";
@@ -8,11 +9,17 @@ import { AttendanceService } from "./attendance.service.js";
 import { AttendanceCorrectionsController } from "./corrections/attendance-corrections.controller.js";
 import { AttendanceCorrectionsRepository } from "./corrections/attendance-corrections.repository.js";
 import { AttendanceCorrectionsService } from "./corrections/attendance-corrections.service.js";
+import { AttendanceImportExportService } from "./import-export/attendance-import-export.service.js";
+import { AttendanceMonthLocksController } from "./month-locks/attendance-month-locks.controller.js";
+import { AttendanceMonthLocksRepository } from "./month-locks/attendance-month-locks.repository.js";
+import { AttendanceMonthLocksService } from "./month-locks/attendance-month-locks.service.js";
 import { AttendanceReportsController } from "./reports/attendance-reports.controller.js";
 import { AttendanceReportsRepository } from "./reports/attendance-reports.repository.js";
 import { AttendanceReportsService } from "./reports/attendance-reports.service.js";
 import { AttendanceAutoCheckoutService } from "./services/attendance-auto-checkout.service.js";
 import { AttendanceAutoCheckoutScheduler } from "./services/attendance-auto-checkout.scheduler.js";
+import { AttendanceAlertsScheduler } from "./services/attendance-alerts.scheduler.js";
+import { AttendanceAlertsService } from "./services/attendance-alerts.service.js";
 import { AttendanceCalculationService } from "./services/attendance-calculation.service.js";
 import { AttendanceDayViewService } from "./services/attendance-day-view.service.js";
 
@@ -22,10 +29,11 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
  * registered before `hr/attendance/:id`, so a literal path such as
  * `/corrections` is never read as an id. */
 @Module({
-  imports: [EmployeesModule, LocationPrivilegeModule],
+  imports: [EmployeesModule, LocationPrivilegeModule, NotificationsModule],
   controllers: [
     AttendanceCorrectionsController,
     AttendanceReportsController,
+    AttendanceMonthLocksController,
     AttendanceController,
   ],
   providers: [
@@ -39,8 +47,14 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
     AttendanceReportsRepository,
     AttendanceReportsService,
     AttendanceAutoCheckoutService,
+    AttendanceImportExportService,
+    AttendanceMonthLocksRepository,
+    AttendanceMonthLocksService,
     // The single in-process scheduler that runs auto-checkout (see its header).
     AttendanceAutoCheckoutScheduler,
+    AttendanceAlertsService,
+    // The single in-process scheduler for missing check-in/out alerts.
+    AttendanceAlertsScheduler,
   ],
   exports: [
     AttendanceService,

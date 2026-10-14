@@ -60,6 +60,27 @@ export class LinkEmployeeUserDto {
   reason?: string;
 }
 
+/** Approve a submitted onboarding profile (onboarding-review.policy.ts). */
+export class ApproveOnboardingDto {
+  @ApiPropertyOptional({ description: "Optional note kept with the review" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 1000)
+  note?: string;
+}
+
+/** Send a submitted profile back to the employee, reopening the wizard. */
+export class SendBackOnboardingDto {
+  @ApiProperty({
+    description: "What the employee must correct — shown to them, mandatory",
+  })
+  @Trim()
+  @IsString()
+  @Length(3, 1000)
+  note!: string;
+}
+
 export class UnlinkEmployeeUserDto {
   @ApiPropertyOptional()
   @IsOptional()

@@ -50,6 +50,17 @@ export class UsersService {
     return user;
   }
 
+  /** A disabled user keeps their grants on record but cannot sign in;
+   * the response says so through `user.isActive`. */
+  async effectivePermissions(id: number) {
+    const result = await this.repository.findEffectivePermissions(
+      this.tenantContext.getOrgScope(),
+      id,
+    );
+    if (!result) throw new ResourceNotFoundException("User", id);
+    return result;
+  }
+
   async create(dto: CreateUserDto) {
     const scope = this.tenantContext.getOrgScope();
     const callerId = this.tenantContext.getUserId();
@@ -124,6 +135,8 @@ export class UsersService {
     if (!updated) {
       throw new ResourceNotFoundException("User", id);
     }
+    // Activation changes what the permission guard resolves for this user.
+    if (dto.isActive !== undefined) await this.permissions.invalidate(id);
     return updated;
   }
 

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsBoolean,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -69,4 +70,15 @@ export class CreateLeaveTypeDto {
   @Min(0)
   @Max(366)
   carryForwardLimit?: number;
+
+  @ApiPropertyOptional({
+    enum: [1, 2],
+    default: 1,
+    description:
+      "1 = one approval (the reporting manager or a team/all approver). 2 = that approval, then HR (hr.leave.approve.all, a different person). Applies to requests submitted after the change.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([1, 2])
+  approvalLevels?: number;
 }

@@ -158,6 +158,7 @@ export function EmployeeEditView({ id }: { id: number }) {
                 }
               : null
           }
+          initialTeamName={employee.team.name}
           submitLabel="Save changes"
           onSubmit={handleSubmit}
           onCancel={() => router.push(`/hr/employees/${id}`)}

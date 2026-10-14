@@ -16,8 +16,6 @@ import { EmployeeDocumentsModule } from "./modules/hr/employee-documents/employe
 import { OrgChartModule } from "./modules/hr/org-chart/org-chart.module.js";
 import { MyLeaveRequestsModule } from "./modules/employee-self-service/leave-requests/my-leave-requests.module.js";
 import { LeaveRequestsModule } from "./modules/hr/leave-requests/leave-requests.module.js";
-import { WorkLogsModule } from "./modules/hr/work-logs/work-logs.module.js";
-import { MyWorkLogsModule } from "./modules/employee-self-service/work-logs/my-work-logs.module.js";
 import { TasksModule } from "./modules/hr/tasks/tasks.module.js";
 import { MyTasksModule } from "./modules/employee-self-service/tasks/my-tasks.module.js";
 import { TicketsModule } from "./modules/hr/tickets/tickets.module.js";
@@ -46,6 +44,7 @@ import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { NotificationsModule } from "./platform/notifications/notifications.module.js";
 import { RolesPermissionsModule } from "./platform/roles-permissions/roles-permissions.module.js";
 import { TenancyModule } from "./platform/tenancy/tenancy.module.js";
 import { UsersModule } from "./platform/users/users.module.js";
@@ -80,6 +79,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     TenancyModule,
     AuditModule,
     HealthModule,
+    NotificationsModule,
     TagsModule,
     RolesModule,
     DesignationsModule,
@@ -96,7 +96,6 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     LeaveTypesModule,
     LeaveRequestsModule,
     PayrollModule,
-    WorkLogsModule,
     TasksModule,
     TicketsModule,
     ExpenseClaimsModule,
@@ -110,7 +109,6 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     ProfileModule,
     TeamsModule,
     MyLeaveRequestsModule,
-    MyWorkLogsModule,
     MyTasksModule,
     MyTicketsModule,
     MyExpenseClaimsModule,

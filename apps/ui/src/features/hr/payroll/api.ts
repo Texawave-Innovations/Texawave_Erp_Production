@@ -2,6 +2,25 @@ import type { PaginatedEnvelope } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 import type {
+  AppliedLine,
+  CalculationType,
+  ComponentKind,
+  DeclarationField,
+  DeclarationStatus,
+  Form16,
+  GratuityResult,
+  PayrollReportId,
+  PayrollSettings,
+  PtLocationState,
+  PtSlab,
+  Salary,
+  SalaryComponent,
+  SalaryTemplate,
+  StatutoryBonusResult,
+  TaxDeclaration,
+  TaxRegime,
+  TaxRegimeRules,
+  VerifiedField,
   Bonus,
   BonusType,
   ComplianceKind,
@@ -272,6 +291,8 @@ export interface CreateLoanBody {
   emiMonths: number;
   disbursedDate: string;
   reason?: string | undefined;
+  /** Required above the organization's principal limit. */
+  overrideReason?: string | undefined;
 }
 
 export async function createLoan(body: CreateLoanBody): Promise<Loan> {
@@ -370,9 +391,13 @@ export function listMyPayslips(
 /** (Re)generates the payslips of a period's approved run. */
 export async function generatePayslips(
   payrollPeriodId: number,
+  reason?: string,
 ): Promise<Payslip[]> {
   const { data } = await withAuthRetry(() =>
-    apiClient.post<Payslip[]>("/hr/payslips/generate", { payrollPeriodId }),
+    apiClient.post<Payslip[]>("/hr/payslips/generate", {
+      payrollPeriodId,
+      ...(reason ? { reason } : {}),
+    }),
   );
   return data;
 }
@@ -451,6 +476,516 @@ export async function updatePayment(
 ): Promise<PayrollPayment> {
   const { data } = await withAuthRetry(() =>
     apiClient.patch<PayrollPayment>(`/hr/payments/${id}`, body),
+  );
+  return data;
+}
+
+// ---- reopen, payslip regeneration (§4.16) ----------------------------------
+
+export async function reopenPeriod(
+  id: number,
+  reason: string,
+): Promise<PayrollPeriod> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<PayrollPeriod>(`${PERIODS}/${id}/reopen`, { reason }),
+  );
+  return data;
+}
+
+export async function regeneratePayslip(
+  id: number,
+  reason: string,
+): Promise<Payslip> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Payslip>(`/hr/payslips/${id}/regenerate`, { reason }),
+  );
+  return data;
+}
+
+/** A statutory file or report of a period (§4.15), as a Blob. */
+export function downloadPayrollReport(
+  payrollPeriodId: number,
+  report: PayrollReportId,
+): Promise<Blob> {
+  return withAuthRetry(() =>
+    apiClient.download(`${PERIODS}/${payrollPeriodId}/reports/${report}`),
+  );
+}
+
+// ---- settings (§4.2a) ------------------------------------------------------
+
+const SETTINGS = "/hr/payroll/settings";
+
+export async function getPayrollSettings(): Promise<PayrollSettings> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PayrollSettings>(SETTINGS),
+  );
+  return data;
+}
+
+export type PayrollSettingsBody = Partial<
+  Omit<PayrollSettings, "isDefault" | "updatedAt">
+> & { version: number };
+
+export async function updatePayrollSettings(
+  body: PayrollSettingsBody,
+): Promise<PayrollSettings> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<PayrollSettings>(SETTINGS, body),
+  );
+  return data;
+}
+
+// ---- salary components & templates (§4.10) --------------------------------
+
+const COMPONENTS = "/hr/payroll/salary-components";
+const TEMPLATES = "/hr/payroll/salary-templates";
+
+export async function listSalaryComponents(
+  includeInactive: boolean,
+): Promise<SalaryComponent[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<SalaryComponent[]>(COMPONENTS, {
+      query: { includeInactive },
+    }),
+  );
+  return data;
+}
+
+export interface SalaryComponentBody {
+  code?: string;
+  name?: string;
+  kind?: ComponentKind;
+  isProrated?: boolean;
+  isTaxable?: boolean;
+  pfApplicable?: boolean;
+  esiApplicable?: boolean;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export async function createSalaryComponent(
+  body: SalaryComponentBody,
+): Promise<SalaryComponent> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<SalaryComponent>(COMPONENTS, body),
+  );
+  return data;
+}
+
+export async function updateSalaryComponent(
+  id: number,
+  body: SalaryComponentBody,
+): Promise<SalaryComponent> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<SalaryComponent>(`${COMPONENTS}/${id}`, body),
+  );
+  return data;
+}
+
+export async function listSalaryTemplates(
+  includeInactive: boolean,
+): Promise<SalaryTemplate[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<SalaryTemplate[]>(TEMPLATES, { query: { includeInactive } }),
+  );
+  return data;
+}
+
+export interface TemplateLineBody {
+  componentId: number;
+  calculationType: CalculationType;
+  value?: number;
+}
+
+export interface SalaryTemplateBody {
+  code?: string;
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+  lines?: TemplateLineBody[];
+}
+
+export async function createSalaryTemplate(
+  body: SalaryTemplateBody,
+): Promise<SalaryTemplate> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<SalaryTemplate>(TEMPLATES, body),
+  );
+  return data;
+}
+
+export async function updateSalaryTemplate(
+  id: number,
+  body: SalaryTemplateBody,
+): Promise<SalaryTemplate> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<SalaryTemplate>(`${TEMPLATES}/${id}`, body),
+  );
+  return data;
+}
+
+export async function previewSalaryTemplate(
+  id: number,
+  grossMonthly: number,
+): Promise<{
+  grossMonthly: number;
+  lines: AppliedLine[];
+  totalEarnings: number;
+}> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<{
+      grossMonthly: number;
+      lines: AppliedLine[];
+      totalEarnings: number;
+    }>(`${TEMPLATES}/${id}/preview`, { grossMonthly }),
+  );
+  return data;
+}
+
+// ---- salaries (§4.2) ---------------------------------------------------------
+
+const SALARIES = "/hr/salaries";
+
+export interface SalaryListQuery extends PageQuery {
+  employeeId?: number;
+  effectiveOn?: string;
+}
+
+export function listSalaries(
+  query: SalaryListQuery,
+): Promise<PaginatedEnvelope<Salary>> {
+  return withAuthRetry(() =>
+    apiClient.get<Salary[]>(SALARIES, { query }),
+  ) as Promise<PaginatedEnvelope<Salary>>;
+}
+
+export interface SalaryLineBody {
+  componentId: number;
+  monthlyAmount: number;
+}
+
+export interface CreateSalaryBody {
+  employeeId: number;
+  effectiveFrom: string;
+  effectiveTo?: string | undefined;
+  components?: SalaryLineBody[] | undefined;
+  salaryTemplateId?: number | undefined;
+  grossMonthly?: number | undefined;
+  revisionLetterId?: number | undefined;
+  arrearsSalary?: number | undefined;
+}
+
+export async function createSalary(body: CreateSalaryBody): Promise<Salary> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Salary>(SALARIES, body),
+  );
+  return data;
+}
+
+export interface UpdateSalaryBody {
+  effectiveTo?: string | undefined;
+  components?: SalaryLineBody[] | undefined;
+  arrearsSalary?: number | undefined;
+}
+
+export async function updateSalary(
+  id: number,
+  body: UpdateSalaryBody,
+): Promise<Salary> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<Salary>(`${SALARIES}/${id}`, body),
+  );
+  return data;
+}
+
+// ---- tax regimes, Professional Tax (§4.11, §4.12) ----------------------------
+
+export async function listTaxRegimes(
+  financialYear?: string,
+): Promise<TaxRegimeRules[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<TaxRegimeRules[]>("/hr/payroll/tax-regimes", {
+      query: financialYear ? { financialYear } : {},
+    }),
+  );
+  return data;
+}
+
+export interface TaxRegimeBody {
+  financialYear: string;
+  regime: TaxRegime;
+  version: number;
+  standardDeduction: number;
+  rebateIncomeLimit: number;
+  rebateMaxAmount: number;
+  cessPercent: number;
+  section80cLimit?: number;
+  homeLoanInterestLimit?: number;
+  slabs: Array<{
+    fromIncome: number;
+    toIncome: number | null;
+    ratePercent: number;
+  }>;
+}
+
+export async function saveTaxRegime(
+  body: TaxRegimeBody,
+): Promise<TaxRegimeRules> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<TaxRegimeRules>("/hr/payroll/tax-regimes", body),
+  );
+  return data;
+}
+
+export async function listPtSlabs(): Promise<PtSlab[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PtSlab[]>("/hr/payroll/pt-slabs"),
+  );
+  return data;
+}
+
+export interface PtSlabBody {
+  stateCode: string;
+  minMonthlyWage: number;
+  maxMonthlyWage?: number | null;
+  monthlyAmount: number;
+  specialMonth?: number;
+  specialAmount?: number;
+  applicableMonths?: number[];
+  effectiveFrom: string;
+  effectiveTo?: string;
+}
+
+export async function createPtSlab(body: PtSlabBody): Promise<PtSlab> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<PtSlab>("/hr/payroll/pt-slabs", body),
+  );
+  return data;
+}
+
+export async function updatePtSlab(
+  id: number,
+  body: { effectiveTo?: string; isActive?: boolean },
+): Promise<PtSlab> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<PtSlab>(`/hr/payroll/pt-slabs/${id}`, body),
+  );
+  return data;
+}
+
+export async function listPtLocationStates(): Promise<PtLocationState[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PtLocationState[]>("/hr/payroll/pt-location-states"),
+  );
+  return data;
+}
+
+export async function setPtLocationState(
+  workLocationId: number,
+  stateCode: string,
+): Promise<PtLocationState> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<PtLocationState>(
+      `/hr/payroll/pt-location-states/${workLocationId}`,
+      { stateCode },
+    ),
+  );
+  return data;
+}
+
+// ---- tax declarations & Form 16 (§4.13, §4.14) -------------------------------
+
+const DECLARATIONS = "/hr/tax-declarations";
+
+export interface DeclarationListQuery extends PageQuery {
+  financialYear?: string;
+  status?: DeclarationStatus;
+  employeeId?: number;
+}
+
+export function listTaxDeclarations(
+  query: DeclarationListQuery,
+): Promise<PaginatedEnvelope<TaxDeclaration>> {
+  return withAuthRetry(() =>
+    apiClient.get<TaxDeclaration[]>(DECLARATIONS, { query }),
+  ) as Promise<PaginatedEnvelope<TaxDeclaration>>;
+}
+
+export type DeclarationAmounts = Partial<Record<DeclarationField, number>>;
+
+export interface SaveDeclarationBody extends DeclarationAmounts {
+  version: number;
+  regime: TaxRegime;
+  submit?: boolean;
+}
+
+export async function saveDeclarationForEmployee(
+  employeeId: number,
+  financialYear: string,
+  body: SaveDeclarationBody,
+): Promise<TaxDeclaration> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<TaxDeclaration>(
+      `${DECLARATIONS}/employee/${employeeId}/${financialYear}`,
+      body,
+    ),
+  );
+  return data;
+}
+
+export interface VerifyDeclarationBody extends Partial<
+  Record<VerifiedField, number>
+> {
+  decision: "VERIFIED" | "REJECTED";
+  note?: string;
+}
+
+export async function verifyDeclaration(
+  id: number,
+  body: VerifyDeclarationBody,
+): Promise<TaxDeclaration> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<TaxDeclaration>(`${DECLARATIONS}/${id}/verify`, body),
+  );
+  return data;
+}
+
+export async function listMyDeclarations(): Promise<TaxDeclaration[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<TaxDeclaration[]>("/self-service/tax-declarations"),
+  );
+  return data;
+}
+
+export async function saveMyDeclaration(
+  financialYear: string,
+  body: SaveDeclarationBody,
+): Promise<TaxDeclaration> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<TaxDeclaration>(
+      `/self-service/tax-declarations/${financialYear}`,
+      body,
+    ),
+  );
+  return data;
+}
+
+/** Form 16 Part B — HR (by employee) or the caller's own. */
+export async function getForm16(
+  financialYear: string,
+  employeeId: number | null,
+): Promise<Form16> {
+  const path =
+    employeeId === null
+      ? `/self-service/form16/${financialYear}`
+      : `${DECLARATIONS}/form16/${employeeId}/${financialYear}`;
+  const { data } = await withAuthRetry(() => apiClient.get<Form16>(path));
+  return data;
+}
+
+export function downloadForm16(
+  financialYear: string,
+  employeeId: number | null,
+): Promise<Blob> {
+  const path =
+    employeeId === null
+      ? `/self-service/form16/${financialYear}/pdf`
+      : `${DECLARATIONS}/form16/${employeeId}/${financialYear}/pdf`;
+  return withAuthRetry(() => apiClient.download(path));
+}
+
+// ---- loan approval & prepayments (§3.7) ----------------------------------------
+
+/** The employee's own request (the employee is always the caller). */
+export async function requestMyLoan(
+  body: Omit<CreateLoanBody, "employeeId">,
+): Promise<Loan> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Loan>("/self-service/loans", body),
+  );
+  return data;
+}
+
+/** The HR step: forward for final approval, or reject (note required). */
+export async function reviewLoan(
+  id: number,
+  body: { decision: "FORWARD" | "REJECT"; note?: string },
+): Promise<Loan> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Loan>(`${LOANS}/${id}/review`, body),
+  );
+  return data;
+}
+
+export async function decideLoan(
+  id: number,
+  body: { decision: "APPROVED" | "REJECTED"; note?: string },
+): Promise<Loan> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Loan>(`${LOANS}/${id}/decide`, body),
+  );
+  return data;
+}
+
+export interface LoanPrepaymentBody {
+  amount: number;
+  receivedOn: string;
+  reference?: string | undefined;
+  reason: string;
+}
+
+export async function requestLoanPrepayment(
+  loanId: number,
+  body: LoanPrepaymentBody,
+): Promise<unknown> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<unknown>(`${LOANS}/${loanId}/prepayments`, body),
+  );
+  return data;
+}
+
+export async function decideLoanPrepayment(
+  id: number,
+  decision: "APPROVED" | "REJECTED",
+): Promise<Loan> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Loan>(`${LOANS}/prepayments/${id}/decide`, { decision }),
+  );
+  return data;
+}
+
+// ---- statutory bonus & gratuity (§3.9) -----------------------------------------
+
+export async function calculateStatutoryBonus(body: {
+  financialYear: string;
+  create?: boolean;
+}): Promise<StatutoryBonusResult> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<StatutoryBonusResult>(`${BONUSES}/statutory`, body),
+  );
+  return data;
+}
+
+export async function getGratuity(
+  employeeId: number,
+  asOf?: string,
+): Promise<GratuityResult> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<GratuityResult>(`${BONUSES}/gratuity/${employeeId}`, {
+      query: asOf ? { asOf } : {},
+    }),
+  );
+  return data;
+}
+
+export async function createGratuity(body: {
+  employeeId: number;
+  asOf: string;
+  payrollPeriodId?: number | undefined;
+}): Promise<Bonus> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Bonus>(`${BONUSES}/gratuity`, body),
   );
   return data;
 }

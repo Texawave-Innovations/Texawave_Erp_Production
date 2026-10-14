@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "@texawave-erp/core";
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
@@ -10,6 +10,11 @@ import {
   Input,
   useToast,
 } from "@texawave-erp/ui-kit";
+import {
+  EmployeePicker,
+  type EmployeeOption,
+} from "@/components/widgets/EmployeePicker";
+import { leaveErrorMessage } from "../errors";
 import { useSetLeaveEntitlement } from "../hooks";
 import { setEntitlementSchema } from "../schema";
 import type { LeaveTypeItem } from "../types";
@@ -18,22 +23,13 @@ export interface SetEntitlementDialogProps {
   open: boolean;
   onClose: () => void;
   leaveType: Pick<LeaveTypeItem, "id" | "name">;
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.isPermissionError) {
-      return "You don't have permission to set leave entitlements.";
-    }
-    if (error.errorCode === "INVALID_EMPLOYEE") {
-      return "No employee with that ID was found in your organization.";
-    }
-    if (error.isValidationError) {
-      return "The server rejected some values. Check the fields and try again.";
-    }
-    return error.message;
-  }
-  return "Something went wrong. Try again.";
+  /** Preset from the Allotment table; otherwise HR picks one. */
+  employee?: EmployeeOption;
+  year?: number;
+  /** The entitlement shown today, to start editing from. */
+  current?: number;
+  /** Whether a custom override exists (enables "back to default"). */
+  isOverride?: boolean;
 }
 
 const currentYear = () => new Date().getFullYear();
@@ -41,31 +37,36 @@ const currentYear = () => new Date().getFullYear();
 /**
  * Sets (or clears) one employee's annual entitlement for one leave type and
  * year — the production equivalent of legacy's per-employee "Leave
- * Allotment" override (TexaWave_ERP `LeaveAllotment.tsx`: Casual/Sick/
- * Privilege/Compensation quota editing). There is deliberately no employee
- * picker component in this codebase (ApprovalsSection above filters by a
- * plain numeric employee ID too); HR looks up the ID from the Employees list.
+ * Allotment" override (TexaWave_ERP `LeaveAllotment.tsx`). Clearing keeps
+ * history: the leave type default simply applies again (Docs/HR_LEAVE.md §5).
  */
 export function SetEntitlementDialog({
   open,
   onClose,
   leaveType,
+  employee: presetEmployee,
+  year: presetYear,
+  current,
+  isOverride = false,
 }: SetEntitlementDialogProps) {
-  const [employeeId, setEmployeeId] = useState("");
-  const [year, setYear] = useState(String(currentYear()));
+  const [employee, setEmployee] = useState<EmployeeOption | null>(
+    presetEmployee ?? null,
+  );
+  const [year, setYear] = useState(String(presetYear ?? currentYear()));
   const [clearOverride, setClearOverride] = useState(false);
-  const [annualEntitlement, setAnnualEntitlement] = useState("0");
+  const [annualEntitlement, setAnnualEntitlement] = useState(
+    String(current ?? 0),
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useSetLeaveEntitlement();
   const { toast } = useToast();
-
   const submitting = mutation.isPending;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const result = setEntitlementSchema.safeParse({
-      employeeId: Number(employeeId),
+      employeeId: employee?.id ?? 0,
       year: Number(year),
       annualEntitlement: clearOverride ? null : Number(annualEntitlement),
     });
@@ -89,13 +90,18 @@ export function SetEntitlementDialog({
       });
       toast({
         title: clearOverride
-          ? "Entitlement override cleared — the leave type default applies again"
-          : "Entitlement override saved",
+          ? "Back to the leave type default"
+          : "Entitlement saved",
         variant: "success",
       });
       onClose();
     } catch (err) {
-      setServerError(describeError(err));
+      setServerError(
+        leaveErrorMessage(
+          err,
+          "You don't have permission to set leave entitlements.",
+        ),
+      );
     }
   }
 
@@ -106,50 +112,56 @@ export function SetEntitlementDialog({
       title={`Set entitlement — ${leaveType.name}`}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField label="Employee ID" required error={errors.employeeId}>
-            {(f) => (
-              <Input
-                {...f}
-                type="number"
-                min="1"
-                invalid={f.invalid}
-                value={employeeId}
-                disabled={submitting}
-                onChange={(e) => setEmployeeId(e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label="Year" required error={errors.year}>
-            {(f) => (
-              <Input
-                {...f}
-                type="number"
-                min="2000"
-                max="2200"
-                invalid={f.invalid}
-                value={year}
-                disabled={submitting}
-                onChange={(e) => setYear(e.target.value)}
-              />
-            )}
-          </FormField>
-        </div>
+        {presetEmployee ? (
+          <p className="text-theme-sm text-gray-700 dark:text-gray-300">
+            <strong>{presetEmployee.fullName}</strong> (
+            {presetEmployee.employeeCode}) · {year}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Employee" required error={errors.employeeId}>
+              {(f) => (
+                <EmployeePicker
+                  {...f}
+                  value={employee}
+                  disabled={submitting}
+                  onChange={setEmployee}
+                />
+              )}
+            </FormField>
+            <FormField label="Year" required error={errors.year}>
+              {(f) => (
+                <Input
+                  {...f}
+                  type="number"
+                  min="2000"
+                  max="2200"
+                  invalid={f.invalid}
+                  value={year}
+                  disabled={submitting}
+                  onChange={(e) => setYear(e.target.value)}
+                />
+              )}
+            </FormField>
+          </div>
+        )}
 
         <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300">
           <Checkbox
             checked={clearOverride}
             onChange={() => setClearOverride((prev) => !prev)}
-            disabled={submitting}
+            disabled={
+              submitting || (presetEmployee !== undefined && !isOverride)
+            }
           />
-          <span>Clear override (the leave type default applies again)</span>
+          <span>Use the leave type default (remove the custom value)</span>
         </label>
 
         {!clearOverride ? (
           <FormField
             label="Annual entitlement (days)"
             error={errors.annualEntitlement}
-            hint="Overrides the leave type default for this employee and year only."
+            hint="For this employee and year only. Up to one decimal."
           >
             {(f) => (
               <Input
@@ -157,6 +169,7 @@ export function SetEntitlementDialog({
                 type="number"
                 min="0"
                 max="366"
+                step="0.5"
                 invalid={f.invalid}
                 value={annualEntitlement}
                 disabled={submitting}
@@ -167,12 +180,9 @@ export function SetEntitlementDialog({
         ) : null}
 
         {serverError ? (
-          <p
-            role="alert"
-            className="text-theme-xs text-error-600 dark:text-error-400"
-          >
+          <Alert variant="error" title="Could not save">
             {serverError}
-          </p>
+          </Alert>
         ) : null}
 
         <div className="flex justify-end gap-2">

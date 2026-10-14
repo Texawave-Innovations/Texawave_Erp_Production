@@ -5,12 +5,12 @@ import {
   Search,
   Calendar,
   Clock,
-  Bell,
   Menu,
   ChevronDown,
   LogOut,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 export interface GlobalHeaderProps {
   onSignOut: () => void;
@@ -130,15 +130,8 @@ export function GlobalHeader({
         {/* Date & Live Clock Badges (Isolated from root header renders) */}
         <LiveClockBadge />
 
-        {/* Notification Bell */}
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex h-9.5 w-9.5 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
-        >
-          <Bell className="h-4.5 w-4.5" />
-          <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-gray-900" />
-        </button>
+        {/* Notification Bell (the caller's in-app inbox) */}
+        <NotificationBell />
 
         {/* User Profile Dropdown */}
         <div ref={profileRef} className="relative">

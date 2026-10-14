@@ -64,8 +64,16 @@ const TEAM_LEAD_PERMS = [
   "hr.payment.write.team",
 ];
 
+/** The HR review step of a loan, before the checker's final approval. */
+const REVIEWER_PERMS = ["hr.loan.read.all", "hr.loan.review.all"];
+
 const PERMS = [
-  ...new Set([...ADMIN_PERMS, ...CHECKER_PERMS, ...TEAM_LEAD_PERMS]),
+  ...new Set([
+    ...ADMIN_PERMS,
+    ...CHECKER_PERMS,
+    ...TEAM_LEAD_PERMS,
+    ...REVIEWER_PERMS,
+  ]),
 ];
 
 describe("Payroll & Compliance (e2e)", () => {
@@ -163,6 +171,12 @@ describe("Payroll & Compliance (e2e)", () => {
       data: { name: `Payroll Org ${suffix}`, slug: `payroll-org-${suffix}` },
     });
 
+    // This suite tests the leave-based engine; reading approved attendance
+    // (the default) is covered by payroll-statutory.e2e-spec.ts.
+    await prisma.payrollSetting.create({
+      data: { organizationId: org.id, useAttendance: false },
+    });
+
     // A second organization with a payroll period of its own — used to prove
     // its ids are "not found" from this org.
     const otherOrg = await prisma.organization.create({
@@ -239,6 +253,8 @@ describe("Payroll & Compliance (e2e)", () => {
     await mkUser("admin", ADMIN_PERMS);
     // Approver (the "checker")
     await mkUser("checker", CHECKER_PERMS);
+    // HR loan reviewer (the step before the checker's final approval)
+    await mkUser("reviewer", REVIEWER_PERMS);
     // Team lead with only team-level grants
     const teamLead = await mkUser("teamlead", TEAM_LEAD_PERMS);
 
@@ -517,11 +533,30 @@ describe("Payroll & Compliance (e2e)", () => {
     const loanData = dataOf<{
       id: number;
       loanNumber: string;
+      status: string;
       repayments: unknown[];
     }>(loanRes);
     expect(loanData.loanNumber).toMatch(/^LOAN-/);
-    expect(loanData.repayments).toHaveLength(12);
+    // A loan is a request until another HR user reviews it and a third
+    // person approves it; the schedule is built on approval.
+    expect(loanData.status).toBe("PENDING_HR");
+    expect(loanData.repayments).toHaveLength(0);
     loanId1 = loanData.id;
+
+    await post("reviewer", `/hr/loans/${loanId1}/review`, {
+      decision: "FORWARD",
+    }).expect(200);
+
+    await post("admin", `/hr/loans/${loanId1}/decide`, {
+      decision: "APPROVED",
+    }).expect(403);
+    const approved = dataOf<{ status: string; repayments: unknown[] }>(
+      await post("checker", `/hr/loans/${loanId1}/decide`, {
+        decision: "APPROVED",
+      }).expect(200),
+    );
+    expect(approved.status).toBe("ACTIVE");
+    expect(approved.repayments).toHaveLength(12);
 
     // Create performance bonus for Employee 1: 5000
     const bonusRes = await post("admin", "/hr/bonuses", {
@@ -879,6 +914,12 @@ describe("Payroll & Compliance (e2e)", () => {
       disbursedDate: "2026-05-01",
     }).expect(201);
     loanId2 = dataOf<{ id: number }>(loan2).id;
+    await post("reviewer", `/hr/loans/${loanId2}/review`, {
+      decision: "FORWARD",
+    }).expect(200);
+    await post("checker", `/hr/loans/${loanId2}/decide`, {
+      decision: "APPROVED",
+    }).expect(200);
 
     // One-time arrears of 2000 for Employee 1
     await patch("admin", `/hr/salaries/${salaryId1}`, {

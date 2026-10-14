@@ -174,6 +174,7 @@ describe("self-service profile (e2e)", () => {
       "PENDING_ACTIVATION",
       true,
     );
+    await mkEmployeeUser("onboarded", PERMS, true, "COMPLETE");
     await mkEmployeeUser("noPerm", [], true);
     await mkEmployeeUser("notAnEmployee", PERMS, false);
   });
@@ -208,13 +209,10 @@ describe("self-service profile (e2e)", () => {
       where: { role: { organizationId: org.id } },
     });
     await prisma.role.deleteMany({ where: { organizationId: org.id } });
-    await prisma.user.deleteMany({ where: { organizationId: org.id } });
-    await prisma.employmentType.deleteMany({
-      where: { organizationId: org.id },
-    });
-    await prisma.designation.deleteMany({ where: { organizationId: org.id } });
-    await prisma.team.deleteMany({ where: { organizationId: org.id } });
-    await prisma.organization.delete({ where: { id: org.id } });
+    // Submitting onboarding writes an audit row (submit_onboarding), and audit
+    // rows are append-only, so the users, masters and organization are left
+    // behind, unique-slugged, on the disposable test DB — the convention in
+    // apps/api/test/README.md for suites that produce audit rows.
     await app.close();
   });
 
@@ -514,6 +512,45 @@ describe("self-service profile (e2e)", () => {
       .expect(404);
   });
 
+  it("locks self-edits once onboarding is complete, while reads keep working", async () => {
+    const who = "onboarded";
+    const locked = (res: { body: unknown }) =>
+      expect((res.body as { error: string }).error).toBe("PROFILE_LOCKED");
+
+    locked(
+      await put(
+        who,
+        "/employee/profile/personal-details",
+        validPersonal,
+      ).expect(422),
+    );
+    locked(
+      await put(who, "/employee/profile/bank-details", {
+        accountHolderName: "Onboarded",
+        accountNumber: "123456789012",
+        ifsc: "HDFC0001234",
+        bankName: "HDFC Bank",
+      }).expect(422),
+    );
+    locked(
+      await request(app.getHttpServer())
+        .post("/employee/profile/family")
+        .set(auth(who))
+        .send({ relation: "FATHER", name: "Dad" })
+        .expect(422),
+    );
+    locked(await del(who, "/employee/profile/address/PRESENT").expect(422));
+
+    await request(app.getHttpServer())
+      .get("/employee/profile/personal-details")
+      .set(auth(who))
+      .expect(200);
+    const rows = await prisma.employeePersonalDetail.count({
+      where: { employeeId: employeeIds[who] as number },
+    });
+    expect(rows).toBe(0);
+  });
+
   it("blocks submit for an employee who has not changed their temporary password yet", async () => {
     const res = await request(app.getHttpServer())
       .post("/employee/profile/submit")
@@ -552,8 +589,9 @@ describe("self-service profile (e2e)", () => {
       bankName: "HDFC Bank",
     }).expect(200);
     await put(who, "/employee/profile/government-ids", {
-      aadhaarNumber: "123456789012",
-      panNumber: "ABCDE1234F",
+      // A different person from alice: PAN and Aadhaar are unique per organization.
+      aadhaarNumber: "223456789012",
+      panNumber: "BBCDE1234F",
     }).expect(200);
     for (const documentType of [
       "PROFILE_PHOTO",

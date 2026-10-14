@@ -4,9 +4,12 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsBoolean,
   IsString,
+  Matches,
   Min,
 } from "class-validator";
+import { IsDateOnly } from "../../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../../common/dto/pagination.dto.js";
 
 export const BONUS_TYPES = [
@@ -15,6 +18,7 @@ export const BONUS_TYPES = [
   "STATUTORY",
   "ANNUAL",
   "SPOT",
+  "GRATUITY",
 ] as const;
 export type BonusType = (typeof BONUS_TYPES)[number];
 
@@ -86,4 +90,36 @@ export class QueryBonusDto extends PaginationDto {
   @IsOptional()
   @IsIn(BONUS_STATUSES)
   status?: BonusStatus;
+}
+
+/** Works out the statutory bonus of every employee for a financial year
+ * from its finalized payroll; `create` raises them as PENDING bonuses. */
+export class StatutoryBonusDto {
+  @Matches(/^[0-9]{4}-[0-9]{2}$/)
+  financialYear!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  create?: boolean;
+}
+
+export class GratuityQueryDto {
+  @IsOptional()
+  @IsDateOnly()
+  asOf?: string;
+}
+
+/** Raises a GRATUITY bonus (PENDING approval) from the calculation. */
+export class CreateGratuityDto {
+  @Type(() => Number)
+  @IsInt()
+  employeeId!: number;
+
+  @IsDateOnly()
+  asOf!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  payrollPeriodId?: number;
 }

@@ -8,17 +8,27 @@ import type {
   ApproveLeaveRequestDto,
   CancelLeaveRequestDto,
   CreateLeaveRequestDto,
+  HrCancelLeaveRequestDto,
+  HrCreateLeaveRequestDto,
   HrLeaveBalanceQueryDto,
   LeaveBalanceQueryDto,
+  QueryAwaitingLeaveDto,
   QueryLeaveRequestDto,
   QueryMyLeaveRequestDto,
   RejectLeaveRequestDto,
   SetLeaveEntitlementDto,
 } from "./dto/leave-request.dto.js";
-import { LeaveRequestsRepository, today } from "./leave-requests.repository.js";
+import { LeaveNotificationsService } from "./leave-notifications.service.js";
+import {
+  LeaveOwnViaSelfServiceException,
+  LeaveRequestsRepository,
+  today,
+} from "./leave-requests.repository.js";
 
-const READ = "hr.leave_request.read";
-const APPROVE = "hr.leave.approve";
+export const READ = "hr.leave_request.read";
+export const APPROVE = "hr.leave.approve";
+export const CREATE = "hr.leave_request.create";
+export const CANCEL = "hr.leave.cancel";
 
 @Injectable()
 export class LeaveRequestsService {
@@ -27,6 +37,7 @@ export class LeaveRequestsService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifier: LeaveNotificationsService,
   ) {}
 
   // ---- HR / approver view (own · team · all) -------------------------------
@@ -57,27 +68,114 @@ export class LeaveRequestsService {
     return this.decide(id, "REJECTED", dto.note);
   }
 
+  /**
+   * Any `hr.leave.approve` level may decide as the employee's reporting
+   * manager (or that manager's delegate); `.team`/`.all` also decide within
+   * their scope, and only `.all` gives the second (HR) approval. A request
+   * the caller has no authority over is 404 — except that an `.own`-only
+   * caller gets 403, as before (`.own` grants nothing beyond the reporting
+   * line, so there is nothing to hide).
+   */
   private async decide(
     id: number,
     status: "APPROVED" | "REJECTED",
     note: string | undefined,
   ) {
     const scope = await this.teamContext.resolveScope(APPROVE);
-    if (scope.level === "own") {
-      // `.own` exists only so the permission family is complete: nobody may
-      // decide their own request, so it grants no approval at all.
-      throw new ForbiddenException(
-        "You may not approve or reject leave requests",
-      );
-    }
-    const row = await this.repository.decide(
+    const outcome = await this.repository.decide(
       scope,
       id,
       { status, note },
       this.tenantContext.getUserId(),
+      today(),
     );
-    if (!row) throw new ResourceNotFoundException("Leave request", id);
-    return row;
+    if (outcome.kind === "not_found") {
+      if (scope.level === "own") {
+        throw new ForbiddenException(
+          "You may approve or reject only the leave of people who report to you",
+        );
+      }
+      throw new ResourceNotFoundException("Leave request", id);
+    }
+    await this.notifier.leaveChanged(id, {
+      kind:
+        status === "REJECTED"
+          ? "rejected"
+          : outcome.final
+            ? "approved"
+            : "first_approved",
+    });
+    return outcome.view;
+  }
+
+  /** PENDING requests waiting for the caller (reporting line, delegation,
+   * scope, and HR's second approval). */
+  async findAwaiting(query: QueryAwaitingLeaveDto) {
+    const scope = await this.teamContext.resolveScope(APPROVE);
+    const { items, total } = await this.repository.findAwaiting(
+      scope,
+      this.tenantContext.getUserId(),
+      today(),
+      query,
+      query,
+    );
+    return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  /** HR applies for leave on an employee's behalf. `.own` grants nothing
+   * (one's own leave is self-service); the employee must be in the caller's
+   * scope (else 404) and not the caller's own record. Same validation as
+   * self-service (balance, overlap, working days). */
+  async createOnBehalf(dto: HrCreateLeaveRequestDto) {
+    const scope = await this.teamContext.resolveScope(CREATE);
+    if (scope.level === "own") {
+      throw new ForbiddenException(
+        "You may not apply for leave on someone else's behalf",
+      );
+    }
+    const visible = await this.repository.employeeVisible(
+      scope,
+      dto.employeeId,
+    );
+    if (!visible) {
+      throw new ResourceNotFoundException("Employee", dto.employeeId);
+    }
+    const me = await this.employees.findCurrentEmployeeOrNull();
+    if (me?.id === dto.employeeId) throw new LeaveOwnViaSelfServiceException();
+    const view = await this.repository.create(
+      this.tenantContext.getOrgScope(),
+      dto,
+      this.tenantContext.getUserId(),
+      "submit_on_behalf",
+    );
+    await this.notifier.leaveChanged(view.id, {
+      kind: "submitted",
+      onBehalf: true,
+      resubmitted: false,
+    });
+    return view;
+  }
+
+  /** HR cancels a pending or approved leave of someone in scope (an approved
+   * one even after it started), with a mandatory reason. */
+  async hrCancel(id: number, dto: HrCancelLeaveRequestDto) {
+    const scope = await this.teamContext.resolveScope(CANCEL);
+    if (scope.level === "own") {
+      throw new ForbiddenException("You may not cancel other people's leave");
+    }
+    const result = await this.repository.hrCancel(
+      scope,
+      id,
+      dto.note,
+      this.tenantContext.getUserId(),
+    );
+    if (!result) throw new ResourceNotFoundException("Leave request", id);
+    await this.notifier.leaveChanged(id, {
+      kind: "cancelled",
+      byHr: true,
+      wasApproved: result.previous === "APPROVED",
+    });
+    return result.view;
   }
 
   /** Balances of one employee, within the caller's scope (else 404). */
@@ -123,11 +221,17 @@ export class LeaveRequestsService {
    * name one (403 NOT_AN_EMPLOYEE if the login is not linked). */
   async createForCurrentEmployee(dto: CreateLeaveRequestDto) {
     const employee = await this.employees.getCurrentEmployee();
-    return this.repository.create(
+    const view = await this.repository.create(
       this.tenantContext.getOrgScope(),
       { ...dto, employeeId: employee.id },
       this.tenantContext.getUserId(),
     );
+    await this.notifier.leaveChanged(view.id, {
+      kind: "submitted",
+      onBehalf: false,
+      resubmitted: false,
+    });
+    return view;
   }
 
   async findMine(query: QueryMyLeaveRequestDto) {
@@ -154,6 +258,14 @@ export class LeaveRequestsService {
 
   async cancelMine(id: number, dto: CancelLeaveRequestDto) {
     const employee = await this.employees.getCurrentEmployee();
+    const wasApproved =
+      (
+        await this.repository.findMineOne(
+          this.tenantContext.getOrgScope(),
+          employee.id,
+          id,
+        )
+      )?.status === "APPROVED";
     const row = await this.repository.cancel(
       this.tenantContext.getOrgScope(),
       employee.id,
@@ -163,6 +275,11 @@ export class LeaveRequestsService {
       today(),
     );
     if (!row) throw new ResourceNotFoundException("Leave request", id);
+    await this.notifier.leaveChanged(id, {
+      kind: "cancelled",
+      byHr: false,
+      wasApproved,
+    });
     return row;
   }
 
@@ -176,6 +293,11 @@ export class LeaveRequestsService {
       today(),
     );
     if (!row) throw new ResourceNotFoundException("Leave request", id);
+    await this.notifier.leaveChanged(id, {
+      kind: "submitted",
+      onBehalf: false,
+      resubmitted: true,
+    });
     return row;
   }
 

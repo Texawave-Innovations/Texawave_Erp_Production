@@ -43,7 +43,7 @@ function getPalette(name: string): string {
 /**
  * Reusable Employee Identity component conforming to TEXA HR Design System.
  * Displays avatar initials, full name, and employee code.
- * Intended for reuse across: Employees, Attendance, Leaves, Work Logs,
+ * Intended for reuse across: Employees, Attendance, Leaves,
  * Regularization, Payroll, Tickets, Exit Requests, Org Chart.
  */
 export function EmployeeIdentity({

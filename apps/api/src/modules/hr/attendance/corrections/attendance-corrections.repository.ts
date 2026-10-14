@@ -141,6 +141,14 @@ export class AttendanceCorrectionsRepository {
   ): Promise<CorrectionView> {
     return this.prisma.$transaction(async (tx) => {
       await this.attendance.lockEmployee(tx, scope, input.employeeId);
+      // A closed month cannot collect new requests either: approving one
+      // would be refused anyway, so the employee is told now.
+      await this.attendance.assertMonthOpen(
+        tx,
+        scope,
+        input.employeeId,
+        input.attendanceDate,
+      );
       const attendanceDate = parseDateOnly(input.attendanceDate);
       const existing = await tx.attendanceCorrection.findFirst({
         where: {

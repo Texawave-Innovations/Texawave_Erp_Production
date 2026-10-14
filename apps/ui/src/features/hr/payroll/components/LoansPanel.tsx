@@ -13,7 +13,14 @@ import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { isoDate, money } from "../format";
 import { useLoans, useMyLoans } from "../hooks";
-import { LOAN_READ, LOAN_WRITE, MY_LOAN_READ } from "../permissions";
+import {
+  LOAN_APPROVE,
+  LOAN_REVIEW,
+  LOAN_READ,
+  LOAN_WRITE,
+  MY_LOAN_READ,
+  MY_LOAN_WRITE,
+} from "../permissions";
 import { LOAN_STATUSES, type Loan, type LoanStatus } from "../types";
 import { IssueLoanDialog, LoanDetailDialog, outstanding } from "./LoanDialogs";
 import { StatusPill, statusLabel } from "./PayrollStatusBadge";
@@ -110,10 +117,12 @@ function LoansTable({
 
 /** The signed-in employee's own loans (read-only). Hidden for an account
  * with no employee record, as the other "My …" sections are. */
-function MyLoansSection() {
+export function MyLoansSection() {
   const canRead = usePermission(MY_LOAN_READ);
+  const canRequest = usePermission(MY_LOAN_WRITE);
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const query = useMyLoans({ page, limit: PAGE_SIZE }, canRead);
   const rows = query.data?.data ?? [];
   const open = rows.find((l) => l.id === openId) ?? null;
@@ -127,12 +136,17 @@ function MyLoansSection() {
 
   return (
     <section aria-labelledby="my-loans-heading" className="flex flex-col gap-3">
-      <h2
-        id="my-loans-heading"
-        className="text-theme-lg font-semibold text-gray-900 dark:text-white/90"
-      >
-        My loans
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2
+          id="my-loans-heading"
+          className="text-theme-lg font-semibold text-gray-900 dark:text-white/90"
+        >
+          My loans
+        </h2>
+        {canRequest ? (
+          <Button onClick={() => setRequesting(true)}>Request a loan</Button>
+        ) : null}
+      </div>
       <QueryState query={query} area="your loans" />
       {query.isSuccess && rows.length === 0 ? (
         <Card>
@@ -161,6 +175,9 @@ function MyLoansSection() {
           onClose={() => setOpenId(null)}
         />
       ) : null}
+      {requesting ? (
+        <IssueLoanDialog selfService onClose={() => setRequesting(false)} />
+      ) : null}
     </section>
   );
 }
@@ -168,8 +185,14 @@ function MyLoansSection() {
 function HrLoansSection() {
   const canRead = usePermission(LOAN_READ);
   const canWrite = usePermission(LOAN_WRITE);
+  const canReview = usePermission(LOAN_REVIEW);
+  const canApprove = usePermission(LOAN_APPROVE);
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<LoanStatus | "">("ACTIVE");
+  // Reviewers and approvers land on what waits for them; everyone else on
+  // active loans.
+  const [status, setStatus] = useState<LoanStatus | "">(
+    canReview ? "PENDING_HR" : canApprove ? "PENDING_ADMIN" : "ACTIVE",
+  );
   const [issuing, setIssuing] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const query = useLoans(
@@ -210,7 +233,7 @@ function HrLoansSection() {
             ))}
           </Select>
           {canWrite ? (
-            <Button onClick={() => setIssuing(true)}>Issue loan</Button>
+            <Button onClick={() => setIssuing(true)}>Request loan</Button>
           ) : null}
         </div>
       </Card>

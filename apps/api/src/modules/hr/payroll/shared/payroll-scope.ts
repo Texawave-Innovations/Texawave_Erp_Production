@@ -1,6 +1,8 @@
 import { ForbiddenException } from "@nestjs/common";
 import { ResourceNotFoundException } from "../../../../common/exceptions/business.exception.js";
+import type { Prisma } from "@texawave-erp/database";
 import type { TeamScope } from "../../../../common/tenancy/team-scope.js";
+import { teamWhere } from "../../../../common/tenancy/team-where.js";
 
 /**
  * Payroll periods, runs, payslip generation and payment batches act on the
@@ -44,4 +46,36 @@ export function assertNotSelfApproval(
       `Maker-checker: you cannot approve this ${what} yourself`,
     );
   }
+}
+
+/**
+ * The employee a single-employee payroll write targets, read THROUGH the
+ * caller's write scope (`teamWhere`), for `@TeamScoped()` repository methods
+ * (Docs/CODING_STANDARDS.md §10a): `.own` never writes pay, `.team` reaches
+ * only its teams, and anything outside is "not found". Pass the transaction
+ * client so the check and the write see the same data.
+ */
+export async function findEmployeeInWriteScope(
+  db: Pick<Prisma.TransactionClient, "employee">,
+  scope: TeamScope,
+  employeeId: number,
+) {
+  if (scope.level === "own") {
+    throw new ResourceNotFoundException("Employee", employeeId);
+  }
+  const employee = await db.employee.findFirst({
+    where: teamWhere(scope, {
+      id: employeeId,
+      deletedAt: null,
+    }) as Prisma.EmployeeWhereInput,
+    select: {
+      id: true,
+      teamId: true,
+      userId: true,
+      employeeCode: true,
+      fullName: true,
+    },
+  });
+  if (!employee) throw new ResourceNotFoundException("Employee", employeeId);
+  return employee;
 }

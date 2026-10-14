@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { formatDateOnly } from "../../../../common/dates/date-only.js";
 import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
+import type { NewNotification } from "../../../../platform/notifications/notifications.repository.js";
+import { NotificationsService } from "../../../../platform/notifications/notifications.service.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { AttendanceDayContextRepository } from "../attendance-day-context.repository.js";
 import {
@@ -34,6 +36,9 @@ import {
  *  - One transaction per session, so one failure cannot roll back the rest.
  *  - The clock is passed in (server time) and the business date is IST.
  *  - Each close is audited as a SYSTEM actor (no user), in the same transaction.
+ *  - After the closes, the employee and their reporting manager are told the
+ *    session was closed for them (Docs/HR_API.md → Attendance alerts). That is
+ *    best effort: a failed notification never undoes a close.
  */
 
 export const AUTO_CHECKOUT_LABEL = "attendance.auto_checkout";
@@ -91,6 +96,7 @@ export class AttendanceAutoCheckoutService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
     private readonly dayContext: AttendanceDayContextRepository,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Runs for every active organization. A failure in one organization is
@@ -134,7 +140,15 @@ export class AttendanceAutoCheckoutService {
           select: {
             attendanceDate: true,
             employee: {
-              select: { id: true, teamId: true, workLocationId: true },
+              select: {
+                id: true,
+                teamId: true,
+                workLocationId: true,
+                employeeCode: true,
+                fullName: true,
+                userId: true,
+                reportsTo: { select: { userId: true } },
+              },
             },
           },
         },
@@ -172,6 +186,8 @@ export class AttendanceAutoCheckoutService {
     const plan = planAutoCheckouts(sessions, asOf);
 
     let closed = 0;
+    const notices: NewNotification[] = [];
+    const rowById = new Map(open.map((row) => [row.id, row]));
     for (const close of plan.closes) {
       const wrote = await this.prisma.$transaction(async (tx) => {
         const { count } = await tx.attendanceSession.updateMany({
@@ -190,8 +206,79 @@ export class AttendanceAutoCheckoutService {
         });
         return true;
       });
-      if (wrote) closed += 1;
+      if (wrote) {
+        closed += 1;
+        const row = rowById.get(close.id);
+        if (row) {
+          notices.push(
+            ...autoCheckoutNotifications(
+              close.id,
+              formatDateOnly(row.record.attendanceDate),
+              close.checkOutAt,
+              row.record.employee,
+            ),
+          );
+        }
+      }
+    }
+    if (notices.length > 0) {
+      try {
+        await this.notifications.notify({ organizationId }, notices);
+      } catch (error) {
+        this.logger.warn(
+          `auto-checkout notifications failed for organization ${organizationId}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
     }
     return { closed, noTarget: plan.noTarget, notDue: plan.notDue };
   }
+}
+
+const IST_TIME = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kolkata",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** The notices for one automatic close: the employee, and their reporting
+ * manager when that is a different login. Sent once per session. */
+export function autoCheckoutNotifications(
+  sessionId: number,
+  attendanceDate: string,
+  checkOutAt: Date,
+  employee: {
+    employeeCode?: string;
+    fullName?: string;
+    userId?: number | null;
+    reportsTo?: { userId: number | null } | null;
+  },
+): NewNotification[] {
+  const at = IST_TIME.format(checkOutAt);
+  const key = `attendance.auto_checkout:${sessionId}`;
+  const items: NewNotification[] = [];
+  const userId = employee.userId ?? null;
+  const managerUserId = employee.reportsTo?.userId ?? null;
+  if (userId !== null) {
+    items.push({
+      userId,
+      type: "attendance.auto_checkout",
+      title: "You were checked out automatically",
+      body: `You did not check out on ${attendanceDate}, so the system closed your session at ${at} (IST). If you were still working, raise an attendance correction with the right time.`,
+      link: "/self-service/attendance",
+      dedupKey: key,
+    });
+  }
+  if (managerUserId !== null && managerUserId !== userId) {
+    items.push({
+      userId: managerUserId,
+      type: "attendance.auto_checkout",
+      title: `${employee.fullName ?? "An employee"} did not check out`,
+      body: `${employee.fullName ?? ""} (${employee.employeeCode ?? ""}) did not check out on ${attendanceDate}; the system closed the session at ${at} (IST).`,
+      link: "/portal/team-attendance",
+      dedupKey: key,
+    });
+  }
+  return items;
 }

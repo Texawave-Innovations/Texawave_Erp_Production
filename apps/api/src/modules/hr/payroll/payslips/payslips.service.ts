@@ -45,7 +45,7 @@ export class PayslipsService {
     return maskEmployeeBankDetails(row);
   }
 
-  async generateForPeriod(payrollPeriodId: number) {
+  async generateForPeriod(payrollPeriodId: number, reason?: string) {
     const scope = await this.teamContext.resolveScope(GENERATE);
     requireOrgWideScope(scope, "generate payslips");
     const orgScope = this.tenantContext.getOrgScope();
@@ -54,11 +54,26 @@ export class PayslipsService {
       orgScope,
       payrollPeriodId,
       userId,
+      reason?.trim(),
     );
     if (!rows) {
       throw new ResourceNotFoundException("Payroll period", payrollPeriodId);
     }
     return rows.map(maskEmployeeBankDetails);
+  }
+
+  /** Org-wide (`.all` write) — regenerating changes an issued document. */
+  async regenerate(id: number, reason: string) {
+    const scope = await this.teamContext.resolveScope(GENERATE);
+    requireOrgWideScope(scope, "regenerate payslips");
+    const row = await this.repository.regenerateOne(
+      this.tenantContext.getOrgScope(),
+      id,
+      reason.trim(),
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Payslip", id);
+    return maskEmployeeBankDetails(row);
   }
 
   async findMine(query: QueryPayslipDto) {

@@ -1,5 +1,14 @@
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsOptional, Max, Min } from "class-validator";
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
 import { IsDateOnly } from "../../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../../common/dto/pagination.dto.js";
 
@@ -9,6 +18,7 @@ export const PERIOD_STATUSES = [
   "PROCESSED",
   "APPROVED",
   "FINALIZED",
+  "REOPENED",
   "CANCELLED",
 ] as const;
 export type PayrollPeriodStatus = (typeof PERIOD_STATUSES)[number];
@@ -50,4 +60,13 @@ export class QueryPayrollPeriodDto extends PaginationDto {
   @IsOptional()
   @IsIn(PERIOD_STATUSES)
   status?: PayrollPeriodStatus;
+}
+
+/** Why a finalized month is reopened — mandatory, kept on the period and in
+ * the audit trail. */
+export class ReopenPayrollPeriodDto {
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  reason!: string;
 }

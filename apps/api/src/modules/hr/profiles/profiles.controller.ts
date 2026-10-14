@@ -5,8 +5,10 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  StreamableFile,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
 import {
   RequirePermission,
   RequireScopedPermission,
@@ -33,6 +35,21 @@ export class ProfilesController {
   @ApiOperation({ summary: "Employee profile, in the caller's scope" })
   getProfile(@Param("id", ParseIntPipe) id: number) {
     return this.profiles.getProfile(id);
+  }
+
+  @Get(":id/profile/pdf")
+  @RequireScopedPermission("hr.employee_profile.read")
+  @RawResponse()
+  @ApiOperation({
+    summary:
+      "Employee profile as a PDF (no sensitive identifiers), in the caller's scope",
+  })
+  async getProfilePdf(@Param("id", ParseIntPipe) id: number) {
+    const file = await this.profiles.getProfilePdf(id);
+    return new StreamableFile(file.buffer, {
+      type: "application/pdf",
+      disposition: `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+    });
   }
 
   @Patch(":id/profile")

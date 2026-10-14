@@ -113,7 +113,8 @@ describe("HR org chart (e2e)", () => {
           : {}),
         dateOfJoining: new Date("2026-01-05T00:00:00Z"),
         workEmail: over.workEmail ?? null,
-        phone: "+91 90000 00000",
+        // Unique per employee: phone numbers are unique within an organization.
+        phone: `+91 90000 ${String(counter).padStart(5, "0")}`,
       },
     });
     return row.id;

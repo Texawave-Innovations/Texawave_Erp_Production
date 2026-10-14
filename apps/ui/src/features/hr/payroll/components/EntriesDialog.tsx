@@ -8,7 +8,7 @@ import {
   Pagination,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
-import { days, money, periodLabel } from "../format";
+import { PAY_DAYS_LABEL, days, money, periodLabel } from "../format";
 import { useEntries, useEntry } from "../hooks";
 import type { PayrollEntry, PayrollRun } from "../types";
 import { QueryState } from "./QueryState";
@@ -72,8 +72,17 @@ function EntryDetail({ id, onBack }: { id: number; onBack: () => void }) {
             <Fact label="Half days" value={days(e.halfDays)} />
             <Fact label="Holidays" value={days(e.holidayDays)} />
             <Fact label="Paid leave" value={days(e.leaveDays)} />
+            <Fact label="Absent (attendance)" value={days(e.absentDays)} />
             <Fact label="Loss of pay" value={days(e.lopDays)} />
             <Fact label="Payable days" value={days(e.payableDays)} />
+            <Fact
+              label="Overtime"
+              value={`${Math.round(((e.overtimeMinutes ?? 0) / 60) * 100) / 100} h`}
+            />
+            <Fact
+              label="Attendance"
+              value={e.attendanceLockId ? "Approved month" : "Not used"}
+            />
           </dl>
 
           <h4 className="mt-4 mb-2 text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -84,6 +93,16 @@ function EntryDetail({ id, onBack }: { id: number; onBack: () => void }) {
             <Fact label="Per-day rate" value={money(e.perDayRate)} />
             <Fact label="Earning ratio" value={ratio(e.earningRatio)} />
             <Fact label="Base earnings" value={money(e.baseEarnings)} />
+            <Fact
+              label="Pay-days basis"
+              value={
+                e.payDaysMode
+                  ? `${PAY_DAYS_LABEL[e.payDaysMode]} (÷ ${days(e.payDaysDivisor)})`
+                  : "—"
+              }
+            />
+            <Fact label="Tax regime" value={e.taxRegime ?? "—"} />
+            <Fact label="Taxable earnings" value={money(e.taxableEarnings)} />
           </dl>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">

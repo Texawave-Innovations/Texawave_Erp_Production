@@ -22,36 +22,60 @@ const requiredId = z
     message: "Enter a valid ID",
   });
 
-export const employeeFormSchema = z.object({
-  fullName: z
-    .string()
-    .trim()
-    .min(1, "Full name is required")
-    .max(200, "Full name must be 200 characters or fewer"),
-  workEmail: z
-    .string()
-    .trim()
-    .max(254)
-    .refine((v) => v === "" || z.email().safeParse(v).success, {
-      message: "Enter a valid work email",
-    }),
-  phone: z
-    .string()
-    .trim()
-    .refine((v) => v === "" || PHONE_PATTERN.test(v), {
-      message: "Phone must be 6–20 digits, spaces, + ( ) or -",
-    }),
-  teamId: requiredId,
-  departmentId: optionalId,
-  designationId: requiredId,
-  employmentTypeId: requiredId,
-  workLocationId: optionalId,
-  reportsToId: optionalId,
-  dateOfJoining: z
-    .string()
-    .min(1, "Date of joining is required")
-    .refine((v) => ISO_DATE.test(v), { message: "Use a valid date" }),
-});
+const optionalDate = z
+  .string()
+  .refine((v) => v === "" || ISO_DATE.test(v), { message: "Use a valid date" });
+
+export const employeeFormSchema = z
+  .object({
+    fullName: z
+      .string()
+      .trim()
+      .min(1, "Full name is required")
+      .max(200, "Full name must be 200 characters or fewer"),
+    workEmail: z
+      .string()
+      .trim()
+      .max(254)
+      .refine((v) => v === "" || z.email().safeParse(v).success, {
+        message: "Enter a valid work email",
+      }),
+    phone: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || PHONE_PATTERN.test(v), {
+        message: "Phone must be 6–20 digits, spaces, + ( ) or -",
+      }),
+    teamId: requiredId,
+    departmentId: optionalId,
+    designationId: requiredId,
+    employmentTypeId: requiredId,
+    workLocationId: optionalId,
+    reportsToId: optionalId,
+    dateOfJoining: z
+      .string()
+      .min(1, "Date of joining is required")
+      .refine((v) => ISO_DATE.test(v), { message: "Use a valid date" }),
+    probationEndDate: optionalDate,
+    confirmationDate: optionalDate,
+    referredBy: z
+      .string()
+      .trim()
+      .max(200, "Referred by must be 200 characters or fewer"),
+    workDomain: z
+      .string()
+      .trim()
+      .max(100, "Work domain must be 100 characters or fewer"),
+  })
+  // Mirrors the API's PROBATION_/CONFIRMATION_BEFORE_JOINING rules (and DB CHECKs).
+  .refine((v) => !v.probationEndDate || v.probationEndDate >= v.dateOfJoining, {
+    path: ["probationEndDate"],
+    message: "Probation cannot end before the date of joining",
+  })
+  .refine((v) => !v.confirmationDate || v.confirmationDate >= v.dateOfJoining, {
+    path: ["confirmationDate"],
+    message: "Confirmation cannot be before the date of joining",
+  });
 
 export type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
@@ -66,6 +90,10 @@ export const EMPTY_FORM: EmployeeFormValues = {
   workLocationId: "",
   reportsToId: "",
   dateOfJoining: "",
+  probationEndDate: "",
+  confirmationDate: "",
+  referredBy: "",
+  workDomain: "",
 };
 
 export function formFromDetail(e: EmployeeDetail): EmployeeFormValues {
@@ -80,6 +108,10 @@ export function formFromDetail(e: EmployeeDetail): EmployeeFormValues {
     workLocationId: e.workLocation ? String(e.workLocation.id) : "",
     reportsToId: e.reportsTo ? String(e.reportsTo.id) : "",
     dateOfJoining: e.dateOfJoining,
+    probationEndDate: e.probationEndDate ?? "",
+    confirmationDate: e.confirmationDate ?? "",
+    referredBy: e.referredBy ?? "",
+    workDomain: e.workDomain ?? "",
   };
 }
 
@@ -101,6 +133,10 @@ export function buildCreatePayload(v: EmployeeFormValues): Payload {
   if (v.departmentId) body.departmentId = toNum(v.departmentId);
   if (v.workLocationId) body.workLocationId = toNum(v.workLocationId);
   if (v.reportsToId) body.reportsToId = toNum(v.reportsToId);
+  if (v.probationEndDate) body.probationEndDate = v.probationEndDate;
+  if (v.confirmationDate) body.confirmationDate = v.confirmationDate;
+  if (v.referredBy.trim()) body.referredBy = v.referredBy.trim();
+  if (v.workDomain.trim()) body.workDomain = v.workDomain.trim();
   return body;
 }
 
@@ -118,12 +154,24 @@ export function buildUpdatePayload(
   const body: Payload = { version };
   if (v.fullName.trim() !== initial.fullName) body.fullName = v.fullName.trim();
 
-  const nullableText = (key: "workEmail" | "phone") => {
+  const nullableText = (
+    key:
+      | "workEmail"
+      | "phone"
+      | "referredBy"
+      | "workDomain"
+      | "probationEndDate"
+      | "confirmationDate",
+  ) => {
     const next = v[key].trim();
     if (next !== initial[key].trim()) body[key] = next === "" ? null : next;
   };
   nullableText("workEmail");
   nullableText("phone");
+  nullableText("referredBy");
+  nullableText("workDomain");
+  nullableText("probationEndDate");
+  nullableText("confirmationDate");
 
   const requiredNum = (
     key: "teamId" | "designationId" | "employmentTypeId",

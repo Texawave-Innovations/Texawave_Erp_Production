@@ -10,7 +10,10 @@ const USER_ID = 42;
 function makeService() {
   const repository = {
     findMany: vi.fn(),
-    findOneWithPermissions: vi.fn(),
+    // Writes re-read the role to return it.
+    findOneWithPermissions: vi
+      .fn()
+      .mockResolvedValue({ id: 1, permissions: [] }),
     findPermissionCatalog: vi.fn(),
     resolvePermissionCodes: vi.fn().mockResolvedValue([]),
     attachPermissions: vi.fn(),
@@ -22,10 +25,13 @@ function makeService() {
   };
   const permissions = { invalidate: vi.fn().mockResolvedValue(undefined) };
 
+  const auditQuery = { history: vi.fn() };
+
   const service = new RolesService(
     repository as never,
     tenantContext as never,
     permissions as never,
+    auditQuery as never,
   );
   return { service, repository, permissions };
 }
@@ -136,7 +142,7 @@ describe("RolesService.attachPermissions()", () => {
 
   it("throws ResourceNotFoundException for a role outside the org without invalidating anything", async () => {
     const { service, repository, permissions } = makeService();
-    repository.attachPermissions.mockResolvedValue(false);
+    repository.attachPermissions.mockResolvedValue(null);
 
     await expect(
       service.attachPermissions(999, { permissionIds: [1] }),

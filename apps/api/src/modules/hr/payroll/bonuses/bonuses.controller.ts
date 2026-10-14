@@ -7,6 +7,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../../../common/decorators/paginate.decorator.js";
@@ -14,8 +15,11 @@ import { RequireScopedPermission } from "../../../../common/decorators/require-p
 import { BonusesService } from "./bonuses.service.js";
 import {
   CreateBonusDto,
+  CreateGratuityDto,
   DecideBonusDto,
+  GratuityQueryDto,
   QueryBonusDto,
+  StatutoryBonusDto,
 } from "./dto/bonus.dto.js";
 
 @ApiTags("hr-bonuses")
@@ -35,6 +39,36 @@ export class BonusesController {
   @ApiOperation({ summary: "List bonuses with filtering and pagination" })
   findAll(@Paginate(QueryBonusDto) query: QueryBonusDto) {
     return this.service.findAll(query);
+  }
+
+  @Post("statutory")
+  @HttpCode(HttpStatus.OK)
+  @RequireScopedPermission("hr.bonus.write")
+  @ApiOperation({
+    summary:
+      "Statutory bonus for a financial year from finalized payroll (preview; create: raise PENDING bonuses). Org-wide (.all)",
+  })
+  statutory(@Body() dto: StatutoryBonusDto) {
+    return this.service.statutory(dto);
+  }
+
+  @Get("gratuity/:employeeId")
+  @RequireScopedPermission("hr.bonus.read")
+  @ApiOperation({ summary: "Gratuity due to an employee as of a date" })
+  gratuity(
+    @Param("employeeId", ParseIntPipe) employeeId: number,
+    @Query() query: GratuityQueryDto,
+  ) {
+    return this.service.gratuityFor(employeeId, query.asOf);
+  }
+
+  @Post("gratuity")
+  @RequireScopedPermission("hr.bonus.write")
+  @ApiOperation({
+    summary: "Raise the calculated gratuity as a GRATUITY bonus (PENDING)",
+  })
+  createGratuity(@Body() dto: CreateGratuityDto) {
+    return this.service.createGratuity(dto);
   }
 
   @Get(":id")

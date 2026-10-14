@@ -19,7 +19,11 @@ menu item's `permission` must already exist.
    `...scopedPermission("hr.employee.read", "View employees")` — all of `.own`/`.team`/`.all`
    are required together (`validate.ts` rejects a partial set).
 2. `pnpm --filter @texawave-erp/database permissions:sync` locally.
-3. Grant it to roles in Settings → Roles. Sync never grants anything to anyone.
+3. Give its resource a label and section in the role editor's
+   `apps/ui/src/features/settings/roles/utils/access-model.ts` (`RESOURCES`), or it is listed
+   under "Other". If its `.own` variant is refused by the API, add the base code to
+   `OWN_RESERVED`; if it is high-impact (money, personal data, access), add it to `SENSITIVE`.
+4. Grant it to roles in Admin → Roles (Access control). Sync never grants anything to anyone.
 
 ## Deploy (every environment)
 

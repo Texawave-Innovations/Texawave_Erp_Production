@@ -30,7 +30,6 @@ import {
   Calendar,
   CalendarCheck,
   CalendarDays,
-  FileSpreadsheet,
   MapPin,
   Award,
   ListTodo,
@@ -156,13 +155,6 @@ const HR_CATEGORIES: NavCategory[] = [
         path: "/hr/regularization",
         icon: CalendarCheck,
         menuCode: "hr-regularization",
-      },
-      {
-        id: "work-logs",
-        label: "Work Logs",
-        path: "/hr/work-logs",
-        icon: FileSpreadsheet,
-        menuCode: "hr-work-logs",
       },
       {
         id: "location-privilege",

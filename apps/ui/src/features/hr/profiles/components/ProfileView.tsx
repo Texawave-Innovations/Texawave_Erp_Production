@@ -33,6 +33,7 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useProfile, useSensitive } from "../hooks";
+import { codeLabel, GENDER_OPTIONS, MARITAL_OPTIONS } from "../codes";
 import {
   EMPLOYEE_WRITE_TEAM_OR_ALL,
   PROFILE_READ_ANY_SCOPE,
@@ -425,9 +426,11 @@ function ProfileBody({
             <DetailField label="Date of birth" icon={Calendar}>
               {dash(p.dateOfBirth)}
             </DetailField>
-            <DetailField label="Gender">{dash(p.gender)}</DetailField>
+            <DetailField label="Gender">
+              {dash(codeLabel(GENDER_OPTIONS, p.gender))}
+            </DetailField>
             <DetailField label="Marital status">
-              {dash(p.maritalStatus)}
+              {dash(codeLabel(MARITAL_OPTIONS, p.maritalStatus))}
             </DetailField>
             <DetailField label="Blood group">{dash(p.bloodGroup)}</DetailField>
             <DetailField label="Languages spoken">

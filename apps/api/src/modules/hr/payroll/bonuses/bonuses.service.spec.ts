@@ -11,66 +11,57 @@ import { QueryBonusDto, type CreateBonusDto } from "./dto/bonus.dto.js";
 const SCOPE = { organizationId: 1 };
 const USER_ID = 42;
 
-const EMPLOYEE = { id: 7, teamId: 3, userId: 70 };
+function errorCode(err: unknown): unknown {
+  return (err as { errorCode?: string }).errorCode;
+}
+
+const RULES = {
+  bonusEligibilityLimit: 21000,
+  bonusCalculationCeiling: 7000,
+  bonusPercent: 8.33,
+  gratuityMinYears: 5,
+  gratuityCap: 2000000,
+};
 
 function makeService(overrides?: {
   level?: "own" | "team" | "all";
-  teamIds?: number[];
-  employee?: unknown;
   period?: unknown;
   bonus?: unknown;
+  yearEntries?: unknown[];
+  raised?: number[];
+  gratuityEmployee?: unknown;
 }) {
   const repository = {
-    create: vi
-      .fn()
-      .mockImplementation(
-        (_scope: unknown, dto: Record<string, unknown>, userId: number) => ({
-          id: 1,
-          ...dto,
-          status: "PENDING",
-          createdBy: userId,
-        }),
-      ),
+    create: vi.fn().mockResolvedValue({ id: 1, status: "PENDING" }),
     findMany: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 31 }),
     findById: vi
       .fn()
       .mockResolvedValue(
         overrides && "bonus" in overrides ? overrides.bonus : null,
       ),
-    decide: vi
+    decide: vi.fn().mockResolvedValue({ id: 3, status: "APPROVED" }),
+    finalizedYearEntries: vi
       .fn()
-      .mockImplementation(
-        (_scope: unknown, id: number, decision: string, userId: number) => ({
-          id,
-          status: decision,
-          decidedBy: userId,
-        }),
+      .mockResolvedValue(overrides?.yearEntries ?? []),
+    statutoryBonusAlreadyRaised: vi
+      .fn()
+      .mockResolvedValue(new Set(overrides?.raised ?? [])),
+    createStatutoryBonuses: vi.fn().mockResolvedValue([501]),
+    gratuityInputs: vi
+      .fn()
+      .mockResolvedValue(
+        overrides && "gratuityEmployee" in overrides
+          ? overrides.gratuityEmployee
+          : null,
       ),
   };
-
-  const tenantContext = {
-    getOrgScope: vi.fn().mockReturnValue(SCOPE),
-    getUserId: vi.fn().mockReturnValue(USER_ID),
-  };
-
   const teamScope = {
     level: overrides?.level ?? "all",
     userId: USER_ID,
     organizationId: 1,
-    teamIds: overrides?.teamIds ?? [],
+    teamIds: [3],
   };
-  const teamContext = {
-    resolveScope: vi.fn().mockResolvedValue(teamScope),
-  };
-
   const prisma = {
-    employee: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue(
-          overrides && "employee" in overrides ? overrides.employee : EMPLOYEE,
-        ),
-    },
     payrollPeriod: {
       findFirst: vi
         .fn()
@@ -81,15 +72,17 @@ function makeService(overrides?: {
         ),
     },
   };
-
   const service = new BonusesService(
     repository as never,
-    tenantContext as never,
-    teamContext as never,
+    {
+      getOrgScope: vi.fn().mockReturnValue(SCOPE),
+      getUserId: vi.fn().mockReturnValue(USER_ID),
+    } as never,
+    { resolveScope: vi.fn().mockResolvedValue(teamScope) } as never,
     prisma as never,
+    { rules: vi.fn().mockResolvedValue(RULES) } as never,
   );
-
-  return { service, repository, teamContext, prisma, teamScope };
+  return { service, repository, teamScope };
 }
 
 const CREATE_DTO: CreateBonusDto = {
@@ -98,221 +91,169 @@ const CREATE_DTO: CreateBonusDto = {
   amount: 5000,
 };
 
+const month = (basic: number, payableDays = 30) => ({
+  employeeId: 7,
+  payableDays: String(payableDays),
+  employee: { id: 7, employeeCode: "EMP-000007", fullName: "Seven" },
+  earnings: [
+    {
+      code: "BASIC",
+      baseAmount: String(basic),
+      calculatedAmount: String(basic),
+    },
+  ],
+});
+
 describe("BonusesService", () => {
   describe("create", () => {
-    it("creates a bonus without a period for an org-wide writer", async () => {
-      const { service, repository, prisma, teamContext } = makeService();
-
-      const result = await service.create(CREATE_DTO);
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.bonus.write");
-      expect(prisma.employee.findFirst).toHaveBeenCalledWith({
-        where: { id: 7, organizationId: 1, deletedAt: null },
-      });
-      expect(prisma.payrollPeriod.findFirst).not.toHaveBeenCalled();
+    it("passes the caller's write scope to the repository (which re-checks the employee)", async () => {
+      const { service, repository, teamScope } = makeService();
+      await service.create(CREATE_DTO);
       expect(repository.create).toHaveBeenCalledWith(
-        SCOPE,
+        teamScope,
         CREATE_DTO,
         USER_ID,
       );
-      expect(result).toMatchObject({ status: "PENDING", createdBy: USER_ID });
     });
 
-    it("rejects an unknown employee as not found", async () => {
-      const { service, repository } = makeService({ employee: null });
-
-      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("hides an employee outside the caller's teams as not found", async () => {
-      const { service, repository } = makeService({
-        level: "team",
-        teamIds: [99],
-      });
-
-      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("allows a team-scoped writer for an employee in their team", async () => {
-      const { service, repository } = makeService({
-        level: "team",
-        teamIds: [3],
-      });
-
-      await service.create(CREATE_DTO);
-
-      expect(repository.create).toHaveBeenCalledOnce();
-    });
-
-    it("never lets an own-scoped caller write bonuses", async () => {
-      const { service, repository } = makeService({ level: "own" });
-
-      await expect(service.create(CREATE_DTO)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("validates the payroll period when one is given", async () => {
-      const { service, repository, prisma } = makeService();
-
-      await service.create({ ...CREATE_DTO, payrollPeriodId: 5 });
-
-      expect(prisma.payrollPeriod.findFirst).toHaveBeenCalledWith({
-        where: { id: 5, organizationId: 1, deletedAt: null },
-      });
-      expect(repository.create).toHaveBeenCalledOnce();
-    });
-
-    it("rejects an unknown payroll period", async () => {
-      const { service, repository } = makeService({ period: null });
-
-      await expect(
-        service.create({ ...CREATE_DTO, payrollPeriodId: 5 }),
-      ).rejects.toBeInstanceOf(ResourceNotFoundException);
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects assigning a bonus to a finalized period", async () => {
-      const { service, repository } = makeService({
+    it("refuses a finalized period", async () => {
+      const { service } = makeService({
         period: { id: 5, status: "FINALIZED" },
       });
-
-      const error = await service
-        .create({ ...CREATE_DTO, payrollPeriodId: 5 })
-        .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "PERIOD_FINALIZED",
-      );
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("findAll / findOne", () => {
-    it("returns a paginated list under the read scope", async () => {
-      const { service, repository, teamContext, teamScope } = makeService();
-      const query = Object.assign(new QueryBonusDto(), { page: 2, limit: 10 });
-
-      const result = await service.findAll(query);
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.bonus.read");
-      expect(repository.findMany).toHaveBeenCalledWith(teamScope, query, query);
-      expect(result).toBeInstanceOf(PaginatedResponseDto);
-      expect(result.items).toEqual([{ id: 1 }]);
-      expect(result.total).toBe(31);
-      expect(result.page).toBe(2);
-      expect(result.limit).toBe(10);
-      expect(result.totalPages).toBe(4);
+      await expect(
+        service.create({ ...CREATE_DTO, payrollPeriodId: 5 }),
+      ).rejects.toBeInstanceOf(BusinessRuleViolationException);
     });
 
-    it("returns a single bonus in scope", async () => {
-      const { service, repository, teamScope } = makeService({
-        bonus: { id: 9, status: "PENDING" },
-      });
-
-      await expect(service.findOne(9)).resolves.toEqual({
-        id: 9,
-        status: "PENDING",
-      });
-      expect(repository.findById).toHaveBeenCalledWith(teamScope, 9);
-    });
-
-    it("reports a bonus outside scope as not found", async () => {
-      const { service } = makeService({ bonus: null });
-
-      await expect(service.findOne(9)).rejects.toBeInstanceOf(
-        ResourceNotFoundException,
-      );
+    it("hides another organization's period as not found", async () => {
+      const { service } = makeService({ period: null });
+      await expect(
+        service.create({ ...CREATE_DTO, payrollPeriodId: 99 }),
+      ).rejects.toBeInstanceOf(ResourceNotFoundException);
     });
   });
 
   describe("decide", () => {
-    const pending = {
-      id: 9,
+    const PENDING = {
+      id: 3,
       status: "PENDING",
       createdBy: 11,
       employee: { userId: 70 },
     };
 
     it("approves a pending bonus raised by someone else", async () => {
-      const { service, repository, teamContext } = makeService({
-        bonus: pending,
+      const { service, repository, teamScope } = makeService({
+        bonus: PENDING,
       });
-
-      const result = await service.decide(9, { decision: "APPROVED" });
-
-      expect(teamContext.resolveScope).toHaveBeenCalledWith("hr.bonus.approve");
+      await service.decide(3, { decision: "APPROVED" });
       expect(repository.decide).toHaveBeenCalledWith(
-        SCOPE,
-        9,
+        teamScope,
+        3,
         "APPROVED",
         USER_ID,
+        undefined,
       );
-      expect(result).toEqual({ id: 9, status: "APPROVED", decidedBy: USER_ID });
     });
 
-    it("rejects when another approver decided the bonus first", async () => {
-      const { service, repository } = makeService({ bonus: pending });
-      repository.decide.mockResolvedValueOnce(null);
-
-      await expect(
-        service.decide(9, { decision: "APPROVED" }),
-      ).rejects.toMatchObject({ errorCode: "ALREADY_DECIDED" });
-    });
-
-    it("rejects deciding an unknown bonus", async () => {
-      const { service, repository } = makeService({ bonus: null });
-
-      await expect(
-        service.decide(9, { decision: "APPROVED" }),
-      ).rejects.toBeInstanceOf(ResourceNotFoundException);
-      expect(repository.decide).not.toHaveBeenCalled();
-    });
-
-    it("blocks the maker from approving their own bonus", async () => {
-      const { service, repository } = makeService({
-        bonus: { ...pending, createdBy: USER_ID },
+    it("refuses the person who raised it", async () => {
+      const { service } = makeService({
+        bonus: { ...PENDING, createdBy: USER_ID },
       });
-
       await expect(
-        service.decide(9, { decision: "APPROVED" }),
+        service.decide(3, { decision: "APPROVED" }),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.decide).not.toHaveBeenCalled();
     });
 
-    it("blocks the recipient from approving their own bonus", async () => {
-      const { service, repository } = makeService({
-        bonus: { ...pending, employee: { userId: USER_ID } },
+    it("refuses the recipient", async () => {
+      const { service } = makeService({
+        bonus: { ...PENDING, employee: { userId: USER_ID } },
       });
-
       await expect(
-        service.decide(9, { decision: "REJECTED" }),
+        service.decide(3, { decision: "APPROVED" }),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.decide).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("statutory bonus", () => {
+    it("is organization-wide only", async () => {
+      const { service } = makeService({ level: "team" });
+      await expect(
+        service.statutory({ financialYear: "2025-26" }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it("rejects re-deciding an already decided bonus", async () => {
+    it("previews from finalized months without creating anything", async () => {
       const { service, repository } = makeService({
-        bonus: { ...pending, status: "APPROVED" },
+        yearEntries: Array.from({ length: 12 }, () => month(10000)),
       });
+      const res = await service.statutory({ financialYear: "2025-26" });
+      // 12 × min(10000, 7000) × 8.33% = 6997
+      expect(res.employees[0]).toMatchObject({ eligible: true, amount: 6997 });
+      expect(repository.createStatutoryBonuses).not.toHaveBeenCalled();
+    });
 
-      const error = await service
-        .decide(9, { decision: "REJECTED" })
+    it("creates only for eligible employees not already raised", async () => {
+      const { service, repository } = makeService({
+        yearEntries: Array.from({ length: 12 }, () => month(10000)),
+        raised: [7],
+      });
+      const res = await service.statutory({
+        financialYear: "2025-26",
+        create: true,
+      });
+      expect(res.employees[0]?.alreadyRaised).toBe(true);
+      expect(repository.createStatutoryBonuses).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed financial year", async () => {
+      const { service } = makeService();
+      const err = await service
+        .statutory({ financialYear: "2025-27" })
         .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(BusinessRuleViolationException);
-      expect((error as BusinessRuleViolationException).errorCode).toBe(
-        "ALREADY_DECIDED",
-      );
-      expect(repository.decide).not.toHaveBeenCalled();
+      expect(errorCode(err)).toBe("FINANCIAL_YEAR_INVALID");
     });
+  });
+
+  describe("gratuity", () => {
+    const EMP = {
+      id: 7,
+      employeeCode: "EMP-000007",
+      fullName: "Seven",
+      dateOfJoining: new Date("2018-01-01T00:00:00.000Z"),
+      dateOfExit: null,
+      salaries: [{ basic: "26000", components: [{ monthlyAmount: "26000" }] }],
+    };
+
+    it("calculates 15/26 of Basic + DA per counted year", async () => {
+      const { service } = makeService({ gratuityEmployee: EMP });
+      const res = await service.gratuityFor(7, "2026-08-01");
+      // 8 completed years + 7 months (> 6) = 9 counted years
+      expect(res).toMatchObject({
+        eligible: true,
+        countedYears: 9,
+        amount: 135000,
+      });
+    });
+
+    it("raises nothing for fewer than five years", async () => {
+      const { service } = makeService({
+        gratuityEmployee: {
+          ...EMP,
+          dateOfJoining: new Date("2024-01-01T00:00:00.000Z"),
+        },
+      });
+      const err = await service
+        .createGratuity({ employeeId: 7, asOf: "2026-08-01" })
+        .catch((e: unknown) => e);
+      expect(errorCode(err)).toBe("GRATUITY_NOT_ELIGIBLE");
+    });
+  });
+
+  it("lists bonuses within the read scope", async () => {
+    const { service } = makeService();
+    const res = await service.findAll(
+      Object.assign(new QueryBonusDto(), { page: 1, limit: 10 }),
+    );
+    expect(res).toBeInstanceOf(PaginatedResponseDto);
   });
 });

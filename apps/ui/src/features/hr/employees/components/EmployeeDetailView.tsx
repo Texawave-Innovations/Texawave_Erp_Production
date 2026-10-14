@@ -8,6 +8,7 @@ import {
   Calendar,
   Edit,
   ExternalLink,
+  FileDown,
   History,
   Mail,
   MapPin,
@@ -29,7 +30,10 @@ import {
   ErrorState,
   Pagination,
   Skeleton,
+  useToast,
 } from "@texawave-erp/ui-kit";
+import { downloadProfilePdf } from "../api";
+import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
 import { usePermission } from "@/hooks/usePermission";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
@@ -99,6 +103,8 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const [accountDialog, setAccountDialog] = useState<null | "link" | "unlink">(
     null,
   );
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const { toast } = useToast();
 
   if (!canRead) {
     return (
@@ -154,6 +160,23 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   const e: EmployeeDetail = query.data;
   const exit = isExitStatus(e.status);
+
+  /** Personal profile only — the PDF never carries PAN/Aadhaar/bank data. */
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      await downloadProfilePdf(e.id, e.employeeCode);
+    } catch (error) {
+      toast({
+        title: "Could not create the PDF",
+        description:
+          error instanceof Error ? error.message : "Try again in a moment.",
+        variant: "error",
+      });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
   const canChangeStatus = canStatus && TRANSITIONS[e.status].length > 0;
   const canCorrectStatus = canCorrect && CORRECTIONS[e.status].length > 0;
 
@@ -243,6 +266,18 @@ export function EmployeeDetailView({ id }: { id: number }) {
               </Link>
             ) : null}
 
+            {canReadProfile ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={downloadingPdf}
+                onClick={() => void handleDownloadPdf()}
+              >
+                <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                Download PDF
+              </Button>
+            ) : null}
+
             {canWrite ? (
               <Link
                 href={`/hr/employees/${e.id}/edit`}
@@ -299,6 +334,8 @@ export function EmployeeDetailView({ id }: { id: number }) {
         </div>
       </Card>
 
+      <OnboardingReviewPanel employee={e} />
+
       {/* Two-Column Information Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Employment Information Card */}
@@ -339,6 +376,14 @@ export function EmployeeDetailView({ id }: { id: number }) {
             <DetailField label="Login account" icon={ShieldCheck}>
               {e.hasLogin ? "Linked" : "Not linked"}
             </DetailField>
+            <DetailField label="Probation ends" icon={Calendar}>
+              {dateOnly(e.probationEndDate)}
+            </DetailField>
+            <DetailField label="Confirmation date" icon={Calendar}>
+              {dateOnly(e.confirmationDate)}
+            </DetailField>
+            <DetailField label="Work domain">{dash(e.workDomain)}</DetailField>
+            <DetailField label="Referred by">{dash(e.referredBy)}</DetailField>
             {exit ? (
               <>
                 <DetailField label="Exit date" icon={Calendar}>
