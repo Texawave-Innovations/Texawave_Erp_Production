@@ -1,17 +1,46 @@
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module.js";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
   app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService);
 
+  // request.ip (used by the office-network check and the audit trail) reads
+  // X-Forwarded-For only for the configured number of proxy hops.
+  app.set("trust proxy", config.getOrThrow<number>("TRUST_PROXY_HOPS"));
+
+  const corsOrigin = config.getOrThrow<string>("CORS_ORIGIN");
+  const allowedOrigins = corsOrigin.includes(",")
+    ? corsOrigin.split(",").map((s) => s.trim())
+    : [corsOrigin.trim()];
+
   app.enableCors({
-    origin: config.getOrThrow<string>("CORS_ORIGIN"),
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        (config.get<string>("NODE_ENV") !== "production" &&
+          /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   });
 

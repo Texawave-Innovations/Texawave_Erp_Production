@@ -44,6 +44,9 @@ jobs:
       # CI-only throwaway value — never the real secret, and never used
       # outside this ephemeral runner.
       JWT_SECRET: "ci-only-not-a-real-secret-do-not-reuse-1234567890"
+      # CI-only throwaway AES-256-GCM key (64 hex chars) — required by env
+      # validation since onboarding bank-detail encryption; never a real key.
+      FIELD_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       NODE_ENV: test
       LOG_LEVEL: warn
       CORS_ORIGIN: "http://localhost:3001"

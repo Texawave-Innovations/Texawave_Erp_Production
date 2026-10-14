@@ -9,7 +9,7 @@ export function Skeleton({
     <div
       aria-hidden
       className={cn(
-        "animate-pulse rounded-md bg-gray-200 dark:bg-gray-800",
+        "animate-pulse motion-reduce:animate-none rounded-md bg-gray-200 dark:bg-gray-800",
         className,
       )}
       {...props}

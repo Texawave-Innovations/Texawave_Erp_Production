@@ -1,6 +1,7 @@
 import type { Prisma } from "@texawave-erp/database";
 import { formatDateOnly } from "../../../common/dates/date-only.js";
 import type { EmployeeStatus } from "./employee-status.policy.js";
+import type { OnboardingReviewStatus } from "./onboarding-review.policy.js";
 
 const NAME_ONLY = { select: { id: true, name: true } } as const;
 
@@ -37,6 +38,11 @@ export interface EmployeeListItem {
   employmentType: Ref;
   reportsToId: number | null;
   hasLogin: boolean;
+  /** Self-onboarding progress (Docs/ARCHITECTURE.md §7) — written only by
+   * the employee-self-service module via EmployeeQueryService, never by HR. */
+  onboardingStatus: string;
+  /** HR's review of the submitted profile (onboarding-review.policy.ts). */
+  onboardingReviewStatus: OnboardingReviewStatus;
 }
 
 export interface EmployeeDetail extends EmployeeListItem {
@@ -47,6 +53,16 @@ export interface EmployeeDetail extends EmployeeListItem {
   reportsTo: { id: number; employeeCode: string; fullName: string } | null;
   /** The linked platform user, if any. Never a credential. */
   userId: number | null;
+  probationEndDate: string | null;
+  confirmationDate: string | null;
+  referredBy: string | null;
+  workDomain: string | null;
+  onboardingSubmittedAt: Date | null;
+  onboardingReviewedAt: Date | null;
+  /** User id of the reviewer; null before review or for grandfathered rows. */
+  onboardingReviewedBy: number | null;
+  /** HR's note — on CHANGES_REQUESTED, what the employee must correct. */
+  onboardingReviewNote: string | null;
   dateOfExit: string | null;
   exitReason: string | null;
   isActive: boolean;
@@ -68,6 +84,9 @@ export function toListItem(row: EmployeeRow): EmployeeListItem {
     employmentType: row.employmentType,
     reportsToId: row.reportsToId,
     hasLogin: row.userId !== null,
+    onboardingStatus: row.onboardingStatus,
+    onboardingReviewStatus:
+      row.onboardingReviewStatus as OnboardingReviewStatus,
   };
 }
 
@@ -80,6 +99,14 @@ export function toDetail(row: EmployeeRow): EmployeeDetail {
     workLocation: row.workLocation,
     reportsTo: row.reportsTo,
     userId: row.userId,
+    probationEndDate: dateOrNull(row.probationEndDate),
+    confirmationDate: dateOrNull(row.confirmationDate),
+    referredBy: row.referredBy,
+    workDomain: row.workDomain,
+    onboardingSubmittedAt: row.onboardingSubmittedAt,
+    onboardingReviewedAt: row.onboardingReviewedAt,
+    onboardingReviewedBy: row.onboardingReviewedBy,
+    onboardingReviewNote: row.onboardingReviewNote,
     dateOfExit: row.dateOfExit ? formatDateOnly(row.dateOfExit) : null,
     exitReason: row.exitReason,
     isActive: row.isActive,
@@ -87,6 +114,10 @@ export function toDetail(row: EmployeeRow): EmployeeDetail {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+function dateOrNull(value: Date | null): string | null {
+  return value ? formatDateOnly(value) : null;
 }
 
 /** Keeps the last two digits so a change is visible without logging the number. */
@@ -119,6 +150,12 @@ export function auditSnapshot(
     workLocationId: row.workLocationId,
     reportsToId: row.reportsToId,
     dateOfJoining: formatDateOnly(row.dateOfJoining),
+    probationEndDate: dateOrNull(row.probationEndDate),
+    confirmationDate: dateOrNull(row.confirmationDate),
+    referredBy: row.referredBy,
+    workDomain: row.workDomain,
+    onboardingStatus: row.onboardingStatus,
+    onboardingReviewStatus: row.onboardingReviewStatus,
     dateOfExit: row.dateOfExit ? formatDateOnly(row.dateOfExit) : null,
     version: row.version,
   };

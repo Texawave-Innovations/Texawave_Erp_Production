@@ -5,7 +5,7 @@ import type {
   ResetPasswordFormValues,
 } from "@texawave-erp/core";
 import { useMutation } from "@tanstack/react-query";
-import { forgotPassword, resetPassword } from "./api";
+import { changePassword, forgotPassword, resetPassword } from "./api";
 
 // No cache to invalidate — both mutations are unauthenticated and there is
 // no org-scoped query key to speak of yet.
@@ -20,5 +20,12 @@ export function useResetPassword() {
     mutationFn: (
       input: Pick<ResetPasswordFormValues, "token" | "newPassword">,
     ) => resetPassword(input),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (input: { currentPassword: string; newPassword: string }) =>
+      changePassword(input),
   });
 }

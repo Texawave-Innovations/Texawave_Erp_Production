@@ -1,13 +1,14 @@
 // Local-dev seed only — NOT run in CI, NOT a migration. Creates the single
 // "Texawave Innovations" organization, its three teams (Docs/ARCHITECTURE.md
-// §5.5), the permission catalogue (prisma/permissions/catalog.ts — synced by
-// the same code every environment uses, so this seed can't drift from
-// staging/production), a "Super Admin"
+// §5.5), the permission catalogue and the menu tree (prisma/permissions/catalog.ts,
+// prisma/menu/catalog.ts — both synced by the same code every environment
+// uses, so this seed can't drift from staging/production), a "Super Admin"
 // role granted every permission, and one Super Admin user with no team
 // assignment (Super Admin uses `.all`-scoped permissions where they exist,
 // bypassing team filtering entirely).
 import bcrypt from "bcrypt";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaClient, type Team } from "../generated/prisma/client.js";
+import { syncMenuItems } from "./menu/sync.js";
 import { DEFAULT_ROLES } from "./permissions/default-roles.js";
 import { syncPermissions } from "./permissions/sync.js";
 
@@ -29,7 +30,7 @@ async function main() {
     create: { name: "Texawave Innovations", slug: "texawave-innovations" },
   });
 
-  const teams = new Map<string, { id: number }>();
+  const teams = new Map<string, Team>();
   for (const team of TEAMS) {
     // One Department per Team, 1:1 — a placeholder so local dev data stays
     // coherent now that `teams.department_id` exists (Docs/ARCHITECTURE.md
@@ -65,101 +66,18 @@ async function main() {
   // `pnpm --filter @texawave-erp/database permissions:sync`.
   await syncPermissions(prisma);
 
-  // Seed default menu items
-  const adminParent = await prisma.menuItem.upsert({
-    where: {
-      organizationId_code: { organizationId: org.id, code: "admin" },
-    },
-    update: { label: "Admin", order: 10 },
-    create: {
-      organizationId: org.id,
-      code: "admin",
-      label: "Admin",
-      order: 10,
-    },
-  });
-
-  const defaultMenuItems = [
-    {
-      code: "dashboard",
-      label: "Dashboard",
-      path: "/",
-      order: 1,
-      parentId: null,
-      permission: null,
-    },
-    {
-      code: "reference-tags",
-      label: "Reference Tags",
-      path: "/reference/tags",
-      order: 2,
-      parentId: null,
-      permission: "reference.tags.read",
-    },
-    {
-      code: "admin-departments",
-      label: "Departments",
-      path: "/admin/departments",
-      order: 1,
-      parentId: adminParent.id,
-      permission: "departments.department.read",
-    },
-    {
-      code: "admin-roles",
-      label: "Roles",
-      path: "/admin/roles",
-      order: 2,
-      parentId: adminParent.id,
-      permission: "settings.role.read",
-    },
-    {
-      code: "admin-users",
-      label: "Users",
-      path: "/admin/users",
-      order: 3,
-      parentId: adminParent.id,
-      permission: "users.user.read",
-    },
-    {
-      code: "admin-menu",
-      label: "Navigation Menu",
-      path: "/admin/menu",
-      order: 4,
-      parentId: adminParent.id,
-      permission: "menu.item.read",
-    },
-  ];
-
-  for (const item of defaultMenuItems) {
-    await prisma.menuItem.upsert({
-      where: {
-        organizationId_code: { organizationId: org.id, code: item.code },
-      },
-      update: {
-        label: item.label,
-        path: item.path,
-        order: item.order,
-        parentId: item.parentId,
-        permission: item.permission,
-      },
-      create: {
-        organizationId: org.id,
-        code: item.code,
-        label: item.label,
-        path: item.path,
-        order: item.order,
-        parentId: item.parentId,
-        permission: item.permission,
-      },
-    });
-  }
+  // The menu tree lives in prisma/menu/catalog.ts and is what every
+  // environment (not just this local seed) is synced to via
+  // `pnpm --filter @texawave-erp/database menu:sync` — mirrors
+  // syncPermissions above; see prisma/menu/sync.ts for the guarantees.
+  await syncMenuItems(prisma, org.id);
 
   const superAdminRole = await prisma.role.upsert({
     where: {
       organizationId_name: { organizationId: org.id, name: "Super Admin" },
     },
-    update: {},
-    create: { organizationId: org.id, name: "Super Admin" },
+    update: { isSystem: true },
+    create: { organizationId: org.id, name: "Super Admin", isSystem: true },
   });
 
   const allPermissions = await prisma.permission.findMany();
@@ -201,8 +119,8 @@ async function main() {
       where: {
         organizationId_name: { organizationId: org.id, name: definition.name },
       },
-      update: {},
-      create: { organizationId: org.id, name: definition.name },
+      update: { isSystem: true },
+      create: { organizationId: org.id, name: definition.name, isSystem: true },
     });
     const permissions = await prisma.permission.findMany({
       where: { code: { in: [...definition.permissions] } },
@@ -245,6 +163,101 @@ async function main() {
   });
   // Deliberately no UserTeamAccess row for the Super Admin — `.all`-scoped
   // permissions bypass team filtering entirely (Docs/ARCHITECTURE.md §5.5).
+
+  const adminDesignation = await prisma.designation.upsert({
+    where: {
+      organizationId_code: {
+        organizationId: org.id,
+        code: "EXEC_01",
+      },
+    },
+    update: {},
+    create: {
+      organizationId: org.id,
+      code: "EXEC_01",
+      name: "Managing Director",
+    },
+  });
+
+  const swTeam = teams.get("SW");
+  const permanentType = await prisma.employmentType.findFirst({
+    where: { organizationId: org.id, code: "PERMANENT" },
+  });
+
+  if (swTeam && permanentType) {
+    // The sequence is only ever moved forward here — on a DB that already has
+    // employees created through the app, rewinding it would hand out codes
+    // that are already taken.
+    const employeeSequence = await prisma.documentSequence.upsert({
+      where: {
+        organizationId_docType: { organizationId: org.id, docType: "employee" },
+      },
+      update: {},
+      create: {
+        organizationId: org.id,
+        docType: "employee",
+        prefix: "EMP-",
+        padding: 6,
+        nextNumber: 1,
+      },
+    });
+
+    const existingAdminEmployee = await prisma.employee.findUnique({
+      where: { userId: superAdminUser.id },
+      select: { id: true },
+    });
+
+    // EMP-000001 on a fresh DB; otherwise the next free code from the sequence.
+    let adminEmployeeCode = "EMP-000001";
+    if (!existingAdminEmployee) {
+      const codeTaken = await prisma.employee.findFirst({
+        where: { organizationId: org.id, employeeCode: adminEmployeeCode },
+        select: { id: true },
+      });
+      if (codeTaken || employeeSequence.nextNumber > 1) {
+        adminEmployeeCode = `${employeeSequence.prefix}${String(
+          employeeSequence.nextNumber,
+        ).padStart(employeeSequence.padding, "0")}`;
+      }
+    }
+
+    await prisma.employee.upsert({
+      where: {
+        userId: superAdminUser.id,
+      },
+      update: {
+        fullName: "Super Admin",
+        status: "ACTIVE",
+        onboardingStatus: "COMPLETE",
+      },
+      create: {
+        organizationId: org.id,
+        employeeCode: adminEmployeeCode,
+        userId: superAdminUser.id,
+        fullName: "Super Admin",
+        workEmail: SUPER_ADMIN_EMAIL,
+        teamId: swTeam.id,
+        departmentId: swTeam.departmentId,
+        designationId: adminDesignation.id,
+        employmentTypeId: permanentType.id,
+        status: "ACTIVE",
+        onboardingStatus: "COMPLETE",
+        dateOfJoining: new Date("2026-01-01"),
+      },
+    });
+
+    if (!existingAdminEmployee) {
+      const usedNumber = Number(
+        adminEmployeeCode.slice(employeeSequence.prefix.length),
+      );
+      await prisma.documentSequence.update({
+        where: { id: employeeSequence.id },
+        data: {
+          nextNumber: Math.max(employeeSequence.nextNumber, usedNumber + 1),
+        },
+      });
+    }
+  }
 
   console.log(
     `Seeded organization "Texawave Innovations" (slug: texawave-innovations) with teams ${TEAMS.map((t) => t.code).join(", ")} ` +

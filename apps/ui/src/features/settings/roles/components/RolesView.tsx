@@ -1,158 +1,108 @@
 "use client";
 
-import type { Role } from "@texawave-erp/api-types";
+import { useMemo, useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  Button,
-  Card,
-  DataTable,
-  Dialog,
-  EmptyState,
-  ErrorState,
-  Pagination,
-  Skeleton,
-  StatusBadge,
-  useToast,
-} from "@texawave-erp/ui-kit";
-import { useState } from "react";
-import { useCreateRole, useRoles } from "../hooks";
-import { RoleForm } from "./RoleForm";
-import { RolePermissionsForm } from "./RolePermissionsForm";
+import { Alert, ErrorState, Skeleton, Tabs } from "@texawave-erp/ui-kit";
+import { usePermission } from "@/hooks/usePermission";
+import { useUsers } from "../../../users/hooks";
+import { usePermissionCatalog, useRoles } from "../hooks";
+import { EffectiveAccessView } from "./EffectiveAccessView";
+import { RolesWorkspace } from "./RolesWorkspace";
 
-const PAGE_SIZE = 10;
+const PAGE = 100;
+type Section = "roles" | "access";
 
 /**
- * Role → permission assignment screen (Docs/ARCHITECTURE.md §11, 2026-09-22
- * changelog entry) — replaces what used to require hand-editing
- * packages/database/prisma/seed.ts. Same screen-state pattern as
- * apps/ui/src/features/_reference/tags/components/TagsView.tsx
- * (Docs/DESIGN_SYSTEM.md §3): loading, error, permission-denied, empty,
- * populated.
+ * Admin → Roles ("Access control"). Roles: edit what each role can see and
+ * do, including sidebar visibility. Who has access: a user's effective
+ * permissions and where they come from. The API remains the authority for
+ * every rule (settings.role.*, users.user.read).
  */
 export function RolesView() {
-  const [page, setPage] = useState(1);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const { toast } = useToast();
+  const canReadUsers = usePermission("users.user.read");
+  const roles = useRoles({ page: 1, limit: PAGE });
+  const catalog = usePermissionCatalog();
+  const users = useUsers({ page: 1, limit: PAGE });
+  const [section, setSection] = useState<Section>("roles");
 
-  const query = useRoles({ page, limit: PAGE_SIZE });
-  const createMutation = useCreateRole();
+  const userList = useMemo(
+    () => (canReadUsers ? (users.data?.data ?? []) : []),
+    [canReadUsers, users.data],
+  );
+  const usersPartial = Boolean(
+    users.data && users.data.meta.total > users.data.meta.limit,
+  );
 
-  if (query.isPending) {
+  if (roles.isPending || catalog.isPending) {
     return (
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
-        ))}
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-12 w-72" />
+        <Skeleton className="h-[28rem] w-full" />
       </div>
     );
   }
-
-  if (query.isError) {
-    const error = query.error;
-    if (error instanceof ApiError && error.isPermissionError) {
-      return (
-        <Alert variant="warning" title="You don't have access to roles">
-          Ask an administrator for the <code>settings.role.read</code>{" "}
-          permission.
-        </Alert>
-      );
-    }
-    return <ErrorState onRetry={() => void query.refetch()} />;
+  if (roles.isError || catalog.isError) {
+    const error = roles.error ?? catalog.error;
+    return error instanceof ApiError && error.isPermissionError ? (
+      <Alert variant="warning" title="You don't have access to roles">
+        Ask an administrator for the <code>settings.role.read</code> permission.
+      </Alert>
+    ) : (
+      <ErrorState
+        onRetry={() => {
+          void roles.refetch();
+          void catalog.refetch();
+        }}
+      />
+    );
   }
 
-  const roles = query.data.data;
-  const meta = query.data.meta;
-
-  async function handleCreate(values: { name: string }) {
-    await createMutation.mutateAsync(values);
-    setCreateOpen(false);
-    toast({ title: "Role created", variant: "success" });
-  }
+  const tabs = [
+    { id: "roles" as const, label: "Roles" },
+    ...(canReadUsers
+      ? [{ id: "access" as const, label: "Who has access" }]
+      : []),
+  ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-          Roles &amp; permissions
+    <div className="flex flex-col gap-5">
+      <div>
+        <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Access control
         </h1>
-        <Button onClick={() => setCreateOpen(true)}>New role</Button>
+        <p className="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">
+          Roles decide what people can see and do, and at what scope. Changes
+          apply from each user's next request.
+        </p>
       </div>
-
-      {roles.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No roles yet"
-            description="Create your first role to start assigning permissions."
-          />
-        </Card>
-      ) : (
-        <>
-          <DataTable<Role>
-            columns={[
-              { header: "Name", cell: (role) => role.name },
-              {
-                header: "Status",
-                cell: (role) => (
-                  <StatusBadge
-                    label={role.isActive ? "Active" : "Inactive"}
-                    colorToken={role.isActive ? "success" : "gray"}
-                  />
-                ),
-              },
-              {
-                header: "",
-                headerClassName: "sr-only",
-                className: "text-right",
-                cell: (role) => (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingRole(role)}
-                  >
-                    Edit permissions
-                  </Button>
-                ),
-              },
-            ]}
-            rows={roles}
-            getRowKey={(role) => String(role.id)}
-          />
-          <Pagination
-            page={meta.page}
-            totalPages={meta.totalPages}
-            onPageChange={setPage}
-          />
-        </>
-      )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="New role"
+      {users.isError && canReadUsers ? (
+        <Alert variant="warning" title="Users could not be loaded">
+          Member counts and “Who has access” are unavailable until users load.
+        </Alert>
+      ) : null}
+      <Tabs
+        label="Access control sections"
+        idPrefix="access"
+        tabs={tabs}
+        value={section}
+        onChange={setSection}
       >
-        <RoleForm
-          onSubmit={handleCreate}
-          onCancel={() => setCreateOpen(false)}
-          submitLabel="Create role"
-        />
-      </Dialog>
-
-      <Dialog
-        open={editingRole !== null}
-        onClose={() => setEditingRole(null)}
-        title={editingRole ? `Permissions — ${editingRole.name}` : ""}
-      >
-        {editingRole ? (
-          <RolePermissionsForm
-            key={editingRole.id}
-            roleId={editingRole.id}
-            roleName={editingRole.name}
-            onClose={() => setEditingRole(null)}
+        {section === "roles" ? (
+          <RolesWorkspace
+            roles={roles.data.data}
+            catalog={catalog.data}
+            users={userList}
+            usersPartial={usersPartial}
           />
         ) : null}
-      </Dialog>
+        {section === "access" ? (
+          <EffectiveAccessView
+            users={userList}
+            catalog={catalog.data}
+            usersPartial={usersPartial}
+          />
+        ) : null}
+      </Tabs>
     </div>
   );
 }

@@ -18,14 +18,19 @@ export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly transporter: Transporter | null;
   private readonly from: string | null;
+  private readonly isProduction: boolean;
 
   constructor(private readonly config: ConfigService) {
+    this.isProduction = this.config.get<string>("NODE_ENV") === "production";
     const user = this.config.get<string>("GMAIL_USER");
     const pass = this.config.get<string>("GMAIL_APP_PASSWORD");
+    // Vitest always sets NODE_ENV=test, so e2e runs never send real mail even
+    // when GMAIL_* is configured for local dev. Production never sets "test".
+    const stubbed = this.config.get<string>("NODE_ENV") === "test";
 
     this.from = user ?? null;
     this.transporter =
-      user && pass
+      !stubbed && user && pass
         ? nodemailer.createTransport({
             service: "gmail",
             auth: { user, pass },
@@ -35,6 +40,14 @@ export class MailerService {
 
   async sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
     if (!this.transporter || !this.from) {
+      // The link carries a raw reset token — anyone who can read production
+      // logs could use it to take over the account. Only dev/test get it.
+      if (this.isProduction) {
+        this.logger.error(
+          `Password reset email for ${to} not sent: GMAIL_USER/GMAIL_APP_PASSWORD are not configured`,
+        );
+        return;
+      }
       this.logger.log(`Password reset link for ${to}: ${resetUrl}`);
       return;
     }

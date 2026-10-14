@@ -30,6 +30,9 @@ const PAGE_SIZE = 10;
 export function TagsView() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string | undefined>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const query = useTags({ page, limit: PAGE_SIZE });
@@ -104,10 +107,18 @@ export function TagsView() {
       ) : (
         <>
           <DataTable<Tag>
+            caption="Reference tags list"
             columns={[
-              { header: "Name", cell: (tag) => tag.name },
+              {
+                header: "Name",
+                sortable: true,
+                sortKey: "name",
+                cell: (tag) => tag.name,
+              },
               {
                 header: "Color",
+                sortable: true,
+                sortKey: "colorToken",
                 cell: (tag) => (
                   <StatusBadge
                     label={tag.colorToken}
@@ -116,7 +127,7 @@ export function TagsView() {
                 ),
               },
               {
-                header: "",
+                header: "Actions",
                 headerClassName: "sr-only",
                 className: "text-right",
                 cell: (tag) => (
@@ -133,10 +144,35 @@ export function TagsView() {
             ]}
             rows={tags}
             getRowKey={(tag) => String(tag.id)}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={(key, dir) => {
+              setSortColumn(key);
+              setSortDirection(dir);
+            }}
+            selectable={true}
+            selectedRowKeys={selectedKeys}
+            onSelectRow={(key, selected) => {
+              setSelectedKeys((prev) => {
+                const next = new Set(prev);
+                if (selected) next.add(key);
+                else next.delete(key);
+                return next;
+              });
+            }}
+            onSelectAll={(selected) => {
+              if (selected) {
+                setSelectedKeys(new Set(tags.map((t) => String(t.id))));
+              } else {
+                setSelectedKeys(new Set());
+              }
+            }}
           />
           <Pagination
             page={meta.page}
             totalPages={meta.totalPages}
+            totalItems={meta.total}
+            pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
         </>

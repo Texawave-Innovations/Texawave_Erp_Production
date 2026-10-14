@@ -16,7 +16,7 @@ export async function lockEmployee(
   employeeId: number,
 ): Promise<boolean> {
   const rows = await tx.$queryRaw<Array<{ id: number }>>`
-    SELECT id FROM employees
+    SELECT id FROM hr.employees
      WHERE id = ${employeeId}
        AND organization_id = ${organizationId}
        AND deleted_at IS NULL

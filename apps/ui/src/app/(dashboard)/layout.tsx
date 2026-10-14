@@ -1,13 +1,14 @@
 "use client";
 
-import { Button } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { useMe } from "@/hooks/usePermission";
+import { hasWorkspaceAccess } from "@/features/auth/landing";
+import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
+import { HorizontalNavbar } from "@/components/layout/HorizontalNavbar";
 
 /**
  * Client-side route guard ONLY — see Docs/CODING_STANDARDS.md "Frontend
@@ -30,12 +31,31 @@ export default function DashboardLayout({
   const clear = useAuthStore((s) => s.clear);
 
   // Prime the current user's profile and permissions
-  useMe();
+  const me = useMe();
+  const mustChangePassword = me.data?.mustChangePassword === true;
+
+  // Route newly-invited users to onboarding on first login. Users who have
+  // finished onboarding or who were provisioned via seed/admin bypass have
+  // no data here and are never redirected.
+  const employee = useMyEmployee();
+  const onboardingIncomplete =
+    employee.data !== undefined &&
+    employee.data.onboardingStatus !== "COMPLETE";
+
+  // Employees and Team Leads work in the portal: an account WITH an employee
+  // record needs hr.workspace.access (or settings.role.write) for this shell
+  // (hasWorkspaceAccess in features/auth/landing.ts).
+  // Accounts with no employee record (Super Admin) are never sent away. Wait
+  // for both lookups so the HR shell never flashes for a portal-only user.
+  const checkingShell =
+    (me.data === undefined && !me.isError) ||
+    (employee.data === undefined && !employee.isError);
+  const portalOnly =
+    me.data !== undefined &&
+    employee.data !== undefined &&
+    !hasWorkspaceAccess(me.data.permissions);
 
   async function handleSignOut() {
-    // Best-effort: revoke server-side refresh tokens too, but don't block
-    // the UI on it — the local state clear below is what actually matters
-    // for this browser tab.
     void apiClient.post("/auth/logout").catch(() => undefined);
     clear();
     queryClient.clear();
@@ -45,27 +65,39 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!accessToken) {
       router.replace("/login");
+    } else if (mustChangePassword) {
+      // A temporary password must be replaced before anything else is reachable.
+      router.replace("/change-password");
+    } else if (onboardingIncomplete) {
+      router.replace("/onboarding");
+    } else if (portalOnly) {
+      router.replace("/portal");
     }
-  }, [accessToken, router]);
+  }, [
+    accessToken,
+    mustChangePassword,
+    onboardingIncomplete,
+    portalOnly,
+    router,
+  ]);
 
-  if (!accessToken) {
+  if (
+    !accessToken ||
+    mustChangePassword ||
+    onboardingIncomplete ||
+    portalOnly ||
+    checkingShell
+  ) {
     return null;
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-        <span className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          TexaWave ERP
-        </span>
-        <Button variant="ghost" size="sm" onClick={() => void handleSignOut()}>
-          Sign out
-        </Button>
-      </header>
-      <div className="flex flex-1 overflow-hidden">
-        <DynamicSidebar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-b from-[#f0f7ff] via-[#f4fbfb] to-[#f8fafc] dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
+      {/* Full-width horizontal navigation — replaces left sidebar + old header */}
+      <HorizontalNavbar onSignOut={() => void handleSignOut()} />
+
+      {/* Page content — full width, no left offset */}
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
     </div>
   );
 }

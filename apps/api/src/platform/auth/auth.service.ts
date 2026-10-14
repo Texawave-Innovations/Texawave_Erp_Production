@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -120,12 +121,15 @@ export class AuthService {
       ? await this.users.findByEmail({ organizationId: organization.id }, email)
       : null;
 
+    // Hash before the existence check so known and unknown emails pay the
+    // same bcrypt cost — otherwise response time reveals which accounts
+    // exist, defeating the generic-response contract above.
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = await bcrypt.hash(rawToken, 10);
+
     if (!user || !user.isActive) {
       return;
     }
-
-    const rawToken = randomBytes(32).toString("hex");
-    const tokenHash = await bcrypt.hash(rawToken, 10);
     const ttlMinutes = this.config.getOrThrow<number>(
       "PASSWORD_RESET_TOKEN_TTL_MINUTES",
     );
@@ -135,7 +139,10 @@ export class AuthService {
 
     const baseUrl = this.config.getOrThrow<string>("APP_BASE_URL");
     const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
-    await this.mailer.sendPasswordResetEmail(user.email, resetUrl);
+    // Not awaited: SMTP latency is the other large timing difference between
+    // a real and an unknown email. sendPasswordResetEmail never rejects
+    // (it catches and logs its own failures), so nothing is lost.
+    void this.mailer.sendPasswordResetEmail(user.email, resetUrl);
   }
 
   /**
@@ -202,7 +209,10 @@ export class AuthService {
       throw new UnauthorizedException("Not a refresh token");
     }
 
-    const stillValid = await this.redis.get(
+    // Rotate: the old refresh token is single-use. GETDEL reads and deletes
+    // in one atomic step, so two concurrent refreshes with the same token
+    // can't both see it as valid and each receive a new pair.
+    const stillValid = await this.redis.getdel(
       refreshKey(payload.sub, payload.jti),
     );
     if (!stillValid) {
@@ -211,19 +221,61 @@ export class AuthService {
       );
     }
 
-    // Rotate: the old refresh token is single-use.
-    await this.redis.del(refreshKey(payload.sub, payload.jti));
-
     // Redis always returns stored values as strings — the organizationId
     // was stored as a number (issueTokens below) and must be parsed back.
     const organizationId = Number(stillValid);
     const user = await this.users.findById({ organizationId }, payload.sub);
-    if (!user) {
+    // Deactivation must end the session even if the session revocation that
+    // normally accompanies it (EmployeeLifecycleService → logout) failed or
+    // never ran (e.g. a user deactivated directly via the users API).
+    if (!user || !user.isActive) {
+      await this.revokeAllRefreshTokens(payload.sub);
       throw new UnauthorizedException("User no longer exists");
     }
 
     const roleIds = await this.permissions.getRoleIdsForUser(user.id);
     return this.issueTokens(user.id, organizationId, roleIds);
+  }
+
+  /**
+   * Voluntary password change (also the forced first-login change for HR-created
+   * accounts). Revokes every session, so the user signs in again with the new
+   * password. Onboarding stage is NOT written here: it is derived from
+   * `mustChangePassword` plus the employee's profile state (Docs/ARCHITECTURE.md §7).
+   */
+  async changePassword(
+    userId: number,
+    organizationId: number,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.users.findById({ organizationId }, userId);
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    const currentMatches = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
+    if (!currentMatches) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        "New password must be different from the current password",
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.users.updatePasswordHash(
+      { organizationId },
+      userId,
+      passwordHash,
+    );
+
+    await this.revokeAllRefreshTokens(userId);
+    await this.permissions.invalidate(userId);
   }
 
   async logout(userId: number): Promise<void> {
@@ -234,10 +286,23 @@ export class AuthService {
   /** Shared by `logout()` and `resetPassword()` — both need to kill every
    * active session for a user. */
   private async revokeAllRefreshTokens(userId: number): Promise<void> {
-    const keys = await this.redis.keys(refreshKey(userId, "*"));
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
+    // SCAN, not KEYS: KEYS walks the whole keyspace in one blocking call,
+    // stalling every other Redis client (sessions, permission cache) while
+    // it runs. SCAN does the same walk incrementally.
+    let cursor = "0";
+    do {
+      const [next, keys] = await this.redis.scan(
+        cursor,
+        "MATCH",
+        refreshKey(userId, "*"),
+        "COUNT",
+        100,
+      );
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+      cursor = next;
+    } while (cursor !== "0");
   }
 
   async getMe(
@@ -248,6 +313,7 @@ export class AuthService {
     organizationId: number;
     email: string;
     fullName: string;
+    mustChangePassword: boolean;
     roleIds: number[];
     permissions: string[];
   }> {
@@ -266,6 +332,7 @@ export class AuthService {
       organizationId: user.organizationId,
       email: user.email,
       fullName: user.fullName,
+      mustChangePassword: user.mustChangePassword,
       roleIds,
       permissions,
     };

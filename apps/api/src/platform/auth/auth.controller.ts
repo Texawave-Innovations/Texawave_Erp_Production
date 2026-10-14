@@ -5,6 +5,7 @@ import { Public } from "../../common/decorators/public.decorator.js";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "./authenticated-user.js";
 import { AuthService, type AuthTokens } from "./auth.service.js";
+import { ChangePasswordDto } from "./dto/change-password.dto.js";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto.js";
 import { LoginDto } from "./dto/login.dto.js";
 import { RefreshDto } from "./dto/refresh.dto.js";
@@ -73,6 +74,25 @@ export class AuthController {
   ): Promise<{ message: string }> {
     await this.auth.resetPassword(dto.token, dto.newPassword);
     return { message: "Password has been reset." };
+  }
+
+  @Post("change-password")
+  @ApiOperation({
+    summary:
+      "Change the current user's password (forced on first login for HR-created accounts). " +
+      "Revokes every session; the user must sign in again.",
+  })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    await this.auth.changePassword(
+      user.userId,
+      user.organizationId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { message: "Password changed. Please sign in again." };
   }
 
   @Post("logout")

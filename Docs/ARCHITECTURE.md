@@ -230,7 +230,8 @@ document_sequences (id, organization_id, doc_type VARCHAR, prefix VARCHAR, next_
 ```sql
 status_history   (id, org_id, entity_type, entity_id, from_status_id, to_status_id, changed_by, changed_at, remarks)
 attachments       (id, org_id, entity_type, entity_id, file_url, file_type, uploaded_by, uploaded_at)
-approvals         (id, org_id, entity_type, entity_id, workflow_id, step, approver_id, decision, decided_at)
+approvals         (id, organization_id, entity_type, entity_id, status PENDING|APPROVED|REJECTED|EXPIRED, proposed_changes jsonb, requested_by, decided_by, decided_at, decision_note, expires_at, + §5.1 baseline)
+                  -- single-step only; no workflow/step tables until a second use case needs multi-step approval. Shipped in migration 20261005094420_add_approvals.
 audit_logs        (id, org_id, actor_id, entity_type, entity_id, action, before jsonb, after jsonb, ip, at)
 comments          (id, org_id, entity_type, entity_id, author_id, body, created_at)
 ```
@@ -280,7 +281,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Projects** — `projects`, `project_members`, `tasks` (`parent_task_id` for subtasks, `assignee_id`, `status_id`, `due_date`), `project_reports`. `task_comments` reuses the generic `comments` table (`entity_type='task'`).
 
-**HR** — `employees`, `attendance_records` (+ `check_in_location point`, `check_in_face_match_score`, `check_in_method` via `statuses`), `leave_types`, `leave_requests`, `payroll_runs`, `payslips`, `pf_esi_records`, `bonuses`, `tickets`
+**HR** — `employees` (+ `onboarding_status`), `employee_personal_details` (1:1), `employee_bank_details` (1:1, account number stored encrypted, masked form only in responses), `employee_addresses` (one row per `PERMANENT`/`PRESENT`), `employee_government_ids` (1:1, Aadhaar/PAN required, ESI/PF optional), `employee_family_members`, `employee_experience`, `employee_documents` (one row per `documentType`; file on local disk under `UPLOAD_DIR`, with MIME type and size recorded), `attendance_records` (+ `check_in_location point`, `check_in_face_match_score`, `check_in_method` via `statuses`), `leave_types`, `leave_requests`, `payroll_runs`, `payslips`, `pf_esi_records`, `bonuses`, `tickets`
 
 **Vault** — `documents`, `document_folders`, `document_access_grants` (+ `encryption_key_ref`, `iso_format_version`), reuses `approvals`/`approval_workflows` from platform
 
@@ -318,6 +319,80 @@ The old app had a self-service portal (GPS check-in/out, payslips, leaves, ticke
 - Own route group: `(employee-portal)`, not nested under `(dashboard)`.
 - Own permission namespace: `employee_self_service.*`, distinct from `hr.*`. An employee's JWT should not carry `hr.employee.read` just because they can see their own record.
 - Mostly reuses HR's tables (`employees`, `attendance_records`, `leave_requests`, `payslips`) scoped down by permission + `WHERE employee.user_id = :currentUserId`, rather than new tables.
+- **Exception**: a portal `MenuItem` may be gated by an `hr.*.team` permission (not `employee_self_service.*`) when the feature is genuinely a team-scoped HR capability surfaced in the portal shell rather than self-service — e.g. `portal-task-assignment` gated by `hr.task.write.team`, for a Team Lead acting on their team's tasks, not their own record. This is still enforced by `@TeamScoped()` + `@RequirePermission()` server-side like any other HR endpoint; the portal shell only decides whether the tab is shown. Don't reach for this to avoid naming a new `employee_self_service.*` permission — it's for operations that are not self-service at all.
+
+### 7a. Self-onboarding (TEXA-16/onboarding epic) — built
+
+HR creates a new hire's login and employee record; the new hire changes a
+temporary password, fills in their own profile, and only then reaches the
+real employee portal.
+
+**Creation is two existing calls composed, never one combined endpoint.**
+`CreateEmployeeDto` deliberately carries no password field — "a login is a
+separate `users` row linked by `userId` — never stored here." So onboarding
+is: `POST /users` (temp password, `mustChangePassword: true`, the employee's
+self-service role), then `POST /hr/employees` with that new `userId`. No
+change to either endpoint's shape was needed.
+
+**Two independent flags, not one stored state machine.** `onboardingStatus`
+on `Employee` only ever holds `PENDING_ACTIVATION` or `COMPLETE` — it is NOT
+a three-state machine, because the true "has this person changed their temp
+password yet" fact already lives on `User.mustChangePassword` and would
+drift from a copy. Any check that needs that fact (e.g. the submit gate)
+reads `User.mustChangePassword` directly, not `onboardingStatus`. The
+`employees.repository.ts#markOnboardingComplete` transition is therefore a
+forward-only `WHERE onboarding_status <> 'COMPLETE'`, not a transition out of
+a specific prior value.
+
+**HR review is a third, separate field — not a third onboarding state.**
+`onboarding_status` keeps answering only "has the employee finished the
+wizard" (it opens the portal, and every UI gate reads it). Whether HR has
+checked the submitted profile is `onboarding_review_status`:
+`NOT_SUBMITTED → PENDING_REVIEW → APPROVED`, or `PENDING_REVIEW →
+CHANGES_REQUESTED → PENDING_REVIEW`. Submitting sets `COMPLETE` and
+`PENDING_REVIEW` together, so the employee is never locked out while waiting.
+Sending back (`hr.employee_onboarding.approve`, note required) is the one
+deliberate move of `onboarding_status` back to `PENDING_ACTIVATION`, so the
+wizard reopens for corrections; resubmitting goes forward again. Rules live
+in `modules/hr/employees/onboarding-review.policy.ts`; routes and the full
+contract in `Docs/HR_API.md` (self-service — onboarding).
+
+**Onboarding data model** (`apps/api/src/modules/employee-self-service/profile/`):
+`employee_personal_details`, `employee_bank_details`, `employee_addresses`
+(one row per `PERMANENT`/`PRESENT`; no present-address row means "same as
+permanent"), `employee_government_ids`, `employee_family_members`,
+`employee_experience`, `employee_documents` (one row per
+`documentType` — see §5.6). Every write is resolved from the caller's JWT via
+`EmployeeQueryService.getCurrentEmployee()`; no request ever carries an
+employee id for these routes. These tables are the **single source of truth**
+for an employee's personal, address, identity and bank data: HR reads and
+writes the same rows through `modules/hr/profiles` (its own team-scoped and
+sensitive permissions). The earlier HR-only `employee_profiles` /
+`employee_sensitive_info` tables are retired (migration
+`20261011090000_hr_employee_gaps`), kept only until their drop is approved.
+PAN and Aadhaar are unique per organization (partial unique indexes).
+
+**Bank account numbers are encrypted at rest**
+(`apps/api/src/common/crypto/field-encryption.service.ts`, AES-256-GCM,
+key from `FIELD_ENCRYPTION_KEY`). Self-service reads only ever return the
+masked form; a full reveal is a separate, not-yet-built HR permission
+(`hr.employee_bank.reveal.own/.team/.all`, already seeded in the permission
+catalog).
+
+**Document files are stored on local disk.** Uploads are checked by their actual bytes (PDF, JPG or PNG only), capped at 5 MB, saved under a random server-generated name in `UPLOAD_DIR` (default `apps/api/storage/uploads`, git-ignored), and streamed back only to the employee who owns them. The folder must be backed up together with the database. Moving to object storage later changes only `shared/file-storage`.
+
+**Sensitive-field changes after `COMPLETE` go through approval, not a direct
+edit** — HR requests a change to bank details or an identity document, Super
+Admin approves or rejects it, and only approval applies it. The shared
+`Approval` table (§5.4) exists for this; the HR-side request/approve routes
+are not built yet — this is the next piece of this epic, not a design gap.
+
+**URL is short, permission code is not.** The routes live at
+`/employee/profile/...` (user-facing), while the module folder and every
+permission code stay `employee-self-service` /
+`employee_self_service.profile.*`, so they never read like `hr.employee.*`
+in a permission list or an audit log. The two names are independent; only
+the string in `@Controller()` decides the route.
 
 ---
 
@@ -378,6 +453,8 @@ keep both env vars in sync with whatever you chose.
 
 **Why `packages/database`'s Prisma generator is `"prisma-client-js"`, not the newer `"prisma-client"`:** the newer generator emits raw `.ts` with no build step of its own, which only a TS-aware runtime (tsx/vitest) can load — the classic generator emits ready-to-run compiled JS, which every consumer in this repo (vitest, the swc-built API, plain `node`) can load uniformly. If you ever change this, re-run `pnpm --filter database build` and re-verify `node apps/api/dist/main.js` actually boots, not just that it typechecks.
 
+**Payslip PDFs need a Chromium binary on the API host.** `GET /hr/payslips/:id/pdf` and `GET /self-service/payslips/:id/pdf` render HTML to PDF with headless Chromium through `playwright` (`apps/api/src/modules/hr/payroll/payslips/payslip-pdf.renderer.ts`). Run `pnpm --filter api exec playwright install chromium` once on every machine/image that serves the API (add `--with-deps` on a bare Linux image), or, where that download is blocked, set `PDF_BROWSER_CHANNEL=msedge` (or `chrome`) in `apps/api/.env` to use the browser already installed on the host. The Form 16 PDFs (`GET /hr/tax-declarations/form16/:employeeId/:fy/pdf`, `GET /self-service/form16/:fy/pdf`) use the same renderer. A payslip PDF is rendered once from its frozen snapshot and stored (`payslips.pdf_content`); later downloads return those bytes without the browser. Without either option, everything else works, and only PDF routes that must render something new fail with a 500. The e2e suite swaps the renderer for a stub, so CI doesn't need the browser. Any future server-side PDF should reuse this renderer rather than adding a second PDF library.
+
 ---
 
 ## 10. Hard-won rules, stated explicitly
@@ -388,7 +465,7 @@ keep both env vars in sync with whatever you chose.
 - **Don't build microservices to feel "production level."** A modular monolith with clean module/event boundaries is the correct architecture for this team size.
 - **No plaintext credentials, ever, anywhere** — this is the single most important thing this rebuild fixes relative to the old app.
 - **Payslip/salary reads get audit-logged, not just writes.** `hr.payroll.read.*` is exactly the kind of access that gets scrutinized after the fact — log the read, not only the mutation.
-- **PII (Aadhar/PAN/bank account) gets real, narrowly-permissioned columns or its own table** (`employee_sensitive_info`, gated by `hr.employee_sensitive.read.all` only) — never `custom_fields`. Compliance review looks for exactly this separation.
+- **PII (Aadhar/PAN/bank account) gets real, narrowly-permissioned columns or its own table** (`employee_government_ids` and `employee_bank_details` — account number encrypted at rest; HR access gated by the exact `hr.employee_sensitive.{read,write}` permissions, reads audited) — never `custom_fields`. Compliance review looks for exactly this separation.
 - **GPS/attendance raw location data is the one deliberate exception to "never hard-delete."** State a retention window for raw check-in coordinates (derive attendance status, then age the raw trail out) rather than keeping it indefinitely by the same rule that governs business records.
 
 ---
@@ -397,6 +474,54 @@ keep both env vars in sync with whatever you chose.
 
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
+
+- **2026-10-13 — Leave workflow (`hr.leave_*`, `apps/api/src/modules/hr/leave-requests`).**
+  Migration `20261013090000_hr_leave_workflow`: `leave_types.approval_levels` (1 or 2);
+  `leave_requests` gains `approval_levels` (copied at submission; the protect trigger lets it change
+  only on resubmission), `first_decided_by/at/first_decision_note` (first of two approvals; status
+  stays PENDING) and `cancelled_by`; new table `leave_approval_delegations` (user → user, date range,
+  revoked not edited). CHECKs: levels in (1, 2), a first approval only on two-level rows, and two
+  different approvers. Approval authority is now the reporting line (`Employee.reportsTo`, or the
+  manager's active delegate) **or** the `hr.leave.approve` team/all scope; `hr.leave.approve.own`
+  changes meaning from "reserved, grants nothing" to "the reporting-manager level", and only `.all`
+  gives the second approval. New team-scoped permissions `hr.leave_request.create`
+  (apply on behalf), `hr.leave.cancel` (HR cancellation, also of started leave) and
+  `hr.leave_request.export`; `.own` of the first two is reserved. Approving, or cancelling approved,
+  leave in a SUBMITTED/APPROVED attendance month is refused (409 `ATTENDANCE_MONTH_LOCKED`) under
+  Attendance's own per-employee lock, always taken after the leave lock. Leave is the second
+  notification sender (`leave.*`). Full rules: `HR_LEAVE.md` §2, §6–§9; routes: `HR_API.md` → Leave.
+
+- **2026-10-12 — Role lifecycle rules (`platform.roles`, `apps/api/src/modules/settings/roles`).**
+  Roles gained `version` (optimistic lock), `is_system` and `description`
+  (migration `20261012090000_platform_role_lifecycle`; the four seeded roles are marked system).
+  Rules the API enforces on every role write: a write that sends `version` is refused with
+  409 `VERSION_CONFLICT` when the role changed since it was read (the UI always sends it);
+  system roles keep their name and stay active (422 `SYSTEM_ROLE_PROTECTED`) but their grants
+  are editable; a role active users still hold cannot be deactivated (409 `ROLE_IN_USE`); no
+  change may leave nobody — or the caller — holding `settings.role.write` (409
+  `ACCESS_LOCKOUT`, checked inside the same transaction). Every role change is now audited
+  (`entityType = role`; grant changes record permission ids, not codes, to stay under the
+  audit snapshot limit). New reads: `GET /settings/roles/:id/history`,
+  `POST /settings/roles/:id/clone`, `GET /users/:id/effective-permissions` (active roles and
+  grants only, each permission with the roles that grant it).
+  **Lock-out guard everywhere (same day, phase 3):** the rule lives in
+  `platform/roles-permissions/role-admin-guard.ts` (`withRoleAdminGuard`) and wraps every write
+  that can take “Manage roles” away — role grants and status, and on the users side
+  `POST /users/:id/roles`, disabling a user (`PATCH /users/:id`) and `DELETE /users/:id`. It
+  compares who can manage roles before and after the change inside the transaction: refused if
+  nobody would be left, or if the caller could and no longer would (a users-only administrator is
+  not held to the "self" part). User writes (create, update/activate/deactivate, delete, role and
+  team assignment) are now audited too (`entityType = user`; assignments record ids).
+
+- **2026-10-11 — In-app notifications (`platform.notifications`, `apps/api/src/platform/notifications`).**
+  The first notification delivery in the ERP, added for the attendance missing check-in / check-out
+  alerts. Rules every sender follows: only server-side code sends, through
+  `NotificationsService.notify(scope, items)` (the organization is passed explicitly, because jobs run
+  outside a request); recipients must belong to that organization; a `dedupKey` makes a sender
+  idempotent (unique per user, so a job that runs twice — or on two API instances — notifies once).
+  The inbox routes (`GET /notifications`, unread count, mark read) are self-service: keyed to the JWT
+  user, login required, no permission code (same as `GET /menu/my-menu`). There is no create route.
+  Delivery is in-app only; e-mail/push are not built. Full route list: `HR_API.md` → Notifications.
 
 - **2026-09-22 — `Department` added above `Team`.** `departments` table (`id`, `organizationId`,
   §5.1 baseline) with `teams.department_id` (nullable `Int`, FK to `departments.id`,

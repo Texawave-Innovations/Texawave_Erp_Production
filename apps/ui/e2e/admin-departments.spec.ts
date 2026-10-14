@@ -3,7 +3,10 @@ import { signInAsAdmin, uniqueName } from "./helpers/auth";
 
 test("creates, renames and deletes a department", async ({ page }) => {
   await signInAsAdmin(page);
-  await page.goto("/admin/departments");
+  await page
+    .getByRole("navigation")
+    .getByRole("link", { name: "Departments" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Departments" }),
   ).toBeVisible();
@@ -16,15 +19,22 @@ test("creates, renames and deletes a department", async ({ page }) => {
   await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
 
   const renamed = `${name} v2`;
-  await page.getByRole("button", { name: `Edit ${name}` }).click();
+  await page
+    .getByRole("button", { name: `Actions for ${name} department` })
+    .click();
+  await page.getByRole("menuitem", { name: "Edit department" }).click();
   await page.getByLabel("Department Name").fill(renamed);
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Update Department" }).click();
   await expect(page.getByText("Department updated")).toBeVisible();
   await expect(
     page.getByRole("cell", { name: renamed, exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: `Delete ${renamed}` }).click();
+  await page
+    .getByRole("button", { name: `Actions for ${renamed} department` })
+    .click();
+  await page.getByRole("menuitem", { name: "Delete department" }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText(`Deleted "${renamed}"`)).toBeVisible();
   await expect(
     page.getByRole("cell", { name: renamed, exact: true }),
@@ -33,7 +43,10 @@ test("creates, renames and deletes a department", async ({ page }) => {
 
 test("rejects an empty department name inline", async ({ page }) => {
   await signInAsAdmin(page);
-  await page.goto("/admin/departments");
+  await page
+    .getByRole("navigation")
+    .getByRole("link", { name: "Departments" })
+    .click();
   await page.getByRole("button", { name: "New department" }).click();
   await page.getByRole("button", { name: "Create department" }).click();
   await expect(page.getByText("Department created")).toHaveCount(0);

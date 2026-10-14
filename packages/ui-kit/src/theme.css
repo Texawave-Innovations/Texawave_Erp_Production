@@ -12,34 +12,93 @@
   --color-white: #ffffff;
   --color-black: #101828;
 
-  /* Brand (primary) — Restrained Enterprise ERP (Docs/DESIGN_SYSTEM.md §0) */
-  --color-brand-25: #f5fbf5;
-  --color-brand-50: #e4f2e5;
-  --color-brand-100: #d3ecd5;
-  --color-brand-200: #a6dcab;
-  --color-brand-300: #6fc478;
-  --color-brand-400: #33d94a;
-  --color-brand-500: #06ba32;
-  --color-brand-600: #05a22c;
-  --color-brand-700: #048b25;
-  --color-brand-800: #036e1d;
-  --color-brand-900: #025415;
-  --color-brand-950: #013a0e;
+  /* Brand (primary) — TexaOne (Docs/DESIGN_SYSTEM.md §2.3, §3.1) */
+  --color-brand-25: #f5f8ff;
+  --color-brand-50: #eff4fe;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #1769f5;
+  --color-brand-600: #2454e8;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-brand-950: #172554;
+
+  /* Auxiliary Brand Anchors */
+  --color-brand-cyan: #12cfe3;
+  --color-brand-cyan-accessible: #0369a1;
+  --color-brand-mint: #e6fbf7;
+  --color-brand-mint-subtle: #f0fdfa;
+  --color-navy-dark: #101b36;
+
+  /* Centralized Gradients (135deg Soft Mixed Gradient — TexaOne Logo Inspiration) */
+  --gradient-brand: linear-gradient(
+    135deg,
+    #2454e8 0%,
+    #1769f5 45%,
+    #12cfe3 100%
+  );
+  --gradient-brand-button: linear-gradient(
+    135deg,
+    #2454e8 0%,
+    #1769f5 45%,
+    #0369a1 100%
+  );
+  --gradient-brand-button-hover: linear-gradient(
+    135deg,
+    #1d4ed8 0%,
+    #1e40af 45%,
+    #075985 100%
+  );
+  --gradient-brand-button-active: linear-gradient(
+    135deg,
+    #1e3a8a 0%,
+    #1d4ed8 45%,
+    #0c4a6e 100%
+  );
+  --gradient-nav: linear-gradient(90deg, #f0f7ff 0%, #e6f9fc 50%, #e6fbf7 100%);
+  --gradient-page-header: linear-gradient(
+    135deg,
+    #38bdf8 0%,
+    #0ea5e9 40%,
+    #2dd4bf 100%
+  );
+  --gradient-canvas: linear-gradient(
+    180deg,
+    #f0f7ff 0%,
+    #f4fbfb 45%,
+    #f8fafc 100%
+  );
+  --gradient-table-header: linear-gradient(
+    90deg,
+    #f8fafc 0%,
+    #f0f9ff 50%,
+    #f0fdf9 100%
+  );
+  --gradient-card-border: linear-gradient(
+    135deg,
+    rgba(36, 84, 232, 0.4) 0%,
+    rgba(23, 105, 245, 0.25) 35%,
+    rgba(18, 207, 227, 0.45) 75%,
+    rgba(52, 211, 153, 0.3) 100%
+  );
 
   /* Neutral (gray) */
   --color-gray-25: #fcfcfd;
   --color-gray-50: #f8fafc;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-gray-dark: #1a2231;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+  --color-gray-950: #020617;
+  --color-gray-dark: #101b36;
 
   /* Semantic — success (approved, QA-accepted, dispatched, payment cleared) */
   --color-success-25: #f6fef9;
@@ -127,7 +186,10 @@
   --shadow-theme-xl:
     0px 20px 24px -4px rgba(16, 24, 40, 0.08),
     0px 8px 8px -4px rgba(16, 24, 40, 0.03);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(6, 186, 50, 0.12);
+  --shadow-dialog-glow:
+    0px 0px 25px 0px rgba(23, 105, 245, 0.22),
+    0px 20px 25px -5px rgba(16, 24, 40, 0.1);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(23, 105, 245, 0.25);
 }
 
 .dark {
@@ -140,5 +202,321 @@
     0px 12px 16px -4px rgba(0, 0, 0, 0.3), 0px 4px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-theme-xl:
     0px 20px 24px -4px rgba(0, 0, 0, 0.3), 0px 8px 8px -4px rgba(0, 0, 0, 0.2);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(75, 226, 86, 0.16);
+  --shadow-dialog-glow:
+    0px 0px 30px 0px rgba(23, 105, 245, 0.3),
+    0px 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(23, 105, 245, 0.25);
+
+  /* Dark mode surface gradients */
+  --gradient-nav: linear-gradient(90deg, #0f172a 0%, #0f172a 50%, #020617 100%);
+  --gradient-page-header: linear-gradient(
+    135deg,
+    #0f172a 0%,
+    #0f172a 50%,
+    #020617 100%
+  );
+  --gradient-table-header: linear-gradient(
+    90deg,
+    #0f172a 0%,
+    #0f172a 50%,
+    #020617 100%
+  );
+}
+
+dialog[open] {
+  animation: modal-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+dialog::backdrop {
+  animation: backdrop-fade-in 200ms ease-out;
+}
+
+@keyframes modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog[open],
+  dialog::backdrop {
+    animation: none;
+  }
+}
+
+/* Full perimeter subtle gradient card borders (Docs/DESIGN_SYSTEM.md §2.3) */
+.gradient-card-border {
+  border: 1px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(
+      135deg,
+      rgba(36, 84, 232, 0.4) 0%,
+      rgba(23, 105, 245, 0.22) 35%,
+      rgba(18, 207, 227, 0.4) 75%,
+      rgba(52, 211, 153, 0.28) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.dark .gradient-card-border {
+  background-image:
+    linear-gradient(#101b36, #101b36),
+    linear-gradient(
+      135deg,
+      rgba(36, 84, 232, 0.5) 0%,
+      rgba(23, 105, 245, 0.35) 35%,
+      rgba(18, 207, 227, 0.45) 75%,
+      rgba(16, 185, 129, 0.3) 100%
+    );
+}
+
+.gradient-card-border-warning {
+  border: 1px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.45) 0%,
+      rgba(251, 191, 36, 0.3) 50%,
+      rgba(245, 158, 11, 0.45) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.dark .gradient-card-border-warning {
+  background-image:
+    linear-gradient(#101b36, #101b36),
+    linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.55) 0%,
+      rgba(251, 191, 36, 0.35) 50%,
+      rgba(245, 158, 11, 0.55) 100%
+    );
+}
+
+.gradient-card-border-error {
+  border: 1px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(
+      135deg,
+      rgba(239, 68, 68, 0.45) 0%,
+      rgba(248, 113, 113, 0.3) 50%,
+      rgba(239, 68, 68, 0.45) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.dark .gradient-card-border-error {
+  background-image:
+    linear-gradient(#101b36, #101b36),
+    linear-gradient(
+      135deg,
+      rgba(239, 68, 68, 0.55) 0%,
+      rgba(248, 113, 113, 0.35) 50%,
+      rgba(239, 68, 68, 0.55) 100%
+    );
+}
+
+.gradient-card-border-success {
+  border: 1px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(
+      135deg,
+      rgba(16, 185, 129, 0.45) 0%,
+      rgba(52, 211, 153, 0.3) 50%,
+      rgba(16, 185, 129, 0.45) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.dark .gradient-card-border-success {
+  background-image:
+    linear-gradient(#101b36, #101b36),
+    linear-gradient(
+      135deg,
+      rgba(16, 185, 129, 0.55) 0%,
+      rgba(52, 211, 153, 0.35) 50%,
+      rgba(16, 185, 129, 0.55) 100%
+    );
+}
+
+.gradient-card-border-info {
+  border: 1px solid transparent !important;
+  background-image:
+    linear-gradient(#ffffff, #ffffff),
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.45) 0%,
+      rgba(99, 102, 241, 0.3) 50%,
+      rgba(37, 99, 235, 0.45) 100%
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.dark .gradient-card-border-info {
+  background-image:
+    linear-gradient(#101b36, #101b36),
+    linear-gradient(
+      135deg,
+      rgba(37, 99, 235, 0.55) 0%,
+      rgba(99, 102, 241, 0.35) 50%,
+      rgba(37, 99, 235, 0.55) 100%
+    );
+}
+
+/* Universal Frosted Glass Dropdown Surface (TexaOne Navigation & Dropdown Specification) */
+.glass-dropdown {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(244, 249, 255, 0.92) 100%
+  );
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 18px 38px -10px rgba(15, 23, 42, 0.08),
+    0 6px 16px -4px rgba(15, 23, 42, 0.04),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1);
+}
+
+.dark .glass-dropdown {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 27, 54, 0.95) 0%,
+    rgba(15, 23, 42, 0.92) 100%
+  );
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow:
+    0 20px 45px -10px rgba(0, 0, 0, 0.45),
+    0 8px 20px -6px rgba(0, 0, 0, 0.25),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.1);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-dropdown {
+    background: #ffffff;
+    border-color: #bae6fd;
+  }
+  .dark .glass-dropdown {
+    background: #101b36;
+    border-color: #1e293b;
+  }
+}
+
+/* Stat Cards 30% Linear Gradient Backgrounds */
+.stat-card-gradient-blue {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(219, 234, 254, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+.stat-card-gradient-purple {
+  background: linear-gradient(
+    135deg,
+    rgba(147, 51, 234, 0.3) 0%,
+    rgba(233, 213, 255, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+.stat-card-gradient-emerald {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.3) 0%,
+    rgba(209, 250, 229, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+.stat-card-gradient-amber {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.3) 0%,
+    rgba(254, 243, 199, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+.stat-card-gradient-rose {
+  background: linear-gradient(
+    135deg,
+    rgba(244, 63, 94, 0.3) 0%,
+    rgba(255, 228, 230, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+.stat-card-gradient-neutral {
+  background: linear-gradient(
+    135deg,
+    rgba(100, 116, 139, 0.3) 0%,
+    rgba(241, 245, 249, 0.15) 50%,
+    #ffffff 100%
+  );
+}
+
+.dark .stat-card-gradient-blue {
+  background: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+.dark .stat-card-gradient-purple {
+  background: linear-gradient(
+    135deg,
+    rgba(147, 51, 234, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+.dark .stat-card-gradient-emerald {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+.dark .stat-card-gradient-amber {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+.dark .stat-card-gradient-rose {
+  background: linear-gradient(
+    135deg,
+    rgba(244, 63, 94, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
+}
+.dark .stat-card-gradient-neutral {
+  background: linear-gradient(
+    135deg,
+    rgba(100, 116, 139, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
 }

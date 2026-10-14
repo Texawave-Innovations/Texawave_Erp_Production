@@ -2,7 +2,8 @@ import { type ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../spinner/index";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive";
+export type ButtonVariant =
+  "primary" | "secondary" | "outline" | "ghost" | "destructive";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,8 +16,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // literals": never interpolate a variant into a class name string.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-500 text-gray-900 hover:bg-brand-600 focus-visible:outline-brand-500 dark:bg-brand-400 dark:hover:bg-brand-300 dark:text-gray-900",
+    "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan-accessible hover:from-brand-700 hover:via-brand-800 hover:to-[#075985] active:from-brand-900 active:via-brand-700 active:to-[#0c4a6e] text-white shadow-theme-xs hover:shadow-theme-sm focus-visible:outline-brand-500 dark:from-brand-600 dark:via-brand-500 dark:to-brand-cyan-accessible dark:text-white transition-all duration-200",
   secondary:
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800",
+  outline:
     "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800",
   ghost:
     "bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:outline-brand-500 dark:text-white/90 dark:hover:bg-gray-800",
@@ -54,7 +57,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         className={cn(
-          "inline-flex items-center justify-center rounded-lg font-medium shadow-theme-xs transition-colors",
+          "inline-flex items-center justify-center rounded-lg font-medium shadow-theme-xs transition-colors whitespace-nowrap shrink-0",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
           VARIANT_CLASSES[variant],

@@ -127,6 +127,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+.vscode/
 
 # pnpm
 .pnpm-store
@@ -148,5 +149,5 @@ vite.config.ts.timestamp-*
 # Turborepo
 .turbo/
 
-# Uploaded files (employee documents etc.) from local API runs — never commit
+# Employee document uploads (local disk) — back up with the database, never commit
 apps/api/storage/

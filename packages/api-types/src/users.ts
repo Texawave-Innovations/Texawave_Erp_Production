@@ -32,6 +32,7 @@ export interface CreateUserInput {
   email: string;
   fullName: string;
   password: string;
+  mustChangePassword?: boolean;
   roleIds?: number[];
   teamIds?: number[];
 }

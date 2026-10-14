@@ -1,13 +1,12 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MinLength } from "class-validator";
+import { IsString } from "class-validator";
+import { IsStrongPassword } from "../../../common/validation/password-policy.js";
 
 export class ResetPasswordDto {
   @ApiProperty({ description: "Raw reset token from the emailed link" })
   @IsString()
   token!: string;
 
-  @ApiProperty({ minLength: 8 })
-  @IsString()
-  @MinLength(8)
+  @IsStrongPassword()
   newPassword!: string;
 }

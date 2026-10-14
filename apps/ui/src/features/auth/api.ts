@@ -20,3 +20,12 @@ export async function resetPassword(
 ): Promise<void> {
   await apiClient.post<{ message: string }>("/auth/reset-password", input);
 }
+
+/** Authenticated, so no `withAuthRetry`: a 401 here means "wrong current
+ * password", and a refresh-and-retry would mask that as a session problem. */
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiClient.post<{ message: string }>("/auth/change-password", input);
+}

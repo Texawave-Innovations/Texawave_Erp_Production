@@ -2,7 +2,9 @@
 
 `permissions` rows are **data**, not schema, so no Prisma migration creates them. Before this
 mechanism the only source was `prisma/seed.ts`, which is local-dev only — staging and production
-had no way to receive a new permission. This folder is that way.
+had no way to receive a new permission. This folder is that way. `prisma/menu/` mirrors it for
+`MenuItem` (per-organization, hierarchical) — run `permissions:sync` before `menu:sync`, since a
+menu item's `permission` must already exist.
 
 | File          | Role                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -17,7 +19,11 @@ had no way to receive a new permission. This folder is that way.
    `...scopedPermission("hr.employee.read", "View employees")` — all of `.own`/`.team`/`.all`
    are required together (`validate.ts` rejects a partial set).
 2. `pnpm --filter @texawave-erp/database permissions:sync` locally.
-3. Grant it to roles in Settings → Roles. Sync never grants anything to anyone.
+3. Give its resource a label and section in the role editor's
+   `apps/ui/src/features/settings/roles/utils/access-model.ts` (`RESOURCES`), or it is listed
+   under "Other". If its `.own` variant is refused by the API, add the base code to
+   `OWN_RESERVED`; if it is high-impact (money, personal data, access), add it to `SENSITIVE`.
+4. Grant it to roles in Admin → Roles (Access control). Sync never grants anything to anyone.
 
 ## Deploy (every environment)
 

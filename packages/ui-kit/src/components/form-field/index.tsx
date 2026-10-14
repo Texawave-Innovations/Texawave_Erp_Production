@@ -9,7 +9,7 @@ export interface FormFieldProps {
   // lets a caller pass `error={maybeUndefinedString}` without having to
   // prune the key first.
   error?: string | undefined;
-  hint?: string;
+  hint?: string | undefined;
   required?: boolean;
   /**
    * Optional trailing content rendered on the same row as the label (e.g. a

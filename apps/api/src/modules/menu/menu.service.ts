@@ -7,6 +7,7 @@ import {
 } from "../../common/exceptions/business.exception.js";
 import { PermissionsService } from "../../platform/roles-permissions/permissions.service.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
+import { TEAM_ACCESS_LEVELS } from "../../common/tenancy/team-scope.js";
 import type { CreateMenuItemDto } from "./dto/create-menu-item.dto.js";
 import type { QueryMenuItemDto } from "./dto/query-menu-item.dto.js";
 import type { UpdateMenuItemDto } from "./dto/update-menu-item.dto.js";
@@ -49,11 +50,27 @@ export class MenuService {
     const allItems = await this.repository.findActiveItems(scope);
 
     // 1. Filter items allowed for this user
+    //
+    // A menu item's `permission` is either an exact, unscoped permission
+    // code (e.g. "departments.department.read") or the prefix of a scoped
+    // permission family defined via `scopedPermission()`
+    // (packages/database/prisma/permissions/catalog.ts), which only ever
+    // grants `<prefix>.own`/`.team`/`.all` — never the bare prefix itself.
+    // Mirror PermissionsGuard's exact-or-scoped check
+    // (apps/api/src/platform/roles-permissions/permissions.guard.ts) so a
+    // menu item wired to a scoped-only permission (e.g.
+    // "hr.attendance_report.read") is still shown to anyone holding any of
+    // its scoped variants.
     const allowedItems = allItems.filter((item) => {
       if (!item.permission) {
         return true;
       }
-      return permissionSet.has(item.permission);
+      if (permissionSet.has(item.permission)) {
+        return true;
+      }
+      return TEAM_ACCESS_LEVELS.some((level) =>
+        permissionSet.has(`${item.permission}.${level}`),
+      );
     });
 
     // 2. Build tree structure

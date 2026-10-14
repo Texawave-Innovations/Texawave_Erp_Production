@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRoles } from "@/features/settings/roles/hooks";
 import { useAssignUserRoles } from "../hooks";
 import { AssignModalActions } from "./AssignModalActions";
+import { userErrorDescription } from "../errors";
 
 export interface AssignRolesModalProps {
   userId: number;
@@ -70,8 +71,13 @@ export function AssignRolesModal({
         variant: "success",
       });
       onClose();
-    } catch {
-      toast({ title: "Could not update roles", variant: "error" });
+    } catch (error) {
+      const description = userErrorDescription(error);
+      toast({
+        title: "Could not update roles",
+        ...(description ? { description } : {}),
+        variant: "error",
+      });
     }
   }
 

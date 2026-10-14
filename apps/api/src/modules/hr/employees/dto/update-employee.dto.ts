@@ -103,4 +103,30 @@ export class UpdateEmployeeDto {
   @ValidateIf((o: UpdateEmployeeDto) => o.dateOfJoining !== undefined)
   @IsDateOnly()
   dateOfJoining?: string;
+
+  @ApiPropertyOptional({ example: "2027-04-01", nullable: true })
+  @IsOptional()
+  @IsDateOnly()
+  probationEndDate?: string | null;
+
+  @ApiPropertyOptional({ example: "2027-04-01", nullable: true })
+  @IsOptional()
+  @IsDateOnly()
+  confirmationDate?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @BlankToNull()
+  @Trim()
+  @IsString()
+  @Length(1, 200)
+  referredBy?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @BlankToNull()
+  @Trim()
+  @IsString()
+  @Length(1, 100)
+  workDomain?: string | null;
 }

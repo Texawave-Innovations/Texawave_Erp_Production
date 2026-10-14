@@ -22,6 +22,8 @@ export interface RequestOptions {
   // here. Values are stringified at the point of use below regardless.
   query?: object;
   body?: unknown;
+  /** Multipart upload. Sent as-is: the browser sets the Content-Type boundary. */
+  formData?: FormData;
   signal?: AbortSignal;
 }
 
@@ -67,12 +69,14 @@ export class ApiClient {
       response = await fetch(url, {
         method: options.method ?? "GET",
         headers: {
-          "Content-Type": "application/json",
+          ...(options.formData ? {} : { "Content-Type": "application/json" }),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        ...(options.body !== undefined
-          ? { body: JSON.stringify(options.body) }
-          : {}),
+        ...(options.formData
+          ? { body: options.formData }
+          : options.body !== undefined
+            ? { body: JSON.stringify(options.body) }
+            : {}),
         ...(options.signal ? { signal: options.signal } : {}),
       });
     } catch (cause) {
@@ -124,6 +128,46 @@ export class ApiClient {
     options?: Omit<RequestOptions, "method" | "body">,
   ): Promise<ApiEnvelope<T>> {
     return this.request<T>(path, { ...options, method: "PATCH", body });
+  }
+
+  /** A binary GET (e.g. a PDF): the body as a Blob, not a JSON envelope.
+   * Failures still arrive as the API's JSON error body, so they become the
+   * same `ApiError` as every other call. */
+  async download(
+    path: string,
+    options?: Omit<RequestOptions, "method" | "body" | "formData">,
+  ): Promise<Blob> {
+    const url = buildUrl(this.config.baseUrl, path, options?.query);
+    const token = this.config.getAccessToken();
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        ...(options?.signal ? { signal: options.signal } : {}),
+      });
+    } catch (cause) {
+      throw ApiError.networkError(cause);
+    }
+
+    if (response.status === 401) {
+      this.config.onUnauthorized?.();
+    }
+
+    if (!response.ok) {
+      const json: unknown = await response.json().catch(() => null);
+      throw new ApiError(
+        (json ?? {
+          statusCode: response.status,
+          message: response.statusText,
+          error: "UNKNOWN_ERROR",
+          path,
+          timestamp: new Date().toISOString(),
+        }) as ApiErrorBody,
+      );
+    }
+
+    return response.blob();
   }
 
   /** For a full-replace endpoint (e.g. "set this role's granted permission
