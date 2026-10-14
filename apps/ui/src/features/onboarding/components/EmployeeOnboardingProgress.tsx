@@ -27,6 +27,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useEmployee } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import { OnboardingReviewPanel } from "@/features/hr/employees/components/OnboardingReviewPanel";
 import { getEmployeeOnboarding } from "../api";
 import { MISSING_LABELS } from "./OnboardingWizard";
 
@@ -264,6 +265,9 @@ export function EmployeeOnboardingProgress({
           </div>
         </Card>
       ) : null}
+
+      {/* HR review of the submitted profile (approve / send back) */}
+      {emp ? <OnboardingReviewPanel employee={emp} /> : null}
 
       {/* Progress Telemetry Card */}
       <Card className="border-neutral-200/80 bg-white p-6 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">

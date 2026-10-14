@@ -1,11 +1,16 @@
 import type { PaginatedEnvelope } from "@texawave-erp/api-types";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth-store";
+import { downloadBlob } from "@/features/hr/payroll/download";
 import type {
   EmployeeDetail,
+  EmployeeImportReport,
   EmployeeListItem,
+  EmployeeStats,
   EmployeeStatus,
   EmployeeStatusHistoryRow,
   LookupItem,
+  OnboardingReviewStatus,
 } from "./types";
 
 export interface EmployeeListQuery {
@@ -13,6 +18,8 @@ export interface EmployeeListQuery {
   limit: number;
   search?: string;
   status?: EmployeeStatus;
+  onboardingReviewStatus?: OnboardingReviewStatus;
+  teamId?: number;
   departmentId?: number;
   designationId?: number;
   employmentTypeId?: number;
@@ -132,4 +139,99 @@ export async function listLookup(
     apiClient.get<LookupItem[]>(path, { query: { page: 1, limit: 100 } }),
   );
   return (res as PaginatedEnvelope<LookupItem>).data;
+}
+
+export async function getEmployeeStats(): Promise<EmployeeStats> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<EmployeeStats>(`${BASE}/stats`),
+  );
+  return data;
+}
+
+/** Approve a submitted onboarding profile (PENDING_REVIEW, nothing missing). */
+export async function approveOnboarding(
+  id: number,
+  note?: string,
+): Promise<EmployeeDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<EmployeeDetail>(
+      `${BASE}/${id}/onboarding/approve`,
+      note ? { note } : {},
+    ),
+  );
+  return data;
+}
+
+/** Send a submitted profile back with a note; reopens the employee's wizard. */
+export async function sendBackOnboarding(
+  id: number,
+  note: string,
+): Promise<EmployeeDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<EmployeeDetail>(`${BASE}/${id}/onboarding/send-back`, {
+      note,
+    }),
+  );
+  return data;
+}
+
+/** All rows or none; `dryRun` validates (including database checks) and saves nothing. */
+export function importEmployeesCsv(
+  file: File,
+  dryRun: boolean,
+): Promise<EmployeeImportReport> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return withAuthRetry(() =>
+    apiClient.request<EmployeeImportReport>(
+      `${BASE}/import${dryRun ? "?dryRun=true" : ""}`,
+      { method: "POST", formData },
+    ),
+  ).then((res) => res.data);
+}
+
+/**
+ * apiClient only parses JSON, so CSV/PDF downloads go through fetch with the
+ * same bearer token and base URL (as employee-documents/api.ts does). A failed
+ * request surfaces the API's own message.
+ */
+async function fetchFile(path: string): Promise<Blob> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const token = useAuthStore.getState().accessToken;
+  const res = await fetch(`${baseUrl}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as {
+      message?: string | string[];
+    } | null;
+    const message = Array.isArray(body?.message)
+      ? body.message.join(", ")
+      : body?.message;
+    throw new Error(message ?? `Download failed (status ${res.status})`);
+  }
+  return res.blob();
+}
+
+/** CSV of the employees matching the list filters (export permission). */
+export async function exportEmployeesCsv(
+  query: Omit<EmployeeListQuery, "page" | "limit">,
+): Promise<void> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  const qs = params.toString();
+  const blob = await fetchFile(`${BASE}/export${qs ? `?${qs}` : ""}`);
+  const day = new Intl.DateTimeFormat("en-CA").format(new Date());
+  downloadBlob(`employees-${day}.csv`, blob);
+}
+
+/** The profile as a PDF (no sensitive identifiers; profile read permission). */
+export async function downloadProfilePdf(
+  id: number,
+  employeeCode: string,
+): Promise<void> {
+  const blob = await fetchFile(`${BASE}/${id}/profile/pdf`);
+  downloadBlob(`${employeeCode}-profile.pdf`, blob);
 }

@@ -217,7 +217,7 @@ The 21 HR sub-navigation items are structured into 6 logical categories rendered
 
 1. **Overview:** Dashboard (`/hr/dashboard`)
 2. **Workforce:** Employees, Profiles, Employee Documents, Org Chart, Recruitment, Exit Requests
-3. **Time & Attendance:** Attendance, Regularization, Work Logs, Location Privilege, Full Month Present
+3. **Time & Attendance:** Attendance, Regularization, Location Privilege, Full Month Present
 4. **Leave & Calendar:** Leaves, Holidays
 5. **Operations & Claims:** Tasks, Expense Approvals, Employee Tickets, Payroll, Compliance
 6. **Organization:** Departments, Teams

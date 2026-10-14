@@ -8,6 +8,8 @@ export interface MyLeaveRequest {
   dayPortion: string;
   reason: string;
   status: string;
+  /** "HR" when a two-level request has its first approval (Docs/HR_LEAVE.md §6.1). */
+  awaiting?: "FIRST" | "HR" | null;
   createdAt: string;
 }
 

@@ -19,9 +19,19 @@ import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import {
   AlreadyCheckedInException,
+  AttendanceMonthLockedException,
   NotCheckedInException,
 } from "./attendance.exceptions.js";
 import type { ManualAttendanceEditDto } from "./dto/attendance.dto.js";
+import {
+  overlaps,
+  type ImportRowError,
+} from "./import-export/attendance-csv.js";
+import {
+  firstDayOf,
+  LOCKED_STATUSES,
+  monthOf,
+} from "./month-locks/month-lock.rules.js";
 import type { StoredStatus } from "./services/attendance-calculation.service.js";
 import {
   planCorrection,
@@ -66,6 +76,25 @@ export interface AttendanceFilter {
   employeeId?: number | undefined;
   status?: StoredStatus | undefined;
 }
+
+/** One validated punch pair from an import, already matched to an employee. */
+export interface ImportPunch {
+  row: number;
+  employeeId: number;
+  date: string;
+  checkInAt: Date;
+  checkOutAt: Date;
+}
+
+export interface ImportBatchResult {
+  created: number;
+  duplicates: number;
+  errors: ImportRowError[];
+}
+
+/** Thrown inside the import transaction to roll it back on a dry run or when
+ * any row failed; never escapes the repository. */
+class RollbackImport extends Error {}
 
 export function toStoredDay(row: AttendanceRecordRow): StoredDay {
   return {
@@ -247,6 +276,12 @@ export class AttendanceRepository {
           `attendance record ${recordId} vanished inside the edit transaction`,
         );
       await this.lockEmployee(tx, scope, before.employeeId);
+      await this.assertMonthOpen(
+        tx,
+        scope,
+        before.employeeId,
+        formatDateOnly(before.attendanceDate),
+      );
 
       if (sessions !== undefined) {
         const otherOpen = await tx.attendanceSession.findFirst({
@@ -331,6 +366,12 @@ export class AttendanceRepository {
     after: unknown;
   }> {
     await this.lockEmployee(tx, scope, input.employeeId);
+    await this.assertMonthOpen(
+      tx,
+      scope,
+      input.employeeId,
+      input.attendanceDate,
+    );
     const record = await tx.attendanceRecord.upsert({
       where: {
         organizationId_employeeId_attendanceDate: {
@@ -425,6 +466,189 @@ export class AttendanceRepository {
     };
   }
 
+  // ---- punch import -----------------------------------------------------------
+
+  /** Employees matching the codes, inside the caller's team scope. A code
+   * outside the scope is simply not returned (reported as not found). */
+  @TeamScoped()
+  async findImportEmployees(scope: TeamScope, codes: readonly string[]) {
+    if (codes.length === 0) return [];
+    return this.prisma.employee.findMany({
+      where: teamWhere(
+        scope,
+        { deletedAt: null, employeeCode: { in: [...codes] } },
+        { teamField: "teamId", ownerField: "userId" },
+      ) as Prisma.EmployeeWhereInput,
+      select: {
+        id: true,
+        employeeCode: true,
+        userId: true,
+        dateOfJoining: true,
+        dateOfExit: true,
+      },
+    });
+  }
+
+  /**
+   * Adds imported punch pairs, all or nothing, in one transaction. Per
+   * employee (in id order, so two imports cannot deadlock) it takes the punch
+   * lock, refuses a submitted/approved month, skips a pair identical to one
+   * already stored (re-importing a file is harmless) and refuses one that
+   * overlaps a stored session. If any row fails, or on a dry run, everything
+   * is rolled back and only the report is returned.
+   */
+  @OrgScoped()
+  async importBatch(
+    scope: OrgScope,
+    punches: readonly ImportPunch[],
+    userId: number,
+    dryRun: boolean,
+  ): Promise<ImportBatchResult> {
+    const result: ImportBatchResult = { created: 0, duplicates: 0, errors: [] };
+    const byEmployee = new Map<number, ImportPunch[]>();
+    for (const p of punches) {
+      const list = byEmployee.get(p.employeeId);
+      if (list) list.push(p);
+      else byEmployee.set(p.employeeId, [p]);
+    }
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          for (const employeeId of [...byEmployee.keys()].sort(
+            (a, b) => a - b,
+          )) {
+            await this.lockEmployee(tx, scope, employeeId);
+            const byDate = new Map<string, ImportPunch[]>();
+            for (const p of byEmployee.get(employeeId)!) {
+              const list = byDate.get(p.date);
+              if (list) list.push(p);
+              else byDate.set(p.date, [p]);
+            }
+            for (const [date, pairs] of byDate) {
+              try {
+                await this.assertMonthOpen(tx, scope, employeeId, date);
+              } catch (error) {
+                if (!(error instanceof AttendanceMonthLockedException))
+                  throw error;
+                for (const p of pairs) {
+                  result.errors.push({
+                    row: p.row,
+                    field: "Date",
+                    message: error.message,
+                  });
+                }
+                continue;
+              }
+              await this.importDay(
+                tx,
+                scope,
+                employeeId,
+                date,
+                pairs,
+                userId,
+                result,
+              );
+            }
+          }
+          if (dryRun || result.errors.length > 0) throw new RollbackImport();
+        },
+        { timeout: 60_000 },
+      );
+    } catch (error) {
+      if (!(error instanceof RollbackImport)) throw error;
+    }
+    return result;
+  }
+
+  private async importDay(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    employeeId: number,
+    date: string,
+    pairs: readonly ImportPunch[],
+    userId: number,
+    result: ImportBatchResult,
+  ): Promise<void> {
+    const existing = await tx.attendanceRecord.findUnique({
+      where: {
+        organizationId_employeeId_attendanceDate: {
+          organizationId: scope.organizationId,
+          employeeId,
+          attendanceDate: parseDateOnly(date),
+        },
+      },
+      include: RECORD_INCLUDE,
+    });
+    const stored = existing?.sessions ?? [];
+    const fresh: ImportPunch[] = [];
+    for (const p of pairs) {
+      if (
+        stored.some(
+          (s) =>
+            s.checkInAt.getTime() === p.checkInAt.getTime() &&
+            s.checkOutAt?.getTime() === p.checkOutAt.getTime(),
+        )
+      ) {
+        result.duplicates += 1;
+        continue;
+      }
+      const clash = stored.find((s) => overlaps(s, p));
+      if (clash) {
+        result.errors.push({
+          row: p.row,
+          field: "Check In",
+          message: clash.checkOutAt
+            ? "Overlaps a session already recorded for this day"
+            : "The employee has an open session on this day; close it first",
+        });
+        continue;
+      }
+      fresh.push(p);
+    }
+    if (fresh.length === 0 || result.errors.length > 0) return;
+
+    const record = await tx.attendanceRecord.upsert({
+      where: {
+        organizationId_employeeId_attendanceDate: {
+          organizationId: scope.organizationId,
+          employeeId,
+          attendanceDate: parseDateOnly(date),
+        },
+      },
+      create: {
+        organizationId: scope.organizationId,
+        employeeId,
+        attendanceDate: parseDateOnly(date),
+        createdBy: userId,
+        updatedBy: userId,
+      },
+      update: { updatedBy: userId },
+      select: { id: true },
+    });
+    await tx.attendanceSession.createMany({
+      data: fresh.map((p) => ({
+        attendanceRecordId: record.id,
+        checkInAt: p.checkInAt,
+        checkOutAt: p.checkOutAt,
+        source: "IMPORT",
+        createdBy: userId,
+        updatedBy: userId,
+      })),
+    });
+    result.created += fresh.length;
+    const after = await tx.attendanceRecord.findUniqueOrThrow({
+      where: { id: record.id },
+      include: RECORD_INCLUDE,
+    });
+    await this.audit.write(tx, {
+      entityType: ENTITY_TYPE,
+      entityId: record.id,
+      action: "import",
+      before: existing ? snapshot(existing) : null,
+      after: snapshot(after),
+    });
+  }
+
   // ---- reporting reads ----------------------------------------------------
 
   /** Records (with punches) for the given employees over a date range. Used by
@@ -435,9 +659,10 @@ export class AttendanceRepository {
     employeeIds: readonly number[],
     from: string,
     to: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<StoredDay[]> {
     if (employeeIds.length === 0) return [];
-    const rows = await this.prisma.attendanceRecord.findMany({
+    const rows = await (tx ?? this.prisma).attendanceRecord.findMany({
       where: tenantWhere(scope, {
         deletedAt: null,
         employeeId: { in: [...employeeIds] },
@@ -458,6 +683,30 @@ export class AttendanceRepository {
     employeeId: number,
   ): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${scope.organizationId}::int, ${employeeId}::int)`;
+  }
+
+  /** Refuses a change to a day whose month is SUBMITTED or APPROVED. Call it
+   * inside the transaction, after `lockEmployee()`: finalize takes the same
+   * lock, so a change and a month close for one employee can never
+   * interleave. Public so the correction and import paths use the same check. */
+  async assertMonthOpen(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    employeeId: number,
+    attendanceDate: string,
+  ): Promise<void> {
+    const month = monthOf(attendanceDate);
+    const lock = await tx.attendanceMonthLock.findFirst({
+      where: {
+        organizationId: scope.organizationId,
+        employeeId,
+        month: parseDateOnly(firstDayOf(month)),
+        status: { in: [...LOCKED_STATUSES] },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (lock) throw new AttendanceMonthLockedException(month);
   }
 
   private async findOpenSession(

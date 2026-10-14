@@ -14,7 +14,6 @@ import {
   FileText,
   Network,
   Briefcase,
-  FileSpreadsheet,
   Clock,
   CalendarCheck,
   MapPin,
@@ -209,13 +208,6 @@ export const HR_NAV_GROUPS: NavGroup[] = [
         label: "Regularization",
         path: "/hr/regularization",
         icon: CalendarCheck,
-      },
-      {
-        id: "work-logs",
-        menuCode: "hr-work-logs",
-        label: "Work Logs",
-        path: "/hr/work-logs",
-        icon: FileSpreadsheet,
       },
       {
         id: "location-privilege",

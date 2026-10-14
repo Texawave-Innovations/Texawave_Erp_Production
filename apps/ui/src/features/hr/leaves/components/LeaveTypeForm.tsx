@@ -6,6 +6,7 @@ import {
   Checkbox,
   FormField,
   Input,
+  Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
 import {
@@ -49,6 +50,9 @@ export function LeaveTypeForm({
   const [carryForwardLimit, setCarryForwardLimit] = useState(
     String(initialValues?.carryForwardLimit ?? 0),
   );
+  const [approvalLevels, setApprovalLevels] = useState<1 | 2>(
+    initialValues?.approvalLevels ?? 1,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -62,6 +66,7 @@ export function LeaveTypeForm({
       isPaid,
       annualEntitlement: Number(annualEntitlement) || 0,
       carryForwardLimit: Number(carryForwardLimit) || 0,
+      approvalLevels,
     };
     const schema =
       mode === "create" ? createLeaveTypeSchema : updateLeaveTypeSchema;
@@ -188,6 +193,23 @@ export function LeaveTypeForm({
           )}
         </FormField>
       </div>
+
+      <FormField
+        label="Approval"
+        hint="Two levels: the reporting manager (or a team approver) first, then a different HR approver. Applies to requests submitted after the change."
+      >
+        {(f) => (
+          <Select
+            {...f}
+            value={approvalLevels}
+            disabled={submitting}
+            onChange={(e) => setApprovalLevels(e.target.value === "2" ? 2 : 1)}
+          >
+            <option value={1}>One approval</option>
+            <option value={2}>Two approvals (manager, then HR)</option>
+          </Select>
+        )}
+      </FormField>
 
       {submitError ? (
         <p className="text-theme-xs text-error-600 dark:text-error-400">

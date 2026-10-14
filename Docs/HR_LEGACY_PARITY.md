@@ -176,6 +176,8 @@ Each entry follows the 16-point template. Items marked _(not audited)_ were not 
 
 ### 3.5 Work Logs (`WorkLogs.tsx`, 222 lines)
 
+> **Removed (2026-10-13):** the production work-logs module was built and then removed on request — API, UI, permissions, menu and table. The analysis below is kept as legacy history.
+
 1. **Location:** `modules/hr/WorkLogs.tsx`; RTDB `hr/timeLogs/{employeeId}/{logId}`.
 2. **Data:** `{ employeeId, employeeName, date, taskDescription, hoursWorked, status: pending|approved|rejected, reportingTo, submittedAt }`.
 3. **Workflow:** employee submits a daily log of task description and hours; HR (admin) approves or rejects. Filtered by status; counts shown.
@@ -549,7 +551,7 @@ Items are grouped so the owner can answer in one pass. **Nothing listed here is 
 | Offer letter                     | **Ready** for generate/list/revision; `Sent`/`Accepted` **not** | R2 open.                                        |
 | Revision letter                  | **Ready** as record only                                        | Must not update salary.                         |
 | Regularization                   | **Reuse existing**                                              | Gap (a) to verify, not build.                   |
-| Work logs                        | **Ready after D9**                                              | Approver rule.                                  |
+| Work logs                        | **Removed**                                                     | Built, then removed on request.                 |
 | Org chart (read, direct reports) | **Ready**                                                       | Uses existing `reportsToId`.                    |
 | Org chart (vacant slots)         | **Blocked** on D10                                              |                                                 |
 | Location privilege               | **Ready** (D18 resolved; see §12)                               | Attendance punch gate; portal not gated.        |

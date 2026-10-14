@@ -41,3 +41,38 @@ export class AttendanceRangeTooLargeException extends BusinessException {
     );
   }
 }
+
+/** A change to a day whose month is submitted or approved (409). The month
+ * must be returned or reopened first. */
+export class AttendanceMonthLockedException extends BusinessException {
+  constructor(month: string) {
+    super(
+      `Attendance for ${month} is submitted or approved and cannot change. Ask an approver to return or reopen the month first.`,
+      HttpStatus.CONFLICT,
+      "ATTENDANCE_MONTH_LOCKED",
+    );
+  }
+}
+
+/** Deciding the month close of one's own attendance (403). */
+export class AttendanceMonthSelfDecisionException extends BusinessException {
+  constructor() {
+    super(
+      "You cannot decide the attendance month of your own record",
+      HttpStatus.FORBIDDEN,
+      "SELF_APPROVAL_FORBIDDEN",
+    );
+  }
+}
+
+/** The user who submitted a month approving or returning it (403):
+ * submitting and approving are two people's jobs. */
+export class AttendanceMonthSubmitterDecisionException extends BusinessException {
+  constructor() {
+    super(
+      "The person who submitted this month cannot also approve or return it",
+      HttpStatus.FORBIDDEN,
+      "SUBMITTER_CANNOT_DECIDE",
+    );
+  }
+}

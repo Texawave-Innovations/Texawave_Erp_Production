@@ -51,6 +51,11 @@ export interface DayContext {
     effectiveFrom: string;
     effectiveTo: string | null;
     workingMinutes: number;
+    /** Shift clock times (IST, "HH:mm"). Optional so callers that only need
+     * the target need not load them; the missing-punch alerts do. */
+    startTime?: string;
+    endTime?: string;
+    isOvernight?: boolean;
   }[];
 }
 
@@ -131,9 +136,20 @@ export function resolveTargetMinutes(
   employee: EmployeeRef,
   date: string,
 ): number | null {
+  return resolveShiftAssignment(ctx, employee, date)?.workingMinutes ?? null;
+}
+
+/** The shift assignment that applies on `date` (same precedence as the
+ * target: employee level over team level), or null. */
+export function resolveShiftAssignment(
+  ctx: DayContext,
+  employee: EmployeeRef,
+  date: string,
+): DayContext["shiftAssignments"][number] | null {
   const covering = ctx.shiftAssignments.filter((a) => covers(a, date));
-  const employeeLevel = covering.find((a) => a.employeeId === employee.id);
-  if (employeeLevel) return employeeLevel.workingMinutes;
-  const teamLevel = covering.find((a) => a.teamId === employee.teamId);
-  return teamLevel ? teamLevel.workingMinutes : null;
+  return (
+    covering.find((a) => a.employeeId === employee.id) ??
+    covering.find((a) => a.teamId === employee.teamId) ??
+    null
+  );
 }

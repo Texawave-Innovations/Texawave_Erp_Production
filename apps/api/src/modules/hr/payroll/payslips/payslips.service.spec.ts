@@ -115,6 +115,7 @@ describe("PayslipsService", () => {
         ORG_SCOPE,
         10,
         USER_ID,
+        undefined,
       );
       expect(result).toHaveLength(1);
       expect(result[0]!.employee).toEqual(MASKED_EMPLOYEE);

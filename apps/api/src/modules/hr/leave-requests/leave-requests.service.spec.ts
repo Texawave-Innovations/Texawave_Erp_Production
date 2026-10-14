@@ -21,13 +21,15 @@ function makeService(level: "own" | "team" | "all" = "all") {
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
   };
+  const notifier = { leaveChanged: vi.fn().mockResolvedValue(undefined) };
   const service = new LeaveRequestsService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifier as never,
   );
-  return { service, repository, teamContext, employees, teamScope };
+  return { service, repository, teamContext, employees, teamScope, notifier };
 }
 
 describe("LeaveRequestsService", () => {
@@ -52,32 +54,74 @@ describe("LeaveRequestsService", () => {
     );
   });
 
-  it("approve() and reject() refuse an `.own` holder without touching the repository", async () => {
-    const { service, repository } = makeService("own");
+  it("approve() and reject() give an `.own` holder with no authority over the request 403, not 404", async () => {
+    const { service, repository, notifier } = makeService("own");
+    repository.decide.mockResolvedValue({ kind: "not_found" });
     await expect(service.approve(1, {} as never)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
     await expect(service.reject(1, {} as never)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    expect(repository.decide).not.toHaveBeenCalled();
+    expect(notifier.leaveChanged).not.toHaveBeenCalled();
+  });
+
+  it("approve() lets the repository decide for an `.own` holder (the reporting manager)", async () => {
+    const { service, repository } = makeService("own");
+    repository.decide.mockResolvedValue({
+      kind: "decided",
+      view: { id: 1 },
+      stage: 1,
+      final: true,
+    });
+    await expect(service.approve(1, {} as never)).resolves.toEqual({ id: 1 });
   });
 
   it("approve() records APPROVED with the note, decided by the caller", async () => {
     const { service, repository, teamScope } = makeService("all");
-    repository.decide.mockResolvedValue({ id: 1 });
+    repository.decide.mockResolvedValue({
+      kind: "decided",
+      view: { id: 1 },
+      stage: 1,
+      final: true,
+    });
     await service.approve(1, { note: "ok" } as never);
     expect(repository.decide).toHaveBeenCalledWith(
       teamScope,
       1,
       { status: "APPROVED", note: "ok" },
       42,
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     );
+  });
+
+  it("approve() sends 'approved' on a final approval and 'first_approved' on the first of two", async () => {
+    const { service, repository, notifier } = makeService("all");
+    repository.decide.mockResolvedValueOnce({
+      kind: "decided",
+      view: { id: 1 },
+      stage: 1,
+      final: false,
+    });
+    await service.approve(1, {} as never);
+    expect(notifier.leaveChanged).toHaveBeenLastCalledWith(1, {
+      kind: "first_approved",
+    });
+    repository.decide.mockResolvedValueOnce({
+      kind: "decided",
+      view: { id: 1 },
+      stage: 2,
+      final: true,
+    });
+    await service.approve(1, {} as never);
+    expect(notifier.leaveChanged).toHaveBeenLastCalledWith(1, {
+      kind: "approved",
+    });
   });
 
   it("reject() records REJECTED and throws not-found when out of scope", async () => {
     const { service, repository } = makeService("team");
-    repository.decide.mockResolvedValue(null);
+    repository.decide.mockResolvedValue({ kind: "not_found" });
     await expect(service.reject(1, {} as never)).rejects.toBeInstanceOf(
       ResourceNotFoundException,
     );
@@ -86,6 +130,7 @@ describe("LeaveRequestsService", () => {
       1,
       { status: "REJECTED", note: undefined },
       42,
+      expect.any(String),
     );
   });
 

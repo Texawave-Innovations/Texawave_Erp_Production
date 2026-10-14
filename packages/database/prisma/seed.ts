@@ -76,8 +76,8 @@ async function main() {
     where: {
       organizationId_name: { organizationId: org.id, name: "Super Admin" },
     },
-    update: {},
-    create: { organizationId: org.id, name: "Super Admin" },
+    update: { isSystem: true },
+    create: { organizationId: org.id, name: "Super Admin", isSystem: true },
   });
 
   const allPermissions = await prisma.permission.findMany();
@@ -119,8 +119,8 @@ async function main() {
       where: {
         organizationId_name: { organizationId: org.id, name: definition.name },
       },
-      update: {},
-      create: { organizationId: org.id, name: definition.name },
+      update: { isSystem: true },
+      create: { organizationId: org.id, name: definition.name, isSystem: true },
     });
     const permissions = await prisma.permission.findMany({
       where: { code: { in: [...definition.permissions] } },

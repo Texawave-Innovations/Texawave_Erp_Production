@@ -117,7 +117,7 @@ function toView(row: ExpenseClaimRow): ExpenseClaimView {
 }
 
 /** Audit snapshot: business facts only. Description and receipt reference are
- * free text and stay out, as in the work-log and leave snapshots. */
+ * free text and stay out, as in the leave snapshot. */
 function snapshot(row: ExpenseClaimRow) {
   return {
     employeeId: row.employee.id,

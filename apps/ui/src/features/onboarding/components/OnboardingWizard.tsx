@@ -28,7 +28,7 @@ import {
   submitOnboarding,
   uploadDocument,
 } from "../api";
-import { useMyDocuments } from "../hooks";
+import { useMyDocuments, useMyEmployee } from "../hooks";
 import { FamilyExperienceStep } from "./FamilyExperienceStep";
 
 const STEPS = [
@@ -138,6 +138,12 @@ export function OnboardingWizard() {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [missing, setMissing] = useState<string[] | null>(null);
+  // HR sent the submitted profile back: show what they asked to correct.
+  const me = useMyEmployee();
+  const sentBackNote =
+    me.data?.onboardingReviewStatus === "CHANGES_REQUESTED"
+      ? (me.data.onboardingReviewNote ?? null)
+      : null;
 
   // Values are held locally per step, so a failed save never clears what was typed.
   const [personal, setPersonal] = useState({
@@ -311,6 +317,18 @@ export function OnboardingWizard() {
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           {STEPS[step]} · Each section is safely stored as you progress.
         </p>
+        {sentBackNote ? (
+          <Alert
+            variant="warning"
+            title="HR asked you to update your details"
+            className="mt-3"
+          >
+            <p className="text-xs">{sentBackNote}</p>
+            <p className="mt-1 text-xs">
+              Correct the details below, then submit again.
+            </p>
+          </Alert>
+        ) : null}
 
         {/* Step Progress Bar & Indicators */}
         <div className="mt-4 flex flex-col gap-2">

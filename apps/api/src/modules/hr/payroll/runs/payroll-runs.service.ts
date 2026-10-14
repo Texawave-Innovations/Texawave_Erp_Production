@@ -139,17 +139,35 @@ export class PayrollRunsService {
       );
     }
 
-    // Calculate for all employees (the calculator ignores ids outside the org)
+    // Calculate for all employees (the calculator ignores ids outside the org).
+    // Unapproved attendance is collected for every employee and reported
+    // once, so HR sees the whole list instead of one name per attempt.
     const calculations: CalculatedEmployeePayroll[] = [];
+    const attendancePending: string[] = [];
     for (const empId of employeeIds) {
-      const calc = await this.calculator.calculateForEmployee(
-        orgScope.organizationId,
-        period.id,
-        empId,
-      );
-      if (calc) {
-        calculations.push(calc);
+      try {
+        const calc = await this.calculator.calculateForEmployee(
+          orgScope.organizationId,
+          period.id,
+          empId,
+        );
+        if (calc) calculations.push(calc);
+      } catch (err) {
+        if (
+          err instanceof BusinessRuleViolationException &&
+          err.errorCode === "ATTENDANCE_NOT_APPROVED"
+        ) {
+          attendancePending.push(err.message);
+          continue;
+        }
+        throw err;
       }
+    }
+    if (attendancePending.length > 0) {
+      throw new BusinessRuleViolationException(
+        `Payroll reads approved attendance, but ${attendancePending.length} employee(s) have no approved month: ${attendancePending.join("; ")}`,
+        "ATTENDANCE_NOT_APPROVED",
+      );
     }
 
     if (calculations.length === 0) {

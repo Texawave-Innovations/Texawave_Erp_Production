@@ -120,4 +120,59 @@ describe("default roles", () => {
       assert.ok(perms.has(needed), `HR Manager should hold ${needed}`);
     }
   });
+
+  it("HR Manager prepares payroll but approval, reopen and settings stay with Super Admin", () => {
+    const perms = new Set(role("HR Manager").permissions);
+    for (const needed of [
+      "hr.payroll.read.all",
+      "hr.payroll.write.all",
+      "hr.payroll.finalize.all",
+      "hr.payroll.export.all",
+      "hr.salary.write.all",
+      "hr.loan.write.all",
+      "hr.payslip.read.all",
+      "hr.payment.write.all",
+      "hr.loan.review.all",
+    ]) {
+      assert.ok(perms.has(needed), `HR Manager should hold ${needed}`);
+    }
+    for (const reserved of [
+      "hr.payroll.approve.all",
+      "hr.payroll.reopen.all",
+      "hr.loan.approve.all",
+      "hr.bonus.approve.all",
+      "hr.payroll_settings.write",
+    ]) {
+      assert.ok(!perms.has(reserved), `HR Manager must not hold ${reserved}`);
+    }
+  });
+
+  it("Team Lead sees no pay data", () => {
+    const pay =
+      /^hr.(payroll|salary|pf|esi|loan|bonus|payslip|payment|tax_declaration)./;
+    assert.deepEqual(
+      role("Team Lead").permissions.filter((c) => pay.test(c)),
+      [],
+    );
+  });
+
+  it("Employee reads only their own pay records (self-service codes)", () => {
+    const perms = role("Employee").permissions;
+    for (const needed of [
+      "employee_self_service.payslip.read",
+      "employee_self_service.loan.read",
+      "employee_self_service.loan.write",
+      "employee_self_service.tax_declaration.read",
+      "employee_self_service.tax_declaration.write",
+      "employee_self_service.form16.read",
+    ]) {
+      assert.ok(perms.includes(needed), `Employee should hold ${needed}`);
+    }
+    assert.deepEqual(
+      perms.filter((c) =>
+        /^hr.(payroll|salary|payslip|loan|tax_declaration)./.test(c),
+      ),
+      [],
+    );
+  });
 });

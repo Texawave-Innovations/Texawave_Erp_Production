@@ -9,6 +9,16 @@ export const EMPLOYEE_STATUSES = [
 ] as const;
 export type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number];
 
+/** Mirrors apps/api/src/modules/hr/employees/onboarding-review.policy.ts. */
+export const ONBOARDING_REVIEW_STATUSES = [
+  "NOT_SUBMITTED",
+  "PENDING_REVIEW",
+  "APPROVED",
+  "CHANGES_REQUESTED",
+] as const;
+export type OnboardingReviewStatus =
+  (typeof ONBOARDING_REVIEW_STATUSES)[number];
+
 export interface Ref {
   id: number;
   name: string;
@@ -32,6 +42,8 @@ export interface EmployeeListItem {
    * or "COMPLETE" — see OnboardingStatusBadge.
    */
   onboardingStatus: string;
+  /** HR's review of the submitted profile — see OnboardingReviewBadge. */
+  onboardingReviewStatus: OnboardingReviewStatus;
 }
 
 /** Shape of GET /hr/employees/:id. `version` is sent back on every update. */
@@ -42,6 +54,15 @@ export interface EmployeeDetail extends EmployeeListItem {
   workLocation: Ref | null;
   reportsTo: { id: number; employeeCode: string; fullName: string } | null;
   userId: number | null;
+  probationEndDate: string | null;
+  confirmationDate: string | null;
+  referredBy: string | null;
+  workDomain: string | null;
+  onboardingSubmittedAt: string | null;
+  onboardingReviewedAt: string | null;
+  onboardingReviewedBy: number | null;
+  /** On CHANGES_REQUESTED: what the employee must correct. */
+  onboardingReviewNote: string | null;
   dateOfExit: string | null;
   exitReason: string | null;
   isActive: boolean;
@@ -70,3 +91,31 @@ export interface LookupItem {
 }
 
 export type { PaginationMeta };
+
+/** GET /hr/employees/stats — counts within the caller's read scope. */
+export interface EmployeeStats {
+  total: number;
+  byStatus: Partial<Record<EmployeeStatus, number>>;
+  onboarding: {
+    profileIncomplete: number;
+    pendingReview: number;
+    changesRequested: number;
+  };
+  withoutLogin: number;
+  joinedThisMonth: number;
+  byTeam: Array<{ teamId: number; teamName: string; count: number }>;
+}
+
+/** POST /hr/employees/import — all rows are created, or none. */
+export interface EmployeeImportReport {
+  dryRun: boolean;
+  totalRows: number;
+  validRows: number;
+  created: Array<{ row: number; id: number; employeeCode: string }>;
+  errors: Array<{
+    row: number;
+    field?: string;
+    message: string;
+    errorCode?: string;
+  }>;
+}

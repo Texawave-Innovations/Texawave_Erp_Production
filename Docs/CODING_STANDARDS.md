@@ -399,6 +399,18 @@ async findAll(filter?: EmployeeFilter) {
 
 Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-building helper, not magic. A reviewer still checks that a new HR repository method both has `@TeamScoped()` and takes `scope` as its first parameter.
 
+**Writes to one employee's record re-check the scope where they write.** A single-employee HR write goes through a `@TeamScoped()` repository method that re-reads the employee through the caller's write scope **inside the write transaction**. Payroll does this for salary, loan and its decisions, skip, prepayment, bonus, a single payment and a tax declaration.
+
+- Payroll's helper is `modules/hr/payroll/shared/payroll-scope.ts` `findEmployeeInWriteScope(tx, scope, employeeId)`.
+- `.own` never writes, and anything outside the scope is `404`.
+- The check and the write therefore see the same data; a service-level check alone is not enough.
+
+**Documented exception — whole-organization HR actions.** Some HR operations act on every employee at once and are `@OrgScoped()` repository methods. In payroll these are periods, runs, approval, finalize, reopen, payslip generation, payment batches, statutory files and reports, and the statutory-bonus calculation.
+
+- Their service first resolves the team scope and requires `.all` (`requireOrgWideScope`); a `.team` grant gets `403`.
+- Organization configuration such as payroll settings, salary components, templates and tax or PT masters is not employee data. It is `@OrgScoped()` + an exact `@RequirePermission()`, like IAM data.
+- Reviewers check that every such service method calls `requireOrgWideScope` before the repository (Docs/PAYROLL_AND_COMPLIANCE.md §1).
+
 **PR checklist addition specific to HR/Team work:** any new `hr.*`/`employee_self_service.*` permission string needs all three scope variants seeded (`.own`, `.team`, `.all`) even if only one is used today — adding `.team` later, after roles already reference `.all`, is a data migration on `role_permissions`; seeding all three up front is free.
 
 ---

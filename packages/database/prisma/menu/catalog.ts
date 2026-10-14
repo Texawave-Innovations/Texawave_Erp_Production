@@ -132,14 +132,6 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "hr.attendance_correction.read",
   },
   {
-    code: "hr-work-logs",
-    label: "Work Logs",
-    path: "/hr/work-logs",
-    order: 10,
-    parentCode: "hr",
-    permission: "hr.work_log.read",
-  },
-  {
     code: "hr-location-privilege",
     label: "Location Privilege",
     path: "/hr/location-privilege",
@@ -253,14 +245,6 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "employee_self_service.leave_request.read",
   },
   {
-    code: "portal-work-logs",
-    label: "Work Logs",
-    path: "/portal/work-logs",
-    order: 3,
-    parentCode: "portal",
-    permission: "employee_self_service.work_log.read",
-  },
-  {
     code: "portal-tasks",
     label: "Tasks",
     path: "/portal/tasks",
@@ -348,6 +332,32 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     order: 12,
     parentCode: "portal",
     permission: "hr.leave_request.read",
+  },
+  // Own pay records. Self-service codes only, so an employee never needs the
+  // HR payroll workspace (hr.payroll.read) to see their own payslip.
+  {
+    code: "portal-payslips",
+    label: "My Payslips",
+    path: "/portal/payslips",
+    order: 13,
+    parentCode: "portal",
+    permission: "employee_self_service.payslip.read",
+  },
+  {
+    code: "portal-loans",
+    label: "My Loans",
+    path: "/portal/loans",
+    order: 14,
+    parentCode: "portal",
+    permission: "employee_self_service.loan.read",
+  },
+  {
+    code: "portal-tax",
+    label: "My Tax",
+    path: "/portal/tax",
+    order: 15,
+    parentCode: "portal",
+    permission: "employee_self_service.tax_declaration.read",
   },
   {
     code: "admin",

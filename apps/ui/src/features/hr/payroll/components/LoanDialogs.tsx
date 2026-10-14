@@ -9,6 +9,7 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { ApiError } from "@texawave-erp/core";
 import { useState } from "react";
 import {
   type EmployeeOption,
@@ -17,11 +18,27 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, isoDate, money, periodLabel } from "../format";
-import { useCreateLoan, useDecideLoanSkip, useRequestLoanSkip } from "../hooks";
+import {
+  useCreateLoan,
+  useDecideLoanSkip,
+  useRequestLoanSkip,
+  useRequestMyLoan,
+} from "../hooks";
 import { LOAN_APPROVE, LOAN_WRITE } from "../permissions";
-import { createLoanSchema, fieldErrors, loanSkipSchema } from "../schema";
+import {
+  createLoanSchema,
+  fieldErrors,
+  loanSkipSchema,
+  myLoanSchema,
+} from "../schema";
 import type { Loan, LoanSkipRequest } from "../types";
 import { DialogActions, ServerError } from "./DialogParts";
+import {
+  LoanDecision,
+  LoanStages,
+  PrepaymentForm,
+  PrepaymentsTable,
+} from "./LoanApprovalParts";
 import { OpenPeriodSelect } from "./OpenPeriodSelect";
 import { StatusPill } from "./PayrollStatusBadge";
 
@@ -34,8 +51,18 @@ export function outstanding(loan: Loan): number {
 
 // ---- issue a loan ---------------------------------------------------------
 
-export function IssueLoanDialog({ onClose }: { onClose: () => void }) {
+/** HR requests a loan for an employee; with `selfService` the signed-in
+ * employee requests one for themselves (no employee picker). Either way it
+ * starts at the HR review (§3.7). */
+export function IssueLoanDialog({
+  onClose,
+  selfService = false,
+}: {
+  onClose: () => void;
+  selfService?: boolean;
+}) {
   const create = useCreateLoan();
+  const requestMine = useRequestMyLoan();
   const { toast } = useToast();
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [principal, setPrincipal] = useState("");
@@ -43,6 +70,8 @@ export function IssueLoanDialog({ onClose }: { onClose: () => void }) {
   const [months, setMonths] = useState("");
   const [disbursed, setDisbursed] = useState("");
   const [reason, setReason] = useState("");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overLimit, setOverLimit] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -55,40 +84,73 @@ export function IssueLoanDialog({ onClose }: { onClose: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = createLoanSchema.safeParse({
-      employeeId: employee?.id,
+    const terms = {
       principalAmount: principal,
       emiAmount: emi,
       emiMonths: months,
       disbursedDate: disbursed,
       reason,
-    });
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error));
-      return;
+      overrideReason,
+    };
+    let send: () => Promise<Loan>;
+    if (selfService) {
+      const parsed = myLoanSchema.safeParse(terms);
+      if (!parsed.success) {
+        setErrors(fieldErrors(parsed.error));
+        return;
+      }
+      send = () => requestMine.mutateAsync(parsed.data);
+    } else {
+      const parsed = createLoanSchema.safeParse({
+        ...terms,
+        employeeId: employee?.id,
+      });
+      if (!parsed.success) {
+        setErrors(fieldErrors(parsed.error));
+        return;
+      }
+      send = () => create.mutateAsync(parsed.data);
     }
     setErrors({});
     setServerError(null);
     try {
-      const loan = await create.mutateAsync(parsed.data);
+      const loan = await send();
       toast({
-        title: `Loan ${loan.loanNumber} issued to ${employee?.fullName}`,
+        title: selfService
+          ? `Loan ${loan.loanNumber} requested — HR will review it`
+          : `Loan ${loan.loanNumber} requested for ${employee?.fullName} — awaiting HR review`,
         variant: "success",
       });
       onClose();
     } catch (err) {
+      // Above the principal limit: offer the override reason field.
+      if (err instanceof ApiError && err.errorCode === "LOAN_OVER_LIMIT") {
+        setOverLimit(true);
+      }
       setServerError(describeError(err));
     }
   }
 
   return (
-    <Dialog open onClose={onClose} title="Issue loan">
+    <Dialog
+      open
+      onClose={onClose}
+      title={selfService ? "Request a loan" : "Request loan"}
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <FormField label="Employee" required error={errors.employeeId}>
-          {(f) => (
-            <EmployeePicker {...f} value={employee} onChange={setEmployee} />
-          )}
-        </FormField>
+        {selfService ? (
+          <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+            HR reviews your request, then it goes for final approval. You are
+            notified of the decision; approved EMIs are deducted from your
+            salary.
+          </p>
+        ) : (
+          <FormField label="Employee" required error={errors.employeeId}>
+            {(f) => (
+              <EmployeePicker {...f} value={employee} onChange={setEmployee} />
+            )}
+          </FormField>
+        )}
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField
             label="Principal (₹)"
@@ -165,11 +227,32 @@ export function IssueLoanDialog({ onClose }: { onClose: () => void }) {
             />
           )}
         </FormField>
+        {overLimit || overrideReason ? (
+          <FormField
+            label="Override reason"
+            required
+            hint={
+              selfService
+                ? "The amount is above your loan limit. Explain why you need it; an organization-wide approver must approve it."
+                : "The principal is above the limit (loan limit × gross in Payroll settings). An organization-wide approver must approve it."
+            }
+            error={errors.overrideReason}
+          >
+            {(f) => (
+              <Textarea
+                {...f}
+                rows={2}
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+              />
+            )}
+          </FormField>
+        ) : null}
         <ServerError message={serverError} />
         <DialogActions
           onCancel={onClose}
-          submitting={create.isPending}
-          submitLabel="Issue loan"
+          submitting={create.isPending || requestMine.isPending}
+          submitLabel="Request loan"
         />
       </form>
     </Dialog>
@@ -325,6 +408,7 @@ export function LoanDetailDialog({
 }) {
   const canWrite = usePermission(LOAN_WRITE) && !selfService;
   const [requesting, setRequesting] = useState(false);
+  const [prepaying, setPrepaying] = useState(false);
   const paid = loan.repayments.filter((r) => r.status === "PAID").length;
   const total = loan.repayments.filter((r) => r.status !== "SKIPPED").length;
 
@@ -350,6 +434,9 @@ export function LoanDetailDialog({
               ["Repaid", `${paid} of ${total} installments`],
               ["Status", <StatusPill key="s" status={loan.status} />],
               ["Reason", loan.reason ?? "—"],
+              ...(loan.limitOverride
+                ? ([["Limit override", loan.overrideReason ?? "Yes"]] as const)
+                : []),
             ] as const
           ).map(([label, value]) => (
             <div
@@ -366,6 +453,17 @@ export function LoanDetailDialog({
           ))}
         </dl>
 
+        {selfService ? (
+          <LoanStages loan={loan} />
+        ) : (
+          <LoanDecision loan={loan} />
+        )}
+
+        {loan.repayments.length === 0 ? (
+          <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+            No EMI schedule yet — it is created when the loan is approved.
+          </p>
+        ) : null}
         <DataTable
           caption="Repayment schedule"
           rows={loan.repayments}
@@ -383,6 +481,29 @@ export function LoanDetailDialog({
             { header: "Paid on", cell: (r) => isoDate(r.paidAt) },
           ]}
         />
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-theme-md font-semibold text-gray-900 dark:text-white/90">
+            Prepayments
+          </h3>
+          {canWrite && loan.status === "ACTIVE" && !prepaying ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPrepaying(true)}
+            >
+              Record prepayment
+            </Button>
+          ) : null}
+        </div>
+        {prepaying ? (
+          <PrepaymentForm
+            loan={loan}
+            outstandingRupees={outstanding(loan) / 100}
+            onDone={() => setPrepaying(false)}
+          />
+        ) : null}
+        <PrepaymentsTable loan={loan} selfService={selfService} />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-theme-md font-semibold text-gray-900 dark:text-white/90">

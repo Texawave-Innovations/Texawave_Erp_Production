@@ -30,7 +30,7 @@ export class EmployeeQueryService {
   /** Same lookup as `getCurrentEmployee()`, but for callers where "not an
    * employee" is a valid state rather than an error — an admin/HR-manager
    * account holding a team/all-scope decide permission (e.g.
-   * `hr.work_log.approve`) is never itself an employee, so a hard 403 there
+   * `hr.leave.approve.team`) is never itself an employee, so a hard 403 there
    * would misreport an authorization failure the permission guard already
    * cleared. Returns `null` instead of throwing. */
   async findCurrentEmployeeOrNull(): Promise<EmployeeDetail | null> {

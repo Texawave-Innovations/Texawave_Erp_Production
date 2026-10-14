@@ -259,12 +259,14 @@ Drift check: empty. Tables are in the `hr` schema. No `attendance` schema exists
 | Table (hr)               | Purpose                                                                           | Key constraints                                                                                                                                                          |
 | ------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `attendance_records`     | one row per employee per IST date that has punches, an HR status, or a correction | UNIQUE (organization_id, employee_id, attendance_date); `status` CHECK in (PRESENT, ABSENT, HALF_DAY) or NULL                                                            |
-| `attendance_sessions`    | one punch pair; `source` CHECK in (SELF, HR, CORRECTION)                          | `check_out_at` > `check_in_at` (CHECK); partial UNIQUE on `attendance_record_id` WHERE `check_out_at IS NULL` (one open session per day); FK → records ON DELETE CASCADE |
+| `attendance_sessions`    | one punch pair; `source` CHECK in (SELF, HR, CORRECTION, IMPORT)                  | `check_out_at` > `check_in_at` (CHECK); partial UNIQUE on `attendance_record_id` WHERE `check_out_at IS NULL` (one open session per day); FK → records ON DELETE CASCADE |
 | `attendance_corrections` | correction request, SUBMITTED → APPROVED / REJECTED                               | type CHECK; status CHECK; decision CHECK (decided fields agree with status; REJECTED requires a note); at least one requested time; requested pair ordered               |
+| `attendance_month_locks` | monthly close per employee, SUBMITTED → APPROVED / RETURNED; APPROVED → REOPENED  | UNIQUE (organization_id, employee_id, month); status CHECK; month is the 1st (CHECK); decided rows carry `decided_at` (CHECK); RETURNED / REOPENED carry a note (CHECK)  |
 
 Foreign keys: organization and employee on both top-level tables, record on corrections (nullable,
 ON DELETE SET NULL), requester and decider to `platform.users`. Eight FKs in all. Platform FK count
-went from 50 to 58.
+went from 50 to 58. Added 2026-10-11 (migration `20261011120000_hr_attendance_month_lock_notifications_import`):
+`attendance_month_locks` (organization, employee, submitter, decider) and the `IMPORT` session source.
 
 ### 7.2 Deviations from §2
 

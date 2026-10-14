@@ -12,6 +12,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import {
   bonusesPaidElsewhere,
@@ -24,6 +25,7 @@ import type {
   QueryPayrollRunDto,
 } from "./dto/payroll-run.dto.js";
 import type { CalculatedEmployeePayroll } from "./payroll-calculator.service.js";
+import { round2 } from "./payroll-engine.rules.js";
 
 const VIA_EMPLOYEE = {
   teamField: "employee.teamId",
@@ -88,7 +90,10 @@ function sameIds(a: number[], b: number[]): boolean {
 
 @Injectable()
 export class PayrollRunsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @OrgScoped()
   async findManyRuns(
@@ -224,6 +229,25 @@ export class PayrollRunsRepository {
           data: { status: "PROCESSED", updatedBy: createdById },
         });
 
+        await this.audit.write(tx, {
+          entityType: "payroll_run",
+          entityId: run.id,
+          action: "create",
+          after: {
+            payrollPeriodId,
+            runNumber,
+            employees: calculations.length,
+            supersededRunIds: supersededIds,
+            totalGrossEarnings: round2(
+              calculations.reduce((s, c) => s + c.totalGrossEarnings, 0),
+            ),
+            totalNetPayable: round2(
+              calculations.reduce((s, c) => s + c.netPayable, 0),
+            ),
+          },
+          reason: notes,
+        });
+
         return tx.payrollRun.findUniqueOrThrow({
           where: { id: run.id },
           include: INCLUDE_RUN_DETAILS,
@@ -330,6 +354,13 @@ export class PayrollRunsRepository {
         totalGrossEarnings: calc.totalGrossEarnings,
         totalDeductions: calc.totalDeductions,
         netPayable: calc.netPayable,
+        absentDays: calc.absentDays,
+        overtimeMinutes: calc.overtimeMinutes,
+        payDaysMode: calc.payDaysMode,
+        payDaysDivisor: calc.payDaysDivisor,
+        attendanceLockId: calc.attendanceLockId,
+        taxRegime: calc.taxRegime,
+        taxableEarnings: calc.taxableEarnings,
         status: "CALCULATED",
         createdBy: createdById,
         updatedBy: createdById,
@@ -386,6 +417,14 @@ export class PayrollRunsRepository {
         pfWage: calc.pf.pfWage,
         employeeContribution: calc.pf.employeeContribution,
         employerContribution: calc.pf.employerContribution,
+        epsWage: calc.pf.epsWage,
+        epsContribution: calc.pf.epsContribution,
+        epfEmployerContribution: calc.pf.epfEmployerContribution,
+        edliWage: calc.pf.edliWage,
+        edliContribution: calc.pf.edliContribution,
+        adminCharges: calc.pf.adminCharges,
+        grossWage: calc.pf.grossWage,
+        ncpDays: calc.pf.ncpDays,
         deletedAt: null,
         updatedBy: createdById,
       };
@@ -497,6 +536,15 @@ export class PayrollRunsRepository {
       await tx.payrollPeriod.update({
         where: { id: current.payrollPeriodId },
         data: { status: "APPROVED", updatedBy: approvedById },
+      });
+
+      await this.audit.write(tx, {
+        entityType: "payroll_run",
+        entityId: id,
+        action: "approve",
+        before: { status: "PROCESSED" },
+        after: { status: "APPROVED", payrollPeriodId: current.payrollPeriodId },
+        reason: notes,
       });
 
       return tx.payrollRun.findUniqueOrThrow({

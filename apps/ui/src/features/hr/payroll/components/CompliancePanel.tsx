@@ -415,7 +415,18 @@ function ContributionsSection({ kind }: { kind: ComplianceKind }) {
               },
               {
                 header: "Employer share",
-                cell: (r) => money(r.employerContribution),
+                cell: (r) =>
+                  "epsContribution" in r && r.epsContribution !== undefined ? (
+                    <span className="flex flex-col">
+                      <span>{money(r.employerContribution)}</span>
+                      <span className="text-theme-xs text-gray-500">
+                        EPS {money(r.epsContribution)} · EPF{" "}
+                        {money(r.epfEmployerContribution)}
+                      </span>
+                    </span>
+                  ) : (
+                    money(r.employerContribution)
+                  ),
                 className: "text-right whitespace-nowrap",
                 headerClassName: "text-right",
               },

@@ -76,30 +76,47 @@ export const esiProfileSchema = z
 
 /** Mirrors CreateLoanDto plus the API's schedule rule (§3.4): EMI × months
  * must cover the principal without over-covering it by a full EMI. */
-export const createLoanSchema = z
-  .object({
+const loanTerms = z.object({
+  principalAmount: z.coerce
+    .number({ message: "Enter an amount" })
+    .min(1, "Must be at least ₹1"),
+  emiAmount: z.coerce
+    .number({ message: "Enter an amount" })
+    .min(1, "Must be at least ₹1"),
+  emiMonths: z.coerce
+    .number({ message: "Enter the number of months" })
+    .int("Whole months only")
+    .min(1, "At least 1 month"),
+  disbursedDate: z.string().min(1, "Choose the disbursement date"),
+  reason: optionalText.pipe(z.string().max(500).optional()),
+  /** Only needed above the principal limit (the API says when). */
+  overrideReason: optionalText.pipe(
+    z.string().min(10, "Give at least 10 characters").max(500).optional(),
+  ),
+});
+
+function scheduleRules<T extends z.ZodType<z.infer<typeof loanTerms>>>(
+  schema: T,
+) {
+  return schema
+    .refine((v) => v.emiAmount * v.emiMonths >= v.principalAmount, {
+      message: "EMI × months must cover the principal",
+      path: ["emiAmount"],
+    })
+    .refine((v) => v.emiAmount * (v.emiMonths - 1) < v.principalAmount, {
+      message: "Too many months: the last installment would be empty",
+      path: ["emiMonths"],
+    });
+}
+
+export const createLoanSchema = scheduleRules(
+  loanTerms.extend({
     employeeId: z.number({ message: "Choose an employee" }).int().positive(),
-    principalAmount: z.coerce
-      .number({ message: "Enter an amount" })
-      .min(1, "Must be at least ₹1"),
-    emiAmount: z.coerce
-      .number({ message: "Enter an amount" })
-      .min(1, "Must be at least ₹1"),
-    emiMonths: z.coerce
-      .number({ message: "Enter the number of months" })
-      .int("Whole months only")
-      .min(1, "At least 1 month"),
-    disbursedDate: z.string().min(1, "Choose the disbursement date"),
-    reason: optionalText.pipe(z.string().max(500).optional()),
-  })
-  .refine((v) => v.emiAmount * v.emiMonths >= v.principalAmount, {
-    message: "EMI × months must cover the principal",
-    path: ["emiAmount"],
-  })
-  .refine((v) => v.emiAmount * (v.emiMonths - 1) < v.principalAmount, {
-    message: "Too many months: the last installment would be empty",
-    path: ["emiMonths"],
-  });
+  }),
+);
+
+/** The employee's own request: the same terms, never an employee id. */
+export const myLoanSchema = scheduleRules(loanTerms);
 
 /** Mirrors CreateLoanSkipRequestDto. */
 export const loanSkipSchema = z.object({

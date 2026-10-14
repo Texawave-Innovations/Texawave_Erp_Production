@@ -118,22 +118,10 @@ describe("settings roles (e2e)", () => {
     readOnlyToken = await login(orgA.slug, "read-only@org-a.test");
   });
 
+  // Role changes are audited, and audit_logs is append-only (it references
+  // the acting user), so this suite's organizations and users stay behind like
+  // every other audited suite's (test/README.md). Their slugs are unique per run.
   afterAll(async () => {
-    await prisma.userRole.deleteMany({
-      where: { role: { organizationId: { in: [orgA.id, orgB.id] } } },
-    });
-    await prisma.rolePermission.deleteMany({
-      where: { role: { organizationId: { in: [orgA.id, orgB.id] } } },
-    });
-    await prisma.role.deleteMany({
-      where: { organizationId: { in: [orgA.id, orgB.id] } },
-    });
-    await prisma.user.deleteMany({
-      where: { organizationId: { in: [orgA.id, orgB.id] } },
-    });
-    await prisma.organization.deleteMany({
-      where: { id: { in: [orgA.id, orgB.id] } },
-    });
     await app.close();
   });
 

@@ -158,8 +158,8 @@ test("issues a loan only once the EMI schedule covers the principal", async ({
       .getByText("LOAN-000061"),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Issue loan" }).click();
-  const dialog = page.getByRole("dialog", { name: "Issue loan" });
+  await page.getByRole("button", { name: "Request loan" }).click();
+  const dialog = page.getByRole("dialog", { name: "Request loan" });
   await dialog
     .getByRole("combobox", { name: /^Employee/ })
     .selectOption(String(ASHA.id));
@@ -170,22 +170,24 @@ test("issues a loan only once the EMI schedule covers the principal", async ({
   // 900 × 12 = 10,800 < 12,000.
   await dialog.getByLabel("EMI (₹)").fill("900");
   await dialog.getByLabel("Disbursed on").fill("2031-01-15");
-  await dialog.getByRole("button", { name: "Issue loan" }).click();
+  await dialog.getByRole("button", { name: "Request loan" }).click();
   await expect(
     dialog.getByText("EMI × months must cover the principal"),
   ).toBeVisible();
   // 2,000 × 11 ≥ 12,000: the 12th installment would be empty.
   await dialog.getByLabel("EMI (₹)").fill("2000");
-  await dialog.getByRole("button", { name: "Issue loan" }).click();
+  await dialog.getByRole("button", { name: "Request loan" }).click();
   await expect(
     dialog.getByText("Too many months: the last installment would be empty"),
   ).toBeVisible();
   expect(state.posts).toHaveLength(0);
 
   await dialog.getByLabel("EMI (₹)").fill("1000");
-  await dialog.getByRole("button", { name: "Issue loan" }).click();
+  await dialog.getByRole("button", { name: "Request loan" }).click();
   await expect(
-    page.getByText("Loan LOAN-000062 issued to Asha Rao"),
+    page.getByText(
+      "Loan LOAN-000062 requested for Asha Rao — awaiting HR review",
+    ),
   ).toBeVisible();
   expect(state.posts).toEqual([
     {

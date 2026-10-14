@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
+import { FieldEncryptionService } from "../src/shared/crypto/field-encryption.service.js";
+import { HtmlPdfRenderer } from "../src/shared/pdf/html-pdf-renderer.js";
 import { PrismaService } from "../src/shared/prisma/prisma.service.js";
 import { REDIS_CLIENT } from "../src/shared/redis/redis.constants.js";
 
@@ -15,6 +17,11 @@ import { REDIS_CLIENT } from "../src/shared/redis/redis.constants.js";
  * Covers authentication, the permission matrix, own/team/all scope, org
  * isolation, validation, partial-update semantics, audit (field names only;
  * reads audited), persistence, separation of sensitive values, and DB constraints.
+ *
+ * Since migration 20261011090000_hr_employee_gaps the data lives in the
+ * onboarding tables (employee_personal_details, employee_addresses,
+ * employee_government_ids, employee_bank_details — account number encrypted),
+ * the same rows the employee's own onboarding writes.
  */
 interface Body<T> {
   data: T;
@@ -186,7 +193,13 @@ describe("HR profiles (e2e)", () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(HtmlPdfRenderer)
+      .useValue({
+        render: (html: string) =>
+          Promise.resolve(Buffer.from(`%PDF-TEST${html}`)),
+      })
+      .compile();
     app = moduleFixture.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
@@ -346,14 +359,57 @@ describe("HR profiles (e2e)", () => {
       });
     });
 
-    it("persists the row in the hr schema, linked to the employee and the organization", async () => {
-      const row = await prisma.employeeProfile.findUniqueOrThrow({
+    it("persists into the onboarding tables (one source of truth), linked to the employee, team and organization", async () => {
+      const row = await prisma.employeePersonalDetail.findUniqueOrThrow({
         where: { employeeId: emp.a1 },
       });
       expect(row.organizationId).toBe(orgA.id);
+      expect(row.teamId).toBe(team1);
       expect(row.languages).toEqual(["Tamil", "English"]);
       expect(row.experienceYears?.toFixed(1)).toBe("4.5");
+      expect(row.gender).toBe("MALE");
+      expect(row.maritalStatus).toBe("MARRIED");
       expect(row.createdBy).toBe(userIds.hrAll);
+      const addresses = await prisma.employeeAddress.findMany({
+        where: { employeeId: emp.a1 },
+        orderBy: { addressType: "asc" },
+      });
+      expect(
+        addresses.map((a) => [a.addressType, a.addressLine, a.country]),
+      ).toEqual([
+        ["PERMANENT", "4 Gandhi Road", null],
+        ["PRESENT", "12 Anna Street", "India"],
+      ]);
+      // The retired table is not written any more.
+      expect(
+        await prisma.employeeProfile.count({ where: { employeeId: emp.a1 } }),
+      ).toBe(0);
+    });
+
+    it("clearing the present address removes its row (same as permanent)", async () => {
+      await patch("hrAll", profilePath(emp.a3), {
+        permanentAddress: FULL_PROFILE.permanentAddress,
+        presentAddress: FULL_PROFILE.presentAddress,
+      }).expect(200);
+      await patch("hrAll", profilePath(emp.a3), {
+        presentAddress: null,
+      }).expect(200);
+      const types = (
+        await prisma.employeeAddress.findMany({ where: { employeeId: emp.a3 } })
+      ).map((a) => a.addressType);
+      expect(types).toEqual(["PERMANENT"]);
+    });
+
+    it("400 for a gender, marital status or blood group that matches no code", async () => {
+      await patch("hrAll", profilePath(emp.a2), { gender: "robot" }).expect(
+        400,
+      );
+      await patch("hrAll", profilePath(emp.a2), {
+        maritalStatus: "complicated",
+      }).expect(400);
+      await patch("hrAll", profilePath(emp.a2), { bloodGroup: "Z+" }).expect(
+        400,
+      );
     });
 
     it("writes a create audit row listing field NAMES only, never the values", async () => {
@@ -385,7 +441,8 @@ describe("HR profiles (e2e)", () => {
       const r = await get("hrAll", profilePath(emp.a1)).expect(200);
       const profile = (r.body as Body<{ profile: Record<string, unknown> }>)
         .data.profile;
-      expect(profile.gender).toBe("Female");
+      // Stored as the onboarding wizard's code.
+      expect(profile.gender).toBe("FEMALE");
       expect(profile.fatherName).toBe("Ravi Kumar");
       expect(profile.languages).toEqual(["Tamil", "English"]);
     });
@@ -488,13 +545,13 @@ describe("HR profiles (e2e)", () => {
     });
 
     it("a rejected write changes nothing", async () => {
-      const before = await prisma.employeeProfile.findUnique({
+      const before = await prisma.employeePersonalDetail.findUnique({
         where: { employeeId: emp.a2 },
       });
       await patch("hrAll", profilePath(emp.a2), { experienceYears: 99 }).expect(
         400,
       );
-      const after = await prisma.employeeProfile.findUnique({
+      const after = await prisma.employeePersonalDetail.findUnique({
         where: { employeeId: emp.a2 },
       });
       expect(after?.experienceYears?.toFixed(1) ?? null).toBe(
@@ -512,15 +569,40 @@ describe("HR profiles (e2e)", () => {
       );
     });
 
-    it("writes the sensitive row in the hr schema, and an update writes an audit row with field names only", async () => {
+    it("stores identifiers in employee_government_ids and the account number ENCRYPTED in employee_bank_details", async () => {
+      const ids = await prisma.employeeGovernmentId.findUniqueOrThrow({
+        where: { employeeId: emp.a1 },
+      });
+      expect(ids).toMatchObject({
+        organizationId: orgA.id,
+        panNumber: "ABCDE1234F",
+        aadhaarNumber: "123412341234",
+      });
+      const bank = await prisma.employeeBankDetail.findUniqueOrThrow({
+        where: { employeeId: emp.a1 },
+      });
+      expect(bank.accountNumberEncrypted).not.toContain("123456789012");
+      expect(
+        app.get(FieldEncryptionService).decrypt(bank.accountNumberEncrypted),
+      ).toBe("123456789012");
+      expect(bank.accountNumberMasked).toBe("XXXXXXXX9012");
+      expect(bank.accountHolderName).toBe("Profile 1");
+      expect(
+        await prisma.employeeSensitiveInfo.count({
+          where: { employeeId: emp.a1 },
+        }),
+      ).toBe(0);
+    });
+
+    it("an update writes an audit row with field names only", async () => {
       await patch("hrAll", sensitivePath(emp.a1), {
         bankBranch: "Velachery",
       }).expect(200);
-      const row = await prisma.employeeSensitiveInfo.findUniqueOrThrow({
+      const row = await prisma.employeeBankDetail.findUniqueOrThrow({
         where: { employeeId: emp.a1 },
       });
       expect(row.organizationId).toBe(orgA.id);
-      expect(row.bankBranch).toBe("Velachery");
+      expect(row.branchName).toBe("Velachery");
       const audit = await prisma.auditLog.findFirstOrThrow({
         where: {
           entityType: "employee_sensitive_info",
@@ -583,10 +665,53 @@ describe("HR profiles (e2e)", () => {
       await patch("hrB", sensitivePath(emp.a1), {
         bankIfsc: "HDFC0001234",
       }).expect(404);
-      const row = await prisma.employeeSensitiveInfo.findUniqueOrThrow({
+      const row = await prisma.employeeBankDetail.findUniqueOrThrow({
         where: { employeeId: emp.a1 },
       });
-      expect(row.bankIfsc).toBe("SBIN0001234");
+      expect(row.ifsc).toBe("SBIN0001234");
+    });
+
+    it("409 when another employee already has the PAN or Aadhaar; nothing changes", async () => {
+      const r = await patch("hrAll", sensitivePath(emp.a3), {
+        panNumber: "ABCDE1234F",
+      }).expect(409);
+      expect(JSON.stringify(r.body)).not.toContain("ABCDE1234F");
+      await patch("hrAll", sensitivePath(emp.a3), {
+        aadhaarNumber: "123412341234",
+      }).expect(409);
+      expect(
+        await prisma.employeeGovernmentId.findUnique({
+          where: { employeeId: emp.a3 },
+        }),
+      ).toBeNull();
+    });
+
+    it("422 for a new bank record without bank name, IFSC and account number together", async () => {
+      const r = await patch("hrAll", sensitivePath(emp.a3), {
+        bankName: "HDFC Bank",
+      }).expect(422);
+      expect((r.body as { error?: string }).error).toBe(
+        "BANK_DETAILS_INCOMPLETE",
+      );
+    });
+
+    it("clearing every bank field removes the bank record", async () => {
+      await patch("hrAll", sensitivePath(emp.a3), {
+        bankName: "HDFC Bank",
+        bankIfsc: "HDFC0001234",
+        bankAccountNo: "5555666677",
+      }).expect(200);
+      await patch("hrAll", sensitivePath(emp.a3), {
+        bankName: null,
+        bankIfsc: null,
+        bankAccountNo: null,
+        bankBranch: null,
+      }).expect(200);
+      expect(
+        await prisma.employeeBankDetail.findUnique({
+          where: { employeeId: emp.a3 },
+        }),
+      ).toBeNull();
     });
 
     it("the employee-level profile is cross-organization isolated too", async () => {
@@ -603,7 +728,7 @@ describe("HR profiles (e2e)", () => {
         expect([404, 405]).toContain(r.status);
       }
       expect(
-        await prisma.employeeProfile.findUnique({
+        await prisma.employeePersonalDetail.findUnique({
           where: { employeeId: emp.a1 },
         }),
       ).not.toBeNull();
@@ -611,39 +736,76 @@ describe("HR profiles (e2e)", () => {
   });
 
   // ---------------------------------------------------------------------------
+  describe("profile PDF", () => {
+    it("downloads the scoped profile as a PDF without sensitive identifiers", async () => {
+      const r = await get("hrAll", `${profilePath(emp.a1)}/pdf`)
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (c: Buffer) => chunks.push(c));
+          res.on("end", () => done(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+      expect(r.headers["content-type"]).toContain("application/pdf");
+      expect(r.headers["content-disposition"]).toContain("-profile.pdf");
+      const text = (r.body as Buffer).toString("utf8");
+      expect(text.startsWith("%PDF")).toBe(true);
+      expect(text).toContain("Profile 1");
+      expect(text).not.toMatch(/ABCDE1234F|123456789012|SBIN0001234/);
+    });
+
+    it("follows the profile read scope: another team is 404, no permission is 403", async () => {
+      await get("leadT1", `${profilePath(emp.a2)}/pdf`).expect(404);
+      await get("nobody", `${profilePath(emp.a1)}/pdf`).expect(403);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   describe("database invariants", () => {
-    it("one profile per employee", async () => {
+    it("one personal-details row per employee", async () => {
       await expect(
-        prisma.employeeProfile.create({
-          data: { organizationId: orgA.id, employeeId: emp.a1 },
+        prisma.employeePersonalDetail.create({
+          data: { organizationId: orgA.id, teamId: team1, employeeId: emp.a1 },
         }),
       ).rejects.toThrow();
     });
 
     it("rejects experience outside 0 to 60", async () => {
       await expect(
-        prisma.employeeProfile.update({
+        prisma.employeePersonalDetail.update({
           where: { employeeId: emp.a1 },
           data: { experienceYears: 61 },
         }),
       ).rejects.toThrow();
     });
 
-    it("rejects an address stored as an array rather than an object", async () => {
+    it("one government-ID row per employee", async () => {
       await expect(
-        prisma.employeeProfile.update({
-          where: { employeeId: emp.a1 },
-          data: { presentAddress: [] },
+        prisma.employeeGovernmentId.create({
+          data: { organizationId: orgA.id, teamId: team1, employeeId: emp.a1 },
         }),
       ).rejects.toThrow();
     });
 
-    it("one sensitive record per employee", async () => {
+    it("PAN is unique per organization regardless of case, but may repeat across organizations", async () => {
       await expect(
-        prisma.employeeSensitiveInfo.create({
-          data: { organizationId: orgA.id, employeeId: emp.a1 },
+        prisma.employeeGovernmentId.create({
+          data: {
+            organizationId: orgA.id,
+            teamId: team2,
+            employeeId: emp.a2,
+            panNumber: "abcde1234f",
+          },
         }),
       ).rejects.toThrow();
+      await prisma.employeeGovernmentId.create({
+        data: {
+          organizationId: orgB.id,
+          teamId: teamB,
+          employeeId: emp.b1,
+          panNumber: "ABCDE1234F",
+        },
+      });
     });
   });
 });

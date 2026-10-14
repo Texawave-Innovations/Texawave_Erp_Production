@@ -16,6 +16,14 @@ import {
   EMPLOYEE_STATUSES,
   type EmployeeStatus,
 } from "../employee-status.policy.js";
+import {
+  ONBOARDING_REVIEW_STATUSES,
+  type OnboardingReviewStatus,
+} from "../onboarding-review.policy.js";
+
+/** `employees.onboarding_status` only ever holds these two values
+ * (Docs/ARCHITECTURE.md §7). */
+export const ONBOARDING_STATUSES = ["PENDING_ACTIVATION", "COMPLETE"] as const;
 
 export const EMPLOYEE_SORT_FIELDS = [
   "employeeCode",
@@ -39,6 +47,19 @@ export class QueryEmployeeDto extends PaginationDto {
   @IsOptional()
   @IsIn(EMPLOYEE_STATUSES)
   status?: EmployeeStatus;
+
+  @ApiPropertyOptional({ enum: ONBOARDING_STATUSES })
+  @IsOptional()
+  @IsIn(ONBOARDING_STATUSES)
+  onboardingStatus?: (typeof ONBOARDING_STATUSES)[number];
+
+  @ApiPropertyOptional({
+    enum: ONBOARDING_REVIEW_STATUSES,
+    description: "PENDING_REVIEW is HR's onboarding review queue",
+  })
+  @IsOptional()
+  @IsIn(ONBOARDING_REVIEW_STATUSES)
+  onboardingReviewStatus?: OnboardingReviewStatus;
 
   @ApiPropertyOptional()
   @IsOptional()

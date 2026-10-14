@@ -4,6 +4,7 @@ import { Checkbox, useToast } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { AssignModalActions } from "./AssignModalActions";
 import { useAssignUserTeams } from "../hooks";
+import { userErrorDescription } from "../errors";
 
 // Default teams defined in seed/architecture
 const DEFAULT_TEAMS = [
@@ -70,8 +71,13 @@ export function AssignTeamsModal({
         variant: "success",
       });
       onClose();
-    } catch {
-      toast({ title: "Could not update teams", variant: "error" });
+    } catch (error) {
+      const description = userErrorDescription(error);
+      toast({
+        title: "Could not update teams",
+        ...(description ? { description } : {}),
+        variant: "error",
+      });
     }
   }
 

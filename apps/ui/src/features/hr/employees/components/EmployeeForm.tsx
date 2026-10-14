@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, User } from "lucide-react";
+import { Building2, CalendarCheck, User } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import { Alert, Button, FormField, Input, Select } from "@texawave-erp/ui-kit";
 import { FormSection } from "@/features/hr/components/FormSection";
-import { useDebouncedValue, useEmployees, useLookup } from "../hooks";
+import { usePermission } from "@/hooks/usePermission";
+import { WRITE_ALL } from "../permissions";
+import { useDebouncedValue, useEmployees, useLookup, useTeams } from "../hooks";
 import {
   employeeFormSchema,
   EMPTY_FORM,
@@ -16,6 +18,8 @@ export interface EmployeeFormProps {
   initialValues?: EmployeeFormValues;
   /** Shown in the reporting-manager picker before a search is typed. */
   initialManager?: { id: number; label: string } | null;
+  /** Label for the current team if the team list does not include it. */
+  initialTeamName?: string;
   submitLabel: string;
   onSubmit: (values: EmployeeFormValues) => Promise<void>;
   onCancel: () => void;
@@ -27,12 +31,17 @@ export function describeSaveError(error: unknown): {
   details: string[];
 } {
   if (error instanceof ApiError) {
-    if (error.errorCode === "VERSION_CONFLICT" || error.statusCode === 409) {
+    if (error.errorCode === "VERSION_CONFLICT") {
       return {
         message:
           "This employee was changed by someone else while you were editing. Reload the page to see the latest version, then apply your change again.",
         details: [],
       };
+    }
+    // Other 409s are duplicates the API names, e.g. "Another employee
+    // already has this phone number" — show them as they are.
+    if (error.statusCode === 409) {
+      return { message: error.message, details: [] };
     }
     if (error.isPermissionError) {
       return {
@@ -59,6 +68,7 @@ export function describeSaveError(error: unknown): {
 export function EmployeeForm({
   initialValues,
   initialManager,
+  initialTeamName,
   submitLabel,
   onSubmit,
   onCancel,
@@ -78,6 +88,8 @@ export function EmployeeForm({
   const [managerSearch, setManagerSearch] = useState("");
   const debouncedManagerSearch = useDebouncedValue(managerSearch.trim());
 
+  const canWriteAll = usePermission(WRITE_ALL);
+  const teams = useTeams(true);
   const departments = useLookup("/departments", true);
   const designations = useLookup("/master-data/designations", true);
   const employmentTypes = useLookup("/master-data/employment-types", true);
@@ -197,20 +209,38 @@ export function EmployeeForm({
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            label="Team ID"
+            label="Team"
             required
             error={errors.teamId}
-            hint="Enter the team's numeric ID. The team list is not available in this app yet."
+            hint={
+              canWriteAll
+                ? "The team decides who can see and manage this employee."
+                : "Only organization-wide HR can move an employee to another team."
+            }
           >
             {(f) => (
-              <Input
+              <Select
                 {...f}
-                inputMode="numeric"
-                invalid={f.invalid}
                 value={values.teamId}
-                disabled={disabled}
+                disabled={disabled || (!canWriteAll && Boolean(initialValues))}
                 onChange={(e) => set("teamId", e.target.value)}
-              />
+              >
+                <option value="">Select a team</option>
+                {/* Keep the current team visible even if the list omits it. */}
+                {values.teamId &&
+                !(teams.data ?? []).some(
+                  (t) => String(t.id) === values.teamId,
+                ) ? (
+                  <option value={values.teamId}>
+                    {initialTeamName ?? `Team ${values.teamId}`}
+                  </option>
+                ) : null}
+                {(teams.data ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
             )}
           </FormField>
           <FormField
@@ -363,6 +393,86 @@ export function EmployeeForm({
               )}
             </FormField>
           </div>
+        </div>
+      </FormSection>
+
+      <FormSection
+        stepNumber="03"
+        title="Probation & Referral"
+        description="Probation and confirmation dates, referral and area of work"
+        icon={CalendarCheck}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            label="Probation ends"
+            error={errors.probationEndDate}
+            hint={
+              canWriteAll
+                ? "On or after the date of joining."
+                : "Only organization-wide HR can change this."
+            }
+          >
+            {(f) => (
+              <Input
+                {...f}
+                type="date"
+                invalid={f.invalid}
+                value={values.probationEndDate}
+                disabled={disabled || !canWriteAll}
+                onChange={(e) => set("probationEndDate", e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Confirmation date"
+            error={errors.confirmationDate}
+            hint={
+              canWriteAll
+                ? "On or after the date of joining."
+                : "Only organization-wide HR can change this."
+            }
+          >
+            {(f) => (
+              <Input
+                {...f}
+                type="date"
+                invalid={f.invalid}
+                value={values.confirmationDate}
+                disabled={disabled || !canWriteAll}
+                onChange={(e) => set("confirmationDate", e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Work domain"
+            error={errors.workDomain}
+            hint="e.g. Embedded systems, Textile, Operations"
+          >
+            {(f) => (
+              <Input
+                {...f}
+                invalid={f.invalid}
+                value={values.workDomain}
+                disabled={disabled}
+                onChange={(e) => set("workDomain", e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Referred by"
+            error={errors.referredBy}
+            hint="Name or employee code of the referrer"
+          >
+            {(f) => (
+              <Input
+                {...f}
+                invalid={f.invalid}
+                value={values.referredBy}
+                disabled={disabled}
+                onChange={(e) => set("referredBy", e.target.value)}
+              />
+            )}
+          </FormField>
         </div>
       </FormSection>
 
