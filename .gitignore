@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turborepo
 .turbo/
+
+# Uploaded files (employee documents etc.) from local API runs — never commit
+apps/api/storage/
