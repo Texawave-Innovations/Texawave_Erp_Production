@@ -475,65 +475,11 @@ keep both env vars in sync with whatever you chose.
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
 
-- **2026-10-19 — Sales: document master list (`apps/api/src/modules/sales/master-list`).**
-  Migration `20261019090000_sales_document_master_list`. One master list for quotations, proforma /
-  tax invoices and delivery challans, in three pages: **running numbers**
-  (`/sales/master/running-numbers` — set the last number used per document and financial year,
-  so `100` makes the next document `…/0101`; done under the counter's row lock and refused below a
-  number already issued with the current prefix, deleted documents included; needs the new
-  `sales.running_number.write`), **company details** (`company_profiles` + logo upload, PNG/JPEG ≤
-  2 MB checked by content, stored via `FileStorageService`), and **document fields**
-  (`document_master_items`, `/sales/master/document-fields`: validity, delivery terms, payment
-  terms, HSN codes, bank accounts, company seals and authorized signatures with an image, and
-  prepared-by — only the fields each document has (CHECK), one live default per document type and
-  field (partial unique index)). Documents still copy the values they use (bank block, terms, HSN,
-  names), so editing or deleting an option never changes an issued document; they may also point
-  at a seal / signature option (`seal_item_id`, `signature_item_id`), whose label is copied and
-  whose image — kept after the option is deleted — is printed with the company logo on every PDF.
+- **2026-10-19 — Sales: document master list.** Migration `20261019090000_sales_document_master_list`. Details: `SALES_API.md` §6.2–§6.4, §7.
 
-- **2026-10-18 — Sales: quotations, invoices, payments, delivery challans (`apps/api/src/modules/sales/documents`).**
-  Migration `20261018090000_sales_quotations_invoices` adds `quotations`, `invoices` (`invoice_type`
-  PROFORMA / TAX), their `*_lines`, `invoice_payments`, `delivery_challans` (+ lines) and the
-  master-list `company_profiles` (seller name/address/GSTIN/state, required before any document).
-  Document numbers are `<PREFIX>/<FY>/<NNNN>` (`TW/QUO/26-27/0001`, `TW/PI`, `TW/IN`, `TW/DC`),
-  prefixes and widths in `code_formats`, one counter per type **and financial year** (April–March,
-  `sales_quotation_26-27`), issued in the create transaction. The server prices every document
-  (Decimal, never floats): line = qty × price; taxable = items + transport; place of supply = the
-  customer's GST state unless entered; same state as the company → CGST+SGST, else IGST (the
-  entered IGST, else entered CGST+SGST, else the customer's rates — never a default); total rounded
-  to the rupee with a `round_off`. Each document freezes a `customer_snapshot`. Conversions —
-  quotation → proforma/tax, proforma → tax (payments move along), tax → DC — run in one
-  transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
-  Payments never exceed the balance (under the invoice row lock). Customers with live documents
-  cannot be deleted. PDFs render server-side via the shared Playwright renderer
-  (`SalesPdfRenderer`); email goes through `MailerService`, **moved from `platform/auth` to
-  `shared/mailer`** (new `send()` with attachments; `NOT_CONFIGURED` without SMTP); WhatsApp
-  returns a `wa.me` share link (no Business API provider yet). Seal/signature are stored by name
-  until their masters exist. The dashboard now reads live quotation/invoice/payment figures.
-  Permissions: `sales.quotation|invoice|delivery_challan.read|write|delete|send`,
-  `sales.invoice_payment.write`; Sales Executive gets everything except delete and payments.
+- **2026-10-18 — Sales: quotations, invoices, payments, delivery challans.** Migration `20261018090000_sales_quotations_invoices`; `MailerService` moved from `platform/auth` to `shared/mailer`. Details: `SALES_API.md` §7.
 
-- **2026-10-15 — Sales: dashboard, customers, checklist, master list (`sales.*`, `apps/api/src/modules/sales`).**
-  Migration `20261017090000_sales_customers_dashboard` adds the Postgres schema `sales`
-  (`customers`, `customer_addresses`, `action_items`, `code_formats`). Sales is
-  **organization-scoped** (`@OrgScoped()` + exact `@RequirePermission()`), not team-scoped.
-  Customer codes are `<PREFIX>-<COUNTRY>-<NUMBER>` (`CUS-IN-001`): the prefix and width come from
-  the Sales master list (`sales.code_formats`, default `CUS`/3, edited via
-  `/sales/master/code-formats`), the country from the mobile country code (`+91` → `IN`), and the
-  number from a per-country counter in `platform.document_sequences` (`sales_customer_IN`), issued
-  inside the create transaction; an issued code never changes. GSTIN is format-checked (not the
-  check character — legacy data carries invalid ones), unique per organization among live
-  customers (partial unique index), and fills in the state (still editable) and PAN.
-  CGST/SGST/IGST rates are optional percentages typed in by the user — no defaults. The bank
-  account number is stored AES-256-GCM encrypted with a masked copy; JSON responses carry only the
-  mask, and the full number comes from `GET /sales/customers/:id/bank-account`
-  (`sales.customer_bank.reveal`, audited). One live default address per customer and type (partial
-  unique index). The dashboard (`GET /sales/dashboard`) returns the legacy screen's full shape;
-  only customers and the checklist are live, the document sections are zero and flagged in
-  `availability` until those modules exist. Permissions: `sales.dashboard.read`,
-  `sales.customer.read|write|delete`, `sales.customer_bank.reveal`,
-  `sales.action_item.read|write`, `sales.master.read|write`; dev seed roles Sales Manager (all)
-  and Sales Executive (no delete, no reveal, master list read-only).
+- **2026-10-15 — Sales: dashboard, customers, checklist, master list.** Migration `20261017090000_sales_customers_dashboard` (Postgres schema `sales`); Sales is organization-scoped, not team-scoped. Details: `SALES_API.md` §1–§6.1.
 
 - **2026-10-13 — Leave workflow (`hr.leave_*`, `apps/api/src/modules/hr/leave-requests`).**
   Migration `20261013090000_hr_leave_workflow`: `leave_types.approval_levels` (1 or 2);
