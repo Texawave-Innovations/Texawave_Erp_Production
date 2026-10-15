@@ -69,7 +69,7 @@ export default function EmployeePortalLayout({
     }
     if (!employee.data) return;
     if (isComplete && onOnboarding) {
-      router.replace("/portal");
+      router.replace("/self-service");
     } else if (!isComplete && !onOnboarding) {
       router.replace("/onboarding");
     }

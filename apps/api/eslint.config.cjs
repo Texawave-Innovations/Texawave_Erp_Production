@@ -34,6 +34,30 @@ const modulePrivacyZones = moduleNames
 module.exports = tseslint.config(
   ...shared,
   {
+    // Legacy reference-only source trees (copied verbatim from the old
+    // Firebase/Vite app for migration-audit purposes, never meant to build
+    // or run here) — excluded from tsconfig.json/tsconfig.build.json's
+    // `include` for the same reason, so typescript-eslint's project
+    // service has nowhere to place them and fails to parse every file
+    // otherwise. Keep this list in sync with those two tsconfig excludes.
+    ignores: [
+      "src/modules/crm/*.tsx",
+      "src/modules/crm/bulkImport/**",
+      "src/modules/crm/celebration/**",
+      "src/modules/crm/components/**",
+      "src/modules/crm/domain/**",
+      "src/modules/crm/importExport/**",
+      "src/modules/crm/intelligence/**",
+      "src/modules/crm/notifications/**",
+      "src/modules/crm/types.ts",
+      "src/modules/crm/useOverallDataLive.ts",
+      "src/modules/finance/**",
+      "src/modules/projects/**",
+      "src/modules/sales/**",
+      "src/modules/scm/**",
+    ],
+  },
+  {
     plugins: { "import-x": importX },
     languageOptions: {
       parserOptions: {

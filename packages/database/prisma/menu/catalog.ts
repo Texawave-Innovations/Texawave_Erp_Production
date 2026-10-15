@@ -360,6 +360,129 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "employee_self_service.tax_declaration.read",
   },
   {
+    code: "crm",
+    label: "CRM",
+    path: null,
+    order: 4,
+    parentCode: null,
+    // Unlike HR's children above, every CRM child below is gated by a real
+    // crm.*.read permission (no ungated items like HR's Dashboard/
+    // Employees), so a user with zero CRM permissions would otherwise see
+    // an empty "CRM" chevron with nothing under it. The parent itself stays
+    // ungated (`permission: null`, same convention as hr/admin/portal) —
+    // menu.service.ts's `getMyMenu` prunes root items left with no path and
+    // no visible children instead, so this doesn't need a bespoke parent
+    // permission.
+    permission: null,
+  },
+  {
+    code: "crm-accounts",
+    label: "Accounts",
+    path: "/crm/accounts",
+    order: 1,
+    parentCode: "crm",
+    permission: "crm.account.read",
+  },
+  {
+    code: "crm-leads",
+    label: "Leads",
+    path: "/crm/leads",
+    order: 2,
+    parentCode: "crm",
+    permission: "crm.lead.read",
+  },
+  {
+    code: "crm-pipeline",
+    label: "Pipeline",
+    path: "/crm/pipeline",
+    order: 3,
+    parentCode: "crm",
+    permission: "crm.opportunity.read",
+  },
+  {
+    code: "crm-contacts",
+    label: "Contacts",
+    path: "/crm/contacts",
+    order: 4,
+    parentCode: "crm",
+    permission: "crm.contact.read",
+  },
+  {
+    code: "crm-products",
+    label: "Products",
+    path: "/crm/products",
+    order: 5,
+    parentCode: "crm",
+    permission: "crm.product.read",
+  },
+  {
+    code: "crm-quotes",
+    label: "Quotes",
+    path: "/crm/quotes",
+    order: 6,
+    parentCode: "crm",
+    permission: "crm.quotation.read",
+  },
+  // Phase 1B — Account-360 status-tag queues + Cold Calling Status + Yet to
+  // Happen (Docs/CRM_FULL_LEGACY_PARITY.md §10). Order follows legacy's own
+  // module ordering (TexaWave_ERP/src/App.tsx CRM route block): Interested,
+  // Not Interested, Keep in Touch, Call Back/Send Info, Cold Calling
+  // Status, Yet to Happen.
+  {
+    code: "crm-interested",
+    label: "Interested",
+    path: "/crm/interested",
+    order: 7,
+    parentCode: "crm",
+    permission: "crm.account.read",
+  },
+  {
+    code: "crm-not-interested",
+    label: "Not Interested",
+    path: "/crm/not-interested",
+    order: 8,
+    parentCode: "crm",
+    permission: "crm.account.read",
+  },
+  {
+    code: "crm-keep-in-touch",
+    label: "Keep in Touch",
+    path: "/crm/keep-in-touch",
+    order: 9,
+    parentCode: "crm",
+    permission: "crm.account.read",
+  },
+  {
+    code: "crm-callback-send-info",
+    label: "Call Back / Send Info",
+    path: "/crm/callback-send-info",
+    order: 10,
+    parentCode: "crm",
+    permission: "crm.account.read",
+  },
+  {
+    code: "crm-cold-calling-status",
+    label: "Cold Calling Status",
+    path: "/crm/cold-calling-status",
+    order: 11,
+    parentCode: "crm",
+    permission: "crm.coldcalling.read",
+  },
+  {
+    code: "crm-yet-to-happen",
+    label: "Yet to Happen",
+    path: "/crm/yet-to-happen",
+    order: 12,
+    parentCode: "crm",
+    // Gated on Follow-ups' read permission (the most central of the three
+    // entity kinds this cross-entity queue surfaces — Tasks, Follow-ups,
+    // Meetings) rather than a bespoke queue-only permission; each
+    // underlying list still enforces its own crm.task.read/
+    // crm.followup.read/crm.meeting.read at the API layer regardless of
+    // which one gates the menu entry.
+    permission: "crm.followup.read",
+  },
+  {
     code: "admin",
     label: "Admin",
     path: null,
