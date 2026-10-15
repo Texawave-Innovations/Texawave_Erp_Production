@@ -41,6 +41,8 @@ export interface DeliveryChallanData {
   status: DcStatus;
   sealName: string | null;
   signatureName: string | null;
+  sealItemId: number | null;
+  signatureItemId: number | null;
   preparedBy: string | null;
   notes: string | null;
   customFields: Record<string, unknown>;

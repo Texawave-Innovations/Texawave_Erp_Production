@@ -34,6 +34,8 @@ export interface DocumentData extends PricedColumns {
   bankDetails: BankDetails | null;
   sealName: string | null;
   signatureName: string | null;
+  sealItemId: number | null;
+  signatureItemId: number | null;
   preparedBy: string | null;
   terms: string | null;
   customFields: Record<string, unknown>;

@@ -271,7 +271,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Master Data** — `items`, `item_categories`, `units_of_measure`, `warehouses`, `chart_of_accounts`, `finance_heads`, `departments`, `designations`, `shifts`, `sales_terms`, `tax_codes`
 
-**Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats` and `company_profiles` (Sales master list), `quotations`, `quotation_lines`, `invoices` (proforma + tax), `invoice_lines`, `invoice_payments`, `delivery_challans`, `delivery_challan_lines`; planned: `customer_contacts`, `leads`, `sales_orders`, `sales_order_lines`, credit notes, returnable DCs
+**Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats`, `company_profiles` and `document_master_items` (Sales master list), `quotations`, `quotation_lines`, `invoices` (proforma + tax), `invoice_lines`, `invoice_payments`, `delivery_challans`, `delivery_challan_lines`; planned: `customer_contacts`, `leads`, `sales_orders`, `sales_order_lines`, credit notes, returnable DCs
 
 **Purchases** — `vendors`, `purchase_orders`, `purchase_order_lines`, `vendor_bills`, `vendor_bill_lines`
 
@@ -474,6 +474,22 @@ keep both env vars in sync with whatever you chose.
 
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
+
+- **2026-10-19 — Sales: document master list (`apps/api/src/modules/sales/master-list`).**
+  Migration `20261019090000_sales_document_master_list`. One master list for quotations, proforma /
+  tax invoices and delivery challans, in three pages: **running numbers**
+  (`/sales/master/running-numbers` — set the last number used per document and financial year,
+  so `100` makes the next document `…/0101`; done under the counter's row lock and refused below a
+  number already issued with the current prefix, deleted documents included; needs the new
+  `sales.running_number.write`), **company details** (`company_profiles` + logo upload, PNG/JPEG ≤
+  2 MB checked by content, stored via `FileStorageService`), and **document fields**
+  (`document_master_items`, `/sales/master/document-fields`: validity, delivery terms, payment
+  terms, HSN codes, bank accounts, company seals and authorized signatures with an image, and
+  prepared-by — only the fields each document has (CHECK), one live default per document type and
+  field (partial unique index)). Documents still copy the values they use (bank block, terms, HSN,
+  names), so editing or deleting an option never changes an issued document; they may also point
+  at a seal / signature option (`seal_item_id`, `signature_item_id`), whose label is copied and
+  whose image — kept after the option is deleted — is printed with the company logo on every PDF.
 
 - **2026-10-18 — Sales: quotations, invoices, payments, delivery challans (`apps/api/src/modules/sales/documents`).**
   Migration `20261018090000_sales_quotations_invoices` adds `quotations`, `invoices` (`invoice_type`

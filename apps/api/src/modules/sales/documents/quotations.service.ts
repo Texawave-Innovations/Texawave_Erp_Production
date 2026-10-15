@@ -151,6 +151,9 @@ export class QuotationsService {
       this.findOne(id),
       this.companyProfile.require(),
     ]);
-    return printableQuotation(quotation, company);
+    return this.delivery.withImages(
+      printableQuotation(quotation, company),
+      quotation,
+    );
   }
 }

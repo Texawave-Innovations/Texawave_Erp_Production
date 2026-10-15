@@ -144,6 +144,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "sales.action_item.write",
       "sales.master.read",
       "sales.master.write",
+      "sales.running_number.write",
       "sales.quotation.read",
       "sales.quotation.write",
       "sales.quotation.delete",

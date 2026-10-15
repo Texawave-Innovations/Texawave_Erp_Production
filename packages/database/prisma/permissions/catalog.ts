@@ -616,11 +616,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "sales.master.read",
-    description: "View the Sales master list (code formats, company profile)",
+    description:
+      "View the Sales master list (code formats, running numbers, company details, document fields)",
   },
   {
     code: "sales.master.write",
-    description: "Edit the Sales master list (code formats, company profile)",
+    description:
+      "Edit the Sales master list (code formats, company details and logo, document fields)",
+  },
+  {
+    code: "sales.running_number.write",
+    description:
+      "Set the running numbers of quotations, proforma/tax invoices and delivery challans",
   },
   { code: "sales.quotation.read", description: "View and export quotations" },
   {

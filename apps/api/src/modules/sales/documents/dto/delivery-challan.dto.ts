@@ -62,6 +62,28 @@ export class CreateDeliveryChallanDto {
   @Length(0, 150)
   signatureName?: string | null;
 
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      "A COMPANY_SEAL option of the master list; its label and image are printed",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  sealItemId?: number | null;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      "An AUTHORIZED_SIGNATURE option of the master list; its label and image are printed",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  signatureItemId?: number | null;
+
   @ApiPropertyOptional({ example: "Rafic" })
   @IsOptional()
   @Trim()

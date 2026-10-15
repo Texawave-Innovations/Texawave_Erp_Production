@@ -17,8 +17,22 @@ const SELECT = {
   pan: true,
   email: true,
   phone: true,
+  logoStorageKey: true,
+  logoMimeType: true,
   updatedAt: true,
 } as const;
+
+type ProfileRow = {
+  updatedAt: Date;
+  logoStorageKey: string | null;
+  logoMimeType: string | null;
+};
+
+/** Audited fields: everything but timestamps and storage internals. */
+function auditView<T extends ProfileRow>(row: T) {
+  const { updatedAt: _u, logoStorageKey, logoMimeType: _m, ...rest } = row;
+  return { ...rest, hasLogo: logoStorageKey !== null };
+}
 
 export interface CompanyProfileData {
   legalName: string;
@@ -71,16 +85,50 @@ export class CompanyProfileRepository {
             },
             select: SELECT,
           });
-      const { updatedAt: _b, ...before } = existing ?? { updatedAt: null };
-      const { updatedAt: _a, ...after } = row;
+      const before = existing ? auditView(existing) : null;
+      const after = auditView(row);
       await this.audit.write(tx, {
         entityType: ENTITY_TYPE,
         entityId: row.id,
         action: existing ? "update" : "create",
-        ...(existing ? { before } : {}),
+        ...(before ? { before } : {}),
         after,
       });
       return row;
+    });
+  }
+
+  /** Points the profile at a newly stored logo (null = remove it). Returns
+   * the replaced key for the caller to delete, or undefined when there is no
+   * profile. */
+  @OrgScoped()
+  async setLogo(
+    scope: OrgScope,
+    logo: { storageKey: string; mimeType: string } | null,
+    actorId: number,
+  ): Promise<string | null | undefined> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.salesCompanyProfile.findFirst({
+        where: tenantWhere(scope, { deletedAt: null }),
+        select: SELECT,
+      });
+      if (!existing) return undefined;
+      await tx.salesCompanyProfile.update({
+        where: { id: existing.id },
+        data: {
+          logoStorageKey: logo?.storageKey ?? null,
+          logoMimeType: logo?.mimeType ?? null,
+          updatedBy: actorId,
+        },
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: existing.id,
+        action: logo ? "set_logo" : "remove_logo",
+        before: { hasLogo: existing.logoStorageKey !== null },
+        after: { hasLogo: logo !== null },
+      });
+      return existing.logoStorageKey;
     });
   }
 }

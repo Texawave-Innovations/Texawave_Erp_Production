@@ -8,6 +8,7 @@ import {
 } from "../master-list/code-formats.rules.js";
 import { CodeFormatsService } from "../master-list/code-formats.service.js";
 import { CompanyProfileService } from "../master-list/company-profile.service.js";
+import { DocumentFieldsService } from "../master-list/document-fields.service.js";
 import { DocumentNumbersRepository } from "./document-numbers.repository.js";
 import type { RateSet } from "./document-totals.js";
 import type {
@@ -35,9 +36,20 @@ export interface PricedDraft extends PricingInput {
   bankDetails: BankDetails | null;
   sealName: string | null;
   signatureName: string | null;
+  sealItemId: number | null;
+  signatureItemId: number | null;
   preparedBy: string | null;
   terms: string | null;
   customFields: Record<string, unknown>;
+}
+
+/** The seal / signature a document prints: a master-list option (its label
+ * becomes the name, its image is printed) or a free-text name. */
+export interface Signatories {
+  sealItemId: number | null;
+  sealName: string | null;
+  signatureItemId: number | null;
+  signatureName: string | null;
 }
 
 /** A stored quotation/invoice, as the draft of an update or conversion. */
@@ -54,6 +66,8 @@ export interface StoredPricedDocument {
   bankDetails: unknown;
   sealName: string | null;
   signatureName: string | null;
+  sealItemId: number | null;
+  signatureItemId: number | null;
   preparedBy: string | null;
   terms: string | null;
   customFields: unknown;
@@ -76,6 +90,7 @@ export class DocumentPricingService {
     private readonly customers: CustomersService,
     private readonly companyProfile: CompanyProfileService,
     private readonly codeFormats: CodeFormatsService,
+    private readonly documentFields: DocumentFieldsService,
     private readonly numbers: DocumentNumbersRepository,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -89,16 +104,41 @@ export class DocumentPricingService {
     return customer;
   }
 
+  /** Checks chosen seal / signature options and takes their labels. */
+  async signatories(input: Signatories): Promise<Signatories> {
+    const [seal, signature] = await Promise.all([
+      input.sealItemId === null
+        ? null
+        : this.documentFields.resolveSignatory(
+            input.sealItemId,
+            "COMPANY_SEAL",
+          ),
+      input.signatureItemId === null
+        ? null
+        : this.documentFields.resolveSignatory(
+            input.signatureItemId,
+            "AUTHORIZED_SIGNATURE",
+          ),
+    ]);
+    return {
+      sealItemId: seal?.id ?? null,
+      sealName: seal?.label ?? input.sealName,
+      signatureItemId: signature?.id ?? null,
+      signatureName: signature?.label ?? input.signatureName,
+    };
+  }
+
   /** The draft's priced columns. `placeOfSupply` null = the customer's. */
   async resolve(
     draft: PricedDraft,
     opts: { requireActiveCustomer: boolean },
   ): Promise<DocumentData> {
-    const [customer, company] = await Promise.all([
+    const [customer, company, signatories] = await Promise.all([
       this.customer(draft.customerId, {
         requireActive: opts.requireActiveCustomer,
       }),
       this.companyProfile.require(),
+      this.signatories(draft),
     ]);
     const placeOfSupply = placeOfSupplyFor(customer, draft.placeOfSupply);
     const { columns, lines } = price(
@@ -114,8 +154,7 @@ export class DocumentPricingService {
       transportDescription: draft.transportDescription,
       transportHsn: draft.transportHsn,
       bankDetails: draft.bankDetails,
-      sealName: draft.sealName,
-      signatureName: draft.signatureName,
+      ...signatories,
       preparedBy: draft.preparedBy,
       terms: draft.terms,
       customFields: draft.customFields,
@@ -168,6 +207,8 @@ export function draftFromStored(
     bankDetails: (doc.bankDetails ?? null) as BankDetails | null,
     sealName: doc.sealName,
     signatureName: doc.signatureName,
+    sealItemId: doc.sealItemId,
+    signatureItemId: doc.signatureItemId,
     preparedBy: doc.preparedBy,
     terms: doc.terms,
     customFields: (doc.customFields ?? {}) as Record<string, unknown>,
@@ -191,6 +232,8 @@ export function draftFromDto(dto: PricedDocumentDto): PricedDraft {
     bankDetails: dto.bankDetails ?? null,
     sealName: dto.sealName ?? null,
     signatureName: dto.signatureName ?? null,
+    sealItemId: dto.sealItemId ?? null,
+    signatureItemId: dto.signatureItemId ?? null,
     preparedBy: dto.preparedBy ?? null,
     terms: dto.terms ?? null,
     customFields: dto.customFields ?? {},
@@ -231,6 +274,8 @@ export function mergeDraft(
     bankDetails: pickDefined(dto.bankDetails, stored.bankDetails),
     sealName: pickDefined(dto.sealName, stored.sealName),
     signatureName: pickDefined(dto.signatureName, stored.signatureName),
+    sealItemId: pickDefined(dto.sealItemId, stored.sealItemId),
+    signatureItemId: pickDefined(dto.signatureItemId, stored.signatureItemId),
     preparedBy: pickDefined(dto.preparedBy, stored.preparedBy),
     terms: pickDefined(dto.terms, stored.terms),
     customFields: dto.customFields ?? stored.customFields,

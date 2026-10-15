@@ -15,6 +15,9 @@ import type {
 
 type Dec = Prisma.Decimal;
 
+/** Filled in by DocumentDeliveryService.withImages() before rendering. */
+const NO_IMAGES = { logo: null, seal: null, signature: null };
+
 export function inr(v: Dec): string {
   const [whole = "0", frac = "00"] = v.toFixed(2).split(".");
   const neg = whole.startsWith("-");
@@ -105,6 +108,7 @@ function pricedBase(doc: PricedDoc, company: CompanyProfile) {
     preparedBy: doc.preparedBy,
     sealName: doc.sealName,
     signatureName: doc.signatureName,
+    images: NO_IMAGES,
   };
 }
 
@@ -199,6 +203,7 @@ export function printableDeliveryChallan(
     preparedBy: dc.preparedBy,
     sealName: dc.sealName,
     signatureName: dc.signatureName,
+    images: NO_IMAGES,
   };
 }
 

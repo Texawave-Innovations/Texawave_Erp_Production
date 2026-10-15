@@ -16,6 +16,7 @@ const doc = (over: Partial<PrintableDocument> = {}): PrintableDocument => ({
     pan: null,
     email: null,
     phone: null,
+    hasLogo: false,
   },
   customer: {
     customerId: 1,
@@ -57,6 +58,7 @@ const doc = (over: Partial<PrintableDocument> = {}): PrintableDocument => ({
   preparedBy: "Rafic",
   sealName: null,
   signatureName: null,
+  images: { logo: null, seal: null, signature: null },
   ...over,
 });
 
@@ -93,5 +95,34 @@ describe("sales document template", () => {
     expect(html).not.toContain("Total Amount");
     expect(html).not.toContain("Banking Details");
     expect(html).toContain("DELIVERY CHALLAN");
+  });
+
+  it("prints the logo, seal and signature images; names when there is no image", () => {
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    const html = renderSalesDocumentHtml(
+      doc({
+        sealName: "Corporate Seal",
+        signatureName: "MD Signature",
+        images: { logo: png, seal: png, signature: null },
+      }),
+    );
+    expect(html).toContain(`<img class="logo" src="${png}"`);
+    expect(html).toContain(`<img class="seal" src="${png}"`);
+    expect(html).not.toContain("[Corporate Seal]");
+    expect(html).toContain("MD Signature");
+  });
+
+  it("never prints an image that is not a PNG/JPEG data URI", () => {
+    const html = renderSalesDocumentHtml(
+      doc({
+        images: {
+          logo: 'x" onerror="alert(1)',
+          seal: "https://evil.test/seal.png",
+          signature: "data:image/svg+xml;base64,PHN2Zz4=",
+        },
+      }),
+    );
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("evil.test");
   });
 });

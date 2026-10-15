@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { MailerService } from "../../../shared/mailer/mailer.service.js";
+import { CompanyProfileService } from "../master-list/company-profile.service.js";
+import { DocumentFieldsService } from "../master-list/document-fields.service.js";
 import {
   type DocumentEntity,
   DocumentDeliveryRepository,
@@ -37,7 +39,23 @@ export class DocumentDeliveryService {
     private readonly mailer: MailerService,
     private readonly repository: DocumentDeliveryRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly companyProfile: CompanyProfileService,
+    private readonly documentFields: DocumentFieldsService,
   ) {}
+
+  /** Adds the company logo and the chosen seal / signature images from the
+   * Sales master list (for the PDF). */
+  async withImages(
+    doc: PrintableDocument,
+    refs: { sealItemId: number | null; signatureItemId: number | null },
+  ): Promise<PrintableDocument> {
+    const [logo, seal, signature] = await Promise.all([
+      this.companyProfile.logoDataUri(),
+      this.documentFields.imageDataUri(refs.sealItemId),
+      this.documentFields.imageDataUri(refs.signatureItemId),
+    ]);
+    return { ...doc, images: { logo, seal, signature } };
+  }
 
   async pdf(doc: PrintableDocument): Promise<PdfFile> {
     return {

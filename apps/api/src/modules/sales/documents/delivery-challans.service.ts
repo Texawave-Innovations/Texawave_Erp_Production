@@ -101,8 +101,12 @@ export class DeliveryChallansService {
         customerSnapshot: customerSnapshot(customer),
         dcDate,
         status: dto.status ?? "DRAFT",
-        sealName: dto.sealName ?? null,
-        signatureName: dto.signatureName ?? null,
+        ...(await this.pricing.signatories({
+          sealItemId: dto.sealItemId ?? null,
+          sealName: dto.sealName ?? null,
+          signatureItemId: dto.signatureItemId ?? null,
+          signatureName: dto.signatureName ?? null,
+        })),
         preparedBy: dto.preparedBy ?? null,
         notes: dto.notes ?? DEFAULT_DC_NOTE,
         customFields: dto.customFields ?? {},
@@ -135,6 +139,8 @@ export class DeliveryChallansService {
         status: "DRAFT",
         sealName: invoice.sealName,
         signatureName: invoice.signatureName,
+        sealItemId: invoice.sealItemId,
+        signatureItemId: invoice.signatureItemId,
         preparedBy: invoice.preparedBy,
         notes: DEFAULT_DC_NOTE,
         customFields: {},
@@ -170,8 +176,15 @@ export class DeliveryChallansService {
         dcDate:
           dto.dcDate !== undefined ? parseDateOnly(dto.dcDate) : current.dcDate,
         status: dto.status ?? (current.status as "DRAFT" | "DISPATCHED"),
-        sealName: pickDefined(dto.sealName, current.sealName),
-        signatureName: pickDefined(dto.signatureName, current.signatureName),
+        ...(await this.pricing.signatories({
+          sealItemId: pickDefined(dto.sealItemId, current.sealItemId),
+          sealName: pickDefined(dto.sealName, current.sealName),
+          signatureItemId: pickDefined(
+            dto.signatureItemId,
+            current.signatureItemId,
+          ),
+          signatureName: pickDefined(dto.signatureName, current.signatureName),
+        })),
         preparedBy: pickDefined(dto.preparedBy, current.preparedBy),
         notes: pickDefined(dto.notes, current.notes),
         customFields:
@@ -226,6 +239,6 @@ export class DeliveryChallansService {
       this.findOne(id),
       this.companyProfile.require(),
     ]);
-    return printableDeliveryChallan(dc, company);
+    return this.delivery.withImages(printableDeliveryChallan(dc, company), dc);
   }
 }

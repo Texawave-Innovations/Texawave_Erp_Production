@@ -6,9 +6,9 @@ import type { CustomerSnapshot } from "./documents.rules.js";
 /**
  * One A4 HTML template for every Sales document (quotation, proforma, tax
  * invoice, delivery challan), in the legacy screens' green layout. Pure;
- * every user-entered value goes through `esc()`. Seal and signature images
- * are not printed yet — their masters do not exist — so the signatory block
- * shows the chosen names.
+ * every user-entered value goes through `esc()`. The logo, seal and
+ * signature come from the Sales master list as server-made PNG/JPEG data
+ * URIs (anything else is dropped); without an image the chosen name prints.
  */
 
 export interface PrintableLine {
@@ -47,6 +47,12 @@ export interface PrintableDocument {
   preparedBy: string | null;
   sealName: string | null;
   signatureName: string | null;
+  /** Data URIs from the master list (null = none). */
+  images: {
+    logo: string | null;
+    seal: string | null;
+    signature: string | null;
+  };
 }
 
 const STYLE = `
@@ -55,6 +61,10 @@ const STYLE = `
   .sheet { border: 2px solid #4caf50; border-radius: 6px; }
   .head { display: flex; justify-content: space-between; padding: 12px 14px; }
   .brand { font-size: 17px; font-weight: 800; color: #2e7d32; }
+  .brandrow { display: flex; align-items: center; gap: 10px; }
+  .logo { max-height: 48px; max-width: 120px; }
+  .stamp { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 6px; }
+  .stamp img { max-height: 56px; max-width: 120px; }
   .tag { font-size: 10px; color: #4b5563; }
   .addr { text-align: right; font-size: 10px; max-width: 45%; }
   .band { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; text-align: center;
@@ -80,6 +90,14 @@ const STYLE = `
   .terms { margin: 10px 14px 14px; } .terms ol { margin: 0; padding-left: 16px; }
   .note { margin: 10px 14px; }
 `;
+
+/** Only image data URIs the server built; anything else is not printed. */
+const SAFE_IMAGE = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/;
+function img(src: string | null, cls: string, alt: string): string {
+  return src && SAFE_IMAGE.test(src)
+    ? `<img class="${cls}" src="${src}" alt="${esc(alt)}" />`
+    : "";
+}
 
 const nl = (v: string | null | undefined) =>
   v ? esc(v).replace(/\n/g, "<br />") : "";
@@ -155,8 +173,9 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
 <title>${esc(doc.title)} ${esc(doc.number)}</title><style>${STYLE}</style></head>
 <body><div class="sheet">
   <div class="head">
-    <div><div class="brand">${esc(co.legalName.toUpperCase())}</div>
-      ${co.tagline ? `<div class="tag">${esc(co.tagline)}</div>` : ""}</div>
+    <div class="brandrow">${img(doc.images.logo, "logo", co.legalName)}
+      <div><div class="brand">${esc(co.legalName.toUpperCase())}</div>
+      ${co.tagline ? `<div class="tag">${esc(co.tagline)}</div>` : ""}</div></div>
     <div class="addr">${nl(co.address)}${co.gstin ? `<br /><strong>GSTIN: ${esc(co.gstin)}</strong>` : ""}</div>
   </div>
   <div class="band">${esc(doc.title.toUpperCase())}</div>
@@ -168,8 +187,23 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
   <div class="bottom">
     ${doc.pricing ? bankBlock(doc.bank) : `<div class="bank">${doc.preparedBy ? `<strong>Prepared By:</strong> ${esc(doc.preparedBy)}` : ""}</div>`}
     <div class="sign"><strong>For ${esc(co.legalName)}</strong>
-      ${doc.sealName ? `<div>[${esc(doc.sealName)}]</div>` : ""}
-      ${doc.signatureName ? `<div>${esc(doc.signatureName)}</div>` : ""}
+      <div class="stamp">${
+        doc.images.seal
+          ? img(doc.images.seal, "seal", doc.sealName ?? "Seal")
+          : doc.sealName
+            ? `<div>[${esc(doc.sealName)}]</div>`
+            : ""
+      }${
+        doc.images.signature
+          ? img(
+              doc.images.signature,
+              "signature",
+              doc.signatureName ?? "Signature",
+            )
+          : doc.signatureName
+            ? `<div>${esc(doc.signatureName)}</div>`
+            : ""
+      }</div>
       <div class="line">AUTHORIZED SIGNATORY</div></div>
   </div>
   ${terms}

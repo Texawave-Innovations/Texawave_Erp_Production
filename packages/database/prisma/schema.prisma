@@ -136,6 +136,7 @@ model Organization {
   salesInvoicePayments      SalesInvoicePayment[]
   salesDeliveryChallans     SalesDeliveryChallan[]
   salesDeliveryChallanLines SalesDeliveryChallanLine[]
+  salesDocumentMasterItems  SalesDocumentMasterItem[]
 
   @@map("organizations")
   @@schema("platform")
@@ -3104,6 +3105,9 @@ model SalesCompanyProfile {
   pan            String?   @db.VarChar(10)
   email          String?   @db.VarChar(254)
   phone          String?   @db.VarChar(30)
+  /// Logo image (PNG/JPEG) in file storage; printed on every document.
+  logoStorageKey String?   @map("logo_storage_key") @db.VarChar(255)
+  logoMimeType   String?   @map("logo_mime_type") @db.VarChar(50)
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
@@ -3157,6 +3161,9 @@ model SalesQuotation {
   /// The chosen seal/signature, by name, until their masters exist.
   sealName             String?   @map("seal_name") @db.VarChar(150)
   signatureName        String?   @map("signature_name") @db.VarChar(150)
+  /// The master-list seal/signature chosen (its image is printed).
+  sealItemId           Int?      @map("seal_item_id")
+  signatureItemId      Int?      @map("signature_item_id")
   preparedBy           String?   @map("prepared_by") @db.VarChar(150)
   terms                String?
   status               String    @default("OPEN")
@@ -3172,6 +3179,8 @@ model SalesQuotation {
   organization Organization         @relation(fields: [organizationId], references: [id])
   customer     SalesCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   lines        SalesQuotationLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesQuotationSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesQuotationSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
   invoices     SalesInvoice[]
 
   @@unique([organizationId, quotationNumber])
@@ -3247,6 +3256,9 @@ model SalesInvoice {
   bankDetails          Json?     @map("bank_details")
   sealName             String?   @map("seal_name") @db.VarChar(150)
   signatureName        String?   @map("signature_name") @db.VarChar(150)
+  /// The master-list seal/signature chosen (its image is printed).
+  sealItemId           Int?      @map("seal_item_id")
+  signatureItemId      Int?      @map("signature_item_id")
   preparedBy           String?   @map("prepared_by") @db.VarChar(150)
   terms                String?
   status               String    @default("UNPAID")
@@ -3265,6 +3277,8 @@ model SalesInvoice {
   sourceInvoice    SalesInvoice?          @relation("SalesInvoiceConversion", fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
   convertedTo      SalesInvoice[]         @relation("SalesInvoiceConversion")
   lines            SalesInvoiceLine[]
+  sealItem         SalesDocumentMasterItem? @relation("SalesInvoiceSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem    SalesDocumentMasterItem? @relation("SalesInvoiceSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
   payments         SalesInvoicePayment[]
   deliveryChallans SalesDeliveryChallan[]
 
@@ -3343,6 +3357,8 @@ model SalesDeliveryChallan {
   sourceInvoiceId  Int?      @map("source_invoice_id")
   sealName         String?   @map("seal_name") @db.VarChar(150)
   signatureName    String?   @map("signature_name") @db.VarChar(150)
+  sealItemId       Int?      @map("seal_item_id")
+  signatureItemId  Int?      @map("signature_item_id")
   preparedBy       String?   @map("prepared_by") @db.VarChar(150)
   notes            String?
   status           String    @default("DRAFT")
@@ -3358,6 +3374,8 @@ model SalesDeliveryChallan {
   customer      SalesCustomer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
   sourceInvoice SalesInvoice?              @relation(fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
   lines         SalesDeliveryChallanLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesDcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesDcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, dcNumber])
   @@index([organizationId, dcDate])
@@ -3387,5 +3405,47 @@ model SalesDeliveryChallanLine {
 
   @@index([organizationId, deliveryChallanId])
   @@map("delivery_challan_lines")
+  @@schema("sales")
+}
+
+/// Sales master list: the choices offered on each document form, one row
+/// per option. `document_type` QUOTATION / PROFORMA_INVOICE / TAX_INVOICE /
+/// DELIVERY_CHALLAN; `field` VALIDITY / DELIVERY_TERMS / PAYMENT_TERMS /
+/// HSN_CODE / BANK_ACCOUNT / COMPANY_SEAL / AUTHORIZED_SIGNATURE /
+/// PREPARED_BY — only the fields each document has (CHECK). `value` holds
+/// the HSN code; `bank_details` the bank block; seals and signatures carry
+/// an image in file storage. At most one live default per document type and
+/// field (partial unique index). Documents copy the values they use, so
+/// editing or deleting an option never changes an issued document.
+model SalesDocumentMasterItem {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  documentType     String    @map("document_type") @db.VarChar(30)
+  field            String    @db.VarChar(30)
+  label            String    @db.VarChar(200)
+  value            String?   @db.VarChar(50)
+  bankDetails      Json?     @map("bank_details")
+  imageStorageKey  String?   @map("image_storage_key") @db.VarChar(255)
+  imageMimeType    String?   @map("image_mime_type") @db.VarChar(50)
+  isDefault        Boolean   @default(false) @map("is_default")
+  sortOrder        Int       @default(0) @map("sort_order")
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization           @relation(fields: [organizationId], references: [id])
+  quotationSeals     SalesQuotation[]       @relation("SalesQuotationSeal")
+  quotationSigns     SalesQuotation[]       @relation("SalesQuotationSignature")
+  invoiceSeals       SalesInvoice[]         @relation("SalesInvoiceSeal")
+  invoiceSigns       SalesInvoice[]         @relation("SalesInvoiceSignature")
+  deliveryChallanSeals SalesDeliveryChallan[] @relation("SalesDcSeal")
+  deliveryChallanSigns SalesDeliveryChallan[] @relation("SalesDcSignature")
+
+  @@index([organizationId, documentType, field])
+  @@map("document_master_items")
   @@schema("sales")
 }

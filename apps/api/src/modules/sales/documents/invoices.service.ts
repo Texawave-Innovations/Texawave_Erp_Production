@@ -262,6 +262,9 @@ export class InvoicesService {
       this.findOne(id),
       this.companyProfile.require(),
     ]);
-    return printableInvoice(invoice, company);
+    return this.delivery.withImages(
+      printableInvoice(invoice, company),
+      invoice,
+    );
   }
 }

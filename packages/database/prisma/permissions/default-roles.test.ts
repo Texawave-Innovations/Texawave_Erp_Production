@@ -192,6 +192,10 @@ describe("default roles", () => {
       "only managers record payments",
     );
     assert.ok(
+      !exec.includes("sales.running_number.write"),
+      "only managers change running numbers",
+    );
+    assert.ok(
       role("Sales Manager").permissions.includes("sales.customer.delete"),
     );
     assert.ok(
