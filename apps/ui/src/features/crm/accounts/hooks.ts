@@ -1,13 +1,22 @@
 "use client";
 
 import type {
+  ChangeAccountStatusTagInput,
   CreateAccountInput,
   QueryAccountsInput,
+  UpdateAccountInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
-import { createAccount, listAccounts } from "./api";
+import {
+  changeAccountStatusTag,
+  createAccount,
+  deleteAccount,
+  getAccount,
+  listAccounts,
+  updateAccount,
+} from "./api";
 
 function accountsKey(organizationId: number, query: QueryAccountsInput) {
   return orgScopedKey(organizationId, "crm-accounts", query);
@@ -22,15 +31,68 @@ export function useAccounts(query: QueryAccountsInput = {}) {
   });
 }
 
-export function useCreateAccount() {
+export function useAccount(id: number | undefined) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey:
+      id === undefined
+        ? orgScopedKey(organizationId ?? 0, "crm-account")
+        : orgScopedKey(organizationId ?? 0, "crm-account", id),
+    queryFn: () => getAccount(id as number),
+    enabled: Boolean(organizationId) && id !== undefined,
+  });
+}
+
+function useInvalidateAccounts() {
   const queryClient = useQueryClient();
   const organizationId = useAuthStore((s) => s.organizationId);
+  return (id?: number) => {
+    void queryClient.invalidateQueries({
+      queryKey: orgScopedKey(organizationId ?? 0, "crm-accounts"),
+    });
+    if (id !== undefined) {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "crm-account", id),
+      });
+    }
+  };
+}
+
+export function useCreateAccount() {
+  const invalidate = useInvalidateAccounts();
   return useMutation({
     mutationFn: (input: CreateAccountInput) => createAccount(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, "crm-accounts"),
-      });
-    },
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useUpdateAccount() {
+  const invalidate = useInvalidateAccounts();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: UpdateAccountInput }) =>
+      updateAccount(id, input),
+    onSuccess: (_data, variables) => invalidate(variables.id),
+  });
+}
+
+export function useChangeAccountStatusTag() {
+  const invalidate = useInvalidateAccounts();
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: number;
+      input: ChangeAccountStatusTagInput;
+    }) => changeAccountStatusTag(id, input),
+    onSuccess: (_data, variables) => invalidate(variables.id),
+  });
+}
+
+export function useDeleteAccount() {
+  const invalidate = useInvalidateAccounts();
+  return useMutation({
+    mutationFn: (id: number) => deleteAccount(id),
+    onSuccess: (_data, id) => invalidate(id),
   });
 }

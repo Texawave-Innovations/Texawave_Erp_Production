@@ -26,13 +26,3 @@ export const createContactSchema = z.object({
 });
 
 export type CreateContactFormValues = z.infer<typeof createContactSchema>;
-
-export const createAccountSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Name is required")
-    .max(200, "Name must be 200 characters or fewer"),
-});
-
-export type CreateAccountFormValues = z.infer<typeof createAccountSchema>;

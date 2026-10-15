@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -12,15 +15,14 @@ import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import { AccountsService } from "./accounts.service.js";
 import {
+  ChangeAccountStatusTagDto,
   CreateAccountDto,
   QueryAccountDto,
   UpdateAccountDto,
 } from "./dto/account.dto.js";
 
-/** Minimal CRM Account foundation (Phase 4B) — organization-wide reference
- * data (the required parent of a Contact), no team dimension. Only the
- * fields the legacy Contacts.tsx actually reads (`id`, `name`) are modeled;
- * the full Account-360 feature set is explicitly out of scope. */
+/** Account-360 foundation (Phase 0, Docs/CRM_FULL_LEGACY_PARITY.md §4) —
+ * expanded from the Phase 4B minimal `{id,name}` foundation. */
 @ApiTags("crm-accounts")
 @Controller("crm/accounts")
 export class AccountsController {
@@ -28,7 +30,9 @@ export class AccountsController {
 
   @Get()
   @RequirePermission("crm.account.read")
-  @ApiOperation({ summary: "List CRM accounts (search by name)" })
+  @ApiOperation({
+    summary: "List CRM accounts (search by name, filter by status tag)",
+  })
   findAll(@Paginate(QueryAccountDto) query: QueryAccountDto) {
     return this.accounts.findAll(query);
   }
@@ -49,5 +53,29 @@ export class AccountsController {
   @RequirePermission("crm.account.write")
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateAccountDto) {
     return this.accounts.update(id, dto);
+  }
+
+  @Patch(":id/status-tag")
+  @RequirePermission("crm.account.write")
+  @ApiOperation({
+    summary:
+      "Change the account's engagement-posture status tag (Interested/Not Interested/Keep in Touch/Call Back/Send Info)",
+  })
+  changeStatusTag(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ChangeAccountStatusTagDto,
+  ) {
+    return this.accounts.changeStatusTag(id, dto);
+  }
+
+  @Delete(":id")
+  @RequirePermission("crm.account.delete")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      "Soft-delete an account, cascading to its contacts/opportunities/quotations/notes",
+  })
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.accounts.remove(id);
   }
 }

@@ -422,35 +422,6 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     "Create/update candidates and their pipeline stage",
   ),
 
-  // apps/api/src/modules/hr/loans — employee salary advances/loans.
-  ...scopedPermission("hr.loan.read", "View employee loans"),
-  ...scopedPermission(
-    "hr.loan.write",
-    "Request, approve/reject and manage loans (EMIs, skip requests)",
-  ),
-
-  // apps/api/src/modules/hr/bonuses — employee bonuses.
-  ...scopedPermission("hr.bonus.read", "View employee bonuses"),
-  ...scopedPermission(
-    "hr.bonus.write",
-    "Request and approve/reject employee bonuses",
-  ),
-
-  // apps/api/src/modules/hr/payroll — payroll periods and payslips.
-  // `hr.payroll.credit` is a separate, deliberately distinct write-level
-  // action from `hr.payroll.write`: generating/finalizing a payroll run is
-  // not the same authority as crediting payslips (paying out), so the two
-  // are granted independently.
-  ...scopedPermission("hr.payroll.read", "View payroll periods and payslips"),
-  ...scopedPermission(
-    "hr.payroll.write",
-    "Generate, regenerate and finalize payroll periods and payslips",
-  ),
-  ...scopedPermission(
-    "hr.payroll.credit",
-    "Mark payslips as credited (paid out)",
-  ),
-
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",
@@ -468,6 +439,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   ),
   ...scopedPermission("hr.payroll.approve", "Approve payroll runs"),
   ...scopedPermission("hr.payroll.finalize", "Finalize payroll periods"),
+  // Carried over from an earlier (pre-payroll-module) permission design that
+  // duplicated hr.payroll.read/write above under the same codes with
+  // different descriptions — consolidated here to resolve that duplicate
+  // registration. `hr.payroll.credit` itself was never a duplicate (unique
+  // code) and is preserved as-is; no controller currently checks it
+  // (crediting payslips today runs through hr.payment.write in
+  // apps/api/src/modules/hr/payroll/payments), so it is kept seeded but
+  // unused rather than deleted, per the no-removal constraint.
+  ...scopedPermission(
+    "hr.payroll.credit",
+    "Mark payslips as credited (paid out)",
+  ),
 
   // Salary structures — team-scoped
   ...scopedPermission("hr.salary.read", "View employee salary structures"),
@@ -634,6 +617,109 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "crm.quotation.delete",
     description:
       "Delete CRM quotations — granted separately from crm.quotation.write",
+  },
+
+  // apps/api/src/modules/crm/accounts — Phase 0 (Account-360 foundation,
+  // Docs/CRM_FULL_LEGACY_PARITY.md §4) added delete, which the Phase 4B
+  // foundation never had. Legacy's Delete (incl. cascade-delete) is
+  // `isCrmAdmin`-only, same single-tier admin-only shape as
+  // crm.quotation.delete — not folded into `.write`, granted separately.
+  {
+    code: "crm.account.delete",
+    description:
+      "Delete CRM accounts (incl. cascade) — granted separately from crm.account.write",
+  },
+
+  // apps/api/src/modules/crm/meetings, follow-ups, activities, tasks,
+  // documents, notes — Phase 0 Account-360 supporting entities (legacy
+  // domain/meetingsService.ts, followupsService.ts, activitiesService.ts,
+  // tasksService.ts, documentsService.ts, intelligence/notesService.ts).
+  // Every one of these 6 entities' legacy delete path funnels through the
+  // same generic `assertCrmAdmin` gate (confirmed by direct audit) — same
+  // single-tier admin-only `.delete` shape as crm.account.delete/
+  // crm.quotation.delete above, not a `.own/.team/.all` scope (legacy CRM
+  // has no team dimension for any of these entities).
+  { code: "crm.meeting.read", description: "View CRM meetings" },
+  {
+    code: "crm.meeting.write",
+    description:
+      "Create/update/complete/cancel/reschedule CRM meetings (does not include delete)",
+  },
+  {
+    code: "crm.meeting.delete",
+    description:
+      "Delete CRM meetings — granted separately from crm.meeting.write",
+  },
+  { code: "crm.followup.read", description: "View CRM follow-ups" },
+  {
+    code: "crm.followup.write",
+    description:
+      "Create/update/complete/cancel/reschedule CRM follow-ups (does not include delete)",
+  },
+  {
+    code: "crm.followup.delete",
+    description:
+      "Delete CRM follow-ups — granted separately from crm.followup.write",
+  },
+  { code: "crm.activity.read", description: "View CRM activities" },
+  {
+    code: "crm.activity.write",
+    description: "Log/update CRM activities (does not include delete)",
+  },
+  {
+    code: "crm.activity.delete",
+    description:
+      "Delete CRM activities — granted separately from crm.activity.write",
+  },
+  { code: "crm.task.read", description: "View CRM tasks" },
+  {
+    code: "crm.task.write",
+    description:
+      "Create/update/complete CRM tasks (does not include delete) — distinct from hr.task.*, which is the unrelated employee-assignment task",
+  },
+  {
+    code: "crm.task.delete",
+    description: "Delete CRM tasks — granted separately from crm.task.write",
+  },
+  { code: "crm.document.read", description: "View CRM documents" },
+  {
+    code: "crm.document.write",
+    description:
+      "Add CRM documents (name + external link only, no upload; no update in legacy either)",
+  },
+  {
+    code: "crm.document.delete",
+    description:
+      "Delete CRM documents — granted separately from crm.document.write",
+  },
+  { code: "crm.note.read", description: "View CRM account notes" },
+  {
+    code: "crm.note.write",
+    description: "Add CRM account notes (no update in legacy)",
+  },
+  {
+    code: "crm.note.delete",
+    description:
+      "Delete CRM account notes — granted separately from crm.note.write",
+  },
+
+  // apps/api/src/modules/crm/cold-calling — Phase 1B additive queue (Docs/
+  // CRM_FULL_LEGACY_PARITY.md §10). Legacy `ColdCallingStatus.tsx` gates its
+  // own delete through the same generic `isCrmAdmin` check as every other
+  // CRM entity above — same single-tier admin-only `.delete` shape.
+  {
+    code: "crm.coldcalling.read",
+    description: "View CRM Cold Calling Status entries",
+  },
+  {
+    code: "crm.coldcalling.write",
+    description:
+      "Add/update CRM Cold Calling Status entries, link them to an Account, and record a routed disposition (does not include delete)",
+  },
+  {
+    code: "crm.coldcalling.delete",
+    description:
+      "Delete CRM Cold Calling Status entries — granted separately from crm.coldcalling.write",
   },
 ];
 
