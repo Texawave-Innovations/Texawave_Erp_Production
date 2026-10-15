@@ -187,12 +187,7 @@ function TeamDialogContent({
           Cancel
         </Button>
 
-        <Button
-          type="submit"
-          variant="primary"
-          loading={loading}
-          className="bg-brand-600 hover:bg-brand-700 text-white"
-        >
+        <Button type="submit" variant="primary" loading={loading}>
           {isEdit ? "Update Team" : "Create Team"}
         </Button>
       </div>

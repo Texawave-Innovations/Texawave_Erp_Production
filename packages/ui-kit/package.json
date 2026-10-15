@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "framer-motion": "^14.2.0"
   },
   "peerDependencies": {
     "react": "^19",

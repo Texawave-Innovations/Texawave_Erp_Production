@@ -230,7 +230,7 @@ export function TeamsView() {
             type="button"
             variant="primary"
             onClick={handleCreateClick}
-            className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0 shrink-0 self-start sm:self-auto"
+            className="gap-2 shrink-0 self-start sm:self-auto"
           >
             <Plus className="h-4 w-4" />
             <span>New Team</span>
@@ -325,7 +325,7 @@ export function TeamsView() {
               type="button"
               variant="primary"
               size="md"
-              className="mt-6 gap-2 bg-brand-600 hover:bg-brand-700 text-white"
+              className="mt-6 gap-2"
               onClick={handleCreateClick}
             >
               <Plus className="h-4 w-4" />

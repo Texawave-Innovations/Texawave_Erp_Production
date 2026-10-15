@@ -1,6 +1,14 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import { cn } from "../../lib/cn";
 
 export interface ActionMenuItem {
@@ -10,6 +18,7 @@ export interface ActionMenuItem {
   icon?: ReactNode | undefined;
   disabled?: boolean | undefined;
   separator?: boolean | undefined;
+  href?: string | undefined;
 }
 
 export interface ActionMenuProps {
@@ -67,9 +76,75 @@ function MoreHorizontalIcon({
   );
 }
 
+function CloseIcon({
+  className = "h-4 w-4",
+}: {
+  className?: string | undefined;
+}) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function DefaultActionIcon({
+  className = "h-4 w-4",
+}: {
+  className?: string | undefined;
+}) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+const pointOnCircle = (i: number, n: number, r: number, cx = 0, cy = 0) => {
+  const theta = (2 * Math.PI * i) / n - Math.PI / 2;
+  const x = cx + r * Math.cos(theta);
+  const y = cy + r * Math.sin(theta);
+  return { x, y };
+};
+
+const CONSTANTS = {
+  itemSize: 42,
+  triggerSize: 36,
+  openStagger: 0.03,
+  closeStagger: 0.05,
+};
+
 /**
- * Reusable, accessible ActionMenu component conforming to TexaOne design system.
- * Renders an accessible trigger button and a keyboard-navigable dropdown menu.
+ * Universal Circular Radial ActionMenu component.
+ * Reusable across the entire TexaOne ERP application.
+ *
+ * Architecture Highlights:
+ * 1. Compact in-flow resting footprint (h-8 w-8 or custom buttonClassName) that fits
+ *    seamlessly in table rows, cards, or headers without stretching heights or underfitting.
+ * 2. When activated, mounts a Portal directly into document.body at z-[9999] so it is
+ *    100% immune to table overflow:hidden, card clipping, and scroll-container masking.
+ * 3. Dynamically clamps its radial coordinates to viewport boundaries, guaranteeing
+ *    that items never overflow off-screen even on the extreme edges of data tables.
+ * 4. Rich framer-motion spring physics, rotational morphing, and accessible keyboard escape dismissal.
  */
 export function ActionMenu({
   items,
@@ -79,51 +154,114 @@ export function ActionMenu({
   className,
   menuClassName,
 }: ActionMenuProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const rotateAnim = useAnimationControls();
+  const shakeAnim = useAnimationControls();
 
   useEffect(() => {
-    if (!open) return;
+    setMounted(true);
+  }, []);
 
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
+  const calculatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const radius = items.length <= 3 ? 62 : items.length <= 5 ? 74 : 86;
+    const padding = radius + 28;
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
+    const tx = rect.left + rect.width / 2;
+    const ty = rect.top + rect.height / 2;
+
+    const clampedX = Math.max(
+      padding,
+      Math.min(window.innerWidth - padding, tx),
+    );
+    const clampedY = Math.max(
+      padding,
+      Math.min(window.innerHeight - padding, ty),
+    );
+
+    setCoords({ x: clampedX, y: clampedY });
+  }, [items.length]);
+
+  const handleOpen = () => {
+    calculatePosition();
+    setIsOpen(true);
+  };
+
+  const closeAnimation = async () => {
+    await rotateAnim.start({
+      rotate: -360,
+      filter: "blur(0.5px)",
+      transition: {
+        duration: CONSTANTS.closeStagger * (items.length + 1),
+        ease: "linear",
+      },
+    });
+    await rotateAnim.start({
+      rotate: 0,
+      filter: "blur(0px)",
+      transition: { duration: 0 },
+    });
+  };
+
+  const handleClose = async () => {
+    await closeAnimation();
+    setIsOpen(false);
+    setHoveredIndex(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        handleClose();
         triggerRef.current?.focus();
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
+    function handleScrollOrResize() {
+      calculatePosition();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
     };
-  }, [open]);
+  }, [isOpen, calculatePosition]);
+
+  const radius = items.length <= 3 ? 62 : items.length <= 5 ? 74 : 86;
 
   return (
     <div
-      ref={containerRef}
-      className={cn("relative inline-block text-left", className)}
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        className,
+      )}
     >
+      {/* Resting trigger button in the normal layout flow */}
       <button
         ref={triggerRef}
         type="button"
         aria-haspopup="menu"
-        aria-expanded={open}
+        aria-expanded={isOpen}
         aria-label={ariaLabel}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={isOpen ? handleClose : handleOpen}
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors",
+          "flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-sky-500/10 hover:text-brand-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors cursor-pointer",
           buttonClassName,
         )}
       >
@@ -134,52 +272,164 @@ export function ActionMenu({
         )}
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          aria-label={ariaLabel}
-          className={cn(
-            "glass-dropdown absolute right-0 z-40 mt-1 min-w-40 rounded-2xl p-1.5 shadow-theme-md animate-in fade-in zoom-in-95 duration-100",
-            menuClassName,
-          )}
-        >
-          {items.map((item, index) => (
-            <div key={`${item.label}-${index}`}>
-              {item.separator && (
-                <div
-                  role="separator"
-                  className="my-1 border-t border-gray-100 dark:border-gray-800"
-                />
+      {/* Floating radial circular menu rendered at top-level body via Portal */}
+      {mounted &&
+        isOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-9999 isolate"
+            role="dialog"
+            aria-modal="true"
+            aria-label={ariaLabel}
+          >
+            {/* Subtle dismissible backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={handleClose}
+              className="fixed inset-0 bg-slate-950/20 backdrop-blur-[1px] dark:bg-black/40"
+            />
+
+            {/* Radial circular menu container */}
+            <div
+              style={{
+                position: "fixed",
+                left: coords.x,
+                top: coords.y,
+                transform: "translate(-50%, -50%)",
+                width: radius * 2 + 64,
+                height: radius * 2 + 64,
+              }}
+              className={cn(
+                "pointer-events-none flex items-center justify-center",
+                menuClassName,
               )}
-              <button
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                onClick={() => {
-                  if (item.disabled) return;
-                  setOpen(false);
-                  item.onClick();
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-theme-xs font-medium transition-colors",
-                  item.disabled
-                    ? "cursor-not-allowed opacity-50"
-                    : item.variant === "destructive"
-                      ? "text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-950/40"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/60",
-                )}
+            >
+              {/* Center Morphing Trigger Button */}
+              <motion.div
+                animate={shakeAnim}
+                className="pointer-events-auto z-50"
               >
-                {item.icon && (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                    {item.icon}
-                  </span>
-                )}
-                <span>{item.label}</span>
-              </button>
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleClose}
+                  aria-label="Close menu"
+                  style={{
+                    height: CONSTANTS.triggerSize,
+                    width: CONSTANTS.triggerSize,
+                  }}
+                  className="flex items-center justify-center rounded-full bg-linear-to-r from-brand-600 to-brand-500 text-white shadow-lg ring-2 ring-white/80 hover:brightness-110 dark:ring-gray-800 focus:outline-none cursor-pointer"
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key="close"
+                      initial={{ opacity: 0, rotate: -90, scale: 0.8 }}
+                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                      exit={{ opacity: 0, rotate: 90, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <CloseIcon className="h-4 w-4" />
+                    </motion.span>
+                  </AnimatePresence>
+                </motion.button>
+              </motion.div>
+
+              {/* Radial Items Orbiting the Center */}
+              <motion.div
+                animate={rotateAnim}
+                className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"
+              >
+                {items.map((item, index) => {
+                  const { x, y } = pointOnCircle(index, items.length, radius);
+                  const isHovered = hoveredIndex === index;
+
+                  const handleClick = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    if (item.disabled) return;
+                    handleClose();
+                    item.onClick();
+                  };
+
+                  return (
+                    <div
+                      key={`${item.label}-${index}`}
+                      className="absolute flex items-center justify-center pointer-events-auto"
+                    >
+                      <motion.button
+                        type="button"
+                        role="menuitem"
+                        disabled={item.disabled}
+                        initial={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
+                        animate={{
+                          x,
+                          y,
+                          opacity: item.disabled ? 0.45 : 1,
+                          scale: 1,
+                        }}
+                        exit={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
+                        whileHover={
+                          !item.disabled
+                            ? {
+                                scale: 1.15,
+                                transition: { duration: 0.1 },
+                              }
+                            : {}
+                        }
+                        transition={{
+                          delay: index * CONSTANTS.openStagger,
+                          type: "spring",
+                          stiffness: 340,
+                          damping: 24,
+                        }}
+                        style={{
+                          height: CONSTANTS.itemSize,
+                          width: CONSTANTS.itemSize,
+                        }}
+                        onMouseEnter={() => setHoveredIndex(index)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                        onClick={handleClick}
+                        className={cn(
+                          "relative flex items-center justify-center rounded-full shadow-md transition-colors cursor-pointer",
+                          item.variant === "destructive"
+                            ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-600 hover:text-white dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-900 dark:hover:bg-rose-600 dark:hover:text-white"
+                            : "bg-white text-slate-700 border border-slate-200/90 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700 dark:hover:text-white",
+                          item.disabled && "cursor-not-allowed opacity-40",
+                        )}
+                        aria-label={item.label}
+                      >
+                        <span className="flex items-center justify-center text-sm">
+                          {item.icon ?? (
+                            <DefaultActionIcon className="h-4 w-4" />
+                          )}
+                        </span>
+
+                        {/* Floating tooltip label appearing on hover */}
+                        <AnimatePresence>
+                          {isHovered && (
+                            <motion.span
+                              initial={{ opacity: 0, y: 4, scale: 0.9 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 2, scale: 0.9 }}
+                              transition={{ duration: 0.12 }}
+                              className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900/95 px-2 py-0.5 text-[10px] font-semibold text-white shadow-md backdrop-blur-xs dark:bg-gray-800 dark:border dark:border-gray-700"
+                            >
+                              {item.label}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
+                    </div>
+                  );
+                })}
+              </motion.div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

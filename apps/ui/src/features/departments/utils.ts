@@ -55,9 +55,9 @@ const FALLBACK_PALETTES: DepartmentVisual[] = [
   },
   {
     icon: Briefcase,
-    bgColor: "bg-purple-50 dark:bg-purple-950/40",
-    textColor: "text-purple-600 dark:text-purple-400",
-    borderColor: "border-purple-200/60 dark:border-purple-800/40",
+    bgColor: "bg-sky-50 dark:bg-sky-950/40",
+    textColor: "text-sky-600 dark:text-sky-400",
+    borderColor: "border-sky-200/60 dark:border-sky-800/40",
   },
   {
     icon: Layers,
@@ -108,9 +108,9 @@ export function getDepartmentVisual(name: string): DepartmentVisual {
   ) {
     return {
       icon: TrendingUp,
-      bgColor: "bg-purple-50 dark:bg-purple-950/40",
-      textColor: "text-purple-600 dark:text-purple-400",
-      borderColor: "border-purple-200/60 dark:border-purple-800/40",
+      bgColor: "bg-amber-50 dark:bg-amber-950/40",
+      textColor: "text-amber-600 dark:text-amber-400",
+      borderColor: "border-amber-200/60 dark:border-amber-800/40",
     };
   }
 

@@ -67,7 +67,7 @@ const STATUS_TOKEN: Record<InterviewStatus, StatusColorToken> = {
 /** Deterministic background color for avatar circles based on string initials */
 const AVATAR_COLORS = [
   "bg-blue-600 text-white",
-  "bg-purple-600 text-white",
+  "bg-teal-600 text-white",
   "bg-emerald-600 text-white",
   "bg-amber-600 text-white",
   "bg-rose-600 text-white",
@@ -434,7 +434,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-theme-xs font-medium ${
                         isOnline
                           ? "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
-                          : "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+                          : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
                       }`}
                     >
                       {isOnline ? (

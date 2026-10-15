@@ -44,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agentation
+.agentation/
+agentation/
+src/components/AgentationDevToolbar.tsx
+

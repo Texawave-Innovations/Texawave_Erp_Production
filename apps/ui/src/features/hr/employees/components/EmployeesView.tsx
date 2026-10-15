@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  UserPlus,
   Users,
-  Download,
   Search,
   X,
   SlidersHorizontal,
@@ -13,7 +11,6 @@ import {
   ExternalLink,
   Edit,
   Eye,
-  Upload,
   ClipboardCheck,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
@@ -31,6 +28,7 @@ import {
   Pagination,
   SearchInput,
   Select,
+  Semantic3DIcon,
   TableSkeleton,
   useToast,
   type FilterChipItem,
@@ -300,7 +298,7 @@ export function EmployeesView() {
                 loading={exporting}
                 className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
               >
-                <Download className="h-4 w-4" />
+                <Semantic3DIcon name="export" size={18} />
                 <span>Export CSV</span>
               </Button>
             ) : null}
@@ -310,7 +308,7 @@ export function EmployeesView() {
                 onClick={() => setImportOpen(true)}
                 className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
               >
-                <Upload className="h-4 w-4" />
+                <Semantic3DIcon name="import" size={18} />
                 <span>Import CSV</span>
               </Button>
             ) : null}
@@ -318,9 +316,9 @@ export function EmployeesView() {
               <Button
                 variant="primary"
                 onClick={() => router.push("/hr/employees/new")}
-                className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+                className="gap-2"
               >
-                <UserPlus className="h-4 w-4" />
+                <Semantic3DIcon name="plus" size={18} />
                 <span>Add Employee</span>
               </Button>
             ) : null}
@@ -408,12 +406,12 @@ export function EmployeesView() {
             {/* Export Button (Reference Image) */}
             <Button
               type="button"
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={() => {}}
-              className="gap-1.5 h-9 bg-linear-135 from-brand-600 to-brand-cyan text-white shadow-xs rounded-xl px-3.5 border-0 hover:opacity-95"
+              className="gap-1.5 h-9"
             >
-              <Download className="h-3.5 w-3.5" />
+              <Semantic3DIcon name="export" size={16} />
               <span>Export</span>
             </Button>
           </div>

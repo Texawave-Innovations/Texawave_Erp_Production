@@ -137,10 +137,7 @@ export function RegularizationView() {
         }
         action={
           canCreate ? (
-            <Button
-              onClick={() => setSubmitOpen(true)}
-              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
-            >
+            <Button onClick={() => setSubmitOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               <span>Request a correction</span>
             </Button>

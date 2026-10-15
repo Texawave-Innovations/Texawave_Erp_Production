@@ -183,11 +183,7 @@ export function TicketsView() {
               </Button>
             ) : null}
             {canWrite ? (
-              <Button
-                size="sm"
-                onClick={() => setCreateOpen(true)}
-                className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-              >
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Raise Ticket
               </Button>
@@ -200,7 +196,7 @@ export function TicketsView() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Total Tickets */}
         <Card className="flex items-center gap-3.5 p-4 shadow-xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-brand-600 dark:bg-blue-950/50 dark:text-brand-300">
             <Ticket className="h-5 w-5" />
           </div>
           <div>
@@ -360,11 +356,7 @@ export function TicketsView() {
                 Reset filters
               </Button>
             ) : canWrite ? (
-              <Button
-                size="sm"
-                onClick={() => setCreateOpen(true)}
-                className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-              >
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Raise Ticket
               </Button>

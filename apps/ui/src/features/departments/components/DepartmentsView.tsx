@@ -196,7 +196,7 @@ export function DepartmentsView() {
           <Button
             size="sm"
             onClick={() => setCreateOpen(true)}
-            className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+            className="gap-2"
           >
             <Plus className="h-4 w-4" />
             <span>New Department</span>
@@ -256,11 +256,7 @@ export function DepartmentsView() {
             Add your first department to organize your workforce.
           </p>
           <div className="mt-5 flex items-center justify-center">
-            <Button
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              className="bg-brand-500 hover:bg-brand-600 text-white font-medium inline-flex items-center gap-1.5 shadow-sm"
-            >
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               <span>New Department</span>
             </Button>

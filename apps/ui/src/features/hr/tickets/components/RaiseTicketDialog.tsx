@@ -266,11 +266,7 @@ export function RaiseTicketDialog({
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            loading={submitting}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
-          >
+          <Button type="submit" loading={submitting}>
             Raise Ticket
           </Button>
         </div>

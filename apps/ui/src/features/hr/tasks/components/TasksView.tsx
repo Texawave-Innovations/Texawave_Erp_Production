@@ -359,10 +359,7 @@ export function TasksView() {
               </Button>
             ) : null}
             {canWrite ? (
-              <Button
-                onClick={() => setCreateOpen(true)}
-                className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
-              >
+              <Button onClick={() => setCreateOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
                 <span>New Task</span>
               </Button>
@@ -475,7 +472,7 @@ export function TasksView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Total Requests */}
           <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400">
               <FileText className="h-5 w-5" />
             </div>
             <div>
@@ -657,11 +654,7 @@ export function TasksView() {
                   Reset filters
                 </Button>
               ) : activeTab === "assigned" && canWrite ? (
-                <Button
-                  size="sm"
-                  onClick={() => setCreateOpen(true)}
-                  className="bg-brand-500 hover:bg-brand-600 text-white"
-                >
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-1.5" />
                   New Task
                 </Button>
