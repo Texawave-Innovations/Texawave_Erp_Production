@@ -109,13 +109,10 @@ export class DocumentPricingService {
     const [seal, signature] = await Promise.all([
       input.sealItemId === null
         ? null
-        : this.documentFields.resolveSignatory(
-            input.sealItemId,
-            "COMPANY_SEAL",
-          ),
+        : this.documentFields.resolveOption(input.sealItemId, "COMPANY_SEAL"),
       input.signatureItemId === null
         ? null
-        : this.documentFields.resolveSignatory(
+        : this.documentFields.resolveOption(
             input.signatureItemId,
             "AUTHORIZED_SIGNATURE",
           ),

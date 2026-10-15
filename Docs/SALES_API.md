@@ -33,7 +33,10 @@ routes, permissions and business rules. **New Sales work updates this file**; AR
 | `sales.master.write`, `sales.running_number.write`              |       ✓       |                 |
 | `sales.quotation\|invoice\|delivery_challan.read\|write\|send`  |       ✓       |        ✓        |
 | `sales.quotation\|invoice\|delivery_challan.delete`             |       ✓       |                 |
-| `sales.invoice_payment.write`                                   |       ✓       |                 |
+| `sales.invoice_payment.write` (record, edit, delete payments)   |       ✓       |                 |
+| `sales.payment.read`                                            |       ✓       |        ✓        |
+| `sales.returnable_dc.read\|write\|send`                         |       ✓       |        ✓        |
+| `sales.returnable_dc.delete`                                    |       ✓       |                 |
 
 ---
 
@@ -73,12 +76,13 @@ Reads need `sales.master.read`; writes need `sales.master.write` unless noted.
 ### 6.1 Code formats — `/code-formats`
 
 `GET /`, `GET /:codeType`, `PATCH /:codeType`. Prefix and width per code type (customer `CUS`/3;
-`TW/QUO`, `TW/PI`, `TW/IN`, `TW/DC` for documents).
+`TW/QUO`, `TW/PI`, `TW/IN`, `TW/DC`, `TW/PR` (payment received), `TW/RDC` (returnable DC) for
+documents).
 
 ### 6.2 Running numbers — `/running-numbers` (page 1)
 
-- `GET /?date=YYYY-MM-DD` — the four documents (quotation, proforma, tax invoice, DC) for that
-  date's financial year (default today): `prefix`, `padding`, `fiscalYear`, `lastNumber`,
+- `GET /?date=YYYY-MM-DD` — every numbered document (quotation, proforma, tax invoice, DC,
+  payment received, returnable DC) for that date's financial year (default today): `prefix`, `padding`, `fiscalYear`, `lastNumber`,
   `lastCode`, `nextCode`.
 - `PATCH /:codeType` `{ lastNumber, fiscalYear? }` — **`sales.running_number.write`**. Setting `100`
   makes the next document `…/0101`. Done under the counter's row lock; refused with 422
@@ -96,20 +100,22 @@ Reads need `sales.master.read`; writes need `sales.master.write` unless noted.
 `GET /?documentType=&field=`, `GET /layout`, `GET /:id`, `GET /:id/image`, `POST /`,
 `PATCH /:id`, `PUT /:id/image` (multipart `file`), `DELETE /:id`.
 
-| Field                  | Quotation | Proforma | Tax invoice | DC  |
-| ---------------------- | :-------: | :------: | :---------: | :-: |
-| `VALIDITY`             |     ✓     |          |             |     |
-| `DELIVERY_TERMS`       |     ✓     |          |             |     |
-| `PAYMENT_TERMS`        |           |    ✓     |      ✓      |     |
-| `HSN_CODE`             |     ✓     |    ✓     |      ✓      |  ✓  |
-| `BANK_ACCOUNT`         |     ✓     |    ✓     |      ✓      |  ✓  |
-| `COMPANY_SEAL`         |     ✓     |    ✓     |      ✓      |  ✓  |
-| `AUTHORIZED_SIGNATURE` |     ✓     |    ✓     |      ✓      |  ✓  |
-| `PREPARED_BY`          |     ✓     |    ✓     |      ✓      |  ✓  |
+| Field                  | Quotation | Proforma | Tax invoice | DC  | Payment received | Returnable DC |
+| ---------------------- | :-------: | :------: | :---------: | :-: | :--------------: | :-----------: |
+| `VALIDITY`             |     ✓     |          |             |     |                  |               |
+| `DELIVERY_TERMS`       |     ✓     |          |             |     |                  |               |
+| `PAYMENT_TERMS`        |           |    ✓     |      ✓      |     |                  |               |
+| `HSN_CODE`             |     ✓     |    ✓     |      ✓      |  ✓  |                  |               |
+| `BANK_ACCOUNT`         |     ✓     |    ✓     |      ✓      |  ✓  |                  |               |
+| `COMPANY_SEAL`         |     ✓     |    ✓     |      ✓      |  ✓  |                  |       ✓       |
+| `AUTHORIZED_SIGNATURE` |     ✓     |    ✓     |      ✓      |  ✓  |                  |       ✓       |
+| `PREPARED_BY`          |     ✓     |    ✓     |      ✓      |  ✓  |                  |       ✓       |
+| `PAYMENT_MODE`         |           |          |             |     |        ✓         |               |
 
 - Another field → 422 `FIELD_NOT_ON_DOCUMENT` (also a DB CHECK).
 - HSN: 4–8 digit `value`; label defaults to the code. Bank: `bankDetails` (bank name, account,
-  branch, IFSC) required; label built from them. Others: `label` only.
+  branch, IFSC) required; label built from them. Others: `label` only (a payment mode is at most
+  50 characters, 422 `LABEL_TOO_LONG`).
 - Images only on seal / signature (else 422 `IMAGE_NOT_ALLOWED`), PNG/JPEG ≤ 2 MB.
 - One live default per document type and field (partial unique index).
 
@@ -139,19 +145,70 @@ Reads need `sales.master.read`; writes need `sales.master.write` unless noted.
   deleted — is printed. The choice carries through conversions.
 - **Conversions** (quotation → proforma/tax, proforma → tax with its payments, tax → DC) run in one
   transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
-- **Payments** never exceed the balance (checked under the invoice row lock).
+- **Payments** — see §8; the invoice payment routes above go through the same rules.
 - **PDF** rendered server-side by `SalesPdfRenderer` (shared Playwright renderer) with logo, seal
   and signature images. **Email** via `shared/mailer` (`NOT_CONFIGURED` without SMTP);
   **WhatsApp** returns a `wa.me` share link (no Business API provider yet).
 
-## 8. Migrations
+## 8. Payments Received — `/sales/payments`
 
-| Migration                                   | Adds                                                                                                       |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `20261017090000_sales_customers_dashboard`  | schema `sales`, `customers`, `customer_addresses`, `action_items`, `code_formats`                          |
-| `20261018090000_sales_quotations_invoices`  | `quotations`, `invoices`, `*_lines`, `invoice_payments`, `delivery_challans` (+ lines), `company_profiles` |
-| `20261019090000_sales_document_master_list` | `document_master_items`, company logo, `seal_item_id` / `signature_item_id` on documents                   |
+| Route                                                        | Permission                    |
+| ------------------------------------------------------------ | ----------------------------- |
+| `GET /`, `GET /alerts`, `GET /:id`, `GET /:id/receipt` (PDF) | `sales.payment.read`          |
+| `GET /next-number`, `POST /`, `PATCH /:id`, `DELETE /:id`    | `sales.invoice_payment.write` |
 
-## 9. Not built yet
+- A payment belongs to one live proforma or tax invoice (`invoiceId`; it cannot change — delete
+  and record again). Number `TW/PR/<FY>/<NNNN>` by payment date, from the running numbers (§6.2);
+  never reused after a delete. Payments recorded before numbering existed were numbered by the
+  migration, in date order per financial year.
+- **Mode**: `modeItemId` (a `PAYMENT_MODE` option, §6.4 — its label is copied; another field's
+  option → 422 `INVALID_MASTER_ITEM`) or a typed `mode`; neither → 422
+  `PAYMENT_MODE_REQUIRED`. The first API's codes (`BANK_TRANSFER`, `UPI`, …) are stored as
+  their labels.
+- Live payments never exceed the invoice total, on record and on edit (422
+  `PAYMENT_EXCEEDS_BALANCE`, checked under the invoice row lock); the invoice's
+  `amount_received` and status follow every write. Payments on a proforma move with it to the tax
+  invoice.
+- **Due date**: the payment's `dueDate`, else the invoice's. A payment is **overdue** while its
+  invoice is UNPAID / PARTIALLY_PAID and that date has passed (`overdueDays` on every row).
+  `GET /alerts` → `{ overduePayments, overdueInvoices, overdueBalance }` for the banner.
+- List filters: `search` (payment no, reference, invoice no, customer name/code), `customerId`,
+  `invoiceId`, `paymentMonth` / `dueMonth` (`YYYY-MM`), `overdueOnly=true`. Each row carries
+  the invoice (number, total, received, balance) and the customer.
+- The receipt prints the company logo, name and address from the master list (§6.3).
 
-Customer contacts, leads, sales orders, credit notes, returnable DCs, a WhatsApp Business provider.
+## 9. Returnable Delivery Challans — `/sales/returnable-dcs`
+
+| Route                                                      | Permission                   |
+| ---------------------------------------------------------- | ---------------------------- |
+| `GET /`, `GET /:id`, `GET /:id/pdf`                        | `sales.returnable_dc.read`   |
+| `GET /next-number`, `POST /`, `PATCH /:id`                 | `sales.returnable_dc.write`  |
+| `POST /:id/return` `{ returnedDate? }`, `POST /:id/reopen` | `sales.returnable_dc.write`  |
+| `DELETE /:id`                                              | `sales.returnable_dc.delete` |
+| `POST /:id/email`, `POST /:id/whatsapp`                    | `sales.returnable_dc.send`   |
+
+- Goods lent to a customer (the recipient) and expected back: issue date, purpose, expected return
+  date (≥ issue date, else 422 `RETURN_DATE_BEFORE_ISSUE_DATE`), taken by, goods lines
+  (description, quantity), seal / signature (`sealItemId` / `signatureItemId`, as in §7),
+  prepared by, and returnable terms (the standard text when omitted). No prices, no HSN.
+- Number `TW/RDC/<FY>/<NNNN>` by issue date, from the running numbers (§6.2).
+- Status `ISSUED` (pending return) → `RETURNED` via `/return` (`returnedDate`, default today,
+  ≥ issue date); `/reopen` undoes it. A returned RDC cannot be edited or returned again (409
+  `RDC_RETURNED`); reopening an issued one is 409 `RDC_NOT_RETURNED`. `overdueDays` is set
+  while it is still out past the expected return date.
+- List filters: `search` (RDC no, recipient, purpose, taken by, prepared by), `customerId`,
+  `status`, and `date` or `month` (`YYYY-MM`) of issue.
+- PDF, email and WhatsApp as in §7; the PDF carries the company logo, name and address (§6.3).
+
+## 10. Migrations
+
+| Migration                                              | Adds                                                                                                                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20261017090000_sales_customers_dashboard`             | schema `sales`, `customers`, `customer_addresses`, `action_items`, `code_formats`                                                                                                     |
+| `20261018090000_sales_quotations_invoices`             | `quotations`, `invoices`, `*_lines`, `invoice_payments`, `delivery_challans` (+ lines), `company_profiles`                                                                            |
+| `20261019090000_sales_document_master_list`            | `document_master_items`, company logo, `seal_item_id` / `signature_item_id` on documents                                                                                              |
+| `20261020090000_sales_payments_received_returnable_dc` | payments: `payment_number` (existing ones numbered), `due_date`, `mode_item_id`, mode as a label; `returnable_delivery_challans` (+ lines); the new code types and master-list fields |
+
+## 11. Not built yet
+
+Customer contacts, leads, sales orders, credit notes, a WhatsApp Business provider.

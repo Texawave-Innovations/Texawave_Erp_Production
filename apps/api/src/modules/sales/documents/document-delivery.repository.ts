@@ -5,7 +5,10 @@ import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 
 export type DocumentEntity =
-  "sales_quotation" | "sales_invoice" | "sales_delivery_challan";
+  | "sales_quotation"
+  | "sales_invoice"
+  | "sales_delivery_challan"
+  | "sales_returnable_dc";
 
 /** Audit rows for documents leaving the system (email, WhatsApp share). */
 @Injectable()

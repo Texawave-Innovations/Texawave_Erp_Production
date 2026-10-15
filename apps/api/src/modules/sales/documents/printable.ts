@@ -1,6 +1,7 @@
 import type { Prisma } from "@texawave-erp/database";
 import { formatDateOnly } from "../../../common/dates/date-only.js";
 import type { CompanyProfile } from "../master-list/company-profile.service.js";
+import { amountInWords } from "./amount-in-words.js";
 import type { BankDetails } from "./document-repository.helpers.js";
 import type { CustomerSnapshot } from "./documents.rules.js";
 import type {
@@ -203,6 +204,120 @@ export function printableDeliveryChallan(
     preparedBy: dc.preparedBy,
     sealName: dc.sealName,
     signatureName: dc.signatureName,
+    images: NO_IMAGES,
+  };
+}
+
+export function printableReturnableDc(
+  rdc: {
+    rdcNumber: string;
+    issueDate: Date;
+    purpose: string;
+    expectedReturnDate: Date;
+    takenBy: string | null;
+    status: string;
+    returnedDate: Date | null;
+    customerSnapshot: unknown;
+    lines: Array<{ description: string; quantity: Dec }>;
+    notes: string | null;
+    preparedBy: string | null;
+    sealName: string | null;
+    signatureName: string | null;
+  },
+  company: CompanyProfile,
+): PrintableDocument {
+  return {
+    title: "Returnable Delivery Challan",
+    number: rdc.rdcNumber,
+    partyLabel: "Recipient Name & Address",
+    meta: [
+      ["RDC No", rdc.rdcNumber],
+      ["Issue Date", dmy(rdc.issueDate)],
+      ["Purpose", rdc.purpose],
+      ["Expected Return Date", dmy(rdc.expectedReturnDate)],
+      ["Taken By / Handed To", rdc.takenBy ?? "—"],
+      ...(rdc.returnedDate
+        ? [["Returned On", dmy(rdc.returnedDate)] as [string, string]]
+        : []),
+    ],
+    company,
+    customer: rdc.customerSnapshot as CustomerSnapshot,
+    lines: rdc.lines.map((l) => ({
+      description: l.description,
+      hsnCode: null,
+      quantity: qty(l.quantity),
+    })),
+    hideHsn: true,
+    pricing: null,
+    bank: null,
+    termsTitle: "",
+    terms: [],
+    note: rdc.notes,
+    noteTitle: "Returnable Terms",
+    preparedBy: rdc.preparedBy,
+    sealName: rdc.sealName,
+    signatureName: rdc.signatureName,
+    images: NO_IMAGES,
+  };
+}
+
+export function printablePaymentReceipt(
+  payment: {
+    paymentNumber: string;
+    paymentDate: Date;
+    effectiveDueDate: Date | null;
+    amount: Dec;
+    mode: string;
+    reference: string | null;
+    notes: string | null;
+    invoice: {
+      invoiceNumber: string;
+      totalAmount: Dec;
+      balance: Dec;
+    };
+  },
+  customer: CustomerSnapshot,
+  company: CompanyProfile,
+): PrintableDocument {
+  const open = payment.invoice.balance.greaterThan(0);
+  return {
+    title: "Payment Receipt",
+    number: payment.paymentNumber,
+    partyLabel: "Received From",
+    meta: [
+      ["Receipt No", payment.paymentNumber],
+      ["Payment Date", dmy(payment.paymentDate)],
+      ["Mode", payment.mode],
+    ],
+    company,
+    customer,
+    lines: [],
+    pricing: null,
+    bank: null,
+    termsTitle: "",
+    terms: [],
+    summary: [
+      ["Invoice Ref", payment.invoice.invoiceNumber],
+      ["Invoice Total", `₹${inr(payment.invoice.totalAmount)}`],
+      ["Amount Received", `₹${inr(payment.amount)}`],
+      ["Amount in Words", `${amountInWords(payment.amount)} /-`],
+      ["Balance", `₹${inr(payment.invoice.balance)}`],
+      ...(payment.reference
+        ? [["Reference / UTR", payment.reference] as [string, string]]
+        : []),
+      ...(open && payment.effectiveDueDate
+        ? [
+            ["Balance Due By", dmy(payment.effectiveDueDate)] as [
+              string,
+              string,
+            ],
+          ]
+        : []),
+    ],
+    note: payment.notes,
+    preparedBy: null,
+    sealName: null,
+    signatureName: null,
     images: NO_IMAGES,
   };
 }

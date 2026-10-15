@@ -224,7 +224,7 @@ describe("Sales — document master list (e2e)", () => {
 
   // ---------------------------------------------------------------------------
   describe("running numbers", () => {
-    it("lists all four documents for the financial year", async () => {
+    it("lists every document type for the financial year", async () => {
       const res = await http()
         .get("/sales/master/running-numbers?date=2026-10-15")
         .set(auth("exec"))
@@ -235,6 +235,8 @@ describe("Sales — document master list (e2e)", () => {
         ["proforma_invoice", "TW/PI/26-27/0001"],
         ["tax_invoice", "TW/IN/26-27/0001"],
         ["delivery_challan", "TW/DC/26-27/0001"],
+        ["payment_received", "TW/PR/26-27/0001"],
+        ["returnable_dc", "TW/RDC/26-27/0001"],
       ]);
       expect(rows.every((r) => r.lastCode === null)).toBe(true);
     });
@@ -396,6 +398,16 @@ describe("Sales — document master list (e2e)", () => {
         "PROFORMA_INVOICE",
         "TAX_INVOICE",
         "DELIVERY_CHALLAN",
+        "PAYMENT_RECEIVED",
+        "RETURNABLE_DC",
+      ]);
+      const fields = (type: string) =>
+        layout.find((l) => l.documentType === type)?.fields.map((f) => f.field);
+      expect(fields("PAYMENT_RECEIVED")).toEqual(["PAYMENT_MODE"]);
+      expect(fields("RETURNABLE_DC")).toEqual([
+        "COMPANY_SEAL",
+        "AUTHORIZED_SIGNATURE",
+        "PREPARED_BY",
       ]);
     });
 

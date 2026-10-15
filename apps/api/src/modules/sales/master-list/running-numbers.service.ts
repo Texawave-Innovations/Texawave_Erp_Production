@@ -19,6 +19,8 @@ export const RUNNING_NUMBER_TYPES: readonly DocumentCodeType[] = [
   "proforma_invoice",
   "tax_invoice",
   "delivery_challan",
+  "payment_received",
+  "returnable_dc",
 ];
 
 function isRunningType(value: string): value is DocumentCodeType {
@@ -36,7 +38,8 @@ function assertFiscalYear(label: string): void {
   }
 }
 
-/** Sales master list — running numbers of the four documents, on one page. */
+/** Sales master list — running numbers of every Sales document (quotation,
+ * proforma, tax invoice, DC, payment received, returnable DC), on one page. */
 @Injectable()
 export class RunningNumbersService {
   constructor(

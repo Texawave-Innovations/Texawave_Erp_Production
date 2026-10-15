@@ -55,6 +55,18 @@ function maxIssuedSql(
         Prisma.sql`sales.delivery_challans`,
         Prisma.empty,
       );
+    case "payment_received":
+      return pick(
+        Prisma.sql`payment_number`,
+        Prisma.sql`sales.invoice_payments`,
+        Prisma.empty,
+      );
+    case "returnable_dc":
+      return pick(
+        Prisma.sql`rdc_number`,
+        Prisma.sql`sales.returnable_delivery_challans`,
+        Prisma.empty,
+      );
   }
 }
 

@@ -17,6 +17,8 @@ export const CODE_TYPES = [
   "proforma_invoice",
   "tax_invoice",
   "delivery_challan",
+  "payment_received",
+  "returnable_dc",
 ] as const;
 export type CodeType = (typeof CODE_TYPES)[number];
 export type DocumentCodeType = Exclude<CodeType, "customer">;
@@ -32,6 +34,8 @@ export const DEFAULT_CODE_FORMATS: Readonly<Record<CodeType, CodeFormat>> = {
   proforma_invoice: { prefix: "TW/PI", padding: 4 },
   tax_invoice: { prefix: "TW/IN", padding: 4 },
   delivery_challan: { prefix: "TW/DC", padding: 4 },
+  payment_received: { prefix: "TW/PR", padding: 4 },
+  returnable_dc: { prefix: "TW/RDC", padding: 4 },
 };
 
 /** A customer prefix has no separators (it is joined with dashes). */

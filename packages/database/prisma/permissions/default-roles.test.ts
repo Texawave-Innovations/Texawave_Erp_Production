@@ -196,6 +196,15 @@ describe("default roles", () => {
       "only managers change running numbers",
     );
     assert.ok(
+      exec.includes("sales.payment.read"),
+      "executives see payments received",
+    );
+    assert.ok(
+      exec.includes("sales.returnable_dc.write") &&
+        !exec.includes("sales.returnable_dc.delete"),
+      "executives create returnable DCs but do not delete them",
+    );
+    assert.ok(
       role("Sales Manager").permissions.includes("sales.customer.delete"),
     );
     assert.ok(

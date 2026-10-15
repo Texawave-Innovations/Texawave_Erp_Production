@@ -136,6 +136,8 @@ model Organization {
   salesInvoicePayments      SalesInvoicePayment[]
   salesDeliveryChallans     SalesDeliveryChallan[]
   salesDeliveryChallanLines SalesDeliveryChallanLine[]
+  salesReturnableDcs        SalesReturnableDc[]
+  salesReturnableDcLines    SalesReturnableDcLine[]
   salesDocumentMasterItems  SalesDocumentMasterItem[]
 
   @@map("organizations")
@@ -2993,6 +2995,7 @@ model SalesCustomer {
   quotations       SalesQuotation[]
   invoices         SalesInvoice[]
   deliveryChallans SalesDeliveryChallan[]
+  returnableDcs    SalesReturnableDc[]
 
   @@unique([organizationId, customerCode])
   @@index([organizationId, companyName])
@@ -3315,16 +3318,23 @@ model SalesInvoiceLine {
   @@schema("sales")
 }
 
-/// A payment received against an invoice. `mode` is CASH / BANK_TRANSFER /
-/// UPI / CHEQUE / CARD / OTHER (CHECK). Live payments never exceed the
-/// invoice total (checked under the invoice's row lock).
+/// A payment received against an invoice ("Payments Received"). `mode` is a
+/// label from the master list's PAYMENT_MODE options (or typed). Live
+/// payments never exceed the invoice total (checked under the invoice's row
+/// lock).
 model SalesInvoicePayment {
   id             Int       @id @default(autoincrement())
   organizationId Int       @map("organization_id")
   invoiceId      Int       @map("invoice_id")
+  /// TW/PR/26-27/0001 — issued on create, never changes.
+  paymentNumber  String    @map("payment_number") @db.VarChar(40)
   paymentDate    DateTime  @map("payment_date") @db.Date
+  /// When the remaining balance is due (shown as overdue after it).
+  dueDate        DateTime? @map("due_date") @db.Date
   amount         Decimal   @db.Decimal(14, 2)
-  mode           String
+  /// The mode's label (copied from the master-list option, or typed).
+  mode           String    @db.VarChar(50)
+  modeItemId     Int?      @map("mode_item_id")
   reference      String?   @db.VarChar(100)
   notes          String?
   customFields   Json      @default("{}") @map("custom_fields")
@@ -3337,7 +3347,9 @@ model SalesInvoicePayment {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   invoice      SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  modeItem     SalesDocumentMasterItem? @relation("SalesPaymentMode", fields: [modeItemId], references: [id], onDelete: Restrict)
 
+  @@unique([organizationId, paymentNumber])
   @@index([organizationId, invoiceId])
   @@index([organizationId, paymentDate])
   @@map("invoice_payments")
@@ -3444,8 +3456,76 @@ model SalesDocumentMasterItem {
   invoiceSigns       SalesInvoice[]         @relation("SalesInvoiceSignature")
   deliveryChallanSeals SalesDeliveryChallan[] @relation("SalesDcSeal")
   deliveryChallanSigns SalesDeliveryChallan[] @relation("SalesDcSignature")
+  returnableDcSeals    SalesReturnableDc[]    @relation("SalesRdcSeal")
+  returnableDcSigns    SalesReturnableDc[]    @relation("SalesRdcSignature")
+  paymentModes         SalesInvoicePayment[]  @relation("SalesPaymentMode")
 
   @@index([organizationId, documentType, field])
   @@map("document_master_items")
+  @@schema("sales")
+}
+
+/// A returnable delivery challan (TW/RDC/26-27/0001): goods lent to a
+/// customer (demo, testing, repair) and expected back. `status` is ISSUED /
+/// RETURNED (CHECK); `returned_date` is set exactly when RETURNED.
+model SalesReturnableDc {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  rdcNumber          String    @map("rdc_number") @db.VarChar(40)
+  customerId         Int       @map("customer_id")
+  customerSnapshot   Json      @map("customer_snapshot")
+  issueDate          DateTime  @map("issue_date") @db.Date
+  purpose            String    @db.VarChar(200)
+  expectedReturnDate DateTime  @map("expected_return_date") @db.Date
+  takenBy            String?   @map("taken_by") @db.VarChar(150)
+  status             String    @default("ISSUED")
+  returnedDate       DateTime? @map("returned_date") @db.Date
+  sealName           String?   @map("seal_name") @db.VarChar(150)
+  signatureName      String?   @map("signature_name") @db.VarChar(150)
+  sealItemId         Int?      @map("seal_item_id")
+  signatureItemId    Int?      @map("signature_item_id")
+  preparedBy         String?   @map("prepared_by") @db.VarChar(150)
+  notes              String?
+  customFields       Json      @default("{}") @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization             @relation(fields: [organizationId], references: [id])
+  customer      SalesCustomer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines         SalesReturnableDcLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesRdcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesRdcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, rdcNumber])
+  @@index([organizationId, issueDate])
+  @@index([organizationId, customerId])
+  @@map("returnable_delivery_challans")
+  @@schema("sales")
+}
+
+model SalesReturnableDcLine {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  returnableDcId Int       @map("returnable_dc_id")
+  lineNo         Int       @map("line_no")
+  description    String    @db.VarChar(500)
+  quantity       Decimal   @db.Decimal(12, 3)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  returnableDc SalesReturnableDc @relation(fields: [returnableDcId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, returnableDcId])
+  @@map("returnable_delivery_challan_lines")
   @@schema("sales")
 }

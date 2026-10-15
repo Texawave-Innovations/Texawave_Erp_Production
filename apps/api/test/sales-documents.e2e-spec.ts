@@ -344,6 +344,8 @@ describe("Sales — quotations, invoices & delivery challans (e2e)", () => {
         "proforma_invoice",
         "tax_invoice",
         "delivery_challan",
+        "payment_received",
+        "returnable_dc",
       ]);
     });
   });

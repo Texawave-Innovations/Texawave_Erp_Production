@@ -19,6 +19,15 @@ describe("document field rules", () => {
     expect(FIELDS_BY_DOCUMENT.PROFORMA_INVOICE[0]).toBe("PAYMENT_TERMS");
     expect(FIELDS_BY_DOCUMENT.TAX_INVOICE[0]).toBe("PAYMENT_TERMS");
     expect(FIELDS_BY_DOCUMENT.DELIVERY_CHALLAN).not.toContain("PAYMENT_TERMS");
+    expect(FIELDS_BY_DOCUMENT.PAYMENT_RECEIVED).toEqual(["PAYMENT_MODE"]);
+    expect(FIELDS_BY_DOCUMENT.RETURNABLE_DC).toEqual([
+      "COMPANY_SEAL",
+      "AUTHORIZED_SIGNATURE",
+      "PREPARED_BY",
+    ]);
+    expect(() => assertFieldAllowed("RETURNABLE_DC", "HSN_CODE")).toThrow(
+      BusinessRuleViolationException,
+    );
     expect(() => assertFieldAllowed("DELIVERY_CHALLAN", "VALIDITY")).toThrow(
       BusinessRuleViolationException,
     );
@@ -77,6 +86,10 @@ describe("document field rules", () => {
     );
     expect(() =>
       normalizeOption("PAYMENT_TERMS", { label: "x", value: "1234" }),
+    ).toThrow(BusinessRuleViolationException);
+    expect(normalizeOption("PAYMENT_MODE", { label: "UPI" }).label).toBe("UPI");
+    expect(() =>
+      normalizeOption("PAYMENT_MODE", { label: "x".repeat(51) }),
     ).toThrow(BusinessRuleViolationException);
   });
 });

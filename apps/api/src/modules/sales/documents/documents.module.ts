@@ -14,13 +14,19 @@ import { DocumentPricingService } from "./document-pricing.service.js";
 import { InvoicesController } from "./invoices.controller.js";
 import { InvoicesRepository } from "./invoices.repository.js";
 import { InvoicesService } from "./invoices.service.js";
+import { PaymentsController } from "./payments.controller.js";
+import { PaymentsRepository } from "./payments.repository.js";
+import { PaymentsService } from "./payments.service.js";
 import { QuotationsController } from "./quotations.controller.js";
 import { QuotationsRepository } from "./quotations.repository.js";
 import { QuotationsService } from "./quotations.service.js";
+import { ReturnableDcsController } from "./returnable-dcs.controller.js";
+import { ReturnableDcsRepository } from "./returnable-dcs.repository.js";
+import { ReturnableDcsService } from "./returnable-dcs.service.js";
 import { SalesPdfRenderer } from "./sales-pdf.renderer.js";
 
-/** Sales documents: quotations, proforma/tax invoices (with payments) and
- * delivery challans. One module so each conversion (quotation → invoice,
+/** Sales documents: quotations, proforma/tax invoices, payments received,
+ * delivery challans and returnable delivery challans. One module so each conversion (quotation → invoice,
  * proforma → tax, tax → DC) runs in a single transaction. */
 @Module({
   imports: [CustomersModule, SalesMasterListModule],
@@ -28,6 +34,8 @@ import { SalesPdfRenderer } from "./sales-pdf.renderer.js";
     QuotationsController,
     InvoicesController,
     DeliveryChallansController,
+    PaymentsController,
+    ReturnableDcsController,
   ],
   providers: [
     QuotationsRepository,
@@ -36,6 +44,10 @@ import { SalesPdfRenderer } from "./sales-pdf.renderer.js";
     InvoicesService,
     DeliveryChallansRepository,
     DeliveryChallansService,
+    PaymentsRepository,
+    PaymentsService,
+    ReturnableDcsRepository,
+    ReturnableDcsService,
     DocumentPricingService,
     DocumentNumbersRepository,
     DocumentDeliveryRepository,

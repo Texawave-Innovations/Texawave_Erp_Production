@@ -133,7 +133,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
   {
     name: "Sales Manager",
     description:
-      "Runs Sales: customers (incl. delete and bank-account reveal), quotations, invoices, payments, delivery challans, dashboard, checklist and the Sales master list.",
+      "Runs Sales: customers (incl. delete and bank-account reveal), quotations, invoices, payments received, delivery challans, returnable DCs, dashboard, checklist and the Sales master list.",
     permissions: [
       "sales.dashboard.read",
       "sales.customer.read",
@@ -158,12 +158,17 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "sales.delivery_challan.write",
       "sales.delivery_challan.delete",
       "sales.delivery_challan.send",
+      "sales.payment.read",
+      "sales.returnable_dc.read",
+      "sales.returnable_dc.write",
+      "sales.returnable_dc.delete",
+      "sales.returnable_dc.send",
     ],
   },
   {
     name: "Sales Executive",
     description:
-      "Day-to-day Sales: customers, quotations, invoices and delivery challans (create, edit, send); cannot delete, record payments or reveal bank accounts.",
+      "Day-to-day Sales: customers, quotations, invoices, delivery challans and returnable DCs (create, edit, send) and viewing payments received; cannot delete, record payments or reveal bank accounts.",
     permissions: [
       "sales.dashboard.read",
       "sales.customer.read",
@@ -180,6 +185,10 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "sales.delivery_challan.read",
       "sales.delivery_challan.write",
       "sales.delivery_challan.send",
+      "sales.payment.read",
+      "sales.returnable_dc.read",
+      "sales.returnable_dc.write",
+      "sales.returnable_dc.send",
     ],
   },
   {

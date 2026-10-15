@@ -174,13 +174,13 @@ export class DocumentFieldsService {
 
   /**
    * Public, read-only (Docs/CODING_STANDARDS.md §11): checks that `id` is a
-   * live COMPANY_SEAL / AUTHORIZED_SIGNATURE option and returns its label,
-   * for documents that choose it. Any document type's option is accepted,
-   * so a choice survives conversions (quotation → invoice → DC).
+   * live option of `field` (seal, signature or payment mode) and returns its
+   * label, for records that choose it. Any document type's option is
+   * accepted, so a choice survives conversions (quotation → invoice → DC).
    */
-  async resolveSignatory(
+  async resolveOption(
     id: number,
-    field: "COMPANY_SEAL" | "AUTHORIZED_SIGNATURE",
+    field: "COMPANY_SEAL" | "AUTHORIZED_SIGNATURE" | "PAYMENT_MODE",
   ): Promise<{ id: number; label: string }> {
     const row = await this.repository.findOne(
       this.tenantContext.getOrgScope(),

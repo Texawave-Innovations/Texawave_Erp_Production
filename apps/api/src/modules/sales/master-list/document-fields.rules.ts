@@ -11,6 +11,8 @@ export const DOCUMENT_TYPES = [
   "PROFORMA_INVOICE",
   "TAX_INVOICE",
   "DELIVERY_CHALLAN",
+  "PAYMENT_RECEIVED",
+  "RETURNABLE_DC",
 ] as const;
 export type MasterDocumentType = (typeof DOCUMENT_TYPES)[number];
 
@@ -23,6 +25,7 @@ export const DOCUMENT_FIELDS = [
   "COMPANY_SEAL",
   "AUTHORIZED_SIGNATURE",
   "PREPARED_BY",
+  "PAYMENT_MODE",
 ] as const;
 export type DocumentField = (typeof DOCUMENT_FIELDS)[number];
 
@@ -41,7 +44,11 @@ export const FIELDS_BY_DOCUMENT: Readonly<
   PROFORMA_INVOICE: ["PAYMENT_TERMS", ...COMMON],
   TAX_INVOICE: ["PAYMENT_TERMS", ...COMMON],
   DELIVERY_CHALLAN: COMMON,
+  PAYMENT_RECEIVED: ["PAYMENT_MODE"],
+  RETURNABLE_DC: ["COMPANY_SEAL", "AUTHORIZED_SIGNATURE", "PREPARED_BY"],
 };
+
+export const PAYMENT_MODE_MAX = 50;
 
 /** Fields whose options carry an uploaded image. */
 export const IMAGE_FIELDS: readonly DocumentField[] = [
@@ -156,6 +163,13 @@ export function normalizeOption(
     throw new BusinessRuleViolationException(
       `A ${field} option needs a label`,
       "LABEL_REQUIRED",
+    );
+  }
+  // A payment stores its mode's label (sales.invoice_payments.mode, 50).
+  if (field === "PAYMENT_MODE" && label.length > PAYMENT_MODE_MAX) {
+    throw new BusinessRuleViolationException(
+      `A payment mode is at most ${PAYMENT_MODE_MAX} characters`,
+      "LABEL_TOO_LONG",
     );
   }
   return { label, value: null, bankDetails: null };

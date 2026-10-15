@@ -22,10 +22,11 @@ import type {
   CreateInvoiceDto,
   InvoiceType,
   QueryInvoiceDto,
-  RecordPaymentDto,
   UpdateInvoiceDto,
 } from "./dto/invoice.dto.js";
+import type { RecordPaymentDto } from "./dto/payment.dto.js";
 import { type InvoiceView, InvoicesRepository } from "./invoices.repository.js";
+import { PaymentsService } from "./payments.service.js";
 import { printableInvoice } from "./printable.js";
 import { QuotationsService } from "./quotations.service.js";
 
@@ -52,6 +53,7 @@ export class InvoicesService {
     private readonly pricing: DocumentPricingService,
     private readonly companyProfile: CompanyProfileService,
     private readonly delivery: DocumentDeliveryService,
+    private readonly payments: PaymentsService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -206,34 +208,15 @@ export class InvoicesService {
     return created;
   }
 
+  /** "Record Payment" on an invoice; returns the invoice. */
   async recordPayment(id: number, dto: RecordPaymentDto) {
-    const updated = await this.repository.recordPayment(
-      this.tenantContext.getOrgScope(),
-      id,
-      {
-        amount: dto.amount,
-        paymentDate: parseDateOnly(dto.paymentDate),
-        mode: dto.mode,
-        reference: dto.reference ?? null,
-        notes: dto.notes ?? null,
-      },
-      this.tenantContext.getUserId(),
-    );
-    if (!updated) throw new ResourceNotFoundException("Invoice", id);
-    return updated;
+    await this.payments.record(id, dto);
+    return this.findOne(id);
   }
 
   async deletePayment(id: number, paymentId: number) {
-    const updated = await this.repository.deletePayment(
-      this.tenantContext.getOrgScope(),
-      id,
-      paymentId,
-      this.tenantContext.getUserId(),
-    );
-    if (!updated) {
-      throw new ResourceNotFoundException("Payment", `${id}/${paymentId}`);
-    }
-    return updated;
+    await this.payments.remove(paymentId, id);
+    return this.findOne(id);
   }
 
   async pdf(id: number) {

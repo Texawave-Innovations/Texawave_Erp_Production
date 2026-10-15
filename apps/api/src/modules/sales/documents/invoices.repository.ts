@@ -22,11 +22,7 @@ import {
   pricedSnapshot,
   searchWhere,
 } from "./document-repository.helpers.js";
-import type {
-  InvoiceStatus,
-  InvoiceType,
-  PaymentMode,
-} from "./dto/invoice.dto.js";
+import type { InvoiceStatus, InvoiceType } from "./dto/invoice.dto.js";
 
 const ENTITY_TYPE = "sales_invoice";
 const QUOTATION_ENTITY = "sales_quotation";
@@ -58,14 +54,6 @@ export interface InvoiceFilter extends DocumentFilter {
   status?: InvoiceStatus | undefined;
 }
 
-export interface NewPayment {
-  amount: number;
-  paymentDate: Date;
-  mode: PaymentMode;
-  reference: string | null;
-  notes: string | null;
-}
-
 type NumberSpec = { format: CodeFormat; fiscalYear: string };
 
 const typeCode = (t: InvoiceType) =>
@@ -86,9 +74,12 @@ function toView(row: InvoiceRow) {
     })),
     payments: payments.map((p) => ({
       id: p.id,
+      paymentNumber: p.paymentNumber,
       paymentDate: p.paymentDate,
+      dueDate: p.dueDate,
       amount: p.amount,
       mode: p.mode,
+      modeItemId: p.modeItemId,
       reference: p.reference,
       notes: p.notes,
       createdAt: p.createdAt,
@@ -106,9 +97,10 @@ const locked = (number: string) =>
     "DOCUMENT_LOCKED",
   );
 
-/** The only place `PrismaService` is called for invoices and their
- * payments. Every write is one transaction holding the change and its audit
- * row(s); a conversion writes both documents in the same transaction. */
+/** The only place `PrismaService` is called for invoices (their payments:
+ * PaymentsRepository). Every write is one transaction holding the change and
+ * its audit row(s); a conversion writes both documents in the same
+ * transaction. */
 @Injectable()
 export class InvoicesRepository {
   constructor(
@@ -425,109 +417,6 @@ export class InvoicesRepository {
         before: snapshot(before),
       });
       return true;
-    });
-  }
-
-  /** null when the invoice is not in scope. The amount may not exceed the
-   * balance (checked under the invoice's lock). */
-  @OrgScoped()
-  async recordPayment(
-    scope: OrgScope,
-    invoiceId: number,
-    payment: NewPayment,
-    actorId: number,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      const invoice = await this.lockLive(tx, scope, invoiceId);
-      if (!invoice) return null;
-      if (invoice.status === "CONVERTED") throw locked(invoice.invoiceNumber);
-      const balance = invoice.totalAmount.minus(invoice.amountReceived);
-      if (balance.lessThan(payment.amount)) {
-        throw new BusinessRuleViolationException(
-          `${invoice.invoiceNumber} has a balance of ${balance.toFixed(2)}; the payment cannot exceed it`,
-          "PAYMENT_EXCEEDS_BALANCE",
-        );
-      }
-      const created = await tx.salesInvoicePayment.create({
-        data: {
-          ...payment,
-          organizationId: scope.organizationId,
-          invoiceId,
-          createdBy: actorId,
-          updatedBy: actorId,
-        },
-      });
-      const received = invoice.amountReceived.plus(payment.amount);
-      await tx.salesInvoice.update({
-        where: { id: invoiceId },
-        data: {
-          amountReceived: received,
-          status: paymentStatus(invoice.totalAmount, received),
-          updatedBy: actorId,
-        },
-      });
-      await this.audit.write(tx, {
-        entityType: ENTITY_TYPE,
-        entityId: invoiceId,
-        action: "record_payment",
-        after: {
-          paymentId: created.id,
-          amount: created.amount.toString(),
-          mode: created.mode,
-          amountReceived: received.toString(),
-        },
-      });
-      const row = await tx.salesInvoice.findUniqueOrThrow({
-        where: { id: invoiceId },
-        include: INCLUDE,
-      });
-      return toView(row);
-    });
-  }
-
-  /** null when the invoice or the payment is not in scope (→ 404). */
-  @OrgScoped()
-  async deletePayment(
-    scope: OrgScope,
-    invoiceId: number,
-    paymentId: number,
-    actorId: number,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      const invoice = await this.lockLive(tx, scope, invoiceId);
-      if (!invoice) return null;
-      if (invoice.status === "CONVERTED") throw locked(invoice.invoiceNumber);
-      const payment = invoice.payments.find((p) => p.id === paymentId);
-      if (!payment) return null;
-      await tx.salesInvoicePayment.update({
-        where: { id: paymentId },
-        data: { deletedAt: new Date(), updatedBy: actorId },
-      });
-      const received = invoice.amountReceived.minus(payment.amount);
-      await tx.salesInvoice.update({
-        where: { id: invoiceId },
-        data: {
-          amountReceived: received,
-          status: paymentStatus(invoice.totalAmount, received),
-          updatedBy: actorId,
-        },
-      });
-      await this.audit.write(tx, {
-        entityType: ENTITY_TYPE,
-        entityId: invoiceId,
-        action: "delete_payment",
-        before: {
-          paymentId,
-          amount: payment.amount.toString(),
-          mode: payment.mode,
-        },
-        after: { amountReceived: received.toString() },
-      });
-      const row = await tx.salesInvoice.findUniqueOrThrow({
-        where: { id: invoiceId },
-        include: INCLUDE,
-      });
-      return toView(row);
     });
   }
 

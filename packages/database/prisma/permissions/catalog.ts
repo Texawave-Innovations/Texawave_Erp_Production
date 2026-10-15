@@ -617,7 +617,7 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "sales.master.read",
     description:
-      "View the Sales master list (code formats, running numbers, company details, document fields)",
+      "View the Sales master list (code formats, running numbers, company details, document fields incl. payment modes)",
   },
   {
     code: "sales.master.write",
@@ -627,7 +627,7 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "sales.running_number.write",
     description:
-      "Set the running numbers of quotations, proforma/tax invoices and delivery challans",
+      "Set the running numbers of quotations, proforma/tax invoices, delivery challans, payments received and returnable DCs",
   },
   { code: "sales.quotation.read", description: "View and export quotations" },
   {
@@ -655,7 +655,11 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "sales.invoice_payment.write",
-    description: "Record and delete payments against invoices",
+    description: "Record, edit and delete payments received against invoices",
+  },
+  {
+    code: "sales.payment.read",
+    description: "View payments received, due-date alerts and receipts",
   },
   {
     code: "sales.delivery_challan.read",
@@ -672,6 +676,24 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "sales.delivery_challan.send",
     description: "Email delivery challans and share them on WhatsApp",
+  },
+  {
+    code: "sales.returnable_dc.read",
+    description: "View and export returnable delivery challans",
+  },
+  {
+    code: "sales.returnable_dc.write",
+    description:
+      "Create and edit returnable delivery challans, mark them returned or reopen them",
+  },
+  {
+    code: "sales.returnable_dc.delete",
+    description: "Delete returnable delivery challans",
+  },
+  {
+    code: "sales.returnable_dc.send",
+    description:
+      "Email returnable delivery challans and share them on WhatsApp",
   },
 ];
 

@@ -33,7 +33,7 @@ import { RunningNumbersService } from "./running-numbers.service.js";
     DocumentFieldsService,
   ],
   // Read by modules that issue codes (getFormat), print documents
-  // (require, logoDataUri) and choose seals/signatures (resolveSignatory,
+  // (require, logoDataUri) and choose seals, signatures and payment modes (resolveOption,
   // imageDataUri) — the repositories stay private.
   exports: [CodeFormatsService, CompanyProfileService, DocumentFieldsService],
 })

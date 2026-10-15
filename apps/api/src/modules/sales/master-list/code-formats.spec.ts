@@ -101,6 +101,8 @@ describe("CodeFormatsService", () => {
       ["proforma_invoice", "TW/PI", 4],
       ["tax_invoice", "TW/IN", 4],
       ["delivery_challan", "TW/DC", 4],
+      ["payment_received", "TW/PR", 4],
+      ["returnable_dc", "TW/RDC", 4],
     ]);
     expect(all.every((f) => f.isDefault && f.updatedAt === null)).toBe(true);
     expect(all[0]?.example).toBe("CUS-IN-001");

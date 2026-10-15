@@ -24,9 +24,9 @@ import {
   CreateInvoiceDto,
   NextInvoiceNumberQueryDto,
   QueryInvoiceDto,
-  RecordPaymentDto,
   UpdateInvoiceDto,
 } from "./dto/invoice.dto.js";
+import { RecordPaymentDto } from "./dto/payment.dto.js";
 import { InvoicesService } from "./invoices.service.js";
 
 const READ = "sales.invoice.read";

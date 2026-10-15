@@ -5,7 +5,7 @@ import type { CustomerSnapshot } from "./documents.rules.js";
 
 /**
  * One A4 HTML template for every Sales document (quotation, proforma, tax
- * invoice, delivery challan), in the legacy screens' green layout. Pure;
+ * invoice, delivery challan, returnable DC, payment receipt), in the legacy screens' green layout. Pure;
  * every user-entered value goes through `esc()`. The logo, seal and
  * signature come from the Sales master list as server-made PNG/JPEG data
  * URIs (anything else is dropped); without an image the chosen name prints.
@@ -44,6 +44,12 @@ export interface PrintableDocument {
   termsTitle: string;
   terms: string[];
   note: string | null;
+  /** Heading of the note box (default "Note"). */
+  noteTitle?: string;
+  /** Goods-only table: S.No, description, quantity (returnable DC). */
+  hideHsn?: boolean;
+  /** Label/value rows in a box under the items (payment receipt). */
+  summary?: Array<[label: string, value: string]>;
   preparedBy: string | null;
   sealName: string | null;
   signatureName: string | null;
@@ -89,6 +95,7 @@ const STYLE = `
   .sign .line { border-top: 1.5px solid #4caf50; margin-top: 34px; padding-top: 3px; font-weight: 700; }
   .terms { margin: 10px 14px 14px; } .terms ol { margin: 0; padding-left: 16px; }
   .note { margin: 10px 14px; }
+  .summary { margin: 10px 14px; } .summary div { display: flex; justify-content: space-between; padding: 3px 0; }
 `;
 
 /** Only image data URIs the server built; anything else is not printed. */
@@ -114,14 +121,19 @@ function partyBlock(doc: PrintableDocument): string {
 }
 
 function itemsTable(doc: PrintableDocument): string {
+  if (!doc.lines.length) return "";
   const priced = doc.pricing !== null;
   const head = priced
     ? `<th>S.No</th><th>Description</th><th>HSN Code</th><th>Qty</th><th>Unit Price (₹)</th><th>Total (₹)</th>`
-    : `<th>S.No</th><th>Description of Item</th><th>HSN Code</th><th>Qty</th>`;
+    : doc.hideHsn
+      ? `<th>S.No</th><th>Description of Goods</th><th>Quantity</th>`
+      : `<th>S.No</th><th>Description of Item</th><th>HSN Code</th><th>Qty</th>`;
   const rows = doc.lines
     .map(
-      (l, i) => `<tr><td class="ctr">${i + 1}</td><td>${esc(l.description)}</td>
-        <td class="ctr">${esc(l.hsnCode ?? "")}</td><td class="ctr">${esc(l.quantity)}</td>${
+      (l, i) =>
+        `<tr><td class="ctr">${i + 1}</td><td>${esc(l.description)}</td>${
+          doc.hideHsn ? "" : `<td class="ctr">${esc(l.hsnCode ?? "")}</td>`
+        }<td class="ctr">${esc(l.quantity)}</td>${
           priced
             ? `<td class="num">${esc(l.unitPrice)}</td><td class="num">${esc(l.amount)}</td>`
             : ""
@@ -147,6 +159,14 @@ function totalsBlock(p: PrintablePricing): string {
     <div class="grand"><span>Total Amount</span><span>₹${esc(p.total)}</span></div>
   </div>
   <div class="box words"><b>AMOUNT IN WORDS:</b> <i>${esc(p.amountInWords)} /-</i></div>`;
+}
+
+function summaryBlock(rows: Array<[string, string]>): string {
+  return `<div class="box summary">${rows
+    .map(
+      ([k, v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`,
+    )
+    .join("")}</div>`;
 }
 
 function bankBlock(bank: BankDetails | null): string {
@@ -183,7 +203,8 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
     <div class="box"><table class="meta">${meta}</table></div></div>
   ${itemsTable(doc)}
   ${doc.pricing ? totalsBlock(doc.pricing) : ""}
-  ${doc.note ? `<div class="box note"><h4>Note</h4>${nl(doc.note)}</div>` : ""}
+  ${doc.summary?.length ? summaryBlock(doc.summary) : ""}
+  ${doc.note ? `<div class="box note"><h4>${esc(doc.noteTitle ?? "Note")}</h4>${nl(doc.note)}</div>` : ""}
   <div class="bottom">
     ${doc.pricing ? bankBlock(doc.bank) : `<div class="bank">${doc.preparedBy ? `<strong>Prepared By:</strong> ${esc(doc.preparedBy)}` : ""}</div>`}
     <div class="sign"><strong>For ${esc(co.legalName)}</strong>

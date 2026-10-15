@@ -125,4 +125,35 @@ describe("sales document template", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("evil.test");
   });
+
+  it("goods-only table and a titled note (returnable DC)", () => {
+    const html = renderSalesDocumentHtml(
+      doc({
+        title: "Returnable Delivery Challan",
+        pricing: null,
+        hideHsn: true,
+        lines: [{ description: "Demo panel", hsnCode: null, quantity: "2" }],
+        note: "Return by <date>",
+        noteTitle: "Returnable Terms",
+      }),
+    );
+    expect(html).toContain("<th>Description of Goods</th><th>Quantity</th>");
+    expect(html).not.toContain("HSN Code");
+    expect(html).toContain("<h4>Returnable Terms</h4>Return by &lt;date&gt;");
+  });
+
+  it("a summary box and no items table (payment receipt)", () => {
+    const html = renderSalesDocumentHtml(
+      doc({
+        title: "Payment Receipt",
+        pricing: null,
+        lines: [],
+        summary: [["Amount Received", "₹<508.00>"]],
+      }),
+    );
+    expect(html).not.toContain('<table class="items">');
+    expect(html).toContain(
+      "<span>Amount Received</span><strong>₹&lt;508.00&gt;</strong>",
+    );
+  });
 });
