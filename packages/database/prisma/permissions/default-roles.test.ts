@@ -175,4 +175,27 @@ describe("default roles", () => {
       [],
     );
   });
+
+  it("Sales Executive cannot delete customers or reveal bank accounts; only Sales roles hold sales.*", () => {
+    const exec = role("Sales Executive").permissions;
+    assert.ok(!exec.includes("sales.customer.delete"));
+    assert.ok(!exec.includes("sales.customer_bank.reveal"));
+    assert.ok(
+      !exec.includes("sales.master.write"),
+      "only managers edit the master list",
+    );
+    assert.ok(
+      role("Sales Manager").permissions.includes("sales.customer.delete"),
+    );
+    for (const r of DEFAULT_ROLES) {
+      const isSales = r.name.startsWith("Sales ");
+      for (const code of r.permissions) {
+        assert.equal(
+          code.startsWith("sales."),
+          isSales,
+          `${r.name} should ${isSales ? "only" : "never"} hold sales.* (${code})`,
+        );
+      }
+    }
+  });
 });

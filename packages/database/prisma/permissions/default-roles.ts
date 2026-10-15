@@ -24,6 +24,10 @@
 //    Team Lead sees no pay data (salary is confidential, even within a team).
 //    Employee reads only their own payslips, loans and Form 16 and fills in
 //    their own tax declaration.
+//  - Sales Manager holds every sales.* permission; Sales Executive creates and
+//    edits customers but cannot delete them, reveal bank accounts or edit the
+//    Sales master list. No HR
+//    role holds sales.*, and no Sales role holds HR permissions.
 //
 // Seeding is ADDITIVE: it grants what is listed here and never removes a
 // grant an administrator added (see seed.ts).
@@ -124,6 +128,35 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.tax_declaration.read.all",
       "hr.tax_declaration.write.all",
       "hr.tax_declaration.approve.all",
+    ],
+  },
+  {
+    name: "Sales Manager",
+    description:
+      "Runs Sales: customers (including delete and bank-account reveal), dashboard, checklist and the Sales master list.",
+    permissions: [
+      "sales.dashboard.read",
+      "sales.customer.read",
+      "sales.customer.write",
+      "sales.customer.delete",
+      "sales.customer_bank.reveal",
+      "sales.action_item.read",
+      "sales.action_item.write",
+      "sales.master.read",
+      "sales.master.write",
+    ],
+  },
+  {
+    name: "Sales Executive",
+    description:
+      "Day-to-day Sales: creates and edits customers; cannot delete them or reveal bank accounts.",
+    permissions: [
+      "sales.dashboard.read",
+      "sales.customer.read",
+      "sales.customer.write",
+      "sales.action_item.read",
+      "sales.action_item.write",
+      "sales.master.read",
     ],
   },
   {

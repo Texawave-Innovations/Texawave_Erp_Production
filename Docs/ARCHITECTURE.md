@@ -271,7 +271,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Master Data** — `items`, `item_categories`, `units_of_measure`, `warehouses`, `chart_of_accounts`, `finance_heads`, `departments`, `designations`, `shifts`, `sales_terms`, `tax_codes`
 
-**Sales** — `customers`, `customer_contacts`, `leads`, `quotations`, `quotation_lines`, `sales_orders`, `sales_order_lines`, `invoices`, `invoice_lines`, `delivery_challans`, `dc_lines`
+**Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats` (Sales master list); planned: `customer_contacts`, `leads`, `quotations`, `quotation_lines`, `sales_orders`, `sales_order_lines`, `invoices`, `invoice_lines`, `delivery_challans`, `dc_lines`
 
 **Purchases** — `vendors`, `purchase_orders`, `purchase_order_lines`, `vendor_bills`, `vendor_bill_lines`
 
@@ -474,6 +474,28 @@ keep both env vars in sync with whatever you chose.
 
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
+
+- **2026-10-15 — Sales: dashboard, customers, checklist, master list (`sales.*`, `apps/api/src/modules/sales`).**
+  Migration `20261017090000_sales_customers_dashboard` adds the Postgres schema `sales`
+  (`customers`, `customer_addresses`, `action_items`, `code_formats`). Sales is
+  **organization-scoped** (`@OrgScoped()` + exact `@RequirePermission()`), not team-scoped.
+  Customer codes are `<PREFIX>-<COUNTRY>-<NUMBER>` (`CUS-IN-001`): the prefix and width come from
+  the Sales master list (`sales.code_formats`, default `CUS`/3, edited via
+  `/sales/master/code-formats`), the country from the mobile country code (`+91` → `IN`), and the
+  number from a per-country counter in `platform.document_sequences` (`sales_customer_IN`), issued
+  inside the create transaction; an issued code never changes. GSTIN is format-checked (not the
+  check character — legacy data carries invalid ones), unique per organization among live
+  customers (partial unique index), and fills in the state (still editable) and PAN.
+  CGST/SGST/IGST rates are optional percentages typed in by the user — no defaults. The bank
+  account number is stored AES-256-GCM encrypted with a masked copy; JSON responses carry only the
+  mask, and the full number comes from `GET /sales/customers/:id/bank-account`
+  (`sales.customer_bank.reveal`, audited). One live default address per customer and type (partial
+  unique index). The dashboard (`GET /sales/dashboard`) returns the legacy screen's full shape;
+  only customers and the checklist are live, the document sections are zero and flagged in
+  `availability` until those modules exist. Permissions: `sales.dashboard.read`,
+  `sales.customer.read|write|delete`, `sales.customer_bank.reveal`,
+  `sales.action_item.read|write`, `sales.master.read|write`; dev seed roles Sales Manager (all)
+  and Sales Executive (no delete, no reveal, master list read-only).
 
 - **2026-10-13 — Leave workflow (`hr.leave_*`, `apps/api/src/modules/hr/leave-requests`).**
   Migration `20261013090000_hr_leave_workflow`: `leave_types.approval_levels` (1 or 2);

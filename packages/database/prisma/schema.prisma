@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr"]
+  schemas  = ["platform", "hr", "sales"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -124,6 +124,10 @@ model Organization {
   incomeTaxRegimes          IncomeTaxRegime[]
   employeeTaxDeclarations   EmployeeTaxDeclaration[]
   loanPrepayments           LoanPrepayment[]
+  salesCustomers            SalesCustomer[]
+  salesCustomerAddresses    SalesCustomerAddress[]
+  salesActionItems          SalesActionItem[]
+  salesCodeFormats          SalesCodeFormat[]
 
   @@map("organizations")
   @@schema("platform")
@@ -185,6 +189,7 @@ model User {
   loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
   loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
+  salesActionItemsCompleted SalesActionItem[]       @relation("SalesActionItemCompleter")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -2924,4 +2929,147 @@ model Notification {
   @@index([userId, readAt, createdAt])
   @@map("notifications")
   @@schema("platform")
+}
+
+// ---------------------------------------------------------------------------
+// Sales (apps/api/src/modules/sales) — Postgres schema `sales`
+// ---------------------------------------------------------------------------
+// Organization-scoped, not team-scoped: Sales data is gated by `sales.*`
+// permissions only (Docs/CODING_STANDARDS.md §10). Statuses are strings with
+// CHECK constraints in the migration, like HR.
+
+/// A billing party for Sales documents. `customer_code` (CUST-0001) is issued
+/// by the server from `platform.document_sequences` and never changes. GSTIN
+/// is unique per organization among non-deleted customers (partial unique
+/// index). `state_code` defaults to the GSTIN's first two digits but may be
+/// edited. CGST/SGST/IGST rates are entered manually by the user — there are
+/// no defaults. The bank account number is stored encrypted, with a masked
+/// copy for display. `status` is ACTIVE / INACTIVE (CHECK); `is_active`
+/// mirrors it (CHECK).
+model SalesCustomer {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  customerCode           String    @map("customer_code") @db.VarChar(30)
+  companyName            String    @map("company_name") @db.VarChar(200)
+  contactPerson          String    @map("contact_person") @db.VarChar(150)
+  email                  String    @db.VarChar(254)
+  /// E.164 country calling code, e.g. "+91".
+  mobileCountryCode      String    @default("+91") @map("mobile_country_code") @db.VarChar(5)
+  mobileNumber           String    @map("mobile_number") @db.VarChar(15)
+  gstin                  String?   @db.VarChar(15)
+  /// Two-digit GST state code, e.g. "33" Tamil Nadu.
+  stateCode              String?   @map("state_code") @db.VarChar(2)
+  cgstRate               Decimal?  @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate               Decimal?  @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate               Decimal?  @map("igst_rate") @db.Decimal(5, 2)
+  pan                    String?   @db.VarChar(10)
+  cin                    String?   @db.VarChar(21)
+  bankName               String?   @map("bank_name") @db.VarChar(150)
+  bankAccountNumberEncrypted String?  @map("bank_account_number_encrypted")
+  bankAccountNumberMasked    String?   @map("bank_account_number_masked") @db.VarChar(40)
+  bankIfsc               String?   @map("bank_ifsc") @db.VarChar(11)
+  bankBranch             String?   @map("bank_branch") @db.VarChar(150)
+  paymentNotes           String?   @map("payment_notes")
+  status                 String    @default("ACTIVE")
+  customFields           Json      @default("{}") @map("custom_fields")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  addresses    SalesCustomerAddress[]
+
+  @@unique([organizationId, customerCode])
+  @@index([organizationId, companyName])
+  @@index([organizationId, gstin])
+  @@index([organizationId, status])
+  @@map("customers")
+  @@schema("sales")
+}
+
+/// A billing or shipping address of a customer. At most one live default
+/// per customer and type (partial unique index).
+model SalesCustomerAddress {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  customerId     Int       @map("customer_id")
+  /// BILLING or SHIPPING (CHECK).
+  addressType    String    @map("address_type")
+  label          String    @db.VarChar(100)
+  street         String    @db.VarChar(500)
+  area           String?   @db.VarChar(200)
+  city           String    @db.VarChar(100)
+  stateCode      String    @map("state_code") @db.VarChar(2)
+  pincode        String    @db.VarChar(10)
+  country        String    @default("India") @db.VarChar(100)
+  isDefault      Boolean   @default(false) @map("is_default")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  customer     SalesCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, customerId])
+  @@map("customer_addresses")
+  @@schema("sales")
+}
+
+/// A follow-up on the Sales dashboard checklist, shared by everyone in the
+/// organization who can see it. Completed items stay (completed_at/by).
+model SalesActionItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  title          String    @db.VarChar(300)
+  dueDate        DateTime? @map("due_date") @db.Date
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  completedBy    Int?      @map("completed_by")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  completer    User?        @relation("SalesActionItemCompleter", fields: [completedBy], references: [id])
+
+  @@index([organizationId, completedAt, dueDate])
+  @@map("action_items")
+  @@schema("sales")
+}
+
+/// Sales master list: how each server-issued code is formatted. One row per
+/// organization and code type (`customer` today; later tabs add theirs).
+/// Changing a prefix or width affects only codes issued afterwards — issued
+/// codes never change. Counters live in `platform.document_sequences`.
+model SalesCodeFormat {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  /// `customer` (CHECK).
+  codeType       String    @map("code_type") @db.VarChar(40)
+  prefix         String    @db.VarChar(10)
+  /// Minimum digits of the running number (zero-padded); it grows past this.
+  padding        Int       @default(3)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, codeType])
+  @@map("code_formats")
+  @@schema("sales")
 }

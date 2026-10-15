@@ -592,6 +592,36 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.form16.read",
     description: "Download my own Form 16",
   },
+
+  // apps/api/src/modules/sales — organization-scoped, no team dimension
+  // (Sales data is gated by permission only, like IAM data).
+  { code: "sales.dashboard.read", description: "View the Sales dashboard" },
+  { code: "sales.customer.read", description: "View sales customers" },
+  {
+    code: "sales.customer.write",
+    description: "Create and edit sales customers and their addresses",
+  },
+  { code: "sales.customer.delete", description: "Delete sales customers" },
+  {
+    code: "sales.customer_bank.reveal",
+    description: "Reveal a customer's full bank account number (audited)",
+  },
+  {
+    code: "sales.action_item.read",
+    description: "View the Sales dashboard checklist",
+  },
+  {
+    code: "sales.action_item.write",
+    description: "Add, complete, reopen and delete Sales checklist items",
+  },
+  {
+    code: "sales.master.read",
+    description: "View the Sales master list (code formats)",
+  },
+  {
+    code: "sales.master.write",
+    description: "Edit the Sales master list (code formats)",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [
