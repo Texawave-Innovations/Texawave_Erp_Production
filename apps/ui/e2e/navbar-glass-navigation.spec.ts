@@ -390,4 +390,40 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     await expect(compliance).toHaveClass(/glass-item-active/);
     await expect(activeLevel2Items).toHaveCount(1);
   });
+
+  test("CRM module is enabled without 'Soon' badge and navigates to CRM pages", async ({
+    page,
+  }) => {
+    const nav = page.getByRole("navigation", {
+      name: "Main application navigation",
+    });
+    const crmButton = nav.getByRole("button", { name: "CRM" });
+    await expect(crmButton).toBeVisible();
+
+    // CRM should NOT have any 'Soon' badge
+    await expect(crmButton.getByText(/Soon/i)).toHaveCount(0);
+
+    // Hover CRM to open Level 2 categories
+    await crmButton.hover();
+    const dropdown = page.getByRole("menu", { name: "CRM categories" });
+    await expect(dropdown).toBeVisible();
+
+    // Verify CRM categories
+    await expect(
+      dropdown.getByRole("link", { name: "Pipeline", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Sales & Deals" }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Customers & Contacts" }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Outreach & Queues" }),
+    ).toBeVisible();
+
+    // Navigate to Pipeline
+    await dropdown.getByRole("link", { name: "Pipeline", exact: true }).click();
+    await expect(page).toHaveURL(/\/crm\/pipeline/);
+  });
 });

@@ -49,6 +49,9 @@ import {
   Wallet,
   UserCheck,
   CheckCheck,
+  UserPlus,
+  TrendingUp,
+  PhoneCall,
   type LucideIcon,
 } from "lucide-react";
 import { Spinner, Semantic3DIcon, type Icon3DName } from "@texawave-erp/ui-kit";
@@ -383,6 +386,144 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
   },
 ];
 
+/**
+ * CRM Navigation Hierarchy
+ */
+const CRM_CATEGORIES: NavCategory[] = [
+  {
+    id: "pipeline-overview",
+    label: "Pipeline",
+    icon: BarChart3,
+    icon3d: "overview",
+    iconColor: "text-sky-500",
+    path: "/crm/pipeline",
+    menuCode: "crm-pipeline",
+  },
+  {
+    id: "sales-deals",
+    label: "Sales & Deals",
+    icon: TrendingUp,
+    icon3d: "sales",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "leads",
+        label: "Leads",
+        path: "/crm/leads",
+        icon: UserPlus,
+        icon3d: "recruitment",
+        menuCode: "crm-leads",
+      },
+      {
+        id: "pipeline",
+        label: "Pipeline Board",
+        path: "/crm/pipeline",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "crm-pipeline",
+      },
+      {
+        id: "quotes",
+        label: "Quotations",
+        path: "/crm/quotes",
+        icon: Receipt,
+        icon3d: "payroll",
+        menuCode: "crm-quotes",
+      },
+      {
+        id: "products",
+        label: "Products",
+        path: "/crm/products",
+        icon: Package,
+        icon3d: "inventory-scm",
+        menuCode: "crm-products",
+      },
+    ],
+  },
+  {
+    id: "customers",
+    label: "Customers & Contacts",
+    icon: Users,
+    icon3d: "people",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "accounts",
+        label: "Accounts",
+        path: "/crm/accounts",
+        icon: Building2,
+        icon3d: "departments",
+        menuCode: "crm-accounts",
+      },
+      {
+        id: "contacts",
+        label: "Contacts",
+        path: "/crm/contacts",
+        icon: Contact,
+        icon3d: "profiles",
+        menuCode: "crm-contacts",
+      },
+    ],
+  },
+  {
+    id: "outreach",
+    label: "Outreach & Queues",
+    icon: Clock,
+    icon3d: "time-leave",
+    iconColor: "text-purple-600",
+    children: [
+      {
+        id: "cold-calling-status",
+        label: "Cold Calling Status",
+        path: "/crm/cold-calling-status",
+        icon: PhoneCall,
+        icon3d: "attendance",
+        menuCode: "crm-cold-calling-status",
+      },
+      {
+        id: "interested",
+        label: "Interested",
+        path: "/crm/interested",
+        icon: CheckCircle2,
+        icon3d: "compliance",
+        menuCode: "crm-interested",
+      },
+      {
+        id: "not-interested",
+        label: "Not Interested",
+        path: "/crm/not-interested",
+        icon: X,
+        icon3d: "exit-requests",
+        menuCode: "crm-not-interested",
+      },
+      {
+        id: "keep-in-touch",
+        label: "Keep in Touch",
+        path: "/crm/keep-in-touch",
+        icon: Calendar,
+        icon3d: "leaves",
+        menuCode: "crm-keep-in-touch",
+      },
+      {
+        id: "callback-send-info",
+        label: "Call Back / Send Info",
+        path: "/crm/callback-send-info",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "crm-callback-send-info",
+      },
+      {
+        id: "yet-to-happen",
+        label: "Yet to Happen",
+        path: "/crm/yet-to-happen",
+        icon: ListTodo,
+        icon3d: "tasks",
+        menuCode: "crm-yet-to-happen",
+      },
+    ],
+  },
+];
+
 const ERP_MODULES: ErpModuleConfig[] = [
   {
     id: "dashboard",
@@ -430,9 +571,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "CRM",
     icon: UsersRound,
     icon3d: "crm",
-    path: "#",
-    available: false,
-    upcoming: true,
+    path: "/crm/pipeline",
+    available: true,
+    categories: CRM_CATEGORIES,
   },
   {
     id: "purchases",
@@ -562,6 +703,9 @@ function findRouteNavigationState(pathname: string) {
     pathname.startsWith("/reference")
   ) {
     return { moduleId: "settings", categoryId: "access-control", leafId: null };
+  }
+  if (pathname.startsWith("/crm")) {
+    return { moduleId: "crm", categoryId: "pipeline-overview", leafId: null };
   }
   if (pathname.startsWith("/admin")) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
