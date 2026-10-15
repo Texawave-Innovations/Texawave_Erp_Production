@@ -271,7 +271,7 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Master Data** — `items`, `item_categories`, `units_of_measure`, `warehouses`, `chart_of_accounts`, `finance_heads`, `departments`, `designations`, `shifts`, `sales_terms`, `tax_codes`
 
-**Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats` (Sales master list); planned: `customer_contacts`, `leads`, `quotations`, `quotation_lines`, `sales_orders`, `sales_order_lines`, `invoices`, `invoice_lines`, `delivery_challans`, `dc_lines`
+**Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats` and `company_profiles` (Sales master list), `quotations`, `quotation_lines`, `invoices` (proforma + tax), `invoice_lines`, `invoice_payments`, `delivery_challans`, `delivery_challan_lines`; planned: `customer_contacts`, `leads`, `sales_orders`, `sales_order_lines`, credit notes, returnable DCs
 
 **Purchases** — `vendors`, `purchase_orders`, `purchase_order_lines`, `vendor_bills`, `vendor_bill_lines`
 
@@ -474,6 +474,28 @@ keep both env vars in sync with whatever you chose.
 
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
+
+- **2026-10-18 — Sales: quotations, invoices, payments, delivery challans (`apps/api/src/modules/sales/documents`).**
+  Migration `20261018090000_sales_quotations_invoices` adds `quotations`, `invoices` (`invoice_type`
+  PROFORMA / TAX), their `*_lines`, `invoice_payments`, `delivery_challans` (+ lines) and the
+  master-list `company_profiles` (seller name/address/GSTIN/state, required before any document).
+  Document numbers are `<PREFIX>/<FY>/<NNNN>` (`TW/QUO/26-27/0001`, `TW/PI`, `TW/IN`, `TW/DC`),
+  prefixes and widths in `code_formats`, one counter per type **and financial year** (April–March,
+  `sales_quotation_26-27`), issued in the create transaction. The server prices every document
+  (Decimal, never floats): line = qty × price; taxable = items + transport; place of supply = the
+  customer's GST state unless entered; same state as the company → CGST+SGST, else IGST (the
+  entered IGST, else entered CGST+SGST, else the customer's rates — never a default); total rounded
+  to the rupee with a `round_off`. Each document freezes a `customer_snapshot`. Conversions —
+  quotation → proforma/tax, proforma → tax (payments move along), tax → DC — run in one
+  transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
+  Payments never exceed the balance (under the invoice row lock). Customers with live documents
+  cannot be deleted. PDFs render server-side via the shared Playwright renderer
+  (`SalesPdfRenderer`); email goes through `MailerService`, **moved from `platform/auth` to
+  `shared/mailer`** (new `send()` with attachments; `NOT_CONFIGURED` without SMTP); WhatsApp
+  returns a `wa.me` share link (no Business API provider yet). Seal/signature are stored by name
+  until their masters exist. The dashboard now reads live quotation/invoice/payment figures.
+  Permissions: `sales.quotation|invoice|delivery_challan.read|write|delete|send`,
+  `sales.invoice_payment.write`; Sales Executive gets everything except delete and payments.
 
 - **2026-10-15 — Sales: dashboard, customers, checklist, master list (`sales.*`, `apps/api/src/modules/sales`).**
   Migration `20261017090000_sales_customers_dashboard` adds the Postgres schema `sales`

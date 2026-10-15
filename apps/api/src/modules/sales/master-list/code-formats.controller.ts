@@ -7,7 +7,7 @@ import { UpdateCodeFormatDto } from "./dto/code-format.dto.js";
 const READ = "sales.master.read";
 const WRITE = "sales.master.write";
 
-/** Sales master list → code formats (customer code prefix and width). */
+/** Sales master list → code formats (customer codes and document numbers). */
 @ApiTags("sales-master-list")
 @Controller("sales/master/code-formats")
 export class CodeFormatsController {

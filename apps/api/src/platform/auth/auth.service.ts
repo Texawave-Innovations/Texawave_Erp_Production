@@ -19,7 +19,7 @@ import type {
   AccessTokenPayload,
   RefreshTokenPayload,
 } from "./jwt-payload.interface.js";
-import { MailerService } from "./mailer.service.js";
+import { MailerService } from "../../shared/mailer/mailer.service.js";
 import { PasswordResetTokensRepository } from "./password-reset-tokens.repository.js";
 
 export interface AuthTokens {

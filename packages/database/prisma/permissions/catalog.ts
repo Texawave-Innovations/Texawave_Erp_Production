@@ -616,11 +616,55 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "sales.master.read",
-    description: "View the Sales master list (code formats)",
+    description: "View the Sales master list (code formats, company profile)",
   },
   {
     code: "sales.master.write",
-    description: "Edit the Sales master list (code formats)",
+    description: "Edit the Sales master list (code formats, company profile)",
+  },
+  { code: "sales.quotation.read", description: "View and export quotations" },
+  {
+    code: "sales.quotation.write",
+    description: "Create and edit quotations",
+  },
+  { code: "sales.quotation.delete", description: "Delete quotations" },
+  {
+    code: "sales.quotation.send",
+    description: "Email quotations and share them on WhatsApp",
+  },
+  {
+    code: "sales.invoice.read",
+    description: "View and export proforma and tax invoices",
+  },
+  {
+    code: "sales.invoice.write",
+    description:
+      "Create and edit invoices, convert quotations and move proformas to tax invoices",
+  },
+  { code: "sales.invoice.delete", description: "Delete invoices" },
+  {
+    code: "sales.invoice.send",
+    description: "Email invoices and share them on WhatsApp",
+  },
+  {
+    code: "sales.invoice_payment.write",
+    description: "Record and delete payments against invoices",
+  },
+  {
+    code: "sales.delivery_challan.read",
+    description: "View and export delivery challans",
+  },
+  {
+    code: "sales.delivery_challan.write",
+    description: "Create and edit delivery challans, incl. from tax invoices",
+  },
+  {
+    code: "sales.delivery_challan.delete",
+    description: "Delete delivery challans",
+  },
+  {
+    code: "sales.delivery_challan.send",
+    description: "Email delivery challans and share them on WhatsApp",
   },
 ];
 

@@ -1,13 +1,52 @@
-import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceNotFoundException,
+} from "../../../common/exceptions/business.exception.js";
 import { countryFromCallingCode } from "../shared/countries.js";
 import {
   DEFAULT_CODE_FORMATS,
+  documentSequenceDocType,
+  exampleCode,
+  fiscalYearLabel,
   formatCode,
+  formatDocumentNumber,
   sequenceDocType,
 } from "./code-formats.rules.js";
 import { CodeFormatsService } from "./code-formats.service.js";
 
 describe("code format rules", () => {
+  it("labels the April–March financial year", () => {
+    expect(fiscalYearLabel(new Date("2026-10-15"))).toBe("26-27");
+    expect(fiscalYearLabel(new Date("2027-03-31"))).toBe("26-27");
+    expect(fiscalYearLabel(new Date("2027-04-01"))).toBe("27-28");
+    expect(fiscalYearLabel(new Date("2099-06-01"))).toBe("99-00");
+  });
+
+  it("formats document numbers PREFIX/FY/NNNN with a counter per type and year", () => {
+    expect(
+      formatDocumentNumber(DEFAULT_CODE_FORMATS.quotation, "26-27", 7),
+    ).toBe("TW/QUO/26-27/0007");
+    expect(
+      formatDocumentNumber(DEFAULT_CODE_FORMATS.tax_invoice, "26-27", 12345),
+    ).toBe("TW/IN/26-27/12345");
+    expect(documentSequenceDocType("quotation", "26-27")).toBe(
+      "sales_quotation_26-27",
+    );
+    expect(documentSequenceDocType("quotation", "27-28")).not.toBe(
+      documentSequenceDocType("quotation", "26-27"),
+    );
+    expect(
+      exampleCode(
+        "proforma_invoice",
+        DEFAULT_CODE_FORMATS.proforma_invoice,
+        new Date("2026-10-15"),
+      ),
+    ).toBe("TW/PI/26-27/0001");
+    expect(
+      exampleCode("customer", DEFAULT_CODE_FORMATS.customer, new Date()),
+    ).toBe("CUS-IN-001");
+  });
+
   it("formats PREFIX-COUNTRY-NUMBER, padded and growing past the width", () => {
     const f = DEFAULT_CODE_FORMATS.customer;
     expect(formatCode(f, "IN", 1)).toBe("CUS-IN-001");
@@ -55,16 +94,33 @@ describe("CodeFormatsService", () => {
 
   it("lists every code type, falling back to its default", async () => {
     const { service } = makeService();
-    await expect(service.findAll()).resolves.toEqual([
-      {
-        codeType: "customer",
-        prefix: "CUS",
-        padding: 3,
-        isDefault: true,
-        updatedAt: null,
-        example: "CUS-IN-001",
-      },
+    const all = await service.findAll();
+    expect(all.map((f) => [f.codeType, f.prefix, f.padding])).toEqual([
+      ["customer", "CUS", 3],
+      ["quotation", "TW/QUO", 4],
+      ["proforma_invoice", "TW/PI", 4],
+      ["tax_invoice", "TW/IN", 4],
+      ["delivery_challan", "TW/DC", 4],
     ]);
+    expect(all.every((f) => f.isDefault && f.updatedAt === null)).toBe(true);
+    expect(all[0]?.example).toBe("CUS-IN-001");
+    expect(all[1]?.example).toMatch(/^TW\/QUO\/\d{2}-\d{2}\/0001$/);
+  });
+
+  it("rejects a separator in a customer prefix but allows one in a document prefix", async () => {
+    const { service, repository } = makeService();
+    await expect(
+      service.update("customer", { prefix: "TW/CUS" }),
+    ).rejects.toBeInstanceOf(BusinessRuleViolationException);
+    repository.upsert.mockResolvedValue({
+      codeType: "quotation",
+      prefix: "TX/Q",
+      padding: 4,
+      updatedAt: new Date(),
+    });
+    await expect(
+      service.update("quotation", { prefix: "TX/Q" }),
+    ).resolves.toMatchObject({ prefix: "TX/Q", isDefault: false });
   });
 
   it("returns the stored format once edited", async () => {

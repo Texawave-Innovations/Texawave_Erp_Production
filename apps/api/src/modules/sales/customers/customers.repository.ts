@@ -399,7 +399,7 @@ export class CustomersRepository {
   }
 
   /** Soft-deletes a customer and its addresses (false → 404). Its code stays
-   * used. Once quotations/invoices exist, they will block this. */
+   * used. Refused while live quotations, invoices or DCs point at it. */
   @OrgScoped()
   async softDelete(scope: OrgScope, id: number, actorId: number) {
     return this.prisma.$transaction(async (tx) => {
@@ -412,6 +412,21 @@ export class CustomersRepository {
         include: INCLUDE,
       });
       if (!before) return false;
+      // Sales documents (same bounded context, same schema) keep pointing at
+      // the customer — refuse while any live one does.
+      const [docs] = await tx.$queryRaw<Array<{ n: number }>>`
+        SELECT ((SELECT count(*) FROM sales.quotations
+                  WHERE customer_id = ${id} AND deleted_at IS NULL)
+              + (SELECT count(*) FROM sales.invoices
+                  WHERE customer_id = ${id} AND deleted_at IS NULL)
+              + (SELECT count(*) FROM sales.delivery_challans
+                  WHERE customer_id = ${id} AND deleted_at IS NULL))::int AS n`;
+      if (docs && docs.n > 0) {
+        throw new BusinessRuleConflictException(
+          `Customer ${before.customerCode} has ${docs.n} live sales document(s); delete or reassign them first`,
+          "CUSTOMER_HAS_DOCUMENTS",
+        );
+      }
       const now = new Date();
       await tx.salesCustomer.update({
         where: { id },

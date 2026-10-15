@@ -184,8 +184,18 @@ describe("default roles", () => {
       !exec.includes("sales.master.write"),
       "only managers edit the master list",
     );
+    for (const code of exec) {
+      assert.ok(!code.endsWith(".delete"), `executive must not hold ${code}`);
+    }
+    assert.ok(
+      !exec.includes("sales.invoice_payment.write"),
+      "only managers record payments",
+    );
     assert.ok(
       role("Sales Manager").permissions.includes("sales.customer.delete"),
+    );
+    assert.ok(
+      role("Sales Manager").permissions.includes("sales.invoice_payment.write"),
     );
     for (const r of DEFAULT_ROLES) {
       const isSales = r.name.startsWith("Sales ");

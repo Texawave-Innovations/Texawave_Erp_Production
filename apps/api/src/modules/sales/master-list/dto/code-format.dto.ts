@@ -1,19 +1,22 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, Matches, Max, Min } from "class-validator";
+import { IsInt, IsOptional, Length, Matches, Max, Min } from "class-validator";
 import { UpperTrim } from "../../../../common/dto/transforms.js";
+import { DOCUMENT_PREFIX_PATTERN } from "../code-formats.rules.js";
 
 /** Edit one code format. Affects only codes issued afterwards. */
 export class UpdateCodeFormatDto {
   @ApiPropertyOptional({
-    example: "CUS",
-    description: "1-10 upper-case letters/digits, starting with a letter",
+    example: "TW/QUO",
+    description:
+      "Upper-case letters/digits starting with a letter. Document prefixes may hold `/` (TW/QUO, max 20); a customer prefix may not (CUS, max 10)",
   })
   @IsOptional()
   @UpperTrim()
-  @Matches(/^[A-Z][A-Z0-9]{0,9}$/, {
+  @Length(1, 20)
+  @Matches(DOCUMENT_PREFIX_PATTERN, {
     message:
-      "prefix must be 1-10 letters or digits, starting with a letter (no dashes)",
+      "prefix must be letters or digits starting with a letter, optionally in /-separated parts (no dashes)",
   })
   prefix?: string;
 

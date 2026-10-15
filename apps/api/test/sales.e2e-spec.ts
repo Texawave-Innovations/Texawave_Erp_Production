@@ -690,7 +690,10 @@ describe("Sales — dashboard & customers (e2e)", () => {
       expect(d.availability).toMatchObject({
         customers: true,
         action_items: true,
-        invoices: false,
+        quotations: true,
+        invoices: true,
+        payments: true,
+        credit_notes: false,
       });
       expect(d.monthlyRevenueVsCollections).toHaveLength(12);
       expect(d.receivables.aging).toHaveLength(4);
@@ -754,7 +757,7 @@ describe("Sales — dashboard & customers (e2e)", () => {
         .get("/sales/master/code-formats")
         .set(auth("exec"))
         .expect(200);
-      expect((res.body as Body<Format[]>).data).toEqual([
+      expect((res.body as Body<Format[]>).data[0]).toEqual(
         expect.objectContaining({
           codeType: "customer",
           prefix: "CUS",
@@ -762,7 +765,7 @@ describe("Sales — dashboard & customers (e2e)", () => {
           isDefault: true,
           example: "CUS-IN-001",
         }),
-      ]);
+      );
       await http()
         .patch("/sales/master/code-formats/customer")
         .set(auth("exec"))

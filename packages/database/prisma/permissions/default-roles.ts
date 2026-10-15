@@ -24,9 +24,9 @@
 //    Team Lead sees no pay data (salary is confidential, even within a team).
 //    Employee reads only their own payslips, loans and Form 16 and fills in
 //    their own tax declaration.
-//  - Sales Manager holds every sales.* permission; Sales Executive creates and
-//    edits customers but cannot delete them, reveal bank accounts or edit the
-//    Sales master list. No HR
+//  - Sales Manager holds every sales.* permission; Sales Executive creates,
+//    edits and sends customers/documents but cannot delete anything, record
+//    payments, reveal bank accounts or edit the Sales master list. No HR
 //    role holds sales.*, and no Sales role holds HR permissions.
 //
 // Seeding is ADDITIVE: it grants what is listed here and never removes a
@@ -133,7 +133,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
   {
     name: "Sales Manager",
     description:
-      "Runs Sales: customers (including delete and bank-account reveal), dashboard, checklist and the Sales master list.",
+      "Runs Sales: customers (incl. delete and bank-account reveal), quotations, invoices, payments, delivery challans, dashboard, checklist and the Sales master list.",
     permissions: [
       "sales.dashboard.read",
       "sales.customer.read",
@@ -144,12 +144,25 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "sales.action_item.write",
       "sales.master.read",
       "sales.master.write",
+      "sales.quotation.read",
+      "sales.quotation.write",
+      "sales.quotation.delete",
+      "sales.quotation.send",
+      "sales.invoice.read",
+      "sales.invoice.write",
+      "sales.invoice.delete",
+      "sales.invoice.send",
+      "sales.invoice_payment.write",
+      "sales.delivery_challan.read",
+      "sales.delivery_challan.write",
+      "sales.delivery_challan.delete",
+      "sales.delivery_challan.send",
     ],
   },
   {
     name: "Sales Executive",
     description:
-      "Day-to-day Sales: creates and edits customers; cannot delete them or reveal bank accounts.",
+      "Day-to-day Sales: customers, quotations, invoices and delivery challans (create, edit, send); cannot delete, record payments or reveal bank accounts.",
     permissions: [
       "sales.dashboard.read",
       "sales.customer.read",
@@ -157,6 +170,15 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "sales.action_item.read",
       "sales.action_item.write",
       "sales.master.read",
+      "sales.quotation.read",
+      "sales.quotation.write",
+      "sales.quotation.send",
+      "sales.invoice.read",
+      "sales.invoice.write",
+      "sales.invoice.send",
+      "sales.delivery_challan.read",
+      "sales.delivery_challan.write",
+      "sales.delivery_challan.send",
     ],
   },
   {

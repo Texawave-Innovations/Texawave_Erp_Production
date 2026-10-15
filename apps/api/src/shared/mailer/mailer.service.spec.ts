@@ -144,4 +144,44 @@ describe("MailerService", () => {
     expect(sendMail).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledTimes(1);
   });
+
+  it("send() mails text with attachments and reports SENT", async () => {
+    const mailer = makeMailer(CONFIGURED);
+    const content = Buffer.from("%PDF");
+
+    const outcome = await mailer.send({
+      to: ["buyer@acme.test"],
+      cc: ["boss@acme.test"],
+      subject: "Quotation TW/QUO/26-27/0001",
+      text: "Please find attached",
+      attachments: [
+        { filename: "q.pdf", content, contentType: "application/pdf" },
+      ],
+    });
+
+    expect(outcome).toBe("SENT");
+    expect(sendMail).toHaveBeenCalledWith({
+      from: "noreply@acme.test",
+      to: ["buyer@acme.test"],
+      cc: ["boss@acme.test"],
+      subject: "Quotation TW/QUO/26-27/0001",
+      text: "Please find attached",
+      attachments: [
+        { filename: "q.pdf", content, contentType: "application/pdf" },
+      ],
+    });
+  });
+
+  it("send() reports NOT_CONFIGURED without SMTP and sends nothing", async () => {
+    const mailer = makeMailer({ ...CONFIGURED, NODE_ENV: "test" });
+
+    const outcome = await mailer.send({
+      to: ["buyer@acme.test"],
+      subject: "s",
+      text: "t",
+    });
+
+    expect(outcome).toBe("NOT_CONFIGURED");
+    expect(sendMail).not.toHaveBeenCalled();
+  });
 });

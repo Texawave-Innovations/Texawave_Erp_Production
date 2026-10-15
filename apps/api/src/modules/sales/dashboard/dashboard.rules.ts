@@ -5,8 +5,8 @@ import { Prisma } from "@texawave-erp/database";
  * Analytics & Dashboard" screen shows, from figures each source module
  * supplies. No I/O, so every formula is unit-tested here.
  *
- * Only customers and the checklist exist today. Quotations, invoices,
- * payments, credit notes and returnable DCs are not built yet: their figures
+ * Customers, the checklist, quotations, invoices and payments are live.
+ * Credit notes and returnable DCs are not built yet: their figures
  * are `NO_DOCUMENT_FIGURES` (all zero), and `availability` says so, so the UI
  * can tell "nothing yet" from "module not built". Each module, when it lands,
  * supplies its own part of `DocumentFigures` — the response shape does not

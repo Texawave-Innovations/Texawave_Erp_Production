@@ -1,12 +1,16 @@
 import { Injectable } from "@nestjs/common";
-import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceNotFoundException,
+} from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import {
   CODE_TYPES,
   type CodeFormat,
   type CodeType,
+  CUSTOMER_PREFIX_PATTERN,
   DEFAULT_CODE_FORMATS,
-  formatCode,
+  exampleCode,
   isCodeType,
 } from "./code-formats.rules.js";
 import { CodeFormatsRepository } from "./code-formats.repository.js";
@@ -43,7 +47,15 @@ export class CodeFormatsService {
   async update(codeType: string, dto: UpdateCodeFormatDto) {
     const type = this.assertType(codeType);
     const patch: Partial<CodeFormat> = {};
-    if (dto.prefix !== undefined) patch.prefix = dto.prefix;
+    if (dto.prefix !== undefined) {
+      if (type === "customer" && !CUSTOMER_PREFIX_PATTERN.test(dto.prefix)) {
+        throw new BusinessRuleViolationException(
+          "A customer code prefix is 1-10 letters or digits with no separators",
+          "INVALID_CODE_PREFIX",
+        );
+      }
+      patch.prefix = dto.prefix;
+    }
     if (dto.padding !== undefined) patch.padding = dto.padding;
     const row = await this.repository.upsert(
       this.tenantContext.getOrgScope(),
@@ -78,7 +90,7 @@ export class CodeFormatsService {
       isDefault: row === null,
       updatedAt: row?.updatedAt ?? null,
       /** What the next code looks like, for the master-list screen. */
-      example: formatCode(format, "IN", 1),
+      example: exampleCode(codeType, format, new Date()),
     };
   }
 
