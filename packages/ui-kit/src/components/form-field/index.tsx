@@ -1,6 +1,10 @@
 import { useId } from "react";
 import { cn } from "../../lib/cn";
 
+/** How a field's error is shown: plain text under the control (default),
+ * or a callout bubble with a pointer to the control. */
+export type FormFieldErrorVariant = "text" | "bubble";
+
 export interface FormFieldProps {
   label: string;
   htmlFor?: string;
@@ -11,6 +15,9 @@ export interface FormFieldProps {
   error?: string | undefined;
   hint?: string | undefined;
   required?: boolean;
+  /** Default `"text"`. `"bubble"` is for forms that validate each field as
+   * it is left (see apps/ui/src/hooks/useFormValidation.ts). */
+  errorVariant?: FormFieldErrorVariant | undefined;
   /**
    * Optional trailing content rendered on the same row as the label (e.g. a
    * "Forgot your password?" link next to a Password field's label).
@@ -35,6 +42,7 @@ export function FormField({
   error,
   hint,
   required,
+  errorVariant = "text",
   labelAction,
   children,
 }: FormFieldProps) {
@@ -69,7 +77,23 @@ export function FormField({
           {hint}
         </p>
       ) : null}
-      {error ? (
+      {error && errorVariant === "bubble" ? (
+        // In the layout flow (not floating), so several bubbles at once
+        // never cover the fields below them.
+        <div
+          id={errorId}
+          role="alert"
+          className="relative mt-1 flex items-start gap-1.5 rounded-lg border border-error-200 bg-error-50 px-2.5 py-1.5 text-theme-xs font-medium text-error-700 shadow-theme-xs dark:border-error-800 dark:bg-error-950 dark:text-error-300"
+        >
+          <span
+            aria-hidden="true"
+            className="absolute -top-1.5 left-4 h-2.5 w-2.5 rotate-45 border-l border-t border-error-200 bg-error-50 dark:border-error-800 dark:bg-error-950"
+          />
+          <span aria-hidden="true">✕</span>
+          <span>{error}</span>
+        </div>
+      ) : null}
+      {error && errorVariant === "text" ? (
         <p
           id={errorId}
           role="alert"
