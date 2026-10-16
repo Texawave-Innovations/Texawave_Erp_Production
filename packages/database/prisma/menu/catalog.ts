@@ -359,6 +359,34 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     parentCode: "portal",
     permission: "employee_self_service.tax_declaration.read",
   },
+  // Sales workspace. The Sales sidebar (apps/ui/src/components/DynamicSidebar.tsx,
+  // SALES_NAV_GROUPS) shows a tab only when `getMyMenu()` returns its code;
+  // each tab's permission is the read permission its page gates on. Tabs are
+  // added here as their screens ship.
+  {
+    code: "sales",
+    label: "Sales",
+    path: null,
+    order: 4,
+    parentCode: null,
+    permission: "sales.dashboard.read",
+  },
+  {
+    code: "sales-dashboard",
+    label: "Dashboard",
+    path: "/sales/dashboard",
+    order: 1,
+    parentCode: "sales",
+    permission: "sales.dashboard.read",
+  },
+  {
+    code: "sales-customers",
+    label: "Customers",
+    path: "/sales/customers",
+    order: 2,
+    parentCode: "sales",
+    permission: "sales.customer.read",
+  },
   {
     code: "admin",
     label: "Admin",

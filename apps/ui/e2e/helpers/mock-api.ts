@@ -44,8 +44,8 @@ export async function signInWithMockedApi(
   options: {
     permissions: string[];
     userId?: number;
-    /** HR workspace (dashboard) or the employee portal. */
-    workspace: "hr" | "portal";
+    /** HR workspace (dashboard), the Sales workspace, or the employee portal. */
+    workspace: "hr" | "sales" | "portal";
     menu: MenuLink[];
     handler: (req: MockRequest) => MockAnswer | undefined;
   },
@@ -89,13 +89,18 @@ export async function signInWithMockedApi(
       });
     }
     if (pathname === "/menu/my-menu") {
-      const groupCode = options.workspace === "hr" ? "hr" : "portal";
+      const groupCode = options.workspace;
       return json(200, {
         data: [
           {
             id: 1,
             code: groupCode,
-            label: options.workspace === "hr" ? "HR" : "My Portal",
+            label:
+              options.workspace === "hr"
+                ? "HR"
+                : options.workspace === "sales"
+                  ? "Sales"
+                  : "My Portal",
             path: null,
             icon: null,
             order: 1,
@@ -117,7 +122,7 @@ export async function signInWithMockedApi(
       });
     }
     if (pathname === "/employee/profile" || pathname === "/employee/me") {
-      if (options.workspace === "hr") {
+      if (options.workspace !== "portal") {
         return json(404, {
           statusCode: 404,
           message: "Not an employee",
@@ -169,7 +174,11 @@ export async function signInWithMockedApi(
     .fill("not-checked-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(
-    options.workspace === "hr" ? /\/hr/ : /\/portal/,
+    options.workspace === "hr"
+      ? /\/hr/
+      : options.workspace === "sales"
+        ? /\/sales\/dashboard/
+        : /\/portal/,
   );
   return { calls };
 }

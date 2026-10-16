@@ -43,8 +43,9 @@ export default function DashboardLayout({
     employee.data.onboardingStatus !== "COMPLETE";
 
   // Employees and Team Leads work in the portal: an account WITH an employee
-  // record needs hr.workspace.access (or settings.role.write) for this shell
-  // (hasWorkspaceAccess in features/auth/landing.ts).
+  // record needs hr.workspace.access, sales.dashboard.read (or
+  // settings.role.write) for this shell (hasWorkspaceAccess in
+  // features/auth/landing.ts).
   // Accounts with no employee record (Super Admin) are never sent away. Wait
   // for both lookups so the HR shell never flashes for a portal-only user.
   const checkingShell =

@@ -1,7 +1,7 @@
 # Sales backend — API contract
 
 **Scope:** the Sales module's backend (`apps/api/src/modules/sales`), one section per Sales tab.
-**Status:** implemented and tested on `feature/sales-api`; no UI yet. **Owner:** unassigned.
+**Status:** implemented and tested on `feature/sales-api`; UI in progress (§12). **Owner:** unassigned.
 Verified by `apps/api/test/sales-*.e2e-spec.ts`. Architecture-level rules (tenancy, baseline
 columns, migrations) stay in [`ARCHITECTURE.md`](ARCHITECTURE.md); this file holds the Sales
 routes, permissions and business rules. **New Sales work updates this file**; ARCHITECTURE.md
@@ -59,8 +59,26 @@ payment figures. Sections whose module is not built yet are zero and flagged in 
   (`sales_customer_IN`) issued in the create transaction. An issued code never changes.
 - GSTIN is format-checked (not the check character — legacy data carries invalid ones), unique
   among live customers, and fills in state (editable) and PAN.
-- CGST/SGST/IGST rates are optional, typed by the user — no defaults.
-- Bank account number stored AES-256-GCM encrypted; responses carry only the mask.
+- CGST/SGST/IGST rates are optional, typed by the user — no defaults. CGST and SGST are entered
+  together, at the same rate (422 `GST_RATES_MISMATCH`).
+- Field formats are the shared ones (`apps/api/src/common/dto/field-formats.ts`, mirrored for forms
+  by `packages/core/src/schemas/fields.ts`, the same as onboarding):
+  - contact person, bank name, branch, city, area and country: letters, spaces, `. ' -`;
+  - pincode: 6 digits, not starting with 0;
+  - account number: 9–18 digits;
+  - IFSC and PAN: as in onboarding;
+  - company name: must contain a letter;
+  - mobile: a `+91` mobile is 10 digits starting with 6–9 (422 `INVALID_MOBILE`); other country
+    codes allow 6–15 digits. The supported country codes, the `+91` default and the per-code
+    mobile rule are shared too (`CALLING_CODE_COUNTRIES` / `mobileFormatFor` in the API,
+    `CALLING_CODES` / `mobileFieldFor` in `packages/core`).
+
+  On update, each cross-field rule runs only when its fields are sent, so customers stored
+  earlier can still be edited.
+
+- Bank account number stored AES-256-GCM encrypted; responses carry only the mask. It needs the
+  bank name and IFSC (422 `BANK_DETAILS_INCOMPLETE`). The form also requires a billing address
+  (UI only; the API still accepts a customer without one).
 - One live default address per customer and type.
 - A customer with live documents cannot be deleted.
 
@@ -212,3 +230,35 @@ documents).
 ## 11. Not built yet
 
 Customer contacts, leads, sales orders, credit notes, a WhatsApp Business provider.
+
+## 12. UI (`apps/ui/src/features/sales`)
+
+Built in four PRs, in this order: (1) Dashboard and Customers, (2) Quotations with a
+server-rendered live preview, (3) Invoices (proforma and tax), Delivery Challans and Payments
+Received, (4) Returnable DCs and the Master List. Screens use the ui-kit components and
+`Docs/DESIGN_SYSTEM.md`; routes live under `app/(dashboard)/sales/`.
+
+- **Shell access:** `sales.dashboard.read` opens the dashboard shell
+  (`features/auth/landing.ts` `hasWorkspaceAccess`). After login, a user without HR workspace
+  access but with `sales.dashboard.read` lands on `/sales/dashboard`.
+- **Navigation:** the top navbar's **Sales** module (`components/layout/HorizontalNavbar.tsx`,
+  `SALES_CATEGORIES`). Each entry is shown when `/menu/my-menu` returns its menu code. The
+  codes live in `packages/database/prisma/menu/catalog.ts` (group `sales`, then `sales-dashboard`,
+  `sales-customers`, …), each gated by its page's read permission. A new screen adds its menu
+  item and navbar entry in the same PR. After deploying, run `menu:sync`.
+- **Data:** every Sales query key starts with `orgScopedKey(org, "sales", …)`, and every Sales
+  mutation invalidates that whole prefix, so dashboards and pickers refresh too. Money is shown
+  from the API's decimal strings (`features/sales/shared/format.ts`) and is never recalculated in
+  the browser. GST states, calling codes and formats are mirrored in
+  `features/sales/shared/gst.ts`.
+- **Built so far:**
+  - `/sales/dashboard`: KPIs, needs-attention alerts, revenue vs collections chart (with a
+    table view), pipeline, receivables aging, top clients, recent activity and the follow-up
+    checklist.
+  - `/sales/customers`: list, search and status filter.
+  - `/sales/customers/new` and `/sales/customers/[id]/edit`: GSTIN fills in the state and PAN;
+    addresses; the bank account is write-only.
+  - `/sales/customers/[id]`: detail, with an audited bank reveal and delete with the
+    "has documents" guard.
+- **Tests:** `apps/ui/e2e/sales-*.spec.ts` run against a mocked API
+  (`e2e/helpers/mock-api.ts`, workspace `"sales"`).

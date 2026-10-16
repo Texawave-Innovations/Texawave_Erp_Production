@@ -284,6 +284,30 @@ const HR_CATEGORIES: NavCategory[] = [
 ];
 
 /**
+ * Sales Navigation. Each entry shows only when `getMyMenu()` returns its
+ * `menuCode` (packages/database/prisma/menu/catalog.ts, gated by the page's
+ * read permission). Entries are added as their screens ship.
+ */
+const SALES_CATEGORIES: NavCategory[] = [
+  {
+    id: "sales-overview",
+    label: "Overview",
+    icon: BarChart3,
+    iconColor: "text-sky-500",
+    path: "/sales/dashboard",
+    menuCode: "sales-dashboard",
+  },
+  {
+    id: "sales-customers",
+    label: "Customers",
+    icon: Building2,
+    iconColor: "text-blue-600",
+    path: "/sales/customers",
+    menuCode: "sales-customers",
+  },
+];
+
+/**
  * Settings Navigation Hierarchy
  */
 const SETTINGS_CATEGORIES: NavCategory[] = [
@@ -349,10 +373,11 @@ const ERP_MODULES: ErpModuleConfig[] = [
   },
   {
     id: "sales",
-    label: "Commerce",
+    label: "Sales",
     icon: ShoppingCart,
-    path: "#",
-    available: false,
+    path: "/sales/dashboard",
+    available: true,
+    categories: SALES_CATEGORIES,
   },
   {
     id: "finance",
