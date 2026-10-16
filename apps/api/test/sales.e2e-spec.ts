@@ -253,7 +253,9 @@ describe("Sales — dashboard & customers (e2e)", () => {
 
     it("Sales Executive edits customers but cannot delete them or reveal bank accounts", async () => {
       const c = await createCustomer("exec", {
+        bankName: "HDFC Bank",
         bankAccountNumber: "50100234567890",
+        bankIfsc: "HDFC0001234",
       });
       await http()
         .patch(`/sales/customers/${c.id}`)
@@ -285,6 +287,40 @@ describe("Sales — dashboard & customers (e2e)", () => {
       ["a tax rate over 100", { igstRate: 118 }],
       ["a tax rate with 3 decimals", { cgstRate: 2.125 }],
       ["a bad IFSC", { bankIfsc: "HDFC1234567" }],
+      ["digits in the contact person", { contactPerson: "Jane 2" }],
+      ["a company name without letters", { companyName: "12345" }],
+      ["a bank account of 8 digits", { bankAccountNumber: "12345678" }],
+      ["digits in the bank name", { bankName: "Bank 1" }],
+      [
+        "digits in the city",
+        {
+          addresses: [
+            {
+              addressType: "BILLING",
+              label: "HO",
+              street: "1 Main Road",
+              city: "Chennai 2",
+              stateCode: "33",
+              pincode: "600001",
+            },
+          ],
+        },
+      ],
+      [
+        "a pincode starting with 0",
+        {
+          addresses: [
+            {
+              addressType: "BILLING",
+              label: "HO",
+              street: "1 Main Road",
+              city: "Chennai",
+              stateCode: "33",
+              pincode: "060001",
+            },
+          ],
+        },
+      ],
       [
         "a bad pincode",
         {
@@ -306,6 +342,40 @@ describe("Sales — dashboard & customers (e2e)", () => {
         .set(auth("manager"))
         .send(payload(over))
         .expect(400);
+    });
+
+    it.each([
+      [
+        "an Indian mobile not starting with 6-9",
+        { mobileNumber: "1234567890" },
+        "INVALID_MOBILE",
+      ],
+      ["CGST without SGST", { cgstRate: 9 }, "GST_RATES_MISMATCH"],
+      [
+        "CGST and SGST that differ",
+        { cgstRate: 9, sgstRate: 6 },
+        "GST_RATES_MISMATCH",
+      ],
+      [
+        "an account number without IFSC",
+        { bankName: "HDFC Bank", bankAccountNumber: "50100234567890" },
+        "BANK_DETAILS_INCOMPLETE",
+      ],
+    ])("422 for %s", async (_label, over, error) => {
+      const res = await http()
+        .post("/sales/customers")
+        .set(auth("manager"))
+        .send(payload(over))
+        .expect(422);
+      expect((res.body as ErrorBody).error).toBe(error);
+    });
+
+    it("a foreign mobile keeps 6-15 digits", async () => {
+      await http()
+        .post("/sales/customers")
+        .set(auth("manager"))
+        .send(payload({ mobileCountryCode: "+971", mobileNumber: "501234567" }))
+        .expect(201);
     });
 
     it("422 for a PAN that is not the GSTIN's", async () => {
@@ -555,7 +625,9 @@ describe("Sales — dashboard & customers (e2e)", () => {
   describe("organization isolation", () => {
     it("another organization's customer is 404 for every route", async () => {
       const c = await createCustomer("manager", {
+        bankName: "HDFC Bank",
         bankAccountNumber: "123456789",
+        bankIfsc: "HDFC0001234",
       });
       await http()
         .get(`/sales/customers/${c.id}`)
@@ -708,7 +780,9 @@ describe("Sales — dashboard & customers (e2e)", () => {
   describe("audit", () => {
     it("writes create/update/delete rows with the acting user and no secrets", async () => {
       const c = await createCustomer("manager", {
+        bankName: "HDFC Bank",
         bankAccountNumber: "998877665544",
+        bankIfsc: "HDFC0001234",
       });
       await http()
         .patch(`/sales/customers/${c.id}`)

@@ -51,7 +51,12 @@ type UpdateArgs = [unknown, number, { data: Record<string, unknown> }];
 describe("CustomersService", () => {
   it("create() encrypts and masks the bank account and never passes the plain number", async () => {
     const { service, repository } = makeService();
-    await service.create({ ...base, bankAccountNumber: "50100234567890" });
+    await service.create({
+      ...base,
+      bankName: "HDFC Bank",
+      bankAccountNumber: "50100234567890",
+      bankIfsc: "HDFC0001234",
+    });
     const [, data, actor] = repository.create.mock.calls[0] as CreateArgs;
     expect(actor).toBe(42);
     expect(data["bankAccountNumberEncrypted"]).toBe("enc(50100234567890)");

@@ -1,6 +1,7 @@
 import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 import type { CustomerAddressDto } from "./dto/customer.dto.js";
 import {
+  assertContactAndBank,
   maskAccountNumber,
   normalizeAddresses,
   resolveTaxIdentity,
@@ -125,5 +126,86 @@ describe("maskAccountNumber", () => {
   it("shows only the last four digits", () => {
     expect(maskAccountNumber("50100234567890")).toBe("**********7890");
     expect(maskAccountNumber("123")).toBe("***");
+  });
+});
+
+describe("assertContactAndBank", () => {
+  const ok = {
+    mobileCountryCode: "+91",
+    mobileNumber: "9876543210",
+    cgstRate: 9,
+    sgstRate: 9,
+    bankName: "HDFC Bank",
+    hasAccountNumber: true,
+    bankIfsc: "HDFC0001234",
+  };
+
+  it("accepts a complete, consistent customer", () => {
+    expect(code(() => assertContactAndBank(ok))).toBeUndefined();
+    expect(
+      code(() =>
+        assertContactAndBank({
+          ...ok,
+          cgstRate: null,
+          sgstRate: null,
+          bankName: null,
+          hasAccountNumber: false,
+          bankIfsc: null,
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("an Indian mobile is 10 digits starting with 6-9; others keep 6-15 digits", () => {
+    expect(
+      code(() => assertContactAndBank({ ...ok, mobileNumber: "1234567890" })),
+    ).toBe("INVALID_MOBILE");
+    expect(
+      code(() => assertContactAndBank({ ...ok, mobileNumber: "98765" })),
+    ).toBe("INVALID_MOBILE");
+    expect(
+      code(() =>
+        assertContactAndBank({
+          ...ok,
+          mobileCountryCode: "+971",
+          mobileNumber: "501234567",
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("CGST and SGST come together, at the same rate", () => {
+    expect(code(() => assertContactAndBank({ ...ok, sgstRate: null }))).toBe(
+      "GST_RATES_MISMATCH",
+    );
+    expect(code(() => assertContactAndBank({ ...ok, sgstRate: 6 }))).toBe(
+      "GST_RATES_MISMATCH",
+    );
+    expect(
+      code(() => assertContactAndBank({ ...ok, cgstRate: "9", sgstRate: 9 })),
+    ).toBeUndefined();
+  });
+
+  it("an account number needs the bank name and IFSC", () => {
+    expect(code(() => assertContactAndBank({ ...ok, bankIfsc: null }))).toBe(
+      "BANK_DETAILS_INCOMPLETE",
+    );
+    expect(code(() => assertContactAndBank({ ...ok, bankName: null }))).toBe(
+      "BANK_DETAILS_INCOMPLETE",
+    );
+  });
+
+  it("on update only the groups that were sent are checked", () => {
+    const legacy = { ...ok, mobileNumber: "12345", sgstRate: null };
+    expect(
+      code(() =>
+        assertContactAndBank(legacy, { mobile: false, gst: false, bank: true }),
+      ),
+    ).toBeUndefined();
+    expect(
+      code(() =>
+        assertContactAndBank(legacy, { mobile: true, gst: false, bank: false }),
+      ),
+    ).toBe("INVALID_MOBILE");
   });
 });

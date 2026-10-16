@@ -1,4 +1,5 @@
 import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
+import { mobileFormatFor } from "../../../common/dto/field-formats.js";
 import { isGstStateCode, stateCodeFromGstin } from "../shared/gst.js";
 import type { CustomerAddressDto } from "./dto/customer.dto.js";
 
@@ -96,4 +97,59 @@ export function maskAccountNumber(value: string): string {
   return value.length <= 4
     ? "*".repeat(value.length)
     : `${"*".repeat(value.length - 4)}${value.slice(-4)}`;
+}
+
+export interface ContactAndBankInput {
+  mobileCountryCode: string;
+  mobileNumber: string;
+  cgstRate: number | string | null;
+  sgstRate: number | string | null;
+  bankName: string | null;
+  /** True when an account number is (or stays) stored. */
+  hasAccountNumber: boolean;
+  bankIfsc: string | null;
+}
+
+/**
+ * Rules across fields, checked on the merged values (stored + changed):
+ * - an Indian (+91) mobile is 10 digits starting with 6-9 (the onboarding
+ *   format); other countries keep the DTO's 6-15 digits;
+ * - CGST and SGST are charged together, at the same rate;
+ * - a bank account number needs its bank name and IFSC.
+ */
+export function assertContactAndBank(
+  input: ContactAndBankInput,
+  /** On update, only the groups whose fields were sent are checked, so a
+   * customer stored before these rules can still be edited. */
+  check: { mobile: boolean; gst: boolean; bank: boolean } = {
+    mobile: true,
+    gst: true,
+    bank: true,
+  },
+): void {
+  const mobile = mobileFormatFor(input.mobileCountryCode);
+  if (check.mobile && !mobile.pattern.test(input.mobileNumber)) {
+    throw new BusinessRuleViolationException(mobile.message, "INVALID_MOBILE");
+  }
+  const cgst = input.cgstRate === null ? null : Number(input.cgstRate);
+  const sgst = input.sgstRate === null ? null : Number(input.sgstRate);
+  if (
+    check.gst &&
+    ((cgst === null) !== (sgst === null) || (cgst !== null && cgst !== sgst))
+  ) {
+    throw new BusinessRuleViolationException(
+      "CGST and SGST are entered together, at the same rate",
+      "GST_RATES_MISMATCH",
+    );
+  }
+  if (
+    check.bank &&
+    input.hasAccountNumber &&
+    (!input.bankName || !input.bankIfsc)
+  ) {
+    throw new BusinessRuleViolationException(
+      "A bank account number needs the bank name and IFSC",
+      "BANK_DETAILS_INCOMPLETE",
+    );
+  }
 }

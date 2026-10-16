@@ -8,8 +8,12 @@ import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { FieldEncryptionService } from "../../../shared/crypto/field-encryption.service.js";
 import { CodeFormatsService } from "../master-list/code-formats.service.js";
-import { countryFromCallingCode } from "../shared/countries.js";
 import {
+  countryFromCallingCode,
+  INDIA_CALLING_CODE,
+} from "../shared/countries.js";
+import {
+  assertContactAndBank,
   maskAccountNumber,
   normalizeAddresses,
   resolveTaxIdentity,
@@ -24,8 +28,6 @@ import type {
   QueryCustomerDto,
   UpdateCustomerDto,
 } from "./dto/customer.dto.js";
-
-const DEFAULT_CALLING_CODE = "+91";
 
 @Injectable()
 export class CustomersService {
@@ -55,7 +57,7 @@ export class CustomersService {
 
   /** Preview of the code the next customer from that country will get
    * (not reserved — the real code is issued when the customer is saved). */
-  async nextCode(mobileCountryCode = DEFAULT_CALLING_CODE) {
+  async nextCode(mobileCountryCode = INDIA_CALLING_CODE) {
     const scope = this.tenantContext.getOrgScope();
     const format = await this.codeFormats.getFormat("customer");
     return {
@@ -88,7 +90,16 @@ export class CustomersService {
     });
     const addresses = normalizeAddresses(dto.addresses ?? []);
     if (identity.gstin) await this.assertGstinFree(scope, identity.gstin);
-    const mobileCountryCode = dto.mobileCountryCode ?? DEFAULT_CALLING_CODE;
+    const mobileCountryCode = dto.mobileCountryCode ?? INDIA_CALLING_CODE;
+    assertContactAndBank({
+      mobileCountryCode,
+      mobileNumber: dto.mobileNumber,
+      cgstRate: dto.cgstRate ?? null,
+      sgstRate: dto.sgstRate ?? null,
+      bankName: dto.bankName ?? null,
+      hasAccountNumber: Boolean(dto.bankAccountNumber),
+      bankIfsc: dto.bankIfsc ?? null,
+    });
     const format = await this.codeFormats.getFormat("customer");
 
     return this.repository.create(
@@ -127,6 +138,41 @@ export class CustomersService {
     const scope = this.tenantContext.getOrgScope();
     const current = await this.repository.findOne(scope, id);
     if (!current) throw new ResourceNotFoundException("Customer", id);
+
+    const pick = <T>(sent: T | undefined, stored: T): T =>
+      sent !== undefined ? sent : stored;
+    assertContactAndBank(
+      {
+        mobileCountryCode: pick(
+          dto.mobileCountryCode,
+          current.mobileCountryCode,
+        ),
+        mobileNumber: pick(dto.mobileNumber, current.mobileNumber),
+        cgstRate: pick<number | string | null>(
+          dto.cgstRate,
+          current.cgstRate?.toString() ?? null,
+        ),
+        sgstRate: pick<number | string | null>(
+          dto.sgstRate,
+          current.sgstRate?.toString() ?? null,
+        ),
+        bankName: pick(dto.bankName, current.bankName),
+        hasAccountNumber:
+          dto.bankAccountNumber !== undefined
+            ? Boolean(dto.bankAccountNumber)
+            : current.bankAccountNumberMasked !== null,
+        bankIfsc: pick(dto.bankIfsc, current.bankIfsc),
+      },
+      {
+        mobile:
+          dto.mobileCountryCode !== undefined || dto.mobileNumber !== undefined,
+        gst: dto.cgstRate !== undefined || dto.sgstRate !== undefined,
+        bank:
+          dto.bankName !== undefined ||
+          dto.bankAccountNumber !== undefined ||
+          dto.bankIfsc !== undefined,
+      },
+    );
 
     const data: Partial<CustomerData> = {};
     const set = <K extends keyof CustomerData>(

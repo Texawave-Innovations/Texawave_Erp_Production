@@ -15,17 +15,20 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
   ValidateNested,
 } from "class-validator";
+import {
+  FIELD_FORMAT,
+  FIELD_MESSAGE,
+} from "../../../../common/dto/field-formats.js";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { CALLING_CODES } from "../../shared/countries.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
-import {
-  CIN_PATTERN,
-  GSTIN_PATTERN,
-  IFSC_PATTERN,
-  PAN_PATTERN,
-} from "../../shared/gst.js";
+import { CIN_PATTERN, GSTIN_PATTERN } from "../../shared/gst.js";
+
+/** Letters, spaces, and . ' - (the shared name format). */
+const Name = () => Matches(FIELD_FORMAT.name, { message: FIELD_MESSAGE.name });
 
 export const CUSTOMER_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
@@ -69,12 +72,15 @@ export class CustomerAddressDto {
   @Trim()
   @IsString()
   @Length(0, 200)
+  @ValidateIf((_o, v) => typeof v === "string" && v !== "")
+  @Name()
   area?: string;
 
   @ApiProperty({ example: "Chennai" })
   @Trim()
   @IsString()
   @Length(1, 100)
+  @Name()
   city!: string;
 
   @ApiProperty({ example: "33", description: "Two-digit GST state code" })
@@ -85,7 +91,7 @@ export class CustomerAddressDto {
 
   @ApiProperty({ example: "600032" })
   @Trim()
-  @Matches(/^[0-9]{6}$/, { message: "pincode must be 6 digits" })
+  @Matches(FIELD_FORMAT.pincode, { message: FIELD_MESSAGE.pincode })
   pincode!: string;
 
   @ApiPropertyOptional({ default: "India" })
@@ -93,6 +99,7 @@ export class CustomerAddressDto {
   @Trim()
   @IsString()
   @Length(1, 100)
+  @Name()
   country?: string;
 
   @ApiPropertyOptional({ default: false })
@@ -106,12 +113,16 @@ export class CreateCustomerDto {
   @Trim()
   @IsString()
   @Length(1, 200)
+  @Matches(/[A-Za-z]/, {
+    message: "Enter a company name (it must contain letters).",
+  })
   companyName!: string;
 
   @ApiProperty({ example: "John Doe" })
   @Trim()
   @IsString()
   @Length(1, 150)
+  @Name()
   contactPerson!: string;
 
   @ApiProperty({ example: "john@company.com" })
@@ -180,7 +191,7 @@ export class CreateCustomerDto {
   @ApiPropertyOptional({ example: "ABCDE1234F" })
   @IsOptional()
   @UpperTrim()
-  @Matches(PAN_PATTERN, { message: "pan must be a valid PAN" })
+  @Matches(FIELD_FORMAT.pan, { message: FIELD_MESSAGE.pan })
   pan?: string | null;
 
   @ApiPropertyOptional({ example: "L12345MH2020PLC123456" })
@@ -194,6 +205,7 @@ export class CreateCustomerDto {
   @Trim()
   @IsString()
   @Length(1, 150)
+  @Name()
   bankName?: string | null;
 
   @ApiPropertyOptional({
@@ -202,15 +214,15 @@ export class CreateCustomerDto {
   })
   @IsOptional()
   @Trim()
-  @Matches(/^[0-9]{6,20}$/, {
-    message: "bankAccountNumber must be 6-20 digits",
+  @Matches(FIELD_FORMAT.accountNumber, {
+    message: FIELD_MESSAGE.accountNumber,
   })
   bankAccountNumber?: string | null;
 
   @ApiPropertyOptional({ example: "HDFC0001234" })
   @IsOptional()
   @UpperTrim()
-  @Matches(IFSC_PATTERN, { message: "bankIfsc must be a valid IFSC" })
+  @Matches(FIELD_FORMAT.ifsc, { message: FIELD_MESSAGE.ifsc })
   bankIfsc?: string | null;
 
   @ApiPropertyOptional({ example: "Industrial Area Branch" })
@@ -218,6 +230,7 @@ export class CreateCustomerDto {
   @Trim()
   @IsString()
   @Length(1, 150)
+  @Name()
   bankBranch?: string | null;
 
   @ApiPropertyOptional({ example: "UPI: abc@hdfcbank" })

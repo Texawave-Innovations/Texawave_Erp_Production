@@ -10,5 +10,6 @@ export * from "./schemas/designation.schema";
 export * from "./schemas/user.schema";
 export * from "./schemas/new-hire.schema";
 export * from "./schemas/onboarding.schema";
+export * from "./schemas/fields";
 export * from "./schemas/menu.schema";
 export * from "./schemas/auth.schema";
