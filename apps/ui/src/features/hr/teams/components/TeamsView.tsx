@@ -17,11 +17,18 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { HrPageHeader } from "@/features/hr/components";
+import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
 import { useUsers } from "@/features/users/hooks";
 import type { TeamFormData, TeamItem, TeamStatusFilter } from "../types";
 import { generateTeamCode, getStoredTeams, saveStoredTeams } from "../utils";
 import { TeamCard } from "./TeamCard";
 import { TeamDialog } from "./TeamDialog";
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 export function TeamsView() {
   const [teams, setTeams] = useState<TeamItem[]>(getStoredTeams);
@@ -279,20 +286,14 @@ export function TeamsView() {
           />
         </div>
 
-        <div className="w-full sm:w-48">
-          <select
-            aria-label="Filter by status"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as TeamStatusFilter)
-            }
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-theme-sm text-gray-900 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-dark dark:text-white/90"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
+        <FilterSelect
+          id="team-status-filter"
+          label="Filter by status"
+          prefix="Status"
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val as TeamStatusFilter)}
+          options={STATUS_OPTIONS}
+        />
       </div>
 
       {/* 4. Teams Grid or Empty State */}

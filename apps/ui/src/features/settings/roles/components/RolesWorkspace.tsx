@@ -272,7 +272,7 @@ export function RolesWorkspace({
   const lastChangedBy = detail.data?.lastChangedBy?.fullName;
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[18rem_1fr]">
+    <div className="flex flex-col gap-5">
       <RoleList
         roles={roles}
         selectedId={selected.id}

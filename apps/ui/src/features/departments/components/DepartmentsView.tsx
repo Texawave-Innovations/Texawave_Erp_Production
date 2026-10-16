@@ -27,6 +27,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { HrPageHeader } from "@/features/hr/components";
 import {
@@ -35,6 +36,12 @@ import {
   useDepartments,
   useUpdateDepartment,
 } from "../hooks";
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 import {
   formatDepartmentDate,
   getDepartmentCode,
@@ -220,22 +227,17 @@ export function DepartmentsView() {
           ariaLabel: "Search departments",
         }}
         filters={
-          <div className="w-full sm:w-48">
-            <Select
-              aria-label="Filter by status"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(
-                  e.target.value as "all" | "active" | "inactive",
-                );
-                setPage(1);
-              }}
-            >
-              <option value="all">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </Select>
-          </div>
+          <FilterSelect
+            id="department-status-filter"
+            label="Filter by status"
+            prefix="Status"
+            value={statusFilter}
+            onChange={(val) => {
+              setStatusFilter(val as "all" | "active" | "inactive");
+              setPage(1);
+            }}
+            options={STATUS_OPTIONS}
+          />
         }
         hasActiveFilters={hasActiveFilters}
         onClearFilters={handleResetFilters}
