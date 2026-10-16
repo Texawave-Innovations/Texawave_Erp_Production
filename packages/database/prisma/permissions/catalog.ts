@@ -592,6 +592,69 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.form16.read",
     description: "Download my own Form 16",
   },
+
+  // apps/api/src/modules/sales-settings — Sales & Document Masters
+  // foundation. Org-wide configuration, no team dimension (same carve-out as
+  // IAM/platform-config data, Docs/CODING_STANDARDS.md §10a).
+  {
+    code: "sales_settings.company_detail.read",
+    description: "View company details (Sales Settings — Company tab)",
+  },
+  {
+    code: "sales_settings.company_detail.write",
+    description: "Create/update company details",
+  },
+  {
+    code: "sales_settings.document_numbering.read",
+    description:
+      "View document numbering prefixes (Sales Settings — Numbering tab)",
+  },
+  {
+    code: "sales_settings.document_numbering.write",
+    description: "Create/update a document type's numbering prefix",
+  },
+  {
+    code: "sales_settings.bank_account.read",
+    description: "View bank accounts (Sales Settings — Bank & Signatory tab)",
+  },
+  {
+    code: "sales_settings.bank_account.write",
+    description: "Create/update/delete bank accounts",
+  },
+  {
+    code: "sales_settings.authorized_signatory.read",
+    description: "View the authorized signatory",
+  },
+  {
+    code: "sales_settings.authorized_signatory.write",
+    description: "Create/update the authorized signatory",
+  },
+  {
+    code: "sales_settings.salesperson.read",
+    description: "View salespersons",
+  },
+  {
+    code: "sales_settings.salesperson.write",
+    description: "Create/update/delete salespersons",
+  },
+  {
+    code: "sales_settings.seal_signature.read",
+    description: "View the Company Seal / Authorized Signature masterlists",
+  },
+  {
+    code: "sales_settings.seal_signature.write",
+    description:
+      "Create/update/delete entries in the Seal/Signature masterlists",
+  },
+  {
+    code: "sales_settings.master_list_item.read",
+    description:
+      "View Terms & Inventory items (payment terms, delivery terms, dispatch modes, GST rates, item categories/types/groups, units)",
+  },
+  {
+    code: "sales_settings.master_list_item.write",
+    description: "Create/update/delete Terms & Inventory items",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [

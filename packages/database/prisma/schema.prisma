@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr"]
+  schemas  = ["platform", "hr", "sales"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -101,6 +101,12 @@ model Organization {
   payrollPeriods        PayrollPeriod[]
   payrollRuns           PayrollRun[]
   payrollEntries        PayrollEntry[]
+  companyDetail         CompanyDetail?
+  bankAccounts          BankAccount[]
+  authorizedSignatory   AuthorizedSignatory?
+  salespersons          Salesperson[]
+  sealSignatures        SealSignature[]
+  salesMasterListItems  SalesMasterListItem[]
   payrollEarnings       PayrollEarning[]
   payrollDeductions     PayrollDeduction[]
   employeeSalaries      EmployeeSalary[]
@@ -2924,4 +2930,186 @@ model Notification {
   @@index([userId, readAt, createdAt])
   @@map("notifications")
   @@schema("platform")
+}
+
+// ---------------------------------------------------------------------------
+// Sales Settings / Sales & Document Masters foundation
+// (apps/api/src/modules/sales-settings) — Docs/SALES_SETTINGS_FOUNDATION.md
+//
+// First models in the "sales" schema (Docs/PLATFORM_SCHEMA_SPLIT_PLAN.md §2:
+// a module gets its own schema only when its first model lands — this is
+// that landing for `sales`). Document numbering reuses the existing
+// `DocumentSequence` table (new `docType` values only, see the foundation
+// doc) rather than adding a new table here.
+// ---------------------------------------------------------------------------
+
+/// One row per organization (single-org app, but kept org-scoped for
+/// consistency with every other table — Docs/ARCHITECTURE.md §5.1).
+/// Company tab of Sales Settings.
+model CompanyDetail {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @unique @map("organization_id")
+  name           String
+  phone          String?
+  email          String?
+  website        String?
+  addressLine1   String?   @map("address_line1")
+  addressLine2   String?   @map("address_line2")
+  city           String?
+  state          String?
+  pincode        String?
+  country        String?
+  gstin          String?
+  pan            String?
+  /// Base64 data URI, same storage convention as `SealSignature.imageDataUri`.
+  logoDataUri    String?   @map("logo_data_uri") @db.Text
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("company_details")
+  @@schema("sales")
+}
+
+/// List of org bank accounts. Bank & Signatory tab (bank half) of Sales
+/// Settings.
+model BankAccount {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  bankName          String    @map("bank_name")
+  accountHolderName String    @map("account_holder_name")
+  accountNumber     String    @map("account_number")
+  ifscCode          String    @map("ifsc_code")
+  branchName        String?   @map("branch_name")
+  isPrimary         Boolean   @default(false) @map("is_primary")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("bank_accounts")
+  @@schema("sales")
+}
+
+/// One row per organization — the UI shows a single Name/Designation form,
+/// not a list (contrast `Salesperson`, which is a list). Bank & Signatory
+/// tab (signatory half) of Sales Settings.
+model AuthorizedSignatory {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @unique @map("organization_id")
+  name           String?
+  designation    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("authorized_signatories")
+  @@schema("sales")
+}
+
+/// Salespersons tab of Sales Settings — tracked for commission/assignment by
+/// future Sales documents (quotations/invoices reference this by id).
+model Salesperson {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  name              String
+  code              String?
+  email             String?
+  phone             String?
+  commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("salespersons")
+  @@schema("sales")
+}
+
+/// Company Seal masterlist + Authorized Signature masterlist, unified behind
+/// one `kind` discriminator since both are "title + image data URI" cards
+/// with the same CRUD shape — see Docs/SALES_SETTINGS_FOUNDATION.md for the
+/// `SealSignatureKind` values. `signatoryName`/`designation` only apply to
+/// kind = 'signature'.
+model SealSignature {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  kind           String
+  title          String
+  signatoryName  String?   @map("signatory_name")
+  designation    String?
+  /// Base64 data URI (as uploaded from the UI — see screenshots in the
+  /// foundation doc), not a file path. No file-storage integration yet.
+  imageDataUri   String    @map("image_data_uri") @db.Text
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, kind])
+  @@map("seal_signatures")
+  @@schema("sales")
+}
+
+/// Terms & Inventory tab — the 8 simple "add/delete chip" lookup lists
+/// (Payment Terms, Delivery Terms, Dispatch Modes, GST Rates, Item
+/// Categories, Item Types, Item Groups, Units) unified behind one `category`
+/// discriminator. Deliberately NOT modeled as 8 separate tables and NOT on
+/// the code+name `MasterDataService` base used by HR's master-data module:
+/// the UI treats every one of these as an unstructured, non-unique value
+/// list (duplicate values are allowed, e.g. two "9%" GST rates in the
+/// reference screenshots), so a single generic table is the accurate model,
+/// not a simplification. `numericValue` is used by GST Rates (the
+/// percentage) and left null for the others. See
+/// Docs/SALES_SETTINGS_FOUNDATION.md for the `SalesMasterListCategory`
+/// values and how a future Sales/SCM module should reference rows here by
+/// id (never copy the label).
+model SalesMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("sales_master_list_items")
+  @@schema("sales")
 }

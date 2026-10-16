@@ -53,6 +53,9 @@ module.exports = {
         "hr",
         "employees",
         "attendance",
+        // Sales Settings foundation (Company Detail, Document Numbering,
+        // Seals & Signatures, Terms & Inventory) — apps/api/src/modules/sales-settings.
+        "sales-settings",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

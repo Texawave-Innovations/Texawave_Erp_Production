@@ -73,6 +73,9 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      express:
+        specifier: 5.2.1
+        version: 5.2.1
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
@@ -352,6 +355,9 @@ importers:
       react-dom:
         specifier: ^19
         version: 19.2.8(react@19.2.8)
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
     devDependencies:
       "@texawave-erp/config":
         specifier: workspace:*
@@ -9686,6 +9692,12 @@ packages:
       }
     engines: { node: ">=18" }
 
+  tailwind-merge@3.7.0:
+    resolution:
+      {
+        integrity: sha512-XPPUyAc+cvspz3lHTcR/QgPfW2A0lv/xQNIjX3HGhLR+Nq2lHaLq5MtTesHn8GUr3W3DguT2KT5x3NVgRtYwmA==,
+      }
+
   tailwindcss@4.3.3:
     resolution:
       {
@@ -16687,6 +16699,8 @@ snapshots:
       "@scarf/scarf": 1.4.0
 
   system-architecture@1.0.0: {}
+
+  tailwind-merge@3.7.0: {}
 
   tailwindcss@4.3.3: {}
 

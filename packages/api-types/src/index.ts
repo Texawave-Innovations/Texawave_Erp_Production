@@ -6,3 +6,4 @@ export * from "./departments";
 export * from "./designations";
 export * from "./users";
 export * from "./menu";
+export * from "./sales-settings";
