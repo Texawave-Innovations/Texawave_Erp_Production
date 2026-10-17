@@ -836,6 +836,78 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Delete CRM Cold Calling Status entries — granted separately from crm.coldcalling.write",
   },
+
+  // Remaining legacy CRM parity modules (Docs/CRM_FULL_LEGACY_PARITY.md §12).
+  // Same single-tier `.read`/`.write`/`.delete` shape as the entities above;
+  // legacy gates every delete through the admin-only `isCrmAdmin` check.
+  {
+    code: "crm.miningrow.read",
+    description: "View CRM Accounts Mining Sheet rows",
+  },
+  {
+    code: "crm.miningrow.write",
+    description:
+      "Add/update Accounts Mining Sheet rows and promote them to Leads (does not include delete)",
+  },
+  {
+    code: "crm.miningrow.delete",
+    description:
+      "Delete Accounts Mining Sheet rows — granted separately from crm.miningrow.write",
+  },
+  {
+    code: "crm.quota.read",
+    description: "View CRM sales targets (quotas) and their live attainment",
+  },
+  {
+    code: "crm.quota.write",
+    description:
+      "Set/update CRM sales targets (legacy canManagePipelineConfig tier; does not include delete)",
+  },
+  {
+    code: "crm.quota.delete",
+    description:
+      "Delete CRM sales targets — granted separately from crm.quota.write",
+  },
+  {
+    code: "crm.notification.read",
+    description: "View CRM notifications (bell + action panel)",
+  },
+  {
+    code: "crm.notification.write",
+    description: "Acknowledge/complete/snooze CRM notifications",
+  },
+  {
+    code: "crm.notification.delete",
+    description:
+      "Permanently delete CRM notifications — granted separately from crm.notification.write",
+  },
+  { code: "crm.dashboard.read", description: "View the CRM dashboard" },
+  {
+    code: "crm.overalldata.read",
+    description:
+      "View the CRM Overall Data daily-activity tracker and export it",
+  },
+  { code: "crm.calendar.read", description: "View the CRM calendar" },
+  {
+    code: "crm.search.read",
+    description:
+      "Use global CRM search (results still limited per entity read permission)",
+  },
+  {
+    code: "crm.recyclebin.read",
+    description: "View the CRM Recycle Bin (legacy: admin only)",
+  },
+  {
+    code: "crm.recyclebin.write",
+    description:
+      "Restore or permanently delete CRM Recycle Bin records (legacy: admin only)",
+  },
+  {
+    code: "crm.import.write",
+    description:
+      "Bulk-import CRM data from Excel (incl. auto-creating custom fields)",
+  },
+  { code: "crm.export.read", description: "Export CRM data to Excel/PDF" },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [

@@ -5,6 +5,12 @@
 import type { Account } from "./crm-accounts.js";
 
 export interface Contact {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  /** Live deals / quotes referencing this contact (list endpoint only). */
+  linkedOpportunityCount?: number | undefined;
+  linkedQuotationCount?: number | undefined;
+  updatedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   teamId: number | null;

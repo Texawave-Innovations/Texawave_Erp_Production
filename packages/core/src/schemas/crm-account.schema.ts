@@ -28,6 +28,8 @@ export const BUSINESS_TYPES = [
   "Reseller",
   "Other",
 ] as const;
+export const ACCOUNT_PRIORITIES = ["High", "Medium", "Low"] as const;
+export const ACCOUNT_TEMPERATURES = ["Hot", "Warm", "Cold"] as const;
 export const ACCOUNT_STATUS_TAGS = [
   "Interested",
   "Not Interested",
@@ -48,6 +50,9 @@ export const createAccountSchema = z.object({
   accountType: z.enum(ACCOUNT_TYPES).optional(),
   ownerName: optionalStr(150),
   industry: optionalStr(150),
+  hq: optionalStr(300),
+  priority: z.enum(ACCOUNT_PRIORITIES).optional(),
+  temperature: z.enum(ACCOUNT_TEMPERATURES).optional(),
   website: optionalStr(300),
   phone: optionalStr(50),
   email: z
@@ -76,6 +81,7 @@ export const createAccountSchema = z.object({
   businessType: z.enum(BUSINESS_TYPES).optional(),
   resellerType: optionalStr(100),
   tags: z.array(z.string()).max(50).optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
 });
 
 export type CreateAccountFormValues = z.infer<typeof createAccountSchema>;

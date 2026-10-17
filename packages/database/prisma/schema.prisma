@@ -140,7 +140,12 @@ model Organization {
   crmTasks                CrmTask[]
   crmDocuments            CrmDocument[]
   crmNotes                CrmNote[]
+  crmLeadNotes            CrmLeadNote[]
   crmColdCallingEntries   CrmColdCallingEntry[]
+  crmMiningRows           CrmMiningRow[]
+  crmQuotas               CrmQuota[]
+  crmNotifications        CrmNotification[]
+  crmCustomFieldDefs      CrmCustomFieldDef[]
 
   @@map("organizations")
   @@schema("platform")
@@ -2976,6 +2981,12 @@ model Account {
   /// no-DB-enum convention as every other status/type field in this schema.
   accountType        String?   @map("account_type")
   ownerName          String?   @map("owner_name")
+  /// Headquarters / location (legacy `hq`).
+  hq                 String?
+  /// High|Medium|Low — legacy CRM metadata priority chip.
+  priority           String?
+  /// Hot|Warm|Cold — legacy CRM metadata temperature chip.
+  temperature        String?
   industry           String?
   website            String?
   phone              String?
@@ -3116,6 +3127,10 @@ model Lead {
   priority           String?
   assignedTo         String?   @map("assigned_to")
   leadSource         String?   @map("lead_source")
+  /// Hot|Warm|Cold (legacy lead temperature).
+  rating             String?
+  /// Free-text "Month" field (legacy lead row `month`).
+  month              String?
   emailOptOut        Boolean   @default(false) @map("email_opt_out")
   dataProcessingBasis String?  @map("data_processing_basis")
   addressStreet      String?   @map("address_street")
@@ -3149,6 +3164,7 @@ model Lead {
   linkedContact       Contact?     @relation(fields: [linkedContactId], references: [id])
   linkedOpportunity   Opportunity? @relation("LeadLinkedOpportunity", fields: [linkedOpportunityId], references: [id])
   sourcedOpportunities Opportunity[] @relation("OpportunitySourceLead")
+  leadNotes           CrmLeadNote[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3261,6 +3277,8 @@ model Opportunity {
   holdReason         String?   @map("hold_reason")
   holdReasonOther    String?   @map("hold_reason_other")
   expectedResumeDate DateTime? @map("expected_resume_date")
+  /// Best Case|Commit|Pipeline|Omitted|Closed (legacy forecast category).
+  forecastCategory   String?   @map("forecast_category")
   holdNotes          String?   @map("hold_notes")
   onHoldAt           DateTime? @map("on_hold_at")
   resumedAt          DateTime? @map("resumed_at")
@@ -3623,6 +3641,9 @@ model CrmMeeting {
   decisionMaker    String?   @map("decision_maker")
   expectedTimeline String?   @map("expected_timeline")
   nextFollowUpAt   DateTime? @map("next_follow_up_at") @db.Timestamptz(6)
+  nextStep         String?   @map("next_step")
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields     Json?     @map("custom_fields")
   createdBy        Int?      @map("created_by")
   updatedBy        Int?      @map("updated_by")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -3852,6 +3873,8 @@ model CrmColdCallingEntry {
   /// mirrors legacy's `dispositionTag`. Not written automatically.
   dispositionTag  String?   @map("disposition_tag")
   dispositionAt   DateTime? @map("disposition_at") @db.Timestamptz(6)
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields    Json?     @map("custom_fields")
   createdBy       Int?      @map("created_by")
   updatedBy       Int?      @map("updated_by")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -3864,5 +3887,164 @@ model CrmColdCallingEntry {
   @@index([organizationId])
   @@index([organizationId, linkedAccountId], map: "crm_cold_calling_entries_org_linked_account_idx")
   @@map("crm_cold_calling_entries")
+  @@schema("crm")
+}
+
+/// Legacy `AccountsMiningSheet.tsx` (`crm/accountsMiningSheet`) — an
+/// independent prospecting dataset, deliberately NOT an Account/Lead. All
+/// legacy columns are free text (kept as nullable strings here, matching
+/// legacy). `promotedToLeadId` is the idempotent "Promote to Lead" link
+/// (legacy `promotedToLeadRowId`): once set, the promote action is disabled.
+model CrmMiningRow {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  serialNo          String?   @map("serial_no")
+  minedDate         String?   @map("mined_date")
+  domain            String?
+  companyName       String    @map("company_name")
+  hq                String?
+  website           String?
+  keyDecisionMakers String?   @map("key_decision_makers")
+  title             String?
+  contactNumber     String?   @map("contact_number")
+  email             String?
+  emailStatus       String?   @map("email_status")
+  followUpStatus    String?   @map("follow_up_status")
+  industry          String?
+  numberOfEmployees String?   @map("number_of_employees")
+  city              String?
+  state             String?
+  country           String?
+  linkedInProfile   String?   @map("linkedin_profile")
+  assignedTo        String?   @map("assigned_to")
+  /// High|Medium|Low
+  priority          String?
+  nextFollowUpDate  String?   @map("next_follow_up_date")
+  notes             String?
+  promotedToLeadId  Int?      @map("promoted_to_lead_id")
+  customFields      Json?     @map("custom_fields")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("crm_mining_rows")
+  @@schema("crm")
+}
+
+/// Legacy `domain/quotasService.ts` (`crm/quotas`). `repName` is free text
+/// (matches legacy — no User FK; attainment name-matches Opportunity
+/// ownerName case/whitespace-insensitively). Attainment is computed on
+/// read, never stored.
+model CrmQuota {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  repName        String    @map("rep_name")
+  team           String?
+  managerName    String?   @map("manager_name")
+  targetOwner    String?   @map("target_owner")
+  /// monthly|quarterly
+  period         String
+  /// YYYY-MM | YYYY-Q1..4
+  periodKey      String    @map("period_key")
+  startDate      DateTime? @map("start_date") @db.Timestamptz(6)
+  endDate        DateTime? @map("end_date") @db.Timestamptz(6)
+  targetAmount   Decimal   @map("target_amount") @db.Decimal(16, 2)
+  /// revenue|closedWonValue|dealsWon
+  metric         String    @default("closedWonValue")
+  currency       String?
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, periodKey])
+  @@map("crm_quotas")
+  @@schema("crm")
+}
+
+/// Legacy `notifications/types.ts` `CrmNotification` (`crm/notifications/feed`).
+/// Generated server-side from due dates on Meetings/FollowUps/Tasks/
+/// Opportunities/Quotations/Accounts; (sourceType, sourceId, type, dueDate)
+/// is the idempotency key so regeneration never duplicates a row.
+/// `deletedAt` = the legacy "recycle-bin" tab (admin permanent-delete removes
+/// the row).
+model CrmNotification {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  sourceType     String    @map("source_type")
+  sourceId       Int       @map("source_id")
+  type           String
+  title          String
+  description    String?
+  accountId      Int?      @map("account_id")
+  companyName    String?   @map("company_name")
+  prospectName   String?   @map("prospect_name")
+  dueDate        DateTime  @map("due_date") @db.Timestamptz(6)
+  /// Pending|Acknowledged|Done|Snoozed|Overdue
+  status         String    @default("Pending")
+  /// high|medium|low
+  priority       String    @default("medium")
+  isRead         Boolean   @default(false) @map("is_read")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  snoozeUntil    DateTime? @map("snooze_until") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
+  @@index([organizationId, status])
+  @@map("crm_notifications")
+  @@schema("crm")
+}
+
+/// Legacy `bulkImport/crmCustomFieldsService.ts` (`crm/customFieldDefs`).
+/// An unrecognised Excel header auto-creates one of these (idempotent on
+/// normalised label); values live in each row's `customFields` JSON.
+model CrmCustomFieldDef {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  /// leads|accountsMining|accounts|meetings|coldCalling
+  module         String
+  key            String
+  label          String
+  sourceHeader   String?   @map("source_header")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, module, key], map: "crm_custom_field_defs_org_module_key")
+  @@map("crm_custom_field_defs")
+  @@schema("crm")
+}
+
+/// Lead notes (legacy `crm/notes/<leadId>`; `CrmNote` is account-only).
+model CrmLeadNote {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  leadId         Int       @map("lead_id")
+  content        String
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, leadId])
+  @@map("crm_lead_notes")
   @@schema("crm")
 }

@@ -10,6 +10,9 @@ import type {
 } from "./crm-related-entity.js";
 
 export interface CrmActivity {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   relatedType: RelatedType;
@@ -46,4 +49,6 @@ export interface QueryCrmActivitiesInput {
   relatedType?: RelatedType | undefined;
   relatedId?: number | undefined;
   type?: ActivityType | undefined;
+  search?: string | undefined;
+  accountId?: number | undefined;
 }

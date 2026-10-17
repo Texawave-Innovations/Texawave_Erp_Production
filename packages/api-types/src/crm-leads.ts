@@ -21,6 +21,9 @@ export const LEAD_STATUSES = [
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_PRIORITIES = ["High", "Medium", "Low"] as const;
+export const LEAD_RATINGS = ["Hot", "Warm", "Cold"] as const;
+export type LeadRating = (typeof LEAD_RATINGS)[number];
+
 export type LeadPriority = (typeof LEAD_PRIORITIES)[number];
 
 export interface Lead {
@@ -45,6 +48,9 @@ export interface Lead {
   meetingDate: string | null;
   leadStatus: LeadStatus;
   priority: string | null;
+  rating: string | null;
+  month: string | null;
+  customFields: Record<string, string> | null;
   assignedTo: string | null;
   leadSource: string | null;
   emailOptOut: boolean;
@@ -72,6 +78,11 @@ export interface Lead {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Server roll-ups (list + detail). */
+  touched?: boolean;
+  lastActivityAt?: string | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 export interface CreateLeadInput {
@@ -93,6 +104,9 @@ export interface CreateLeadInput {
   meetingDate?: string | undefined;
   leadStatus?: LeadStatus | undefined;
   priority?: string | undefined;
+  rating?: string | undefined;
+  month?: string | undefined;
+  customFields?: Record<string, string> | undefined;
   assignedTo?: string | undefined;
   leadSource?: string | undefined;
   emailOptOut?: boolean | undefined;
@@ -120,6 +134,40 @@ export interface QueryLeadsInput {
   industry?: string | undefined;
   city?: string | undefined;
   country?: string | undefined;
+  converted?: ("CONVERTED" | "NOT_CONVERTED") | undefined;
+  sortBy?: ("createdAt" | "companyName") | undefined;
+  rating?: string | undefined;
+  touched?: ("TOUCHED" | "UNTOUCHED") | undefined;
+  createdBy?: number | undefined;
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
+  minAnnualRevenue?: number | undefined;
+}
+
+export interface LeadFacets {
+  owners: string[];
+  sources: string[];
+  industries: string[];
+  cities: string[];
+  countries: string[];
+  createdBy: { id: number; name: string }[];
+}
+
+export interface LeadNote {
+  id: number;
+  leadId: number;
+  content: string;
+  createdBy: number | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface LeadTimelineEntry {
+  id: number;
+  action: string;
+  at: string;
+  by: string | null;
+  changes: { field: string; from: string | null; to: string | null }[];
 }
 
 export interface ConvertLeadInput {

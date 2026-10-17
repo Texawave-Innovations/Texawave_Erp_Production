@@ -46,6 +46,11 @@ export const ACCOUNT_STATUS_TAGS = [
 ] as const;
 export type AccountStatusTag = (typeof ACCOUNT_STATUS_TAGS)[number];
 
+export const ACCOUNT_PRIORITIES = ["High", "Medium", "Low"] as const;
+export type AccountPriority = (typeof ACCOUNT_PRIORITIES)[number];
+export const ACCOUNT_TEMPERATURES = ["Hot", "Warm", "Cold"] as const;
+export type AccountTemperature = (typeof ACCOUNT_TEMPERATURES)[number];
+
 export interface Account {
   id: number;
   organizationId: number;
@@ -54,6 +59,9 @@ export interface Account {
   accountType: AccountType | null;
   ownerName: string | null;
   industry: string | null;
+  hq: string | null;
+  priority: AccountPriority | null;
+  temperature: AccountTemperature | null;
   website: string | null;
   phone: string | null;
   email: string | null;
@@ -84,12 +92,17 @@ export interface Account {
   statusInfoType: string | null;
   statusUpdatedBy: number | null;
   statusUpdatedAt: string | null;
+  /** CrmCustomFieldDef.key -> value (module=accounts). */
+  customFields: Record<string, string> | null;
   isActive: boolean;
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Resolved server-side from users.full_name (GET responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
 }
 
 export interface CreateAccountInput {
@@ -97,6 +110,9 @@ export interface CreateAccountInput {
   accountType?: AccountType | undefined;
   ownerName?: string | undefined;
   industry?: string | undefined;
+  hq?: string | undefined;
+  priority?: AccountPriority | undefined;
+  temperature?: AccountTemperature | undefined;
   website?: string | undefined;
   phone?: string | undefined;
   email?: string | undefined;
@@ -120,6 +136,7 @@ export interface CreateAccountInput {
   businessType?: BusinessType | undefined;
   resellerType?: string | undefined;
   tags?: string[] | undefined;
+  customFields?: Record<string, string> | undefined;
 }
 
 export type UpdateAccountInput = Partial<CreateAccountInput>;
@@ -130,6 +147,8 @@ export interface QueryAccountsInput {
   order?: ("asc" | "desc") | undefined;
   search?: string | undefined;
   statusTag?: AccountStatusTag | undefined;
+  priority?: AccountPriority | undefined;
+  temperature?: AccountTemperature | undefined;
 }
 
 /** Mirrors legacy `StatusTagDialog`'s per-tag required companion field —
@@ -143,4 +162,14 @@ export interface ChangeAccountStatusTagInput {
   statusReason?: string | undefined;
   statusDate?: string | undefined;
   statusInfoType?: string | undefined;
+}
+
+export interface AccountTimelineEvent {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number;
+  details: string;
+  byName: string | null;
+  at: string;
 }

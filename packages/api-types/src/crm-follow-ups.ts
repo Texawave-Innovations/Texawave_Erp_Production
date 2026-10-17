@@ -35,6 +35,9 @@ export interface FollowUpReschedule {
 }
 
 export interface FollowUp {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   relatedType: RelatedType;
@@ -90,5 +93,7 @@ export interface QueryFollowUpsInput {
   order?: ("asc" | "desc") | undefined;
   relatedType?: RelatedType | undefined;
   relatedId?: number | undefined;
+  /** Account roll-up: the account's own records plus those of its contacts and opportunities. */
+  rollupAccountId?: number | undefined;
   status?: FollowUpStatus | undefined;
 }
