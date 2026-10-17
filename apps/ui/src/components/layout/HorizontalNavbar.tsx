@@ -305,6 +305,21 @@ const SALES_CATEGORIES: NavCategory[] = [
     path: "/sales/customers",
     menuCode: "sales-customers",
   },
+  {
+    id: "sales-documents",
+    label: "Documents",
+    icon: FileText,
+    iconColor: "text-indigo-500",
+    children: [
+      {
+        id: "sales-quotations",
+        label: "Quotations",
+        path: "/sales/quotations",
+        icon: FileText,
+        menuCode: "sales-quotations",
+      },
+    ],
+  },
 ];
 
 /**

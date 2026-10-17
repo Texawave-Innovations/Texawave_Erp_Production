@@ -388,6 +388,14 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "sales.customer.read",
   },
   {
+    code: "sales-quotations",
+    label: "Quotations",
+    path: "/sales/quotations",
+    order: 3,
+    parentCode: "sales",
+    permission: "sales.quotation.read",
+  },
+  {
     code: "admin",
     label: "Admin",
     path: null,

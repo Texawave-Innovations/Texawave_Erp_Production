@@ -145,6 +145,7 @@ documents).
 | `GET /next-number`, `POST /`, `PATCH /:id`                                       | `sales.<doc>.write`            |
 | `DELETE /:id`                                                                    | `sales.<doc>.delete`           |
 | `POST /:id/email`, `POST /:id/whatsapp`                                          | `sales.<doc>.send`             |
+| `POST /sales/quotations/preview`, `POST /sales/quotations/:id/preview`           | `sales.quotation.write`        |
 | `POST /sales/quotations/:id/convert` (to proforma or tax)                        | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/convert-to-tax`                                        | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/delivery-challan`                                      | `sales.delivery_challan.write` |
@@ -164,6 +165,13 @@ documents).
 - **Conversions** (quotation → proforma/tax, proforma → tax with its payments, tax → DC) run in one
   transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
 - **Payments** — see §8; the invoice payment routes above go through the same rules.
+- **Live preview** (quotations): `POST /preview` takes the create body, and `POST /:id/preview`
+  takes the update body merged over the saved quotation.
+  - They price with the same `resolve()` as create/update and validate the same way (400/404/422).
+  - They return `{ number, html, totals }`: `number` is the next number (not reserved) or the
+    saved one; `html` is exactly what the PDF is rendered from; `totals` holds the tax mode,
+    rates, amounts, round-off, total, amount in words and `lineAmounts`.
+  - Nothing is stored or audited.
 - **PDF** rendered server-side by `SalesPdfRenderer` (shared Playwright renderer) with logo, seal
   and signature images. **Email** via `shared/mailer` (`NOT_CONFIGURED` without SMTP);
   **WhatsApp** returns a `wa.me` share link (no Business API provider yet).
@@ -260,5 +268,16 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     addresses; the bank account is write-only.
   - `/sales/customers/[id]`: detail, with an audited bank reveal and delete with the
     "has documents" guard.
+  - `/sales/quotations`: list, search, status and date filters.
+  - `/sales/quotations/new` and `/sales/quotations/[id]/edit`: the form with the live A4 preview
+    beside it. The preview is the server's HTML in a sandboxed iframe, refreshed 600 ms after
+    typing stops, with server totals and line amounts. Master-list defaults are pre-filled
+    (validity, delivery terms, bank, seal, signature, prepared by). Field errors show in bubbles.
+  - `/sales/quotations/[id]`: the saved PDF inline, with Download PDF, Email, WhatsApp, Edit,
+    Convert to invoice and Delete, each shown only with its permission. A converted quotation is
+    locked.
+- **Shared document parts** (`features/sales/shared/`), reused by invoices and challans:
+  `CustomerPicker`, `DocumentPreviewPanel`, `DocumentPdfPanel`, `SendEmailDialog`,
+  `useMasterOptions`, and the calls in `documents.ts`.
 - **Tests:** `apps/ui/e2e/sales-*.spec.ts` run against a mocked API
   (`e2e/helpers/mock-api.ts`, workspace `"sales"`).

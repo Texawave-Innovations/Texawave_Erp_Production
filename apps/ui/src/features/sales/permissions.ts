@@ -12,4 +12,11 @@ export const SALES_PERMISSIONS = {
   customerBankReveal: "sales.customer_bank.reveal",
   actionItemRead: "sales.action_item.read",
   actionItemWrite: "sales.action_item.write",
+  masterRead: "sales.master.read",
+  quotationRead: "sales.quotation.read",
+  quotationWrite: "sales.quotation.write",
+  quotationDelete: "sales.quotation.delete",
+  quotationSend: "sales.quotation.send",
+  /** Converting a quotation creates an invoice. */
+  invoiceWrite: "sales.invoice.write",
 } as const;
