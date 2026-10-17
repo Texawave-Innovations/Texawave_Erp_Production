@@ -1,100 +1,105 @@
 "use client";
 
-import {
-  Button,
-  EmptyState,
-  Skeleton,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import type { CrmNote } from "@texawave-erp/api-types";
+import { Send, StickyNote, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/legacy-ui/button";
+import { Textarea } from "@/components/legacy-ui/textarea";
 import {
-  useCreateCrmNote,
-  useCrmNotes,
-  useDeleteCrmNote,
-} from "../../../notes/hooks";
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { useCreateCrmNote, useDeleteCrmNote } from "@/features/crm/notes/hooks";
+import { usePermission } from "@/hooks/usePermission";
+import { CRM_DELETE_BTN_CLASS, SectionShell } from "../accountUi";
 
-/** Notes tab: list + add + delete. `CrmNote` is account-scoped only (not
- * polymorphic relatedType/relatedId) and has no update endpoint, matching
- * legacy exactly. Architecturally distinct from the Activities tab's
- * `type: 'Note'` entries — two unrelated "Notes" concepts in legacy. */
-export function NotesTab({ accountId }: { accountId: number }) {
-  const [content, setContent] = useState("");
-  const query = useCrmNotes({ accountId, limit: 50 });
+export function NotesTab({
+  accountId,
+  accountName,
+  notes,
+}: {
+  accountId: number;
+  accountName: string;
+  notes: CrmNote[];
+}) {
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const canDelete = usePermission("crm.note.delete");
   const createMutation = useCreateCrmNote();
   const deleteMutation = useDeleteCrmNote();
-  const { toast } = useToast();
 
-  async function handleAdd() {
-    if (!content.trim()) return;
-    await createMutation.mutateAsync({ accountId, content });
-    setContent("");
-    toast({ title: "Note added", variant: "success" });
-  }
-
-  async function handleDelete(id: number) {
+  const handleAdd = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
     try {
-      await deleteMutation.mutateAsync(id);
-      toast({ title: "Note deleted", variant: "success" });
+      await createMutation.mutateAsync({ accountId, content: draft.trim() });
+      setDraft("");
     } catch {
-      toast({ title: "Could not delete note", variant: "error" });
+      toast.error("Failed to add note. Please try again.");
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-        Notes
-      </h3>
-
-      <div className="flex flex-col gap-2">
+    <SectionShell title="Notes">
+      <div className="p-4 space-y-2.5 border-b border-slate-100">
         <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={3}
-          placeholder="Add a note…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={`Add a note about ${accountName || "this account"}…`}
+          className="rounded-xl text-sm"
+          rows={2}
         />
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            onClick={() => void handleAdd()}
-            disabled={!content.trim()}
-          >
-            Add Note
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          className="rounded-xl gap-1.5"
+          disabled={!draft.trim() || saving}
+          onClick={() => void handleAdd()}
+        >
+          <Send className="h-3.5 w-3.5" /> Add Note
+        </Button>
       </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
-        <EmptyState title="No notes yet" description="Add the first note." />
+      {notes.length === 0 ? (
+        <EmptyState icon={StickyNote} title="No notes yet" />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((n) => (
-            <li
+        <div className="divide-y divide-slate-100">
+          {notes.map((n) => (
+            <div
               key={n.id}
-              className="flex items-start justify-between gap-4 py-3"
+              className="p-4 flex items-start justify-between gap-3"
             >
-              <div>
-                <p className="text-theme-sm text-gray-900 dark:text-white/90">
-                  {n.content}
-                </p>
-                <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+              <div className="min-w-0">
+                <p className="text-sm text-slate-700">{n.content}</p>
+                <p className="text-sm text-slate-900 mt-1">
+                  {n.createdByName ? `${n.createdByName} · ` : ""}
                   {new Date(n.createdAt).toLocaleString()}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleDelete(n.id)}
-              >
-                Delete
-              </Button>
-            </li>
+              {canDelete && (
+                <DeleteConfirmDialog
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={CRM_DELETE_BTN_CLASS}
+                      title="Delete note"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
+                  }
+                  title="Delete this note?"
+                  description="This note will be moved to the CRM Recycle Bin."
+                  onConfirm={async () => {
+                    await deleteMutation.mutateAsync(n.id);
+                  }}
+                />
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-    </div>
+    </SectionShell>
   );
 }

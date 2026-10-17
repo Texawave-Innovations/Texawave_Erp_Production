@@ -1,5 +1,8 @@
 import type {
   Account,
+  AccountPriority,
+  AccountTemperature,
+  AccountTimelineEvent,
   ChangeAccountStatusTagInput,
   CreateAccountInput,
   PaginatedEnvelope,
@@ -58,4 +61,37 @@ export async function changeAccountStatusTag(
 
 export async function deleteAccount(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete<void>(`/crm/accounts/${id}`));
+}
+
+export async function changeAccountPriority(
+  id: number,
+  priority: AccountPriority,
+): Promise<Account> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<Account>(`/crm/accounts/${id}/priority`, { priority }),
+  );
+  return data;
+}
+
+export async function changeAccountTemperature(
+  id: number,
+  temperature: AccountTemperature,
+): Promise<Account> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<Account>(`/crm/accounts/${id}/temperature`, {
+      temperature,
+    }),
+  );
+  return data;
+}
+
+export async function listAccountTimelineEvents(
+  id: number,
+): Promise<AccountTimelineEvent[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<AccountTimelineEvent[]>(
+      `/crm/accounts/${id}/timeline-events`,
+    ),
+  );
+  return data;
 }

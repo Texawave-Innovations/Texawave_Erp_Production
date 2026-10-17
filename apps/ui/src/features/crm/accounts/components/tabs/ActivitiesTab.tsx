@@ -1,198 +1,250 @@
 "use client";
 
-import type { ActivityDirection, ActivityType } from "@texawave-erp/api-types";
+import type {
+  ActivityDirection,
+  ActivityType,
+  CrmActivity,
+} from "@texawave-erp/api-types";
 import { ACTIVITY_DIRECTIONS, ACTIVITY_TYPES } from "@texawave-erp/api-types";
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  FormField,
-  Input,
-  Select,
-  Skeleton,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { ListChecks, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useActivities, useCreateActivity } from "../../../activities/hooks";
+import { toast } from "sonner";
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { Textarea } from "@/components/legacy-ui/textarea";
+import {
+  useCreateActivity,
+  useDeleteActivity,
+} from "@/features/crm/activities/hooks";
+import {
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  CRM_DELETE_BTN_CLASS,
+  FormRow,
+  InlineFormPanel,
+  SectionShell,
+} from "../accountUi";
 
-function LogActivityForm({
+/** datetime-local reads/writes LOCAL time but toISOString() is UTC — shift by the offset first. */
+function nowLocal() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
+
+function ActivityInlineForm({
   accountId,
-  onDone,
+  onCancel,
+  onSaved,
 }: {
   accountId: number;
-  onDone: () => void;
+  onCancel: () => void;
+  onSaved: () => void;
 }) {
-  const [type, setType] = useState<ActivityType>("Call");
-  const [subject, setSubject] = useState("");
-  const [notes, setNotes] = useState("");
-  const [direction, setDirection] = useState<ActivityDirection | "">("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const createMutation = useCreateActivity();
-  const { toast } = useToast();
+  const [form, setForm] = useState({
+    type: "Call" as ActivityType,
+    subject: "",
+    notes: "",
+    occurredAt: nowLocal(),
+    direction: "" as ActivityDirection | "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!subject.trim()) {
-      setError("Subject is required");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const save = async () => {
+    if (!form.subject.trim()) return;
+    setSaving(true);
     try {
       await createMutation.mutateAsync({
         relatedType: "account",
         relatedId: accountId,
-        type,
-        subject,
-        notes: notes || undefined,
-        direction: direction || undefined,
+        type: form.type,
+        subject: form.subject.trim(),
+        notes: form.notes.trim() || undefined,
+        direction:
+          form.type === "Email" && form.direction ? form.direction : undefined,
+        occurredAt: form.occurredAt
+          ? new Date(form.occurredAt).toISOString()
+          : undefined,
       });
-      toast({ title: "Activity logged", variant: "success" });
-      onDone();
+      onSaved();
     } catch {
-      setError("Could not log the activity. Try again.");
+      toast.error("Failed to log activity. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormField label="Type">
-        {(fp) => (
+    <InlineFormPanel
+      icon={ListChecks}
+      title="Log Activity"
+      subtitle="Record an interaction with this account."
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Log Activity"
+      saving={saving}
+      canSubmit={Boolean(form.subject.trim())}
+    >
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormRow label="Type">
           <Select
-            {...fp}
-            value={type}
-            onChange={(e) => setType(e.target.value as ActivityType)}
+            value={form.type}
+            onValueChange={(v) => set("type", v as ActivityType)}
           >
-            {ACTIVITY_TYPES.filter((t) => t !== "Stage Change").map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ACTIVITY_TYPES.filter((t) => t !== "Stage Change").map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        )}
-      </FormField>
-      <FormField label="Subject" required error={error ?? undefined}>
-        {(fp) => (
+        </FormRow>
+        <FormRow label="When">
           <Input
-            {...fp}
-            invalid={fp.invalid}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            type="datetime-local"
+            value={form.occurredAt}
+            onChange={(e) => set("occurredAt", e.target.value)}
           />
-        )}
-      </FormField>
-      {type === "Email" ? (
-        <FormField label="Direction">
-          {(fp) => (
+        </FormRow>
+        <FormRow label="Subject" required className="md:col-span-2">
+          <Input
+            className="h-9 rounded-xl"
+            value={form.subject}
+            onChange={(e) => set("subject", e.target.value)}
+          />
+        </FormRow>
+        {form.type === "Email" && (
+          <FormRow label="Direction">
             <Select
-              {...fp}
-              value={direction}
-              onChange={(e) =>
-                setDirection(e.target.value as ActivityDirection)
+              value={form.direction || "none"}
+              onValueChange={(v) =>
+                set("direction", v === "none" ? "" : (v as ActivityDirection))
               }
             >
-              <option value="">—</option>
-              {ACTIVITY_DIRECTIONS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
+              <SelectTrigger className="h-9 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {ACTIVITY_DIRECTIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-          )}
-        </FormField>
-      ) : null}
-      <FormField label="Notes">
-        {(fp) => (
-          <Textarea
-            {...fp}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-          />
+          </FormRow>
         )}
-      </FormField>
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onDone}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          Log activity
-        </Button>
+        <FormRow label="Notes" className="md:col-span-2">
+          <Textarea
+            rows={2}
+            className="rounded-xl"
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
+          />
+        </FormRow>
       </div>
-    </form>
+    </InlineFormPanel>
   );
 }
 
-/** Activities tab: list + log-activity form, using the new activities
- * api/hooks, hardcoded to `relatedType: 'account'`. */
-export function ActivitiesTab({ accountId }: { accountId: number }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const query = useActivities({
-    relatedType: "account",
-    relatedId: accountId,
-    limit: 50,
-  });
+export function ActivitiesTab({
+  accountId,
+  activities,
+}: {
+  accountId: number;
+  activities: CrmActivity[];
+}) {
+  const [logging, setLogging] = useState(false);
+  const canDelete = usePermission("crm.activity.delete");
+  const deleteMutation = useDeleteActivity();
+
+  if (logging) {
+    return (
+      <ActivityInlineForm
+        accountId={accountId}
+        onCancel={() => setLogging(false)}
+        onSaved={() => setLogging(false)}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Activities
-        </h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Log Activity
+    <SectionShell
+      title="Activities"
+      action={
+        <Button
+          size="sm"
+          className="rounded-xl gap-1.5"
+          onClick={() => setLogging(true)}
+        >
+          <Plus className="h-3.5 w-3.5" /> Log Activity
         </Button>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
-        <EmptyState
-          title="No activities yet"
-          description="Log the first activity."
-        />
+      }
+    >
+      {activities.length === 0 ? (
+        <EmptyState icon={ListChecks} title="No activities logged yet" />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((a) => (
-            <li key={a.id} className="flex flex-col gap-1 py-3">
-              <div className="flex items-center justify-between">
-                <p className="text-theme-sm font-medium text-gray-900 dark:text-white/90">
+        <div className="divide-y divide-slate-100">
+          {activities.map((a) => (
+            <div
+              key={a.id}
+              className="p-4 flex items-start justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">
                   {a.type} — {a.subject}
                 </p>
-                <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-slate-900 mt-0.5">
                   {new Date(a.occurredAt).toLocaleString()}
-                </span>
-              </div>
-              {a.notes ? (
-                <p className="text-theme-xs text-gray-600 dark:text-gray-400">
-                  {a.notes}
+                  {a.createdByName ? ` · ${a.createdByName}` : ""}
                 </p>
-              ) : null}
-            </li>
+                {a.notes && (
+                  <p className="text-sm text-slate-900 mt-1">{a.notes}</p>
+                )}
+              </div>
+              {canDelete && (
+                <DeleteConfirmDialog
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={CRM_DELETE_BTN_CLASS}
+                      title="Delete activity"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
+                  }
+                  title="Delete this activity?"
+                  description="This logged activity will be moved to the CRM Recycle Bin."
+                  onConfirm={async () => {
+                    await deleteMutation.mutateAsync(a.id);
+                  }}
+                />
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Log activity"
-      >
-        <LogActivityForm
-          accountId={accountId}
-          onDone={() => setCreateOpen(false)}
-        />
-      </Dialog>
-    </div>
+    </SectionShell>
   );
 }

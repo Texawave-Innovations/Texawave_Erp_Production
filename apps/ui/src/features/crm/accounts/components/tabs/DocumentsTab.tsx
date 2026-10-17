@@ -1,189 +1,190 @@
 "use client";
 
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  FormField,
-  Input,
-  Skeleton,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import type { CrmDocument } from "@texawave-erp/api-types";
+import { FileText, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import { Textarea } from "@/components/legacy-ui/textarea";
 import {
   useCreateCrmDocument,
-  useCrmDocuments,
   useDeleteCrmDocument,
-} from "../../../documents/hooks";
+} from "@/features/crm/documents/hooks";
+import {
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  CRM_DELETE_BTN_CLASS,
+  FormRow,
+  InlineFormPanel,
+  SectionShell,
+} from "../accountUi";
 
-function AddDocumentForm({
+function DocumentInlineForm({
   accountId,
-  onDone,
+  onCancel,
+  onSaved,
 }: {
   accountId: number;
-  onDone: () => void;
+  onCancel: () => void;
+  onSaved: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [link, setLink] = useState("");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const createMutation = useCreateCrmDocument();
-  const { toast } = useToast();
+  const [form, setForm] = useState({ name: "", link: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: string) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !link.trim()) {
-      setError("Name and link are required");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const save = async () => {
+    if (!form.name.trim() || !form.link.trim()) return;
+    setSaving(true);
     try {
       await createMutation.mutateAsync({
         relatedType: "account",
         relatedId: accountId,
-        name,
-        link,
-        notes: notes || undefined,
+        name: form.name.trim(),
+        link: form.link.trim(),
+        notes: form.notes.trim() || undefined,
       });
-      toast({ title: "Document added", variant: "success" });
-      onDone();
+      onSaved();
     } catch {
-      setError("Could not add the document. Try again.");
+      toast.error("Failed to add document. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormField label="Name" required error={error ?? undefined}>
-        {(fp) => (
+    <InlineFormPanel
+      icon={FileText}
+      title="Add Document"
+      subtitle="Add a shared-drive or file link — direct file upload isn't wired up yet."
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Add Document"
+      saving={saving}
+      canSubmit={Boolean(form.name.trim() && form.link.trim())}
+    >
+      <div className="space-y-4">
+        <FormRow label="Name" required>
           <Input
-            {...fp}
-            invalid={fp.invalid}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            placeholder="e.g. Signed NDA"
           />
-        )}
-      </FormField>
-      <FormField
-        label="Link"
-        required
-        hint="External link — no file upload, matching legacy."
-      >
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Link" required>
           <Input
-            {...fp}
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={form.link}
+            onChange={(e) => set("link", e.target.value)}
+            placeholder="Shared drive / storage link"
           />
-        )}
-      </FormField>
-      <FormField label="Notes">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Notes">
           <Textarea
-            {...fp}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
+            rows={2}
+            className="rounded-xl"
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
           />
-        )}
-      </FormField>
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onDone}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          Add
-        </Button>
+        </FormRow>
       </div>
-    </form>
+    </InlineFormPanel>
   );
 }
 
-/** Documents tab: list + add name+link + delete. No real file upload and
- * no update endpoint — matches legacy `CrmDocument` exactly. */
-export function DocumentsTab({ accountId }: { accountId: number }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const query = useCrmDocuments({
-    relatedType: "account",
-    relatedId: accountId,
-    limit: 50,
-  });
+export function DocumentsTab({
+  accountId,
+  documents,
+}: {
+  accountId: number;
+  documents: CrmDocument[];
+}) {
+  const [adding, setAdding] = useState(false);
+  const canDelete = usePermission("crm.document.delete");
   const deleteMutation = useDeleteCrmDocument();
-  const { toast } = useToast();
 
-  async function handleDelete(id: number, name: string) {
-    try {
-      await deleteMutation.mutateAsync(id);
-      toast({ title: `Deleted "${name}"`, variant: "success" });
-    } catch {
-      toast({ title: `Could not delete "${name}"`, variant: "error" });
-    }
+  if (adding) {
+    return (
+      <DocumentInlineForm
+        accountId={accountId}
+        onCancel={() => setAdding(false)}
+        onSaved={() => setAdding(false)}
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Documents
-        </h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Add Document
+    <SectionShell
+      title="Documents"
+      action={
+        <Button
+          size="sm"
+          className="rounded-xl gap-1.5"
+          onClick={() => setAdding(true)}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Document
         </Button>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
+      }
+    >
+      {documents.length === 0 ? (
         <EmptyState
+          icon={FileText}
           title="No documents yet"
-          description="Add the first document link."
+          description="Add a shared-drive or file link — direct file upload isn't wired up yet."
         />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((d) => (
-            <li key={d.id} className="flex items-center justify-between py-3">
+        <div className="divide-y divide-slate-100">
+          {documents.map((d) => (
+            <div
+              key={d.id}
+              className="p-4 flex items-center justify-between gap-3 hover:bg-brand-50/40"
+            >
               <a
                 href={d.link}
                 target="_blank"
                 rel="noreferrer"
-                className="text-theme-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                className="flex items-center gap-3 min-w-0 flex-1"
               >
-                {d.name}
+                <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {d.name}
+                  </p>
+                  <p className="text-sm text-slate-900 mt-0.5">
+                    {d.uploadedByName ? `${d.uploadedByName} · ` : ""}
+                    {new Date(d.uploadedAt).toLocaleString()}
+                  </p>
+                </div>
               </a>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleDelete(d.id, d.name)}
-              >
-                Delete
-              </Button>
-            </li>
+              {canDelete && (
+                <DeleteConfirmDialog
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={CRM_DELETE_BTN_CLASS}
+                      title="Delete document"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
+                  }
+                  title="Delete this document?"
+                  description={`"${d.name}" will be moved to the CRM Recycle Bin (the link itself is unaffected).`}
+                  onConfirm={async () => {
+                    await deleteMutation.mutateAsync(d.id);
+                  }}
+                />
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Add document"
-      >
-        <AddDocumentForm
-          accountId={accountId}
-          onDone={() => setCreateOpen(false)}
-        />
-      </Dialog>
-    </div>
+    </SectionShell>
   );
 }

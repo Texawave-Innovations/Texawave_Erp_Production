@@ -1,6 +1,8 @@
 "use client";
 
 import type {
+  AccountPriority,
+  AccountTemperature,
   ChangeAccountStatusTagInput,
   CreateAccountInput,
   QueryAccountsInput,
@@ -10,11 +12,14 @@ import { orgScopedKey } from "@texawave-erp/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
+  changeAccountPriority,
   changeAccountStatusTag,
+  changeAccountTemperature,
   createAccount,
   deleteAccount,
   getAccount,
   listAccounts,
+  listAccountTimelineEvents,
   updateAccount,
 } from "./api";
 
@@ -53,6 +58,9 @@ function useInvalidateAccounts() {
     if (id !== undefined) {
       void queryClient.invalidateQueries({
         queryKey: orgScopedKey(organizationId ?? 0, "crm-account", id),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "crm-account-timeline", id),
       });
     }
   };
@@ -94,5 +102,38 @@ export function useDeleteAccount() {
   return useMutation({
     mutationFn: (id: number) => deleteAccount(id),
     onSuccess: (_data, id) => invalidate(id),
+  });
+}
+
+export function useChangeAccountPriority() {
+  const invalidate = useInvalidateAccounts();
+  return useMutation({
+    mutationFn: ({ id, priority }: { id: number; priority: AccountPriority }) =>
+      changeAccountPriority(id, priority),
+    onSuccess: (_data, variables) => invalidate(variables.id),
+  });
+}
+
+export function useChangeAccountTemperature() {
+  const invalidate = useInvalidateAccounts();
+  return useMutation({
+    mutationFn: ({
+      id,
+      temperature,
+    }: {
+      id: number;
+      temperature: AccountTemperature;
+    }) => changeAccountTemperature(id, temperature),
+    onSuccess: (_data, variables) => invalidate(variables.id),
+  });
+}
+
+/** Audit-backed Timeline events (priority/temperature/status changes, edits, deletes). */
+export function useAccountTimelineEvents(id: number) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "crm-account-timeline", id),
+    queryFn: () => listAccountTimelineEvents(id),
+    enabled: Boolean(organizationId),
   });
 }

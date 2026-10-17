@@ -1,318 +1,417 @@
 "use client";
 
-import type {
-  FollowUp,
-  FollowUpPriority,
-  FollowUpStatus,
-} from "@texawave-erp/api-types";
+import type { FollowUp, FollowUpPriority } from "@texawave-erp/api-types";
+import { ACTIVITY_TYPES, FOLLOW_UP_PRIORITIES } from "@texawave-erp/api-types";
 import {
-  ACTIVITY_TYPES,
-  FOLLOW_UP_PRIORITIES,
-  FOLLOW_UP_STATUSES,
-} from "@texawave-erp/api-types";
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  FormField,
-  Input,
-  Select,
-  Skeleton,
-  StatusBadge,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+  CheckCircle2,
+  Clock3,
+  History,
+  Plus,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/legacy-ui/badge";
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { Textarea } from "@/components/legacy-ui/textarea";
+import { cn } from "@/components/legacy-ui/utils";
+import { celebrateCrm } from "@/features/crm/celebration";
 import {
   useCreateFollowUp,
-  useFollowUps,
+  useDeleteFollowUp,
   useRescheduleFollowUp,
   useUpdateFollowUpStatus,
-} from "../../../follow-ups/hooks";
+} from "@/features/crm/follow-ups/hooks";
+import {
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { DatePicker } from "@/features/crm/legacy-ui/DatePicker";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  CANCEL_ROW_BTN_CLASS,
+  COMPLETE_BTN_CLASS,
+  CRM_DELETE_BTN_CLASS,
+  FOLLOWUP_STATUS_STYLE,
+  FormRow,
+  InlineFormPanel,
+  ROW_ACTION_BTN_CLASS,
+  SectionShell,
+} from "../accountUi";
+import { RescheduleInlineForm } from "./RescheduleInlineForm";
 
-const STATUS_COLOR: Record<
-  string,
-  "brand" | "gray" | "success" | "warning" | "error"
-> = {
-  PENDING: "brand",
-  COMPLETED: "success",
-  CANCELLED: "gray",
-  RESCHEDULED: "warning",
-  MISSED: "error",
-  OVERDUE: "error",
-};
+type ActivityTypeValue = (typeof ACTIVITY_TYPES)[number];
 
-function CreateFollowUpForm({
+function FollowUpInlineForm({
   accountId,
-  onDone,
+  currentUser,
+  onCancel,
+  onSaved,
 }: {
   accountId: number;
-  onDone: () => void;
+  currentUser: string;
+  onCancel: () => void;
+  onSaved: () => void;
 }) {
-  const [type, setType] = useState<(typeof ACTIVITY_TYPES)[number]>("Call");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
-  const [priority, setPriority] = useState<FollowUpPriority>("Medium");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const createMutation = useCreateFollowUp();
-  const { toast } = useToast();
+  const [form, setForm] = useState({
+    type: "Call" as ActivityTypeValue,
+    scheduledAt: "",
+    assignedTo: currentUser,
+    priority: "Medium" as FollowUpPriority,
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!scheduledAt || !assignedTo.trim()) {
-      setError("Scheduled date and assignee are required");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const save = async () => {
+    if (!form.scheduledAt || !form.assignedTo.trim()) return;
+    setSaving(true);
     try {
       await createMutation.mutateAsync({
         relatedType: "account",
         relatedId: accountId,
-        type,
-        scheduledAt,
-        assignedTo,
-        priority,
-        notes: notes || undefined,
+        type: form.type,
+        scheduledAt: form.scheduledAt,
+        assignedTo: form.assignedTo.trim(),
+        priority: form.priority,
+        notes: form.notes.trim() || undefined,
       });
-      toast({ title: "Follow-up created", variant: "success" });
-      onDone();
+      onSaved();
     } catch {
-      setError("Could not create the follow-up. Try again.");
+      toast.error("Failed to add follow-up. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormField label="Type">
-        {(fp) => (
+    <InlineFormPanel
+      icon={Clock3}
+      title="Add Follow-up"
+      subtitle="Schedule a follow-up for this account."
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Add Follow-up"
+      saving={saving}
+      canSubmit={Boolean(form.scheduledAt && form.assignedTo.trim())}
+    >
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormRow label="Type">
           <Select
-            {...fp}
-            value={type}
-            onChange={(e) => setType(e.target.value as never)}
+            value={form.type}
+            onValueChange={(v) => set("type", v as ActivityTypeValue)}
           >
-            {ACTIVITY_TYPES.filter((t) => t !== "Stage Change").map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ACTIVITY_TYPES.filter((t) => t !== "Stage Change").map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        )}
-      </FormField>
-      <FormField label="Scheduled at" required>
-        {(fp) => (
-          <Input
-            {...fp}
-            type="datetime-local"
-            value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
-            disabled={submitting}
+        </FormRow>
+        <FormRow label="Scheduled Date" required>
+          <DatePicker
+            className="h-9"
+            value={form.scheduledAt}
+            onChange={(v) => set("scheduledAt", v)}
           />
-        )}
-      </FormField>
-      <FormField label="Assigned to" required>
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Assigned To">
           <Input
-            {...fp}
-            value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={form.assignedTo}
+            onChange={(e) => set("assignedTo", e.target.value)}
           />
-        )}
-      </FormField>
-      <FormField label="Priority">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Priority">
           <Select
-            {...fp}
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as FollowUpPriority)}
+            value={form.priority}
+            onValueChange={(v) => set("priority", v as FollowUpPriority)}
           >
-            {FOLLOW_UP_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FOLLOW_UP_PRIORITIES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        )}
-      </FormField>
-      <FormField label="Notes">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Notes" className="md:col-span-2">
           <Textarea
-            {...fp}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
+            rows={2}
+            className="rounded-xl"
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
           />
-        )}
-      </FormField>
-      {error ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onDone}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          Create
-        </Button>
+        </FormRow>
       </div>
-    </form>
+    </InlineFormPanel>
   );
 }
 
-function FollowUpRow({ followUp }: { followUp: FollowUp }) {
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [newScheduledAt, setNewScheduledAt] = useState("");
+function FollowUpCompleteInlineForm({
+  followUp,
+  onCancel,
+  onSaved,
+}: {
+  followUp: FollowUp;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const updateStatus = useUpdateFollowUpStatus();
+  const [outcome, setOutcome] = useState("");
+  const [nextFollowUpAt, setNextFollowUpAt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateStatus.mutateAsync({
+        id: followUp.id,
+        input: {
+          status: "COMPLETED",
+          outcome: outcome.trim() || undefined,
+          nextFollowUpAt: nextFollowUpAt || undefined,
+        },
+      });
+      celebrateCrm("followup.completed");
+      onSaved();
+    } catch {
+      toast.error("Failed to complete follow-up. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <InlineFormPanel
+      icon={CheckCircle2}
+      tone="emerald"
+      title="Complete Follow-up"
+      subtitle="Record the outcome and, optionally, schedule the next one."
+      note={null}
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Mark Completed"
+      saving={saving}
+    >
+      <div className="space-y-4">
+        <FormRow label="Outcome">
+          <Textarea
+            rows={3}
+            className="rounded-xl"
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value)}
+            placeholder="What happened on this follow-up?"
+          />
+        </FormRow>
+        <FormRow label="Next Follow-up Date (optional)">
+          <DatePicker
+            className="h-9"
+            value={nextFollowUpAt}
+            onChange={setNextFollowUpAt}
+          />
+        </FormRow>
+      </div>
+    </InlineFormPanel>
+  );
+}
+
+export function FollowUpsTab({
+  accountId,
+  currentUser,
+  followUps,
+}: {
+  accountId: number;
+  currentUser: string;
+  followUps: FollowUp[];
+}) {
+  const [creating, setCreating] = useState(false);
+  const [completing, setCompleting] = useState<FollowUp | null>(null);
+  const [rescheduling, setRescheduling] = useState<FollowUp | null>(null);
+  const canDelete = usePermission("crm.followup.delete");
   const updateStatus = useUpdateFollowUpStatus();
   const reschedule = useRescheduleFollowUp();
-  const { toast } = useToast();
+  const deleteMutation = useDeleteFollowUp();
 
-  async function setStatus(status: FollowUpStatus) {
-    await updateStatus.mutateAsync({ id: followUp.id, input: { status } });
-    toast({ title: `Follow-up marked ${status}`, variant: "success" });
+  if (creating) {
+    return (
+      <FollowUpInlineForm
+        accountId={accountId}
+        currentUser={currentUser}
+        onCancel={() => setCreating(false)}
+        onSaved={() => setCreating(false)}
+      />
+    );
+  }
+  if (completing) {
+    return (
+      <FollowUpCompleteInlineForm
+        followUp={completing}
+        onCancel={() => setCompleting(null)}
+        onSaved={() => setCompleting(null)}
+      />
+    );
+  }
+  if (rescheduling) {
+    return (
+      <RescheduleInlineForm
+        currentDate={rescheduling.scheduledAt}
+        label="follow-up"
+        onCancel={() => setRescheduling(null)}
+        onConfirm={(newDate, reason) =>
+          reschedule.mutateAsync({
+            id: rescheduling.id,
+            input: { newScheduledAt: newDate, reason },
+          })
+        }
+        onSaved={() => setRescheduling(null)}
+      />
+    );
   }
 
   return (
-    <li className="flex flex-col gap-2 py-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-theme-sm font-medium text-gray-900 dark:text-white/90">
-            {followUp.type} — {followUp.assignedTo}
-          </p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            {new Date(followUp.scheduledAt).toLocaleString()}
-          </p>
-        </div>
-        <StatusBadge
-          label={followUp.effectiveStatus}
-          colorToken={STATUS_COLOR[followUp.effectiveStatus] ?? "gray"}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Select
-          value=""
-          onChange={(e) => {
-            if (e.target.value)
-              void setStatus(e.target.value as FollowUpStatus);
-          }}
-          className="max-w-[160px]"
-        >
-          <option value="">Change status…</option>
-          {FOLLOW_UP_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </Select>
+    <SectionShell
+      title="Follow-ups"
+      action={
         <Button
-          variant="ghost"
           size="sm"
-          onClick={() => setRescheduleOpen(true)}
+          className="rounded-xl gap-1.5"
+          onClick={() => setCreating(true)}
         >
-          Reschedule
+          <Plus className="h-3.5 w-3.5" /> Add Follow-up
         </Button>
-      </div>
-      <Dialog
-        open={rescheduleOpen}
-        onClose={() => setRescheduleOpen(false)}
-        title="Reschedule follow-up"
-      >
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await reschedule.mutateAsync({
-              id: followUp.id,
-              input: { newScheduledAt },
-            });
-            setRescheduleOpen(false);
-            toast({ title: "Follow-up rescheduled", variant: "success" });
-          }}
-        >
-          <FormField label="New scheduled at" required>
-            {(fp) => (
-              <Input
-                {...fp}
-                type="datetime-local"
-                value={newScheduledAt}
-                onChange={(e) => setNewScheduledAt(e.target.value)}
-              />
-            )}
-          </FormField>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setRescheduleOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
-          </div>
-        </form>
-      </Dialog>
-    </li>
-  );
-}
-
-/** Follow-ups tab: list showing `effectiveStatus` (never the stored
- * `status`, since `OVERDUE` is display-only) + create + status update +
- * reschedule. */
-export function FollowUpsTab({ accountId }: { accountId: number }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const query = useFollowUps({
-    relatedType: "account",
-    relatedId: accountId,
-    limit: 50,
-  });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Follow-ups
-        </h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Add Follow-up
-        </Button>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
-        <EmptyState
-          title="No follow-ups yet"
-          description="Create the first follow-up."
-        />
+      }
+    >
+      {followUps.length === 0 ? (
+        <EmptyState icon={Clock3} title="No follow-ups yet" />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((f) => (
-            <FollowUpRow key={f.id} followUp={f} />
-          ))}
-        </ul>
+        <div className="divide-y divide-slate-100">
+          {followUps.map((f) => {
+            const isDone = f.status === "COMPLETED" || f.status === "CANCELLED";
+            const historyCount = f.reschedules.length;
+            return (
+              <div key={f.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {f.type} — {f.scheduledAt.slice(0, 10)}
+                    </p>
+                    <p className="text-sm text-slate-900 mt-1">
+                      Assigned to {f.assignedTo} · {f.priority} priority
+                      {historyCount > 0
+                        ? ` · rescheduled ${historyCount}×`
+                        : ""}
+                    </p>
+                    {f.notes && (
+                      <p className="text-sm text-slate-900 mt-0.5">{f.notes}</p>
+                    )}
+                    {f.status === "COMPLETED" && f.outcome && (
+                      <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1 mt-1.5">
+                        {f.outcome}
+                      </p>
+                    )}
+                  </div>
+                  <Badge
+                    className={cn(
+                      "border shrink-0",
+                      FOLLOWUP_STATUS_STYLE[f.effectiveStatus],
+                    )}
+                  >
+                    {f.effectiveStatus}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {!isDone && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={COMPLETE_BTN_CLASS}
+                        onClick={() => setCompleting(f)}
+                      >
+                        <CheckCircle2 className="h-3 w-3" /> Complete
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={ROW_ACTION_BTN_CLASS}
+                        onClick={() => setRescheduling(f)}
+                      >
+                        <History className="h-3 w-3" /> Reschedule
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={CANCEL_ROW_BTN_CLASS}
+                        onClick={() =>
+                          updateStatus.mutate({
+                            id: f.id,
+                            input: { status: "CANCELLED" },
+                          })
+                        }
+                      >
+                        <XCircle className="h-3 w-3" /> Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs rounded-lg text-slate-900"
+                        onClick={() =>
+                          updateStatus.mutate({
+                            id: f.id,
+                            input: { status: "MISSED" },
+                          })
+                        }
+                      >
+                        Mark Missed
+                      </Button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <DeleteConfirmDialog
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={CRM_DELETE_BTN_CLASS}
+                          title="Delete follow-up"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      }
+                      title="Delete this follow-up?"
+                      description="This follow-up and its reschedule history will be moved to the CRM Recycle Bin."
+                      onConfirm={async () => {
+                        await deleteMutation.mutateAsync(f.id);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Add follow-up"
-      >
-        <CreateFollowUpForm
-          accountId={accountId}
-          onDone={() => setCreateOpen(false)}
-        />
-      </Dialog>
-    </div>
+    </SectionShell>
   );
 }
