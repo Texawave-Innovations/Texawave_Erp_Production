@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@texawave-erp/ui-kit/theme.css";
+@import "./crm-legacy-theme.css";
 @custom-variant dark (&:is(.dark *));
 
 @theme {

@@ -1,0 +1,970 @@
+@layer theme, base, components, utilities;
+
+/* Legacy CRM look (TexaWave_ERP_old) scoped to /crm/* only.
+ *
+ * The old ERP CRM layout, Inter font and semantic tokens are applied here; colours follow the
+ * new ERP TexaOne blue theme (brand-* tokens are NOT overridden).
+ * (ui-kit theme.css), we re-point the brand variables on the `.crm-module`
+ * wrapper. Tailwind v4 utilities resolve to var(--color-brand-*), so every
+ * `bg-brand-*` / `text-brand-*` inside CRM turns green without any change
+ * outside it. Portaled overlays (dialogs, popovers) render under <body>, so
+ * the same variables are mirrored on `body.crm-route-active`.
+ */
+
+.crm-module,
+.crm-module * {
+  font-family:
+    var(--font-crm-inter, "Inter"),
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  letter-spacing: -0.011em;
+}
+
+.crm-module h1,
+.crm-module h2,
+.crm-module h3,
+.crm-module h4,
+.crm-module h5,
+.crm-module h6 {
+  letter-spacing: -0.02em;
+}
+
+body.crm-route-active [role="dialog"],
+body.crm-route-active [role="dialog"] *,
+body.crm-route-active [role="alertdialog"],
+body.crm-route-active [role="alertdialog"] *,
+body.crm-route-active [role="tooltip"],
+body.crm-route-active [role="tooltip"] * {
+  font-family:
+    var(--font-crm-inter, "Inter"),
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  letter-spacing: -0.011em;
+}
+
+/* Slim horizontal scrollbar for the CRM tab bar. */
+.crm-tabs-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+.crm-tabs-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.crm-tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.crm-tabs-scroll::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 99px;
+}
+.crm-tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.4);
+}
+
+/* Calendar agenda strip scrollbar. */
+.crm-calendar-agenda-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.crm-calendar-agenda-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.crm-calendar-agenda-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.crm-calendar-agenda-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+.crm-calendar-agenda-scroll::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Overall Data daily tracker (wide table) scrollbar. */
+.crm-tracker-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+.crm-tracker-scroll::-webkit-scrollbar {
+  height: 14px;
+}
+.crm-tracker-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.crm-tracker-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+  border: 3px solid #f1f5f9;
+}
+.crm-tracker-scroll::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Shared outer frame for a tab's main content/table/card container. */
+.crm-panel-frame {
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  box-shadow:
+    0 1px 2px rgba(100, 116, 139, 0.06),
+    0 6px 20px -4px rgba(100, 116, 139, 0.28);
+}
+
+/* Shared header-row shadow (title/search/actions bar of every tab's panel). */
+.crm-panel-header {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 10px -3px rgba(100, 116, 139, 0.3);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * AUTO-EXPANDED SECTION (generated from a template; edit the output freely afterwards).
+ * Layer order must match Tailwind's so `@layer base` below sits UNDER utilities.
+ * ---------------------------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------------------------------
+ * Legacy semantic tokens (TexaWave_ERP_old src/index.css `:root`). Names are `--lg-*` because
+ * globals.css already owns `--background`/`--border`/... as hex values for other components.
+ * `crm-legacy-theme.css` (@theme) maps `bg-background`, `text-foreground`, `border-border`,
+ * `bg-primary`, `ring-ring`, ... to these. Inert outside CRM.
+ * ---------------------------------------------------------------------------------------- */
+.crm-module,
+body.crm-route-active {
+  --lg-background: 210 20% 98%;
+  --lg-foreground: 222 20% 12%;
+  --lg-card: 0 0% 100%;
+  --lg-card-foreground: 222 20% 12%;
+  --lg-popover: 0 0% 100%;
+  --lg-popover-foreground: 222 20% 12%;
+  --lg-primary: 218 91% 53%;
+  --lg-primary-foreground: 0 0% 100%;
+  --lg-primary-light: 213 94% 68%;
+  --lg-primary-dark: 224 76% 48%;
+  --lg-secondary: 215 20% 95%;
+  --lg-secondary-foreground: 222 20% 20%;
+  --lg-muted: 215 18% 94%;
+  --lg-muted-foreground: 215 25% 38%;
+  --lg-accent: 218 100% 97%;
+  --lg-accent-foreground: 224 76% 40%;
+  --lg-destructive: 0 84% 60%;
+  --lg-destructive-foreground: 0 0% 100%;
+  --lg-border: 215 18% 89%;
+  --lg-input: 215 18% 89%;
+  --lg-ring: 218 91% 53%;
+  --lg-success: 142 71% 40%;
+  --lg-success-foreground: 0 0% 100%;
+  --lg-warning: 38 92% 50%;
+  --lg-warning-foreground: 0 0% 100%;
+  --lg-info: 214 89% 52%;
+  --lg-info-foreground: 0 0% 100%;
+  --lg-radius: 0.625rem;
+  --lg-brand: #2454e8;
+  --lg-brand-light: #1769f5;
+  --lg-brand-dark: #1d4ed8;
+  --lg-brand-focus: rgba(23, 105, 245, 0.35);
+  --lg-gradient-primary: linear-gradient(
+    135deg,
+    hsl(224 76% 48%),
+    hsl(190 90% 48%)
+  );
+  --lg-gradient-primary-r: linear-gradient(
+    135deg,
+    hsl(190 90% 48%),
+    hsl(224 76% 48%)
+  );
+  --lg-gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(215 40% 99%));
+  --lg-gradient-muted: linear-gradient(
+    135deg,
+    hsl(var(--lg-muted)),
+    hsl(var(--lg-background))
+  );
+  --lg-gradient-shimmer: linear-gradient(
+    90deg,
+    hsl(var(--lg-muted)) 25%,
+    hsl(var(--lg-border)) 50%,
+    hsl(var(--lg-muted)) 75%
+  );
+  --lg-theme: linear-gradient(135deg, #2454e8 0%, #1769f5 50%, #12cfe3 100%);
+}
+
+/* Scale overrides that would change non-CRM chrome if set on <body>: restricted to the CRM
+ * subtree and to Radix/sonner portals (dialogs, popovers, selects, tooltips, toasts). */
+.crm-module,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  ) {
+  /* tailwind.config.ts borderRadius: lg/md/sm follow --radius. */
+  --radius-lg: var(--lg-radius);
+  --radius-md: calc(var(--lg-radius) - 2px);
+  --radius-sm: calc(var(--lg-radius) - 4px);
+  /* Tailwind v3 blur-sm (4px) was one step smaller than v4's (8px). */
+  --blur-sm: 4px;
+  /* Tailwind v3 default gray (ui-kit re-defines gray-*). 400/500 carry the legacy WCAG
+   * contrast bump (index.css: .text-gray-400 -> #475569, .text-gray-500 -> #334155). */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #475569;
+  --color-gray-500: #334155;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
+  --color-slate-400: #475569;
+  --color-slate-500: #334155;
+  --color-zinc-400: #475569;
+  --color-zinc-500: #334155;
+  --color-neutral-400: #475569;
+  --color-neutral-500: #334155;
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Legacy base behaviour (index.css `@layer base`), scoped. Lives in `@layer base` so
+ * utilities still win.
+ * ---------------------------------------------------------------------------------------- */
+@layer base {
+  /* `* { @apply border-border }` */
+  .crm-module,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    ),
+  .crm-module *,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    *,
+  .crm-module ::before,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::before,
+  .crm-module ::after,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::after {
+    border-color: hsl(var(--lg-border));
+  }
+
+  /* body font-feature-settings / default text colour */
+  .crm-module,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    ) {
+    font-feature-settings: "cv11", "ss01";
+    color: #1e293b;
+  }
+
+  /* Tailwind v3 preflight: buttons are pointer (v4 flipped to default). */
+  .crm-module
+    :is(
+      button,
+      [role="button"],
+      summary,
+      [type="button"],
+      [type="submit"],
+      [type="reset"]
+    ):not(:disabled),
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    :is(
+      button,
+      [role="button"],
+      summary,
+      [type="button"],
+      [type="submit"],
+      [type="reset"]
+    ):not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* Modern thin scrollbar. */
+  .crm-module ::-webkit-scrollbar,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .crm-module ::-webkit-scrollbar-track,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .crm-module ::-webkit-scrollbar-thumb,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::-webkit-scrollbar-thumb {
+    background: hsl(var(--lg-border));
+    border-radius: 99px;
+  }
+  .crm-module ::-webkit-scrollbar-thumb:hover,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--lg-muted-foreground) / 0.35);
+  }
+  .crm-module ::selection,
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    ::selection {
+    background: hsl(var(--lg-primary) / 0.15);
+    color: hsl(var(--lg-primary-dark));
+  }
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Legacy component/utility classes from index.css (CRM-used subset), scoped.
+ * ---------------------------------------------------------------------------------------- */
+.crm-module .animate-fade-in,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .animate-fade-in {
+  animation: lg-fade-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.crm-module .page-enter,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .page-enter {
+  animation: lg-fade-in-up 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.crm-module .stat-number,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stat-number {
+  animation: lg-count-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.crm-module .shimmer,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .shimmer {
+  background: var(--lg-gradient-shimmer);
+  background-size: 200% 100%;
+  animation: lg-shimmer 1.5s infinite;
+}
+.crm-module .glass,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .glass {
+  background: hsl(var(--lg-card) / 0.75);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid hsl(var(--lg-border) / 0.5);
+}
+.crm-module .glass-strong,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .glass-strong {
+  background: hsl(var(--lg-card) / 0.88);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid hsl(var(--lg-border) / 0.45);
+}
+.crm-module .hover-lift,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .hover-lift {
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease;
+}
+.crm-module .hover-lift:hover,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgb(0 0 0 / 0.1);
+}
+.crm-module .theme,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .theme {
+  background: var(--lg-theme);
+}
+.crm-module .theme-text,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .theme-text,
+.crm-module .gradient-text,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .gradient-text {
+  background: var(--lg-theme);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.crm-module .theme-border,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .theme-border {
+  position: relative;
+}
+.crm-module .theme-border::before,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .theme-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--lg-theme);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.crm-module .shine,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .shine {
+  position: relative;
+  overflow: hidden;
+}
+.crm-module .shine::after,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .shine::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent
+  );
+  transform: skewX(-20deg);
+  transition: left 0.55s ease;
+  pointer-events: none;
+}
+.crm-module .shine:hover::after,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .shine:hover::after {
+  left: 120%;
+}
+.crm-module .no-scrollbar::-webkit-scrollbar,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.crm-module .no-scrollbar,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.crm-module .tabular-nums,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+.crm-module .text-caption,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .text-caption {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+}
+.crm-module .text-micro,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .text-micro {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.crm-module .stagger-children > *,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > * {
+  animation: lg-stagger-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.crm-module .stagger-children > *:nth-child(1),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.crm-module .stagger-children > *:nth-child(2),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(2) {
+  animation-delay: 0.09s;
+}
+.crm-module .stagger-children > *:nth-child(3),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(3) {
+  animation-delay: 0.14s;
+}
+.crm-module .stagger-children > *:nth-child(4),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(4) {
+  animation-delay: 0.19s;
+}
+.crm-module .stagger-children > *:nth-child(5),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(5) {
+  animation-delay: 0.24s;
+}
+.crm-module .stagger-children > *:nth-child(6),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(6) {
+  animation-delay: 0.29s;
+}
+.crm-module .stagger-children > *:nth-child(7),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(7) {
+  animation-delay: 0.34s;
+}
+.crm-module .stagger-children > *:nth-child(8),
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .stagger-children
+  > *:nth-child(8) {
+  animation-delay: 0.39s;
+}
+
+/* Legacy "Custom Theme Overrides": emerald-600/700 buttons/badges render as the brand gradient. */
+.crm-module .bg-emerald-700,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .bg-emerald-700,
+.crm-module .bg-emerald-600,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .bg-emerald-600 {
+  background: linear-gradient(
+    135deg,
+    #2454e8 0%,
+    #1769f5 50%,
+    #12cfe3 100%
+  ) !important;
+  color: #fff !important;
+}
+.crm-module .hover\:bg-emerald-800:hover,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .hover\:bg-emerald-800:hover,
+.crm-module .hover\:bg-emerald-700:hover,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .hover\:bg-emerald-700:hover {
+  background: linear-gradient(
+    135deg,
+    #1b4cdb 0%,
+    #1257d6 50%,
+    #0fb5c8 100%
+  ) !important;
+  color: #fff !important;
+}
+.crm-module .data-\[state\=active\]\:bg-emerald-700[data-state="active"],
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  .data-\[state\=active\]\:bg-emerald-700[data-state="active"] {
+  background: linear-gradient(
+    135deg,
+    #2454e8 0%,
+    #1769f5 50%,
+    #12cfe3 100%
+  ) !important;
+  color: #fff !important;
+}
+
+/* Legacy WCAG visibility system: 12px floor for micro text, legible placeholders. */
+@media screen {
+  .crm-module .text-\[8px\],
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    .text-\[8px\],
+  .crm-module .text-\[9px\],
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    .text-\[9px\],
+  .crm-module .text-\[10px\],
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    .text-\[10px\] {
+    font-size: 0.75rem !important;
+    line-height: 1.125rem !important;
+  }
+  .crm-module .text-\[11px\],
+  body.crm-route-active
+    :is(
+      [role="dialog"],
+      [role="alertdialog"],
+      [data-radix-popper-content-wrapper],
+      [data-sonner-toaster]
+    )
+    .text-\[11px\] {
+    font-size: 0.8125rem !important;
+    line-height: 1.2rem !important;
+  }
+}
+.crm-module ::placeholder,
+body.crm-route-active
+  :is(
+    [role="dialog"],
+    [role="alertdialog"],
+    [data-radix-popper-content-wrapper],
+    [data-sonner-toaster]
+  )
+  ::placeholder {
+  color: #64748b !important;
+}
+
+/* tw-animate-css makes `animate-in` / `animate-out` real everywhere, but non-CRM chrome
+ * (navbar / header dropdowns, HR popovers) carries those classes from when no animation plugin
+ * existed, i.e. they never animated. Preserve that: only the CRM subtree and Radix-managed
+ * (data-state) CRM portals animate. */
+:is(.animate-in, .animate-out):not(
+  .crm-module *,
+  [data-state],
+  [data-radix-popper-content-wrapper] *
+) {
+  animation: none;
+}
+
+@keyframes lg-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes lg-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes lg-count-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes lg-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes lg-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tailwind v3 `shadow-sm` (0 1px 2px / 5%) is one step lighter than v4's. v4 inlines the default
+ * shadows (no theme variable to override), so re-declare the utility. It sits in the utilities
+ * layer under :where() (specificity 0,1,0) so `hover:shadow-md` etc. still win. */
+@layer utilities {
+  :where(
+      .crm-module,
+      body.crm-route-active
+        :is(
+          [role="dialog"],
+          [role="alertdialog"],
+          [data-radix-popper-content-wrapper],
+          [data-sonner-toaster]
+        )
+    )
+    .shadow-sm {
+    --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05));
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
