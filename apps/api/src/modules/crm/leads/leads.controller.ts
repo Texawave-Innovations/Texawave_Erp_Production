@@ -17,6 +17,7 @@ import { LeadsService } from "./leads.service.js";
 import {
   ConvertLeadDto,
   CreateLeadDto,
+  CreateLeadNoteDto,
   QueryLeadDto,
   UpdateLeadDto,
 } from "./dto/lead.dto.js";
@@ -40,6 +41,15 @@ export class LeadsController {
   })
   findAll(@Paginate(QueryLeadDto) query: QueryLeadDto) {
     return this.leads.findAll(query);
+  }
+
+  @Get("facets")
+  @RequireScopedPermission("crm.lead.read")
+  @ApiOperation({
+    summary: "Distinct owner/source/industry/city/country values for filters",
+  })
+  facets() {
+    return this.leads.facets();
   }
 
   @Get(":id")
@@ -67,6 +77,41 @@ export class LeadsController {
   @ApiOperation({ summary: "Soft-delete a lead" })
   async remove(@Param("id", ParseIntPipe) id: number) {
     await this.leads.remove(id);
+  }
+
+  @Get(":id/notes")
+  @RequireScopedPermission("crm.lead.read")
+  @ApiOperation({ summary: "List a lead's notes (newest first)" })
+  listNotes(@Param("id", ParseIntPipe) id: number) {
+    return this.leads.listNotes(id);
+  }
+
+  @Post(":id/notes")
+  @RequireScopedPermission("crm.lead.write")
+  @ApiOperation({ summary: "Add a note to a lead" })
+  addNote(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: CreateLeadNoteDto,
+  ) {
+    return this.leads.addNote(id, dto.content);
+  }
+
+  @Delete(":id/notes/:noteId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequireScopedPermission("crm.lead.write")
+  @ApiOperation({ summary: "Soft-delete a lead note" })
+  async deleteNote(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("noteId", ParseIntPipe) noteId: number,
+  ) {
+    await this.leads.deleteNote(id, noteId);
+  }
+
+  @Get(":id/timeline")
+  @RequireScopedPermission("crm.lead.read")
+  @ApiOperation({ summary: "Audit-log feed for the lead Timeline tab" })
+  timeline(@Param("id", ParseIntPipe) id: number) {
+    return this.leads.timeline(id);
   }
 
   @Post(":id/convert")

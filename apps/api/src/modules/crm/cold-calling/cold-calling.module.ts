@@ -6,5 +6,6 @@ import { CrmColdCallingService } from "./cold-calling.service.js";
 @Module({
   controllers: [CrmColdCallingController],
   providers: [CrmColdCallingRepository, CrmColdCallingService],
+  exports: [CrmColdCallingRepository, CrmColdCallingService],
 })
 export class CrmColdCallingModule {}

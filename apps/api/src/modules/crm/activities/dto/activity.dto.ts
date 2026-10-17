@@ -72,4 +72,17 @@ export class QueryActivityDto extends PaginationDto {
   @IsOptional()
   @IsIn(ACTIVITY_TYPES)
   type?: (typeof ACTIVITY_TYPES)[number];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Trim()
+  @IsString()
+  search?: string;
+
+  /** Account plus its contacts (unified Account timeline). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  accountId?: number;
 }

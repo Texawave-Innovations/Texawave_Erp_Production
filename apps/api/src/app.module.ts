@@ -20,6 +20,15 @@ import { CrmTasksModule } from "./modules/crm/tasks/tasks.module.js";
 import { CrmDocumentsModule } from "./modules/crm/documents/documents.module.js";
 import { CrmNotesModule } from "./modules/crm/notes/notes.module.js";
 import { CrmColdCallingModule } from "./modules/crm/cold-calling/cold-calling.module.js";
+import { CrmNotificationsModule } from "./modules/crm/crm-notifications/crm-notifications.module.js";
+import { CrmRecycleBinModule } from "./modules/crm/recycle-bin/recycle-bin.module.js";
+import { CrmQuotasModule } from "./modules/crm/quotas/quotas.module.js";
+import { CrmOverallDataModule } from "./modules/crm/overall-data/overall-data.module.js";
+import { CrmMiningRowsModule } from "./modules/crm/mining-rows/mining-rows.module.js";
+import { CrmSearchModule } from "./modules/crm/search/search.module.js";
+import { CrmCalendarModule } from "./modules/crm/calendar/calendar.module.js";
+import { CrmDashboardModule } from "./modules/crm/dashboard/dashboard.module.js";
+import { CrmBulkImportModule } from "./modules/crm/bulk-import/bulk-import.module.js";
 import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
@@ -144,6 +153,15 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CrmDocumentsModule,
     CrmNotesModule,
     CrmColdCallingModule,
+    CrmNotificationsModule,
+    CrmRecycleBinModule,
+    CrmQuotasModule,
+    CrmOverallDataModule,
+    CrmMiningRowsModule,
+    CrmSearchModule,
+    CrmCalendarModule,
+    CrmDashboardModule,
+    CrmBulkImportModule,
   ],
   controllers: [AppController],
   providers: [

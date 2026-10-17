@@ -8,6 +8,8 @@ import { TenantContextService } from "../../../platform/tenancy/tenant-context.s
 import { CrmTasksService } from "../tasks/tasks.service.js";
 import { AccountsRepository } from "./accounts.repository.js";
 import type {
+  ChangeAccountPriorityDto,
+  ChangeAccountTemperatureDto,
   ChangeAccountStatusTagDto,
   CreateAccountDto,
   QueryAccountDto,
@@ -54,10 +56,29 @@ export class AccountsService {
   async findAll(query: QueryAccountDto) {
     const { items, total } = await this.repository.findMany(
       this.tenantContext.getOrgScope(),
-      { search: query.search, statusTag: query.statusTag },
+      {
+        search: query.search,
+        statusTag: query.statusTag,
+        priority: query.priority,
+        temperature: query.temperature,
+      },
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  /** Global-search lookup (additive). */
+  search(q: string, limit: number) {
+    return this.repository.search(this.tenantContext.getOrgScope(), q, limit);
+  }
+
+  /** id -> name map for cross-entity labels (additive). */
+  async namesByIds(ids: number[]): Promise<Map<number, string>> {
+    const rows = await this.repository.namesByIds(
+      this.tenantContext.getOrgScope(),
+      ids,
+    );
+    return new Map(rows.map((r) => [r.id, r.name]));
   }
 
   async findOne(id: number) {
@@ -127,6 +148,66 @@ export class AccountsService {
       });
     }
     return row;
+  }
+
+  async changePriority(id: number, dto: ChangeAccountPriorityDto) {
+    const row = await this.repository.changePriority(
+      this.tenantContext.getOrgScope(),
+      id,
+      dto.priority,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Account", id);
+    return row;
+  }
+
+  async changeTemperature(id: number, dto: ChangeAccountTemperatureDto) {
+    const row = await this.repository.changeTemperature(
+      this.tenantContext.getOrgScope(),
+      id,
+      dto.temperature,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Account", id);
+    return row;
+  }
+
+  /** Audit-backed Timeline events with a legacy-style `details` line. */
+  async findTimelineEvents(id: number) {
+    const events = await this.repository.findTimelineEvents(
+      this.tenantContext.getOrgScope(),
+      id,
+    );
+    if (!events) throw new ResourceNotFoundException("Account", id);
+    const after = (e: (typeof events)[number]) =>
+      (e.after ?? {}) as Record<string, unknown>;
+    const describe = (e: (typeof events)[number]): string => {
+      switch (e.action) {
+        case "priority_changed":
+          return `Priority set to ${String(after(e).priority ?? "")}`;
+        case "temperature_changed":
+          return `Lead temperature set to ${String(after(e).temperature ?? "")}`;
+        case "status_tag_changed":
+          return `Status tag set to ${String(after(e).statusTag ?? "")}`;
+        case "update":
+          return `${e.entityType.replace("crm_", "")} details updated`;
+        case "delete":
+          return `${e.entityType.replace("crm_", "")} moved to the Recycle Bin`;
+        case "restore":
+          return `${e.entityType.replace("crm_", "")} restored`;
+        default:
+          return e.action.replace(/_/g, " ");
+      }
+    };
+    return events.map((e) => ({
+      id: e.id,
+      action: e.action,
+      entityType: e.entityType,
+      entityId: e.entityId,
+      details: describe(e),
+      byName: e.byName,
+      at: e.at,
+    }));
   }
 
   async remove(id: number) {

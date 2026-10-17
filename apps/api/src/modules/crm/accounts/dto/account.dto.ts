@@ -6,6 +6,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Length,
@@ -46,6 +47,11 @@ export const ACCOUNT_STATUS_TAGS = [
   "Send Info",
 ] as const;
 export type AccountStatusTag = (typeof ACCOUNT_STATUS_TAGS)[number];
+/** Legacy `CrmPriority` / `CrmTemperature` (intelligence/types.ts). */
+export const ACCOUNT_PRIORITIES = ["High", "Medium", "Low"] as const;
+export type AccountPriority = (typeof ACCOUNT_PRIORITIES)[number];
+export const ACCOUNT_TEMPERATURES = ["Hot", "Warm", "Cold"] as const;
+export type AccountTemperature = (typeof ACCOUNT_TEMPERATURES)[number];
 
 /** Phase 0 (Account-360 foundation) expanded this from the Phase 4B
  * minimal `{name}` foundation to legacy `AccountFormDialog.tsx`'s 5 tabs —
@@ -76,6 +82,23 @@ export class CreateAccountDto {
   @IsString()
   @Length(0, 150)
   industry?: string;
+
+  @ApiPropertyOptional({ description: "Headquarters / location" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 300)
+  hq?: string;
+
+  @ApiPropertyOptional({ enum: ACCOUNT_PRIORITIES })
+  @IsOptional()
+  @IsIn(ACCOUNT_PRIORITIES)
+  priority?: AccountPriority;
+
+  @ApiPropertyOptional({ enum: ACCOUNT_TEMPERATURES })
+  @IsOptional()
+  @IsIn(ACCOUNT_TEMPERATURES)
+  temperature?: AccountTemperature;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -229,6 +252,16 @@ export class CreateAccountDto {
   @ArrayMaxSize(50)
   @IsString({ each: true })
   tags?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Custom field values keyed by CrmCustomFieldDef.key (module=accounts). On update the object is merged into the stored values; an empty string clears a key.",
+    type: "object",
+    additionalProperties: { type: "string" },
+  })
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, string>;
 }
 
 export class UpdateAccountDto extends PartialType(CreateAccountDto) {}
@@ -245,6 +278,28 @@ export class QueryAccountDto extends PaginationDto {
   @IsOptional()
   @IsIn(ACCOUNT_STATUS_TAGS)
   statusTag?: AccountStatusTag;
+
+  @ApiPropertyOptional({ enum: ACCOUNT_PRIORITIES })
+  @IsOptional()
+  @IsIn(ACCOUNT_PRIORITIES)
+  priority?: AccountPriority;
+
+  @ApiPropertyOptional({ enum: ACCOUNT_TEMPERATURES })
+  @IsOptional()
+  @IsIn(ACCOUNT_TEMPERATURES)
+  temperature?: AccountTemperature;
+}
+
+export class ChangeAccountPriorityDto {
+  @ApiProperty({ enum: ACCOUNT_PRIORITIES })
+  @IsIn(ACCOUNT_PRIORITIES)
+  priority!: AccountPriority;
+}
+
+export class ChangeAccountTemperatureDto {
+  @ApiProperty({ enum: ACCOUNT_TEMPERATURES })
+  @IsIn(ACCOUNT_TEMPERATURES)
+  temperature!: AccountTemperature;
 }
 
 /** Mirrors legacy `StatusTagDialog`'s per-tag required companion field

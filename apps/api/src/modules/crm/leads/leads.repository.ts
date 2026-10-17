@@ -1,12 +1,20 @@
+import { classifyDbError } from "../../../common/database/db-errors.js";
+import type { OrgScope } from "../../../common/tenancy/org-scope.js";
+import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
+import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { TeamScoped } from "../../../common/decorators/team-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
 import type { TeamScope } from "../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../common/tenancy/team-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
+import { attachActorNames, userNamesByIds } from "../shared/actor-names.js";
 import { defaultBoardStage } from "../pipeline-stages/seed.js";
 import { appendStageHistory } from "../opportunities/opportunities.repository.js";
 import type {
@@ -38,6 +46,22 @@ export interface LeadFilter {
   industry?: string | undefined;
   city?: string | undefined;
   country?: string | undefined;
+  converted?: "CONVERTED" | "NOT_CONVERTED" | undefined;
+  sortBy?: "createdAt" | "companyName" | undefined;
+  rating?: string | undefined;
+  touched?: "TOUCHED" | "UNTOUCHED" | undefined;
+  createdBy?: number | undefined;
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
+  minAnnualRevenue?: number | undefined;
+}
+
+/** Roll-up fields added to every lead row: `touched` = any non-create audit
+ * entry, activity, meeting or follow-up on the lead (legacy `touchedIds`);
+ * `lastActivityAt` = the newest of those (legacy `lastActivityById`). */
+export interface LeadRollup {
+  touched: boolean;
+  lastActivityAt: Date | null;
 }
 
 function snapshot(
@@ -53,6 +77,7 @@ function snapshot(
     | "linkedContactId"
     | "linkedOpportunityId"
     | "isActive"
+    | "rating"
   >,
 ) {
   return {
@@ -66,6 +91,7 @@ function snapshot(
     linkedContactId: row.linkedContactId,
     linkedOpportunityId: row.linkedOpportunityId,
     isActive: row.isActive,
+    rating: row.rating,
   };
 }
 
@@ -79,6 +105,19 @@ function filterWhere(filter: LeadFilter): Prisma.LeadWhereInput {
   if (filter.industry) clauses.push({ industry: filter.industry });
   if (filter.city) clauses.push({ city: filter.city });
   if (filter.country) clauses.push({ country: filter.country });
+  if (filter.rating) clauses.push({ rating: filter.rating });
+  if (filter.createdBy) clauses.push({ createdBy: filter.createdBy });
+  if (filter.createdFrom)
+    clauses.push({ createdAt: { gte: new Date(filter.createdFrom) } });
+  if (filter.createdTo) {
+    const end = new Date(filter.createdTo);
+    end.setUTCHours(23, 59, 59, 999);
+    clauses.push({ createdAt: { lte: end } });
+  }
+  if (filter.converted === "CONVERTED")
+    clauses.push({ linkedAccountId: { not: null } });
+  if (filter.converted === "NOT_CONVERTED")
+    clauses.push({ linkedAccountId: null });
   if (filter.q) {
     clauses.push({
       OR: [
@@ -105,26 +144,226 @@ export class LeadsRepository {
     filter: LeadFilter,
     pagination: PaginationDto,
   ) {
-    const where = teamWhere(scope, filterWhere(filter), SCOPE_FIELDS);
-    const [items, total] = await Promise.all([
+    const base = filterWhere(filter);
+    const extra: Prisma.LeadWhereInput[] = [];
+    if (filter.touched) {
+      const touched = await this.touchedLeadIds(scope.organizationId);
+      extra.push(
+        filter.touched === "TOUCHED"
+          ? { id: { in: touched } }
+          : { id: { notIn: touched } },
+      );
+    }
+    if (filter.minAnnualRevenue !== undefined) {
+      const ids = await this.leadIdsWithMinRevenue(
+        scope.organizationId,
+        filter.minAnnualRevenue,
+      );
+      extra.push({ id: { in: ids } });
+    }
+    const where = teamWhere(
+      scope,
+      extra.length ? { AND: [base, ...extra] } : base,
+      SCOPE_FIELDS,
+    );
+    const [rawItems, total] = await Promise.all([
       this.prisma.lead.findMany({
         where,
         include: INCLUDE,
         skip: pagination.skip,
         take: pagination.limit,
-        orderBy: [{ createdAt: pagination.order ?? "asc" }, { id: "asc" }],
+        orderBy:
+          filter.sortBy === "companyName"
+            ? [{ companyName: pagination.order ?? "asc" }, { id: "asc" }]
+            : [{ createdAt: pagination.order ?? "asc" }, { id: "asc" }],
       }),
       this.prisma.lead.count({ where }),
     ]);
+    const items = await this.decorate(scope.organizationId, rawItems);
     return { items, total };
+  }
+
+  /** Lead ids with any non-create audit entry, activity, meeting or
+   * follow-up (legacy `touchedIds`). */
+  private async touchedLeadIds(organizationId: number): Promise<number[]> {
+    const [audit, acts, meets, fups] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where: {
+          organizationId,
+          entityType: ENTITY_TYPE,
+          action: { not: "create" },
+        },
+        select: { entityId: true },
+        distinct: ["entityId"],
+      }),
+      this.prisma.crmActivity.findMany({
+        where: { organizationId, relatedType: "lead", deletedAt: null },
+        select: { relatedId: true },
+        distinct: ["relatedId"],
+      }),
+      this.prisma.crmMeeting.findMany({
+        where: { organizationId, relatedType: "lead", deletedAt: null },
+        select: { relatedId: true },
+        distinct: ["relatedId"],
+      }),
+      this.prisma.crmFollowUp.findMany({
+        where: { organizationId, relatedType: "lead", deletedAt: null },
+        select: { relatedId: true },
+        distinct: ["relatedId"],
+      }),
+    ]);
+    return [
+      ...new Set([
+        ...audit.map((a) => Number(a.entityId)),
+        ...acts.map((a) => a.relatedId),
+        ...meets.map((a) => a.relatedId),
+        ...fups.map((a) => a.relatedId),
+      ]),
+    ];
+  }
+
+  /** annualRevenue is free text ("$1,200,000"): keep digits/dot, compare
+   * numerically, ignore values that don't parse (legacy behaviour). */
+  private async leadIdsWithMinRevenue(
+    organizationId: number,
+    min: number,
+  ): Promise<number[]> {
+    const rows = await this.prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
+      SELECT id FROM crm.leads
+      WHERE organization_id = ${organizationId} AND deleted_at IS NULL
+        AND regexp_replace(coalesce(annual_revenue, ''), '[^0-9.]', '', 'g') ~ '^[0-9]+(\\.[0-9]+)?$'
+        AND regexp_replace(annual_revenue, '[^0-9.]', '', 'g')::numeric >= ${min}`);
+    return rows.map((r) => r.id);
+  }
+
+  private async rollups(
+    organizationId: number,
+    ids: number[],
+  ): Promise<Map<number, LeadRollup>> {
+    const out = new Map<number, LeadRollup>();
+    if (ids.length === 0) return out;
+    const bump = (id: number, at: Date | null | undefined, touch: boolean) => {
+      const cur = out.get(id) ?? { touched: false, lastActivityAt: null };
+      if (touch) cur.touched = true;
+      if (at && (!cur.lastActivityAt || at > cur.lastActivityAt))
+        cur.lastActivityAt = at;
+      out.set(id, cur);
+    };
+    const relatedWhere = {
+      organizationId,
+      relatedType: "lead",
+      relatedId: { in: ids },
+      deletedAt: null,
+    };
+    const [audit, acts, meets, fups] = await Promise.all([
+      this.prisma.auditLog.groupBy({
+        by: ["entityId", "action"],
+        where: {
+          organizationId,
+          entityType: ENTITY_TYPE,
+          entityId: { in: ids.map((i) => BigInt(i)) },
+        },
+        _max: { at: true },
+      }),
+      this.prisma.crmActivity.groupBy({
+        by: ["relatedId"],
+        where: relatedWhere,
+        _max: { occurredAt: true },
+      }),
+      this.prisma.crmMeeting.groupBy({
+        by: ["relatedId"],
+        where: relatedWhere,
+        _max: { createdAt: true },
+      }),
+      this.prisma.crmFollowUp.groupBy({
+        by: ["relatedId"],
+        where: relatedWhere,
+        _max: { createdAt: true },
+      }),
+    ]);
+    audit.forEach((a) =>
+      bump(Number(a.entityId), a._max.at, a.action !== "create"),
+    );
+    acts.forEach((a) => bump(a.relatedId, a._max.occurredAt, true));
+    meets.forEach((a) => bump(a.relatedId, a._max.createdAt, true));
+    fups.forEach((a) => bump(a.relatedId, a._max.createdAt, true));
+    return out;
+  }
+
+  private async decorate<
+    T extends {
+      id: number;
+      createdBy: number | null;
+      updatedBy: number | null;
+    },
+  >(organizationId: number, rows: T[]) {
+    const [named, rollups] = await Promise.all([
+      attachActorNames(this.prisma, organizationId, rows),
+      this.rollups(
+        organizationId,
+        rows.map((r) => r.id),
+      ),
+    ]);
+    return named.map((r) => ({
+      ...r,
+      touched: rollups.get(r.id)?.touched ?? false,
+      lastActivityAt: rollups.get(r.id)?.lastActivityAt ?? null,
+    }));
+  }
+
+  /** Distinct values for the list filter dropdowns (legacy derived them
+   * from the full in-memory row set). */
+  @TeamScoped()
+  async facets(scope: TeamScope) {
+    const where = teamWhere(scope, { deletedAt: null }, SCOPE_FIELDS);
+    const distinct = async (
+      field: "assignedTo" | "leadSource" | "industry" | "city" | "country",
+    ) => {
+      const rows = await this.prisma.lead.findMany({
+        where: { AND: [where, { [field]: { not: null } }] },
+        select: { [field]: true },
+        distinct: [field],
+        orderBy: { [field]: "asc" },
+      });
+      return rows
+        .map((r) => String((r as Record<string, unknown>)[field] ?? "").trim())
+        .filter((v) => v.length > 0);
+    };
+    const [owners, sources, industries, cities, countries] = await Promise.all([
+      distinct("assignedTo"),
+      distinct("leadSource"),
+      distinct("industry"),
+      distinct("city"),
+      distinct("country"),
+    ]);
+    const creators = await this.prisma.lead.findMany({
+      where: { AND: [where, { createdBy: { not: null } }] },
+      select: { createdBy: true },
+      distinct: ["createdBy"],
+    });
+    const names = await userNamesByIds(
+      this.prisma,
+      scope.organizationId,
+      creators.map((c) => c.createdBy),
+    );
+    const createdBy = creators
+      .map((c) => ({
+        id: c.createdBy as number,
+        name: names.get(c.createdBy as number) ?? `User #${c.createdBy}`,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { owners, sources, industries, cities, countries, createdBy };
   }
 
   @TeamScoped()
   async findOne(scope: TeamScope, id: number) {
-    return this.prisma.lead.findFirst({
+    const row = await this.prisma.lead.findFirst({
       where: teamWhere(scope, { id, deletedAt: null }, SCOPE_FIELDS),
       include: INCLUDE,
     });
+    if (!row) return null;
+    const [decorated] = await this.decorate(scope.organizationId, [row]);
+    return decorated ?? null;
   }
 
   @TeamScoped()
@@ -152,6 +391,9 @@ export class LeadsRepository {
           meetingDate: dto.meetingDate ? new Date(dto.meetingDate) : null,
           leadStatus: dto.leadStatus ?? "NEW",
           priority: dto.priority ?? null,
+          rating: dto.rating ?? null,
+          month: dto.month ?? null,
+          customFields: dto.customFields ?? Prisma.JsonNull,
           assignedTo: dto.assignedTo ?? null,
           leadSource: dto.leadSource ?? null,
           emailOptOut: dto.emailOptOut ?? false,
@@ -228,6 +470,11 @@ export class LeadsRepository {
                 : null,
           leadStatus: dto.leadStatus ?? before.leadStatus,
           priority: field(dto.priority, before.priority),
+          rating: field(dto.rating, before.rating),
+          month: field(dto.month, before.month),
+          ...(dto.customFields !== undefined
+            ? { customFields: dto.customFields }
+            : {}),
           assignedTo: field(dto.assignedTo, before.assignedTo),
           leadSource: field(dto.leadSource, before.leadSource),
           emailOptOut: dto.emailOptOut ?? before.emailOptOut,
@@ -255,6 +502,108 @@ export class LeadsRepository {
         after: snapshot(after),
       });
       return after;
+    });
+  }
+
+  /** Lead notes (legacy `crm/notes/<leadId>`). */
+  @TeamScoped()
+  async listNotes(scope: TeamScope, leadId: number) {
+    const lead = await this.findOne(scope, leadId);
+    if (!lead) return null;
+    const rows = await this.prisma.crmLeadNote.findMany({
+      where: { organizationId: scope.organizationId, leadId, deletedAt: null },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return attachActorNames(this.prisma, scope.organizationId, rows);
+  }
+
+  @TeamScoped()
+  async addNote(
+    scope: TeamScope,
+    leadId: number,
+    content: string,
+    actorId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const lead = await tx.lead.findFirst({
+        where: teamWhere(scope, { id: leadId, deletedAt: null }, SCOPE_FIELDS),
+        select: { id: true },
+      });
+      if (!lead) return null;
+      const note = await tx.crmLeadNote.create({
+        data: {
+          organizationId: scope.organizationId,
+          leadId,
+          content,
+          createdBy: actorId,
+        },
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: leadId,
+        action: "note_added",
+        after: { noteId: note.id },
+      });
+      const [named] = await attachActorNames(tx, scope.organizationId, [note]);
+      return named ?? null;
+    });
+  }
+
+  @TeamScoped()
+  async deleteNote(scope: TeamScope, leadId: number, noteId: number) {
+    const lead = await this.findOne(scope, leadId);
+    if (!lead) return null;
+    const res = await this.prisma.crmLeadNote.updateMany({
+      where: {
+        id: noteId,
+        leadId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date() },
+    });
+    return res.count > 0;
+  }
+
+  /** Audit feed for the lead Timeline tab (legacy
+   * `subscribeCrmAuditLogsForEntity`): one entry per audit row with a
+   * summary of what changed. */
+  @TeamScoped()
+  async timeline(scope: TeamScope, leadId: number) {
+    const lead = await this.findOne(scope, leadId);
+    if (!lead) return null;
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        entityType: ENTITY_TYPE,
+        entityId: BigInt(leadId),
+      },
+      orderBy: { id: "desc" },
+      take: 200,
+      include: { actor: { select: { fullName: true } } },
+    });
+    return logs.map((l) => {
+      const before = (l.before ?? {}) as Record<string, unknown>;
+      const after = (l.after ?? {}) as Record<string, unknown>;
+      const changes =
+        l.action === "update"
+          ? Object.keys(after)
+              .filter(
+                (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+              )
+              .map((k) => ({
+                field: k,
+                from: before[k] == null ? null : String(before[k]),
+                to: after[k] == null ? null : String(after[k]),
+              }))
+          : [];
+      return {
+        id: Number(l.id),
+        action: l.action,
+        at: l.at,
+        by: l.actor?.fullName ?? null,
+        changes,
+      };
     });
   }
 
@@ -490,5 +839,79 @@ export class LeadsRepository {
       });
       return after;
     });
+  }
+  /** Recycle Bin: this organization's soft-deleted rows, newest deletion first. */
+  @OrgScoped()
+  async findDeleted(scope: OrgScope) {
+    return this.prisma.lead.findMany({
+      where: tenantWhere(scope, { deletedAt: { not: null } }),
+      orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+      take: 2000,
+    });
+  }
+
+  /** Recycle Bin restore: clears `deletedAt`. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async restoreDeleted(scope: OrgScope, id: number, actorId: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.lead.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before || !before.deletedAt) return null;
+        const after = await tx.lead.update({
+          where: { id },
+          data: { deletedAt: null, isActive: true, updatedBy: actorId },
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "restore",
+          before: { deletedAt: before.deletedAt },
+          after: { deletedAt: null },
+        });
+        return after;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "unique") {
+        throw new ResourceConflictException(
+          "A live record with the same unique value already exists, so this one can't be restored",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Recycle Bin permanent delete: irreversible hard delete of a soft-deleted row. FK-safe: rows the record owns are removed, nullable references to it are cleared, and anything else still referencing it aborts with STILL_REFERENCED. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async purgeDeleted(scope: OrgScope, id: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.lead.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before) return null;
+        await tx.opportunity.updateMany({
+          where: { leadId: id, organizationId: scope.organizationId },
+          data: { leadId: null },
+        });
+        await tx.lead.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "purge",
+          before: { deletedAt: before.deletedAt },
+        });
+        return before;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "foreign_key") {
+        throw new BusinessRuleViolationException(
+          "This record is still referenced by other records and can't be permanently deleted",
+          "STILL_REFERENCED",
+        );
+      }
+      throw error;
+    }
   }
 }

@@ -15,6 +15,8 @@ import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import { AccountsService } from "./accounts.service.js";
 import {
+  ChangeAccountPriorityDto,
+  ChangeAccountTemperatureDto,
   ChangeAccountStatusTagDto,
   CreateAccountDto,
   QueryAccountDto,
@@ -66,6 +68,36 @@ export class AccountsController {
     @Body() dto: ChangeAccountStatusTagDto,
   ) {
     return this.accounts.changeStatusTag(id, dto);
+  }
+
+  @Patch(":id/priority")
+  @RequirePermission("crm.account.write")
+  @ApiOperation({ summary: "Set the priority chip (High/Medium/Low)" })
+  changePriority(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ChangeAccountPriorityDto,
+  ) {
+    return this.accounts.changePriority(id, dto);
+  }
+
+  @Patch(":id/temperature")
+  @RequirePermission("crm.account.write")
+  @ApiOperation({ summary: "Set the temperature chip (Hot/Warm/Cold)" })
+  changeTemperature(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ChangeAccountTemperatureDto,
+  ) {
+    return this.accounts.changeTemperature(id, dto);
+  }
+
+  @Get(":id/timeline-events")
+  @RequirePermission("crm.account.read")
+  @ApiOperation({
+    summary:
+      "Audit-backed timeline events (priority/temperature/status changes, edits, deletes) for the account 360 Timeline",
+  })
+  timelineEvents(@Param("id", ParseIntPipe) id: number) {
+    return this.accounts.findTimelineEvents(id);
   }
 
   @Delete(":id")
