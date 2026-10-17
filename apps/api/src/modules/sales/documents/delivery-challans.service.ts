@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@texawave-erp/database";
 import { parseDateOnly } from "../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
@@ -115,6 +116,98 @@ export class DeliveryChallansService {
       await this.pricing.numberFor("delivery_challan", dcDate),
       this.tenantContext.getUserId(),
     );
+  }
+
+  /** Live preview of an unsaved delivery challan (nothing stored; the
+   * number shown is the next one). */
+  async preview(dto: CreateDeliveryChallanDto) {
+    const customer = await this.pricing.customer(dto.customerId, {
+      requireActive: true,
+    });
+    const dcDate = parseDateOnly(dto.dcDate);
+    const { number } = await this.pricing.previewNumber(
+      "delivery_challan",
+      dcDate,
+    );
+    return this.render({
+      dcNumber: number,
+      dcDate,
+      customerSnapshot: customerSnapshot(customer),
+      lines: toLines(dto.lines),
+      notes: dto.notes ?? DEFAULT_DC_NOTE,
+      preparedBy: dto.preparedBy ?? null,
+      ...(await this.pricing.signatories({
+        sealItemId: dto.sealItemId ?? null,
+        sealName: dto.sealName ?? null,
+        signatureItemId: dto.signatureItemId ?? null,
+        signatureName: dto.signatureName ?? null,
+      })),
+    });
+  }
+
+  /** Live preview of edits to a saved delivery challan. */
+  async previewUpdate(id: number, dto: UpdateDeliveryChallanDto) {
+    const current = await this.findOne(id);
+    const customerChanged =
+      dto.customerId !== undefined && dto.customerId !== current.customerId;
+    const customer = await this.pricing.customer(
+      dto.customerId ?? current.customerId,
+      { requireActive: customerChanged },
+    );
+    return this.render({
+      dcNumber: current.dcNumber,
+      dcDate:
+        dto.dcDate !== undefined ? parseDateOnly(dto.dcDate) : current.dcDate,
+      customerSnapshot: customerSnapshot(customer),
+      lines: dto.lines
+        ? toLines(dto.lines)
+        : current.lines.map((l) => ({
+            lineNo: l.lineNo,
+            description: l.description,
+            hsnCode: l.hsnCode,
+            quantity: l.quantity.toNumber(),
+          })),
+      notes: pickDefined(dto.notes, current.notes),
+      preparedBy: pickDefined(dto.preparedBy, current.preparedBy),
+      ...(await this.pricing.signatories({
+        sealItemId: pickDefined(dto.sealItemId, current.sealItemId),
+        sealName: pickDefined(dto.sealName, current.sealName),
+        signatureItemId: pickDefined(
+          dto.signatureItemId,
+          current.signatureItemId,
+        ),
+        signatureName: pickDefined(dto.signatureName, current.signatureName),
+      })),
+    });
+  }
+
+  private async render(dc: {
+    dcNumber: string;
+    dcDate: Date;
+    customerSnapshot: ReturnType<typeof customerSnapshot>;
+    lines: DcLine[];
+    notes: string | null;
+    preparedBy: string | null;
+    sealName: string | null;
+    signatureName: string | null;
+    sealItemId: number | null;
+    signatureItemId: number | null;
+  }) {
+    const company = await this.companyProfile.require();
+    const doc = await this.delivery.withImages(
+      printableDeliveryChallan(
+        {
+          ...dc,
+          lines: dc.lines.map((l) => ({
+            ...l,
+            quantity: new Prisma.Decimal(l.quantity),
+          })),
+        },
+        company,
+      ),
+      dc,
+    );
+    return { number: dc.dcNumber, html: this.delivery.html(doc) };
   }
 
   /** Tax invoice → delivery challan: same customer and items, no prices. */

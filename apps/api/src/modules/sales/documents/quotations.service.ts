@@ -1,12 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@texawave-erp/database";
 import { parseDateOnly } from "../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { CompanyProfileService } from "../master-list/company-profile.service.js";
-import { amountInWords } from "./amount-in-words.js";
 import { DocumentDeliveryService } from "./document-delivery.service.js";
+import { previewTotals, printableFromData } from "./document-preview.js";
 import type { DocumentData } from "./document-repository.helpers.js";
 import {
   DocumentPricingService,
@@ -170,41 +169,13 @@ export class QuotationsService {
   ) {
     const company = await this.companyProfile.require();
     const doc = await this.delivery.withImages(
-      printableQuotation(
-        {
-          ...data,
-          ...meta,
-          lines: data.lines.map((l) => ({
-            ...l,
-            quantity: new Prisma.Decimal(l.quantity),
-            unitPrice: new Prisma.Decimal(l.unitPrice),
-          })),
-          amountInWords: amountInWords(data.totalAmount),
-        },
-        company,
-      ),
+      printableQuotation({ ...printableFromData(data), ...meta }, company),
       data,
     );
     return {
       number: meta.quotationNumber,
       html: this.delivery.html(doc),
-      totals: {
-        placeOfSupply: data.placeOfSupply,
-        taxMode: data.taxMode,
-        itemsSubtotal: data.itemsSubtotal,
-        transportCharge: data.transportCharge,
-        taxableAmount: data.taxableAmount,
-        cgstRate: data.cgstRate,
-        sgstRate: data.sgstRate,
-        igstRate: data.igstRate,
-        cgstAmount: data.cgstAmount,
-        sgstAmount: data.sgstAmount,
-        igstAmount: data.igstAmount,
-        roundOff: data.roundOff,
-        totalAmount: data.totalAmount,
-        amountInWords: amountInWords(data.totalAmount),
-        lineAmounts: data.lines.map((l) => l.amount),
-      },
+      totals: previewTotals(data),
     };
   }
 

@@ -911,6 +911,128 @@ describe("Sales — quotations, invoices & delivery challans (e2e)", () => {
   });
 
   // ---------------------------------------------------------------------------
+  describe("invoice and delivery challan live previews", () => {
+    interface Preview {
+      number: string;
+      html: string;
+      totals?: { totalAmount: string; lineAmounts: string[] };
+    }
+    const invoiceBody = (over: Record<string, unknown> = {}) => ({
+      invoiceType: "TAX",
+      customerId: tnCustomer,
+      invoiceDate: "2026-10-15",
+      lines: [line()],
+      cgstRate: 9,
+      sgstRate: 9,
+      ...over,
+    });
+
+    it("previews a tax invoice like create, under the next number, storing nothing", async () => {
+      const next = await http()
+        .get("/sales/invoices/next-number?invoiceType=TAX&date=2026-10-15")
+        .set(auth("manager"))
+        .expect(200);
+      const res = await http()
+        .post("/sales/invoices/preview")
+        .set(auth("exec"))
+        .send(invoiceBody())
+        .expect(200);
+      const preview = (res.body as Body<Preview>).data;
+      expect(preview.number).toBe(
+        (next.body as Body<{ number: string }>).data.number,
+      );
+      expect(preview.html).toContain("TAX INVOICE");
+      expect(preview.totals?.lineAmounts).toEqual(["600"]);
+      const again = await http()
+        .get("/sales/invoices/next-number?invoiceType=TAX&date=2026-10-15")
+        .set(auth("manager"))
+        .expect(200);
+      expect(again.body).toEqual(next.body);
+      const saved = await http()
+        .post("/sales/invoices")
+        .set(auth("manager"))
+        .send(invoiceBody())
+        .expect(201);
+      expect(preview.totals?.totalAmount).toBe(
+        (saved.body as Body<Doc>).data.totalAmount,
+      );
+    });
+
+    it("previews a proforma and invoice edits; checks the due date", async () => {
+      const pi = await http()
+        .post("/sales/invoices/preview")
+        .set(auth("manager"))
+        .send(invoiceBody({ invoiceType: "PROFORMA" }))
+        .expect(200);
+      expect((pi.body as Body<Preview>).data.html).toContain(
+        "PROFORMA INVOICE",
+      );
+      const bad = await http()
+        .post("/sales/invoices/preview")
+        .set(auth("manager"))
+        .send(invoiceBody({ dueDate: "2026-10-01" }))
+        .expect(422);
+      expect((bad.body as ErrorBody).error).toBe(
+        "DUE_DATE_BEFORE_INVOICE_DATE",
+      );
+      const saved = await http()
+        .post("/sales/invoices")
+        .set(auth("manager"))
+        .send(invoiceBody())
+        .expect(201);
+      const inv = (saved.body as Body<Doc>).data;
+      const edit = await http()
+        .post(`/sales/invoices/${inv.id}/preview`)
+        .set(auth("manager"))
+        .send({ lines: [line({ quantity: 3 })] })
+        .expect(200);
+      expect((edit.body as Body<Preview>).data.number).toBe(inv.invoiceNumber);
+      await http()
+        .post("/sales/invoices/preview")
+        .set(auth("reader"))
+        .send(invoiceBody())
+        .expect(403);
+    });
+
+    it("previews a delivery challan (no prices) and its edits", async () => {
+      const dcBody = {
+        customerId: tnCustomer,
+        dcDate: "2026-10-15",
+        lines: [{ description: "Control panel", hsnCode: "8471", quantity: 2 }],
+      };
+      const res = await http()
+        .post("/sales/delivery-challans/preview")
+        .set(auth("exec"))
+        .send(dcBody)
+        .expect(200);
+      const preview = (res.body as Body<Preview>).data;
+      expect(preview.number).toMatch(/^TW\/DC\/26-27\/\d{4}$/);
+      expect(preview.html).toContain("DELIVERY CHALLAN");
+      expect(preview.html).toContain("Control panel");
+      expect(preview.totals).toBeUndefined();
+      const saved = await http()
+        .post("/sales/delivery-challans")
+        .set(auth("manager"))
+        .send(dcBody)
+        .expect(201);
+      const dc = (saved.body as Body<Doc>).data;
+      const edit = await http()
+        .post(`/sales/delivery-challans/${dc.id}/preview`)
+        .set(auth("manager"))
+        .send({ notes: "Handle with care" })
+        .expect(200);
+      expect((edit.body as Body<Preview>).data.html).toContain(
+        "Handle with care",
+      );
+      await http()
+        .post(`/sales/delivery-challans/${dc.id}/preview`)
+        .set(auth("managerB"))
+        .send({})
+        .expect(404);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   describe("PDF, email and WhatsApp", () => {
     it("exports a PDF from the server-side template", async () => {
       const q = await createQuotation("manager", tnCustomer, {

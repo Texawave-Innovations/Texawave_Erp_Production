@@ -8,6 +8,8 @@ import {
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { CompanyProfileService } from "../master-list/company-profile.service.js";
 import { DocumentDeliveryService } from "./document-delivery.service.js";
+import { previewTotals, printableFromData } from "./document-preview.js";
+import type { DocumentData } from "./document-repository.helpers.js";
 import {
   DocumentPricingService,
   draftFromDto,
@@ -143,6 +145,80 @@ export class InvoicesService {
     );
     if (!updated) throw new ResourceNotFoundException("Invoice", id);
     return updated;
+  }
+
+  /**
+   * Live preview of an unsaved invoice: create()'s pricing and checks,
+   * rendered with the PDF's template. Nothing is stored and no number is
+   * reserved (the number shown is the next one of that type).
+   */
+  async preview(dto: CreateInvoiceDto) {
+    const data = await this.pricing.resolve(draftFromDto(dto), {
+      requireActiveCustomer: true,
+    });
+    const invoiceDate = parseDateOnly(dto.invoiceDate);
+    const dueDate = dto.dueDate ? parseDateOnly(dto.dueDate) : null;
+    assertDueDate(invoiceDate, dueDate);
+    const { number } = await this.pricing.previewNumber(
+      codeType(dto.invoiceType),
+      invoiceDate,
+    );
+    return this.render(data, {
+      invoiceType: dto.invoiceType,
+      invoiceNumber: number,
+      invoiceDate,
+      dueDate,
+    });
+  }
+
+  /** Live preview of edits to a saved invoice (same merge as update()). */
+  async previewUpdate(id: number, dto: UpdateInvoiceDto) {
+    const current = await this.findOne(id);
+    const draft = mergeDraft(
+      draftFromStored(current, storedRates(current)),
+      dto,
+    );
+    const data = await this.pricing.resolve(draft, {
+      requireActiveCustomer: draft.customerId !== current.customerId,
+    });
+    const invoiceDate =
+      dto.invoiceDate !== undefined
+        ? parseDateOnly(dto.invoiceDate)
+        : current.invoiceDate;
+    const dueDate =
+      dto.dueDate !== undefined
+        ? dto.dueDate === null
+          ? null
+          : parseDateOnly(dto.dueDate)
+        : current.dueDate;
+    assertDueDate(invoiceDate, dueDate);
+    return this.render(data, {
+      invoiceType: current.invoiceType as InvoiceType,
+      invoiceNumber: current.invoiceNumber,
+      invoiceDate,
+      dueDate,
+    });
+  }
+
+  private async render(
+    data: DocumentData,
+    meta: {
+      invoiceType: InvoiceType;
+      invoiceNumber: string;
+      invoiceDate: Date;
+      dueDate: Date | null;
+    },
+  ) {
+    const company = await this.companyProfile.require();
+    const doc = await this.delivery.withImages(
+      printableInvoice({ ...printableFromData(data), ...meta }, company),
+      data,
+    );
+    return {
+      number: meta.invoiceNumber,
+      html: this.delivery.html(doc),
+      totals: previewTotals(data),
+    };
   }
 
   async remove(id: number): Promise<void> {

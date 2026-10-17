@@ -77,6 +77,29 @@ export class DeliveryChallansController {
     return this.challans.create(dto);
   }
 
+  @Post("preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Live preview of an unsaved delivery challan (nothing stored)",
+  })
+  preview(@Body() dto: CreateDeliveryChallanDto) {
+    return this.challans.preview(dto);
+  }
+
+  @Post(":id/preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Live preview of edits to a saved delivery challan",
+  })
+  previewUpdate(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateDeliveryChallanDto,
+  ) {
+    return this.challans.previewUpdate(id, dto);
+  }
+
   @Patch(":id")
   @RequirePermission(WRITE)
   update(

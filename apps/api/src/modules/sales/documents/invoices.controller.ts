@@ -87,6 +87,28 @@ export class InvoicesController {
     return this.invoices.create(dto);
   }
 
+  @Post("preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Live preview of an unsaved invoice: server totals and the PDF's HTML (nothing stored)",
+  })
+  preview(@Body() dto: CreateInvoiceDto) {
+    return this.invoices.preview(dto);
+  }
+
+  @Post(":id/preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Live preview of edits to a saved invoice" })
+  previewUpdate(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateInvoiceDto,
+  ) {
+    return this.invoices.previewUpdate(id, dto);
+  }
+
   @Patch(":id")
   @RequirePermission(WRITE)
   @ApiOperation({ summary: "Edit an invoice (re-priced)" })
