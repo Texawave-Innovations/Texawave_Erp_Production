@@ -7,6 +7,7 @@ export * from "./designations";
 export * from "./users";
 export * from "./menu";
 export * from "./sales-settings";
+export * from "./finance-settings";
 export * from "./work-locations";
 export * from "./leave-types";
 export * from "./shifts";

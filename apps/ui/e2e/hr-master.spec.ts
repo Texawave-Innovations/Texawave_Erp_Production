@@ -8,7 +8,7 @@ import {
 
 /**
  * HR Master screen: the shared Masters tab bar renders with HR Master
- * active and the paused tabs (Stores/Finance/Projects) non-interactive, all
+ * active and the still-paused tabs (Stores/Projects) non-interactive, all
  * five resource cards render, add+delete on the Departments card round-trips
  * through the mocked API and shows a success toast, and a reader without
  * write permission sees no Add button. API fully mocked — the backend's own
@@ -184,7 +184,7 @@ test("shows the Masters tab bar with HR Master active and the paused tabs disabl
   const hrTab = page.getByRole("link", { name: "HR Master" });
   await expect(hrTab).toBeVisible();
 
-  for (const label of ["Stores Master", "Finance Master", "Projects Master"]) {
+  for (const label of ["Stores Master", "Projects Master"]) {
     await expect(page.getByRole("link", { name: label })).toHaveCount(0);
     await expect(page.getByText(label)).toHaveAttribute(
       "aria-disabled",

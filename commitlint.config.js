@@ -56,6 +56,8 @@ module.exports = {
         // Sales Settings foundation (Company Detail, Document Numbering,
         // Seals & Signatures, Terms & Inventory) — apps/api/src/modules/sales-settings.
         "sales-settings",
+        // Finance Master foundation (Expense Types, Payment Modes) — apps/api/src/modules/finance-settings.
+        "finance-settings",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

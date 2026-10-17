@@ -21,7 +21,12 @@ const TABS: MasterTab[] = [
     path: "/settings/sales-settings",
   },
   { id: "hr", label: "HR Master", icon: Users, path: "/settings/masters/hr" },
-  { id: "finance", label: "Finance Master", icon: Landmark },
+  {
+    id: "finance",
+    label: "Finance Master",
+    icon: Landmark,
+    path: "/settings/masters/finance",
+  },
   { id: "projects", label: "Projects Master", icon: Briefcase },
 ];
 
@@ -32,12 +37,14 @@ export interface MastersTabBarProps {
   active: MasterTabId;
 }
 
-/** Secondary nav shown above both the Sales & Document Masters and HR
- * Master screens, letting a user jump between master-data areas. Finance
- * and Projects are visually present but disabled (no route yet) —
- * matching the Sales/Purchases/Finance/Inventory/Vault/Projects "paused, not
- * removed" status in CLAUDE.md. This is a secondary nav specific to the
- * Masters area, distinct from the main app's HorizontalNavbar. */
+/** Secondary nav shown above the Sales & Document Masters, HR Master, and
+ * Finance Master screens, letting a user jump between master-data areas.
+ * Projects is visually present but disabled (no route yet) — matching the
+ * Sales/Purchases/Finance/Inventory/Vault/Projects "paused, not removed"
+ * status in CLAUDE.md; Finance Master itself is just the master-list
+ * foundation (Expense Types/Payment Modes) ahead of the rest of that
+ * module. This is a secondary nav specific to the Masters area, distinct
+ * from the main app's HorizontalNavbar. */
 export function MastersTabBar({ active }: MastersTabBarProps) {
   return (
     <nav

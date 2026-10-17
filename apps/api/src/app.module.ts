@@ -42,6 +42,7 @@ import { EmploymentTypesModule } from "./modules/master-data/employment-types/em
 import { WorkLocationsModule } from "./modules/master-data/work-locations/work-locations.module.js";
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { SalesSettingsModule } from "./modules/sales-settings/sales-settings.module.js";
+import { FinanceSettingsModule } from "./modules/finance-settings/finance-settings.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
@@ -118,6 +119,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     UsersModule,
     MenuModule,
     SalesSettingsModule,
+    FinanceSettingsModule,
   ],
   controllers: [AppController],
   providers: [

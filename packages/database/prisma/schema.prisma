@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "sales"]
+  schemas  = ["platform", "hr", "sales", "finance"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -51,85 +51,86 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users                   User[]
-  roles                   Role[]
-  tags                    Tag[]
-  teams                   Team[]
-  departments             Department[]
-  userTeamAccess          UserTeamAccess[]
-  approvals               Approval[]
-  employeePersonalDetails EmployeePersonalDetail[]
-  employeeBankDetails     EmployeeBankDetail[]
-  employeeFamilyMembers   EmployeeFamilyMember[]
-  employeeExperiences     EmployeeExperience[]
-  employeeDocuments       EmployeeDocument[]
-  auditLogs               AuditLog[]
-  designations            Designation[]
-  employmentTypes         EmploymentType[]
-  workLocations           WorkLocation[]
-  locationPrivileges      EmployeeLocationPrivilege[]
-  officeNetworkAddresses  OfficeNetworkAddress[]
-  employees               Employee[]
-  employeeStatusHistory   EmployeeStatusHistory[]
-  documentSequences       DocumentSequence[]
-  shifts                  Shift[]
-  shiftAssignments        ShiftAssignment[]
-  holidays                Holiday[]
-  leaveTypes              LeaveType[]
-  leaveRequests           LeaveRequest[]
-  leaveEntitlements       LeaveEntitlement[]
-  leaveDelegations        LeaveApprovalDelegation[]
-  expenseClaims           ExpenseClaim[]
-  exitRequests            ExitRequest[]
-  tasks                   Task[]
-  tickets                 Ticket[]
-  ticketComments          TicketComment[]
-  weeklyOffRules          WeeklyOffRule[]
-  menuItems               MenuItem[]
-  attendanceRecords       AttendanceRecord[]
-  attendanceCorrections   AttendanceCorrection[]
-  attendanceMonthLocks    AttendanceMonthLock[]
-  notifications           Notification[]
-  revisionLetters         RevisionLetter[]
-  promotionLetters        PromotionLetter[]
-  interviews              Interview[]
-  offerLetters            OfferLetter[]
-  employeeProfiles        EmployeeProfile[]
-  employeeSensitiveInfos  EmployeeSensitiveInfo[]
-  employeeAddresses       EmployeeAddress[]
-  employeeGovernmentIds   EmployeeGovernmentId[]
-  payrollPeriods        PayrollPeriod[]
-  payrollRuns           PayrollRun[]
-  payrollEntries        PayrollEntry[]
-  companyDetail         CompanyDetail?
-  bankAccounts          BankAccount[]
-  authorizedSignatory   AuthorizedSignatory?
-  salespersons          Salesperson[]
-  sealSignatures        SealSignature[]
-  salesMasterListItems  SalesMasterListItem[]
-  payrollEarnings       PayrollEarning[]
-  payrollDeductions     PayrollDeduction[]
-  employeeSalaries      EmployeeSalary[]
-  payrollSetting        PayrollSetting?
-  employeePfProfiles    EmployeePfProfile[]
-  pfContributions       PfContribution[]
-  employeeEsiProfiles   EmployeeEsiProfile[]
-  esiContributions      EsiContribution[]
-  employeeLoans         EmployeeLoan[]
-  loanRepayments        LoanRepayment[]
-  loanSkipRequests      LoanSkipRequest[]
-  employeeBonuses       EmployeeBonus[]
-  payslips              Payslip[]
-  paymentBatches        PaymentBatch[]
-  payrollPayments       PayrollPayment[]
-  salaryComponents          SalaryComponent[]
-  salaryTemplates           SalaryTemplate[]
-  employeeSalaryComponents  EmployeeSalaryComponent[]
-  professionalTaxSlabs      ProfessionalTaxSlab[]
-  ptLocationStates          PtLocationState[]
-  incomeTaxRegimes          IncomeTaxRegime[]
-  employeeTaxDeclarations   EmployeeTaxDeclaration[]
-  loanPrepayments           LoanPrepayment[]
+  users                    User[]
+  roles                    Role[]
+  tags                     Tag[]
+  teams                    Team[]
+  departments              Department[]
+  userTeamAccess           UserTeamAccess[]
+  approvals                Approval[]
+  employeePersonalDetails  EmployeePersonalDetail[]
+  employeeBankDetails      EmployeeBankDetail[]
+  employeeFamilyMembers    EmployeeFamilyMember[]
+  employeeExperiences      EmployeeExperience[]
+  employeeDocuments        EmployeeDocument[]
+  auditLogs                AuditLog[]
+  designations             Designation[]
+  employmentTypes          EmploymentType[]
+  workLocations            WorkLocation[]
+  locationPrivileges       EmployeeLocationPrivilege[]
+  officeNetworkAddresses   OfficeNetworkAddress[]
+  employees                Employee[]
+  employeeStatusHistory    EmployeeStatusHistory[]
+  documentSequences        DocumentSequence[]
+  shifts                   Shift[]
+  shiftAssignments         ShiftAssignment[]
+  holidays                 Holiday[]
+  leaveTypes               LeaveType[]
+  leaveRequests            LeaveRequest[]
+  leaveEntitlements        LeaveEntitlement[]
+  leaveDelegations         LeaveApprovalDelegation[]
+  expenseClaims            ExpenseClaim[]
+  exitRequests             ExitRequest[]
+  tasks                    Task[]
+  tickets                  Ticket[]
+  ticketComments           TicketComment[]
+  weeklyOffRules           WeeklyOffRule[]
+  menuItems                MenuItem[]
+  attendanceRecords        AttendanceRecord[]
+  attendanceCorrections    AttendanceCorrection[]
+  attendanceMonthLocks     AttendanceMonthLock[]
+  notifications            Notification[]
+  revisionLetters          RevisionLetter[]
+  promotionLetters         PromotionLetter[]
+  interviews               Interview[]
+  offerLetters             OfferLetter[]
+  employeeProfiles         EmployeeProfile[]
+  employeeSensitiveInfos   EmployeeSensitiveInfo[]
+  employeeAddresses        EmployeeAddress[]
+  employeeGovernmentIds    EmployeeGovernmentId[]
+  payrollPeriods           PayrollPeriod[]
+  payrollRuns              PayrollRun[]
+  payrollEntries           PayrollEntry[]
+  companyDetail            CompanyDetail?
+  bankAccounts             BankAccount[]
+  authorizedSignatory      AuthorizedSignatory?
+  salespersons             Salesperson[]
+  sealSignatures           SealSignature[]
+  salesMasterListItems     SalesMasterListItem[]
+  financeMasterListItems   FinanceMasterListItem[]
+  payrollEarnings          PayrollEarning[]
+  payrollDeductions        PayrollDeduction[]
+  employeeSalaries         EmployeeSalary[]
+  payrollSetting           PayrollSetting?
+  employeePfProfiles       EmployeePfProfile[]
+  pfContributions          PfContribution[]
+  employeeEsiProfiles      EmployeeEsiProfile[]
+  esiContributions         EsiContribution[]
+  employeeLoans            EmployeeLoan[]
+  loanRepayments           LoanRepayment[]
+  loanSkipRequests         LoanSkipRequest[]
+  employeeBonuses          EmployeeBonus[]
+  payslips                 Payslip[]
+  paymentBatches           PaymentBatch[]
+  payrollPayments          PayrollPayment[]
+  salaryComponents         SalaryComponent[]
+  salaryTemplates          SalaryTemplate[]
+  employeeSalaryComponents EmployeeSalaryComponent[]
+  professionalTaxSlabs     ProfessionalTaxSlab[]
+  ptLocationStates         PtLocationState[]
+  incomeTaxRegimes         IncomeTaxRegime[]
+  employeeTaxDeclarations  EmployeeTaxDeclaration[]
+  loanPrepayments          LoanPrepayment[]
 
   @@map("organizations")
   @@schema("platform")
@@ -149,48 +150,48 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  organization        Organization            @relation(fields: [organizationId], references: [id])
-  userRoles           UserRole[]
-  ledTeams            Team[]                  @relation("TeamLead")
-  teamAccess          UserTeamAccess[]
-  auditLogs           AuditLog[]
-  employee            Employee?
-  statusChanges       EmployeeStatusHistory[]
-  leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
-  leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
-  leaveFirstDecided   LeaveRequest[]          @relation("LeaveFirstDecider")
-  leaveCancelled      LeaveRequest[]          @relation("LeaveCanceller")
-  leaveDelegatedFrom  LeaveApprovalDelegation[] @relation("LeaveDelegator")
-  leaveDelegatedTo    LeaveApprovalDelegation[] @relation("LeaveDelegate")
-  expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
-  expenseClaimsDecided   ExpenseClaim[]       @relation("ExpenseClaimDecider")
-  exitRequestsRequested  ExitRequest[]        @relation("ExitRequestRequester")
-  exitRequestsDecided    ExitRequest[]        @relation("ExitRequestDecider")
-  tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
-  tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
-  ticketsRaisedByMe   Ticket[]                @relation("TicketRaisedBy")
-  ticketCommentsByMe  TicketComment[]         @relation("TicketCommentByHr")
-  attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
-  attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
-  attendanceMonthLocksSubmitted  AttendanceMonthLock[]  @relation("AttendanceMonthLockSubmitter")
-  attendanceMonthLocksDecided    AttendanceMonthLock[]  @relation("AttendanceMonthLockDecider")
+  organization                   Organization              @relation(fields: [organizationId], references: [id])
+  userRoles                      UserRole[]
+  ledTeams                       Team[]                    @relation("TeamLead")
+  teamAccess                     UserTeamAccess[]
+  auditLogs                      AuditLog[]
+  employee                       Employee?
+  statusChanges                  EmployeeStatusHistory[]
+  leaveRequested                 LeaveRequest[]            @relation("LeaveRequester")
+  leaveDecided                   LeaveRequest[]            @relation("LeaveDecider")
+  leaveFirstDecided              LeaveRequest[]            @relation("LeaveFirstDecider")
+  leaveCancelled                 LeaveRequest[]            @relation("LeaveCanceller")
+  leaveDelegatedFrom             LeaveApprovalDelegation[] @relation("LeaveDelegator")
+  leaveDelegatedTo               LeaveApprovalDelegation[] @relation("LeaveDelegate")
+  expenseClaimsRequested         ExpenseClaim[]            @relation("ExpenseClaimRequester")
+  expenseClaimsDecided           ExpenseClaim[]            @relation("ExpenseClaimDecider")
+  exitRequestsRequested          ExitRequest[]             @relation("ExitRequestRequester")
+  exitRequestsDecided            ExitRequest[]             @relation("ExitRequestDecider")
+  tasksAssignedByMe              Task[]                    @relation("TaskAssignedBy")
+  tasksApprovedByMe              Task[]                    @relation("TaskApprovedBy")
+  ticketsRaisedByMe              Ticket[]                  @relation("TicketRaisedBy")
+  ticketCommentsByMe             TicketComment[]           @relation("TicketCommentByHr")
+  attendanceCorrectionsRequested AttendanceCorrection[]    @relation("AttendanceCorrectionRequester")
+  attendanceCorrectionsDecided   AttendanceCorrection[]    @relation("AttendanceCorrectionDecider")
+  attendanceMonthLocksSubmitted  AttendanceMonthLock[]     @relation("AttendanceMonthLockSubmitter")
+  attendanceMonthLocksDecided    AttendanceMonthLock[]     @relation("AttendanceMonthLockDecider")
   notifications                  Notification[]
-  passwordResetTokens PasswordResetToken[]
-  approvalsRequested  Approval[]              @relation("ApprovalRequester")
-  approvalsDecided    Approval[]              @relation("ApprovalDecider")
-  payrollPeriodsFinalized   PayrollPeriod[]         @relation("PayrollPeriodFinalizer")
-  payrollRunsCreated        PayrollRun[]            @relation("PayrollRunCreator")
-  payrollRunsApproved       PayrollRun[]            @relation("PayrollRunApprover")
-  loanSkipRequestsRequested LoanSkipRequest[]       @relation("LoanSkipRequester")
-  loanSkipRequestsApproved  LoanSkipRequest[]       @relation("LoanSkipApprover")
-  bonusesApproved           EmployeeBonus[]         @relation("BonusApprover")
-  paymentBatchesGenerated   PaymentBatch[]          @relation("PaymentBatchGenerator")
-  payrollPeriodsReopened    PayrollPeriod[]         @relation("PayrollPeriodReopener")
-  loansApproved             EmployeeLoan[]          @relation("LoanApprover")
-  loansHrReviewed           EmployeeLoan[]          @relation("LoanHrReviewer")
-  loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
-  loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
-  taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
+  passwordResetTokens            PasswordResetToken[]
+  approvalsRequested             Approval[]                @relation("ApprovalRequester")
+  approvalsDecided               Approval[]                @relation("ApprovalDecider")
+  payrollPeriodsFinalized        PayrollPeriod[]           @relation("PayrollPeriodFinalizer")
+  payrollRunsCreated             PayrollRun[]              @relation("PayrollRunCreator")
+  payrollRunsApproved            PayrollRun[]              @relation("PayrollRunApprover")
+  loanSkipRequestsRequested      LoanSkipRequest[]         @relation("LoanSkipRequester")
+  loanSkipRequestsApproved       LoanSkipRequest[]         @relation("LoanSkipApprover")
+  bonusesApproved                EmployeeBonus[]           @relation("BonusApprover")
+  paymentBatchesGenerated        PaymentBatch[]            @relation("PaymentBatchGenerator")
+  payrollPeriodsReopened         PayrollPeriod[]           @relation("PayrollPeriodReopener")
+  loansApproved                  EmployeeLoan[]            @relation("LoanApprover")
+  loansHrReviewed                EmployeeLoan[]            @relation("LoanHrReviewer")
+  loanPrepaymentsRequested       LoanPrepayment[]          @relation("LoanPrepaymentRequester")
+  loanPrepaymentsDecided         LoanPrepayment[]          @relation("LoanPrepaymentDecider")
+  taxDeclarationsVerified        EmployeeTaxDeclaration[]  @relation("TaxDeclarationVerifier")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -578,10 +579,10 @@ model WorkLocation {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization   Organization    @relation(fields: [organizationId], references: [id])
-  employees      Employee[]
-  holidays       Holiday[]
-  weeklyOffRules WeeklyOffRule[]
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  employees       Employee[]
+  holidays        Holiday[]
+  weeklyOffRules  WeeklyOffRule[]
   ptLocationState PtLocationState?
 
   @@unique([organizationId, code])
@@ -634,21 +635,21 @@ model DocumentSequence {
 /// Invariants Prisma cannot express (status/exit-date consistency, immutable
 /// code and organization, reporting-line cycles) are in the migration.
 model Employee {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  employeeCode     String    @map("employee_code")
-  userId           Int?      @unique @map("user_id")
-  fullName         String    @map("full_name")
-  workEmail        String?   @map("work_email")
-  phone            String?
-  teamId           Int       @map("team_id")
-  departmentId     Int?      @map("department_id")
-  designationId    Int       @map("designation_id")
-  employmentTypeId Int       @map("employment_type_id")
-  workLocationId   Int?      @map("work_location_id")
-  reportsToId      Int?      @map("reports_to_id")
-  status           String    @default("ACTIVE")
-  onboardingStatus String    @default("PENDING_ACTIVATION") @map("onboarding_status")
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  employeeCode           String    @map("employee_code")
+  userId                 Int?      @unique @map("user_id")
+  fullName               String    @map("full_name")
+  workEmail              String?   @map("work_email")
+  phone                  String?
+  teamId                 Int       @map("team_id")
+  departmentId           Int?      @map("department_id")
+  designationId          Int       @map("designation_id")
+  employmentTypeId       Int       @map("employment_type_id")
+  workLocationId         Int?      @map("work_location_id")
+  reportsToId            Int?      @map("reports_to_id")
+  status                 String    @default("ACTIVE")
+  onboardingStatus       String    @default("PENDING_ACTIVATION") @map("onboarding_status")
   /// HR's review of the submitted onboarding profile, independent of
   /// `onboarding_status` (Docs/ARCHITECTURE.md §7): NOT_SUBMITTED |
   /// PENDING_REVIEW | APPROVED | CHANGES_REQUESTED (CHECK in the migration).
@@ -657,21 +658,21 @@ model Employee {
   onboardingReviewedAt   DateTime? @map("onboarding_reviewed_at") @db.Timestamptz(6)
   onboardingReviewedBy   Int?      @map("onboarding_reviewed_by")
   onboardingReviewNote   String?   @map("onboarding_review_note")
-  dateOfJoining    DateTime  @map("date_of_joining") @db.Date
-  probationEndDate DateTime? @map("probation_end_date") @db.Date
-  confirmationDate DateTime? @map("confirmation_date") @db.Date
-  referredBy       String?   @map("referred_by")
-  workDomain       String?   @map("work_domain")
-  dateOfExit       DateTime? @map("date_of_exit") @db.Date
-  exitReason       String?   @map("exit_reason")
-  version          Int       @default(1)
-  customFields     Json      @default("{}") @map("custom_fields")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  dateOfJoining          DateTime  @map("date_of_joining") @db.Date
+  probationEndDate       DateTime? @map("probation_end_date") @db.Date
+  confirmationDate       DateTime? @map("confirmation_date") @db.Date
+  referredBy             String?   @map("referred_by")
+  workDomain             String?   @map("work_domain")
+  dateOfExit             DateTime? @map("date_of_exit") @db.Date
+  exitReason             String?   @map("exit_reason")
+  version                Int       @default(1)
+  customFields           Json      @default("{}") @map("custom_fields")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization          Organization               @relation(fields: [organizationId], references: [id])
   user                  User?                      @relation(fields: [userId], references: [id])
@@ -707,17 +708,17 @@ model Employee {
   documents             EmployeeDocument[]
   employeeAddresses     EmployeeAddress[]
   employeeGovernmentId  EmployeeGovernmentId?
-  salaries         EmployeeSalary[]
-  pfProfile        EmployeePfProfile?
-  esiProfile       EmployeeEsiProfile?
-  loans            EmployeeLoan[]
-  bonuses          EmployeeBonus[]
-  payrollEntries   PayrollEntry[]
-  payslips         Payslip[]
-  payrollPayments  PayrollPayment[]
-  pfContributions  PfContribution[]
-  esiContributions EsiContribution[]
-  taxDeclarations  EmployeeTaxDeclaration[]
+  salaries              EmployeeSalary[]
+  pfProfile             EmployeePfProfile?
+  esiProfile            EmployeeEsiProfile?
+  loans                 EmployeeLoan[]
+  bonuses               EmployeeBonus[]
+  payrollEntries        PayrollEntry[]
+  payslips              Payslip[]
+  payrollPayments       PayrollPayment[]
+  pfContributions       PfContribution[]
+  esiContributions      EsiContribution[]
+  taxDeclarations       EmployeeTaxDeclaration[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -915,29 +916,37 @@ model WeeklyOffRule {
 // the list of types is business data.
 
 model LeaveType {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  code           String
-  name           String
-  description    String?
-  /** Paid leave draws on the balance; unpaid leave is not balance-limited. */
-  isPaid            Boolean  @default(true) @map("is_paid")
-  /** Default annual entitlement in days, accrued monthly (annual / 12 per month). */
-  annualEntitlement Decimal  @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
-  /** Unused days carried into the next year are capped at this value. */
-  carryForwardLimit Decimal  @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
-  /** 1 = one approval (reporting manager or a scoped approver); 2 = the
-   * reporting manager (or a scoped approver) first, then HR (`.all`). */
-  approvalLevels Int       @default(1) @map("approval_levels")
-  customFields   Json      @default("{}") @map("custom_fields")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  code              String
+  name              String
+  description       String?
+  /**
+   * Paid leave draws on the balance; unpaid leave is not balance-limited.
+   */
+  isPaid            Boolean   @default(true) @map("is_paid")
+  /**
+   * Default annual entitlement in days, accrued monthly (annual / 12 per month).
+   */
+  annualEntitlement Decimal   @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
+  /**
+   * Unused days carried into the next year are capped at this value.
+   */
+  carryForwardLimit Decimal   @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
+  /**
+   * 1 = one approval (reporting manager or a scoped approver); 2 = the
+   * reporting manager (or a scoped approver) first, then HR (`.all`).
+   */
+  approvalLevels    Int       @default(1) @map("approval_levels")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization   @relation(fields: [organizationId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
   requests     LeaveRequest[]
   entitlements LeaveEntitlement[]
 
@@ -958,40 +967,50 @@ model LeaveType {
 /// An exclusion constraint forbids two PENDING/APPROVED requests of one
 /// employee covering a common day.
 model LeaveRequest {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  employeeId     Int       @map("employee_id")
-  leaveTypeId    Int       @map("leave_type_id")
-  startDate      DateTime  @map("start_date") @db.Date
-  endDate        DateTime  @map("end_date") @db.Date
-  /** FULL, FIRST_HALF or SECOND_HALF (halves only on a single date). */
-  dayPortion     String    @default("FULL") @map("day_portion")
-  /** Working days consumed: weekly-offs and holidays excluded; half = 0.5. */
-  leaveDays      Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
-  reason         String
-  status         String    @default("PENDING")
-  /** Copied from the leave type at (re)submission, so changing the type
-   * never changes a request already in flight. */
-  approvalLevels Int       @default(1) @map("approval_levels")
-  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(6)
-  cancellationNote String?   @map("cancellation_note")
-  /** Who cancelled: the employee, or HR (`hr.leave.cancel`). */
-  cancelledBy      Int?      @map("cancelled_by")
-  requestedBy    Int       @map("requested_by")
-  /** First of two approvals (approval_levels = 2); status stays PENDING. */
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  employeeId        Int       @map("employee_id")
+  leaveTypeId       Int       @map("leave_type_id")
+  startDate         DateTime  @map("start_date") @db.Date
+  endDate           DateTime  @map("end_date") @db.Date
+  /**
+   * FULL, FIRST_HALF or SECOND_HALF (halves only on a single date).
+   */
+  dayPortion        String    @default("FULL") @map("day_portion")
+  /**
+   * Working days consumed: weekly-offs and holidays excluded; half = 0.5.
+   */
+  leaveDays         Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
+  reason            String
+  status            String    @default("PENDING")
+  /**
+   * Copied from the leave type at (re)submission, so changing the type
+   * never changes a request already in flight.
+   */
+  approvalLevels    Int       @default(1) @map("approval_levels")
+  cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancellationNote  String?   @map("cancellation_note")
+  /**
+   * Who cancelled: the employee, or HR (`hr.leave.cancel`).
+   */
+  cancelledBy       Int?      @map("cancelled_by")
+  requestedBy       Int       @map("requested_by")
+  /**
+   * First of two approvals (approval_levels = 2); status stays PENDING.
+   */
   firstDecidedBy    Int?      @map("first_decided_by")
   firstDecidedAt    DateTime? @map("first_decided_at") @db.Timestamptz(6)
   firstDecisionNote String?   @map("first_decision_note")
-  decidedBy      Int?      @map("decided_by")
-  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
-  decisionNote   String?   @map("decision_note")
-  customFields   Json      @default("{}") @map("custom_fields")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  decidedBy         Int?      @map("decided_by")
+  decidedAt         DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote      String?   @map("decision_note")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
@@ -1014,18 +1033,18 @@ model LeaveRequest {
 /// more: team/all approval still comes only from the delegate's own roles.
 /// Not edited: a delegation is revoked (`is_active = false`) and re-created.
 model LeaveApprovalDelegation {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  delegatorUserId Int       @map("delegator_user_id")
-  delegateUserId  Int       @map("delegate_user_id")
-  startDate       DateTime  @map("start_date") @db.Date
-  endDate         DateTime  @map("end_date") @db.Date
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  delegatorUserId Int      @map("delegator_user_id")
+  delegateUserId  Int      @map("delegate_user_id")
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
   reason          String?
-  isActive        Boolean   @default(true) @map("is_active")
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdBy       Int?     @map("created_by")
+  updatedBy       Int?     @map("updated_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   delegator    User         @relation("LeaveDelegator", fields: [delegatorUserId], references: [id])
@@ -1127,31 +1146,31 @@ model ExitRequest {
 /// never deleted (none in legacy) — cancellation is the closest equivalent
 /// and, like every other status, is reversible by whoever can write tasks.
 model Task {
-  id                 Int       @id @default(autoincrement())
-  organizationId     Int       @map("organization_id")
-  title              String
-  description        String?
-  assigneeId         Int       @map("assignee_id")
-  assignedByUserId   Int       @map("assigned_by_user_id")
-  createdByEmployeeId Int?     @map("created_by_employee_id")
-  dueDate            DateTime  @map("due_date") @db.Date
-  priority           String    @default("MEDIUM")
-  status             String    @default("PENDING")
-  isEmployeeCreated  Boolean   @default(false) @map("is_employee_created")
-  requestToAdmin     Boolean   @default(false) @map("request_to_admin")
-  adminApproved      Boolean   @default(false) @map("admin_approved")
-  approvedByUserId   Int?      @map("approved_by_user_id")
-  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
-  createdBy          Int?      @map("created_by")
-  updatedBy          Int?      @map("updated_by")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  title               String
+  description         String?
+  assigneeId          Int       @map("assignee_id")
+  assignedByUserId    Int       @map("assigned_by_user_id")
+  createdByEmployeeId Int?      @map("created_by_employee_id")
+  dueDate             DateTime  @map("due_date") @db.Date
+  priority            String    @default("MEDIUM")
+  status              String    @default("PENDING")
+  isEmployeeCreated   Boolean   @default(false) @map("is_employee_created")
+  requestToAdmin      Boolean   @default(false) @map("request_to_admin")
+  adminApproved       Boolean   @default(false) @map("admin_approved")
+  approvedByUserId    Int?      @map("approved_by_user_id")
+  approvedAt          DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  assignee        Employee     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  assignedByUser  User         @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
-  createdByEmployee Employee?  @relation("TaskCreatedBy", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
-  approvedByUser  User?        @relation("TaskApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  assignee          Employee     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignedByUser    User         @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
+  createdByEmployee Employee?    @relation("TaskCreatedBy", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
+  approvedByUser    User?        @relation("TaskApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, assigneeId, status])
   @@index([organizationId, status])
@@ -1167,20 +1186,20 @@ model Task {
 /// `status` is the four legacy values; `resolvedAt` is stamped when a ticket
 /// is resolved or closed and kept on reopen, as the legacy screen does.
 model Ticket {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  employeeId      Int       @map("employee_id")
-  category        String
-  subject         String
-  description     String
-  status          String    @default("OPEN")
-  raisedByAdmin   Boolean   @default(false) @map("raised_by_admin")
-  raisedByUserId  Int?      @map("raised_by_user_id")
-  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  category       String
+  subject        String
+  description    String
+  status         String    @default("OPEN")
+  raisedByAdmin  Boolean   @default(false) @map("raised_by_admin")
+  raisedByUserId Int?      @map("raised_by_user_id")
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization    @relation(fields: [organizationId], references: [id])
   employee     Employee        @relation("TicketRequester", fields: [employeeId], references: [id])
@@ -1265,8 +1284,8 @@ model AttendanceRecord {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization            @relation(fields: [organizationId], references: [id])
-  employee     Employee                @relation(fields: [employeeId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  employee     Employee               @relation(fields: [employeeId], references: [id])
   sessions     AttendanceSession[]
   corrections  AttendanceCorrection[]
 
@@ -1303,34 +1322,34 @@ model AttendanceSession {
 /// REJECTED, both terminal. Decision fields are written only by a conditional
 /// update (status = SUBMITTED), so a decision can happen exactly once.
 model AttendanceCorrection {
-  id                 Int       @id @default(autoincrement())
-  organizationId     Int       @map("organization_id")
-  employeeId         Int       @map("employee_id")
-  attendanceRecordId Int?      @map("attendance_record_id")
-  attendanceDate     DateTime  @map("attendance_date") @db.Date
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  employeeId          Int       @map("employee_id")
+  attendanceRecordId  Int?      @map("attendance_record_id")
+  attendanceDate      DateTime  @map("attendance_date") @db.Date
   /// MISSED_CHECK_IN | MISSED_CHECK_OUT | INCORRECT_TIME | LATE_ARRIVAL | EARLY_DEPARTURE
-  correctionType     String    @map("correction_type")
+  correctionType      String    @map("correction_type")
   requestedCheckInAt  DateTime? @map("requested_check_in_at") @db.Timestamptz(6)
   requestedCheckOutAt DateTime? @map("requested_check_out_at") @db.Timestamptz(6)
-  reason             String
-  status             String    @default("SUBMITTED")
-  requestedBy        Int       @map("requested_by")
-  decidedBy          Int?      @map("decided_by")
-  decidedAt          DateTime? @map("decided_at") @db.Timestamptz(6)
-  decisionNote       String?   @map("decision_note")
-  customFields       Json      @default("{}") @map("custom_fields")
-  isActive           Boolean   @default(true) @map("is_active")
-  createdBy          Int?      @map("created_by")
-  updatedBy          Int?      @map("updated_by")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+  reason              String
+  status              String    @default("SUBMITTED")
+  requestedBy         Int       @map("requested_by")
+  decidedBy           Int?      @map("decided_by")
+  decidedAt           DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote        String?   @map("decision_note")
+  customFields        Json      @default("{}") @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  employee     Employee           @relation(fields: [employeeId], references: [id])
-  record       AttendanceRecord?  @relation(fields: [attendanceRecordId], references: [id])
-  requester    User               @relation("AttendanceCorrectionRequester", fields: [requestedBy], references: [id])
-  decider      User?              @relation("AttendanceCorrectionDecider", fields: [decidedBy], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  employee     Employee          @relation(fields: [employeeId], references: [id])
+  record       AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id])
+  requester    User              @relation("AttendanceCorrectionRequester", fields: [requestedBy], references: [id])
+  decider      User?             @relation("AttendanceCorrectionDecider", fields: [decidedBy], references: [id])
 
   @@index([organizationId, employeeId, attendanceDate])
   @@index([organizationId, status])
@@ -1411,8 +1430,8 @@ model RevisionLetter {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employee     Employee     @relation(fields: [employeeId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  employee     Employee         @relation(fields: [employeeId], references: [id])
   salaries     EmployeeSalary[]
 
   @@unique([organizationId, documentNo])
@@ -1547,31 +1566,31 @@ model OfferLetter {
 /// details. Kept (not dropped) until a reviewer approves the drop; do not add
 /// new readers.
 model EmployeeProfile {
-  id                        Int       @id @default(autoincrement())
-  organizationId            Int       @map("organization_id")
-  employeeId                Int       @unique @map("employee_id")
-  title                     String?
-  dateOfBirth               DateTime? @map("date_of_birth") @db.Date
-  gender                    String?
-  maritalStatus             String?   @map("marital_status")
-  bloodGroup                String?   @map("blood_group")
-  languages                 String[]  @default([])
-  fatherName                String?   @map("father_name")
-  motherName                String?   @map("mother_name")
-  spouseName                String?   @map("spouse_name")
-  emergencyContactName      String?   @map("emergency_contact_name")
-  emergencyContactPhone     String?   @map("emergency_contact_phone")
-  emergencyContactRelation  String?   @map("emergency_contact_relation")
-  presentAddress            Json?     @map("present_address")
-  permanentAddress          Json?     @map("permanent_address")
-  isFresher                 Boolean   @default(false) @map("is_fresher")
-  experienceYears           Decimal?  @map("experience_years") @db.Decimal(4, 1)
-  previousCompany           String?   @map("previous_company")
-  previousRole              String?   @map("previous_role")
-  createdBy                 Int?      @map("created_by")
-  updatedBy                 Int?      @map("updated_by")
-  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @unique @map("employee_id")
+  title                    String?
+  dateOfBirth              DateTime? @map("date_of_birth") @db.Date
+  gender                   String?
+  maritalStatus            String?   @map("marital_status")
+  bloodGroup               String?   @map("blood_group")
+  languages                String[]  @default([])
+  fatherName               String?   @map("father_name")
+  motherName               String?   @map("mother_name")
+  spouseName               String?   @map("spouse_name")
+  emergencyContactName     String?   @map("emergency_contact_name")
+  emergencyContactPhone    String?   @map("emergency_contact_phone")
+  emergencyContactRelation String?   @map("emergency_contact_relation")
+  presentAddress           Json?     @map("present_address")
+  permanentAddress         Json?     @map("permanent_address")
+  isFresher                Boolean   @default(false) @map("is_fresher")
+  experienceYears          Decimal?  @map("experience_years") @db.Decimal(4, 1)
+  previousCompany          String?   @map("previous_company")
+  previousRole             String?   @map("previous_role")
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
@@ -1937,65 +1956,65 @@ model EmployeeGovernmentId {
 /// `payroll-settings.rules.ts`, which equal the values that were hard-coded
 /// before this table existed. Percentages are 0–100 (CHECKs in the migration).
 model PayrollSetting {
-  id                Int      @id @default(autoincrement())
-  organizationId    Int      @unique @map("organization_id")
+  id                      Int      @id @default(autoincrement())
+  organizationId          Int      @unique @map("organization_id")
   /// Auto-split of a gross monthly salary; the remainder is `other_allowance`.
-  basicPercent      Decimal  @default(35) @map("basic_percent") @db.Decimal(5, 2)
-  hraPercent        Decimal  @default(30) @map("hra_percent") @db.Decimal(5, 2)
-  conveyancePercent Decimal  @default(20) @map("conveyance_percent") @db.Decimal(5, 2)
-  pfWageCeiling     Decimal  @default(15000) @map("pf_wage_ceiling") @db.Decimal(12, 2)
-  pfEmployeeRate    Decimal  @default(12) @map("pf_employee_rate") @db.Decimal(5, 2)
-  pfEmployerRate    Decimal  @default(12) @map("pf_employer_rate") @db.Decimal(5, 2)
-  esiWageThreshold  Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
-  esiEmployeeRate   Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
-  esiEmployerRate   Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
+  basicPercent            Decimal  @default(35) @map("basic_percent") @db.Decimal(5, 2)
+  hraPercent              Decimal  @default(30) @map("hra_percent") @db.Decimal(5, 2)
+  conveyancePercent       Decimal  @default(20) @map("conveyance_percent") @db.Decimal(5, 2)
+  pfWageCeiling           Decimal  @default(15000) @map("pf_wage_ceiling") @db.Decimal(12, 2)
+  pfEmployeeRate          Decimal  @default(12) @map("pf_employee_rate") @db.Decimal(5, 2)
+  pfEmployerRate          Decimal  @default(12) @map("pf_employer_rate") @db.Decimal(5, 2)
+  esiWageThreshold        Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
+  esiEmployeeRate         Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
+  esiEmployerRate         Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
   /// Pay-days policy (Docs/PAYROLL_AND_COMPLIANCE.md §3.1): the per-day
   /// divisor. CALENDAR | FIXED_30 | FIXED_26 | WORKING_DAYS (CHECK).
-  payDaysMode       String   @default("CALENDAR") @map("pay_days_mode")
+  payDaysMode             String   @default("CALENDAR") @map("pay_days_mode")
   /// Read the employee's APPROVED attendance month lock (absences, half days,
   /// overtime); a run refuses employees whose month is not approved.
-  useAttendance     Boolean  @default(true) @map("use_attendance")
+  useAttendance           Boolean  @default(true) @map("use_attendance")
   /// A working day with no attendance at all counts as an absence (LOP).
-  unmarkedDaysAsAbsent Boolean @default(true) @map("unmarked_days_as_absent")
-  overtimeEnabled   Boolean  @default(false) @map("overtime_enabled")
+  unmarkedDaysAsAbsent    Boolean  @default(true) @map("unmarked_days_as_absent")
+  overtimeEnabled         Boolean  @default(false) @map("overtime_enabled")
   /// Fixed rupees per overtime hour; when null the rate is the hourly wage
   /// (gross ÷ divisor ÷ standard hours) × `overtime_multiplier`.
-  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(10, 2)
-  overtimeMultiplier Decimal @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
-  standardHoursPerDay Decimal @default(8) @map("standard_hours_per_day") @db.Decimal(4, 2)
+  overtimeRatePerHour     Decimal? @map("overtime_rate_per_hour") @db.Decimal(10, 2)
+  overtimeMultiplier      Decimal  @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
+  standardHoursPerDay     Decimal  @default(8) @map("standard_hours_per_day") @db.Decimal(4, 2)
   /// PF: when false, PF is on the full PF wage (voluntary higher wage).
-  pfCapAtCeiling    Boolean  @default(true) @map("pf_cap_at_ceiling")
-  epsRate           Decimal  @default(8.33) @map("eps_rate") @db.Decimal(5, 2)
-  epsWageCeiling    Decimal  @default(15000) @map("eps_wage_ceiling") @db.Decimal(12, 2)
-  epsAgeLimit       Int      @default(58) @map("eps_age_limit")
-  edliRate          Decimal  @default(0.5) @map("edli_rate") @db.Decimal(5, 2)
-  edliWageCeiling   Decimal  @default(15000) @map("edli_wage_ceiling") @db.Decimal(12, 2)
-  pfAdminRate       Decimal  @default(0.5) @map("pf_admin_rate") @db.Decimal(5, 2)
-  ptEnabled         Boolean  @default(false) @map("pt_enabled")
-  ptDefaultStateCode String? @map("pt_default_state_code")
-  tdsEnabled        Boolean  @default(false) @map("tds_enabled")
+  pfCapAtCeiling          Boolean  @default(true) @map("pf_cap_at_ceiling")
+  epsRate                 Decimal  @default(8.33) @map("eps_rate") @db.Decimal(5, 2)
+  epsWageCeiling          Decimal  @default(15000) @map("eps_wage_ceiling") @db.Decimal(12, 2)
+  epsAgeLimit             Int      @default(58) @map("eps_age_limit")
+  edliRate                Decimal  @default(0.5) @map("edli_rate") @db.Decimal(5, 2)
+  edliWageCeiling         Decimal  @default(15000) @map("edli_wage_ceiling") @db.Decimal(12, 2)
+  pfAdminRate             Decimal  @default(0.5) @map("pf_admin_rate") @db.Decimal(5, 2)
+  ptEnabled               Boolean  @default(false) @map("pt_enabled")
+  ptDefaultStateCode      String?  @map("pt_default_state_code")
+  tdsEnabled              Boolean  @default(false) @map("tds_enabled")
   /// OLD | NEW (CHECK): the regime of an employee with no declaration.
-  defaultTaxRegime  String   @default("NEW") @map("default_tax_regime")
-  bonusEligibilityLimit Decimal @default(21000) @map("bonus_eligibility_limit") @db.Decimal(12, 2)
-  bonusCalculationCeiling Decimal @default(7000) @map("bonus_calculation_ceiling") @db.Decimal(12, 2)
-  bonusPercent      Decimal  @default(8.33) @map("bonus_percent") @db.Decimal(5, 2)
-  gratuityCap       Decimal  @default(2000000) @map("gratuity_cap") @db.Decimal(12, 2)
-  gratuityMinYears  Int      @default(5) @map("gratuity_min_years")
-  loanMaxMultiple   Decimal  @default(3) @map("loan_max_multiple") @db.Decimal(5, 2)
-  loanMaxEmiPercent Decimal  @default(100) @map("loan_max_emi_percent") @db.Decimal(5, 2)
+  defaultTaxRegime        String   @default("NEW") @map("default_tax_regime")
+  bonusEligibilityLimit   Decimal  @default(21000) @map("bonus_eligibility_limit") @db.Decimal(12, 2)
+  bonusCalculationCeiling Decimal  @default(7000) @map("bonus_calculation_ceiling") @db.Decimal(12, 2)
+  bonusPercent            Decimal  @default(8.33) @map("bonus_percent") @db.Decimal(5, 2)
+  gratuityCap             Decimal  @default(2000000) @map("gratuity_cap") @db.Decimal(12, 2)
+  gratuityMinYears        Int      @default(5) @map("gratuity_min_years")
+  loanMaxMultiple         Decimal  @default(3) @map("loan_max_multiple") @db.Decimal(5, 2)
+  loanMaxEmiPercent       Decimal  @default(100) @map("loan_max_emi_percent") @db.Decimal(5, 2)
   /// Employer details printed on payslips, Form 16 and statutory files.
-  companyName       String?  @map("company_name")
-  companyAddress    String?  @map("company_address")
-  companyGstin      String?  @map("company_gstin")
-  companyPan        String?  @map("company_pan")
-  companyTan        String?  @map("company_tan")
-  pfEstablishmentCode String? @map("pf_establishment_code")
-  esiEmployerCode   String?  @map("esi_employer_code")
-  version           Int      @default(1)
-  createdBy         Int?     @map("created_by")
-  updatedBy         Int?     @map("updated_by")
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  companyName             String?  @map("company_name")
+  companyAddress          String?  @map("company_address")
+  companyGstin            String?  @map("company_gstin")
+  companyPan              String?  @map("company_pan")
+  companyTan              String?  @map("company_tan")
+  pfEstablishmentCode     String?  @map("pf_establishment_code")
+  esiEmployerCode         String?  @map("esi_employer_code")
+  version                 Int      @default(1)
+  createdBy               Int?     @map("created_by")
+  updatedBy               Int?     @map("updated_by")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -2026,17 +2045,17 @@ model PayrollPeriod {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  finalizedBy      User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
-  reopenedBy       User?             @relation("PayrollPeriodReopener", fields: [reopenedById], references: [id])
-  runs             PayrollRun[]
-  pfContributions  PfContribution[]
-  esiContributions EsiContribution[]
-  paymentBatches   PaymentBatch[]
-  loanSkipRequests LoanSkipRequest[]
-  payslips         Payslip[]
-  bonuses          EmployeeBonus[]
-  arrearsPaidSalaries EmployeeSalary[] @relation("SalaryArrearsPaidPeriod")
+  organization        Organization      @relation(fields: [organizationId], references: [id])
+  finalizedBy         User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
+  reopenedBy          User?             @relation("PayrollPeriodReopener", fields: [reopenedById], references: [id])
+  runs                PayrollRun[]
+  pfContributions     PfContribution[]
+  esiContributions    EsiContribution[]
+  paymentBatches      PaymentBatch[]
+  loanSkipRequests    LoanSkipRequest[]
+  payslips            Payslip[]
+  bonuses             EmployeeBonus[]
+  arrearsPaidSalaries EmployeeSalary[]  @relation("SalaryArrearsPaidPeriod")
 
   @@unique([organizationId, year, month])
   @@index([organizationId, status])
@@ -2191,40 +2210,40 @@ model PayrollDeduction {
 }
 
 model EmployeeSalary {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  employeeId       Int       @map("employee_id")
-  effectiveFrom    DateTime  @map("effective_from") @db.Date
-  effectiveTo      DateTime? @map("effective_to") @db.Date
-  grossMonthly     Decimal   @map("gross_monthly") @db.Decimal(12, 2)
-  basic            Decimal   @map("basic") @db.Decimal(12, 2)
-  hra              Decimal   @map("hra") @db.Decimal(12, 2)
-  conveyance       Decimal   @default(0) @map("conveyance") @db.Decimal(12, 2)
-  otherAllowance   Decimal   @default(0) @map("other_allowance") @db.Decimal(12, 2)
-  specialAllowance Decimal   @default(0) @map("special_allowance") @db.Decimal(12, 2)
-  arrearsSalary    Decimal   @default(0) @map("arrears_salary") @db.Decimal(12, 2)
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  employeeId          Int       @map("employee_id")
+  effectiveFrom       DateTime  @map("effective_from") @db.Date
+  effectiveTo         DateTime? @map("effective_to") @db.Date
+  grossMonthly        Decimal   @map("gross_monthly") @db.Decimal(12, 2)
+  basic               Decimal   @map("basic") @db.Decimal(12, 2)
+  hra                 Decimal   @map("hra") @db.Decimal(12, 2)
+  conveyance          Decimal   @default(0) @map("conveyance") @db.Decimal(12, 2)
+  otherAllowance      Decimal   @default(0) @map("other_allowance") @db.Decimal(12, 2)
+  specialAllowance    Decimal   @default(0) @map("special_allowance") @db.Decimal(12, 2)
+  arrearsSalary       Decimal   @default(0) @map("arrears_salary") @db.Decimal(12, 2)
   /// Arrears are a one-time payment: set when the period that paid them is
   /// finalized, cleared when `arrears_salary` is changed.
-  arrearsPaidPeriodId Int?  @map("arrears_paid_period_id")
+  arrearsPaidPeriodId Int?      @map("arrears_paid_period_id")
   /// The template the lines were built from, if any (a copy is stored in
   /// the lines; changing the template later does not change this salary).
-  salaryTemplateId Int?      @map("salary_template_id")
+  salaryTemplateId    Int?      @map("salary_template_id")
   /// The revision letter this structure implements, if any.
-  revisionLetterId Int?      @map("revision_letter_id")
-  customFields     Json      @default("{}") @map("custom_fields")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  revisionLetterId    Int?      @map("revision_letter_id")
+  customFields        Json      @default("{}") @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employee     Employee     @relation(fields: [employeeId], references: [id])
-  arrearsPaidPeriod PayrollPeriod? @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
-  salaryTemplate   SalaryTemplate? @relation(fields: [salaryTemplateId], references: [id])
-  revisionLetter   RevisionLetter? @relation(fields: [revisionLetterId], references: [id])
-  components       EmployeeSalaryComponent[]
+  organization      Organization              @relation(fields: [organizationId], references: [id])
+  employee          Employee                  @relation(fields: [employeeId], references: [id])
+  arrearsPaidPeriod PayrollPeriod?            @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
+  salaryTemplate    SalaryTemplate?           @relation(fields: [salaryTemplateId], references: [id])
+  revisionLetter    RevisionLetter?           @relation(fields: [revisionLetterId], references: [id])
+  components        EmployeeSalaryComponent[]
 
   @@index([organizationId, employeeId, effectiveFrom])
   @@map("employee_salaries")
@@ -2257,33 +2276,33 @@ model EmployeePfProfile {
 }
 
 model PfContribution {
-  id                   Int       @id @default(autoincrement())
-  organizationId       Int       @map("organization_id")
-  payrollPeriodId      Int       @map("payroll_period_id")
-  payrollEntryId       Int       @map("payroll_entry_id")
-  employeeId           Int       @map("employee_id")
-  pfIncluded           Boolean   @default(true) @map("pf_included")
-  pfWage               Decimal   @map("pf_wage") @db.Decimal(12, 2)
-  employeeContribution Decimal   @map("employee_contribution") @db.Decimal(12, 2)
-  employerContribution Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  id                      Int       @id @default(autoincrement())
+  organizationId          Int       @map("organization_id")
+  payrollPeriodId         Int       @map("payroll_period_id")
+  payrollEntryId          Int       @map("payroll_entry_id")
+  employeeId              Int       @map("employee_id")
+  pfIncluded              Boolean   @default(true) @map("pf_included")
+  pfWage                  Decimal   @map("pf_wage") @db.Decimal(12, 2)
+  employeeContribution    Decimal   @map("employee_contribution") @db.Decimal(12, 2)
+  employerContribution    Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
   /// Employer share split (ECR): EPS (pension) and the EPF difference.
-  epsWage              Decimal   @default(0) @map("eps_wage") @db.Decimal(12, 2)
-  epsContribution      Decimal   @default(0) @map("eps_contribution") @db.Decimal(12, 2)
-  epfEmployerContribution Decimal @default(0) @map("epf_employer_contribution") @db.Decimal(12, 2)
-  edliWage             Decimal   @default(0) @map("edli_wage") @db.Decimal(12, 2)
-  edliContribution     Decimal   @default(0) @map("edli_contribution") @db.Decimal(12, 2)
-  adminCharges         Decimal   @default(0) @map("admin_charges") @db.Decimal(12, 2)
-  grossWage            Decimal   @default(0) @map("gross_wage") @db.Decimal(12, 2)
-  ncpDays              Decimal   @default(0) @map("ncp_days") @db.Decimal(5, 2)
-  paymentStatus        String    @default("PENDING") @map("payment_status")
-  salaryCredited       Boolean   @default(false) @map("salary_credited")
-  customFields         Json      @default("{}") @map("custom_fields")
-  isActive             Boolean   @default(true) @map("is_active")
-  createdBy            Int?      @map("created_by")
-  updatedBy            Int?      @map("updated_by")
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+  epsWage                 Decimal   @default(0) @map("eps_wage") @db.Decimal(12, 2)
+  epsContribution         Decimal   @default(0) @map("eps_contribution") @db.Decimal(12, 2)
+  epfEmployerContribution Decimal   @default(0) @map("epf_employer_contribution") @db.Decimal(12, 2)
+  edliWage                Decimal   @default(0) @map("edli_wage") @db.Decimal(12, 2)
+  edliContribution        Decimal   @default(0) @map("edli_contribution") @db.Decimal(12, 2)
+  adminCharges            Decimal   @default(0) @map("admin_charges") @db.Decimal(12, 2)
+  grossWage               Decimal   @default(0) @map("gross_wage") @db.Decimal(12, 2)
+  ncpDays                 Decimal   @default(0) @map("ncp_days") @db.Decimal(5, 2)
+  paymentStatus           String    @default("PENDING") @map("payment_status")
+  salaryCredited          Boolean   @default(false) @map("salary_credited")
+  customFields            Json      @default("{}") @map("custom_fields")
+  isActive                Boolean   @default(true) @map("is_active")
+  createdBy               Int?      @map("created_by")
+  updatedBy               Int?      @map("updated_by")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization  Organization  @relation(fields: [organizationId], references: [id])
   payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
@@ -2499,33 +2518,33 @@ model EmployeeBonus {
 }
 
 model Payslip {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  payrollPeriodId Int       @map("payroll_period_id")
-  payrollEntryId  Int       @unique @map("payroll_entry_id")
-  employeeId      Int       @map("employee_id")
-  payslipNumber   String    @map("payslip_number")
-  netPayable      Decimal   @map("net_payable") @db.Decimal(12, 2)
-  status          String    @default("GENERATED")
-  generatedAt     DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
-  pdfPath         String?   @map("pdf_path")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  payrollPeriodId    Int       @map("payroll_period_id")
+  payrollEntryId     Int       @unique @map("payroll_entry_id")
+  employeeId         Int       @map("employee_id")
+  payslipNumber      String    @map("payslip_number")
+  netPayable         Decimal   @map("net_payable") @db.Decimal(12, 2)
+  status             String    @default("GENERATED")
+  generatedAt        DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
+  pdfPath            String?   @map("pdf_path")
   /// Frozen copy of everything the payslip shows, taken at generation, so a
   /// later change to the employee, bank or company never alters it.
-  snapshot        Json?
+  snapshot           Json?
   /// The PDF as first rendered; later downloads return these exact bytes.
-  pdfContent      Bytes?    @map("pdf_content")
-  pdfRenderedAt   DateTime? @map("pdf_rendered_at") @db.Timestamptz(6)
+  pdfContent         Bytes?    @map("pdf_content")
+  pdfRenderedAt      DateTime? @map("pdf_rendered_at") @db.Timestamptz(6)
   /// 1 at first generation, +1 per regeneration (reason mandatory).
-  version         Int       @default(1)
-  regeneratedAt   DateTime? @map("regenerated_at") @db.Timestamptz(6)
-  regenerationReason String? @map("regeneration_reason")
-  customFields    Json      @default("{}") @map("custom_fields")
-  isActive        Boolean   @default(true) @map("is_active")
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  version            Int       @default(1)
+  regeneratedAt      DateTime? @map("regenerated_at") @db.Timestamptz(6)
+  regenerationReason String?   @map("regeneration_reason")
+  customFields       Json      @default("{}") @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization  Organization  @relation(fields: [organizationId], references: [id])
   payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
@@ -3112,4 +3131,31 @@ model SalesMasterListItem {
   @@index([organizationId, category])
   @@map("sales_master_list_items")
   @@schema("sales")
+}
+
+/// Finance Master — `category` picks which card on the Finance Master page a
+/// row belongs to (Expense Types, Payment Modes; see
+/// `FinanceMasterListCategory`). Same generic value-list shape as
+/// `SalesMasterListItem` (Docs/SALES_SETTINGS_FOUNDATION.md design decision
+/// #2) — a future Finance module (expenses, payments) should reference a row
+/// here by `id`, never copy `value`.
+model FinanceMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("finance_master_list_items")
+  @@schema("finance")
 }

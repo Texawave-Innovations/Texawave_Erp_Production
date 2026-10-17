@@ -655,6 +655,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "sales_settings.master_list_item.write",
     description: "Create/update/delete Terms & Inventory items",
   },
+
+  // apps/api/src/modules/finance-settings — Finance Master foundation (same
+  // org-wide-config carve-out as sales-settings above).
+  {
+    code: "finance_settings.master_list_item.read",
+    description: "View Finance Master items (expense types, payment modes)",
+  },
+  {
+    code: "finance_settings.master_list_item.write",
+    description: "Create/update/delete Finance Master items",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [
