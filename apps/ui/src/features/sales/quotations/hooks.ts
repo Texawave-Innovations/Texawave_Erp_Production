@@ -9,7 +9,6 @@ import {
   convertQuotation,
   createQuotation,
   deleteQuotation,
-  getNextQuotationNumber,
   getQuotation,
   listQuotations,
   updateQuotation,
@@ -37,15 +36,6 @@ export function useQuotation(id: number | null) {
     queryKey: orgScopedKey(orgId, SALES_KEY, "quotations", "detail", id ?? 0),
     queryFn: () => getQuotation(id as number),
     enabled: orgId > 0 && id !== null,
-  });
-}
-
-export function useNextQuotationNumber(date: string, enabled: boolean) {
-  const orgId = useOrgId();
-  return useQuery({
-    queryKey: orgScopedKey(orgId, SALES_KEY, "quotations", "next", date),
-    queryFn: () => getNextQuotationNumber(date),
-    enabled: enabled && orgId > 0 && /^\d{4}-\d{2}-\d{2}$/.test(date),
   });
 }
 

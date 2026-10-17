@@ -139,17 +139,17 @@ documents).
 
 ## 7. Documents — quotations, proforma / tax invoices, delivery challans
 
-| Route                                                                            | Permission                     |
-| -------------------------------------------------------------------------------- | ------------------------------ |
-| `GET /sales/{quotations,invoices,delivery-challans}`, `GET /:id`, `GET /:id/pdf` | `sales.<doc>.read`             |
-| `GET /next-number`, `POST /`, `PATCH /:id`                                       | `sales.<doc>.write`            |
-| `DELETE /:id`                                                                    | `sales.<doc>.delete`           |
-| `POST /:id/email`, `POST /:id/whatsapp`                                          | `sales.<doc>.send`             |
-| `POST /sales/quotations/preview`, `POST /sales/quotations/:id/preview`           | `sales.quotation.write`        |
-| `POST /sales/quotations/:id/convert` (to proforma or tax)                        | `sales.invoice.write`          |
-| `POST /sales/invoices/:id/convert-to-tax`                                        | `sales.invoice.write`          |
-| `POST /sales/invoices/:id/delivery-challan`                                      | `sales.delivery_challan.write` |
-| `POST /sales/invoices/:id/payments`, `DELETE /:id/payments/:paymentId`           | `sales.invoice_payment.write`  |
+| Route                                                                              | Permission                     |
+| ---------------------------------------------------------------------------------- | ------------------------------ |
+| `GET /sales/{quotations,invoices,delivery-challans}`, `GET /:id`, `GET /:id/pdf`   | `sales.<doc>.read`             |
+| `GET /next-number`, `POST /`, `PATCH /:id`                                         | `sales.<doc>.write`            |
+| `DELETE /:id`                                                                      | `sales.<doc>.delete`           |
+| `POST /:id/email`, `POST /:id/whatsapp`                                            | `sales.<doc>.send`             |
+| `POST /sales/{quotations,invoices,delivery-challans}/preview`, `POST /:id/preview` | `sales.<doc>.write`            |
+| `POST /sales/quotations/:id/convert` (to proforma or tax)                          | `sales.invoice.write`          |
+| `POST /sales/invoices/:id/convert-to-tax`                                          | `sales.invoice.write`          |
+| `POST /sales/invoices/:id/delivery-challan`                                        | `sales.delivery_challan.write` |
+| `POST /sales/invoices/:id/payments`, `DELETE /:id/payments/:paymentId`             | `sales.invoice_payment.write`  |
 
 - **Numbers** `<PREFIX>/<FY>/<NNNN>` (`TW/QUO/26-27/0001`), one counter per type and financial year
   (April–March, `sales_quotation_26-27`), issued in the create transaction; editable via §6.2.
@@ -165,12 +165,14 @@ documents).
 - **Conversions** (quotation → proforma/tax, proforma → tax with its payments, tax → DC) run in one
   transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
 - **Payments** — see §8; the invoice payment routes above go through the same rules.
-- **Live preview** (quotations): `POST /preview` takes the create body, and `POST /:id/preview`
-  takes the update body merged over the saved quotation.
+- **Live preview** (quotations, invoices, delivery challans): `POST /preview` takes the create
+  body, and `POST /:id/preview` takes the update body merged over the saved document.
   - They price with the same `resolve()` as create/update and validate the same way (400/404/422).
   - They return `{ number, html, totals }`: `number` is the next number (not reserved) or the
     saved one; `html` is exactly what the PDF is rendered from; `totals` holds the tax mode,
-    rates, amounts, round-off, total, amount in words and `lineAmounts`.
+    rates, amounts, round-off, total, amount in words and `lineAmounts`. A delivery challan has
+    no prices, so it returns `{ number, html }`.
+  - An invoice preview also checks the due date (422 `DUE_DATE_BEFORE_INVOICE_DATE`).
   - Nothing is stored or audited.
 - **PDF** rendered server-side by `SalesPdfRenderer` (shared Playwright renderer) with logo, seal
   and signature images. **Email** via `shared/mailer` (`NOT_CONFIGURED` without SMTP);
@@ -276,8 +278,32 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
   - `/sales/quotations/[id]`: the saved PDF inline, with Download PDF, Email, WhatsApp, Edit,
     Convert to invoice and Delete, each shown only with its permission. A converted quotation is
     locked.
-- **Shared document parts** (`features/sales/shared/`), reused by invoices and challans:
-  `CustomerPicker`, `DocumentPreviewPanel`, `DocumentPdfPanel`, `SendEmailDialog`,
-  `useMasterOptions`, and the calls in `documents.ts`.
+  - `/sales/proforma-invoices` and `/sales/tax-invoices`: one list filtered by type, with
+    search, status and date filters.
+  - `/sales/invoices/new/{proforma,tax}` and `/sales/invoices/[id]/edit`: the same priced form
+    with type, invoice date, due date and payment terms. Payment-terms defaults come from the
+    master list of that type. The type is fixed after saving.
+  - `/sales/invoices/[id]`: PDF, summary with received amount and balance, and the payments list.
+    Actions: Record payment, Move to tax invoice, Create delivery challan, Email, WhatsApp, Edit
+    and Delete, each with its permission. A moved proforma is locked and links to its tax invoice.
+  - `/sales/delivery-challans` (list), `…/new`, `…/[id]` and `…/[id]/edit`: the challan form
+    with items and quantities only, with a live preview; the detail has the PDF, email, WhatsApp,
+    edit and delete.
+  - `/sales/payments` (Payments Received):
+    - the due-date alert banner with **Filter overdue only**;
+    - search, payment-month and due-month filters;
+    - each row's invoice link, due date with an overdue badge, and balance;
+    - actions: View receipt, Download receipt PDF, Edit payment and Delete payment.
+  - The **Record / Edit payment** dialog picks a customer and then one of their open invoices, or
+    comes with the invoice fixed from the invoice screen. The mode comes from the master list
+    (or "Other", typed). The amount is checked against the balance as you type; the server
+    still enforces it.
+- **Shared document parts** (`features/sales/shared/`):
+  - `PricedDocumentForm` with `priced-form.ts`: one form for quotations and invoices, where
+    each document type supplies only its header fields (`PricedFormConfig`);
+  - `useLivePreview`;
+  - `CustomerPicker`, `DocumentPreviewPanel`, `DocumentPdfPanel`, `SendEmailDialog` and
+    `DateActionDialog`;
+  - `useMasterOptions`, and the calls in `documents.ts`.
 - **Tests:** `apps/ui/e2e/sales-*.spec.ts` run against a mocked API
   (`e2e/helpers/mock-api.ts`, workspace `"sales"`).

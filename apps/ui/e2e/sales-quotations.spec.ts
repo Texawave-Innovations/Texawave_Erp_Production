@@ -316,7 +316,7 @@ test.describe("Sales quotations", () => {
     await page.getByRole("button", { name: "New quotation" }).first().click();
 
     await expect(page.getByLabel("Quotation number")).toHaveValue(
-      "TW/QUO/26-27/0008",
+      "Issued on save",
     );
     await expect(page.getByLabel("Validity")).toHaveValue("30 Days");
     await expect(page.getByLabel("Prepared by")).toHaveValue("Rafic");
@@ -354,6 +354,10 @@ test.describe("Sales quotations", () => {
     // The server prices it; the preview and totals follow.
     const frame = page.locator('iframe[title="Quotation preview"]');
     await expect(frame).toHaveAttribute("srcdoc", /QUOTATION/);
+    // The preview tells the next number (not reserved).
+    await expect(page.getByLabel("Quotation number")).toHaveValue(
+      "TW/QUO/26-27/0008",
+    );
     await expect(page.getByText("₹1,200.00").first()).toBeVisible();
     await expect(page.getByText("₹1,416.00")).toBeVisible();
     expect(

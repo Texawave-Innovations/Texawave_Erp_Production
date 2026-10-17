@@ -17,6 +17,16 @@ export const SALES_PERMISSIONS = {
   quotationWrite: "sales.quotation.write",
   quotationDelete: "sales.quotation.delete",
   quotationSend: "sales.quotation.send",
-  /** Converting a quotation creates an invoice. */
+  invoiceRead: "sales.invoice.read",
+  /** Also: converting a quotation, moving a proforma to a tax invoice. */
   invoiceWrite: "sales.invoice.write",
+  invoiceDelete: "sales.invoice.delete",
+  invoiceSend: "sales.invoice.send",
+  /** Record, edit and delete payments received. */
+  invoicePaymentWrite: "sales.invoice_payment.write",
+  paymentRead: "sales.payment.read",
+  deliveryChallanRead: "sales.delivery_challan.read",
+  deliveryChallanWrite: "sales.delivery_challan.write",
+  deliveryChallanDelete: "sales.delivery_challan.delete",
+  deliveryChallanSend: "sales.delivery_challan.send",
 } as const;

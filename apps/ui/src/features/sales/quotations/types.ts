@@ -1,4 +1,5 @@
 import type { BankDetails, CustomerSnapshot } from "../shared/documents";
+import type { PricedBody } from "../shared/priced-form";
 
 /** Mirrors apps/api/src/modules/sales/documents/quotations.repository.ts
  * (toView). Money and rates arrive as decimal strings. */
@@ -53,32 +54,9 @@ export interface Quotation {
   updatedAt: string;
 }
 
-export interface QuotationLineBody {
-  description: string;
-  hsnCode?: string | null;
-  quantity: number;
-  unitPrice: number;
-}
-
 /** POST /sales/quotations (and the preview). */
-export interface QuotationBody {
-  customerId: number;
+export interface QuotationBody extends PricedBody {
   quotationDate: string;
   validity: string | null;
   deliveryTerms: string | null;
-  placeOfSupply: string | null;
-  lines: QuotationLineBody[];
-  transportDescription: string | null;
-  transportCharge: number;
-  transportHsn: string | null;
-  cgstRate: number | null;
-  sgstRate: number | null;
-  igstRate: number | null;
-  bankDetails: BankDetails | null;
-  sealItemId: number | null;
-  signatureItemId: number | null;
-  sealName?: string | null;
-  signatureName?: string | null;
-  preparedBy: string | null;
-  terms: string | null;
 }
