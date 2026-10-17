@@ -428,6 +428,22 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "sales.payment.read",
   },
   {
+    code: "sales-returnable-dcs",
+    label: "Returnable DCs",
+    path: "/sales/returnable-dcs",
+    order: 8,
+    parentCode: "sales",
+    permission: "sales.returnable_dc.read",
+  },
+  {
+    code: "sales-master-list",
+    label: "Master List",
+    path: "/sales/master-list",
+    order: 9,
+    parentCode: "sales",
+    permission: "sales.master.read",
+  },
+  {
     code: "admin",
     label: "Admin",
     path: null,

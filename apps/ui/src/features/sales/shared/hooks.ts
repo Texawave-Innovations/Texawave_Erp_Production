@@ -14,16 +14,22 @@ import {
 import { SALES_KEY } from "./query";
 
 /**
- * The Sales master-list options of one document type, grouped by field
+ * The Sales master-list options offered on one document type (every option
+ * when `documentType` is omitted), grouped by field
  * (validity, terms, HSN codes, bank accounts, seals, signatures,
  * prepared-by...). Empty without `sales.master.read` — forms then fall back
  * to typed values.
  */
-export function useMasterOptions(documentType: MasterDocumentType) {
+export function useMasterOptions(documentType?: MasterDocumentType) {
   const orgId = useAuthStore((s) => s.organizationId ?? 0);
   const canRead = usePermission(SALES_PERMISSIONS.masterRead);
   const query = useQuery({
-    queryKey: orgScopedKey(orgId, SALES_KEY, "master-options", documentType),
+    queryKey: orgScopedKey(
+      orgId,
+      SALES_KEY,
+      "master-options",
+      documentType ?? "all",
+    ),
     queryFn: () => listMasterOptions(documentType),
     enabled: canRead && orgId > 0,
     staleTime: 5 * 60 * 1000,

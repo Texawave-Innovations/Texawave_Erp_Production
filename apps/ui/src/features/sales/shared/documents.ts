@@ -33,10 +33,10 @@ export interface BankDetails {
   ifsc?: string;
 }
 
-/** A Sales master-list option (GET /sales/master/document-fields). */
+/** A Sales master-list option (GET /sales/master/document-fields). An option
+ * belongs to a field and is offered on every document that has the field. */
 export interface MasterOption {
   id: number;
-  documentType: MasterDocumentType;
   field: MasterField;
   label: string;
   value: string | null;
@@ -93,12 +93,13 @@ export interface EmailBody {
   message?: string;
 }
 
+/** The options of every field a document offers; all options without one. */
 export async function listMasterOptions(
-  documentType: MasterDocumentType,
+  documentType?: MasterDocumentType,
 ): Promise<MasterOption[]> {
   const res = await withAuthRetry(() =>
     apiClient.get<MasterOption[]>("/sales/master/document-fields", {
-      query: { documentType },
+      query: documentType ? { documentType } : {},
     }),
   );
   return res.data;

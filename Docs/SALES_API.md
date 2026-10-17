@@ -38,6 +38,12 @@ routes, permissions and business rules. **New Sales work updates this file**; AR
 | `sales.returnable_dc.read\|write\|send`                         |       ✓       |        ✓        |
 | `sales.returnable_dc.delete`                                    |       ✓       |                 |
 
+In **Admin → Roles** these are grouped as **Sales · Customers** (dashboard, customers, bank
+reveal, follow-ups), **Sales · Documents** (quotations, invoices, delivery challans, returnable
+DCs), **Sales · Collections** (payments received, record payments) and **Sales · Setup** (master
+list, running numbers) — `apps/ui/src/features/settings/roles/utils/access-model.ts`. The codes
+themselves are unchanged. A new Sales permission adds its resource there too.
+
 ---
 
 ## 3. Dashboard — `GET /sales/dashboard` (`sales.dashboard.read`)
@@ -118,6 +124,11 @@ documents).
 `GET /?documentType=&field=`, `GET /layout`, `GET /:id`, `GET /:id/image`, `POST /`,
 `PATCH /:id`, `PUT /:id/image` (multipart `file`), `DELETE /:id`.
 
+An option belongs to a **field**, not to one document: it is created once (`POST { field, … }`)
+and offered on every document whose form has that field, per the table below. `GET
+/?documentType=X` returns the options of every field X has; without it, all options. `GET /layout`
+returns each field with `hasImage` and its `documentTypes`.
+
 | Field                  | Quotation | Proforma | Tax invoice | DC  | Payment received | Returnable DC |
 | ---------------------- | :-------: | :------: | :---------: | :-: | :--------------: | :-----------: |
 | `VALIDITY`             |     ✓     |          |             |     |                  |               |
@@ -130,12 +141,11 @@ documents).
 | `PREPARED_BY`          |     ✓     |    ✓     |      ✓      |  ✓  |                  |       ✓       |
 | `PAYMENT_MODE`         |           |          |             |     |        ✓         |               |
 
-- Another field → 422 `FIELD_NOT_ON_DOCUMENT` (also a DB CHECK).
 - HSN: 4–8 digit `value`; label defaults to the code. Bank: `bankDetails` (bank name, account,
   branch, IFSC) required; label built from them. Others: `label` only (a payment mode is at most
   50 characters, 422 `LABEL_TOO_LONG`).
 - Images only on seal / signature (else 422 `IMAGE_NOT_ALLOWED`), PNG/JPEG ≤ 2 MB.
-- One live default per document type and field (partial unique index).
+- One live default per field, pre-selected on every document that has it (partial unique index).
 
 ## 7. Documents — quotations, proforma / tax invoices, delivery challans
 
@@ -211,6 +221,7 @@ documents).
 | ---------------------------------------------------------- | ---------------------------- |
 | `GET /`, `GET /:id`, `GET /:id/pdf`                        | `sales.returnable_dc.read`   |
 | `GET /next-number`, `POST /`, `PATCH /:id`                 | `sales.returnable_dc.write`  |
+| `POST /preview`, `POST /:id/preview`                       | `sales.returnable_dc.write`  |
 | `POST /:id/return` `{ returnedDate? }`, `POST /:id/reopen` | `sales.returnable_dc.write`  |
 | `DELETE /:id`                                              | `sales.returnable_dc.delete` |
 | `POST /:id/email`, `POST /:id/whatsapp`                    | `sales.returnable_dc.send`   |
@@ -227,6 +238,8 @@ documents).
 - List filters: `search` (RDC no, recipient, purpose, taken by, prepared by), `customerId`,
   `status`, and `date` or `month` (`YYYY-MM`) of issue.
 - PDF, email and WhatsApp as in §7; the PDF carries the company logo, name and address (§6.3).
+- **Live preview** as in §7: `{ number, html }`, nothing stored; it checks the return date too.
+  A returned RDC has no edit preview (409 `RDC_RETURNED`).
 
 ## 10. Migrations
 
@@ -236,6 +249,7 @@ documents).
 | `20261018090000_sales_quotations_invoices`             | `quotations`, `invoices`, `*_lines`, `invoice_payments`, `delivery_challans` (+ lines), `company_profiles`                                                                            |
 | `20261019090000_sales_document_master_list`            | `document_master_items`, company logo, `seal_item_id` / `signature_item_id` on documents                                                                                              |
 | `20261020090000_sales_payments_received_returnable_dc` | payments: `payment_number` (existing ones numbered), `due_date`, `mode_item_id`, mode as a label; `returnable_delivery_challans` (+ lines); the new code types and master-list fields |
+| `20261021090000_sales_shared_document_fields`          | options shared per field: duplicate copies merged, one default per field, `document_type` dropped                                                                                     |
 
 ## 11. Not built yet
 
@@ -298,6 +312,24 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     comes with the invoice fixed from the invoice screen. The mode comes from the master list
     (or "Other", typed). The amount is checked against the balance as you type; the server
     still enforces it.
+  - `/sales/returnable-dcs` (list), `…/new`, `…/[id]` and `…/[id]/edit`:
+    - the list has search, status (pending return / returned) and issue-month filters, and an
+      overdue badge;
+    - the form takes the recipient, issue and expected return dates (checked as you type),
+      purpose, taken by, goods, seal, signature, prepared by and terms, with a live preview.
+      Seal, signature and prepared-by defaults come from the master list (RETURNABLE_DC);
+    - the detail has the PDF and **Mark returned** (with a date) or **Reopen**, plus Email,
+      WhatsApp, Edit and Delete. A returned RDC is not editable.
+  - `/sales/master-list` (navbar **Setup → Master List**), three tabs:
+    - **Numbering:** each code's format and its last and next number for this financial year.
+      **Format** edits the prefix and width (`sales.master.write`); **Number** sets the last
+      number used (`sales.running_number.write`).
+    - **Company details:** the seller block and the logo (PNG or JPG, up to 2 MB). A GSTIN sets
+      the state, and the PAN must match it.
+    - **Document fields:** one card per field, listing the documents that use it. Add, edit,
+      delete or set the default once, and every one of those documents offers it. Seal and
+      signature options take an image upload.
+    - Readers (`sales.master.read`) see everything read-only.
 - **Shared document parts** (`features/sales/shared/`):
   - `PricedDocumentForm` with `priced-form.ts`: one form for quotations and invoices, where
     each document type supplies only its header fields (`PricedFormConfig`);
