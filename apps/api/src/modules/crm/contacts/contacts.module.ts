@@ -8,5 +8,6 @@ import { ContactsService } from "./contacts.service.js";
   imports: [AccountsModule],
   controllers: [ContactsController],
   providers: [ContactsRepository, ContactsService],
+  exports: [ContactsRepository, ContactsService],
 })
 export class ContactsModule {}

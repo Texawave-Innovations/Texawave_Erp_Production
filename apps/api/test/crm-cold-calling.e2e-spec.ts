@@ -266,4 +266,59 @@ describe("crm cold calling entries (e2e)", () => {
       .set("Authorization", `Bearer ${tokenAll}`)
       .expect(404);
   });
+
+  it("filters by exact status and call-date range, and lists distinct statuses (tenant-scoped)", async () => {
+    const tag = randomUUID().slice(0, 6);
+    const mk = async (body: object) =>
+      request(app.getHttpServer())
+        .post("/crm/cold-calling-entries")
+        .set("Authorization", `Bearer ${tokenAll}`)
+        .send({ prospectName: tag, ...body })
+        .expect(201);
+    await mk({
+      companyName: `Early ${tag}`,
+      status: `Status-${tag}`,
+      callDate: "2026-01-10",
+    });
+    await mk({
+      companyName: `Late ${tag}`,
+      status: "Other",
+      callDate: "2026-03-20",
+    });
+
+    const list = async (qs: string) =>
+      (
+        (
+          await request(app.getHttpServer())
+            .get(`/crm/cold-calling-entries?search=${tag}&order=asc&${qs}`)
+            .set("Authorization", `Bearer ${tokenAll}`)
+            .expect(200)
+        ).body as { data: { companyName: string }[] }
+      ).data.map((e) => e.companyName);
+
+    expect(await list(`status=Status-${tag}`)).toEqual([`Early ${tag}`]);
+    expect(await list("dateFrom=2026-02-01")).toEqual([`Late ${tag}`]);
+    expect(await list("dateTo=2026-02-01")).toEqual([`Early ${tag}`]);
+    expect(await list("dateFrom=2026-01-10&dateTo=2026-03-20")).toHaveLength(2);
+
+    const statuses = (
+      (
+        await request(app.getHttpServer())
+          .get("/crm/cold-calling-entries/statuses")
+          .set("Authorization", `Bearer ${tokenAll}`)
+          .expect(200)
+      ).body as { data: string[] }
+    ).data;
+    expect(statuses).toContain(`Status-${tag}`);
+
+    const other = (
+      (
+        await request(app.getHttpServer())
+          .get("/crm/cold-calling-entries/statuses")
+          .set("Authorization", `Bearer ${tokenB}`)
+          .expect(200)
+      ).body as { data: string[] }
+    ).data;
+    expect(other).not.toContain(`Status-${tag}`);
+  });
 });

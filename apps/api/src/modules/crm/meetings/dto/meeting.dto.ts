@@ -130,6 +130,13 @@ export class CompleteMeetingDto {
   @IsString()
   expectedTimeline?: string;
 
+  @ApiPropertyOptional({ description: "Free-text next step (legacy)" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 500)
+  nextStep?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
@@ -157,6 +164,15 @@ export class QueryMeetingDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   relatedId?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Account roll-up: records of this account AND of its contacts and opportunities",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  rollupAccountId?: number;
 
   @ApiPropertyOptional({ enum: MEETING_STATUSES })
   @IsOptional()

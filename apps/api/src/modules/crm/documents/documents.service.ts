@@ -18,7 +18,11 @@ export class CrmDocumentsService {
   async findAll(query: QueryCrmDocumentDto) {
     const { items, total } = await this.repository.findMany(
       this.tenantContext.getOrgScope(),
-      { relatedType: query.relatedType, relatedId: query.relatedId },
+      {
+        relatedType: query.relatedType,
+        relatedId: query.relatedId,
+        rollupAccountId: query.rollupAccountId,
+      },
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);

@@ -15,6 +15,10 @@ import { OpportunityProductsService } from "./opportunity-products.service.js";
     OpportunityProductsRepository,
     OpportunityProductsService,
   ],
-  exports: [OpportunitiesRepository],
+  exports: [
+    OpportunityProductsRepository,
+    OpportunitiesRepository,
+    OpportunitiesService,
+  ],
 })
 export class OpportunitiesModule {}

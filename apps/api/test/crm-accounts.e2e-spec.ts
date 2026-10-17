@@ -326,6 +326,163 @@ describe("crm accounts (e2e)", () => {
       .expect(200);
   });
 
+  it("parity fields: hq/priority/temperature/customFields, audit-backed timeline, actor names and related-list roll-up", async () => {
+    const auth = { Authorization: `Bearer ${tokenAll}` };
+    const createRes = await request(app.getHttpServer())
+      .post("/crm/accounts")
+      .set(auth)
+      .send({
+        name: "Parity Co",
+        hq: "Mumbai, India",
+        priority: "High",
+        customFields: { region: "West", bad: 5, "bad key!": "x" },
+      })
+      .expect(201);
+    const account = (
+      createRes.body as {
+        data: {
+          id: number;
+          hq: string;
+          priority: string;
+          customFields: Record<string, string>;
+        };
+      }
+    ).data;
+    expect(account.hq).toBe("Mumbai, India");
+    expect(account.priority).toBe("High");
+    expect(account.customFields).toEqual({ region: "West" });
+
+    // customFields merge on update; empty string clears a key.
+    const upd = await request(app.getHttpServer())
+      .patch(`/crm/accounts/${account.id}`)
+      .set(auth)
+      .send({ customFields: { tier: "Gold", region: "" } })
+      .expect(200);
+    expect(
+      (upd.body as { data: { customFields: Record<string, string> } }).data
+        .customFields,
+    ).toEqual({ tier: "Gold" });
+
+    // Priority / temperature chips: validation, persistence, 404, audit.
+    await request(app.getHttpServer())
+      .patch(`/crm/accounts/${account.id}/priority`)
+      .set(auth)
+      .send({ priority: "Urgent" })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/crm/accounts/${account.id}/priority`)
+      .set(auth)
+      .send({ priority: "Low" })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/crm/accounts/${account.id}/temperature`)
+      .set(auth)
+      .send({ temperature: "Hot" })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/crm/accounts/999999999/temperature`)
+      .set(auth)
+      .send({ temperature: "Hot" })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch(`/crm/accounts/${account.id}/priority`)
+      .set({ Authorization: `Bearer ${tokenB}` })
+      .send({ priority: "High" })
+      .expect(404);
+
+    const got = await request(app.getHttpServer())
+      .get(`/crm/accounts/${account.id}`)
+      .set(auth)
+      .expect(200);
+    const body = got.body as {
+      data: {
+        priority: string;
+        temperature: string;
+        createdByName: string | null;
+        updatedByName: string | null;
+      };
+    };
+    expect(body.data.priority).toBe("Low");
+    expect(body.data.temperature).toBe("Hot");
+    expect(typeof body.data.createdByName).toBe("string");
+    expect(typeof body.data.updatedByName).toBe("string");
+
+    const listRes = await request(app.getHttpServer())
+      .get("/crm/accounts")
+      .query({ priority: "Low", temperature: "Hot", search: "Parity" })
+      .set(auth)
+      .expect(200);
+    expect(
+      (listRes.body as { data: { id: number }[] }).data.map((a) => a.id),
+    ).toEqual([account.id]);
+
+    const events = await request(app.getHttpServer())
+      .get(`/crm/accounts/${account.id}/timeline-events`)
+      .set(auth)
+      .expect(200);
+    const evData = (
+      events.body as {
+        data: { action: string; details: string; byName: string | null }[];
+      }
+    ).data;
+    expect(evData.map((e) => e.action)).toEqual(
+      expect.arrayContaining(["priority_changed", "temperature_changed"]),
+    );
+    expect(evData.find((e) => e.action === "priority_changed")?.details).toBe(
+      "Priority set to Low",
+    );
+    expect(
+      evData.find((e) => e.action === "temperature_changed")?.details,
+    ).toBe("Lead temperature set to Hot");
+    expect(evData.every((e) => e.action !== "create")).toBe(true);
+    await request(app.getHttpServer())
+      .get(`/crm/accounts/${account.id}/timeline-events`)
+      .set({ Authorization: `Bearer ${tokenB}` })
+      .expect(404);
+
+    // Roll-up: a task attached to one of the account's contacts is returned
+    // by rollupAccountId but not by the plain account filter.
+    const contactRes = await request(app.getHttpServer())
+      .post("/crm/contacts")
+      .set(auth)
+      .send({ accountId: account.id, name: "Roll Up Contact" })
+      .expect(201);
+    const contact = (contactRes.body as { data: { id: number } }).data;
+    await prisma.crmTask.create({
+      data: {
+        organizationId: orgA.id,
+        relatedType: "contact",
+        relatedId: contact.id,
+        title: "Contact-level task",
+        dueDate: new Date("2026-12-01"),
+        assignedTo: "Jane Rep",
+      },
+    });
+    const plain = await request(app.getHttpServer())
+      .get("/crm/tasks")
+      .query({ relatedType: "account", relatedId: account.id })
+      .set(auth)
+      .expect(200);
+    expect((plain.body as { data: unknown[] }).data).toHaveLength(0);
+    const rolled = await request(app.getHttpServer())
+      .get("/crm/tasks")
+      .query({ rollupAccountId: account.id })
+      .set(auth)
+      .expect(200);
+    expect(
+      (rolled.body as { data: { title: string }[] }).data.map((t) => t.title),
+    ).toEqual(["Contact-level task"]);
+    const contacts = await request(app.getHttpServer())
+      .get("/crm/contacts")
+      .query({ accountId: account.id })
+      .set(auth)
+      .expect(200);
+    expect(
+      (contacts.body as { data: { createdByName: string | null }[] }).data[0]
+        ?.createdByName,
+    ).toEqual(expect.any(String));
+  });
+
   it("delete requires crm.account.delete, cascades to contacts, and is tenant-isolated", async () => {
     const createRes = await request(app.getHttpServer())
       .post("/crm/accounts")
@@ -369,5 +526,85 @@ describe("crm accounts (e2e)", () => {
       .get(`/crm/contacts/${contact.id}`)
       .set("Authorization", `Bearer ${tokenAll}`)
       .expect(404);
+  });
+
+  it("delete cascades to meetings, follow-ups, tasks, documents and activities (account, contact, deal roll-up) with one shared instant", async () => {
+    const account = await prisma.account.create({
+      data: { organizationId: orgA.id, name: "Cascade Roll-up Co" },
+    });
+    const contact = await prisma.contact.create({
+      data: { organizationId: orgA.id, accountId: account.id, name: "CRC" },
+    });
+    const rel = [
+      { relatedType: "account", relatedId: account.id },
+      { relatedType: "contact", relatedId: contact.id },
+    ].map((r) => ({ organizationId: orgA.id, ...r }));
+    const unrelatedAccount = await prisma.account.create({
+      data: { organizationId: orgA.id, name: "Cascade Bystander Co" },
+    });
+    const bystander = await prisma.crmTask.create({
+      data: {
+        organizationId: orgA.id,
+        relatedType: "account",
+        relatedId: unrelatedAccount.id,
+        title: "Bystander",
+        dueDate: new Date(),
+        assignedTo: "Sam",
+      },
+    });
+    const ids: { meeting: number[]; task: number[]; doc: number[] } = {
+      meeting: [],
+      task: [],
+      doc: [],
+    };
+    for (const r of rel) {
+      ids.meeting.push(
+        (
+          await prisma.crmMeeting.create({
+            data: { ...r, meetingDate: new Date() },
+          })
+        ).id,
+      );
+      ids.task.push(
+        (
+          await prisma.crmTask.create({
+            data: { ...r, title: "T", dueDate: new Date(), assignedTo: "Sam" },
+          })
+        ).id,
+      );
+      ids.doc.push(
+        (
+          await prisma.crmDocument.create({
+            data: { ...r, name: "D", link: "https://x.test/d" },
+          })
+        ).id,
+      );
+    }
+
+    await request(app.getHttpServer())
+      .delete(`/crm/accounts/${account.id}`)
+      .set("Authorization", `Bearer ${tokenAll}`)
+      .expect(204);
+
+    const acc = await prisma.account.findUniqueOrThrow({
+      where: { id: account.id },
+    });
+    const rows = [
+      ...(await prisma.crmMeeting.findMany({
+        where: { id: { in: ids.meeting } },
+      })),
+      ...(await prisma.crmTask.findMany({ where: { id: { in: ids.task } } })),
+      ...(await prisma.crmDocument.findMany({
+        where: { id: { in: ids.doc } },
+      })),
+    ];
+    expect(rows).toHaveLength(6);
+    for (const r of rows) {
+      expect(r.deletedAt?.getTime()).toBe(acc.deletedAt?.getTime());
+    }
+    expect(
+      (await prisma.crmTask.findUnique({ where: { id: bystander.id } }))
+        ?.deletedAt,
+    ).toBeNull();
   });
 });

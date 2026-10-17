@@ -232,6 +232,59 @@ describe("crm contacts (e2e)", () => {
     expect(stillExists?.deletedAt).not.toBeNull();
   });
 
+  it("lists linked deal / quote counts for the delete warning", async () => {
+    const contact = await prisma.contact.create({
+      data: {
+        organizationId: orgA.id,
+        accountId: accountA.id,
+        name: `Linked ${randomUUID().slice(0, 6)}`,
+      },
+    });
+    const stage = await prisma.pipelineStage
+      .findFirstOrThrow({
+        where: { organizationId: orgA.id },
+      })
+      .catch(async () =>
+        prisma.pipelineStage.create({
+          data: {
+            organizationId: orgA.id,
+            code: `s${randomUUID().slice(0, 6)}`,
+            label: "Linked stage",
+            order: 1,
+          },
+        }),
+      );
+    const deal = await prisma.opportunity.create({
+      data: {
+        organizationId: orgA.id,
+        accountId: accountA.id,
+        contactId: contact.id,
+        opportunityNumber: "OPP-LNK",
+        title: "Linked deal",
+        ownerName: "Rep",
+        stageId: stage.id,
+      },
+    });
+    const res = await request(app.getHttpServer())
+      .get(`/crm/contacts?q=${encodeURIComponent(contact.name)}`)
+      .set("Authorization", `Bearer ${tokenAll}`)
+      .expect(200);
+    const row = (
+      res.body as {
+        data: {
+          id: number;
+          linkedOpportunityCount: number;
+          linkedQuotationCount: number;
+        }[];
+      }
+    ).data.find((c) => c.id === contact.id);
+    expect(row?.linkedOpportunityCount).toBe(1);
+    expect(row?.linkedQuotationCount).toBe(0);
+    // Created directly (no stage history), so it can be hard-deleted and
+    // not pin the account for the suite cleanup.
+    await prisma.opportunity.delete({ where: { id: deal.id } });
+  });
+
   it("Org B cannot update Org A's contact — tenant isolation (404), and the contact is left unchanged", async () => {
     const createRes = await request(app.getHttpServer())
       .post("/crm/contacts")

@@ -1,3 +1,8 @@
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
+import { classifyDbError } from "../../../common/database/db-errors.js";
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
@@ -6,7 +11,11 @@ import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
-import { assertRelatedEntityExists } from "../shared/related-entity.js";
+import { attachActorNames } from "../shared/actor-names.js";
+import {
+  accountRollupWhere,
+  assertRelatedEntityExists,
+} from "../shared/related-entity.js";
 import type {
   CompleteMeetingDto,
   CreateMeetingDto,
@@ -19,7 +28,15 @@ const ENTITY_TYPE = "crm_meeting";
 export interface MeetingFilter {
   relatedType?: string | undefined;
   relatedId?: number | undefined;
+  /** Account roll-up: account + its contacts + its opportunities. */
+  rollupAccountId?: number | undefined;
   status?: string | undefined;
+  /** Global search / calendar feed (additive). */
+  q?: string | undefined;
+  relatedAccountIds?: number[] | undefined;
+  statusNotIn?: string[] | undefined;
+  dateFrom?: Date | undefined;
+  dateTo?: Date | undefined;
 }
 
 function snapshot(row: { status: string; meetingDate: Date }) {
@@ -32,6 +49,29 @@ function filterWhere(filter: MeetingFilter): Prisma.CrmMeetingWhereInput {
   if (filter.relatedId !== undefined)
     clauses.push({ relatedId: filter.relatedId });
   if (filter.status) clauses.push({ status: filter.status });
+  if (filter.statusNotIn?.length)
+    clauses.push({ status: { notIn: filter.statusNotIn } });
+  if (filter.dateFrom || filter.dateTo) {
+    clauses.push({
+      meetingDate: {
+        ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
+        ...(filter.dateTo ? { lt: filter.dateTo } : {}),
+      },
+    });
+  }
+  if (filter.q) {
+    const or: Prisma.CrmMeetingWhereInput[] = [
+      { mode: { contains: filter.q, mode: "insensitive" } },
+      { agenda: { contains: filter.q, mode: "insensitive" } },
+      { participants: { contains: filter.q, mode: "insensitive" } },
+    ];
+    if (filter.relatedAccountIds?.length)
+      or.push({
+        relatedType: "account",
+        relatedId: { in: filter.relatedAccountIds },
+      });
+    clauses.push({ OR: or });
+  }
   return { AND: clauses };
 }
 
@@ -48,8 +88,23 @@ export class MeetingsRepository {
     filter: MeetingFilter,
     pagination: PaginationDto,
   ) {
-    const where = tenantWhere(scope, filterWhere(filter));
-    const [items, total] = await Promise.all([
+    const base = filterWhere(filter);
+    const where = tenantWhere(
+      scope,
+      filter.rollupAccountId === undefined
+        ? base
+        : {
+            AND: [
+              base,
+              await accountRollupWhere(
+                this.prisma,
+                scope.organizationId,
+                filter.rollupAccountId,
+              ),
+            ],
+          },
+    );
+    const [rows, total] = await Promise.all([
       this.prisma.crmMeeting.findMany({
         where,
         skip: pagination.skip,
@@ -59,6 +114,11 @@ export class MeetingsRepository {
       }),
       this.prisma.crmMeeting.count({ where }),
     ]);
+    const items = await attachActorNames(
+      this.prisma,
+      scope.organizationId,
+      rows,
+    );
     return { items, total };
   }
 
@@ -210,6 +270,7 @@ export class MeetingsRepository {
           budget: dto.budget ?? before.budget,
           decisionMaker: dto.decisionMaker ?? before.decisionMaker,
           expectedTimeline: dto.expectedTimeline ?? before.expectedTimeline,
+          nextStep: dto.nextStep ?? before.nextStep,
           nextFollowUpAt: dto.nextFollowUpAt
             ? new Date(dto.nextFollowUpAt)
             : before.nextFollowUpAt,
@@ -291,5 +352,75 @@ export class MeetingsRepository {
       });
       return after;
     });
+  }
+  /** Recycle Bin: this organization's soft-deleted rows, newest deletion first. */
+  @OrgScoped()
+  async findDeleted(scope: OrgScope) {
+    return this.prisma.crmMeeting.findMany({
+      where: tenantWhere(scope, { deletedAt: { not: null } }),
+      orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+      take: 2000,
+    });
+  }
+
+  /** Recycle Bin restore: clears `deletedAt`. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async restoreDeleted(scope: OrgScope, id: number, actorId: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.crmMeeting.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before || !before.deletedAt) return null;
+        const after = await tx.crmMeeting.update({
+          where: { id },
+          data: { deletedAt: null, updatedBy: actorId },
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "restore",
+          before: { deletedAt: before.deletedAt },
+          after: { deletedAt: null },
+        });
+        return after;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "unique") {
+        throw new ResourceConflictException(
+          "A live record with the same unique value already exists, so this one can't be restored",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Recycle Bin permanent delete: irreversible hard delete of a soft-deleted row. FK-safe: rows the record owns are removed, nullable references to it are cleared, and anything else still referencing it aborts with STILL_REFERENCED. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async purgeDeleted(scope: OrgScope, id: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.crmMeeting.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before) return null;
+        await tx.crmMeeting.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "purge",
+          before: { deletedAt: before.deletedAt },
+        });
+        return before;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "foreign_key") {
+        throw new BusinessRuleViolationException(
+          "This record is still referenced by other records and can't be permanently deleted",
+          "STILL_REFERENCED",
+        );
+      }
+      throw error;
+    }
   }
 }

@@ -1,8 +1,12 @@
+import { classifyDbError } from "../../../common/database/db-errors.js";
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
@@ -75,14 +79,43 @@ export class ProductsRepository {
       }),
       this.prisma.product.count({ where }),
     ]);
-    return { items, total };
+    return { items: await this.withUsage(items), total };
+  }
+
+  /** Adds `usageCount` = live deal line items + live quotation line items
+   * referencing each product (legacy Products.tsx `usageCount()`). */
+  private async withUsage<T extends { id: number }>(rows: T[]) {
+    if (rows.length === 0) return [] as (T & { usageCount: number })[];
+    const ids = rows.map((r) => r.id);
+    const [deals, quotes] = await Promise.all([
+      this.prisma.opportunityProduct.groupBy({
+        by: ["productId"],
+        where: { productId: { in: ids }, deletedAt: null },
+        _count: { _all: true },
+      }),
+      this.prisma.quotationLineItem.groupBy({
+        by: ["productId"],
+        where: { productId: { in: ids }, quotation: { deletedAt: null } },
+        _count: { _all: true },
+      }),
+    ]);
+    const usage = new Map<number, number>();
+    for (const d of deals) usage.set(d.productId, d._count._all);
+    for (const q of quotes) {
+      if (q.productId !== null)
+        usage.set(q.productId, (usage.get(q.productId) ?? 0) + q._count._all);
+    }
+    return rows.map((r) => ({ ...r, usageCount: usage.get(r.id) ?? 0 }));
   }
 
   @OrgScoped()
   async findOne(scope: OrgScope, id: number) {
-    return this.prisma.product.findFirst({
+    const row = await this.prisma.product.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
     });
+    if (!row) return null;
+    const [withUsage] = await this.withUsage([row]);
+    return withUsage ?? null;
   }
 
   @OrgScoped()
@@ -203,5 +236,86 @@ export class ProductsRepository {
       });
       return after;
     });
+  }
+  /** Recycle Bin: this organization's soft-deleted rows, newest deletion first. */
+  @OrgScoped()
+  async findDeleted(scope: OrgScope) {
+    return this.prisma.product.findMany({
+      where: tenantWhere(scope, { deletedAt: { not: null } }),
+      orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+      take: 2000,
+    });
+  }
+
+  /** Recycle Bin restore: clears `deletedAt`. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async restoreDeleted(scope: OrgScope, id: number, actorId: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.product.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before || !before.deletedAt) return null;
+        const after = await tx.product.update({
+          where: { id },
+          data: { deletedAt: null, isActive: true, updatedBy: actorId },
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "restore",
+          before: { deletedAt: before.deletedAt },
+          after: { deletedAt: null },
+        });
+        return after;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "unique") {
+        throw new ResourceConflictException(
+          "A live record with the same unique value already exists, so this one can't be restored",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Recycle Bin permanent delete: irreversible hard delete of a soft-deleted row. FK-safe: rows the record owns are removed, nullable references to it are cleared, and anything else still referencing it aborts with STILL_REFERENCED. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async purgeDeleted(scope: OrgScope, id: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.product.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before) return null;
+        await tx.opportunityProduct.deleteMany({
+          where: {
+            productId: id,
+            organizationId: scope.organizationId,
+            deletedAt: { not: null },
+          },
+        });
+        await tx.quotationLineItem.updateMany({
+          where: { productId: id, organizationId: scope.organizationId },
+          data: { productId: null },
+        });
+        await tx.product.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "purge",
+          before: { deletedAt: before.deletedAt },
+        });
+        return before;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "foreign_key") {
+        throw new BusinessRuleViolationException(
+          "This record is still referenced by other records and can't be permanently deleted",
+          "STILL_REFERENCED",
+        );
+      }
+      throw error;
+    }
   }
 }

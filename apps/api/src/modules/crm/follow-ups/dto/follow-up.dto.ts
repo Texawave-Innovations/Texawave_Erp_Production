@@ -102,6 +102,15 @@ export class QueryFollowUpDto extends PaginationDto {
   @IsInt()
   relatedId?: number;
 
+  @ApiPropertyOptional({
+    description:
+      "Account roll-up: records of this account AND of its contacts and opportunities",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  rollupAccountId?: number;
+
   @ApiPropertyOptional({ enum: FOLLOW_UP_STATUSES })
   @IsOptional()
   @IsIn(FOLLOW_UP_STATUSES)

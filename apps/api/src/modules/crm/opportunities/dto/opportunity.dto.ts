@@ -13,6 +13,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Max,
   Min,
 } from "class-validator";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
@@ -22,6 +23,13 @@ export const OPPORTUNITY_STATUSES = ["OPEN", "WON", "LOST", "ON_HOLD"] as const;
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
 
 export const OPPORTUNITY_PRIORITIES = ["High", "Medium", "Low"] as const;
+
+export const FORECAST_CATEGORIES = [
+  "Best Case",
+  "Commit",
+  "Pipeline",
+  "Omitted",
+] as const;
 
 export const LOST_REASONS = [
   "Pricing",
@@ -127,6 +135,26 @@ export class CreateOpportunityDto {
   @IsIn(OPPORTUNITY_PRIORITIES)
   priority?: string;
 
+  @ApiPropertyOptional({ description: "Win probability 0-100" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  probability?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 300)
+  nextAction?: string;
+
+  @ApiPropertyOptional({ description: "ISO date" })
+  @IsOptional()
+  @IsDateString()
+  nextActionDate?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Trim()
@@ -140,6 +168,11 @@ export class CreateOpportunityDto {
   @IsString()
   @Length(0, 150)
   contactRole?: string;
+
+  @ApiPropertyOptional({ enum: FORECAST_CATEGORIES })
+  @IsOptional()
+  @IsIn(FORECAST_CATEGORIES)
+  forecastCategory?: string;
 }
 
 /** `stageId` is excluded — a stage move always goes through

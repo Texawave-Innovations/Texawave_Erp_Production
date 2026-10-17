@@ -53,4 +53,13 @@ export class QueryCrmDocumentDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   relatedId?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Account roll-up: records of this account AND of its contacts and opportunities",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  rollupAccountId?: number;
 }

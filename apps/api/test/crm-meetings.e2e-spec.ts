@@ -216,13 +216,23 @@ describe("crm meetings (e2e)", () => {
     const completeRes = await request(app.getHttpServer())
       .post(`/crm/meetings/${meeting.id}/complete`)
       .set("Authorization", `Bearer ${tokenAll}`)
-      .send({ summary: "Went well", decisionMaker: "Jane" })
+      .send({
+        summary: "Went well",
+        decisionMaker: "Jane",
+        nextStep: "Send proposal",
+      })
       .expect(201);
     const completed = (
       completeRes.body as {
-        data: { status: string; summary: string; completedAt: string };
+        data: {
+          status: string;
+          summary: string;
+          completedAt: string;
+          nextStep: string;
+        };
       }
     ).data;
+    expect(completed.nextStep).toBe("Send proposal");
     expect(completed.status).toBe("COMPLETED");
     expect(completed.summary).toBe("Went well");
     expect(completed.completedAt).not.toBeNull();
