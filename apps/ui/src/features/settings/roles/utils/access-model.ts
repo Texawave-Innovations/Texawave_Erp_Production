@@ -91,6 +91,29 @@ const SECTIONS: { key: string; label: string; description: string }[] = [
       "Payroll runs, salaries, statutory, loans, bonuses, payslips and payments.",
   },
   {
+    key: "sales_customers",
+    label: "Sales · Customers",
+    description:
+      "The Sales dashboard, customers, their bank details and follow-ups.",
+  },
+  {
+    key: "sales_documents",
+    label: "Sales · Documents",
+    description:
+      "Quotations, proforma and tax invoices, delivery challans and returnable DCs.",
+  },
+  {
+    key: "sales_collections",
+    label: "Sales · Collections",
+    description: "Payments received against invoices.",
+  },
+  {
+    key: "sales_setup",
+    label: "Sales · Setup",
+    description:
+      "The master list: numbering, company details and document fields.",
+  },
+  {
     key: "self",
     label: "Employee self-service",
     description: "What an employee can do for themselves in the portal.",
@@ -148,6 +171,18 @@ const RESOURCES: Record<string, [string, string]> = {
   "hr.bonus": ["payroll", "Bonuses"],
   "hr.payslip": ["payroll", "Payslips"],
   "hr.payment": ["payroll", "Payments"],
+  "sales.dashboard": ["sales_customers", "Sales dashboard"],
+  "sales.customer": ["sales_customers", "Customers"],
+  "sales.customer_bank": ["sales_customers", "Customer bank details"],
+  "sales.action_item": ["sales_customers", "Follow-up checklist"],
+  "sales.quotation": ["sales_documents", "Quotations"],
+  "sales.invoice": ["sales_documents", "Proforma & tax invoices"],
+  "sales.delivery_challan": ["sales_documents", "Delivery challans"],
+  "sales.returnable_dc": ["sales_documents", "Returnable DCs"],
+  "sales.payment": ["sales_collections", "Payments received"],
+  "sales.invoice_payment": ["sales_collections", "Record payments"],
+  "sales.master": ["sales_setup", "Master list"],
+  "sales.running_number": ["sales_setup", "Running numbers"],
 };
 
 const SELF_LABELS: Record<string, string> = {
@@ -179,6 +214,8 @@ const VERBS: Record<string, string> = {
   access: "Open",
   correct: "Correct",
   reveal: "Reveal",
+  delete: "Delete",
+  send: "Send",
 };
 
 /** `.own` variants that the API refuses (documented in catalog.ts). */
@@ -220,6 +257,8 @@ const SENSITIVE = new Set([
   "hr.loan.approve",
   "hr.bonus.approve",
   "hr.attendance_lock.approve",
+  "sales.customer_bank.reveal",
+  "sales.running_number.write",
 ]);
 
 /** Maker-checker pairs: one role holding both lets one person do both steps
