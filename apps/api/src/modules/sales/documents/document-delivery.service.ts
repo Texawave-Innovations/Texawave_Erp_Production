@@ -57,6 +57,12 @@ export class DocumentDeliveryService {
     return { ...doc, images: { logo, seal, signature } };
   }
 
+  /** The document's HTML — exactly what `pdf()` renders. For live
+   * previews of unsaved forms. */
+  html(doc: PrintableDocument): string {
+    return renderSalesDocumentHtml(doc);
+  }
+
   async pdf(doc: PrintableDocument): Promise<PdfFile> {
     return {
       buffer: await this.renderer.render(renderSalesDocumentHtml(doc)),

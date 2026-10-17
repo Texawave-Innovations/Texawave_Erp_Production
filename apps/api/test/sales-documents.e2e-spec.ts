@@ -806,6 +806,111 @@ describe("Sales — quotations, invoices & delivery challans (e2e)", () => {
   });
 
   // ---------------------------------------------------------------------------
+  describe("quotation live preview", () => {
+    interface Preview {
+      number: string;
+      html: string;
+      totals: { taxMode: string; totalAmount: string; cgstAmount: string };
+    }
+    const body = (customerId: number, over: Record<string, unknown> = {}) => ({
+      customerId,
+      quotationDate: "2026-10-15",
+      validity: "30 Days",
+      lines: [line()],
+      cgstRate: 9,
+      sgstRate: 9,
+      ...over,
+    });
+
+    it("prices like create, renders the PDF's HTML, and stores nothing", async () => {
+      const before = await http()
+        .get("/sales/quotations")
+        .set(auth("manager"))
+        .expect(200);
+      const total = (before.body as { meta: { total: number } }).meta.total;
+      const next = await http()
+        .get("/sales/quotations/next-number?date=2026-10-15")
+        .set(auth("manager"))
+        .expect(200);
+
+      const res = await http()
+        .post("/sales/quotations/preview")
+        .set(auth("exec"))
+        .send(body(tnCustomer))
+        .expect(200);
+      const preview = (res.body as Body<Preview>).data;
+      expect(preview.number).toBe(
+        (next.body as Body<{ number: string }>).data.number,
+      );
+      expect(preview.html).toContain("QUOTATION");
+      expect(preview.html).toContain(preview.number);
+      expect(preview.html).toContain("Control panel");
+
+      const after = await http()
+        .get("/sales/quotations")
+        .set(auth("manager"))
+        .expect(200);
+      expect((after.body as { meta: { total: number } }).meta.total).toBe(
+        total,
+      );
+
+      const saved = await createQuotation("manager", tnCustomer);
+      expect(preview.totals).toMatchObject({
+        taxMode: saved.taxMode,
+        totalAmount: saved.totalAmount,
+        cgstAmount: saved.cgstAmount,
+      });
+    });
+
+    it("previews edits to a saved quotation under its own number", async () => {
+      const q = await createQuotation("manager", tnCustomer);
+      const res = await http()
+        .post(`/sales/quotations/${q.id}/preview`)
+        .set(auth("manager"))
+        .send({ lines: [line({ quantity: 2 })] })
+        .expect(200);
+      const preview = (res.body as Body<Preview>).data;
+      expect(preview.number).toBe(q.quotationNumber);
+      expect(Number(preview.totals.totalAmount)).toBe(
+        Number(q.totalAmount) * 2,
+      );
+      const stored = await http()
+        .get(`/sales/quotations/${q.id}`)
+        .set(auth("manager"))
+        .expect(200);
+      expect((stored.body as Body<Doc>).data.totalAmount).toBe(q.totalAmount);
+    });
+
+    it("validates like create and is gated by sales.quotation.write", async () => {
+      await http()
+        .post("/sales/quotations/preview")
+        .set(auth("manager"))
+        .send(body(tnCustomer, { lines: [] }))
+        .expect(400);
+      await http()
+        .post("/sales/quotations/preview")
+        .set(auth("reader"))
+        .send(body(tnCustomer))
+        .expect(403);
+      // Another organization cannot preview org A's customer: 404, or 422
+      // first when that organization has no company details yet (both are
+      // looked up together).
+      const other = await http()
+        .post("/sales/quotations/preview")
+        .set(auth("managerB"))
+        .send(body(tnCustomer));
+      expect([404, 422]).toContain(other.status);
+      expect(JSON.stringify(other.body)).not.toContain("<html");
+      const q = await createQuotation("manager", tnCustomer);
+      await http()
+        .post(`/sales/quotations/${q.id}/preview`)
+        .set(auth("managerB"))
+        .send({})
+        .expect(404);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   describe("PDF, email and WhatsApp", () => {
     it("exports a PDF from the server-side template", async () => {
       const q = await createQuotation("manager", tnCustomer, {

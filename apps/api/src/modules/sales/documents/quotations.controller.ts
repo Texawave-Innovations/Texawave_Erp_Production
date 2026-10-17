@@ -84,6 +84,28 @@ export class QuotationsController {
     return this.quotations.create(dto);
   }
 
+  @Post("preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Live preview of an unsaved quotation: server totals and the PDF's HTML (nothing stored)",
+  })
+  preview(@Body() dto: CreateQuotationDto) {
+    return this.quotations.preview(dto);
+  }
+
+  @Post(":id/preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Live preview of edits to a saved quotation" })
+  previewUpdate(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateQuotationDto,
+  ) {
+    return this.quotations.previewUpdate(id, dto);
+  }
+
   @Patch(":id")
   @RequirePermission(WRITE)
   @ApiOperation({ summary: "Edit an open quotation (re-priced)" })

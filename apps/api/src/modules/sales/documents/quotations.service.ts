@@ -1,10 +1,13 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@texawave-erp/database";
 import { parseDateOnly } from "../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { CompanyProfileService } from "../master-list/company-profile.service.js";
+import { amountInWords } from "./amount-in-words.js";
 import { DocumentDeliveryService } from "./document-delivery.service.js";
+import type { DocumentData } from "./document-repository.helpers.js";
 import {
   DocumentPricingService,
   draftFromDto,
@@ -114,6 +117,95 @@ export class QuotationsService {
     );
     if (!updated) throw new ResourceNotFoundException("Quotation", id);
     return updated;
+  }
+
+  /**
+   * Live preview of a quotation that is not saved yet: the same pricing as
+   * create(), rendered with the same template as the PDF. Nothing is
+   * stored and no number is reserved (the number shown is the next one).
+   */
+  async preview(dto: CreateQuotationDto) {
+    const data = await this.pricing.resolve(draftFromDto(dto), {
+      requireActiveCustomer: true,
+    });
+    const quotationDate = parseDateOnly(dto.quotationDate);
+    const { number } = await this.pricing.previewNumber(
+      "quotation",
+      quotationDate,
+    );
+    return this.render(data, {
+      quotationNumber: number,
+      quotationDate,
+      validity: dto.validity ?? null,
+    });
+  }
+
+  /** Live preview of edits to a saved quotation (same merge as update()). */
+  async previewUpdate(id: number, dto: UpdateQuotationDto) {
+    const current = await this.findOne(id);
+    const draft = mergeDraft(
+      draftFromStored(current, storedRates(current)),
+      dto,
+    );
+    const data = await this.pricing.resolve(draft, {
+      requireActiveCustomer: draft.customerId !== current.customerId,
+    });
+    return this.render(data, {
+      quotationNumber: current.quotationNumber,
+      quotationDate:
+        dto.quotationDate !== undefined
+          ? parseDateOnly(dto.quotationDate)
+          : current.quotationDate,
+      validity: pickDefined(dto.validity, current.validity),
+    });
+  }
+
+  private async render(
+    data: DocumentData,
+    meta: {
+      quotationNumber: string;
+      quotationDate: Date;
+      validity: string | null;
+    },
+  ) {
+    const company = await this.companyProfile.require();
+    const doc = await this.delivery.withImages(
+      printableQuotation(
+        {
+          ...data,
+          ...meta,
+          lines: data.lines.map((l) => ({
+            ...l,
+            quantity: new Prisma.Decimal(l.quantity),
+            unitPrice: new Prisma.Decimal(l.unitPrice),
+          })),
+          amountInWords: amountInWords(data.totalAmount),
+        },
+        company,
+      ),
+      data,
+    );
+    return {
+      number: meta.quotationNumber,
+      html: this.delivery.html(doc),
+      totals: {
+        placeOfSupply: data.placeOfSupply,
+        taxMode: data.taxMode,
+        itemsSubtotal: data.itemsSubtotal,
+        transportCharge: data.transportCharge,
+        taxableAmount: data.taxableAmount,
+        cgstRate: data.cgstRate,
+        sgstRate: data.sgstRate,
+        igstRate: data.igstRate,
+        cgstAmount: data.cgstAmount,
+        sgstAmount: data.sgstAmount,
+        igstAmount: data.igstAmount,
+        roundOff: data.roundOff,
+        totalAmount: data.totalAmount,
+        amountInWords: amountInWords(data.totalAmount),
+        lineAmounts: data.lines.map((l) => l.amount),
+      },
+    };
   }
 
   async remove(id: number): Promise<void> {
