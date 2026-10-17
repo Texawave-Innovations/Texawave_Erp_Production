@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@texawave-erp/database";
 import { parseDateOnly } from "../../../common/dates/date-only.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
@@ -207,6 +208,90 @@ export class ReturnableDcsService {
     return updated;
   }
 
+  /** Live preview of an unsaved returnable DC (nothing stored; the number
+   * shown is the next one). */
+  async preview(dto: CreateReturnableDcDto) {
+    const [customer, company] = await Promise.all([
+      this.pricing.customer(dto.customerId, { requireActive: true }),
+      this.companyProfile.require(),
+    ]);
+    const issueDate = parseDateOnly(dto.issueDate);
+    const expectedReturnDate = parseDateOnly(dto.expectedReturnDate);
+    assertReturnDate(issueDate, expectedReturnDate);
+    const { number } = await this.pricing.previewNumber(
+      "returnable_dc",
+      issueDate,
+    );
+    return this.render({
+      rdcNumber: number,
+      issueDate,
+      purpose: dto.purpose,
+      expectedReturnDate,
+      takenBy: dto.takenBy || null,
+      status: "ISSUED",
+      returnedDate: null,
+      customerSnapshot: customerSnapshot(customer),
+      lines: toLines(dto.lines),
+      notes: dto.notes ?? defaultReturnableTerms(company.legalName),
+      preparedBy: dto.preparedBy || null,
+      ...(await this.pricing.signatories({
+        sealItemId: dto.sealItemId ?? null,
+        sealName: dto.sealName ?? null,
+        signatureItemId: dto.signatureItemId ?? null,
+        signatureName: dto.signatureName ?? null,
+      })),
+    });
+  }
+
+  /** Live preview of edits to a saved returnable DC (not returned). */
+  async previewUpdate(id: number, dto: UpdateReturnableDcDto) {
+    const current = await this.findOne(id);
+    assertNotReturned(current);
+    const customerChanged =
+      dto.customerId !== undefined && dto.customerId !== current.customerId;
+    const customer = await this.pricing.customer(
+      dto.customerId ?? current.customerId,
+      { requireActive: customerChanged },
+    );
+    const issueDate =
+      dto.issueDate !== undefined
+        ? parseDateOnly(dto.issueDate)
+        : current.issueDate;
+    const expectedReturnDate =
+      dto.expectedReturnDate !== undefined
+        ? parseDateOnly(dto.expectedReturnDate)
+        : current.expectedReturnDate;
+    assertReturnDate(issueDate, expectedReturnDate);
+    return this.render({
+      rdcNumber: current.rdcNumber,
+      issueDate,
+      purpose: dto.purpose ?? current.purpose,
+      expectedReturnDate,
+      takenBy: pickDefined(dto.takenBy, current.takenBy) || null,
+      status: current.status,
+      returnedDate: current.returnedDate,
+      customerSnapshot: customerSnapshot(customer),
+      lines: dto.lines
+        ? toLines(dto.lines)
+        : current.lines.map((l) => ({
+            lineNo: l.lineNo,
+            description: l.description,
+            quantity: l.quantity.toNumber(),
+          })),
+      notes: pickDefined(dto.notes, current.notes),
+      preparedBy: pickDefined(dto.preparedBy, current.preparedBy) || null,
+      ...(await this.pricing.signatories({
+        sealItemId: pickDefined(dto.sealItemId, current.sealItemId),
+        sealName: pickDefined(dto.sealName, current.sealName),
+        signatureItemId: pickDefined(
+          dto.signatureItemId,
+          current.signatureItemId,
+        ),
+        signatureName: pickDefined(dto.signatureName, current.signatureName),
+      })),
+    });
+  }
+
   /** "Returned": the goods are back (default today). */
   async markReturned(id: number, dto: MarkReturnedDto) {
     const returnedDate = parseDateOnly(dto.returnedDate ?? todayDateOnly());
@@ -281,6 +366,40 @@ export class ReturnableDcsService {
       id,
       await this.printable(id),
     );
+  }
+
+  private async render(rdc: {
+    rdcNumber: string;
+    issueDate: Date;
+    purpose: string;
+    expectedReturnDate: Date;
+    takenBy: string | null;
+    status: string;
+    returnedDate: Date | null;
+    customerSnapshot: ReturnType<typeof customerSnapshot>;
+    lines: RdcLine[];
+    notes: string | null;
+    preparedBy: string | null;
+    sealName: string | null;
+    signatureName: string | null;
+    sealItemId: number | null;
+    signatureItemId: number | null;
+  }) {
+    const company = await this.companyProfile.require();
+    const doc = await this.delivery.withImages(
+      printableReturnableDc(
+        {
+          ...rdc,
+          lines: rdc.lines.map((l) => ({
+            ...l,
+            quantity: new Prisma.Decimal(l.quantity),
+          })),
+        },
+        company,
+      ),
+      rdc,
+    );
+    return { number: rdc.rdcNumber, html: this.delivery.html(doc) };
   }
 
   private async printable(id: number) {

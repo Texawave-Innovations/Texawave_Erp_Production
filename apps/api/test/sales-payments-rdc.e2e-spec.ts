@@ -262,29 +262,16 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
     let bankTransfer: number;
     let first: Payment;
 
-    it("payment modes live in the master list (PAYMENT_RECEIVED only)", async () => {
+    it("payment modes live in the master list", async () => {
       const add = (body: Record<string, unknown>, who = "manager") =>
         http().post("/sales/master/document-fields").set(auth(who)).send(body);
       const res = await add({
-        documentType: "PAYMENT_RECEIVED",
         field: "PAYMENT_MODE",
         label: "Bank Transfer",
         isDefault: true,
       }).expect(201);
       bankTransfer = (res.body as Body<{ id: number }>).data.id;
-      const wrong = await add({
-        documentType: "QUOTATION",
-        field: "PAYMENT_MODE",
-        label: "UPI",
-      }).expect(422);
-      expect((wrong.body as ErrorBody).error).toBe("FIELD_NOT_ON_DOCUMENT");
-      await add({
-        documentType: "PAYMENT_RECEIVED",
-        field: "PREPARED_BY",
-        label: "Rafic",
-      }).expect(422);
       const long = await add({
-        documentType: "PAYMENT_RECEIVED",
         field: "PAYMENT_MODE",
         label: "x".repeat(51),
       }).expect(422);
@@ -375,7 +362,6 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
         .post("/sales/master/document-fields")
         .set(auth("manager"))
         .send({
-          documentType: "RETURNABLE_DC",
           field: "PREPARED_BY",
           label: "Rafic",
         })
@@ -587,12 +573,11 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
       ...over,
     });
 
-    it("master list: seal, signature and prepared-by for RDCs only", async () => {
+    it("master list: seals are shared with the other documents", async () => {
       const res = await http()
         .post("/sales/master/document-fields")
         .set(auth("manager"))
         .send({
-          documentType: "RETURNABLE_DC",
           field: "COMPANY_SEAL",
           label: "Texawave Official Corporate Seal",
         })
@@ -603,16 +588,25 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
         .set(auth("manager"))
         .attach("file", PNG, { filename: "seal.png", contentType: "image/png" })
         .expect(200);
-      const wrong = await http()
+      await http()
         .post("/sales/master/document-fields")
         .set(auth("manager"))
-        .send({
-          documentType: "RETURNABLE_DC",
-          field: "HSN_CODE",
-          value: "8471",
-        })
-        .expect(422);
-      expect((wrong.body as ErrorBody).error).toBe("FIELD_NOT_ON_DOCUMENT");
+        .send({ field: "HSN_CODE", value: "8471" })
+        .expect(201);
+      // Shared: the seal is offered on quotations too; an RDC has no HSN.
+      const fieldsOf = async (documentType: string) =>
+        (
+          (
+            await http()
+              .get(`/sales/master/document-fields?documentType=${documentType}`)
+              .set(auth("exec"))
+              .expect(200)
+          ).body as Body<Array<{ id: number; field: string }>>
+        ).data;
+      expect((await fieldsOf("QUOTATION")).map((o) => o.id)).toContain(seal);
+      expect(
+        (await fieldsOf("RETURNABLE_DC")).map((o) => o.field),
+      ).not.toContain("HSN_CODE");
     });
 
     it("numbers from the editable running number (100 → 0101)", async () => {
@@ -719,6 +713,56 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
       expect(html).toContain('<img class="logo" src="data:image/png;base64,');
       expect(html).toContain('<img class="seal" src="data:image/png;base64,');
       expect(html).toContain("Canal Bank Road");
+    });
+
+    it("previews an unsaved RDC and edits to a saved one, storing nothing", async () => {
+      const next = await http()
+        .get("/sales/returnable-dcs/next-number?date=2026-10-15")
+        .set(auth("exec"))
+        .expect(200);
+      const res = await http()
+        .post("/sales/returnable-dcs/preview")
+        .set(auth("exec"))
+        .send(body({ purpose: "Site trial", sealItemId: seal }))
+        .expect(200);
+      const preview = (res.body as Body<{ number: string; html: string }>).data;
+      expect(preview.number).toBe(
+        (next.body as Body<{ number: string }>).data.number,
+      );
+      expect(preview.html).toContain("RETURNABLE DELIVERY CHALLAN");
+      expect(preview.html).toContain("Site trial");
+      expect(preview.html).toContain('<img class="seal" src="data:image/png;');
+      const again = await http()
+        .get("/sales/returnable-dcs/next-number?date=2026-10-15")
+        .set(auth("exec"))
+        .expect(200);
+      expect(again.body).toEqual(next.body);
+      const early = await http()
+        .post("/sales/returnable-dcs/preview")
+        .set(auth("exec"))
+        .send(body({ expectedReturnDate: "2026-10-01" }))
+        .expect(422);
+      expect((early.body as ErrorBody).error).toBe(
+        "RETURN_DATE_BEFORE_ISSUE_DATE",
+      );
+      const edit = await http()
+        .post(`/sales/returnable-dcs/${rdc.id}/preview`)
+        .set(auth("exec"))
+        .send({ takenBy: "Kumar (site)" })
+        .expect(200);
+      const edited = (edit.body as Body<{ number: string; html: string }>).data;
+      expect(edited.number).toBe(rdc.rdcNumber);
+      expect(edited.html).toContain("Kumar (site)");
+      await http()
+        .post(`/sales/returnable-dcs/${rdc.id}/preview`)
+        .set(auth("managerB"))
+        .send({})
+        .expect(404);
+      await http()
+        .post("/sales/returnable-dcs/preview")
+        .set(auth("nobody"))
+        .send(body())
+        .expect(403);
     });
 
     it("sends by email and WhatsApp (send permission)", async () => {

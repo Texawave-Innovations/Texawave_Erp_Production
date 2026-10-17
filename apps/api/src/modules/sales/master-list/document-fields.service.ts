@@ -6,10 +6,10 @@ import {
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { FileStorageService } from "../../../shared/file-storage/file-storage.service.js";
 import {
-  assertFieldAllowed,
   type BankDetailsInput,
-  DOCUMENT_TYPES,
+  DOCUMENT_FIELDS,
   type DocumentField,
+  documentTypesFor,
   FIELDS_BY_DOCUMENT,
   isImageField,
   normalizeOption,
@@ -25,8 +25,9 @@ import type {
 } from "./dto/document-field.dto.js";
 import { acceptImage, dataUri, type UploadedImage } from "./image-upload.js";
 
-/** Sales master list — the choices on the quotation / PI / tax invoice / DC
- * forms, all on one page grouped by document type and field. */
+/** Sales master list — the choices on the Sales document forms, one list
+ * per field, shared by every document that has the field (a bank account or
+ * seal added once is offered on quotations, invoices and challans). */
 @Injectable()
 export class DocumentFieldsService {
   private readonly logger = new Logger(DocumentFieldsService.name);
@@ -37,21 +38,27 @@ export class DocumentFieldsService {
     private readonly files: FileStorageService,
   ) {}
 
-  /** Which fields each document type has, for building the page. */
+  /** Every field, whether its options carry an image, and which document
+   * types offer it — for building the page. */
   layout() {
-    return DOCUMENT_TYPES.map((documentType) => ({
-      documentType,
-      fields: FIELDS_BY_DOCUMENT[documentType].map((field) => ({
-        field,
-        hasImage: isImageField(field),
-      })),
+    return DOCUMENT_FIELDS.map((field) => ({
+      field,
+      hasImage: isImageField(field),
+      documentTypes: documentTypesFor(field),
     }));
   }
 
   findAll(query: QueryDocumentFieldDto) {
+    // A document type → the options of every field its form has.
+    const offered = query.documentType
+      ? FIELDS_BY_DOCUMENT[query.documentType]
+      : DOCUMENT_FIELDS;
     return this.repository.findMany(this.tenantContext.getOrgScope(), {
-      documentType: query.documentType,
-      field: query.field,
+      fields: query.field
+        ? offered.filter((f) => f === query.field)
+        : query.documentType
+          ? offered
+          : undefined,
     });
   }
 
@@ -65,13 +72,11 @@ export class DocumentFieldsService {
   }
 
   create(dto: CreateDocumentFieldDto) {
-    assertFieldAllowed(dto.documentType, dto.field);
     const option = normalizeOption(dto.field, dto);
     return this.repository.create(
       this.tenantContext.getOrgScope(),
       {
         ...option,
-        documentType: dto.documentType,
         field: dto.field,
         isDefault: dto.isDefault ?? false,
         sortOrder: dto.sortOrder ?? 0,

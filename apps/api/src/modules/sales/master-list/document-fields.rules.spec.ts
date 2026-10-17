@@ -1,6 +1,6 @@
 import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 import {
-  assertFieldAllowed,
+  documentTypesFor,
   FIELDS_BY_DOCUMENT,
   normalizeOption,
 } from "./document-fields.rules.js";
@@ -25,18 +25,21 @@ describe("document field rules", () => {
       "AUTHORIZED_SIGNATURE",
       "PREPARED_BY",
     ]);
-    expect(() => assertFieldAllowed("RETURNABLE_DC", "HSN_CODE")).toThrow(
-      BusinessRuleViolationException,
-    );
-    expect(() => assertFieldAllowed("DELIVERY_CHALLAN", "VALIDITY")).toThrow(
-      BusinessRuleViolationException,
-    );
-    expect(() => assertFieldAllowed("TAX_INVOICE", "DELIVERY_TERMS")).toThrow(
-      BusinessRuleViolationException,
-    );
-    expect(() =>
-      assertFieldAllowed("QUOTATION", "DELIVERY_TERMS"),
-    ).not.toThrow();
+  });
+
+  it("shares a field's options with every document that has the field", () => {
+    expect(documentTypesFor("BANK_ACCOUNT")).toEqual([
+      "QUOTATION",
+      "PROFORMA_INVOICE",
+      "TAX_INVOICE",
+      "DELIVERY_CHALLAN",
+    ]);
+    expect(documentTypesFor("COMPANY_SEAL")).toContain("RETURNABLE_DC");
+    expect(documentTypesFor("PAYMENT_TERMS")).toEqual([
+      "PROFORMA_INVOICE",
+      "TAX_INVOICE",
+    ]);
+    expect(documentTypesFor("PAYMENT_MODE")).toEqual(["PAYMENT_RECEIVED"]);
   });
 
   it("HSN codes carry a 4-8 digit value; the label defaults to the code", () => {

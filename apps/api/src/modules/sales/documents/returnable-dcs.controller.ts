@@ -80,6 +80,29 @@ export class ReturnableDcsController {
     return this.rdcs.create(dto);
   }
 
+  @Post("preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Live preview of an unsaved returnable DC (nothing stored)",
+  })
+  preview(@Body() dto: CreateReturnableDcDto) {
+    return this.rdcs.preview(dto);
+  }
+
+  @Post(":id/preview")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Live preview of edits to a returnable DC that is not returned",
+  })
+  previewUpdate(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateReturnableDcDto,
+  ) {
+    return this.rdcs.previewUpdate(id, dto);
+  }
+
   @Patch(":id")
   @RequirePermission(WRITE)
   @ApiOperation({ summary: "Edit a returnable DC that is not returned yet" })

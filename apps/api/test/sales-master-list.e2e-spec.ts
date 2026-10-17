@@ -29,7 +29,6 @@ interface ErrorBody {
 }
 interface Option {
   id: number;
-  documentType: string;
   field: string;
   label: string;
   value: string | null;
@@ -383,59 +382,50 @@ describe("Sales — document master list (e2e)", () => {
     let seal: Option;
     let signature: Option;
 
-    it("describes which fields each document has", async () => {
+    it("describes each field and the documents that offer it", async () => {
       const res = await http()
         .get("/sales/master/document-fields/layout")
         .set(auth("exec"))
         .expect(200);
       const layout = (
         res.body as Body<
-          Array<{ documentType: string; fields: Array<{ field: string }> }>
+          Array<{ field: string; hasImage: boolean; documentTypes: string[] }>
         >
       ).data;
-      expect(layout.map((l) => l.documentType)).toEqual([
-        "QUOTATION",
-        "PROFORMA_INVOICE",
-        "TAX_INVOICE",
-        "DELIVERY_CHALLAN",
-        "PAYMENT_RECEIVED",
-        "RETURNABLE_DC",
-      ]);
-      const fields = (type: string) =>
-        layout.find((l) => l.documentType === type)?.fields.map((f) => f.field);
-      expect(fields("PAYMENT_RECEIVED")).toEqual(["PAYMENT_MODE"]);
-      expect(fields("RETURNABLE_DC")).toEqual([
-        "COMPANY_SEAL",
-        "AUTHORIZED_SIGNATURE",
-        "PREPARED_BY",
-      ]);
+      const of = (field: string) => layout.find((l) => l.field === field);
+      expect(layout.map((l) => l.field)).toHaveLength(9);
+      expect(of("PAYMENT_MODE")?.documentTypes).toEqual(["PAYMENT_RECEIVED"]);
+      expect(of("COMPANY_SEAL")).toEqual({
+        field: "COMPANY_SEAL",
+        hasImage: true,
+        documentTypes: [
+          "QUOTATION",
+          "PROFORMA_INVOICE",
+          "TAX_INVOICE",
+          "DELIVERY_CHALLAN",
+          "RETURNABLE_DC",
+        ],
+      });
     });
 
-    it("adds options per document and field; refuses fields a document does not have", async () => {
+    it("adds options per field, shared by every document that has it", async () => {
       const add = (body: Record<string, unknown>, who = "manager") =>
         http().post("/sales/master/document-fields").set(auth(who)).send(body);
-      await add(
-        { documentType: "QUOTATION", field: "VALIDITY", label: "30 Days" },
-        "exec",
-      ).expect(403);
+      await add({ field: "VALIDITY", label: "30 Days" }, "exec").expect(403);
       await add({
-        documentType: "QUOTATION",
         field: "VALIDITY",
         label: "30 Days",
         isDefault: true,
       }).expect(201);
       await add({
-        documentType: "QUOTATION",
         field: "DELIVERY_TERMS",
         label: "2-3 Weeks",
       }).expect(201);
       await add({
-        documentType: "PROFORMA_INVOICE",
         field: "PAYMENT_TERMS",
         label: "30 Days",
       }).expect(201);
       const hsn = await add({
-        documentType: "TAX_INVOICE",
         field: "HSN_CODE",
         value: "8471",
         label: "Computers",
@@ -445,7 +435,6 @@ describe("Sales — document master list (e2e)", () => {
         label: "Computers",
       });
       const bank = await add({
-        documentType: "QUOTATION",
         field: "BANK_ACCOUNT",
         bankDetails: {
           bankName: "HDFC Bank",
@@ -458,30 +447,36 @@ describe("Sales — document master list (e2e)", () => {
         "HDFC Bank - 235767577457 (Main Branch)",
       );
       await add({
-        documentType: "DELIVERY_CHALLAN",
         field: "PREPARED_BY",
         label: "Rafic",
       }).expect(201);
 
-      const wrong = await add({
-        documentType: "DELIVERY_CHALLAN",
-        field: "PAYMENT_TERMS",
-        label: "x",
-      }).expect(422);
-      expect((wrong.body as ErrorBody).error).toBe("FIELD_NOT_ON_DOCUMENT");
+      // One bank account serves every document with a bank field; a
+      // payment receipt has none.
+      const ids = async (documentType: string) =>
+        (
+          (
+            await http()
+              .get(`/sales/master/document-fields?documentType=${documentType}`)
+              .set(auth("exec"))
+              .expect(200)
+          ).body as Body<Option[]>
+        ).data.map((o) => o.id);
+      const bankId = (bank.body as Body<Option>).data.id;
+      expect(await ids("QUOTATION")).toContain(bankId);
+      expect(await ids("TAX_INVOICE")).toContain(bankId);
+      expect(await ids("DELIVERY_CHALLAN")).toContain(bankId);
+      expect(await ids("PAYMENT_RECEIVED")).not.toContain(bankId);
       await add({
-        documentType: "QUOTATION",
         field: "VALIDITY",
         label: "x",
         value: "1",
       }).expect(422);
       await add({
-        documentType: "QUOTATION",
         field: "HSN_CODE",
         value: "12",
       }).expect(422);
       await add({
-        documentType: "QUOTATION",
         field: "NOPE",
         label: "x",
       }).expect(400);
@@ -489,7 +484,6 @@ describe("Sales — document master list (e2e)", () => {
       seal = (
         (
           await add({
-            documentType: "QUOTATION",
             field: "COMPANY_SEAL",
             label: "Texawave Official Corporate Seal",
           }).expect(201)
@@ -498,7 +492,6 @@ describe("Sales — document master list (e2e)", () => {
       signature = (
         (
           await add({
-            documentType: "QUOTATION",
             field: "AUTHORIZED_SIGNATURE",
             label: "Managing Director Signature",
           }).expect(201)
@@ -506,12 +499,11 @@ describe("Sales — document master list (e2e)", () => {
       ).data;
     });
 
-    it("keeps one default per document and field", async () => {
+    it("keeps one default per field", async () => {
       const second = await http()
         .post("/sales/master/document-fields")
         .set(auth("manager"))
         .send({
-          documentType: "QUOTATION",
           field: "VALIDITY",
           label: "15 Days",
           isDefault: true,
@@ -530,12 +522,11 @@ describe("Sales — document master list (e2e)", () => {
       ]);
     });
 
-    it("edits and deletes options; the document type and field never change", async () => {
+    it("edits and deletes options; the field never changes", async () => {
       const created = await http()
         .post("/sales/master/document-fields")
         .set(auth("manager"))
         .send({
-          documentType: "TAX_INVOICE",
           field: "PAYMENT_TERMS",
           label: "45 Days",
         })

@@ -7,7 +7,6 @@ import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import type {
   DocumentField,
-  MasterDocumentType,
   NormalizedOption,
 } from "./document-fields.rules.js";
 
@@ -15,7 +14,6 @@ const ENTITY_TYPE = "sales_document_master_item";
 
 const SELECT = {
   id: true,
-  documentType: true,
   field: true,
   label: true,
   value: true,
@@ -41,7 +39,6 @@ export type DocumentFieldView = ReturnType<typeof toView>;
 
 function snapshot(row: ItemRow) {
   return {
-    documentType: row.documentType,
     field: row.field,
     label: row.label,
     value: row.value,
@@ -53,7 +50,6 @@ function snapshot(row: ItemRow) {
 }
 
 export interface NewOption extends NormalizedOption {
-  documentType: MasterDocumentType;
   field: DocumentField;
   isDefault: boolean;
   sortOrder: number;
@@ -79,17 +75,15 @@ export class DocumentFieldsRepository {
   @OrgScoped()
   async findMany(
     scope: OrgScope,
-    filter: { documentType?: string | undefined; field?: string | undefined },
+    filter: { fields?: readonly string[] | undefined },
   ) {
     const rows = await this.prisma.salesDocumentMasterItem.findMany({
       where: tenantWhere(scope, {
         deletedAt: null,
-        ...(filter.documentType ? { documentType: filter.documentType } : {}),
-        ...(filter.field ? { field: filter.field } : {}),
+        ...(filter.fields ? { field: { in: [...filter.fields] } } : {}),
       }),
       select: SELECT,
       orderBy: [
-        { documentType: "asc" },
         { field: "asc" },
         { sortOrder: "asc" },
         { label: "asc" },
@@ -122,12 +116,11 @@ export class DocumentFieldsRepository {
   async create(scope: OrgScope, input: NewOption, actorId: number) {
     return this.prisma.$transaction(async (tx) => {
       if (input.isDefault) {
-        await this.clearDefault(tx, scope, input.documentType, input.field);
+        await this.clearDefault(tx, scope, input.field);
       }
       const row = await tx.salesDocumentMasterItem.create({
         data: {
           organizationId: scope.organizationId,
-          documentType: input.documentType,
           field: input.field,
           label: input.label,
           value: input.value,
@@ -161,7 +154,7 @@ export class DocumentFieldsRepository {
       const before = await this.lock(tx, scope, id);
       if (!before) return null;
       if (patch.isDefault) {
-        await this.clearDefault(tx, scope, before.documentType, before.field);
+        await this.clearDefault(tx, scope, before.field);
       }
       const row = await tx.salesDocumentMasterItem.update({
         where: { id },
@@ -272,12 +265,10 @@ export class DocumentFieldsRepository {
   private clearDefault(
     tx: Prisma.TransactionClient,
     scope: OrgScope,
-    documentType: string,
     field: string,
   ) {
     return tx.salesDocumentMasterItem.updateMany({
       where: tenantWhere(scope, {
-        documentType,
         field,
         isDefault: true,
         deletedAt: null,

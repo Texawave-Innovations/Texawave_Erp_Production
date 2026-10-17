@@ -2,9 +2,9 @@ import { BusinessRuleViolationException } from "../../../common/exceptions/busin
 import { IFSC_PATTERN } from "../shared/gst.js";
 
 /**
- * Sales master list — the choices offered on each document form. Pure, no
- * I/O. Which fields a document type has mirrors the legacy forms (and the
- * `document_master_items_field_check` constraint).
+ * Sales master list — the choices offered on the document forms. Pure, no
+ * I/O. Options belong to a field and are shared by every document type
+ * whose form has that field (FIELDS_BY_DOCUMENT mirrors the legacy forms).
  */
 export const DOCUMENT_TYPES = [
   "QUOTATION",
@@ -60,16 +60,9 @@ export function isImageField(field: string): boolean {
   return (IMAGE_FIELDS as readonly string[]).includes(field);
 }
 
-export function assertFieldAllowed(
-  documentType: MasterDocumentType,
-  field: DocumentField,
-): void {
-  if (!FIELDS_BY_DOCUMENT[documentType].includes(field)) {
-    throw new BusinessRuleViolationException(
-      `${documentType} has no ${field} field`,
-      "FIELD_NOT_ON_DOCUMENT",
-    );
-  }
+/** The document types whose form offers `field`. */
+export function documentTypesFor(field: DocumentField): MasterDocumentType[] {
+  return DOCUMENT_TYPES.filter((d) => FIELDS_BY_DOCUMENT[d].includes(field));
 }
 
 export interface BankDetailsInput {

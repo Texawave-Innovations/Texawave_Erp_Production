@@ -78,7 +78,7 @@ class OptionFieldsDto {
 
   @ApiPropertyOptional({
     default: false,
-    description: "Pre-selected on the form; one per document type and field",
+    description: "Pre-selected on the forms; one per field",
   })
   @IsOptional()
   @IsBoolean()
@@ -93,21 +93,21 @@ class OptionFieldsDto {
   sortOrder?: number;
 }
 
+/** An option of one field, offered on every document type with that field. */
 export class CreateDocumentFieldDto extends OptionFieldsDto {
-  @ApiProperty({ enum: DOCUMENT_TYPES })
-  @IsIn(DOCUMENT_TYPES)
-  documentType!: MasterDocumentType;
-
   @ApiProperty({ enum: DOCUMENT_FIELDS })
   @IsIn(DOCUMENT_FIELDS)
   field!: DocumentField;
 }
 
-/** The document type and field of an option never change. */
+/** The field of an option never changes. */
 export class UpdateDocumentFieldDto extends OptionFieldsDto {}
 
 export class QueryDocumentFieldDto {
-  @ApiPropertyOptional({ enum: DOCUMENT_TYPES })
+  @ApiPropertyOptional({
+    enum: DOCUMENT_TYPES,
+    description: "The options of every field this document's form has",
+  })
   @IsOptional()
   @IsIn(DOCUMENT_TYPES)
   documentType?: MasterDocumentType;
