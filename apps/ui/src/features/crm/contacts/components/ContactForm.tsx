@@ -1,24 +1,29 @@
 "use client";
 
+import { Button } from "@/components/legacy-ui/button";
+import { Checkbox } from "@/components/legacy-ui/checkbox";
+import { Input } from "@/components/legacy-ui/input";
+import { Label } from "@/components/legacy-ui/label";
+import { AccountPicker } from "../../accounts/components/AccountPicker";
 import {
   createContactSchema,
   type CreateContactFormValues,
 } from "@texawave-erp/core";
-import { Button, Checkbox, FormField, Input } from "@texawave-erp/ui-kit";
+import { Users } from "lucide-react";
 import { useState } from "react";
-import { AccountCombobox } from "../../accounts/components/AccountCombobox";
 
 export interface ContactFormProps {
-  initialValues?: Partial<CreateContactFormValues>;
+  title: string;
+  initialValues?: Partial<CreateContactFormValues> | undefined;
   onSubmit: (values: CreateContactFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
 }
 
-/** Reproduces the legacy Contacts.tsx save guard: blocked client-side
- * without `name` and `accountId`
- * (`if (!form.name.trim() || !form.accountId) return;`). */
+/** Legacy Contacts.tsx full-page create/edit form. Save is blocked without
+ * name + account, exactly as legacy (`!form.name.trim() || !form.accountId`). */
 export function ContactForm({
+  title,
   initialValues,
   onSubmit,
   onCancel,
@@ -34,17 +39,16 @@ export function ContactForm({
   const [department, setDepartment] = useState(initialValues?.department ?? "");
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
-  const [whatsapp, setWhatsapp] = useState(initialValues?.whatsapp ?? "");
   const [isPrimary, setIsPrimary] = useState(initialValues?.isPrimary ?? false);
   const [isDecisionMaker, setIsDecisionMaker] = useState(
     initialValues?.isDecisionMaker ?? false,
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSave() {
+    if (!name.trim() || !accountId) return;
     const result = createContactSchema.safeParse({
       accountId,
       name,
@@ -52,7 +56,7 @@ export function ContactForm({
       department,
       email,
       phone,
-      whatsapp,
+      whatsapp: initialValues?.whatsapp,
       isPrimary,
       isDecisionMaker,
     });
@@ -67,133 +71,133 @@ export function ContactForm({
     }
     setErrors({});
     setSubmitError(null);
-    setSubmitting(true);
+    setSaving(true);
     try {
       await onSubmit(result.data);
     } catch {
-      setSubmitError(
-        "Could not save this contact. Check the fields above and try again.",
-      );
+      setSubmitError("Failed to save contact. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
+  const fieldError = (key: string) =>
+    errors[key] ? <p className="text-xs text-red-600">{errors[key]}</p> : null;
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <AccountCombobox
-        value={accountId}
-        onChange={setAccountId}
-        disabled={submitting}
-        error={errors.accountId}
-      />
-      <FormField label="Name" required error={errors.name}>
-        {(fieldProps) => (
-          <Input
-            {...fieldProps}
-            invalid={fieldProps.invalid}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={submitting}
-          />
-        )}
-      </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Designation" error={errors.designation}>
-          {(fieldProps) => (
+    <>
+      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl p-6 space-y-5">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-200">
+            <Users className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            <p className="text-sm text-slate-400">
+              Every person across every Account, in one place.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Account *
+            </Label>
+            <AccountPicker value={accountId} onChange={setAccountId} />
+            {fieldError("accountId")}
+          </div>
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Full Name *
+            </Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            {fieldError("name")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Designation
+            </Label>
+            <Input
+              className="h-9 rounded-xl"
               value={designation}
               onChange={(e) => setDesignation(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-        <FormField label="Department" error={errors.department}>
-          {(fieldProps) => (
+            {fieldError("designation")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Department
+            </Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-      </div>
-      <FormField label="Email" error={errors.email}>
-        {(fieldProps) => (
-          <Input
-            {...fieldProps}
-            type="email"
-            invalid={fieldProps.invalid}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={submitting}
-          />
-        )}
-      </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Phone" error={errors.phone}>
-          {(fieldProps) => (
+            {fieldError("department")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">Email</Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {fieldError("email")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">Phone</Label>
+            <Input
+              className="h-9 rounded-xl"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-        <FormField label="WhatsApp" error={errors.whatsapp}>
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              disabled={submitting}
+            {fieldError("phone")}
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={isPrimary}
+              onCheckedChange={(v) => setIsPrimary(!!v)}
             />
-          )}
-        </FormField>
+            <Label className="text-sm font-normal">Primary Contact</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={isDecisionMaker}
+              onCheckedChange={(v) => setIsDecisionMaker(!!v)}
+            />
+            <Label className="text-sm font-normal">Decision Maker</Label>
+          </div>
+        </div>
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
       </div>
-      <div className="flex gap-6">
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <Checkbox
-            checked={isPrimary}
-            onChange={(e) => setIsPrimary(e.target.checked)}
-            disabled={submitting}
-          />
-          Primary contact
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <Checkbox
-            checked={isDecisionMaker}
-            onChange={(e) => setIsDecisionMaker(e.target.checked)}
-            disabled={submitting}
-          />
-          Decision maker
-        </label>
+
+      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl p-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="text-sm text-slate-400">
+          Fields marked with * are required.
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="rounded-xl border-red-200 text-red-600 bg-red-50/50 hover:text-red-700 hover:border-red-400 hover:bg-red-100"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="rounded-xl"
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || !accountId || saving}
+          >
+            {saving ? "Saving…" : submitLabel}
+          </Button>
+        </div>
       </div>
-      {submitError ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {submitError}
-        </p>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onCancel}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          {submitLabel}
-        </Button>
-      </div>
-    </form>
+    </>
   );
 }

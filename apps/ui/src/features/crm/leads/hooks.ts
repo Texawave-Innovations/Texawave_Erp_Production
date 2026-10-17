@@ -7,12 +7,23 @@ import type {
   UpdateLeadInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   convertLead,
   createLead,
   deleteLead,
+  getLead,
+  addLeadNote,
+  deleteLeadNote,
+  getLeadFacets,
+  getLeadTimeline,
+  listLeadNotes,
   listLeads,
   updateLead,
 } from "./api";
@@ -27,6 +38,77 @@ export function useLeads(query: QueryLeadsInput) {
     queryKey: leadsKey(organizationId ?? 0, query),
     queryFn: () => listLeads(query),
     enabled: Boolean(organizationId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useLead(id: number | undefined) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "crm-leads", "detail", id ?? 0),
+    queryFn: () => getLead(id as number),
+    enabled: Boolean(organizationId) && id !== undefined,
+  });
+}
+
+export function useLeadNotes(id: number | undefined) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "crm-leads", "notes", id ?? 0),
+    queryFn: () => listLeadNotes(id as number),
+    enabled: Boolean(organizationId) && id !== undefined,
+  });
+}
+
+export function useLeadTimeline(id: number | undefined) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "crm-leads",
+      "timeline",
+      id ?? 0,
+    ),
+    queryFn: () => getLeadTimeline(id as number),
+    enabled: Boolean(organizationId) && id !== undefined,
+  });
+}
+
+export function useAddLeadNote() {
+  const queryClient = useQueryClient();
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useMutation({
+    mutationFn: ({ id, content }: { id: number; content: string }) =>
+      addLeadNote(id, content),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "crm-leads"),
+      });
+    },
+  });
+}
+
+export function useDeleteLeadNote() {
+  const queryClient = useQueryClient();
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useMutation({
+    mutationFn: ({ id, noteId }: { id: number; noteId: number }) =>
+      deleteLeadNote(id, noteId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "crm-leads"),
+      });
+    },
+  });
+}
+
+export function useLeadFacets() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "crm-leads", "facets"),
+    queryFn: getLeadFacets,
+    enabled: Boolean(organizationId),
+    staleTime: 60_000,
   });
 }
 

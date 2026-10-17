@@ -1,7 +1,8 @@
 "use client";
 
+import { EmptyState } from "@/features/crm/legacy-ui/CrmCommon";
 import { ApiError } from "@texawave-erp/core";
-import { Alert, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
+import { Receipt } from "lucide-react";
 import { useQuotation } from "../hooks";
 import { QuotationForm } from "./QuotationForm";
 
@@ -12,23 +13,33 @@ export function QuotationDetailView({ id }: { id: number }) {
 
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
-        ))}
+      <div className="text-center py-16 text-slate-400 text-xs">
+        Loading Quote…
       </div>
     );
   }
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to this quote">
-          Ask an administrator for the <code>crm.quotation.read</code>{" "}
-          permission.
-        </Alert>
+        <EmptyState
+          icon={Receipt}
+          title="You don't have access to this quote"
+          description="Ask an administrator for the crm.quotation.read permission."
+        />
       );
     }
-    return <ErrorState onRetry={() => void query.refetch()} />;
+    return (
+      <div className="text-center py-16 text-xs text-red-500">
+        Could not load this quote.{" "}
+        <button
+          type="button"
+          className="underline"
+          onClick={() => void query.refetch()}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return <QuotationForm existing={query.data} />;

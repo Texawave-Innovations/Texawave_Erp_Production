@@ -1,32 +1,29 @@
 "use client";
 
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import { Label } from "@/components/legacy-ui/label";
+import { Switch } from "@/components/legacy-ui/switch";
+import { Textarea } from "@/components/legacy-ui/textarea";
 import {
   createProductSchema,
   type CreateProductFormValues,
 } from "@texawave-erp/core";
-import {
-  Button,
-  Checkbox,
-  FormField,
-  Input,
-  Textarea,
-} from "@texawave-erp/ui-kit";
+import { Package } from "lucide-react";
 import { useState } from "react";
 
 export interface ProductFormProps {
-  initialValues?: Partial<CreateProductFormValues>;
+  title: string;
+  initialValues?: Partial<CreateProductFormValues> | undefined;
   onSubmit: (values: CreateProductFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
 }
 
-/** Reproduces legacy Products.tsx's create/edit form fields exactly:
- * Name, Code/SKU (both required, `code` has no uniqueness check — see
- * Docs/CRM_PRODUCTS_LEGACY_PARITY.md §4 decision D1), Category, Vendor,
- * Unit Price (rejects negative — decision D3), Tax %, Description, and
- * an Active toggle (a `Checkbox` here; `ui-kit` has no `Switch`
- * component, per the audit's UI-parity checklist). */
+/** Legacy Products.tsx full-page create/edit form (two cards: the fields,
+ * then the "Fields marked with * are required" footer bar). */
 export function ProductForm({
+  title,
   initialValues,
   onSubmit,
   onCancel,
@@ -44,18 +41,18 @@ export function ProductForm({
   const [taxPercent, setTaxPercent] = useState(
     initialValues?.taxPercent !== undefined
       ? String(initialValues.taxPercent)
-      : "",
+      : "0",
   );
   const [description, setDescription] = useState(
     initialValues?.description ?? "",
   );
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSave() {
+    if (!name.trim() || !code.trim()) return;
     const result = createProductSchema.safeParse({
       name,
       code,
@@ -77,133 +74,144 @@ export function ProductForm({
     }
     setErrors({});
     setSubmitError(null);
-    setSubmitting(true);
+    setSaving(true);
     try {
       await onSubmit(result.data);
     } catch {
-      setSubmitError(
-        "Could not save this product. Check the fields above and try again.",
-      );
+      setSubmitError("Failed to save product. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
+  const fieldError = (key: string) =>
+    errors[key] ? <p className="text-xs text-red-600">{errors[key]}</p> : null;
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Product Name" required error={errors.name}>
-          {(fieldProps) => (
+    <>
+      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl p-6 space-y-5">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-200">
+            <Package className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            <p className="text-sm text-slate-400">
+              Your product/service catalog — add these to Deals and Quotes as
+              line items.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Product Name *
+            </Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={submitting}
+              placeholder="Industrial Woven Fabric Roll"
             />
-          )}
-        </FormField>
-        <FormField label="Code / SKU" required error={errors.code}>
-          {(fieldProps) => (
+            {fieldError("name")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Code / SKU *
+            </Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              disabled={submitting}
               placeholder="SKU-1001"
             />
-          )}
-        </FormField>
-        <FormField label="Category" error={errors.category}>
-          {(fieldProps) => (
+            {fieldError("code")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">Category</Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-        <FormField label="Vendor" error={errors.vendor}>
-          {(fieldProps) => (
+            {fieldError("category")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">Vendor</Label>
             <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
+              className="h-9 rounded-xl"
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-        <FormField label="Unit Price" required error={errors.unitPrice}>
-          {(fieldProps) => (
+            {fieldError("vendor")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Unit Price *
+            </Label>
             <Input
-              {...fieldProps}
+              className="h-9 rounded-xl"
               type="number"
               min={0}
-              invalid={fieldProps.invalid}
               value={unitPrice}
               onChange={(e) => setUnitPrice(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
-        <FormField label="Tax %" error={errors.taxPercent}>
-          {(fieldProps) => (
+            {fieldError("unitPrice")}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">Tax %</Label>
             <Input
-              {...fieldProps}
+              className="h-9 rounded-xl"
               type="number"
               min={0}
-              invalid={fieldProps.invalid}
               value={taxPercent}
               onChange={(e) => setTaxPercent(e.target.value)}
-              disabled={submitting}
             />
-          )}
-        </FormField>
+            {fieldError("taxPercent")}
+          </div>
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="text-xs font-bold text-slate-600">
+              Description
+            </Label>
+            <Textarea
+              rows={2}
+              className="rounded-xl"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            {fieldError("description")}
+          </div>
+          <div className="md:col-span-2 flex items-center justify-between rounded-xl border border-slate-200 p-3">
+            <Label className="text-sm">Active</Label>
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
+          </div>
+        </div>
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
       </div>
-      <FormField label="Description" error={errors.description}>
-        {(fieldProps) => (
-          <Textarea
-            {...fieldProps}
-            invalid={fieldProps.invalid}
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={submitting}
-          />
-        )}
-      </FormField>
-      <label className="flex items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-        <span className="text-theme-sm text-gray-700 dark:text-gray-300">
-          Active
-        </span>
-        <Checkbox
-          checked={isActive}
-          onChange={(e) => setIsActive(e.target.checked)}
-          disabled={submitting}
-        />
-      </label>
-      {submitError ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {submitError}
-        </p>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onCancel}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          {submitLabel}
-        </Button>
+
+      <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl p-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="text-sm text-slate-400">
+          Fields marked with * are required.
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="rounded-xl border-red-200 text-red-600 bg-red-50/50 hover:text-red-700 hover:border-red-400 hover:bg-red-100"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="rounded-xl"
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || !code.trim() || saving}
+          >
+            {saving ? "Saving…" : submitLabel}
+          </Button>
+        </div>
       </div>
-    </form>
+    </>
   );
 }

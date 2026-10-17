@@ -8,7 +8,12 @@ import type {
   UpdateCrmColdCallingEntryInput,
 } from "@texawave-erp/api-types";
 import { orgScopedKey } from "@texawave-erp/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   createColdCallingEntry,
@@ -16,6 +21,7 @@ import {
   getColdCallingEntry,
   linkColdCallingEntryAccount,
   listColdCallingEntries,
+  listColdCallingStatuses,
   recordColdCallingDisposition,
   updateColdCallingEntry,
 } from "./api";
@@ -33,6 +39,18 @@ export function useColdCallingEntries(query: QueryCrmColdCallingEntriesInput) {
     queryKey: coldCallingKey(organizationId ?? 0, query),
     queryFn: () => listColdCallingEntries(query),
     enabled: Boolean(organizationId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Distinct free-text statuses, for the list's status filter. */
+export function useColdCallingStatuses() {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(organizationId ?? 0, "crm-cold-calling", "statuses"),
+    queryFn: listColdCallingStatuses,
+    enabled: Boolean(organizationId),
+    staleTime: 60_000,
   });
 }
 
