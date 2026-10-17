@@ -3432,7 +3432,6 @@ model SalesDeliveryChallanLine {
 model SalesDocumentMasterItem {
   id               Int       @id @default(autoincrement())
   organizationId   Int       @map("organization_id")
-  documentType     String    @map("document_type") @db.VarChar(30)
   field            String    @db.VarChar(30)
   label            String    @db.VarChar(200)
   value            String?   @db.VarChar(50)
@@ -3460,7 +3459,7 @@ model SalesDocumentMasterItem {
   returnableDcSigns    SalesReturnableDc[]    @relation("SalesRdcSignature")
   paymentModes         SalesInvoicePayment[]  @relation("SalesPaymentMode")
 
-  @@index([organizationId, documentType, field])
+  @@index([organizationId, field])
   @@map("document_master_items")
   @@schema("sales")
 }
