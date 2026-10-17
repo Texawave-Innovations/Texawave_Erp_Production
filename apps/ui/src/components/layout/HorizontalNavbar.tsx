@@ -52,6 +52,13 @@ import {
   UserPlus,
   TrendingUp,
   PhoneCall,
+  MessageCircle,
+  Link2,
+  Mail,
+  Target,
+  Trash2,
+  Table2,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 import { Spinner, Semantic3DIcon, type Icon3DName } from "@texawave-erp/ui-kit";
@@ -391,13 +398,13 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
  */
 const CRM_CATEGORIES: NavCategory[] = [
   {
-    id: "pipeline-overview",
-    label: "Pipeline",
-    icon: BarChart3,
-    icon3d: "overview",
-    iconColor: "text-sky-500",
-    path: "/crm/pipeline",
-    menuCode: "crm-pipeline",
+    id: "crm-dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-indigo-600",
+    path: "/crm/dashboard",
+    menuCode: "crm-dashboard",
   },
   {
     id: "sales-deals",
@@ -522,6 +529,96 @@ const CRM_CATEGORIES: NavCategory[] = [
       },
     ],
   },
+  {
+    id: "channels",
+    label: "Channels",
+    icon: MessageCircle,
+    icon3d: "people",
+    iconColor: "text-green-600",
+    children: [
+      {
+        id: "whatsapp",
+        label: "WhatsApp",
+        path: "/crm/whatsapp",
+        icon: MessageCircle,
+        icon3d: "people",
+        menuCode: "crm-whatsapp",
+      },
+      {
+        id: "linkedin",
+        label: "LinkedIn",
+        path: "/crm/linkedin",
+        icon: Link2,
+        icon3d: "profiles",
+        menuCode: "crm-linkedin",
+      },
+      {
+        id: "email",
+        label: "Email",
+        path: "/crm/email",
+        icon: Mail,
+        icon3d: "documents",
+        menuCode: "crm-email",
+      },
+    ],
+  },
+  {
+    id: "data-tools",
+    label: "Data & Tools",
+    icon: Database,
+    icon3d: "documents",
+    iconColor: "text-amber-600",
+    children: [
+      {
+        id: "accounts-mining-sheet",
+        label: "Accounts Mining Sheet",
+        path: "/crm/accounts-mining-sheet",
+        icon: Table2,
+        icon3d: "departments",
+        menuCode: "crm-accounts-mining-sheet",
+      },
+      {
+        id: "overall-data",
+        label: "Overall Data",
+        path: "/crm/overall-data",
+        icon: Database,
+        icon3d: "overview",
+        menuCode: "crm-overall-data",
+      },
+      {
+        id: "quotas",
+        label: "Target",
+        path: "/crm/quotas",
+        icon: Target,
+        icon3d: "compliance",
+        menuCode: "crm-quotas",
+      },
+      {
+        id: "crm-calendar",
+        label: "Calendar",
+        path: "/crm/calendar",
+        icon: CalendarDays,
+        icon3d: "leaves",
+        menuCode: "crm-calendar",
+      },
+      {
+        id: "crm-search",
+        label: "Search",
+        path: "/crm/search",
+        icon: Search,
+        icon3d: "profiles",
+        menuCode: "crm-search",
+      },
+      {
+        id: "recycle-bin",
+        label: "Recycle Bin",
+        path: "/crm/recycle-bin",
+        icon: Trash2,
+        icon3d: "exit-requests",
+        menuCode: "crm-recycle-bin",
+      },
+    ],
+  },
 ];
 
 const ERP_MODULES: ErpModuleConfig[] = [
@@ -571,7 +668,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "CRM",
     icon: UsersRound,
     icon3d: "crm",
-    path: "/crm/pipeline",
+    path: "/crm/dashboard",
     available: true,
     categories: CRM_CATEGORIES,
   },
@@ -705,7 +802,13 @@ function findRouteNavigationState(pathname: string) {
     return { moduleId: "settings", categoryId: "access-control", leafId: null };
   }
   if (pathname.startsWith("/crm")) {
-    return { moduleId: "crm", categoryId: "pipeline-overview", leafId: null };
+    return {
+      moduleId: "crm",
+      categoryId: pathname.startsWith("/crm/dashboard")
+        ? "crm-dashboard"
+        : null,
+      leafId: null,
+    };
   }
   if (pathname.startsWith("/admin")) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
@@ -864,9 +967,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
 
   // Close menus on route change
   const prevPathnameRef = useRef(pathname);
+  const keepMenuOpenOnNavRef = useRef(false);
   useEffect(() => {
     if (prevPathnameRef.current !== pathname) {
       prevPathnameRef.current = pathname;
+      if (keepMenuOpenOnNavRef.current) {
+        keepMenuOpenOnNavRef.current = false;
+        return;
+      }
       closeAllMenus();
     }
   }, [pathname, closeAllMenus]);
@@ -996,6 +1104,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     if (routeCat && routeCat.children && routeCat.children.length > 0) {
       return routeCat.id;
     }
+    // The active category is a plain link (e.g. CRM Dashboard) — don't open an
+    // unrelated category's flyout just because it happens to come first.
+    const activeCat = activeCategories.find((c) => c.id === activeCategoryId);
+    if (activeCat && !(activeCat.children && activeCat.children.length > 0)) {
+      return null;
+    }
     const firstWithChildren = activeCategories.find(
       (c) => c.children && c.children.length > 0,
     );
@@ -1005,6 +1119,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     pinnedCategoryId,
     routeState.categoryId,
     activeCategories,
+    activeCategoryId,
   ]);
 
   const activeCategoryObj = activeCategories.find(
@@ -1116,6 +1231,19 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   };
 
   const handleModuleClick = (mod: ErpModuleConfig) => {
+    // CRM: clicking the top-level item opens the CRM dashboard AND keeps the
+    // category dropdown pinned open until the user clicks outside / Escape.
+    if (mod.id === "crm") {
+      setPinnedModuleId(mod.id);
+      setHoveredModuleId(mod.id);
+      setPinnedCategoryId(null);
+      setHoveredCategoryId(null);
+      if (pathname !== mod.path) {
+        keepMenuOpenOnNavRef.current = true;
+        router.push(mod.path);
+      }
+      return;
+    }
     const hasCategories = Boolean(mod.categories && mod.categories.length > 0);
     if (hasCategories) {
       if (pinnedModuleId === mod.id) {
