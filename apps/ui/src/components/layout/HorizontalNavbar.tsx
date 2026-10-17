@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -41,11 +48,30 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
+  CheckCheck,
+  UserPlus,
+  TrendingUp,
+  PhoneCall,
+  MessageCircle,
+  Link2,
+  Mail,
+  Target,
+  Trash2,
+  Table2,
+  Database,
   type LucideIcon,
 } from "lucide-react";
+import { Spinner, Semantic3DIcon, type Icon3DName } from "@texawave-erp/ui-kit";
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
+import {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from "@/features/notifications/hooks";
+import type { AppNotification } from "@/features/notifications/types";
 import type { MenuTreeNode } from "@texawave-erp/api-types";
 
 export interface NavLeafItem {
@@ -53,6 +79,7 @@ export interface NavLeafItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  icon3d?: Icon3DName;
   iconColor?: string;
   menuCode: string;
 }
@@ -61,6 +88,7 @@ export interface NavCategory {
   id: string;
   label: string;
   icon: LucideIcon;
+  icon3d?: Icon3DName;
   iconColor?: string;
   /** If category is a direct link without children (e.g. Overview) */
   path?: string;
@@ -72,8 +100,10 @@ export interface ErpModuleConfig {
   id: string;
   label: string;
   icon: LucideIcon;
+  icon3d?: Icon3DName;
   path: string;
   available: boolean;
+  upcoming?: boolean;
   categories?: NavCategory[];
 }
 
@@ -88,6 +118,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "overview",
     label: "Overview",
     icon: BarChart3,
+    icon3d: "overview",
     iconColor: "text-sky-500",
     path: "/hr/dashboard",
     menuCode: "hr-dashboard",
@@ -96,6 +127,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "people",
     label: "People",
     icon: Users,
+    icon3d: "people",
     iconColor: "text-blue-600",
     children: [
       {
@@ -103,6 +135,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Employees",
         path: "/hr/employees",
         icon: Users,
+        icon3d: "employees",
         iconColor: "text-blue-600",
         menuCode: "hr-employees",
       },
@@ -111,6 +144,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Profiles",
         path: "/hr/profiles",
         icon: Contact,
+        icon3d: "profiles",
         iconColor: "text-cyan-600",
         menuCode: "hr-profiles",
       },
@@ -119,6 +153,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Employee Documents",
         path: "/hr/employee-documents",
         icon: FileText,
+        icon3d: "documents",
         iconColor: "text-sky-600",
         menuCode: "hr-employee-documents",
       },
@@ -127,6 +162,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Org Chart",
         path: "/hr/org-chart",
         icon: Network,
+        icon3d: "org-chart",
         iconColor: "text-blue-500",
         menuCode: "hr-org-chart",
       },
@@ -135,7 +171,8 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Departments",
         path: "/hr/departments",
         icon: Building2,
-        iconColor: "text-purple-600",
+        icon3d: "departments",
+        iconColor: "text-blue-600",
         menuCode: "hr-departments",
       },
       {
@@ -143,6 +180,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Teams",
         path: "/hr/teams",
         icon: UsersRound,
+        icon3d: "teams",
         iconColor: "text-blue-600",
         menuCode: "hr-teams",
       },
@@ -152,6 +190,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "time-leave",
     label: "Time & Leave",
     icon: Calendar,
+    icon3d: "time-leave",
     iconColor: "text-rose-500",
     children: [
       {
@@ -159,6 +198,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Attendance",
         path: "/hr/attendance",
         icon: Clock,
+        icon3d: "attendance",
         menuCode: "hr-attendance",
       },
       {
@@ -166,6 +206,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Regularization",
         path: "/hr/regularization",
         icon: CalendarCheck,
+        icon3d: "regularization",
         menuCode: "hr-regularization",
       },
       {
@@ -173,6 +214,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Location Privilege",
         path: "/hr/location-privilege",
         icon: MapPin,
+        icon3d: "location-privilege",
         menuCode: "hr-location-privilege",
       },
       {
@@ -180,6 +222,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Full Month Present",
         path: "/hr/full-month-present",
         icon: Award,
+        icon3d: "full-month-present",
         menuCode: "hr-full-month-present",
       },
       {
@@ -187,6 +230,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Leaves",
         path: "/hr/leaves",
         icon: Calendar,
+        icon3d: "leaves",
         menuCode: "hr-leaves",
       },
       {
@@ -194,6 +238,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Holidays",
         path: "/hr/holidays",
         icon: CalendarDays,
+        icon3d: "holidays",
         menuCode: "hr-holidays",
       },
     ],
@@ -202,6 +247,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "operations",
     label: "Operations",
     icon: Settings,
+    icon3d: "operations",
     iconColor: "text-blue-600",
     children: [
       {
@@ -209,6 +255,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Tasks",
         path: "/hr/tasks",
         icon: ListTodo,
+        icon3d: "tasks",
         menuCode: "hr-tasks",
       },
       {
@@ -216,6 +263,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Expense Approvals",
         path: "/hr/expense-approvals",
         icon: Receipt,
+        icon3d: "expense-approvals",
         menuCode: "hr-expense-approvals",
       },
       {
@@ -223,6 +271,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Employee Tickets",
         path: "/hr/tickets",
         icon: Ticket,
+        icon3d: "tickets",
         menuCode: "hr-tickets",
       },
     ],
@@ -231,6 +280,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "recruitment",
     label: "Recruitment",
     icon: UserCheck,
+    icon3d: "recruitment",
     iconColor: "text-sky-600",
     children: [
       {
@@ -238,6 +288,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Recruitment Pipeline",
         path: "/hr/recruitment",
         icon: Briefcase,
+        icon3d: "recruitment",
         menuCode: "hr-recruitment",
       },
       {
@@ -245,6 +296,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Exit Requests",
         path: "/hr/exit-requests",
         icon: UserMinus,
+        icon3d: "exit-requests",
         menuCode: "hr-exit-requests",
       },
     ],
@@ -253,6 +305,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "payroll",
     label: "Payroll",
     icon: Wallet,
+    icon3d: "payroll",
     iconColor: "text-cyan-600",
     children: [
       {
@@ -260,6 +313,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Payroll Processing",
         path: "/hr/payroll",
         icon: Wallet,
+        icon3d: "payroll",
         iconColor: "text-cyan-600",
         menuCode: "hr-payroll",
       },
@@ -269,6 +323,7 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "compliance",
     label: "Compliance",
     icon: ShieldCheck,
+    icon3d: "compliance",
     iconColor: "text-indigo-600",
     children: [
       {
@@ -276,6 +331,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Statutory Compliance",
         path: "/hr/compliance",
         icon: ShieldCheck,
+        icon3d: "compliance",
         iconColor: "text-indigo-600",
         menuCode: "hr-compliance",
       },
@@ -291,12 +347,14 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
     id: "access-control",
     label: "Access Control",
     icon: Shield,
+    icon3d: "access-control",
     children: [
       {
         id: "users",
         label: "Users",
         path: "/admin/users",
         icon: Users,
+        icon3d: "users",
         menuCode: "admin-users",
       },
       {
@@ -304,6 +362,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         label: "Roles",
         path: "/admin/roles",
         icon: Shield,
+        icon3d: "roles",
         menuCode: "admin-roles",
       },
     ],
@@ -312,12 +371,14 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
     id: "system-config",
     label: "Configuration",
     icon: Settings,
+    icon3d: "settings",
     children: [
       {
         id: "menu",
         label: "Navigation Menu",
         path: "/admin/menu",
         icon: MenuIcon,
+        icon3d: "menu",
         menuCode: "admin-menu",
       },
       {
@@ -325,7 +386,236 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         label: "Reference Tags",
         path: "/reference/tags",
         icon: Tag,
+        icon3d: "tags",
         menuCode: "reference-tags",
+      },
+    ],
+  },
+];
+
+/**
+ * CRM Navigation Hierarchy
+ */
+const CRM_CATEGORIES: NavCategory[] = [
+  {
+    id: "crm-dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-indigo-600",
+    path: "/crm/dashboard",
+    menuCode: "crm-dashboard",
+  },
+  {
+    id: "sales-deals",
+    label: "Sales & Deals",
+    icon: TrendingUp,
+    icon3d: "sales",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "leads",
+        label: "Leads",
+        path: "/crm/leads",
+        icon: UserPlus,
+        icon3d: "recruitment",
+        menuCode: "crm-leads",
+      },
+      {
+        id: "pipeline",
+        label: "Pipeline Board",
+        path: "/crm/pipeline",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "crm-pipeline",
+      },
+      {
+        id: "quotes",
+        label: "Quotations",
+        path: "/crm/quotes",
+        icon: Receipt,
+        icon3d: "payroll",
+        menuCode: "crm-quotes",
+      },
+      {
+        id: "products",
+        label: "Products",
+        path: "/crm/products",
+        icon: Package,
+        icon3d: "inventory-scm",
+        menuCode: "crm-products",
+      },
+    ],
+  },
+  {
+    id: "customers",
+    label: "Customers & Contacts",
+    icon: Users,
+    icon3d: "people",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "accounts",
+        label: "Accounts",
+        path: "/crm/accounts",
+        icon: Building2,
+        icon3d: "departments",
+        menuCode: "crm-accounts",
+      },
+      {
+        id: "contacts",
+        label: "Contacts",
+        path: "/crm/contacts",
+        icon: Contact,
+        icon3d: "profiles",
+        menuCode: "crm-contacts",
+      },
+    ],
+  },
+  {
+    id: "outreach",
+    label: "Outreach & Queues",
+    icon: Clock,
+    icon3d: "time-leave",
+    iconColor: "text-purple-600",
+    children: [
+      {
+        id: "cold-calling-status",
+        label: "Cold Calling Status",
+        path: "/crm/cold-calling-status",
+        icon: PhoneCall,
+        icon3d: "attendance",
+        menuCode: "crm-cold-calling-status",
+      },
+      {
+        id: "interested",
+        label: "Interested",
+        path: "/crm/interested",
+        icon: CheckCircle2,
+        icon3d: "compliance",
+        menuCode: "crm-interested",
+      },
+      {
+        id: "not-interested",
+        label: "Not Interested",
+        path: "/crm/not-interested",
+        icon: X,
+        icon3d: "exit-requests",
+        menuCode: "crm-not-interested",
+      },
+      {
+        id: "keep-in-touch",
+        label: "Keep in Touch",
+        path: "/crm/keep-in-touch",
+        icon: Calendar,
+        icon3d: "leaves",
+        menuCode: "crm-keep-in-touch",
+      },
+      {
+        id: "callback-send-info",
+        label: "Call Back / Send Info",
+        path: "/crm/callback-send-info",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "crm-callback-send-info",
+      },
+      {
+        id: "yet-to-happen",
+        label: "Yet to Happen",
+        path: "/crm/yet-to-happen",
+        icon: ListTodo,
+        icon3d: "tasks",
+        menuCode: "crm-yet-to-happen",
+      },
+    ],
+  },
+  {
+    id: "channels",
+    label: "Channels",
+    icon: MessageCircle,
+    icon3d: "people",
+    iconColor: "text-green-600",
+    children: [
+      {
+        id: "whatsapp",
+        label: "WhatsApp",
+        path: "/crm/whatsapp",
+        icon: MessageCircle,
+        icon3d: "people",
+        menuCode: "crm-whatsapp",
+      },
+      {
+        id: "linkedin",
+        label: "LinkedIn",
+        path: "/crm/linkedin",
+        icon: Link2,
+        icon3d: "profiles",
+        menuCode: "crm-linkedin",
+      },
+      {
+        id: "email",
+        label: "Email",
+        path: "/crm/email",
+        icon: Mail,
+        icon3d: "documents",
+        menuCode: "crm-email",
+      },
+    ],
+  },
+  {
+    id: "data-tools",
+    label: "Data & Tools",
+    icon: Database,
+    icon3d: "documents",
+    iconColor: "text-amber-600",
+    children: [
+      {
+        id: "accounts-mining-sheet",
+        label: "Accounts Mining Sheet",
+        path: "/crm/accounts-mining-sheet",
+        icon: Table2,
+        icon3d: "departments",
+        menuCode: "crm-accounts-mining-sheet",
+      },
+      {
+        id: "overall-data",
+        label: "Overall Data",
+        path: "/crm/overall-data",
+        icon: Database,
+        icon3d: "overview",
+        menuCode: "crm-overall-data",
+      },
+      {
+        id: "quotas",
+        label: "Target",
+        path: "/crm/quotas",
+        icon: Target,
+        icon3d: "compliance",
+        menuCode: "crm-quotas",
+      },
+      {
+        id: "crm-calendar",
+        label: "Calendar",
+        path: "/crm/calendar",
+        icon: CalendarDays,
+        icon3d: "leaves",
+        menuCode: "crm-calendar",
+      },
+      {
+        id: "crm-search",
+        label: "Search",
+        path: "/crm/search",
+        icon: Search,
+        icon3d: "profiles",
+        menuCode: "crm-search",
+      },
+      {
+        id: "recycle-bin",
+        label: "Recycle Bin",
+        path: "/crm/recycle-bin",
+        icon: Trash2,
+        icon3d: "exit-requests",
+        menuCode: "crm-recycle-bin",
       },
     ],
   },
@@ -336,6 +626,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     id: "dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
+    icon3d: "dashboard",
     path: "/admin",
     available: true,
   },
@@ -343,14 +634,16 @@ const ERP_MODULES: ErpModuleConfig[] = [
     id: "hr",
     label: "Human Resources",
     icon: Users,
+    icon3d: "hr",
     path: "/hr/dashboard",
     available: true,
     categories: HR_CATEGORIES,
   },
   {
     id: "sales",
-    label: "Commerce",
+    label: "Sales",
     icon: ShoppingCart,
+    icon3d: "sales",
     path: "#",
     available: false,
   },
@@ -358,27 +651,49 @@ const ERP_MODULES: ErpModuleConfig[] = [
     id: "finance",
     label: "Finance",
     icon: Landmark,
+    icon3d: "finance",
     path: "#",
     available: false,
   },
   {
     id: "inventory",
-    label: "Inventory",
+    label: "Inventory-SCM",
     icon: Package,
+    icon3d: "inventory-scm",
     path: "#",
     available: false,
+  },
+  {
+    id: "crm",
+    label: "CRM",
+    icon: UsersRound,
+    icon3d: "crm",
+    path: "/crm/dashboard",
+    available: true,
+    categories: CRM_CATEGORIES,
+  },
+  {
+    id: "purchases",
+    label: "Purchases",
+    icon: Receipt,
+    icon3d: "purchases",
+    path: "#",
+    available: false,
+    upcoming: true,
   },
   {
     id: "projects",
     label: "Projects",
     icon: FolderKanban,
+    icon3d: "projects",
     path: "#",
     available: false,
   },
   {
-    id: "reports",
-    label: "Reports",
+    id: "master-list",
+    label: "Master list",
     icon: BarChart3,
+    icon3d: "master-list",
     path: "#",
     available: false,
   },
@@ -386,6 +701,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     id: "settings",
     label: "Settings",
     icon: Settings,
+    icon3d: "settings",
     path: "/admin/users",
     available: true,
     categories: SETTINGS_CATEGORIES,
@@ -426,6 +742,19 @@ function LiveClock() {
   );
 }
 
+function formatAgo(iso: string): string {
+  const diffMinutes = Math.round(
+    (Date.now() - new Date(iso).getTime()) / 60_000,
+  );
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return new Intl.DateTimeFormat("en-IN", { dateStyle: "short" }).format(
+    new Date(iso),
+  );
+}
+
 function findRouteNavigationState(pathname: string) {
   for (const mod of ERP_MODULES) {
     if (!mod.categories) continue;
@@ -448,10 +777,19 @@ function findRouteNavigationState(pathname: string) {
   if (pathname === "/admin/departments") {
     return { moduleId: "hr", categoryId: "people", leafId: "departments" };
   }
-  if (pathname.startsWith("/hr")) {
+  if (pathname === "/admin/designations") {
+    return { moduleId: "hr", categoryId: "people", leafId: "designations" };
+  }
+  if (pathname.startsWith("/hr") || pathname.startsWith("/self-service")) {
     return { moduleId: "hr", categoryId: "overview", leafId: null };
   }
-  if (pathname === "/admin" || pathname === "/admin/dashboard") {
+  if (
+    pathname === "/" ||
+    pathname === "/admin" ||
+    pathname === "/admin/" ||
+    pathname === "/admin/dashboard" ||
+    pathname === "/admin/dashboard/"
+  ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
   if (
@@ -463,8 +801,23 @@ function findRouteNavigationState(pathname: string) {
   ) {
     return { moduleId: "settings", categoryId: "access-control", leafId: null };
   }
+  if (pathname.startsWith("/crm")) {
+    return {
+      moduleId: "crm",
+      categoryId: pathname.startsWith("/crm/dashboard")
+        ? "crm-dashboard"
+        : null,
+      leafId: null,
+    };
+  }
+  if (pathname.startsWith("/admin")) {
+    return { moduleId: "dashboard", categoryId: null, leafId: null };
+  }
   return { moduleId: null, categoryId: null, leafId: null };
 }
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export interface HorizontalNavbarProps {
   onSignOut: () => void;
@@ -494,6 +847,28 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Notification queries
+  const unreadCountQuery = useUnreadNotificationCount();
+  const unreadCount = unreadCountQuery.data ?? 0;
+  const notifListQuery = useNotifications(notificationsOpen);
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+
+  // Spring glide active indicator state (CodeFronts specification)
+  const navRailRef = useRef<HTMLElement>(null);
+  const moduleButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const categoryItemRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const submenuMenuRef = useRef<HTMLDivElement>(null);
+  const [submenuTopOffset, setSubmenuTopOffset] = useState<number>(0);
+
+  const [indicatorStyle, setIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const navContainerRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
@@ -506,6 +881,68 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     [pathname],
   );
   const currentActiveModuleId = routeState.moduleId;
+
+  const updateIndicator = useCallback((moduleId: string | null) => {
+    if (!moduleId || !navRailRef.current) {
+      setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const buttonEl = moduleButtonRefs.current.get(moduleId);
+    if (!buttonEl) {
+      setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const navRect = navRailRef.current.getBoundingClientRect();
+    const btnRect = buttonEl.getBoundingClientRect();
+    const left = btnRect.left - navRect.left;
+    const top = btnRect.top - navRect.top;
+    const width = btnRect.width;
+    const height = btnRect.height;
+
+    setIndicatorStyle({
+      left,
+      top,
+      width,
+      height,
+      opacity: 1,
+    });
+  }, []);
+
+  // Active target module for Spring Glide highlight: hovered module takes precedence,
+  // returning smoothly to the current active route module when mouse leaves.
+  const targetIndicatorModuleId = hoveredModuleId ?? currentActiveModuleId;
+
+  useEffect(() => {
+    updateIndicator(targetIndicatorModuleId);
+  }, [targetIndicatorModuleId, updateIndicator]);
+
+  // Initial calculation / font layout update
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      updateIndicator(targetIndicatorModuleId);
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [targetIndicatorModuleId, updateIndicator]);
+
+  // Recalculate indicator on window resize or container layout change
+  useEffect(() => {
+    if (!navRailRef.current) return;
+    const observer = new ResizeObserver(() => {
+      updateIndicator(targetIndicatorModuleId);
+    });
+    observer.observe(navRailRef.current);
+    return () => observer.disconnect();
+  }, [targetIndicatorModuleId, updateIndicator]);
+
+  const handleOpenNotification = (n: AppNotification) => {
+    if (!n.readAt) {
+      markRead.mutate(n.id);
+    }
+    setNotificationsOpen(false);
+    if (n.link) {
+      router.push(n.link);
+    }
+  };
 
   const closeAllMenus = useCallback(() => {
     if (closeTimerRef.current) {
@@ -527,6 +964,20 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   }, []);
+
+  // Close menus on route change
+  const prevPathnameRef = useRef(pathname);
+  const keepMenuOpenOnNavRef = useRef(false);
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      if (keepMenuOpenOnNavRef.current) {
+        keepMenuOpenOnNavRef.current = false;
+        return;
+      }
+      closeAllMenus();
+    }
+  }, [pathname, closeAllMenus]);
 
   // Close menus on outside click or escape
   useEffect(() => {
@@ -604,18 +1055,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const activeModuleConfig = ERP_MODULES.find((m) => m.id === openModuleId);
   const activeCategories = filterCategories(activeModuleConfig?.categories);
 
-  // Effective selected category:
-  // 1. Actively hovered category
-  // 2. Explicitly pinned category
-  // 3. Route-derived category (if current route is within this module)
-  // 4. Fallback to first category with children
-  const effectiveCategoryId = useMemo(() => {
-    if (
-      hoveredCategoryId &&
-      activeCategories.some((c) => c.id === hoveredCategoryId)
-    ) {
-      return hoveredCategoryId;
-    }
+  // Active selected category in Level 2 (displays blue gradient .glass-item-active):
+  // 1. Explicitly pinned category (clicked by user)
+  // 2. Current route-derived category (if current route is within this module)
+  // 3. Fallback to first category if no route category exists
+  const activeCategoryId = useMemo(() => {
     if (
       pinnedCategoryId &&
       activeCategories.some((c) => c.id === pinnedCategoryId)
@@ -625,37 +1069,112 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     const routeCat = activeCategories.find(
       (c) => c.id === routeState.categoryId,
     );
+    if (routeCat) {
+      return routeCat.id;
+    }
+    return activeCategories[0]?.id ?? null;
+  }, [pinnedCategoryId, routeState.categoryId, activeCategories]);
+
+  // Category whose Level 3 submenu flyout is open:
+  // 1. Actively hovered category with children
+  // 2. Explicitly pinned category with children
+  // 3. Route-derived category with children
+  // 4. Fallback to first category with children
+  const openSubmenuCategoryId = useMemo(() => {
+    if (
+      hoveredCategoryId &&
+      activeCategories.some(
+        (c) =>
+          c.id === hoveredCategoryId && c.children && c.children.length > 0,
+      )
+    ) {
+      return hoveredCategoryId;
+    }
+    if (
+      pinnedCategoryId &&
+      activeCategories.some(
+        (c) => c.id === pinnedCategoryId && c.children && c.children.length > 0,
+      )
+    ) {
+      return pinnedCategoryId;
+    }
+    const routeCat = activeCategories.find(
+      (c) => c.id === routeState.categoryId,
+    );
     if (routeCat && routeCat.children && routeCat.children.length > 0) {
       return routeCat.id;
+    }
+    // The active category is a plain link (e.g. CRM Dashboard) — don't open an
+    // unrelated category's flyout just because it happens to come first.
+    const activeCat = activeCategories.find((c) => c.id === activeCategoryId);
+    if (activeCat && !(activeCat.children && activeCat.children.length > 0)) {
+      return null;
     }
     const firstWithChildren = activeCategories.find(
       (c) => c.children && c.children.length > 0,
     );
-    return firstWithChildren
-      ? firstWithChildren.id
-      : (activeCategories[0]?.id ?? null);
+    return firstWithChildren ? firstWithChildren.id : null;
   }, [
     hoveredCategoryId,
     pinnedCategoryId,
     routeState.categoryId,
     activeCategories,
+    activeCategoryId,
   ]);
 
   const activeCategoryObj = activeCategories.find(
-    (c) => c.id === effectiveCategoryId,
+    (c) => c.id === openSubmenuCategoryId,
   );
   const activeSubmenuItems = activeCategoryObj?.children ?? [];
 
   const activeCategoryIndex = activeCategories.findIndex(
-    (c) => c.id === effectiveCategoryId,
+    (c) => c.id === openSubmenuCategoryId,
   );
-  const submenuTopOffset = useMemo(() => {
-    if (activeCategoryIndex <= 0) return 0;
-    // Align with active category item (each category item is ~40px)
-    return Math.min(activeCategoryIndex * 40, 160);
-  }, [activeCategoryIndex]);
 
-  // Check submenu viewport overflow
+  // Shared parent-relative positioning mechanism for Level 3 submenu (Payroll, Compliance, and all categories)
+  useIsomorphicLayoutEffect(() => {
+    if (!openModuleId || !openSubmenuCategoryId || !categoryMenuRef.current) {
+      setSubmenuTopOffset(0);
+      return;
+    }
+    const catEl = categoryItemRefs.current.get(openSubmenuCategoryId);
+    const parentMenuEl = categoryMenuRef.current;
+    if (catEl && parentMenuEl) {
+      const parentRect = parentMenuEl.getBoundingClientRect();
+      const catRect = catEl.getBoundingClientRect();
+      const rawOffset = catRect.top - parentRect.top;
+
+      // Keep submenu within viewport vertically
+      const submenuEl = submenuMenuRef.current;
+      const submenuHeight = submenuEl ? submenuEl.offsetHeight : 0;
+      if (submenuHeight > 0) {
+        const viewportBottom = window.innerHeight - 16;
+        const currentSubmenuBottom = catRect.top + submenuHeight;
+        if (currentSubmenuBottom > viewportBottom) {
+          const overflow = currentSubmenuBottom - viewportBottom;
+          setSubmenuTopOffset(Math.max(0, rawOffset - overflow));
+          return;
+        }
+      }
+
+      setSubmenuTopOffset(Math.max(0, rawOffset));
+    } else {
+      // Reliable fallback based on category index and row height
+      if (activeCategoryIndex > 0) {
+        setSubmenuTopOffset(activeCategoryIndex * 44);
+      } else {
+        setSubmenuTopOffset(0);
+      }
+    }
+  }, [
+    openModuleId,
+    openSubmenuCategoryId,
+    activeCategories,
+    activeCategoryIndex,
+    activeSubmenuItems.length,
+  ]);
+
+  // Check submenu viewport horizontal overflow
   useEffect(() => {
     if (openModuleId && categoryMenuRef.current) {
       const rect = categoryMenuRef.current.getBoundingClientRect();
@@ -666,7 +1185,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         setSubmenuAlignLeft(false);
       }
     }
-  }, [openModuleId, effectiveCategoryId]);
+  }, [openModuleId, openSubmenuCategoryId]);
 
   // Hover handlers
   const handleMouseEnterModule = (moduleId: string) => {
@@ -675,10 +1194,9 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       closeTimerRef.current = null;
     }
     const mod = ERP_MODULES.find((m) => m.id === moduleId);
-    if (mod && mod.categories && mod.categories.length > 0) {
+    if (mod && mod.available) {
       setHoveredModuleId(moduleId);
-    } else {
-      setHoveredModuleId(null);
+      updateIndicator(moduleId);
     }
   };
 
@@ -690,13 +1208,19 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     if (pinnedModuleId) {
       setHoveredModuleId(null);
       setHoveredCategoryId(null);
+      updateIndicator(pinnedModuleId ?? currentActiveModuleId);
       return;
     }
     // Transient hover close timer
     closeTimerRef.current = setTimeout(() => {
       setHoveredModuleId(null);
       setHoveredCategoryId(null);
-    }, 220);
+      updateIndicator(currentActiveModuleId);
+    }, 120);
+  };
+
+  const handleNavRailMouseLeave = () => {
+    handleMouseLeaveNav();
   };
 
   const handleMouseEnterDropdown = () => {
@@ -707,6 +1231,19 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   };
 
   const handleModuleClick = (mod: ErpModuleConfig) => {
+    // CRM: clicking the top-level item opens the CRM dashboard AND keeps the
+    // category dropdown pinned open until the user clicks outside / Escape.
+    if (mod.id === "crm") {
+      setPinnedModuleId(mod.id);
+      setHoveredModuleId(mod.id);
+      setPinnedCategoryId(null);
+      setHoveredCategoryId(null);
+      if (pathname !== mod.path) {
+        keepMenuOpenOnNavRef.current = true;
+        router.push(mod.path);
+      }
+      return;
+    }
     const hasCategories = Boolean(mod.categories && mod.categories.length > 0);
     if (hasCategories) {
       if (pinnedModuleId === mod.id) {
@@ -719,18 +1256,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         // Pin open
         setPinnedModuleId(mod.id);
         setHoveredModuleId(mod.id);
-        const cats = filterCategories(mod.categories);
-        const routeCat = cats.find((c) => c.id === routeState.categoryId);
-        const firstWithChildren = cats.find(
-          (c) => c.children && c.children.length > 0,
-        );
-        setPinnedCategoryId(
-          routeCat && routeCat.children && routeCat.children.length > 0
-            ? routeCat.id
-            : firstWithChildren
-              ? firstWithChildren.id
-              : null,
-        );
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
       }
     } else {
       closeAllMenus();
@@ -776,8 +1303,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       className="sticky top-0 z-40 w-full shrink-0"
       onMouseLeave={handleMouseLeaveNav}
     >
-      {/* Primary Module Rail */}
-      <div className="flex h-16 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-50/90 via-cyan-50/80 to-emerald-50/60 px-3 shadow-xs dark:border-gray-800 dark:bg-gray-dark sm:px-4 lg:px-6">
+      {/* Primary Module Rail with TexaOne Header Banner Linear Gradient Glass */}
+      <div className="glass-navbar flex h-16 items-center justify-between px-3 sm:px-4 lg:px-5 xl:px-6">
         {/* Left: Mobile hamburger + Brand Logo */}
         <div className="flex shrink-0 items-center gap-2.5">
           <button
@@ -787,7 +1314,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             }
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-700 hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 md:hidden dark:border-gray-800 dark:bg-gray-800 dark:text-gray-200"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-700 hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 md:hidden dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-200"
           >
             {mobileMenuOpen ? (
               <X className="h-5 w-5" />
@@ -805,14 +1332,30 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           </Link>
         </div>
 
-        {/* Center: Desktop Module Navigation (Level 1) */}
+        {/* Center: Desktop Module Navigation (Level 1) with Spring Glide Active Indicator */}
         <nav
+          ref={navRailRef}
           aria-label="Main application navigation"
-          className="relative hidden flex-1 items-center justify-center gap-1 px-2 md:flex lg:gap-1.5"
+          onMouseLeave={handleNavRailMouseLeave}
+          className="relative hidden flex-1 items-center justify-center gap-0.5 px-0.5 sm:gap-1 md:flex lg:gap-1 2xl:gap-1.5 isolate"
         >
+          {/* Spring Glide Active Indicator Pill */}
+          <span
+            aria-hidden="true"
+            className="glass-pill absolute pointer-events-none z-0 rounded-xl transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
+            style={{
+              left: `${indicatorStyle.left}px`,
+              top: `${indicatorStyle.top}px`,
+              width: `${indicatorStyle.width}px`,
+              height: `${indicatorStyle.height}px`,
+              opacity: indicatorStyle.opacity,
+            }}
+          />
+
           {ERP_MODULES.map((mod) => {
             const isRouteActive = mod.id === currentActiveModuleId;
             const isDropdownOpen = mod.id === openModuleId;
+            const isHovered = mod.id === hoveredModuleId;
             const hasCategories = Boolean(
               mod.categories && mod.categories.length > 0,
             );
@@ -823,13 +1366,28 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   <button
                     type="button"
                     disabled
-                    title={`${mod.label} — Coming soon`}
-                    className="flex cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 opacity-40 transition-all lg:px-3"
+                    title={`${mod.label}${mod.upcoming ? " — Upcoming module" : " — Coming soon"}`}
+                    className="flex cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 opacity-60 hover:opacity-85 transition-all lg:px-2.5"
                   >
-                    <mod.icon className="h-5 w-5 text-gray-500" />
-                    <span className="text-[10px] font-semibold leading-none text-gray-500 lg:text-[11px]">
-                      {mod.label}
-                    </span>
+                    {mod.icon3d ? (
+                      <Semantic3DIcon
+                        name={mod.icon3d}
+                        size={26}
+                        className="opacity-75 transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <mod.icon className="h-5 w-5 text-gray-500" />
+                    )}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-semibold leading-none text-slate-500 dark:text-gray-400 lg:text-[11px]">
+                        {mod.label}
+                      </span>
+                      {mod.upcoming && (
+                        <span className="rounded-full bg-sky-100/90 px-1 py-0.2 text-[8px] font-bold text-[#0284c7] border border-sky-200/70 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/60 leading-none">
+                          Soon
+                        </span>
+                      )}
+                    </div>
                   </button>
                 </div>
               );
@@ -843,26 +1401,51 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               >
                 <button
                   type="button"
+                  ref={(el) => {
+                    if (el) moduleButtonRefs.current.set(mod.id, el);
+                    else moduleButtonRefs.current.delete(mod.id);
+                  }}
                   aria-haspopup={hasCategories ? "menu" : undefined}
                   aria-expanded={hasCategories ? isDropdownOpen : undefined}
+                  aria-current={isRouteActive ? "page" : undefined}
                   onClick={() => handleModuleClick(mod)}
-                  className={`group relative flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-all focus-visible:outline-2 focus-visible:outline-brand-500 lg:px-3 ${
-                    isDropdownOpen || (isRouteActive && !openModuleId)
-                      ? "border border-sky-200/90 bg-white/95 text-brand-700 shadow-xs dark:border-sky-800/60 dark:bg-gray-800/95 dark:text-cyan-300 font-semibold"
-                      : "text-gray-600 hover:border hover:border-sky-100 hover:bg-white/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/60 dark:hover:text-white"
+                  onFocus={() => handleMouseEnterModule(mod.id)}
+                  onBlur={handleNavRailMouseLeave}
+                  className={`group relative z-1 flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 sm:px-2.5 bg-transparent outline-none transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-brand-500 lg:px-2.5 2xl:px-3 ${
+                    isRouteActive
+                      ? "text-brand-700 dark:text-cyan-300 font-semibold"
+                      : isDropdownOpen || isHovered
+                        ? "text-slate-900 dark:text-white font-medium"
+                        : "text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
                   }`}
                 >
-                  <mod.icon
-                    className={`h-5 w-5 transition-transform group-hover:scale-110 ${
-                      isDropdownOpen || (isRouteActive && !openModuleId)
-                        ? "text-brand-600 dark:text-cyan-400"
-                        : "text-slate-600 dark:text-gray-400"
-                    }`}
-                    aria-hidden="true"
-                  />
+                  {mod.icon3d ? (
+                    <Semantic3DIcon
+                      name={mod.icon3d}
+                      size={28}
+                      className="transition-transform duration-150 group-hover:scale-110"
+                    />
+                  ) : (
+                    <mod.icon
+                      className={`h-5 w-5 transition-transform duration-150 group-hover:scale-110 ${
+                        isRouteActive
+                          ? "text-brand-600 dark:text-cyan-400"
+                          : isDropdownOpen || isHovered
+                            ? "text-slate-800 dark:text-gray-200"
+                            : "text-slate-600 dark:text-gray-400"
+                      }`}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="text-[10px] font-semibold leading-none lg:text-[11px]">
                     {mod.label}
                   </span>
+                  {isRouteActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-0.5 h-1 w-1 rounded-full bg-brand-600 dark:bg-cyan-400"
+                    />
+                  )}
                 </button>
 
                 {/* Level 2 & Level 3 Glassmorphism Dropdowns */}
@@ -872,12 +1455,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     role="menu"
                     aria-label={`${mod.label} categories`}
                     onMouseEnter={handleMouseEnterDropdown}
-                    className="glass-dropdown absolute left-0 top-full mt-2.5 z-50 flex min-w-56 rounded-[22px] p-2.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
+                    className="glass-dropdown absolute left-0 top-full mt-2.5 z-50 flex min-w-56 rounded-[26px] p-2.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
                   >
                     {/* Level 2: Categories Column */}
                     <div className="flex w-52 flex-col gap-1">
                       {activeCategories.map((cat) => {
-                        const isCatSelected = cat.id === effectiveCategoryId;
+                        const isCatActive = cat.id === activeCategoryId;
+                        const isCatFlyoutOpen =
+                          cat.id === openSubmenuCategoryId;
                         const isCatRouteActive =
                           cat.id === routeState.categoryId;
                         const hasChildren = Boolean(
@@ -885,41 +1470,52 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                         );
 
                         if (cat.path && !hasChildren) {
-                          const isOverviewActive =
-                            pathname === cat.path ||
-                            (cat.id === "overview" &&
-                              (pathname === "/hr" ||
-                                pathname === "/hr/dashboard"));
-                          const isItemActive =
-                            isOverviewActive || isCatSelected;
-
                           return (
-                            <div key={cat.id} className="relative">
+                            <div
+                              key={cat.id}
+                              ref={(el) => {
+                                if (el)
+                                  categoryItemRefs.current.set(cat.id, el);
+                                else categoryItemRefs.current.delete(cat.id);
+                              }}
+                              className="relative"
+                            >
                               <Link
                                 href={cat.path}
                                 onClick={handleLeafClick}
-                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
-                                  isItemActive
-                                    ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
-                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                className={`group flex w-full items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
+                                  isCatActive
+                                    ? "glass-item-active"
+                                    : "text-slate-700 hover:bg-sky-500/10 hover:text-brand-700 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5">
-                                  <cat.icon
-                                    className={`h-4 w-4 shrink-0 ${
-                                      cat.iconColor ??
-                                      (isItemActive
-                                        ? "text-brand-600 dark:text-cyan-400"
-                                        : "text-slate-600 dark:text-gray-400")
-                                    }`}
-                                  />
-                                  <span>{cat.label}</span>
+                                  {isCatActive ? (
+                                    <cat.icon className="h-4.5 w-4.5 shrink-0 text-white" />
+                                  ) : cat.icon3d ? (
+                                    <Semantic3DIcon
+                                      name={cat.icon3d}
+                                      size={20}
+                                      className="shrink-0 transition-transform group-hover:scale-105"
+                                    />
+                                  ) : (
+                                    <cat.icon className="h-4.5 w-4.5 shrink-0 text-slate-700 group-hover:text-slate-950 dark:text-gray-300 dark:group-hover:text-white" />
+                                  )}
+                                  <span
+                                    className={
+                                      isCatActive
+                                        ? "text-white font-semibold"
+                                        : ""
+                                    }
+                                  >
+                                    {cat.label}
+                                  </span>
                                 </div>
                                 <ChevronRight
-                                  className={`h-3.5 w-3.5 ${
-                                    isItemActive
-                                      ? "text-brand-600 dark:text-cyan-400"
-                                      : "text-slate-400/80"
+                                  className={`h-4 w-4 transition-transform ${
+                                    isCatActive
+                                      ? "text-white"
+                                      : "text-slate-400/80 group-hover:text-slate-700 dark:text-gray-400"
                                   }`}
                                 />
                               </Link>
@@ -928,38 +1524,70 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                         }
 
                         return (
-                          <div key={cat.id} className="relative">
+                          <div
+                            key={cat.id}
+                            ref={(el) => {
+                              if (el) categoryItemRefs.current.set(cat.id, el);
+                              else categoryItemRefs.current.delete(cat.id);
+                            }}
+                            className="relative"
+                          >
                             <button
                               type="button"
                               aria-haspopup="menu"
-                              aria-expanded={isCatSelected}
+                              aria-expanded={isCatFlyoutOpen}
                               onMouseEnter={() => handleCategoryHover(cat.id)}
                               onClick={() => handleCategoryClick(cat)}
-                              className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
-                                isCatSelected
-                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
+                              className={`group flex w-full items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
+                                isCatActive
+                                  ? "glass-item-active"
                                   : isCatRouteActive
-                                    ? "text-brand-800 font-semibold hover:bg-sky-50/80 dark:text-cyan-300"
-                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                    ? "bg-sky-500/15 text-brand-700 font-semibold dark:bg-sky-400/20 dark:text-cyan-300"
+                                    : "text-slate-700 hover:bg-sky-500/10 hover:text-brand-700 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white"
                               }`}
                             >
                               <div className="flex items-center gap-2.5">
-                                <cat.icon
-                                  className={`h-4 w-4 shrink-0 ${
-                                    cat.iconColor ??
-                                    (isCatSelected || isCatRouteActive
-                                      ? "text-brand-600 dark:text-cyan-400"
-                                      : "text-slate-600 group-hover:text-brand-600 dark:text-gray-400")
-                                  }`}
-                                />
-                                <span>{cat.label}</span>
+                                {isCatActive ? (
+                                  <cat.icon className="h-4.5 w-4.5 shrink-0 text-white" />
+                                ) : isCatRouteActive ? (
+                                  cat.icon3d ? (
+                                    <Semantic3DIcon
+                                      name={cat.icon3d}
+                                      size={20}
+                                      className="shrink-0"
+                                    />
+                                  ) : (
+                                    <cat.icon className="h-4.5 w-4.5 shrink-0 text-brand-600 dark:text-cyan-400" />
+                                  )
+                                ) : cat.icon3d ? (
+                                  <Semantic3DIcon
+                                    name={cat.icon3d}
+                                    size={20}
+                                    className="shrink-0 transition-transform group-hover:scale-105"
+                                  />
+                                ) : (
+                                  <cat.icon className="h-4.5 w-4.5 shrink-0 text-slate-700 group-hover:text-slate-950 dark:text-gray-300 dark:group-hover:text-white" />
+                                )}
+                                <span
+                                  className={
+                                    isCatActive
+                                      ? "text-white font-semibold"
+                                      : ""
+                                  }
+                                >
+                                  {cat.label}
+                                </span>
                               </div>
                               {hasChildren && (
                                 <ChevronRight
-                                  className={`h-3.5 w-3.5 transition-transform ${
-                                    isCatSelected || isCatRouteActive
-                                      ? "text-brand-600 translate-x-0.5 dark:text-cyan-400"
-                                      : "text-slate-400/80 group-hover:text-brand-600"
+                                  className={`h-4 w-4 transition-transform ${
+                                    isCatActive
+                                      ? "text-white translate-x-0.5"
+                                      : isCatFlyoutOpen
+                                        ? "text-brand-600 translate-x-0.5 dark:text-cyan-400"
+                                        : isCatRouteActive
+                                          ? "text-brand-600 translate-x-0.5 dark:text-cyan-400"
+                                          : "text-slate-400/80 group-hover:text-slate-700 group-hover:translate-x-0.5 dark:text-gray-400"
                                   }`}
                                 />
                               )}
@@ -972,11 +1600,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     {/* Level 3: Nested Submenu Column (Adjacent flyout) */}
                     {activeSubmenuItems.length > 0 && (
                       <div
+                        ref={submenuMenuRef}
                         role="menu"
                         aria-label={`${activeCategoryObj?.label} items`}
                         onMouseEnter={handleMouseEnterDropdown}
                         style={{ top: `${submenuTopOffset}px` }}
-                        className={`absolute z-50 flex min-w-60 flex-col gap-1 rounded-[22px] glass-dropdown p-2.5 shadow-2xl animate-in fade-in-0 duration-150 ${
+                        className={`absolute z-50 flex min-w-60 flex-col gap-1 rounded-[26px] glass-dropdown p-2.5 shadow-2xl animate-in fade-in-0 duration-150 ${
                           submenuAlignLeft
                             ? "right-full mr-2.5 after:absolute after:-right-3.5 after:top-0 after:bottom-0 after:w-3.5"
                             : "left-full ml-2.5 before:absolute before:-left-3.5 before:top-0 before:bottom-0 before:w-3.5"
@@ -992,21 +1621,34 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               key={item.id}
                               href={item.path}
                               onClick={handleLeafClick}
-                              className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
+                              className={`group flex items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
                                 isLeafActive
-                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
-                                  : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                  ? "glass-item-active"
+                                  : "text-slate-700 hover:bg-sky-500/10 hover:text-brand-700 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white"
                               }`}
                             >
-                              <item.icon
-                                className={`h-4 w-4 shrink-0 ${
-                                  item.iconColor ??
-                                  (isLeafActive
-                                    ? "text-brand-600 dark:text-cyan-400"
-                                    : "text-slate-600 dark:text-gray-400")
-                                }`}
-                              />
-                              <span>{item.label}</span>
+                              <div className="flex items-center gap-2.5">
+                                {isLeafActive ? (
+                                  <item.icon className="h-4.5 w-4.5 shrink-0 text-white" />
+                                ) : item.icon3d ? (
+                                  <Semantic3DIcon
+                                    name={item.icon3d}
+                                    size={20}
+                                    className="shrink-0 transition-transform group-hover:scale-105"
+                                  />
+                                ) : (
+                                  <item.icon className="h-4.5 w-4.5 shrink-0 text-slate-700 group-hover:text-slate-950 dark:text-gray-300 dark:group-hover:text-white" />
+                                )}
+                                <span
+                                  className={
+                                    isLeafActive
+                                      ? "text-white font-semibold"
+                                      : ""
+                                  }
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
                             </Link>
                           );
                         })}
@@ -1020,15 +1662,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         </nav>
 
         {/* Right Section: Search + Live Clock + Notifications + Profile */}
-        <div className="flex shrink-0 items-center gap-2 lg:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-2.5">
           {/* Universal Search Input */}
           <div
             className={`relative hidden transition-all duration-200 sm:block ${
-              searchFocused ? "w-60" : "w-36 lg:w-48"
+              searchFocused ? "w-40 xl:w-52" : "w-24 lg:w-28 xl:w-32 2xl:w-44"
             }`}
           >
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-              <Search className="h-4 w-4" />
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+              <Search className="h-3.5 w-3.5" />
             </span>
             <input
               type="text"
@@ -1038,12 +1680,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               aria-label="Search"
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
-              className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/90 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-gray-700 dark:bg-gray-800/80 dark:text-white transition-all"
+              className="h-9 w-full rounded-xl border border-white/60 bg-white/70 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 backdrop-blur-md focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-white transition-all"
             />
           </div>
 
           {/* Live IST Clock */}
-          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2.5 py-1 dark:border-cyan-900/40 dark:bg-cyan-950/40 lg:flex">
+          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/50 bg-white/60 backdrop-blur-md px-2.5 py-1 dark:border-cyan-900/40 dark:bg-cyan-950/40 2xl:flex">
             <Clock className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-300" />
             <LiveClock />
           </div>
@@ -1052,70 +1694,118 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           <div ref={notifRef} className="relative">
             <button
               type="button"
-              aria-label="Notifications"
-              aria-haspopup="true"
+              aria-label={
+                unreadCount > 0
+                  ? `Notifications, ${unreadCount} unread`
+                  : "Notifications"
+              }
+              aria-haspopup="dialog"
               aria-expanded={notificationsOpen}
               onClick={() => {
                 setNotificationsOpen((prev) => !prev);
                 setProfileOpen(false);
               }}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-600 hover:bg-white hover:text-slate-900 shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-all"
             >
-              <Bell className="h-4.5 w-4.5" />
-              <span
-                className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-gray-900"
-                aria-hidden="true"
-              />
+              <Semantic3DIcon name="bell" size={20} />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs"
+                  aria-hidden="true"
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
 
             {notificationsOpen && (
               <div
                 role="region"
                 aria-label="Recent notifications"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-[22px] p-3 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
+                className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-[26px] p-3 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
                 <div className="flex items-center justify-between border-b border-sky-100/80 pb-2 dark:border-gray-800">
                   <h4 className="text-xs font-bold text-gray-900 dark:text-white">
                     Notifications
                   </h4>
-                  <span className="text-[10px] font-semibold text-brand-600 dark:text-cyan-400">
-                    3 unread
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] font-semibold text-brand-600 dark:text-cyan-400">
+                        {unreadCount} unread
+                      </span>
+                    )}
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => markAllRead.mutate()}
+                        disabled={markAllRead.isPending}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:underline dark:text-cyan-400 disabled:opacity-50"
+                      >
+                        <CheckCheck className="h-3 w-3" />
+                        <span>Mark all read</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2 py-2">
-                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-gray-800/60 transition-colors">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-                      <Users className="h-3.5 w-3.5" />
+
+                <div className="max-h-80 overflow-y-auto py-2">
+                  {notifListQuery.isPending ? (
+                    <div className="flex justify-center py-6">
+                      <Spinner className="h-5 w-5 text-brand-600" />
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        New employee onboarded
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Arun Kumar joined Engineering
-                      </p>
+                  ) : notifListQuery.isError ? (
+                    <p className="py-4 text-center text-xs text-rose-500">
+                      Could not load notifications.
+                    </p>
+                  ) : notifListQuery.data?.data &&
+                    notifListQuery.data.data.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {notifListQuery.data.data.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => handleOpenNotification(n)}
+                          className={`flex w-full items-start gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-sky-50/70 dark:hover:bg-gray-800/60 ${
+                            n.readAt
+                              ? "opacity-75"
+                              : "bg-sky-50/50 dark:bg-brand-950/20"
+                          }`}
+                        >
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                            <Bell className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                              {n.title}
+                            </p>
+                            <p className="text-[10px] text-gray-500 line-clamp-2">
+                              {n.body}
+                            </p>
+                            <span className="text-[9px] text-gray-400">
+                              {formatAgo(n.createdAt)}
+                            </span>
+                          </div>
+                          {!n.readAt && (
+                            <span
+                              className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500 ring-2 ring-white dark:ring-gray-900"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-gray-800/60 transition-colors">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <div className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
+                      You&apos;re all caught up.
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        Leave request approved
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Priya's leave has been verified
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
           {/* User Profile Dropdown (Glassmorphism) */}
-          <div ref={profileRef} className="relative">
+          <div ref={profileRef} className="relative shrink-0">
             <button
               type="button"
               aria-haspopup="menu"
@@ -1124,26 +1814,26 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                 setProfileOpen((prev) => !prev);
                 setNotificationsOpen(false);
               }}
-              className="flex items-center gap-2 rounded-xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:hover:bg-gray-800 transition-colors"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-white/60 bg-white/70 backdrop-blur-md p-1.5 pr-2 text-left hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:hover:bg-gray-800 transition-all cursor-pointer"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-br from-brand-500 to-brand-cyan text-xs font-bold text-white shadow-xs">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand-500 to-brand-cyan text-xs font-bold text-white shadow-xs">
                 {initials}
               </div>
-              <div className="hidden flex-col md:flex">
-                <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90 max-w-24 truncate xl:max-w-32">
                   {displayName}
                 </span>
-                <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400 max-w-24 truncate xl:max-w-32">
                   Software Engineer
                 </span>
               </div>
-              <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 md:inline-block" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             </button>
 
             {profileOpen && (
               <div
                 role="menu"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-[22px] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
+                className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-[26px] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
                 <div className="border-b border-sky-100/80 px-3 py-2 dark:border-gray-800">
                   <p className="text-xs font-bold text-gray-900 dark:text-white/90">

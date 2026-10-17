@@ -49,7 +49,7 @@ export function TexaLogo({
   const assetSrc =
     resolvedVariant === "mark"
       ? "/brand/texaone-mark.svg"
-      : "/brand/texaone-logo.svg";
+      : "/texaone-logo-transparent.png";
 
   const altText =
     resolvedVariant === "mark"

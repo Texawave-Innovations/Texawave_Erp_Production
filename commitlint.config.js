@@ -53,6 +53,10 @@ module.exports = {
         "hr",
         "employees",
         "attendance",
+        // Business-module scope for the CRM migration (Accounts, Contacts,
+        // Leads, Pipeline/Opportunities, Products, Quotations — see
+        // Docs/CRM_*_PARITY.md).
+        "crm",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

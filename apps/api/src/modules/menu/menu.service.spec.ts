@@ -131,6 +131,53 @@ describe("MenuService", () => {
     expect(menu[0]?.children[0]?.code).toBe("admin-departments");
   });
 
+  it("getMyMenu() drops a parent-only root when every child is restricted", async () => {
+    const { service, repository, permissions } = makeService();
+
+    // User has none of the CRM read permissions.
+    permissions.getPermissionsForUser.mockResolvedValue([]);
+
+    repository.findActiveItems.mockResolvedValue([
+      {
+        id: 20,
+        code: "dashboard",
+        label: "Dashboard",
+        path: "/",
+        icon: null,
+        order: 1,
+        parentId: null,
+        permission: null,
+      },
+      {
+        id: 21,
+        code: "crm",
+        label: "CRM",
+        path: null, // parent-only, no route of its own
+        icon: null,
+        order: 2,
+        parentId: null,
+        permission: null,
+      },
+      {
+        id: 22,
+        code: "crm-leads",
+        label: "Leads",
+        path: "/crm/leads",
+        icon: null,
+        order: 1,
+        parentId: 21,
+        permission: "crm.lead.read", // RESTRICTED: user has no CRM permissions
+      },
+    ]);
+
+    const menu = await service.getMyMenu(42);
+
+    // "crm" is dropped entirely rather than appearing as an empty,
+    // unclickable chevron — "dashboard" survives because it has its own
+    // `path` even though it also has zero children.
+    expect(menu.map((m) => m.code)).toEqual(["dashboard"]);
+  });
+
   it("create() rejects duplicate menu code with ResourceConflictException", async () => {
     const { service, repository } = makeService();
     repository.findByCode.mockResolvedValue({ id: 1, code: "dashboard" });

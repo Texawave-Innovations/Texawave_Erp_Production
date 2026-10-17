@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr"]
+  schemas  = ["platform", "hr", "crm"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -124,6 +124,28 @@ model Organization {
   incomeTaxRegimes          IncomeTaxRegime[]
   employeeTaxDeclarations   EmployeeTaxDeclaration[]
   loanPrepayments           LoanPrepayment[]
+  crmAccounts             Account[]
+  crmContacts             Contact[]
+  crmLeads                Lead[]
+  crmPipelineStages       PipelineStage[]
+  crmOpportunities        Opportunity[]
+  crmOpportunityStageHistory OpportunityStageHistory[]
+  crmProducts             Product[]
+  crmOpportunityProducts  OpportunityProduct[]
+  crmQuotations           Quotation[]
+  crmQuotationLineItems   QuotationLineItem[]
+  crmMeetings             CrmMeeting[]
+  crmFollowUps            CrmFollowUp[]
+  crmActivities           CrmActivity[]
+  crmTasks                CrmTask[]
+  crmDocuments            CrmDocument[]
+  crmNotes                CrmNote[]
+  crmLeadNotes            CrmLeadNote[]
+  crmColdCallingEntries   CrmColdCallingEntry[]
+  crmMiningRows           CrmMiningRow[]
+  crmQuotas               CrmQuota[]
+  crmNotifications        CrmNotification[]
+  crmCustomFieldDefs      CrmCustomFieldDef[]
 
   @@map("organizations")
   @@schema("platform")
@@ -349,6 +371,10 @@ model Team {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([departmentId])
+    crmAccounts   Account[]
+  crmContacts   Contact[]
+  crmLeads      Lead[]
+  crmOpportunities Opportunity[]
   @@map("teams")
   @@schema("platform")
 }
@@ -2924,4 +2950,1101 @@ model Notification {
   @@index([userId, readAt, createdAt])
   @@map("notifications")
   @@schema("platform")
+}
+
+/// CRM Accounts — minimal foundation (Phase 4B). Only the fields the legacy
+/// Contacts.tsx actually reads off an account (`id`, `name`) are modeled;
+/// the full Account-360 feature set (industry, owner, etc.) is explicitly
+/// out of scope for this phase. `teamId` is nullable: legacy has no team
+/// concept for CRM accounts, so this is a forward-looking column following
+/// the same nullable-FK pattern used elsewhere (e.g. `EmployeeExperience`,
+/// `EmployeeDocument`) rather than a live dimension today.
+/// Phase 0 (Account-360 foundation, Docs/CRM_FULL_LEGACY_PARITY.md §4) expanded
+/// this from the Phase 4B minimal foundation (id/name/teamId/customFields
+/// only) to the fields legacy's `AccountFormDialog.tsx`'s 5 tabs and
+/// `AccountDetail.tsx`'s header/Overview actually read/write — confirmed by
+/// direct legacy audit, not inferred. Deliberately NOT modeled (present in
+/// legacy's `CrmAccount` type but never confirmed rendered/edited by any
+/// screen the audit read): `territory`, `region`, `segment`, `healthScore`,
+/// `healthTrend`, `linkedSalesCustomerId` (explicitly "never written to
+/// automatically" per legacy's own type comment) — add these later only if
+/// a specific screen is found to need them, per CODING_STANDARDS' no-
+/// speculative-fields rule. The Lead→Account conversion link already exists
+/// from the other side (`Lead.linkedAccountId`, see `leads` below) — no
+/// separate `sourceLeadId` column needed.
+model Account {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  teamId         Int?      @map("team_id")
+  name           String
+  /// Prospect|Customer|Partner|Vendor|Reseller — free string, same
+  /// no-DB-enum convention as every other status/type field in this schema.
+  accountType        String?   @map("account_type")
+  ownerName          String?   @map("owner_name")
+  /// Headquarters / location (legacy `hq`).
+  hq                 String?
+  /// High|Medium|Low — legacy CRM metadata priority chip.
+  priority           String?
+  /// Hot|Warm|Cold — legacy CRM metadata temperature chip.
+  temperature        String?
+  industry           String?
+  website            String?
+  phone              String?
+  email              String?
+  linkedin           String?
+  registrationNumber String?   @map("registration_number")
+  numberOfEmployees  Int?      @map("number_of_employees")
+  annualRevenue      Decimal?  @map("annual_revenue") @db.Decimal(16, 2)
+  description        String?
+  billingStreet      String?   @map("billing_street")
+  billingCity        String?   @map("billing_city")
+  billingState       String?   @map("billing_state")
+  billingPostalCode  String?   @map("billing_postal_code")
+  billingCountry     String?   @map("billing_country")
+  shippingStreet     String?   @map("shipping_street")
+  shippingCity       String?   @map("shipping_city")
+  shippingState      String?   @map("shipping_state")
+  shippingPostalCode String?   @map("shipping_postal_code")
+  shippingCountry    String?   @map("shipping_country")
+  /// Enterprise|Mid-Market|SMB|Individual
+  customerCategory   String?   @map("customer_category")
+  /// A|B|C
+  customerClass      String?   @map("customer_class")
+  /// Manufacturer|Distributor|Retailer|Service Provider|Reseller|Other
+  businessType       String?   @map("business_type")
+  resellerType       String?   @map("reseller_type")
+  tags               String[]  @default([])
+  /// Interested|Not Interested|Keep in Touch|Call Back|Send Info — the
+  /// legacy `AccountStatusQueue`/`StatusTagDialog` engagement-posture tag,
+  /// independent of any Opportunity pipeline stage. Per-tag required
+  /// companion field (reason/date/infoType) enforced at the service layer,
+  /// matching legacy's `changeCrmAccountStatusTag`.
+  statusTag          String?   @map("status_tag")
+  statusReason       String?   @map("status_reason")
+  statusDate         DateTime? @map("status_date") @db.Timestamptz(6)
+  statusInfoType     String?   @map("status_info_type")
+  statusUpdatedBy    Int?      @map("status_updated_by")
+  statusUpdatedAt    DateTime? @map("status_updated_at") @db.Timestamptz(6)
+  customFields   Json?     @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+  contacts     Contact[]
+  leads        Lead[]
+  opportunities Opportunity[]
+  quotations   Quotation[]
+  notes        CrmNote[]
+  coldCallingEntries CrmColdCallingEntry[]
+
+  @@index([organizationId])
+  @@index([organizationId, teamId])
+  @@index([organizationId, statusTag])
+  @@map("accounts")
+  @@schema("crm")
+}
+
+/// CRM Contacts — migrated from the LIVE legacy
+/// TexaWave_ERP/src/modules/crm/domain/contactsService.ts (RTDB path
+/// `crm/contacts`), not the dead apps/.../modules/contacts/ClientsLayout.tsx.
+/// `accountId` is a hard-required FK (confirmed at 3 points in the legacy UI).
+/// `teamId` is nullable, same forward-looking rationale as `Account.teamId`.
+model Contact {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  teamId          Int?      @map("team_id")
+  accountId       Int       @map("account_id")
+  name            String
+  designation     String?
+  department      String?
+  email           String?
+  phone           String?
+  whatsapp        String?
+  isPrimary       Boolean   @default(false) @map("is_primary")
+  isDecisionMaker Boolean   @default(false) @map("is_decision_maker")
+  customFields    Json?     @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+  account      Account      @relation(fields: [accountId], references: [id])
+  leads        Lead[]
+  opportunities Opportunity[]
+  quotations   Quotation[]
+
+  @@index([organizationId])
+  @@index([organizationId, teamId])
+  @@index([accountId])
+  @@map("contacts")
+  @@schema("crm")
+}
+
+/// CRM Leads — migrated from the LIVE legacy TexaWave_ERP/src/modules/crm/
+/// Leads.tsx + domain/LeadConvertDialog.tsx (RTDB path `crm/leads`).
+/// `teamId` nullable, same forward-looking rationale as `Account.teamId`/
+/// `Contact.teamId`. `leadStatus`/`priority` are free strings (legacy has no
+/// server-side enum either), validated against a fixed vocabulary only at
+/// the DTO layer — same string convention used everywhere else in this
+/// schema (no Postgres enum type exists in this file).
+///
+/// Deliberately NOT modeled yet (additive — add when that phase lands):
+/// `sourceMiningRowId` (Accounts Mining Sheet has no production entity),
+/// `linkedOpportunityId` (Pipeline/Opportunities has no production entity).
+/// Legacy's separate `month` column is dropped as redundant with
+/// `meetingDate` (both describe the same meeting date); `emailOptOut` is
+/// typed as a real `Boolean` here instead of legacy's free-text "Yes"/"No".
+model Lead {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  teamId             Int?      @map("team_id")
+  companyName        String    @map("company_name")
+  domain             String?
+  hq                 String?
+  industry           String?
+  annualRevenue      String?   @map("annual_revenue")
+  numberOfEmployees  String?   @map("number_of_employees")
+  prospectName       String    @map("prospect_name")
+  title              String?
+  contactNumber      String?   @map("contact_number")
+  mobile             String?
+  email              String?
+  fax                String?
+  skypeId            String?   @map("skype_id")
+  meetingStatus      String?   @map("meeting_status")
+  meetingScheduled   String?   @map("meeting_scheduled")
+  meetingDate        DateTime? @map("meeting_date")
+  leadStatus         String    @default("NEW") @map("lead_status")
+  priority           String?
+  assignedTo         String?   @map("assigned_to")
+  leadSource         String?   @map("lead_source")
+  /// Hot|Warm|Cold (legacy lead temperature).
+  rating             String?
+  /// Free-text "Month" field (legacy lead row `month`).
+  month              String?
+  emailOptOut        Boolean   @default(false) @map("email_opt_out")
+  dataProcessingBasis String?  @map("data_processing_basis")
+  addressStreet      String?   @map("address_street")
+  city               String?
+  state              String?
+  postalCode         String?   @map("postal_code")
+  country            String?
+  tags               String?
+  areaOfInterest     String?   @map("area_of_interest")
+  comments           String?
+  linkedAccountId    Int?      @map("linked_account_id")
+  linkedContactId    Int?      @map("linked_contact_id")
+  /// Set once Convert's "Create a Deal" step creates an Opportunity — see
+  /// `Opportunity.leadId` for the inverse (the Opportunity's own record of
+  /// which Lead it was sourced from). Both sides are written together, in
+  /// the same transaction, by `LeadsRepository.convert()` — never two
+  /// independent writers, so they cannot drift apart the way legacy's two
+  /// Firebase paths theoretically could.
+  linkedOpportunityId Int?     @map("linked_opportunity_id")
+  customFields       Json?     @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  team               Team?        @relation(fields: [teamId], references: [id])
+  linkedAccount       Account?     @relation(fields: [linkedAccountId], references: [id])
+  linkedContact       Contact?     @relation(fields: [linkedContactId], references: [id])
+  linkedOpportunity   Opportunity? @relation("LeadLinkedOpportunity", fields: [linkedOpportunityId], references: [id])
+  sourcedOpportunities Opportunity[] @relation("OpportunitySourceLead")
+  leadNotes           CrmLeadNote[]
+
+  @@index([organizationId])
+  @@index([organizationId, teamId])
+  @@index([linkedAccountId])
+  @@index([linkedContactId])
+  @@index([linkedOpportunityId])
+  @@map("leads")
+  @@schema("crm")
+}
+
+/// CRM Pipeline Stages — migrated from the LIVE legacy TexaWave_ERP/src/
+/// modules/crm/domain/pipelineStagesService.ts + config.ts (RTDB path
+/// `crm/pipelineStages`, self-seeded from a static 13-stage list on first
+/// read if empty). Production reproduces the self-seeding behavior at the
+/// service layer (`PipelineStagesService.ensureSeeded`) rather than baking
+/// a fixed set into the migration, since a migration only runs once and
+/// can't seed an organization created afterward (e.g. every e2e test org).
+/// `code` is the legacy stage-id slug (e.g. "new_lead") — kept so a
+/// seeded org's stage codes exactly match what legacy displays, and so
+/// `Opportunity.stageId` always has a human-legible code alongside the
+/// numeric PK. Only `write` (not a scoped `.own/.team/.all`) exists, same
+/// org-wide-reference-data shape as `crm.account.*` — legacy gates stage
+/// management behind "CRM Admin / Sales Head" (`canManagePipelineConfig`),
+/// which this app has no separate role concept for yet, same documented
+/// stand-in as crm.lead.write.
+model PipelineStage {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  label          String
+  order          Int
+  probability    Int?
+  isWon          Boolean   @default(false) @map("is_won")
+  isLost         Boolean   @default(false) @map("is_lost")
+  /// Legacy excludes the "on_hold" stage from board/drag columns
+  /// (`s.id !== 'on_hold'`) without a dedicated flag, matching on the
+  /// static id string. This flag makes that exclusion a first-class,
+  /// renameable property instead of a hardcoded string match.
+  isOnHold       Boolean   @default(false) @map("is_on_hold")
+  slaDays        Int?      @map("sla_days")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  opportunities Opportunity[]
+  stageHistoryFrom OpportunityStageHistory[] @relation("StageHistoryFrom")
+  stageHistoryTo   OpportunityStageHistory[] @relation("StageHistoryTo")
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("pipeline_stages")
+  @@schema("crm")
+}
+
+/// CRM Opportunities ("Deals") — migrated from the LIVE legacy
+/// TexaWave_ERP/src/modules/crm/Pipeline.tsx + domain/opportunitiesService.ts
+/// + domain/OpportunityDrawer.tsx (RTDB `crm/opportunities`).
+///
+/// Deliberately NOT modeled yet (additive — add when that phase lands, same
+/// convention as Lead's deferred fields): `dealProducts`/Products-tab line
+/// items (Products unmigrated), `quotations` (Quotations unmigrated),
+/// `activities` (Activities feed unmigrated), `leadScore`/`leadTemperature`/
+/// `forecastCategory`/`competitorId` (no production Lead-scoring or
+/// Competitors entity). `probability` is nullable and is NEVER
+/// auto-populated from the stage's own probability on create or stage
+/// change — legacy only ever falls back to the stage's probability at
+/// *display* time (`o.probability ?? stage.probability`, see Pipeline.tsx)
+/// and never writes that fallback back onto the record; the API reproduces
+/// the same display-time fallback instead of writing a value legacy never
+/// writes.
+model Opportunity {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  teamId             Int?      @map("team_id")
+  accountId          Int       @map("account_id")
+  contactId          Int?      @map("contact_id")
+  /// The Lead this opportunity was converted from, if any — see
+  /// `Lead.linkedOpportunityId` for the inverse.
+  leadId             Int?      @map("lead_id")
+  /// Generated at create time as `OPP-<last 6 digits of id, zero-padded>`
+  /// (see leads.repository.ts-style generation in opportunities.repository.ts)
+  /// — legacy uses the last 6 chars of its Firebase push id, which has no
+  /// equivalent on an autoincrement int id, so the format is adapted, not
+  /// copied byte-for-byte.
+  opportunityNumber  String    @map("opportunity_number")
+  title              String
+  /// Free-text deal owner name — same convention as `Lead.assignedTo`
+  /// (legacy ties ownership to a free-text name, not a User FK; see
+  /// `domain/roles.ts` `canManageOpportunity`).
+  ownerName          String    @map("owner_name")
+  stageId            Int       @map("stage_id")
+  stageEnteredAt     DateTime  @default(now()) @map("stage_entered_at")
+  estimatedValue     Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_value")
+  currency           String?   @default("INR")
+  expectedCloseDate  DateTime? @map("expected_close_date")
+  probability        Int?
+  priority           String?
+  nextAction         String?   @map("next_action")
+  nextActionDate     DateTime? @map("next_action_date")
+  lastActivityAt     DateTime? @map("last_activity_at")
+  status             String    @default("OPEN") @map("status")
+  lostReason         String?   @map("lost_reason")
+  lostReasonOther    String?   @map("lost_reason_other")
+  lostAt             DateTime? @map("lost_at")
+  competitor         String?
+  holdReason         String?   @map("hold_reason")
+  holdReasonOther    String?   @map("hold_reason_other")
+  expectedResumeDate DateTime? @map("expected_resume_date")
+  /// Best Case|Commit|Pipeline|Omitted|Closed (legacy forecast category).
+  forecastCategory   String?   @map("forecast_category")
+  holdNotes          String?   @map("hold_notes")
+  onHoldAt           DateTime? @map("on_hold_at")
+  resumedAt          DateTime? @map("resumed_at")
+  stuckReason        String?   @map("stuck_reason")
+  stuckReasonOther   String?   @map("stuck_reason_other")
+  contactRole        String?   @map("contact_role")
+  campaignSource     String?   @map("campaign_source")
+  closingAmount      Decimal?  @db.Decimal(14, 2) @map("closing_amount")
+  closingDate        DateTime? @map("closing_date")
+  wonAt              DateTime? @map("won_at")
+  customFields       Json?     @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  team         Team?         @relation(fields: [teamId], references: [id])
+  account      Account       @relation(fields: [accountId], references: [id])
+  contact      Contact?      @relation(fields: [contactId], references: [id])
+  lead         Lead?         @relation("OpportunitySourceLead", fields: [leadId], references: [id])
+  stage        PipelineStage @relation(fields: [stageId], references: [id])
+  convertedFromLeads Lead[]  @relation("LeadLinkedOpportunity")
+  stageHistory OpportunityStageHistory[]
+  lineItems    OpportunityProduct[]
+  quotations   Quotation[]
+
+  @@index([organizationId])
+  @@index([organizationId, teamId])
+  @@index([accountId])
+  @@index([contactId])
+  @@index([leadId])
+  @@index([stageId])
+  @@map("opportunities")
+  @@schema("crm")
+}
+
+/// Append-only stage-transition audit trail — migrated from legacy's
+/// `crm/opportunityStageHistory/{opportunityId}`. DB-trigger-enforced
+/// append-only (`prevent_row_mutation()`, same mechanism as `audit_logs`/
+/// `employee_status_history` — see the migration SQL), not just an
+/// application-level convention: legacy's own comment says the current
+/// stage "is only ever a pointer... the full history lives in" this
+/// collection, so the history itself must never be editable after the
+/// fact.
+model OpportunityStageHistory {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  opportunityId  Int      @map("opportunity_id")
+  fromStageId    Int?     @map("from_stage_id")
+  toStageId      Int      @map("to_stage_id")
+  changedBy      Int?     @map("changed_by")
+  changedAt      DateTime @default(now()) @map("changed_at")
+  remarks        String?
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  opportunity  Opportunity   @relation(fields: [opportunityId], references: [id])
+  fromStage    PipelineStage? @relation("StageHistoryFrom", fields: [fromStageId], references: [id])
+  toStage      PipelineStage  @relation("StageHistoryTo", fields: [toStageId], references: [id])
+
+  @@index([organizationId])
+  @@index([opportunityId])
+  @@map("opportunity_stage_history")
+  @@schema("crm")
+}
+
+/// CRM Products catalog — migrated from the LIVE legacy TexaWave_ERP/src/
+/// modules/crm/Products.tsx + domain/productsService.ts (RTDB `crm/products`).
+/// Org-wide reference data, no team dimension — same shape as `Account`/
+/// `PipelineStage` (Docs/CRM_PRODUCTS_LEGACY_PARITY.md §3), not the
+/// `.own/.team/.all` shape used by Lead/Contact/Opportunity.
+///
+/// `code` is deliberately NOT unique (approved decision D1,
+/// Docs/CRM_PRODUCTS_LEGACY_PARITY.md §4) — legacy's own
+/// `createCrmProduct`/`updateCrmProduct` never check for an existing code
+/// on manual create/edit, only advisory-matches it during bulk import
+/// (unmigrated — D4). Reproducing that means NOT adding
+/// `@@unique([organizationId, code])`, unlike `PipelineStage.code`.
+///
+/// Deliberately NOT modeled (verified absent in legacy, not merely
+/// omitted — see the audit doc §2.2/§2.4): a currency field, any
+/// stock/quantity field, a category or vendor master entity, SKU
+/// generation, and a tax-rate upper bound.
+model Product {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  name           String
+  code           String
+  category       String?
+  vendor         String?
+  /// Rejects negative values at the DTO layer (approved decision D3) —
+  /// an intentional business-integrity safeguard, not a legacy behavior:
+  /// legacy's own form has no server-side floor at all (only an HTML
+  /// `min={0}` that doesn't stop a typed negative number).
+  unitPrice      Decimal   @default(0) @db.Decimal(14, 2) @map("unit_price")
+  /// No upper bound — legacy has none either (approved decision D2
+  /// explicitly declines to add one without further approval).
+  taxPercent     Decimal?  @db.Decimal(5, 2) @map("tax_percent")
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  customFields   Json?     @map("custom_fields")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  lineItems    OpportunityProduct[]
+  quotationLineItems QuotationLineItem[]
+
+  @@index([organizationId])
+  @@map("products")
+  @@schema("crm")
+}
+
+/// Deal line items — migrated from legacy's `CrmDealProduct`
+/// (`crm/dealProducts`, flat collection filtered by `opportunityId` in
+/// memory). This is the "real persisted relationship" between Products
+/// and the existing Opportunity architecture: adding a product to an
+/// Opportunity creates one of these rows. `productName`/`unitPrice`/
+/// `taxPercent` are a SNAPSHOT taken at add-time from the live `Product`
+/// row — intentionally frozen, exactly like legacy, so a later product
+/// rename/re-price/deactivation never retroactively changes a historical
+/// line item (Docs/CRM_PRODUCTS_LEGACY_PARITY.md §2.6). `total` is
+/// computed via the shared `computeLineBreakdown` port
+/// (apps/api/src/modules/crm/shared/money.ts) — the same formula and
+/// per-step rounding legacy's `dealProductsService.ts` uses, reused
+/// as-is rather than re-derived, so a future Quote implementation can
+/// import the identical function instead of re-deriving the formula.
+///
+/// Quotation line items (`crm/quotationItems`) are NOT modeled here —
+/// Quotes/Quotations has no production entity yet. `Product.softDelete`'s
+/// usage-count check therefore only counts THIS table today; it cannot
+/// yet see quotation references (documented gap, not pretended-away).
+model OpportunityProduct {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  opportunityId   Int       @map("opportunity_id")
+  productId       Int       @map("product_id")
+  productName     String    @map("product_name")
+  quantity        Decimal   @db.Decimal(14, 2)
+  unitPrice       Decimal   @db.Decimal(14, 2) @map("unit_price")
+  discountPercent Decimal?  @db.Decimal(5, 2) @map("discount_percent")
+  taxPercent      Decimal?  @db.Decimal(5, 2) @map("tax_percent")
+  total           Decimal   @db.Decimal(14, 2)
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  opportunity  Opportunity  @relation(fields: [opportunityId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+
+  @@index([organizationId])
+  @@index([opportunityId])
+  @@index([productId])
+  @@map("opportunity_products")
+  @@schema("crm")
+}
+
+/// CRM Quotations — migrated from the LIVE legacy TexaWave_ERP/src/
+/// modules/crm/QuoteForm.tsx + Quotes.tsx + domain/quotationsService.ts
+/// (RTDB `crm/quotations` + `crm/quotationItems`). Org-wide reference
+/// data, no team dimension — approved decision D1
+/// (Docs/CRM_QUOTES_LEGACY_PARITY.md §4/§6), same shape as `Product`/
+/// `PipelineStage`. Delete is gated by a SEPARATE `crm.quotation.delete`
+/// permission, not folded into `.write` — a deliberate departure from
+/// every prior CRM entity's "`.write` stands in for admin-only delete"
+/// convention, per this phase's explicit approval (legacy's Delete is
+/// `isCrmAdmin`-only and must not be reachable by an ordinary write-only
+/// role).
+///
+/// `subtotal`/`totalDiscount`/`totalTax`/`grandTotal` are NEVER
+/// client-trusted (approved decision D4) — always recomputed server-side
+/// from the submitted line items via the shared
+/// `computeLineBreakdown`/`round2` port in
+/// apps/api/src/modules/crm/shared/money.ts, the exact function legacy's
+/// own QuoteForm.tsx already reuses from Deal Products
+/// (Docs/CRM_QUOTES_LEGACY_PARITY.md §2.1). `adjustment` is the one
+/// total-related field that IS a direct client input (a manual +/-
+/// legacy always let the user type), not computed.
+///
+/// `quotationNumber` is generated server-side as `QUO-<id, zero-padded
+/// to 6>` (approved decision D3) — derived from the row's own
+/// autoincrement id after insert, the same two-step pattern already used
+/// for `Opportunity.opportunityNumber`, which makes a collision
+/// structurally impossible (no two rows ever share an id). The
+/// `@@unique` below is still added as the explicit DB-level guarantee
+/// the decision asked for, not because the numbering scheme could
+/// collide on its own.
+///
+/// Deliberately NOT modeled (verified absent in legacy,
+/// Docs/CRM_QUOTES_LEGACY_PARITY.md §1.4): a revision/version table, an
+/// approval/sign-off table, a real Sales-Order-conversion link (legacy's
+/// own `linkedSalesQuotationId` is never written to either — not
+/// ported, since there is nothing to port).
+model Quotation {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  accountId          Int       @map("account_id")
+  opportunityId      Int?      @map("opportunity_id")
+  contactId          Int?      @map("contact_id")
+  quotationNumber    String    @map("quotation_number")
+  subject            String
+  /// Free string, no CHECK constraint — same convention as
+  /// `Opportunity.status`. Deliberately NO transition guard: legacy lets
+  /// the Status dropdown move to any of the 5 values from any other at
+  /// any time (confirmed, Docs/CRM_QUOTES_LEGACY_PARITY.md §1.4) and
+  /// this is reproduced exactly, not tightened.
+  status             String    @default("Draft")
+  quoteOwner         String?   @map("quote_owner")
+  currency           String?   @default("INR")
+  quoteDate          DateTime? @map("quote_date")
+  validUntil         DateTime? @map("valid_until")
+  customerReference  String?   @map("customer_reference")
+  billingStreet      String?   @map("billing_street")
+  billingCity        String?   @map("billing_city")
+  billingState       String?   @map("billing_state")
+  billingPostalCode  String?   @map("billing_postal_code")
+  billingCountry     String?   @map("billing_country")
+  shippingStreet     String?   @map("shipping_street")
+  shippingCity       String?   @map("shipping_city")
+  shippingState      String?   @map("shipping_state")
+  shippingPostalCode String?   @map("shipping_postal_code")
+  shippingCountry    String?   @map("shipping_country")
+  carrier            String?
+  deliveryNotes      String?   @map("delivery_notes")
+  termsConditions    String?   @map("terms_conditions")
+  paymentTerms       String?   @map("payment_terms")
+  deliveryTerms      String?   @map("delivery_terms")
+  notes              String?
+  subtotal           Decimal   @default(0) @db.Decimal(14, 2)
+  totalDiscount      Decimal   @default(0) @db.Decimal(14, 2) @map("total_discount")
+  totalTax           Decimal   @default(0) @db.Decimal(14, 2) @map("total_tax")
+  adjustment         Decimal   @default(0) @db.Decimal(14, 2)
+  grandTotal         Decimal   @default(0) @db.Decimal(14, 2) @map("grand_total")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  account      Account             @relation(fields: [accountId], references: [id])
+  opportunity  Opportunity?        @relation(fields: [opportunityId], references: [id])
+  contact      Contact?            @relation(fields: [contactId], references: [id])
+  lineItems    QuotationLineItem[]
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([opportunityId])
+  @@map("quotations")
+  @@schema("crm")
+}
+
+/// Quote line items — migrated from legacy's `CrmQuotationLineItem`
+/// (`crm/quotationItems/{quotationId}`). Unlike `OpportunityProduct`,
+/// `unitPrice` is NOT frozen — it is a genuine, independently editable
+/// manual price override (Docs/CRM_QUOTES_LEGACY_PARITY.md §1.3/§3), the
+/// single biggest behavioral difference from Deal Products. `listPrice`
+/// IS frozen (the catalog price at pick-time, display-only in the UI).
+/// `productId` is nullable — a line may be pure free text with no
+/// catalog product at all (confirmed). Written via "replace all on
+/// save" (approved decision D2): the whole array is replaced, inside the
+/// same transaction as the parent `Quotation` header update, every save
+/// — there is no standalone per-line create/update/delete endpoint the
+/// way `OpportunityProduct` has one, matching legacy's single-Save-button
+/// interaction exactly. Rows are therefore hard-deleted and recreated on
+/// each replace, not soft-deleted individually; nothing depends on an
+/// individual line surviving across a save, since legacy itself has no
+/// such guarantee either (a Firebase `set()` on the whole sub-tree). The
+/// parent `Quotation`'s own soft-delete does NOT cascade a delete onto
+/// these rows (see quotations.repository.ts) — they are simply no longer
+/// reachable once the parent is excluded from reads, the same "orphaned
+/// but intact" posture already used elsewhere in this schema.
+model QuotationLineItem {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  quotationId     Int      @map("quotation_id")
+  productId       Int?     @map("product_id")
+  productCode     String?  @map("product_code")
+  description     String
+  uom             String?
+  quantity        Decimal  @db.Decimal(14, 2)
+  listPrice       Decimal  @db.Decimal(14, 2) @map("list_price")
+  unitPrice       Decimal  @db.Decimal(14, 2) @map("unit_price")
+  discountPercent Decimal? @db.Decimal(5, 2) @map("discount_percent")
+  discountAmount  Decimal? @db.Decimal(14, 2) @map("discount_amount")
+  taxPercent      Decimal? @db.Decimal(5, 2) @map("tax_percent")
+  taxAmount       Decimal? @db.Decimal(14, 2) @map("tax_amount")
+  amount          Decimal  @db.Decimal(14, 2)
+  /// Preserves the submitted array order across a replace-all save —
+  /// legacy's own array index serves this role in Firebase.
+  lineOrder       Int      @map("line_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  quotation    Quotation    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id])
+
+  @@index([organizationId])
+  @@index([quotationId])
+  @@index([productId])
+  @@map("quotation_line_items")
+  @@schema("crm")
+}
+
+// -----------------------------------------------------------------------
+// CRM Account-360 foundation (Phase 0, Docs/CRM_FULL_LEGACY_PARITY.md §4).
+// Meeting/FollowUp/CrmActivity/CrmTask/CrmDocument share legacy's exact
+// polymorphic `relatedType` + `relatedId` pair (confirmed:
+// `domain/types.ts`'s `CrmRelatedType = 'lead'|'account'|'contact'|
+// 'opportunity'`) instead of a dedicated FK column — Prisma has no native
+// polymorphic-relation type, so `relatedId` is a plain Int with NO `@relation`
+// (can't FK to four different tables at once); the repository layer
+// validates the target row exists in the right table before writing,
+// exactly like `OpportunitiesRepository.create` already validates
+// `accountId`/`contactId`. `CrmNote` is the one exception — legacy's own
+// Notes feature is scoped only to a company/Account (`crm/notes/{companyKey}`
+// in Firebase, no `relatedType`), confirmed by direct audit, so it gets a
+// real `accountId` FK instead.
+// -----------------------------------------------------------------------
+
+/// Legacy `domain/meetingsService.ts` + `CrmMeeting` type. Reschedule history
+/// is its own child table (legacy keeps it as a `Record<string, entry>` map
+/// on the parent; a relational table is the natural equivalent). No
+/// `customFields` column — legacy's own comment notes there is no dedicated
+/// edit UI for Meeting custom fields (bulk-import only, a later phase).
+model CrmMeeting {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  relatedType      String    @map("related_type")
+  relatedId        Int       @map("related_id")
+  mode             String    @default("Online")
+  meetingDate      DateTime  @map("meeting_date") @db.Date
+  startTime        String?   @map("start_time")
+  endTime          String?   @map("end_time")
+  location         String?
+  meetingLink      String?   @map("meeting_link")
+  agenda           String?
+  participants     String?
+  /// REQUESTED|TENTATIVE|CONFIRMED|COMPLETED|CANCELLED|RESCHEDULED|NO_SHOW
+  status           String    @default("REQUESTED")
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  summary          String?
+  requirements     String?
+  concerns         String?
+  competitors      String?
+  budget           String?
+  decisionMaker    String?   @map("decision_maker")
+  expectedTimeline String?   @map("expected_timeline")
+  nextFollowUpAt   DateTime? @map("next_follow_up_at") @db.Timestamptz(6)
+  nextStep         String?   @map("next_step")
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields     Json?     @map("custom_fields")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  reschedules  CrmMeetingReschedule[]
+
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, status])
+  @@map("crm_meetings")
+  @@schema("crm")
+}
+
+model CrmMeetingReschedule {
+  id            Int      @id @default(autoincrement())
+  meetingId     Int      @map("meeting_id")
+  previousDate  DateTime @map("previous_date") @db.Date
+  reason        String?
+  rescheduledBy Int?     @map("rescheduled_by")
+  rescheduledAt DateTime @default(now()) @map("rescheduled_at") @db.Timestamptz(6)
+
+  meeting CrmMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("crm_meeting_reschedules")
+  @@schema("crm")
+}
+
+/// Legacy `domain/followupsService.ts` + `CrmFollowUp` type. `status`
+/// deliberately never stores `OVERDUE` — confirmed legacy's
+/// `getEffectiveFollowUpStatus()` computes it at read time from
+/// `scheduledAt` vs "now" and never writes it back (avoids write races
+/// between viewers). Reproduced the same way here: only PENDING/COMPLETED/
+/// CANCELLED/MISSED/RESCHEDULED are ever persisted; OVERDUE is derived in
+/// the service layer. Also reproduced as-observed: rescheduling a Meeting
+/// sets its status to RESCHEDULED, but rescheduling a FollowUp sets it back
+/// to PENDING (confirmed legacy asymmetry, not corrected — same
+/// reproduce-the-quirk convention already used for Opportunity's on-hold
+/// stage handling).
+model CrmFollowUp {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  relatedType    String    @map("related_type")
+  relatedId      Int       @map("related_id")
+  /// Reuses CrmActivity's type vocabulary (Call/Email/WhatsApp/etc.).
+  type           String
+  scheduledAt    DateTime  @map("scheduled_at") @db.Timestamptz(6)
+  assignedTo     String    @map("assigned_to")
+  priority       String    @default("Medium")
+  notes          String?
+  outcome        String?
+  status         String    @default("PENDING")
+  nextFollowUpAt DateTime? @map("next_follow_up_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  reschedules  CrmFollowUpReschedule[]
+
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, status])
+  @@map("crm_follow_ups")
+  @@schema("crm")
+}
+
+model CrmFollowUpReschedule {
+  id            Int      @id @default(autoincrement())
+  followUpId    Int      @map("follow_up_id")
+  previousDate  DateTime @map("previous_date") @db.Timestamptz(6)
+  reason        String?
+  rescheduledBy Int?     @map("rescheduled_by")
+  rescheduledAt DateTime @default(now()) @map("rescheduled_at") @db.Timestamptz(6)
+
+  followUp CrmFollowUp @relation(fields: [followUpId], references: [id], onDelete: Cascade)
+
+  @@index([followUpId])
+  @@map("crm_follow_up_reschedules")
+  @@schema("crm")
+}
+
+/// Legacy `domain/activitiesService.ts` + `CrmActivity` type — the backing
+/// store for the Timeline, manually-logged Notes-typed entries, and the
+/// WhatsApp/LinkedIn/Email/Call activity queues (confirmed: these are all
+/// just this one entity filtered by `type`, not separate tables). `'Stage
+/// Change'` is a valid type value but is only ever auto-logged by the
+/// Opportunity stage-change flow, never user-selectable — reproduced as a
+/// legal-but-not-user-facing value, matching legacy's own
+/// `ACTIVITY_TYPES` constant excluding it from the picker.
+model CrmActivity {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  relatedType    String    @map("related_type")
+  relatedId      Int       @map("related_id")
+  /// Call|Email|WhatsApp|Meeting|Demo|Note|Task|Follow-up|Proposal|LinkedIn|
+  /// Stage Change
+  type           String
+  subject        String
+  notes          String?
+  /// Sent|Received — Email type only, legacy leaves it unset otherwise.
+  direction      String?
+  occurredAt     DateTime  @map("occurred_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, type])
+  @@map("crm_activities")
+  @@schema("crm")
+}
+
+/// Legacy `domain/tasksService.ts` + `CrmTask` type — a generic,
+/// polymorphic CRM task (relatable to Account/Contact/Opportunity/Lead),
+/// confirmed structurally distinct from HR's `Task` model (which is hard
+/// FK'd to `Employee` with HR-specific approval-request fields — not
+/// reusable here without coupling CRM to HR assumptions it doesn't have).
+/// `assignedTo` is deliberately a free-text name, not a User FK — matches
+/// legacy exactly (`CrmTask.assignedTo: string`), not a correction.
+model CrmTask {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  relatedType    String    @map("related_type")
+  relatedId      Int       @map("related_id")
+  title          String
+  dueDate        DateTime  @map("due_date") @db.Date
+  assignedTo     String    @map("assigned_to")
+  priority       String    @default("Medium")
+  /// Open|Completed — only two states, confirmed (no cancelled/in-progress
+  /// in legacy's CrmTask, unlike HR's Task).
+  status         String    @default("Open")
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, status])
+  @@map("crm_tasks")
+  @@schema("crm")
+}
+
+/// Legacy `domain/documentsService.ts` + `CrmDocument` type — confirmed
+/// name + external link only, no real file upload (legacy's own comment:
+/// Firebase Storage was never wired up). No update capability in legacy
+/// either (only create/delete) — reproduced the same way, no update
+/// endpoint planned for this entity.
+model CrmDocument {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  relatedType    String    @map("related_type")
+  relatedId      Int       @map("related_id")
+  name           String
+  link           String
+  notes          String?
+  uploadedBy     Int?      @map("uploaded_by")
+  uploadedAt     DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, relatedType, relatedId])
+  @@map("crm_documents")
+  @@schema("crm")
+}
+
+/// Legacy `intelligence/notesService.ts` + `CrmNote` type — confirmed
+/// architecturally distinct from `CrmActivity`'s `type: 'Note'` entries
+/// (two unrelated things both called "Notes" in legacy; see Docs/
+/// CRM_FULL_LEGACY_PARITY.md). Scoped only to an Account (legacy:
+/// `crm/notes/{companyKey}`, never `relatedType`/`relatedId`), confirmed no
+/// update capability in legacy (add/delete only — `updatedAt` on legacy's
+/// own type is typed but never written, so it's omitted here rather than
+/// modeled as a dead column).
+model CrmNote {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  accountId      Int       @map("account_id")
+  content        String
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, accountId])
+  @@map("crm_notes")
+  @@schema("crm")
+}
+
+/// CRM Cold Calling Status — Phase 1B additive queue. Logs raw cold-calling
+/// call outcomes exactly as they come out of the source spreadsheet (SINO /
+/// Date / Company Name / Prospect Name / Designation / Status) ahead of a
+/// human routing each row into the Account.statusTag disposition queues
+/// (Interested / Not Interested / Keep in Touch / Call Back / Send Info).
+/// Mirrors legacy TexaWave_ERP/src/modules/crm/ColdCallingStatus.tsx's
+/// Firebase `crm/coldCallingStatus` path — isolated dataset; "linkedAccount"
+/// + "dispositionTag" are the only bridge to the Account.statusTag queues,
+/// and only once a person explicitly links/routes a row (never automatic).
+model CrmColdCallingEntry {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  serialNo        String?   @map("serial_no")
+  callDate        DateTime? @map("call_date") @db.Timestamptz(6)
+  companyName     String    @map("company_name")
+  prospectName    String?   @map("prospect_name")
+  designation     String?
+  /// Raw outcome text as logged — free text, never a fixed enum (matches
+  /// legacy: "Status values are free text ... future outcomes must not
+  /// require a code change").
+  status          String?
+  linkedAccountId Int?      @map("linked_account_id")
+  /// Set once a person routes this row via the existing StatusTagDialog —
+  /// mirrors legacy's `dispositionTag`. Not written automatically.
+  dispositionTag  String?   @map("disposition_tag")
+  dispositionAt   DateTime? @map("disposition_at") @db.Timestamptz(6)
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields    Json?     @map("custom_fields")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  linkedAccount Account?     @relation(fields: [linkedAccountId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, linkedAccountId], map: "crm_cold_calling_entries_org_linked_account_idx")
+  @@map("crm_cold_calling_entries")
+  @@schema("crm")
+}
+
+/// Legacy `AccountsMiningSheet.tsx` (`crm/accountsMiningSheet`) — an
+/// independent prospecting dataset, deliberately NOT an Account/Lead. All
+/// legacy columns are free text (kept as nullable strings here, matching
+/// legacy). `promotedToLeadId` is the idempotent "Promote to Lead" link
+/// (legacy `promotedToLeadRowId`): once set, the promote action is disabled.
+model CrmMiningRow {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  serialNo          String?   @map("serial_no")
+  minedDate         String?   @map("mined_date")
+  domain            String?
+  companyName       String    @map("company_name")
+  hq                String?
+  website           String?
+  keyDecisionMakers String?   @map("key_decision_makers")
+  title             String?
+  contactNumber     String?   @map("contact_number")
+  email             String?
+  emailStatus       String?   @map("email_status")
+  followUpStatus    String?   @map("follow_up_status")
+  industry          String?
+  numberOfEmployees String?   @map("number_of_employees")
+  city              String?
+  state             String?
+  country           String?
+  linkedInProfile   String?   @map("linkedin_profile")
+  assignedTo        String?   @map("assigned_to")
+  /// High|Medium|Low
+  priority          String?
+  nextFollowUpDate  String?   @map("next_follow_up_date")
+  notes             String?
+  promotedToLeadId  Int?      @map("promoted_to_lead_id")
+  customFields      Json?     @map("custom_fields")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("crm_mining_rows")
+  @@schema("crm")
+}
+
+/// Legacy `domain/quotasService.ts` (`crm/quotas`). `repName` is free text
+/// (matches legacy — no User FK; attainment name-matches Opportunity
+/// ownerName case/whitespace-insensitively). Attainment is computed on
+/// read, never stored.
+model CrmQuota {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  repName        String    @map("rep_name")
+  team           String?
+  managerName    String?   @map("manager_name")
+  targetOwner    String?   @map("target_owner")
+  /// monthly|quarterly
+  period         String
+  /// YYYY-MM | YYYY-Q1..4
+  periodKey      String    @map("period_key")
+  startDate      DateTime? @map("start_date") @db.Timestamptz(6)
+  endDate        DateTime? @map("end_date") @db.Timestamptz(6)
+  targetAmount   Decimal   @map("target_amount") @db.Decimal(16, 2)
+  /// revenue|closedWonValue|dealsWon
+  metric         String    @default("closedWonValue")
+  currency       String?
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, periodKey])
+  @@map("crm_quotas")
+  @@schema("crm")
+}
+
+/// Legacy `notifications/types.ts` `CrmNotification` (`crm/notifications/feed`).
+/// Generated server-side from due dates on Meetings/FollowUps/Tasks/
+/// Opportunities/Quotations/Accounts; (sourceType, sourceId, type, dueDate)
+/// is the idempotency key so regeneration never duplicates a row.
+/// `deletedAt` = the legacy "recycle-bin" tab (admin permanent-delete removes
+/// the row).
+model CrmNotification {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  sourceType     String    @map("source_type")
+  sourceId       Int       @map("source_id")
+  type           String
+  title          String
+  description    String?
+  accountId      Int?      @map("account_id")
+  companyName    String?   @map("company_name")
+  prospectName   String?   @map("prospect_name")
+  dueDate        DateTime  @map("due_date") @db.Timestamptz(6)
+  /// Pending|Acknowledged|Done|Snoozed|Overdue
+  status         String    @default("Pending")
+  /// high|medium|low
+  priority       String    @default("medium")
+  isRead         Boolean   @default(false) @map("is_read")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  snoozeUntil    DateTime? @map("snooze_until") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
+  @@index([organizationId, status])
+  @@map("crm_notifications")
+  @@schema("crm")
+}
+
+/// Legacy `bulkImport/crmCustomFieldsService.ts` (`crm/customFieldDefs`).
+/// An unrecognised Excel header auto-creates one of these (idempotent on
+/// normalised label); values live in each row's `customFields` JSON.
+model CrmCustomFieldDef {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  /// leads|accountsMining|accounts|meetings|coldCalling
+  module         String
+  key            String
+  label          String
+  sourceHeader   String?   @map("source_header")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, module, key], map: "crm_custom_field_defs_org_module_key")
+  @@map("crm_custom_field_defs")
+  @@schema("crm")
+}
+
+/// Lead notes (legacy `crm/notes/<leadId>`; `CrmNote` is account-only).
+model CrmLeadNote {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  leadId         Int       @map("lead_id")
+  content        String
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, leadId])
+  @@map("crm_lead_notes")
+  @@schema("crm")
 }

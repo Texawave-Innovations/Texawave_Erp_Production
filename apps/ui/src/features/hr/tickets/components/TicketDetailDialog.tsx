@@ -314,7 +314,6 @@ export function TicketDetailDialog({
                       type="submit"
                       size="sm"
                       loading={addComment.isPending}
-                      className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
                     >
                       Send Reply
                     </Button>

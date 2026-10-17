@@ -1,6 +1,31 @@
 @import "tailwindcss";
 @import "@texawave-erp/ui-kit/theme.css";
+@import "./crm-legacy-theme.css";
 @custom-variant dark (&:is(.dark *));
+
+@theme {
+  --ease-spring-glide: cubic-bezier(0.25, 1, 0.4, 1);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --border: #e2e8f0;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --border: #334155;
+}
 
 body {
   @apply bg-white font-sans font-normal tracking-[-0.01em] text-gray-900 dark:bg-gray-900 dark:text-white/90;

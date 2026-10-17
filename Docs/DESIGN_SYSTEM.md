@@ -68,25 +68,19 @@ The approved direction establishes **TexaOne** with the tagline **“Run Your Bu
 
 #### Approved Brand & Component Gradients
 
-##### 1. Primary Button Gradient (WCAG AA Calibrated Mixed Gradient)
+##### 1. Primary Button Gradient (TexaOne Approved Specification)
 
 ```css
-linear-gradient(135deg, #2454E8 0%, #1769F5 45%, #0369A1 100%)
+linear-gradient(90deg, #55C9F5 0%, #318CF5 52%, #2459E8 100%)
 ```
 
-- **Description:** Soft mixed gradient inspired by the official logo and reference dashboard — smoothly blending Electric Blue through Primary Blue into Accessible Ocean Cyan (`#0369A1`), specifically calibrated to guarantee WCAG 2.2 AA contrast with white text across the entire gradient surface.
+- **Description:** Clean, modern, soft blue-to-cyan horizontal gradient transitioning from soft sky blue/cyan on the left through vibrant primary blue into rich royal blue at the right edge, paired with crisp white text and white icons, rounded corners, and a subtle diffuse blue shadow. Zero violet or purple stops.
 - **Token:** `--gradient-brand-button` (defined in `packages/ui-kit/src/theme.css`).
-- **Hover State:** `linear-gradient(135deg, #1D4ED8 0%, #1E40AF 45%, #075985 100%)` (`--gradient-brand-button-hover`).
-- **Active State:** `linear-gradient(135deg, #1E3A8A 0%, #1D4ED8 45%, #0C4A6E 100%)` (`--gradient-brand-button-active`).
-- **Tailwind Utility Implementation:** `bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan-accessible hover:from-brand-700 hover:via-brand-800 hover:to-[#075985] active:from-brand-900 active:via-brand-700 active:to-[#0c4a6e] text-white shadow-theme-xs hover:shadow-theme-sm`.
-- **Contrast Guarantee (Strict WCAG 2.2 AA Normal Text ≥ 4.5:1):**
-  - Start stop: `#2454E8` (Electric Blue) = **5.99:1** (PASS)
-  - Mid stop: `#1769F5` (Primary Blue) = **4.80:1** (PASS)
-  - End stop: `#0369A1` (Accessible Ocean Cyan) = **5.93:1** (PASS)
-  - Minimum contrast across all interpolated points: **4.80:1** (PASS across 100% of gradient width).
-  - Hover minimum contrast: **6.70:1** (PASS).
-  - Active minimum contrast: **6.70:1** (PASS).
-  - Raw Cyan `#12CFE3` (contrast 1.90:1) is strictly prohibited as a button background behind white text.
+- **Hover State:** `linear-gradient(90deg, #42BEF0 0%, #257FE8 52%, #1B4CDB 100%)` (`--gradient-brand-button-hover`) with enhanced diffuse shadow.
+- **Active / Pressed State:** `linear-gradient(90deg, #2B9CE8 0%, #1E6EDB 52%, #1642C5 100%)` (`--gradient-brand-button-active`) with reduced shadow.
+- **Disabled State:** `linear-gradient(90deg, #C8D3E0 0%, #B8C6D8 100%)` (`--gradient-brand-button-disabled`) with restrained muted blue-grey appearance and white/85 text.
+- **Tailwind Utility Implementation:** Literal class map in `packages/ui-kit/src/components/button/index.tsx`: `bg-gradient-to-r from-[#55c9f5] via-[#318cf5] to-[#2459e8] text-white font-medium shadow-[0_2px_8px_rgba(36,89,232,0.22),0_1px_2px_rgba(15,23,42,0.06)] hover:from-[#42bef0] hover:via-[#257fe8] hover:to-[#1b4cdb] hover:shadow-[0_4px_14px_rgba(36,89,232,0.32)] active:from-[#2b9ce8] active:via-[#1e6edb] active:to-[#1642c5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#318cf5] focus-visible:ring-offset-2`.
+- **Contrast & Legibility:** White text (`#ffffff`) and icons with medium font weight, comfortable horizontal padding, and high visibility against both light and glass-like backgrounds.
 - **Scope Restriction:** Applies to all primary action buttons across the application. Secondary, ghost, and destructive buttons remain distinct.
 
 ##### 2. Approved Brand Gradient Specification
@@ -376,11 +370,11 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 
 ### 4.2 Critical Component Contract Rules
 
-#### Rule 1: Button & Tab Contrast Inversion and Primary Button Gradient
+#### Rule 1: Canonical Primary Button Gradient & Interaction Contracts
 
-- **Current Live State:** `packages/ui-kit/src/components/button/index.tsx` primary variant implements the medium-strength mixed gradient inspired by the TexaOne logo (`bg-linear-120 from-brand-600 via-brand-500 to-brand-cyan-accessible hover:from-brand-700 hover:via-brand-800 hover:to-[#075985] active:from-brand-900 active:via-brand-800 active:to-[#0c4a6e] text-white`).
-- **Contrast Guarantee:** Electric Blue `#2454E8` (5.99:1), Primary Blue `#1769F5` (4.80:1), and Accessible Ocean Cyan `#0369A1` (5.93:1) all pass WCAG 2.2 AA normal text (≥ 4.5:1) with `text-white`. Selected `Tabs` also use `bg-linear-to-r from-brand-600 via-brand-500 to-brand-cyan-accessible` with `text-white`.
-- **Distinction from Brand Gradient:** The primary button gradient uses Accessible Ocean Cyan (`#0369A1`) as its terminal stop instead of raw Cyan (`#12CFE3`, contrast 1.90:1), ensuring every point across the mixed gradient surface satisfies WCAG AA contrast standards. Hover (`#1d4ed8` -> `#1e40af` -> `#075985`) and active states maintain > 6.7:1 contrast.
+- **Current Live State:** `packages/ui-kit/src/components/button/index.tsx` primary variant implements the approved TexaOne horizontal gradient (`bg-gradient-to-r from-[#55c9f5] via-[#318cf5] to-[#2459e8]` with `text-white font-medium`).
+- **Interaction Contracts:** Default diffuse blue shadow `shadow-[0_2px_8px_rgba(36,89,232,0.22),0_1px_2px_rgba(15,23,42,0.06)]`; Hover state slightly saturated `hover:from-[#42bef0] hover:via-[#257fe8] hover:to-[#1b4cdb]` with elevated shadow `hover:shadow-[0_4px_14px_rgba(36,89,232,0.32)]`; Active/pressed state `active:from-[#2b9ce8] active:via-[#1e6edb] active:to-[#1642c5]`; Focus-visible keyboard ring `focus-visible:ring-2 focus-visible:ring-[#318cf5] focus-visible:ring-offset-2`; Disabled state restrained muted blue-grey `from-[#c8d3e0] via-[#c0cedf] to-[#b8c6d8]` with legible `text-white/85`; Loading state keeps stable dimensions with white spinner.
+- **Architectural Single Source of Truth:** All modules and pages consume the shared `Button` component with `variant="primary"` — no page-level hardcoded gradient duplicates. Secondary, outline, ghost, destructive, success, and link variants remain strictly distinct and never inherit the primary gradient.
 
 #### Rule 2: SpecularButton Scope Restriction
 

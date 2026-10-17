@@ -1,13 +1,15 @@
 "use client";
 
 import { ApiError } from "@texawave-erp/core";
-import { Alert } from "@texawave-erp/ui-kit";
+import { Alert, Button } from "@texawave-erp/ui-kit";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForgotPassword } from "../hooks";
 import { TexaLogo } from "./login_page/TexaLogo";
 
 export function ForgotPasswordForm() {
+  const router = useRouter();
   const forgotPasswordMutation = useForgotPassword();
 
   const [organizationSlug, setOrganizationSlug] = useState(
@@ -62,12 +64,15 @@ export function ForgotPasswordForm() {
             to reset your password.
           </Alert>
 
-          <Link
-            href="/login"
-            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-6 focus-visible:outline-2 focus-visible:outline-brand-500"
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            className="w-full mt-6"
+            onClick={() => router.push("/login")}
           >
             Back to sign in →
-          </Link>
+          </Button>
         </div>
       </>
     );
@@ -179,18 +184,15 @@ export function ForgotPasswordForm() {
           ) : null}
 
           {/* Submit Button */}
-          <button
+          <Button
             type="submit"
-            disabled={forgotPasswordMutation.isPending}
-            suppressHydrationWarning
-            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed mt-1 focus-visible:outline-2 focus-visible:outline-brand-500"
+            variant="primary"
+            size="lg"
+            loading={forgotPasswordMutation.isPending}
+            className="w-full mt-1"
           >
-            {forgotPasswordMutation.isPending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <span>Send reset link →</span>
-            )}
-          </button>
+            Send reset link →
+          </Button>
 
           <Link
             href="/login"

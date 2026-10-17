@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useId } from "react";
 import { cn } from "../../lib/cn";
+import { Button } from "../button/index";
 import {
   MONTH_NAMES,
   WEEKDAY_NAMES_SHORT,
@@ -597,27 +598,30 @@ export function DateRangePicker({
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleClear}
-                    className="px-2.5 py-1.5 text-theme-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded transition-colors"
                   >
                     Clear
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={handleClose}
-                    className="px-3 py-1.5 text-theme-xs font-medium border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     onClick={handleApply}
-                    className="px-3.5 py-1.5 text-theme-xs font-semibold rounded-lg bg-brand-500 text-white hover:bg-brand-600 shadow-theme-xs transition-colors"
                   >
                     Apply
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

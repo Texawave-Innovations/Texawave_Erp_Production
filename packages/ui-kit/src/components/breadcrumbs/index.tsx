@@ -75,7 +75,7 @@ export function Breadcrumbs({
                   className={cn(
                     "select-none px-0.5",
                     isBanner
-                      ? "text-white/60"
+                      ? "text-[#0a3271]/50 dark:text-sky-400/50"
                       : "text-gray-400 dark:text-gray-600",
                   )}
                 >
@@ -89,7 +89,7 @@ export function Breadcrumbs({
                   className={cn(
                     "truncate font-semibold",
                     isBanner
-                      ? "text-white"
+                      ? "text-[#0a3271] dark:text-sky-100"
                       : "text-gray-900 dark:text-white/90",
                   )}
                 >
@@ -109,7 +109,7 @@ export function Breadcrumbs({
                   className={cn(
                     "inline-flex items-center truncate transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 rounded",
                     isBanner
-                      ? "text-white/80 hover:text-white focus-visible:outline-white"
+                      ? "text-[#0a3271]/80 hover:text-[#0a3271] dark:text-sky-300 dark:hover:text-white focus-visible:outline-[#0a3271]"
                       : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 focus-visible:outline-brand-500",
                   )}
                 >
@@ -128,7 +128,7 @@ export function Breadcrumbs({
                   className={cn(
                     "truncate",
                     isBanner
-                      ? "text-white/80"
+                      ? "text-[#0a3271]/70 dark:text-sky-300/70"
                       : "text-gray-500 dark:text-gray-400",
                   )}
                 >

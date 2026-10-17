@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError } from "@texawave-erp/core";
-import { Alert } from "@texawave-erp/ui-kit";
+import { Alert, Button } from "@texawave-erp/ui-kit";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -76,12 +76,15 @@ export function ResetPasswordForm() {
             page.
           </Alert>
 
-          <Link
-            href="/forgot-password"
-            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-6 focus-visible:outline-2 focus-visible:outline-brand-500"
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            className="w-full mt-6"
+            onClick={() => router.push("/forgot-password")}
           >
             Request New Link →
-          </Link>
+          </Button>
         </div>
       </>
     );
@@ -114,13 +117,15 @@ export function ResetPasswordForm() {
             signed out for security.
           </Alert>
 
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="lg"
+            className="w-full mt-6"
             onClick={() => router.push("/login")}
-            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-6 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             Go to sign in →
-          </button>
+          </Button>
         </div>
       </>
     );
@@ -265,18 +270,15 @@ export function ResetPasswordForm() {
           ) : null}
 
           {/* Submit Button */}
-          <button
+          <Button
             type="submit"
-            disabled={resetPasswordMutation.isPending}
-            suppressHydrationWarning
-            className="w-full h-11.5 bg-brand-500 hover:bg-brand-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-theme-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed mt-1 focus-visible:outline-2 focus-visible:outline-brand-500"
+            variant="primary"
+            size="lg"
+            loading={resetPasswordMutation.isPending}
+            className="w-full mt-1"
           >
-            {resetPasswordMutation.isPending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <span>Reset password →</span>
-            )}
-          </button>
+            Reset password →
+          </Button>
 
           <Link
             href="/login"

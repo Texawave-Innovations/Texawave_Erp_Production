@@ -14,5 +14,23 @@
     "incremental": true,
     "strictPropertyInitialization": false,
     "types": ["vitest/globals", "node"]
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/modules/crm/*.tsx",
+    "src/modules/crm/bulkImport",
+    "src/modules/crm/celebration",
+    "src/modules/crm/components",
+    "src/modules/crm/domain",
+    "src/modules/crm/importExport",
+    "src/modules/crm/intelligence",
+    "src/modules/crm/notifications",
+    "src/modules/crm/types.ts",
+    "src/modules/crm/useOverallDataLive.ts",
+    "src/modules/finance",
+    "src/modules/projects",
+    "src/modules/sales",
+    "src/modules/scm"
+  ]
 }

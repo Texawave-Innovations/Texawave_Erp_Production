@@ -1,6 +1,13 @@
 "use client";
 
-import { type KeyboardEvent, type ReactNode, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "../../lib/cn";
 
 export interface TabItem<T extends string = string> {
@@ -22,10 +29,8 @@ export interface TabsProps<T extends string> {
 }
 
 /**
- * Tab list + one panel (WAI-ARIA tabs, automatic activation). Controlled:
- * the caller owns `value`, so it decides which tabs exist (e.g. per
- * permission) and what to fall back to. Arrow keys / Home / End move between
- * tabs; only the selected tab is in the Tab order.
+ * Enterprise Tab list with Spring Glide indicator + panel (WAI-ARIA tabs).
+ * Employs the signature TexaOne spring glide indicator pill for fluid navigation across all views.
  */
 export function Tabs<T extends string>({
   label,
@@ -36,9 +41,59 @@ export function Tabs<T extends string>({
   children,
   className,
 }: TabsProps<T>) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const tabId = (id: T) => `${idPrefix}-tab-${id}`;
   const panelId = (id: T) => `${idPrefix}-panel-${id}`;
+
+  const [indicatorStyle, setIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    opacity: number;
+  }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+
+  const updateIndicator = useCallback(() => {
+    if (!containerRef.current) return;
+    const selectedIndex = tabs.findIndex((t) => t.id === value);
+    if (selectedIndex === -1) {
+      setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const buttonEl = refs.current[selectedIndex];
+    if (!buttonEl) {
+      setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const btnRect = buttonEl.getBoundingClientRect();
+    const left = btnRect.left - containerRect.left;
+    const top = btnRect.top - containerRect.top;
+    const width = btnRect.width;
+    const height = btnRect.height;
+
+    setIndicatorStyle({
+      left,
+      top,
+      width,
+      height,
+      opacity: 1,
+    });
+  }, [tabs, value]);
+
+  useEffect(() => {
+    updateIndicator();
+  }, [updateIndicator]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      updateIndicator();
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [updateIndicator]);
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
     const last = tabs.length - 1;
@@ -67,10 +122,24 @@ export function Tabs<T extends string>({
   return (
     <div className={cn("flex min-w-0 flex-col gap-4", className)}>
       <div
+        ref={containerRef}
         role="tablist"
         aria-label={label}
-        className="flex w-full flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 sm:inline-flex sm:w-auto sm:self-start dark:border-gray-800 dark:bg-gray-800/50"
+        className="relative flex w-full flex-wrap gap-1 rounded-xl border border-sky-200/70 bg-sky-50/60 p-1 sm:inline-flex sm:w-auto sm:self-start backdrop-blur-md dark:border-sky-900/50 dark:bg-gray-800/60 isolate"
       >
+        {/* Spring Glide Active Indicator Pill */}
+        <span
+          aria-hidden="true"
+          className="glass-pill absolute pointer-events-none z-0 rounded-lg shadow-xs transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
+          style={{
+            left: `${indicatorStyle.left}px`,
+            top: `${indicatorStyle.top}px`,
+            width: `${indicatorStyle.width}px`,
+            height: `${indicatorStyle.height}px`,
+            opacity: indicatorStyle.opacity,
+          }}
+        />
+
         {tabs.map((tab, index) => {
           const selected = tab.id === value;
           return (
@@ -88,11 +157,11 @@ export function Tabs<T extends string>({
               onClick={() => onChange(tab.id)}
               onKeyDown={(e) => onKeyDown(e, index)}
               className={cn(
-                "flex-1 rounded-lg px-4 py-2 text-theme-sm font-medium transition-colors sm:flex-none",
-                "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/20",
+                "relative z-1 flex-1 rounded-lg px-4 py-2 text-theme-sm transition-colors sm:flex-none",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40",
                 selected
-                  ? "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white shadow-theme-xs"
-                  : "text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
+                  ? "font-bold text-[#0a3271] dark:text-cyan-200"
+                  : "font-medium text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white",
               )}
             >
               {tab.label}

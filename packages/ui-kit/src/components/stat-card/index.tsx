@@ -51,7 +51,7 @@ const TONE_VALUE_CLASS: Record<StatCardTone, string> = {
   error: "text-error-700 dark:text-error-400",
   success: "text-success-700 dark:text-success-400",
   blue: "text-blue-700 dark:text-blue-400",
-  purple: "text-purple-700 dark:text-purple-400",
+  purple: "text-sky-700 dark:text-sky-400",
   emerald: "text-emerald-700 dark:text-emerald-400",
   amber: "text-amber-700 dark:text-amber-400",
 };
@@ -64,7 +64,7 @@ const TONE_EDGE_CLASS: Record<StatCardTone, string> = {
   error: "bg-error-500",
   success: "bg-success-500",
   blue: "bg-blue-500",
-  purple: "bg-purple-500",
+  purple: "bg-sky-500",
   emerald: "bg-emerald-500",
   amber: "bg-amber-500",
 };
@@ -79,8 +79,7 @@ const TONE_ICON_BG: Record<StatCardTone, string> = {
   success:
     "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",
   blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
-  purple:
-    "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300",
+  purple: "bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
   emerald:
     "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
@@ -94,15 +93,14 @@ const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
   error: "gradient-card-border-error",
   success: "gradient-card-border-success",
   blue: "gradient-card-border-info",
-  purple: "gradient-card-border",
+  purple: "gradient-card-border-info",
   emerald: "gradient-card-border-success",
   amber: "gradient-card-border-warning",
 };
 
 const TONE_GRADIENT_CLASS: Record<StatCardTone, string> = {
   blue: "stat-card-gradient-blue border-blue-100/70 dark:border-blue-900/40",
-  purple:
-    "stat-card-gradient-purple border-purple-100/70 dark:border-purple-900/40",
+  purple: "stat-card-gradient-cyan border-sky-100/70 dark:border-sky-900/40",
   emerald:
     "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
   amber:
@@ -128,9 +126,9 @@ const KPI_ICON_GRADIENTS: Record<
     aura: "bg-sky-400/25",
   },
   purple: {
-    bg: "bg-linear-135 from-purple-600 via-indigo-500 to-blue-500 text-white",
-    shadow: "shadow-md shadow-purple-500/25",
-    aura: "bg-purple-400/25",
+    bg: "bg-linear-135 from-sky-600 via-cyan-500 to-blue-500 text-white",
+    shadow: "shadow-md shadow-sky-500/25",
+    aura: "bg-sky-400/25",
   },
   emerald: {
     bg: "bg-linear-135 from-emerald-600 via-teal-500 to-cyan-400 text-white",
@@ -211,7 +209,7 @@ export function StatCard({
       <section
         aria-labelledby={headingId}
         className={cn(
-          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-theme-md",
+          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 border border-sky-100/90 card-light-shadow transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/80 dark:border-sky-950/60 dark:hover:border-sky-700/60",
           gradientBg,
           className,
         )}
@@ -285,7 +283,7 @@ export function StatCard({
     <section
       aria-labelledby={headingId}
       className={cn(
-        "group relative overflow-hidden rounded-2xl p-5 shadow-[0_2px_12px_rgba(23,105,245,0.03)] transition-all duration-200 hover:shadow-theme-sm border",
+        "group relative overflow-hidden rounded-2xl p-5 card-light-shadow transition-all duration-200 border",
         gradientBg,
         borderClass,
         className,

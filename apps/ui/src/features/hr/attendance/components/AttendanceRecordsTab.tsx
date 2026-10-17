@@ -458,7 +458,7 @@ export function AttendanceRecordsTab() {
                 header: "Overtime",
                 cell: (r) =>
                   r.overtimeMinutes > 0 ? (
-                    <span className="font-semibold text-purple-700 dark:text-purple-400 text-theme-xs">
+                    <span className="font-semibold text-brand-700 dark:text-brand-400 text-theme-xs">
                       +{formatMinutes(r.overtimeMinutes)}
                     </span>
                   ) : (

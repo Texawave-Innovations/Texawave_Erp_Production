@@ -41,29 +41,41 @@
     #12cfe3 100%
   );
   --gradient-brand-button: linear-gradient(
-    135deg,
-    #2454e8 0%,
-    #1769f5 45%,
-    #0369a1 100%
+    90deg,
+    #55c9f5 0%,
+    #318cf5 52%,
+    #2459e8 100%
   );
   --gradient-brand-button-hover: linear-gradient(
-    135deg,
-    #1d4ed8 0%,
-    #1e40af 45%,
-    #075985 100%
+    90deg,
+    #42bef0 0%,
+    #257fe8 52%,
+    #1b4cdb 100%
   );
   --gradient-brand-button-active: linear-gradient(
-    135deg,
-    #1e3a8a 0%,
-    #1d4ed8 45%,
-    #0c4a6e 100%
+    90deg,
+    #2b9ce8 0%,
+    #1e6edb 52%,
+    #1642c5 100%
   );
+  --gradient-brand-button-disabled: linear-gradient(
+    90deg,
+    #c8d3e0 0%,
+    #b8c6d8 100%
+  );
+  --shadow-brand-button:
+    0px 2px 8px 0px rgba(36, 89, 232, 0.22),
+    0px 1px 2px 0px rgba(15, 23, 42, 0.06);
+  --shadow-brand-button-hover: 0px 4px 14px 0px rgba(36, 89, 232, 0.32);
+  --shadow-brand-button-active: 0px 1px 4px 0px rgba(22, 66, 197, 0.25);
   --gradient-nav: linear-gradient(90deg, #f0f7ff 0%, #e6f9fc 50%, #e6fbf7 100%);
   --gradient-page-header: linear-gradient(
-    135deg,
-    #38bdf8 0%,
-    #0ea5e9 40%,
-    #2dd4bf 100%
+    118deg,
+    #cae8fa 0%,
+    #ddf2fd 24%,
+    #f4faff 50%,
+    #d4edfc 76%,
+    #c0e2f9 100%
   );
   --gradient-canvas: linear-gradient(
     180deg,
@@ -172,11 +184,13 @@
   --text-theme-xs: 12px;
   --text-theme-xs--line-height: 18px;
 
-  /* Shadows */
-  --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  /* Shadows — Enhanced Light Shadow System for Cards, Grids, and Widgets */
+  --shadow-theme-xs:
+    0px 2px 8px -1px rgba(14, 165, 233, 0.08),
+    0px 1px 3px 0px rgba(15, 23, 42, 0.04);
   --shadow-theme-sm:
-    0px 1px 3px 0px rgba(16, 24, 40, 0.1),
-    0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+    0px 6px 18px -2px rgba(14, 165, 233, 0.12),
+    0px 2px 6px -1px rgba(15, 23, 42, 0.05);
   --shadow-theme-md:
     0px 4px 8px -2px rgba(16, 24, 40, 0.1),
     0px 2px 4px -2px rgba(16, 24, 40, 0.06);
@@ -190,12 +204,16 @@
     0px 0px 25px 0px rgba(23, 105, 245, 0.22),
     0px 20px 25px -5px rgba(16, 24, 40, 0.1);
   --shadow-focus-ring: 0px 0px 0px 4px rgba(23, 105, 245, 0.25);
+
+  /* Motion & Springs (Snappy Spring Glide Specification) */
+  --ease-spring-glide: cubic-bezier(0.25, 1, 0.4, 1);
 }
 
 .dark {
-  --shadow-theme-xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --shadow-theme-xs:
+    0px 2px 8px -1px rgba(0, 0, 0, 0.4), 0px 1px 3px 0px rgba(0, 0, 0, 0.25);
   --shadow-theme-sm:
-    0px 1px 3px rgba(0, 0, 0, 0.3), 0px 1px 2px rgba(0, 0, 0, 0.24);
+    0px 6px 18px -2px rgba(0, 0, 0, 0.5), 0px 2px 6px -1px rgba(0, 0, 0, 0.35);
   --shadow-theme-md:
     0px 4px 8px -2px rgba(0, 0, 0, 0.3), 0px 2px 4px -2px rgba(0, 0, 0, 0.24);
   --shadow-theme-lg:
@@ -211,15 +229,20 @@
   --gradient-nav: linear-gradient(90deg, #0f172a 0%, #0f172a 50%, #020617 100%);
   --gradient-page-header: linear-gradient(
     135deg,
-    #0f172a 0%,
-    #0f172a 50%,
-    #020617 100%
+    #0c233c 0%,
+    #133152 50%,
+    #0f2844 100%
   );
   --gradient-table-header: linear-gradient(
     90deg,
     #0f172a 0%,
     #0f172a 50%,
     #020617 100%
+  );
+  --gradient-brand-button-disabled: linear-gradient(
+    90deg,
+    #334155 0%,
+    #1e293b 100%
   );
 }
 
@@ -390,39 +413,220 @@ dialog::backdrop {
 .glass-dropdown {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(244, 249, 255, 0.92) 100%
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(244, 250, 255, 0.94) 50%,
+    rgba(248, 252, 255, 0.96) 100%
   );
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(48px) saturate(220%);
+  -webkit-backdrop-filter: blur(48px) saturate(220%);
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 18px 38px -10px rgba(15, 23, 42, 0.08),
-    0 6px 16px -4px rgba(15, 23, 42, 0.04),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1);
+    0 24px 60px -10px rgba(14, 165, 233, 0.16),
+    0 12px 24px -6px rgba(15, 23, 42, 0.08),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 1);
 }
 
 .dark .glass-dropdown {
   background: linear-gradient(
     135deg,
-    rgba(16, 27, 54, 0.95) 0%,
-    rgba(15, 23, 42, 0.92) 100%
+    rgba(16, 27, 54, 0.96) 0%,
+    rgba(15, 23, 42, 0.94) 100%
   );
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  backdrop-filter: blur(48px) saturate(220%);
+  -webkit-backdrop-filter: blur(48px) saturate(220%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
   box-shadow:
-    0 20px 45px -10px rgba(0, 0, 0, 0.45),
-    0 8px 20px -6px rgba(0, 0, 0, 0.25),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.1);
+    0 24px 60px -10px rgba(0, 0, 0, 0.6),
+    0 12px 24px -6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Electric Luminous Blue Active Pill (Softened Contrast Specification) */
+.glass-item-active {
+  background: linear-gradient(
+    90deg,
+    #38bdf8 0%,
+    #2563eb 55%,
+    #1d4ed8 100%
+  ) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow:
+    0 4px 14px -2px rgba(37, 99, 235, 0.35),
+    0 0 10px 1px rgba(56, 189, 248, 0.22),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.75) !important;
+  transition: none !important;
+}
+
+.dark .glass-item-active {
+  background: linear-gradient(
+    90deg,
+    #0ea5e9 0%,
+    #2563eb 45%,
+    #1d4ed8 100%
+  ) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow:
+    0 4px 14px -2px rgba(37, 99, 235, 0.45),
+    0 0 10px 1px rgba(14, 165, 233, 0.25),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.5) !important;
+  transition: none !important;
+}
+
+/* TexaOne Header Banner Linear Gradient Glass Navbar */
+.glass-navbar {
+  background-color: rgba(255, 255, 255, 0.88);
+  background-image: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.16) 0%,
+    rgba(14, 165, 233, 0.1) 40%,
+    rgba(45, 212, 191, 0.16) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10px 30px -10px rgba(14, 165, 233, 0.08),
+    0 1px 3px 0 rgba(15, 23, 42, 0.03),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+.dark .glass-navbar {
+  background-color: rgba(16, 27, 54, 0.92);
+  background-image: linear-gradient(
+    135deg,
+    rgba(16, 27, 54, 0.92) 0%,
+    rgba(14, 165, 233, 0.16) 45%,
+    rgba(16, 27, 54, 0.95) 100%
+  );
+  backdrop-filter: blur(22px) saturate(190%);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow:
+    0 12px 36px -10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Spring Glide Indicator Pill */
+.glass-pill {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(238, 248, 255, 0.9) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 4px 14px -2px rgba(14, 165, 233, 0.15),
+    0 2px 6px -1px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 1);
+}
+
+.dark .glass-pill {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 58, 138, 0.55) 0%,
+    rgba(14, 165, 233, 0.25) 100%
+  );
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow:
+    0 4px 16px -2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Universal Light Shadow for Cards, Grids, Widgets, and Dues */
+.card-light-shadow {
+  box-shadow:
+    0 4px 20px -2px rgba(14, 165, 233, 0.08),
+    0 2px 8px -1px rgba(15, 23, 42, 0.05) !important;
+  transition:
+    box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 300ms ease;
+}
+
+.card-light-shadow:hover {
+  box-shadow:
+    0 8px 30px -4px rgba(14, 165, 233, 0.16),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06) !important;
+}
+
+.dark .card-light-shadow {
+  box-shadow:
+    0 4px 20px -2px rgba(0, 0, 0, 0.45),
+    0 2px 8px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .card-light-shadow:hover {
+  box-shadow:
+    0 8px 30px -4px rgba(0, 0, 0, 0.6),
+    0 4px 12px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Universal Frosted Glass Look and Full Electric Blue Visibility for Banner Action Buttons */
+.glass-button,
+.banner-actions button:not([class*="from-"]):not([class*="bg-gradient-to-r"]) {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  color: #0284c7 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  font-weight: 700 !important;
+  box-shadow:
+    0 4px 14px -2px rgba(14, 165, 233, 0.15),
+    0 1px 3px 0 rgba(15, 23, 42, 0.04),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1) !important;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.glass-button svg,
+.banner-actions
+  button:not([class*="from-"]):not([class*="bg-gradient-to-r"])
+  svg {
+  color: #0284c7 !important;
+}
+
+.glass-button:hover,
+.banner-actions
+  button:not([class*="from-"]):not([class*="bg-gradient-to-r"]):hover {
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #0369a1 !important;
+  border-color: rgba(186, 230, 253, 0.9) !important;
+  box-shadow:
+    0 6px 20px -2px rgba(14, 165, 233, 0.22),
+    0 2px 6px 0 rgba(15, 23, 42, 0.06),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+.dark .glass-button,
+.dark
+  .banner-actions
+  button:not([class*="from-"]):not([class*="bg-gradient-to-r"]) {
+  background: rgba(16, 27, 54, 0.8) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  color: #38bdf8 !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.35) !important;
+  box-shadow:
+    0 4px 16px -2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .glass-button svg,
+.dark
+  .banner-actions
+  button:not([class*="from-"]):not([class*="bg-gradient-to-r"])
+  svg {
+  color: #38bdf8 !important;
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  .glass-dropdown {
+  .glass-dropdown,
+  .glass-navbar {
     background: #ffffff;
     border-color: #bae6fd;
   }
-  .dark .glass-dropdown {
+  .dark .glass-dropdown,
+  .dark .glass-navbar {
     background: #101b36;
     border-color: #1e293b;
   }
@@ -437,11 +641,11 @@ dialog::backdrop {
     #ffffff 100%
   );
 }
-.stat-card-gradient-purple {
+.stat-card-gradient-cyan {
   background: linear-gradient(
     135deg,
-    rgba(147, 51, 234, 0.3) 0%,
-    rgba(233, 213, 255, 0.15) 50%,
+    rgba(6, 182, 212, 0.25) 0%,
+    rgba(207, 250, 254, 0.15) 50%,
     #ffffff 100%
   );
 }
@@ -485,10 +689,10 @@ dialog::backdrop {
     rgba(15, 23, 42, 0.95) 100%
   );
 }
-.dark .stat-card-gradient-purple {
+.dark .stat-card-gradient-cyan {
   background: linear-gradient(
     135deg,
-    rgba(147, 51, 234, 0.3) 0%,
+    rgba(8, 145, 178, 0.3) 0%,
     rgba(15, 23, 42, 0.95) 100%
   );
 }

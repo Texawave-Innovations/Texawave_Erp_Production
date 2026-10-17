@@ -256,10 +256,7 @@ export function ExpenseApprovalsView() {
         icon={Receipt}
         action={
           canCreateMine ? (
-            <Button
-              onClick={() => setSubmitOpen(true)}
-              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
-            >
+            <Button onClick={() => setSubmitOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               <span>Submit Expense Claim</span>
             </Button>
@@ -376,7 +373,7 @@ export function ExpenseApprovalsView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Total Claims */}
           <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400">
               <Receipt className="h-5 w-5" />
             </div>
             <div>
@@ -550,11 +547,7 @@ export function ExpenseApprovalsView() {
                   Reset filters
                 </Button>
               ) : activeTab === "mine" && canCreateMine ? (
-                <Button
-                  size="sm"
-                  onClick={() => setSubmitOpen(true)}
-                  className="bg-brand-500 hover:bg-brand-600 text-white"
-                >
+                <Button size="sm" onClick={() => setSubmitOpen(true)}>
                   <Plus className="h-4 w-4 mr-1.5" />
                   Submit Expense Claim
                 </Button>

@@ -230,7 +230,7 @@ export function EmployeeDetailDrawer({
             <div className="mt-4 border-t border-neutral-100 pt-4 dark:border-neutral-800">
               <Link
                 href={`/hr/employees/${node.id}/profile`}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#55c9f5] via-[#318cf5] to-[#2459e8] px-4 text-xs font-medium text-white shadow-[0_2px_8px_rgba(36,89,232,0.22),0_1px_2px_rgba(15,23,42,0.06)] hover:from-[#42bef0] hover:via-[#257fe8] hover:to-[#1b4cdb] hover:shadow-[0_4px_14px_rgba(36,89,232,0.32)] active:from-[#2b9ce8] active:via-[#1e6edb] active:to-[#1642c5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#318cf5] focus-visible:ring-offset-2 transition-all duration-200"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 View full profile

@@ -151,3 +151,8 @@ vite.config.ts.timestamp-*
 
 # Employee document uploads (local disk) — back up with the database, never commit
 apps/api/storage/
+
+# Agentation visual feedback & UI annotation tool
+.agentation/
+agentation/
+**/AgentationDevToolbar.tsx

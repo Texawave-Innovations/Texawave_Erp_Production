@@ -19,7 +19,7 @@ export function Card({ tone = "default", className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(23,105,245,0.03)]",
+        "rounded-2xl bg-white p-5 card-light-shadow",
         TONE_BORDER_CLASSES[tone],
         "dark:bg-gray-dark",
         className,

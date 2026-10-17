@@ -16,7 +16,7 @@ export default function Home() {
       </p>
       <Link
         href="/login"
-        className="rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white hover:bg-brand-600 dark:bg-brand-400 dark:text-gray-900"
+        className="inline-flex items-center justify-center rounded-xl bg-linear-to-r from-[#55c9f5] via-[#318cf5] to-[#2459e8] px-5 py-2.5 text-theme-sm font-medium text-white shadow-[0_2px_8px_rgba(36,89,232,0.22),0_1px_2px_rgba(15,23,42,0.06)] hover:from-[#42bef0] hover:via-[#257fe8] hover:to-[#1b4cdb] hover:shadow-[0_4px_14px_rgba(36,89,232,0.32)] active:from-[#2b9ce8] active:via-[#1e6edb] active:to-[#1642c5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#318cf5] focus-visible:ring-offset-2 transition-all duration-200"
       >
         Sign in
       </Link>
