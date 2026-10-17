@@ -40,7 +40,13 @@ export default function LoginPage() {
       router.push(await landingPathAfterLogin());
     } catch (err) {
       // Values are intentionally NOT cleared on failure (Docs/DESIGN_SYSTEM.md)
-      console.error("Login failed:", err);
+      // console.warn (not console.error) — Next.js dev overlay treats
+      // console.error with an Error object as an unhandled crash, but an
+      // invalid-credentials response is an expected, already-handled case.
+      console.warn(
+        "Login failed:",
+        ApiError.isApiError(err) ? err.message : err,
+      );
       setError(
         ApiError.isApiError(err)
           ? err.message

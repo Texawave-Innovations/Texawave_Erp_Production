@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect, useCallback, useId } from "react";
 import { cn } from "../../lib/cn";
 import {

@@ -30,3 +30,4 @@ export * from "./components/date-range-picker/utils";
 export * from "./components/breadcrumbs/index";
 export * from "./components/page-header/index";
 export * from "./components/table-toolbar/index";
+export * from "./components/master-list-card/index";
