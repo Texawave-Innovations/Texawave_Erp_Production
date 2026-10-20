@@ -1,6 +1,6 @@
 import { ApiClient, ApiError, decodeJwtPayload } from "@texawave-erp/core";
 import type { AuthTokens } from "@texawave-erp/api-types";
-import { useAuthStore } from "@/stores/auth-store";
+import { readStoredSession, useAuthStore } from "@/stores/auth-store";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -73,4 +73,31 @@ export async function withAuthRetry<T>(fn: () => Promise<T>): Promise<T> {
     }
     throw error;
   }
+}
+
+let restorePromise: Promise<void> | null = null;
+
+/**
+ * Brings the session back after a full page reload: if a refresh token was
+ * saved for this tab, trade it for a fresh access token so the user stays on
+ * the page they were on. Safe to call repeatedly (React strict mode runs
+ * effects twice, and refresh tokens rotate, so exactly one exchange may run).
+ * Never throws: a failed restore leaves the user signed out.
+ */
+export function restoreSession(): Promise<void> {
+  restorePromise ??= (async () => {
+    if (useAuthStore.getState().accessToken) return;
+    const stored = readStoredSession();
+    if (!stored) return;
+    useAuthStore.setState({
+      refreshToken: stored.refreshToken,
+      organizationSlug: stored.organizationSlug,
+    });
+    try {
+      await refreshTokens();
+    } catch {
+      // refreshTokens() already cleared the store; the guards send the user to /login.
+    }
+  })();
+  return restorePromise;
 }
