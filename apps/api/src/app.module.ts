@@ -12,6 +12,7 @@ import { LeadsModule } from "./modules/crm/leads/leads.module.js";
 import { PipelineStagesModule } from "./modules/crm/pipeline-stages/pipeline-stages.module.js";
 import { OpportunitiesModule } from "./modules/crm/opportunities/opportunities.module.js";
 import { ProductsModule } from "./modules/crm/products/products.module.js";
+import { ScmModule } from "./modules/scm/scm.module.js";
 import { QuotationsModule } from "./modules/crm/quotations/quotations.module.js";
 import { MeetingsModule } from "./modules/crm/meetings/meetings.module.js";
 import { FollowUpsModule } from "./modules/crm/follow-ups/follow-ups.module.js";
@@ -145,6 +146,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     PipelineStagesModule,
     OpportunitiesModule,
     ProductsModule,
+    ScmModule,
     QuotationsModule,
     MeetingsModule,
     FollowUpsModule,
