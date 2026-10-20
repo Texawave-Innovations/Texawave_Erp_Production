@@ -24,6 +24,11 @@ import {
   Landmark,
   FolderKanban,
   BarChart3,
+  LineChart,
+  ScanLine,
+  Siren,
+  PackageSearch,
+  Bot,
   Clock,
   Menu as MenuIcon,
   X,
@@ -59,6 +64,21 @@ import {
   Trash2,
   Table2,
   Database,
+  Factory,
+  ClipboardList,
+  Scale,
+  Truck,
+  Undo2,
+  RotateCw,
+  SearchCheck,
+  Split,
+  ClipboardCheck,
+  BadgeAlert,
+  ShieldAlert,
+  ScrollText,
+  Warehouse,
+  PackagePlus,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 import { Spinner, Semantic3DIcon, type Icon3DName } from "@texawave-erp/ui-kit";
@@ -621,6 +641,741 @@ const CRM_CATEGORIES: NavCategory[] = [
   },
 ];
 
+/**
+ * SCM Navigation Hierarchy. Grows one migrated slice at a time
+ * (Docs/SCM_LEGACY_PARITY.md section 11); Suppliers is the first.
+ */
+const SCM_SOURCE_CATEGORIES: NavCategory[] = [
+  {
+    id: "scm-overview-group",
+    label: "Overview",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-sky-600",
+    children: [
+      {
+        id: "scm-overview",
+        label: "Overview",
+        path: "/scm/overview",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-overview",
+      },
+      {
+        id: "scm-master-data",
+        label: "Master Data",
+        path: "/scm/master-data",
+        icon: Database,
+        icon3d: "overview",
+        menuCode: "scm-master-data",
+      },
+      {
+        id: "scm-barcode",
+        label: "Barcode & Scanning",
+        path: "/scm/barcode",
+        icon: ScanLine,
+        icon3d: "overview",
+        menuCode: "scm-barcode",
+      },
+    ],
+  },
+  {
+    id: "scm-suppliers",
+    label: "Suppliers",
+    icon: Factory,
+    icon3d: "inventory-scm",
+    iconColor: "text-indigo-600",
+    path: "/scm/suppliers",
+    menuCode: "scm-suppliers",
+  },
+  {
+    id: "scm-catalog",
+    label: "Catalogue & Warehouses",
+    icon: Package,
+    icon3d: "inventory-scm",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "scm-products",
+        label: "Products",
+        path: "/scm/products",
+        icon: Package,
+        icon3d: "inventory-scm",
+        menuCode: "scm-products",
+      },
+      {
+        id: "scm-warehouses",
+        label: "Warehouses",
+        path: "/scm/warehouses",
+        icon: Building2,
+        icon3d: "departments",
+        menuCode: "scm-warehouses",
+      },
+      {
+        id: "scm-locations",
+        label: "Locations",
+        path: "/scm/locations",
+        icon: MapPin,
+        icon3d: "overview",
+        menuCode: "scm-locations",
+      },
+    ],
+  },
+  {
+    id: "scm-procurement-group",
+    label: "Procurement",
+    icon: ClipboardList,
+    icon3d: "purchases",
+    iconColor: "text-amber-600",
+    children: [
+      {
+        id: "scm-procurement",
+        label: "Dashboard",
+        path: "/scm/procurement",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-procurement",
+      },
+      {
+        id: "scm-requisitions",
+        label: "Purchase Requisitions",
+        path: "/scm/procurement/requisitions",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "scm-requisitions",
+      },
+      {
+        id: "scm-rfqs",
+        label: "RFQs",
+        path: "/scm/procurement/rfqs",
+        icon: Mail,
+        icon3d: "overview",
+        menuCode: "scm-rfqs",
+      },
+      {
+        id: "scm-quotations",
+        label: "Supplier Quotations",
+        path: "/scm/procurement/quotations",
+        icon: Receipt,
+        icon3d: "payroll",
+        menuCode: "scm-quotations",
+      },
+      {
+        id: "scm-comparison",
+        label: "Quotation Comparison",
+        path: "/scm/procurement/comparison",
+        icon: Scale,
+        icon3d: "overview",
+        menuCode: "scm-comparison",
+      },
+      {
+        id: "scm-purchase-orders",
+        label: "Purchase Orders",
+        path: "/scm/procurement/purchase-orders",
+        icon: ShoppingCart,
+        icon3d: "purchases",
+        menuCode: "scm-purchase-orders",
+      },
+      {
+        id: "scm-grn",
+        label: "Goods Receipts",
+        path: "/scm/procurement/goods-receipts",
+        icon: CheckCircle2,
+        icon3d: "overview",
+        menuCode: "scm-grn",
+      },
+    ],
+  },
+  {
+    id: "scm-inventory",
+    label: "Inventory",
+    icon: Database,
+    icon3d: "inventory-scm",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "scm-stock-overview",
+        label: "Stock Overview",
+        path: "/scm/inventory/overview",
+        icon: Table2,
+        icon3d: "overview",
+        menuCode: "scm-stock-overview",
+      },
+      {
+        id: "scm-stock-ledger",
+        label: "Stock Ledger",
+        path: "/scm/inventory/ledger",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "scm-stock-ledger",
+      },
+      {
+        id: "scm-reservations",
+        label: "Reservations",
+        path: "/scm/inventory/reservations",
+        icon: ShieldCheck,
+        icon3d: "compliance",
+        menuCode: "scm-reservations",
+      },
+      {
+        id: "scm-transfers",
+        label: "Transfers",
+        path: "/scm/inventory/transfers",
+        icon: Link2,
+        icon3d: "overview",
+        menuCode: "scm-transfers",
+      },
+      {
+        id: "scm-adjustments",
+        label: "Adjustments",
+        path: "/scm/inventory/adjustments",
+        icon: ListTodo,
+        icon3d: "overview",
+        menuCode: "scm-adjustments",
+      },
+      {
+        id: "scm-batches",
+        label: "Batches",
+        path: "/scm/inventory/batches",
+        icon: Tag,
+        icon3d: "overview",
+        menuCode: "scm-batches",
+      },
+      {
+        id: "scm-serials",
+        label: "Serial Numbers",
+        path: "/scm/inventory/serials",
+        icon: CheckCheck,
+        icon3d: "overview",
+        menuCode: "scm-serials",
+      },
+    ],
+  },
+  {
+    id: "scm-advanced-group",
+    label: "Advanced SCM",
+    icon: Siren,
+    icon3d: "compliance",
+    iconColor: "text-red-600",
+    children: [
+      {
+        id: "scm-control-tower",
+        label: "Control Tower",
+        path: "/scm/advanced/control-tower",
+        icon: Siren,
+        icon3d: "compliance",
+        menuCode: "scm-control-tower",
+      },
+      {
+        id: "scm-replenishment",
+        label: "Replenishment",
+        path: "/scm/advanced/replenishment",
+        icon: PackageSearch,
+        icon3d: "overview",
+        menuCode: "scm-replenishment",
+      },
+      {
+        id: "scm-assistant",
+        label: "Assistant",
+        path: "/scm/assistant",
+        icon: Bot,
+        icon3d: "overview",
+        menuCode: "scm-assistant",
+      },
+    ],
+  },
+  {
+    id: "scm-reports-group",
+    label: "Reports",
+    icon: BarChart3,
+    icon3d: "overview",
+    iconColor: "text-fuchsia-600",
+    children: [
+      {
+        id: "scm-reports",
+        label: "Overview",
+        path: "/scm/reports",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-reports",
+      },
+      {
+        id: "scm-reports-procurement",
+        label: "Procurement",
+        path: "/scm/reports/procurement",
+        icon: LineChart,
+        icon3d: "overview",
+        menuCode: "scm-reports-procurement",
+      },
+      {
+        id: "scm-reports-inventory",
+        label: "Inventory",
+        path: "/scm/reports/inventory",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "scm-reports-inventory",
+      },
+      {
+        id: "scm-reports-warehouse",
+        label: "Warehouse",
+        path: "/scm/reports/warehouse",
+        icon: Warehouse,
+        icon3d: "overview",
+        menuCode: "scm-reports-warehouse",
+      },
+      {
+        id: "scm-reports-fulfillment",
+        label: "Fulfillment",
+        path: "/scm/reports/fulfillment",
+        icon: Target,
+        icon3d: "overview",
+        menuCode: "scm-reports-fulfillment",
+      },
+      {
+        id: "scm-reports-logistics",
+        label: "Logistics",
+        path: "/scm/reports/logistics",
+        icon: Truck,
+        icon3d: "overview",
+        menuCode: "scm-reports-logistics",
+      },
+      {
+        id: "scm-reports-returns",
+        label: "Returns",
+        path: "/scm/reports/returns",
+        icon: Undo2,
+        icon3d: "overview",
+        menuCode: "scm-reports-returns",
+      },
+      {
+        id: "scm-reports-quality",
+        label: "Quality",
+        path: "/scm/reports/quality",
+        icon: ShieldCheck,
+        icon3d: "overview",
+        menuCode: "scm-reports-quality",
+      },
+      {
+        id: "scm-reports-suppliers",
+        label: "Suppliers",
+        path: "/scm/reports/suppliers",
+        icon: Users,
+        icon3d: "overview",
+        menuCode: "scm-reports-suppliers",
+      },
+    ],
+  },
+  {
+    id: "scm-warehouse-ops",
+    label: "Warehouse",
+    icon: Warehouse,
+    icon3d: "inventory-scm",
+    iconColor: "text-purple-600",
+    children: [
+      {
+        id: "scm-warehouse-dashboard",
+        label: "Dashboard",
+        path: "/scm/warehouse",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-warehouse-dashboard",
+      },
+      {
+        id: "scm-putaway",
+        label: "Put-away",
+        path: "/scm/warehouse/putaway",
+        icon: PackagePlus,
+        icon3d: "overview",
+        menuCode: "scm-putaway",
+      },
+      {
+        id: "scm-movements",
+        label: "Internal Movements",
+        path: "/scm/warehouse/movements",
+        icon: ArrowLeftRight,
+        icon3d: "overview",
+        menuCode: "scm-movements",
+      },
+      {
+        id: "scm-warehouse-activity",
+        label: "Activity",
+        path: "/scm/warehouse/activity",
+        icon: ScrollText,
+        icon3d: "documents",
+        menuCode: "scm-warehouse-activity",
+      },
+    ],
+  },
+  {
+    id: "scm-customers-group",
+    label: "Customers",
+    icon: Users,
+    icon3d: "employees",
+    iconColor: "text-pink-600",
+    path: "/scm/customers",
+    menuCode: "scm-customers",
+  },
+  {
+    id: "scm-orders",
+    label: "Orders & Fulfillment",
+    icon: ShoppingCart,
+    icon3d: "purchases",
+    iconColor: "text-rose-600",
+    children: [
+      {
+        id: "scm-sales-orders",
+        label: "Sales Orders",
+        path: "/scm/orders/sales-orders",
+        icon: ShoppingCart,
+        icon3d: "purchases",
+        menuCode: "scm-sales-orders",
+      },
+      {
+        id: "scm-allocation",
+        label: "Allocation",
+        path: "/scm/orders/allocation",
+        icon: Link2,
+        icon3d: "overview",
+        menuCode: "scm-allocation",
+      },
+      {
+        id: "scm-backorders",
+        label: "Backorders",
+        path: "/scm/orders/backorders",
+        icon: ListTodo,
+        icon3d: "overview",
+        menuCode: "scm-backorders",
+      },
+      {
+        id: "scm-fulfillment",
+        label: "Fulfillment",
+        path: "/scm/orders/fulfillment",
+        icon: CheckCircle2,
+        icon3d: "overview",
+        menuCode: "scm-fulfillment",
+      },
+      {
+        id: "scm-picking",
+        label: "Picking",
+        path: "/scm/warehouse/picking",
+        icon: ListTodo,
+        icon3d: "overview",
+        menuCode: "scm-picking",
+      },
+      {
+        id: "scm-packing",
+        label: "Packing",
+        path: "/scm/warehouse/packing",
+        icon: Package,
+        icon3d: "inventory-scm",
+        menuCode: "scm-packing",
+      },
+    ],
+  },
+  {
+    id: "scm-logistics-group",
+    label: "Logistics",
+    icon: Truck,
+    icon3d: "inventory-scm",
+    iconColor: "text-cyan-600",
+    children: [
+      {
+        id: "scm-logistics",
+        label: "Logistics Dashboard",
+        path: "/scm/logistics",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-logistics",
+      },
+      {
+        id: "scm-deliveries",
+        label: "Deliveries",
+        path: "/scm/logistics/deliveries",
+        icon: Package,
+        icon3d: "inventory-scm",
+        menuCode: "scm-deliveries",
+      },
+      {
+        id: "scm-shipments",
+        label: "Shipments",
+        path: "/scm/logistics/shipments",
+        icon: Truck,
+        icon3d: "inventory-scm",
+        menuCode: "scm-shipments",
+      },
+      {
+        id: "scm-carriers",
+        label: "Carriers",
+        path: "/scm/logistics/carriers",
+        icon: Users,
+        icon3d: "employees",
+        menuCode: "scm-carriers",
+      },
+      {
+        id: "scm-tracking",
+        label: "Tracking",
+        path: "/scm/logistics/tracking",
+        icon: MapPin,
+        icon3d: "overview",
+        menuCode: "scm-tracking",
+      },
+    ],
+  },
+  {
+    id: "scm-returns-group",
+    label: "Returns",
+    icon: Undo2,
+    icon3d: "inventory-scm",
+    iconColor: "text-orange-600",
+    children: [
+      {
+        id: "scm-returns",
+        label: "Dashboard",
+        path: "/scm/returns",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-returns",
+      },
+      {
+        id: "scm-returns-all",
+        label: "All Returns",
+        path: "/scm/returns/all",
+        icon: ListTodo,
+        icon3d: "overview",
+        menuCode: "scm-returns-all",
+      },
+      {
+        id: "scm-returns-customer",
+        label: "Customer Returns",
+        path: "/scm/returns/customer",
+        icon: Undo2,
+        icon3d: "inventory-scm",
+        menuCode: "scm-returns-customer",
+      },
+      {
+        id: "scm-returns-vendor",
+        label: "Vendor Returns",
+        path: "/scm/returns/vendor",
+        icon: RotateCw,
+        icon3d: "inventory-scm",
+        menuCode: "scm-returns-vendor",
+      },
+      {
+        id: "scm-returns-inspection",
+        label: "Return Inspection",
+        path: "/scm/returns/inspection",
+        icon: SearchCheck,
+        icon3d: "overview",
+        menuCode: "scm-returns-inspection",
+      },
+      {
+        id: "scm-returns-disposition",
+        label: "Return Disposition",
+        path: "/scm/returns/disposition",
+        icon: Split,
+        icon3d: "overview",
+        menuCode: "scm-returns-disposition",
+      },
+    ],
+  },
+  {
+    id: "scm-quality-group",
+    label: "Quality",
+    icon: ShieldCheck,
+    icon3d: "compliance",
+    iconColor: "text-teal-600",
+    children: [
+      {
+        id: "scm-quality",
+        label: "Quality Overview",
+        path: "/scm/quality",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "scm-quality",
+      },
+      {
+        id: "scm-quality-inspections",
+        label: "Inspections",
+        path: "/scm/quality/inspections",
+        icon: SearchCheck,
+        icon3d: "overview",
+        menuCode: "scm-quality-inspections",
+      },
+      {
+        id: "scm-quality-templates",
+        label: "Templates",
+        path: "/scm/quality/templates",
+        icon: ClipboardCheck,
+        icon3d: "overview",
+        menuCode: "scm-quality-templates",
+      },
+      {
+        id: "scm-quality-defects",
+        label: "Defects",
+        path: "/scm/quality/defects",
+        icon: BadgeAlert,
+        icon3d: "overview",
+        menuCode: "scm-quality-defects",
+      },
+      {
+        id: "scm-quarantine",
+        label: "Quarantine",
+        path: "/scm/quality/quarantine",
+        icon: ShieldAlert,
+        icon3d: "compliance",
+        menuCode: "scm-quarantine",
+      },
+      {
+        id: "scm-quality-activity",
+        label: "Activity",
+        path: "/scm/quality/activity",
+        icon: ScrollText,
+        icon3d: "documents",
+        menuCode: "scm-quality-activity",
+      },
+    ],
+  },
+];
+
+const SCM_SOURCE_LEAVES: ReadonlyMap<string, NavLeafItem> = (() => {
+  const map = new Map<string, NavLeafItem>();
+  for (const cat of SCM_SOURCE_CATEGORIES) {
+    if (cat.path && cat.menuCode) {
+      map.set(cat.path, {
+        id: cat.id,
+        label: cat.label,
+        path: cat.path,
+        icon: cat.icon,
+        ...(cat.icon3d ? { icon3d: cat.icon3d } : {}),
+        menuCode: cat.menuCode,
+      });
+    }
+    for (const child of cat.children ?? []) map.set(child.path, child);
+  }
+  return map;
+})();
+
+const scmLeaves = (
+  entries: ReadonlyArray<readonly [path: string, label?: string]>,
+): NavLeafItem[] =>
+  entries.flatMap(([path, label]) => {
+    const leaf = SCM_SOURCE_LEAVES.get(path);
+    return leaf ? [label ? { ...leaf, label } : leaf] : [];
+  });
+
+const scmGroup = (
+  id: string,
+  label: string,
+  styleFrom: string,
+  entries: ReadonlyArray<readonly [path: string, label?: string]>,
+): NavCategory => {
+  const style = SCM_SOURCE_CATEGORIES.find((c) => c.label === styleFrom);
+  return {
+    id,
+    label,
+    icon: style?.icon ?? Package,
+    ...(style?.icon3d ? { icon3d: style.icon3d } : {}),
+    ...(style?.iconColor ? { iconColor: style.iconColor } : {}),
+    children: scmLeaves(entries),
+  };
+};
+
+const scmLink = (path: string): NavCategory[] =>
+  scmLeaves([[path]]).map((leaf) => ({
+    id: leaf.id,
+    label: leaf.label,
+    icon: leaf.icon,
+    ...(leaf.icon3d ? { icon3d: leaf.icon3d } : {}),
+    path: leaf.path,
+    menuCode: leaf.menuCode,
+  }));
+
+/**
+ * SCM navigation, in the legacy ERP's order: Overview, Suppliers, Barcode,
+ * Master Data, then the Procurement / Inventory / Orders / Logistics /
+ * Returns / Quality / Reports / Advanced SCM groups. Built from the page
+ * list above so every entry keeps its menu-catalogue code (per-user RBAC).
+ */
+export const SCM_CATEGORIES: NavCategory[] = [
+  ...scmLink("/scm/overview"),
+  ...scmLink("/scm/suppliers"),
+  ...scmLink("/scm/barcode"),
+  ...scmLink("/scm/master-data"),
+  scmGroup("scm-procurement-group", "Procurement", "Procurement", [
+    ["/scm/procurement"],
+    ["/scm/procurement/requisitions"],
+    ["/scm/procurement/rfqs"],
+    ["/scm/procurement/quotations"],
+    ["/scm/procurement/comparison"],
+    ["/scm/procurement/purchase-orders"],
+    ["/scm/procurement/goods-receipts", "GRNs"],
+  ]),
+  scmGroup("scm-inventory-group", "Inventory", "Inventory", [
+    ["/scm/warehouse", "Dashboard"],
+    ["/scm/products"],
+    ["/scm/inventory/overview"],
+    ["/scm/warehouses"],
+    ["/scm/locations"],
+    ["/scm/warehouse/putaway"],
+    ["/scm/warehouse/picking"],
+    ["/scm/warehouse/packing"],
+    ["/scm/warehouse/movements"],
+    ["/scm/inventory/transfers"],
+    ["/scm/inventory/reservations"],
+    ["/scm/inventory/adjustments"],
+    ["/scm/inventory/ledger"],
+    ["/scm/inventory/batches"],
+    ["/scm/inventory/serials"],
+    ["/scm/warehouse/activity", "Activity"],
+    ["/scm/advanced/replenishment"],
+  ]),
+  scmGroup("scm-orders-group", "Orders", "Orders & Fulfillment", [
+    ["/scm/customers"],
+    ["/scm/orders/sales-orders"],
+    ["/scm/orders/allocation"],
+    ["/scm/orders/backorders"],
+    ["/scm/orders/fulfillment"],
+  ]),
+  scmGroup("scm-logistics-group", "Logistics", "Logistics", [
+    ["/scm/logistics", "Dashboard"],
+    ["/scm/logistics/shipments"],
+    ["/scm/logistics/deliveries"],
+    ["/scm/logistics/tracking"],
+    ["/scm/logistics/carriers"],
+  ]),
+  scmGroup("scm-returns-group", "Returns", "Returns", [
+    ["/scm/returns", "Dashboard"],
+    ["/scm/returns/all"],
+    ["/scm/returns/customer"],
+    ["/scm/returns/vendor"],
+    ["/scm/returns/inspection"],
+    ["/scm/returns/disposition"],
+  ]),
+  scmGroup("scm-quality-group", "Quality", "Quality", [
+    ["/scm/quality", "Quality Overview"],
+    ["/scm/quality/inspections"],
+    ["/scm/quality/templates"],
+    ["/scm/quality/defects"],
+    ["/scm/quality/quarantine"],
+    ["/scm/quality/activity", "Activity"],
+  ]),
+  scmGroup("scm-reports-group", "Reports", "Reports", [
+    ["/scm/reports", "Overview"],
+    ["/scm/reports/procurement"],
+    ["/scm/reports/inventory"],
+    ["/scm/reports/warehouse"],
+    ["/scm/reports/fulfillment"],
+    ["/scm/reports/logistics"],
+    ["/scm/reports/returns"],
+    ["/scm/reports/quality"],
+    ["/scm/reports/suppliers"],
+  ]),
+  scmGroup("scm-advanced-group", "Advanced SCM", "Advanced SCM", [
+    ["/scm/advanced/control-tower"],
+    ["/scm/assistant"],
+  ]),
+];
+
 const ERP_MODULES: ErpModuleConfig[] = [
   {
     id: "dashboard",
@@ -657,11 +1412,12 @@ const ERP_MODULES: ErpModuleConfig[] = [
   },
   {
     id: "inventory",
-    label: "Inventory-SCM",
+    label: "SCM",
     icon: Package,
     icon3d: "inventory-scm",
-    path: "#",
-    available: false,
+    path: "/scm/overview",
+    available: true,
+    categories: SCM_CATEGORIES,
   },
   {
     id: "crm",
@@ -708,7 +1464,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
   },
 ];
 
-function collectMenuCodes(
+export function collectMenuCodes(
   nodes: readonly MenuTreeNode[],
   into: Set<string> = new Set(),
 ): Set<string> {
@@ -755,23 +1511,46 @@ function formatAgo(iso: string): string {
   );
 }
 
+/** True when `pathname` is `path` or lives under it. */
+const underPath = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
 function findRouteNavigationState(pathname: string) {
   for (const mod of ERP_MODULES) {
     if (!mod.categories) continue;
+    // The deepest matching page wins: a section's dashboard (e.g.
+    // /scm/procurement) is a path prefix of its other pages, and must not
+    // be picked just because it is listed first.
+    let best: {
+      length: number;
+      categoryId: string;
+      leafId: string | null;
+    } | null = null;
     for (const cat of mod.categories) {
-      if (
-        cat.path &&
-        (pathname === cat.path || pathname.startsWith(`${cat.path}/`))
-      ) {
-        return { moduleId: mod.id, categoryId: cat.id, leafId: null };
-      }
-      if (cat.children) {
-        for (const leaf of cat.children) {
-          if (pathname === leaf.path || pathname.startsWith(`${leaf.path}/`)) {
-            return { moduleId: mod.id, categoryId: cat.id, leafId: leaf.id };
-          }
+      if (cat.path && underPath(pathname, cat.path)) {
+        if (!best || cat.path.length > best.length) {
+          best = { length: cat.path.length, categoryId: cat.id, leafId: null };
         }
       }
+      for (const leaf of cat.children ?? []) {
+        if (
+          underPath(pathname, leaf.path) &&
+          (!best || leaf.path.length > best.length)
+        ) {
+          best = {
+            length: leaf.path.length,
+            categoryId: cat.id,
+            leafId: leaf.id,
+          };
+        }
+      }
+    }
+    if (best) {
+      return {
+        moduleId: mod.id,
+        categoryId: best.categoryId,
+        leafId: best.leafId,
+      };
     }
   }
   if (pathname === "/admin/departments") {
@@ -1231,9 +2010,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   };
 
   const handleModuleClick = (mod: ErpModuleConfig) => {
-    // CRM: clicking the top-level item opens the CRM dashboard AND keeps the
-    // category dropdown pinned open until the user clicks outside / Escape.
-    if (mod.id === "crm") {
+    // CRM and SCM: clicking the top-level item opens the module's landing page
+    // (CRM dashboard / SCM overview) AND keeps the category dropdown pinned
+    // open until the user clicks outside / Escape.
+    if (mod.id === "crm" || mod.id === "inventory") {
       setPinnedModuleId(mod.id);
       setHoveredModuleId(mod.id);
       setPinnedCategoryId(null);
@@ -1611,10 +2391,18 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             : "left-full ml-2.5 before:absolute before:-left-3.5 before:top-0 before:bottom-0 before:w-3.5"
                         }`}
                       >
-                        {activeSubmenuItems.map((item) => {
+                        {activeSubmenuItems.map((item, _i, items) => {
+                          // Only the deepest matching page is highlighted, so a
+                          // section dashboard is not lit up with its sub-pages.
+                          const deepest = Math.max(
+                            0,
+                            ...items
+                              .filter((o) => underPath(pathname, o.path))
+                              .map((o) => o.path.length),
+                          );
                           const isLeafActive =
-                            pathname === item.path ||
-                            pathname.startsWith(`${item.path}/`);
+                            underPath(pathname, item.path) &&
+                            item.path.length === deepest;
 
                           return (
                             <Link
