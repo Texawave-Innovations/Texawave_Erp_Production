@@ -19,7 +19,13 @@ import type {
   Rfq,
   SupplierQuotation,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPost, scmPut } from "../shared/scm-api";
+import {
+  scmDelete,
+  scmDeleteData,
+  scmGet,
+  scmPost,
+  scmPut,
+} from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 const P = "/scm/procurement";
@@ -64,6 +70,9 @@ export const useRequisitionAction = () =>
       ),
   );
 
+export const useDeleteRequisition = () =>
+  useScmMutation((id: number) => scmDelete(`${P}/requisitions/${id}`));
+
 // ---- rfqs -----------------------------------------------------------------
 export const useRfqs = (q: QueryRfqsInput) =>
   useScmList<Rfq>("rfqs", `${P}/rfqs`, q);
@@ -80,6 +89,9 @@ export const useRfqAction = () =>
     ({ id, action }: { id: number; action: "issue" | "close" | "cancel" }) =>
       scmPost<Rfq>(`${P}/rfqs/${id}/${action}`),
   );
+
+export const useDeleteRfq = () =>
+  useScmMutation((id: number) => scmDelete(`${P}/rfqs/${id}`));
 
 // ---- quotations -----------------------------------------------------------
 export const useQuotations = (q: QueryScmQuotationsInput) =>
@@ -100,6 +112,8 @@ export const useQuotationAction = () =>
     ({ id, action }: { id: number; action: "reject" | "cancel" }) =>
       scmPost<SupplierQuotation>(`${P}/quotations/${id}/${action}`),
   );
+export const useDeleteQuotation = () =>
+  useScmMutation((id: number) => scmDelete(`${P}/quotations/${id}`));
 export const useComparison = (rfqId: number | null) =>
   useScmData<SupplierQuotation[]>(
     "quotations",
@@ -148,6 +162,12 @@ export const usePurchaseOrderAction = () =>
     }) => scmPost<PurchaseOrder>(`${P}/purchase-orders/${id}/${action}`),
   );
 
+/** Deletes the PO together with its goods receipts (stock is unwound). */
+export const useDeletePurchaseOrder = () =>
+  useScmMutation((id: number) =>
+    scmDeleteData<{ receiptsRemoved: number }>(`${P}/purchase-orders/${id}`),
+  );
+
 // ---- goods receipts -------------------------------------------------------
 export const useGoodsReceipts = (q: QueryGoodsReceiptsInput) =>
   useScmList<GoodsReceipt>("goods-receipts", `${P}/goods-receipts`, q);
@@ -162,3 +182,5 @@ export const useCreateGoodsReceipt = () =>
   useScmMutation((input: CreateGoodsReceiptInput) =>
     scmPost<GoodsReceipt>(`${P}/goods-receipts`, input),
   );
+export const useDeleteGoodsReceipt = () =>
+  useScmMutation((id: number) => scmDelete(`${P}/goods-receipts/${id}`));

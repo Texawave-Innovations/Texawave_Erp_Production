@@ -24,10 +24,12 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateQuotation,
+  useDeleteQuotation,
   useQuotationAction,
   useQuotations,
 } from "../hooks";
@@ -44,10 +46,12 @@ export function QuotationsView() {
   const [viewing, setViewing] = useState<SupplierQuotation | null>(null);
   const [rejecting, setRejecting] = useState<SupplierQuotation | null>(null);
   const [cancelling, setCancelling] = useState<SupplierQuotation | null>(null);
+  const [deleting, setDeleting] = useState<SupplierQuotation | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.procurement.write");
   const create = useCreateQuotation();
   const act = useQuotationAction();
+  const remove = useDeleteQuotation();
 
   const query = useQuotations({
     page: c.page,
@@ -217,6 +221,12 @@ export function QuotationsView() {
                   Cancel
                 </Button>
               ) : null}
+              {canWrite ? (
+                <ScmDeleteButton
+                  label="Delete quotation"
+                  onClick={() => setDeleting(q)}
+                />
+              ) : null}
             </div>
           ),
         },
@@ -252,6 +262,18 @@ export function QuotationsView() {
             await run(cancelling, "cancel", "Quotation cancelled");
           setCancelling(null);
         }}
+      />
+      <ScmDeleteDialog<SupplierQuotation>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete quotation?"
+        describe={(q) =>
+          `Delete ${q.quotationNumber} from ${q.vendorNameSnapshot}? This cannot be undone. Blocked automatically if a purchase order was raised from it.`
+        }
+        confirmText="Delete quotation"
+        run={(q) => remove.mutateAsync(q.id)}
+        successMessage="Quotation deleted"
+        errorFallback="Failed to delete quotation"
       />
       <ScmDetailDialog
         open={Boolean(viewing)}

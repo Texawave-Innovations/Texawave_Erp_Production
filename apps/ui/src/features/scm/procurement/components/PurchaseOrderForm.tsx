@@ -5,6 +5,7 @@ import type {
   SupplierQuotation,
 } from "@texawave-erp/api-types";
 import { Button } from "@texawave-erp/ui-kit";
+import { Link2, X } from "lucide-react";
 import { useState } from "react";
 import {
   FormGrid,
@@ -13,8 +14,13 @@ import {
   TextField,
   TotalsBar,
 } from "../../shared/form-bits";
-import { formatMoney } from "../../shared/format";
-import { useSupplierOptions, useWarehouseOptions } from "../../shared/masters";
+import { formatMoney, formatStatusLabel } from "../../shared/format";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
+import {
+  useDefaultWarehouseId,
+  useSupplierOptions,
+  useWarehouseOptions,
+} from "../../shared/masters";
 import { documentTotals, lineTotal, today } from "../../shared/pricing";
 import {
   emptyLine,
@@ -25,6 +31,9 @@ import {
 } from "../../shared/ScmLinesEditor";
 
 import { ScmPanel } from "../../shared/ScmPanel";
+import { useRequisitions } from "../hooks";
+import { LINKABLE_REQUISITION_STATUSES } from "../mr-coverage";
+
 const COLUMNS: readonly LineColumn[] = [
   { key: "quantity", label: "Qty", type: "number", min: 0, step: 0.001 },
   {
@@ -96,7 +105,17 @@ function Body({
   onSubmit: (input: CreatePurchaseOrderInput) => Promise<void>;
 }) {
   const warehouses = useWarehouseOptions();
+  const defaultWarehouseId = useDefaultWarehouseId();
   const suppliers = useSupplierOptions();
+  // Requisitions not yet on a PO — offered as a "Link Material Requisition" pick so a PO raised
+  // directly (without RFQ/quotation) still connects back to the MR that justified it. Linking
+  // flips the MR to CONVERTED (server side), so it never gets suggested twice.
+  const requisitions = useRequisitions({ page: 1, limit: 100 });
+  const linkable = (requisitions.data?.data ?? []).filter((r) =>
+    LINKABLE_REQUISITION_STATUSES.includes(r.status),
+  );
+  const [requisitionId, setRequisitionId] = useState("");
+  const linked = linkable.find((r) => String(r.id) === requisitionId) ?? null;
   const [form, setForm] = useState({
     supplierId: fromQuotation ? String(fromQuotation.supplierId) : "",
     warehouseId: "",
@@ -135,6 +154,34 @@ function Body({
 
   const set = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
+  // Client-demo has no warehouse concept — default to the one implicit
+  // warehouse instead of showing a picker.
+  const effectiveWarehouseId =
+    SCM_CLIENT_DEMO && !form.warehouseId
+      ? defaultWarehouseId
+      : form.warehouseId;
+
+  function applyRequisition(id: string) {
+    setRequisitionId(id);
+    const mr = linkable.find((r) => String(r.id) === id);
+    if (!mr) return;
+    // Prefill from the requisition's own lines (product + quantity). Pricing still comes from the
+    // supplier at PO time, so — unlike the quotation flow — the lines stay fully editable.
+    setLines(
+      mr.items.map((it) => ({
+        productId: it.productId,
+        values: {
+          quantity: String(Number(it.quantity)),
+          unitPrice: "",
+          discount: "0",
+          taxRate: "0",
+        },
+      })),
+    );
+    setForm((f) =>
+      f.warehouseId ? f : { ...f, warehouseId: String(mr.warehouseId) },
+    );
+  }
   const filled = filledLines(lines);
   const priced = filled.map((l) => ({
     quantity: Number(l.values.quantity),
@@ -150,7 +197,7 @@ function Body({
     event.preventDefault();
     const found: Record<string, string> = {};
     if (!form.supplierId) found.supplierId = "Select a supplier";
-    if (!form.warehouseId) found.warehouseId = "Select a warehouse";
+    if (!effectiveWarehouseId) found.warehouseId = "Select a warehouse";
     if (filled.length === 0)
       found.items = "Add at least one item with a positive quantity";
     if (new Set(filled.map((l) => l.productId)).size !== filled.length) {
@@ -169,10 +216,11 @@ function Body({
     try {
       await onSubmit({
         quotationId: fromQuotation?.id,
+        requisitionId: !fromQuotation && linked ? linked.id : undefined,
         supplierId: Number(form.supplierId),
         poDate: form.poDate,
         expectedDeliveryDate: form.expectedDeliveryDate || undefined,
-        warehouseId: Number(form.warehouseId),
+        warehouseId: Number(effectiveWarehouseId),
         deliveryLocation: form.deliveryLocation,
         paymentTerms: form.paymentTerms,
         currency: form.currency.toUpperCase(),
@@ -200,6 +248,52 @@ function Body({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      {!fromQuotation ? (
+        linked ? (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-theme-sm dark:border-brand-500/30 dark:bg-brand-500/10">
+            <span className="flex min-w-0 items-center gap-2">
+              <Link2 className="h-4 w-4 shrink-0" />
+              <span className="font-mono">{linked.requisitionNumber}</span>
+              <span className="truncate text-gray-500">
+                — {linked.requestedByName}
+              </span>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Unlink requisition"
+              onClick={() => setRequisitionId("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <SelectField
+            label="Link Material Requisition (optional)"
+            value={requisitionId}
+            onChange={applyRequisition}
+            placeholder={
+              linkable.length
+                ? "Search requisitions not yet on a PO..."
+                : "No requisitions awaiting a PO"
+            }
+            disabled={linkable.length === 0}
+            options={linkable.map((r) => ({
+              value: String(r.id),
+              label: [
+                `${r.requisitionNumber} — ${r.requestedByName}`,
+                r.department,
+                r.purpose,
+                `${r.items.length} item(s)`,
+                formatStatusLabel(r.status),
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            }))}
+          />
+        )
+      ) : null}
       <FormGrid cols={3}>
         <SelectField
           label="Supplier"
@@ -213,16 +307,18 @@ function Body({
             label: s.companyName,
           }))}
         />
-        <SelectField
-          label="Warehouse"
-          required
-          value={form.warehouseId}
-          error={errors.warehouseId}
-          onChange={(v) => set("warehouseId", v)}
-          options={(warehouses.data ?? [])
-            .filter((w) => w.status === "Active")
-            .map((w) => ({ value: String(w.id), label: w.name }))}
-        />
+        {SCM_CLIENT_DEMO ? null : (
+          <SelectField
+            label="Warehouse"
+            required
+            value={form.warehouseId}
+            error={errors.warehouseId}
+            onChange={(v) => set("warehouseId", v)}
+            options={(warehouses.data ?? [])
+              .filter((w) => w.status === "Active")
+              .map((w) => ({ value: String(w.id), label: w.name }))}
+          />
+        )}
         <TextField
           label="PO Date"
           type="date"

@@ -13,10 +13,12 @@ import {
   SelectField,
   TextAreaField,
   TextField,
-  TotalsBar,
 } from "../../shared/form-bits";
-import { formatMoney } from "../../shared/format";
-import { useWarehouseOptions } from "../../shared/masters";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
+import {
+  useDefaultWarehouseId,
+  useWarehouseOptions,
+} from "../../shared/masters";
 import {
   emptyLine,
   filledLines,
@@ -24,24 +26,16 @@ import {
   type LineColumn,
   type LineDraft,
 } from "../../shared/ScmLinesEditor";
-import { round2, today } from "../../shared/pricing";
+import { today } from "../../shared/pricing";
 
 import { ScmPanel } from "../../shared/ScmPanel";
 const COLUMNS: readonly LineColumn[] = [
   { key: "quantity", label: "Qty", type: "number", min: 0, step: 0.001 },
   {
-    key: "estimatedUnitCost",
-    label: "Est. Unit Cost",
-    type: "number",
-    min: 0,
-    step: 0.01,
-    width: "md:col-span-2",
-  },
-  {
     key: "requiredDate",
     label: "Required By",
     type: "date",
-    width: "md:col-span-2",
+    width: "md:col-span-3",
   },
 ];
 
@@ -63,8 +57,8 @@ export interface RequisitionFormProps {
   onSubmit: (payload: RequisitionPayload) => Promise<void>;
 }
 
-/** Legacy `RequisitionFormDialog`: draft purchase requisition with line
- * items. Amounts are previewed here and recomputed by the server. */
+/** Legacy `RequisitionFormDialog`: draft material requisition with line
+ * items (quantity and required-by date only — no cost or tax inputs). */
 export function RequisitionForm({
   open,
   onClose,
@@ -78,7 +72,7 @@ export function RequisitionForm({
       title={
         requisition
           ? `Edit ${requisition.requisitionNumber}`
-          : "New Purchase Requisition"
+          : "New Material Requisition"
       }
       size="2xl"
       className="sm:max-w-5xl"
@@ -105,6 +99,7 @@ function Body({
   onSubmit: (payload: RequisitionPayload) => Promise<void>;
 }) {
   const warehouses = useWarehouseOptions();
+  const defaultWarehouseId = useDefaultWarehouseId();
   const [form, setForm] = useState({
     department: requisition?.department ?? "",
     requestDate: requisition?.requestDate.slice(0, 10) ?? today(),
@@ -113,7 +108,6 @@ function Body({
     warehouseId: requisition ? String(requisition.warehouseId) : "",
     purpose: requisition?.purpose ?? "",
     notes: requisition?.notes ?? "",
-    tax: requisition ? String(Number(requisition.tax)) : "0",
   });
   const [lines, setLines] = useState<LineDraft[]>(
     requisition
@@ -127,27 +121,23 @@ function Body({
   const set = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
   const filled = filledLines(lines);
-  const subtotal = round2(
-    filled.reduce(
-      (s, l) =>
-        s +
-        Number(l.values.quantity) * (Number(l.values.estimatedUnitCost) || 0),
-      0,
-    ),
-  );
-  const tax = Number(form.tax) || 0;
+  // Client-demo has no warehouse concept — default to the one implicit
+  // warehouse instead of showing a picker.
+  const effectiveWarehouseId =
+    SCM_CLIENT_DEMO && !form.warehouseId
+      ? defaultWarehouseId
+      : form.warehouseId;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const found: Record<string, string> = {};
-    if (!form.warehouseId) found.warehouseId = "Select a warehouse";
+    if (!effectiveWarehouseId) found.warehouseId = "Select a warehouse";
     if (!form.requestDate) found.requestDate = "Request date is required";
     if (filled.length === 0)
       found.items = "Add at least one item with a quantity greater than zero";
     if (new Set(filled.map((l) => l.productId)).size !== filled.length) {
       found.items = "A product appears on more than one line — combine them";
     }
-    if (tax < 0) found.tax = "Tax cannot be negative";
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     setSubmitError(null);
@@ -158,10 +148,11 @@ function Body({
         requestDate: form.requestDate,
         requiredDate: form.requiredDate || undefined,
         priority: form.priority,
-        warehouseId: Number(form.warehouseId),
+        warehouseId: Number(effectiveWarehouseId),
         purpose: form.purpose,
         notes: form.notes,
-        tax,
+        // Not editable here; an existing requisition keeps whatever it had.
+        tax: requisition ? Number(requisition.tax) : 0,
         items: filled.map((l) => ({
           productId: l.productId,
           quantity: Number(l.values.quantity),
@@ -183,17 +174,19 @@ function Body({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <FormGrid cols={3}>
-        <SelectField
-          label="Warehouse"
-          required
-          value={form.warehouseId}
-          error={errors.warehouseId}
-          onChange={(v) => set("warehouseId", v)}
-          placeholder="Select warehouse"
-          options={(warehouses.data ?? [])
-            .filter((w) => w.status === "Active")
-            .map((w) => ({ value: String(w.id), label: w.name }))}
-        />
+        {SCM_CLIENT_DEMO ? null : (
+          <SelectField
+            label="Warehouse"
+            required
+            value={form.warehouseId}
+            error={errors.warehouseId}
+            onChange={(v) => set("warehouseId", v)}
+            placeholder="Select warehouse"
+            options={(warehouses.data ?? [])
+              .filter((w) => w.status === "Active")
+              .map((w) => ({ value: String(w.id), label: w.name }))}
+          />
+        )}
         <TextField
           label="Department"
           value={form.department}
@@ -219,15 +212,6 @@ function Body({
           value={form.requiredDate}
           onChange={(v) => set("requiredDate", v)}
         />
-        <TextField
-          label="Tax (amount)"
-          type="number"
-          min={0}
-          step={0.01}
-          value={form.tax}
-          error={errors.tax}
-          onChange={(v) => set("tax", v)}
-        />
       </FormGrid>
       <TextField
         label="Purpose"
@@ -241,32 +225,11 @@ function Body({
         newLineDefaults={{ quantity: "", estimatedUnitCost: "" }}
         disabled={submitting}
         error={errors.items}
-        computed={{
-          label: "Est. Total",
-          render: (l) =>
-            formatMoney(
-              round2(
-                Number(l.values.quantity || 0) *
-                  Number(l.values.estimatedUnitCost || 0),
-              ),
-            ),
-        }}
       />
       <TextAreaField
         label="Notes"
         value={form.notes}
         onChange={(v) => set("notes", v)}
-      />
-      <TotalsBar
-        rows={[
-          { label: "Subtotal", value: formatMoney(subtotal) },
-          { label: "Tax", value: formatMoney(tax) },
-          {
-            label: "Total",
-            value: formatMoney(round2(subtotal + tax)),
-            strong: true,
-          },
-        ]}
       />
       {submitError ? (
         <p
