@@ -4181,6 +4181,18 @@ model ScmProduct {
   batchTracked   Boolean   @default(false) @map("batch_tracked")
   serialTracked  Boolean   @default(false) @map("serial_tracked")
   description    String?
+  /// Barcode value override; when null the barcode screens derive a Code128 value from productCode.
+  barcode        String?
+  /// When the product barcode was first generated (printed on the label).
+  barcodeCreatedAt DateTime? @map("barcode_created_at")
+  /// Warehouse picked for this SKU; its default bin must belong to it.
+  warehouseId    Int?      @map("warehouse_id")
+  /// Manually assigned default bin location for this SKU.
+  binLocationId  Int?      @map("bin_location_id")
+  /// Product-level expiry, only read when no batch expiry data exists.
+  expiryDate     DateTime? @map("expiry_date") @db.Date
+  /// Explicit "does not expire" flag, distinct from a never-set date.
+  expiryNotApplicable Boolean @default(false) @map("expiry_not_applicable")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
@@ -4189,6 +4201,8 @@ model ScmProduct {
   deletedAt      DateTime? @map("deleted_at")
 
   organization Organization          @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse?         @relation("ProductWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  binLocation  ScmWarehouseLocation? @relation("ProductBinLocation", fields: [binLocationId], references: [id], onDelete: SetNull)
   balances     ScmStockBalance[]
   ledger       ScmStockLedgerEntry[]
   batches      ScmStockBatch[]
@@ -4213,6 +4227,7 @@ model ScmProduct {
   movementItems      ScmWarehouseMovementItem[]
 
   @@unique([organizationId, productCode])
+  @@unique([organizationId, barcode])
   @@map("products")
   @@schema("scm")
 }
@@ -4246,6 +4261,7 @@ model ScmWarehouse {
 
   organization Organization           @relation(fields: [organizationId], references: [id])
   locations    ScmWarehouseLocation[]
+  products     ScmProduct[]           @relation("ProductWarehouse")
   balances     ScmStockBalance[]
   ledger       ScmStockLedgerEntry[]
   batches      ScmStockBatch[]
@@ -4301,6 +4317,7 @@ model ScmWarehouseLocation {
   warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
   parent       ScmWarehouseLocation?  @relation("LocationTree", fields: [parentLocationId], references: [id])
   children     ScmWarehouseLocation[] @relation("LocationTree")
+  products     ScmProduct[]           @relation("ProductBinLocation")
   locationStock ScmLocationStock[]
 
   @@unique([warehouseId, locationCode])
@@ -4553,6 +4570,7 @@ model ScmPurchaseRequisition {
   warehouse    ScmWarehouse                @relation(fields: [warehouseId], references: [id])
   items        ScmPurchaseRequisitionItem[]
   rfqs         ScmRfq[]
+  purchaseOrders ScmPurchaseOrder[]
   sourceSalesOrder ScmSalesOrder?  @relation(fields: [sourceSalesOrderId], references: [id])
   fulfillment      ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
 
@@ -4747,6 +4765,10 @@ model ScmPurchaseOrder {
   vendorGstinSnapshot String?   @map("vendor_gstin_snapshot")
   rfqId               Int?      @map("rfq_id")
   quotationId         Int?      @map("quotation_id")
+  /// Material Requisition this PO was raised from (PO form "Link Material Requisition").
+  /// `requisitionNumber` is a snapshot so the link still displays if the MR is deleted.
+  requisitionId       Int?      @map("requisition_id")
+  requisitionNumber   String?   @map("requisition_number")
   poDate              DateTime  @map("po_date") @db.Date
   expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
   warehouseId         Int       @map("warehouse_id")
@@ -4776,12 +4798,14 @@ model ScmPurchaseOrder {
   warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
   rfq          ScmRfq?                @relation(fields: [rfqId], references: [id])
   quotation    ScmSupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  requisition  ScmPurchaseRequisition? @relation(fields: [requisitionId], references: [id], onDelete: SetNull)
   items        ScmPurchaseOrderItem[]
   receipts     ScmGoodsReceipt[]
   bills        ScmSupplierBill[]
 
   @@unique([organizationId, poNumber])
   @@index([organizationId, status])
+  @@index([requisitionId])
   @@map("purchase_orders")
   @@schema("scm")
 }
