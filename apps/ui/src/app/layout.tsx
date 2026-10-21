@@ -29,7 +29,49 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${nunitoSans.variable} ${jetbrainsMono.variable} ${merriweather.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function() {
+  try {
+    var path = window.location.pathname || '';
+    var isPortal = path.indexOf('/portal') === 0 || path.indexOf('/onboarding') === 0 || path.indexOf('/self-service') === 0;
+    var isDark = false;
+    if (isPortal) {
+      var portalTheme = localStorage.getItem('texawave_portal_theme');
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('texawave_portal_theme_') === 0) {
+          var val = localStorage.getItem(key);
+          if (val === 'dark' || val === 'light') {
+            portalTheme = val;
+            break;
+          }
+        }
+      }
+      isDark = portalTheme === 'dark';
+    } else {
+      var theme = localStorage.getItem('texawave_theme') || localStorage.getItem('theme');
+      isDark = theme === 'dark' || (theme !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    var density = localStorage.getItem('texawave_density');
+    if (density) {
+      document.documentElement.setAttribute('data-density', density);
+    }
+  } catch (e) {}
+})();
+`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>

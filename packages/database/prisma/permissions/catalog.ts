@@ -53,6 +53,16 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "settings.role.write",
     description: "Create/rename roles and assign/revoke their permissions",
   },
+  {
+    code: "settings.general.read",
+    description:
+      "View organization general settings, preferences, and regional configuration",
+  },
+  {
+    code: "settings.general.update",
+    description:
+      "Update organization general settings, regional formats, and exchange rates",
+  },
 
   // IAM data (departments, users, menu) — org-scoped, no team dimension.
   // apps/api/src/modules/departments

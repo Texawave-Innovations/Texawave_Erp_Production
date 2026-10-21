@@ -411,4 +411,20 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     // here rather than left as an undocumented manual row.
     permission: "master.designation.write",
   },
+  {
+    code: "admin-preferences",
+    label: "Preferences",
+    path: "/settings/preferences",
+    order: 6,
+    parentCode: "admin",
+    permission: null,
+  },
+  {
+    code: "admin-regional",
+    label: "Regional Formats",
+    path: "/settings/regional",
+    order: 7,
+    parentCode: "admin",
+    permission: "settings.general.read",
+  },
 ];

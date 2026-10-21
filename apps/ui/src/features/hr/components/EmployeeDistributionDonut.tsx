@@ -15,7 +15,7 @@ const DEFAULT_SEGMENTS: DistributionSegment[] = [
   { name: "Finance", percentage: 12, color: "#f59e0b" }, // amber
   { name: "Marketing", percentage: 14, color: "#ec4899" }, // pink
   { name: "HR", percentage: 10, color: "#3b82f6" }, // blue
-  { name: "Others", percentage: 18, color: "#8b5cf6" }, // purple
+  { name: "Others", percentage: 18, color: "#06b6d4" }, // cyan
 ];
 
 export interface EmployeeDistributionDonutProps {
@@ -57,7 +57,7 @@ export function EmployeeDistributionDonut({
 
   return (
     <div
-      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-gray-800 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
@@ -68,7 +68,7 @@ export function EmployeeDistributionDonut({
         <div className="relative">
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-[#1C2029] dark:bg-[#161B26] dark:text-gray-300"
           >
             <span>{period}</span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-400" />

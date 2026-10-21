@@ -200,7 +200,7 @@ export function TicketsView() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Total Tickets */}
         <Card className="flex items-center gap-3.5 p-4 shadow-xs">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400">
             <Ticket className="h-5 w-5" />
           </div>
           <div>

@@ -18,19 +18,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import type { StatusColorToken } from "@texawave-erp/ui-kit";
-import {
-  Calendar,
-  Clock,
-  Filter,
-  Plus,
-  Search,
-  User,
-  Video,
-  Phone,
-  Briefcase,
-  Eye,
-  ArrowLeft,
-} from "lucide-react";
+import { Plus, Search, User, Video, Eye, ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useDepartments } from "@/features/departments/hooks";
 import { useDesignations } from "@/features/designations/hooks";
@@ -45,7 +33,6 @@ import {
   INTERVIEW_STATUSES,
   INTERVIEW_STATUS_LABELS,
   type CreateInterviewInput,
-  type InterviewMode,
   type InterviewStatus,
   type InterviewView,
 } from "../types";
@@ -67,12 +54,12 @@ const STATUS_TOKEN: Record<InterviewStatus, StatusColorToken> = {
 /** Deterministic background color for avatar circles based on string initials */
 const AVATAR_COLORS = [
   "bg-blue-600 text-white",
-  "bg-purple-600 text-white",
+  "bg-teal-600 text-white",
   "bg-emerald-600 text-white",
   "bg-amber-600 text-white",
   "bg-rose-600 text-white",
   "bg-cyan-600 text-white",
-  "bg-indigo-600 text-white",
+  "bg-sky-600 text-white",
 ];
 
 function getInitials(name: string): string {
@@ -434,7 +421,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-theme-xs font-medium ${
                         isOnline
                           ? "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
-                          : "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+                          : "bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800"
                       }`}
                     >
                       {isOnline ? (

@@ -16,15 +16,15 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // literals": never interpolate a variant into a class name string.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan-accessible hover:from-brand-700 hover:via-brand-800 hover:to-[#075985] active:from-brand-900 active:via-brand-700 active:to-[#0c4a6e] text-white shadow-theme-xs hover:shadow-theme-sm focus-visible:outline-brand-500 dark:from-brand-600 dark:via-brand-500 dark:to-brand-cyan-accessible dark:text-white transition-all duration-200",
+    "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 hover:from-blue-700 hover:via-brand-600 hover:to-cyan-600 active:from-blue-800 active:via-brand-700 active:to-cyan-700 text-white shadow-theme-xs hover:shadow-theme-sm focus-visible:outline-brand-500 dark:bg-linear-135 dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500 dark:hover:from-blue-500 dark:hover:via-brand-400 dark:hover:to-cyan-400 dark:active:from-blue-700 dark:active:via-brand-600 dark:active:to-cyan-600 dark:text-white dark:shadow-[0_0_14px_rgba(6,182,212,0.25)] transition-all duration-200",
   secondary:
-    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800",
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-[#121620] dark:text-white/90 dark:border-[#1C2029] dark:hover:bg-[#161B26]",
   outline:
-    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800",
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-[#121620] dark:text-white/90 dark:border-[#1C2029] dark:hover:bg-[#161B26]",
   ghost:
-    "bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:outline-brand-500 dark:text-white/90 dark:hover:bg-gray-800",
+    "bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:outline-brand-500 dark:text-white/90 dark:hover:bg-[#161B26]",
   destructive:
-    "bg-error-500 text-white hover:bg-error-600 focus-visible:outline-error-500 dark:bg-error-400 dark:hover:bg-error-300",
+    "bg-error-500 text-white hover:bg-error-600 focus-visible:outline-error-500 dark:bg-rose-600 dark:hover:bg-rose-500",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

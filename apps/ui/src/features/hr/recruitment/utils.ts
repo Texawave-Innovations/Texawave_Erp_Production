@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatCurrency } from "@texawave-erp/core";
 import { useEffect, useState } from "react";
 
 /** Message for a failed call. A 400 carries the backend's own validation
@@ -36,15 +36,12 @@ export function formatDate(value: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-/** Formats a decimal string as Indian-grouped rupees, e.g. ₹ 1,23,456.00. */
+/** Formats a decimal string as regional currency, e.g. ₹ 1,23,456.00. */
 export function formatRupees(value: string | null | undefined): string {
   if (value === undefined || value === null || value === "") return "—";
   const n = Number(value);
   if (!Number.isFinite(n)) return value;
-  return `₹ ${n.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrency(n);
 }
 
 /** Adds whole days to a `YYYY-MM-DD` string (UTC, so no DST drift). */

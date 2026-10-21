@@ -10,6 +10,7 @@ import {
   useMyGovernmentIds,
   useMyPersonal,
 } from "@/features/onboarding/hooks";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 
 /** `Record<string, unknown>` fields are rendered generically — the profile
  * controller's personal/address/bank/government-id shapes are free-form JSON
@@ -70,6 +71,7 @@ function Section({
  * back, now added alongside the existing write-only wrappers.
  */
 export function MyProfileView() {
+  const { formatDate } = useRegionalFormatter();
   const personal = useMyPersonal();
   const permanentAddress = useMyAddress("PERMANENT");
   const presentAddress = useMyAddress("PRESENT");
@@ -179,7 +181,7 @@ export function MyProfileView() {
                   {doc.documentType}: {doc.fileName}
                 </span>
                 <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                  {new Date(doc.uploadedAt).toLocaleDateString()}
+                  {formatDate(doc.uploadedAt)}
                 </span>
               </li>
             ))}

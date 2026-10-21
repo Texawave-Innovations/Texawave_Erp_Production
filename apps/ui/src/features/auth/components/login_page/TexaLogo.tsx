@@ -17,8 +17,8 @@ interface TexaLogoProps {
 export function TexaLogo({
   className = "",
   size = "md",
-  mode = "image",
-  is3d = false,
+  mode: _mode = "image",
+  is3d: _is3d = false,
   variant,
 }: TexaLogoProps) {
   const isCenter = size === "center";
@@ -46,11 +46,6 @@ export function TexaLogo({
           xl: { width: 292, height: 90 },
         }[size];
 
-  const assetSrc =
-    resolvedVariant === "mark"
-      ? "/brand/texaone-mark.svg"
-      : "/brand/texaone-logo.svg";
-
   const altText =
     resolvedVariant === "mark"
       ? "TexaOne"
@@ -64,25 +59,53 @@ export function TexaLogo({
       style={
         dimensions
           ? {
-              width: className.includes("w-auto")
-                ? undefined
-                : dimensions.width,
-              height: className.includes("h-auto")
-                ? undefined
-                : dimensions.height,
+              width:
+                className.includes("w-auto") || /\bw-\d+|\bw-\[/.test(className)
+                  ? undefined
+                  : dimensions.width,
+              height:
+                className.includes("h-auto") || /\bh-\d+|\bh-\[/.test(className)
+                  ? undefined
+                  : dimensions.height,
             }
           : undefined
       }
     >
-      <Image
-        src={assetSrc}
-        alt={altText}
-        width={dimensions ? dimensions.width : 200}
-        height={dimensions ? dimensions.height : 62}
-        className="w-full h-full object-contain"
-        priority
-        unoptimized
-      />
+      {resolvedVariant === "mark" ? (
+        <Image
+          src="/brand/texaone-mark.svg"
+          alt={altText}
+          width={dimensions ? dimensions.width : 40}
+          height={dimensions ? dimensions.height : 49}
+          className="h-full w-auto object-contain"
+          style={{ width: "auto", height: "100%" }}
+          priority
+          unoptimized
+        />
+      ) : (
+        <>
+          <Image
+            src="/brand/texaone-logo.png"
+            alt={altText}
+            width={dimensions ? dimensions.width : 200}
+            height={dimensions ? dimensions.height : 62}
+            className="h-full w-auto object-contain aspect-[2625/810] dark:hidden"
+            style={{ width: "auto", height: "100%" }}
+            priority
+            unoptimized
+          />
+          <Image
+            src="/brand/texaone-logo-dark.png"
+            alt={altText}
+            width={dimensions ? dimensions.width : 200}
+            height={dimensions ? dimensions.height : 62}
+            className="hidden h-full w-auto object-contain aspect-[2625/810] dark:inline-block"
+            style={{ width: "auto", height: "100%" }}
+            priority
+            unoptimized
+          />
+        </>
+      )}
     </div>
   );
 }

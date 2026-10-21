@@ -5,12 +5,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Sun, Moon } from "lucide-react";
 import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMe } from "@/hooks/usePermission";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
+
+import { useUserPreferences } from "@/features/settings/preferences/hooks";
+import {
+  applyDensityToDom,
+  applyPortalThemeToDom,
+  getStoredDensity,
+  getStoredPortalTheme,
+} from "@/features/settings/preferences/theme-manager";
 
 /**
  * Employee-portal route guard (Docs/ARCHITECTURE.md §7). Routes by the user's
@@ -34,6 +43,53 @@ export default function EmployeePortalLayout({
 
   const queryClient = useQueryClient();
   const clear = useAuthStore((s) => s.clear);
+
+  const userId = me.data?.userId;
+
+  // Manage independent theme for employee self-service portal
+  const [portalTheme, setPortalTheme] = useState<"light" | "dark">(() => {
+    return getStoredPortalTheme(userId) ?? "light";
+  });
+  const [prevUserId, setPrevUserId] = useState(userId);
+
+  if (prevUserId !== userId) {
+    setPrevUserId(userId);
+    setPortalTheme(getStoredPortalTheme(userId) ?? "light");
+  }
+
+  useEffect(() => {
+    applyPortalThemeToDom(portalTheme, userId);
+  }, [portalTheme, userId]);
+
+  const handleTogglePortalTheme = () => {
+    const nextTheme: "light" | "dark" =
+      portalTheme === "dark" ? "light" : "dark";
+    setPortalTheme(nextTheme);
+    applyPortalThemeToDom(nextTheme, userId);
+  };
+
+  // Synchronize UI density with DOM in the portal shell (isolated from theme)
+  const prefQuery = useUserPreferences();
+
+  useEffect(() => {
+    if (prefQuery.data?.effective) {
+      const { density } = prefQuery.data.effective;
+      const userDensityPref = prefQuery.data.preferences?.density;
+
+      if (userDensityPref) {
+        applyDensityToDom(
+          userDensityPref as "compact" | "comfortable" | "spacious",
+        );
+      } else {
+        const storedDensity = getStoredDensity();
+        if (storedDensity) {
+          applyDensityToDom(storedDensity);
+        } else if (density) {
+          applyDensityToDom(density as "compact" | "comfortable" | "spacious");
+        }
+      }
+    }
+  }, [prefQuery.data?.effective, prefQuery.data?.preferences]);
 
   function handleSignOut() {
     void apiClient.post("/auth/logout").catch(() => undefined);
@@ -112,14 +168,37 @@ export default function EmployeePortalLayout({
   // (no sidebar) until the profile is complete.
   if (!isComplete) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+      <div className="flex min-h-screen flex-col bg-gray-50/50 text-gray-900 dark:bg-[#08090D] dark:text-[#F8FAFC]">
+        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-[#08090D]">
           <span className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
             TexaWave ERP
           </span>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleTogglePortalTheme}
+              aria-label={
+                portalTheme === "dark"
+                  ? "Switch to light theme"
+                  : "Switch to dark theme"
+              }
+              title={
+                portalTheme === "dark"
+                  ? "Switch to light theme"
+                  : "Switch to dark theme"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/80 bg-white/70 text-gray-600 transition-colors hover:border-gray-300 hover:bg-white hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-cyan-500/40 dark:hover:bg-white/10 dark:hover:text-cyan-300 cursor-pointer"
+            >
+              {portalTheme === "dark" ? (
+                <Sun className="h-4 w-4 text-amber-400 transition-transform hover:rotate-45" />
+              ) : (
+                <Moon className="h-4 w-4 text-gray-600 transition-transform hover:-rotate-12" />
+              )}
+            </button>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              Sign out
+            </Button>
+          </div>
         </header>
         <main className="mx-auto w-full max-w-4xl flex-1 p-6">{children}</main>
       </div>
@@ -128,12 +207,12 @@ export default function EmployeePortalLayout({
 
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex min-h-screen flex-col bg-gray-50/50 text-gray-900 dark:bg-[#08090D] dark:text-[#F8FAFC]"
       onKeyDown={(e) => {
         if (e.key === "Escape") setNavOpen(false);
       }}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-4 lg:px-6 dark:border-gray-800">
+      <header className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-4 lg:px-6 dark:border-[#1C2029] dark:bg-[#08090D]">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -159,10 +238,32 @@ export default function EmployeePortalLayout({
             </svg>
           </button>
           <span className="truncate text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-            TexaWave ERP
+            TexaOne ERP
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Employee Portal Independent Theme Toggle */}
+          <button
+            type="button"
+            onClick={handleTogglePortalTheme}
+            aria-label={
+              portalTheme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            title={
+              portalTheme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200/80 bg-white/70 text-gray-600 transition-colors hover:border-gray-300 hover:bg-white hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-cyan-500/40 dark:hover:bg-white/10 dark:hover:text-cyan-300 cursor-pointer"
+          >
+            {portalTheme === "dark" ? (
+              <Sun className="h-4 w-4 text-amber-400 transition-transform hover:rotate-45" />
+            ) : (
+              <Moon className="h-4 w-4 text-gray-600 transition-transform hover:-rotate-12" />
+            )}
+          </button>
           <NotificationBell />
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign out

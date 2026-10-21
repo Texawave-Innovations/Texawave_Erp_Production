@@ -45,14 +45,14 @@ export function PipelineFunnel({
             <li key={stage.label} className="relative">
               <Link
                 href={href}
-                className="group flex h-full flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 transition-all duration-200 hover:border-brand-300 hover:bg-white hover:shadow-theme-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-white/2 dark:hover:border-brand-500/40 dark:hover:bg-gray-900"
+                className="group flex h-full flex-col justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 transition-all duration-200 hover:border-brand-300 hover:bg-white hover:shadow-theme-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-[#1C2029] dark:bg-[#121620] dark:hover:border-cyan-500/40 dark:hover:bg-[#161B26]"
               >
                 <div>
                   <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                    <span className="truncate group-hover:text-brand-700 dark:group-hover:text-brand-400 transition-colors">
+                    <span className="truncate group-hover:text-brand-700 dark:group-hover:text-cyan-400 transition-colors">
                       {stage.label}
                     </span>
-                    <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-gray-500 shadow-theme-xs dark:bg-gray-800 dark:text-gray-400">
+                    <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-gray-500 shadow-theme-xs dark:bg-[#161B26] dark:text-gray-300 dark:border dark:border-[#1C2029]">
                       Step {idx + 1}
                     </span>
                   </div>
@@ -68,9 +68,9 @@ export function PipelineFunnel({
                   )}
                 </div>
 
-                <div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-800/80">
+                <div className="mt-3 border-t border-gray-100 pt-2 dark:border-[#1C2029]">
                   {conv !== null ? (
-                    <div className="flex items-center gap-1 text-[11px] font-semibold text-brand-700 dark:text-brand-400">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-brand-700 dark:text-cyan-400">
                       <ArrowRight
                         className="h-3 w-3 shrink-0"
                         aria-hidden="true"
@@ -89,7 +89,7 @@ export function PipelineFunnel({
         })}
       </ol>
 
-      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-[#1C2029] dark:text-gray-400">
         Scheduled, interviewed and selected come from interview records; offered
         counts offer letters. Applicants and hires are not tracked in production
         yet.

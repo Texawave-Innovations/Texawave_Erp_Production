@@ -29,7 +29,7 @@ export function GlanceSection({ events }: GlanceSectionProps) {
           {events.map((evt) => (
             <li
               key={evt.id}
-              className="group flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3 transition-all duration-150 hover:border-gray-200 hover:bg-white dark:border-gray-800 dark:bg-white/2 dark:hover:border-gray-700 dark:hover:bg-gray-800/40"
+              className="group flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3 transition-all duration-150 hover:border-gray-200 hover:bg-white dark:border-[#1C2029] dark:bg-[#121620] dark:hover:border-cyan-500/40 dark:hover:bg-[#161B26]"
             >
               <span
                 className={`h-2.5 w-2.5 shrink-0 rounded-full transition-transform group-hover:scale-125 ${
@@ -45,7 +45,7 @@ export function GlanceSection({ events }: GlanceSectionProps) {
               />
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-theme-xs font-bold text-gray-900 group-hover:text-brand-700 dark:text-white/90 dark:group-hover:text-brand-400 transition-colors">
+                <p className="truncate text-theme-xs font-bold text-gray-900 group-hover:text-brand-700 dark:text-white/90 dark:group-hover:text-cyan-400 transition-colors">
                   {evt.name}
                 </p>
                 <p className="truncate text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
@@ -53,7 +53,7 @@ export function GlanceSection({ events }: GlanceSectionProps) {
                 </p>
               </div>
 
-              <span className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold capitalize text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+              <span className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold capitalize text-gray-600 dark:bg-[#161B26] dark:text-gray-300 dark:border dark:border-[#1C2029]">
                 {evt.type}
               </span>
             </li>
@@ -61,7 +61,7 @@ export function GlanceSection({ events }: GlanceSectionProps) {
         </ul>
       )}
 
-      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-[#1C2029] dark:text-gray-400">
         Birthdays are not shown: date of birth is held on the restricted
         employee profile.
       </p>

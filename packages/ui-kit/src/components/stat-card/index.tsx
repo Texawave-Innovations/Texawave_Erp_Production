@@ -14,6 +14,7 @@ export type StatCardTone =
   | "error"
   | "success"
   | "blue"
+  | "cyan"
   | "purple"
   | "emerald"
   | "amber";
@@ -51,7 +52,8 @@ const TONE_VALUE_CLASS: Record<StatCardTone, string> = {
   error: "text-error-700 dark:text-error-400",
   success: "text-success-700 dark:text-success-400",
   blue: "text-blue-700 dark:text-blue-400",
-  purple: "text-purple-700 dark:text-purple-400",
+  cyan: "text-cyan-700 dark:text-cyan-400",
+  purple: "text-cyan-700 dark:text-cyan-400",
   emerald: "text-emerald-700 dark:text-emerald-400",
   amber: "text-amber-700 dark:text-amber-400",
 };
@@ -64,26 +66,32 @@ const TONE_EDGE_CLASS: Record<StatCardTone, string> = {
   error: "bg-error-500",
   success: "bg-success-500",
   blue: "bg-blue-500",
-  purple: "bg-purple-500",
+  cyan: "bg-cyan-500",
+  purple: "bg-cyan-500",
   emerald: "bg-emerald-500",
   amber: "bg-amber-500",
 };
 
 const TONE_ICON_BG: Record<StatCardTone, string> = {
-  neutral: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  brand: "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
-  info: "bg-blue-50 text-chart-1 dark:bg-blue-950/60 dark:text-chart-1",
+  neutral:
+    "bg-gray-100 text-gray-600 dark:bg-[#161B26] dark:text-gray-300 dark:border dark:border-[#1C2029]",
+  brand:
+    "bg-brand-50 text-brand-700 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  info: "bg-blue-50 text-chart-1 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   warning:
-    "bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-300",
-  error: "bg-error-50 text-error-700 dark:bg-error-950 dark:text-error-300",
+    "bg-warning-50 text-warning-700 dark:bg-amber-950/60 dark:text-amber-300 dark:border dark:border-amber-800/40",
+  error:
+    "bg-error-50 text-error-700 dark:bg-rose-950/60 dark:text-rose-300 dark:border dark:border-rose-800/40",
   success:
-    "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
+    "bg-success-50 text-success-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
+  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  cyan: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   purple:
-    "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300",
+    "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   emerald:
-    "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
-  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+    "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
+  amber:
+    "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300 dark:border dark:border-amber-800/40",
 };
 
 const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
@@ -94,28 +102,27 @@ const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
   error: "gradient-card-border-error",
   success: "gradient-card-border-success",
   blue: "gradient-card-border-info",
-  purple: "gradient-card-border",
+  cyan: "gradient-card-border-info",
+  purple: "gradient-card-border-info",
   emerald: "gradient-card-border-success",
   amber: "gradient-card-border-warning",
 };
 
 const TONE_GRADIENT_CLASS: Record<StatCardTone, string> = {
-  blue: "stat-card-gradient-blue border-blue-100/70 dark:border-blue-900/40",
-  purple:
-    "stat-card-gradient-purple border-purple-100/70 dark:border-purple-900/40",
+  blue: "stat-card-gradient-blue border-blue-100/70 dark:border-[#1C2029]",
+  cyan: "stat-card-gradient-cyan border-cyan-100/70 dark:border-[#1C2029]",
+  purple: "stat-card-gradient-cyan border-cyan-100/70 dark:border-[#1C2029]",
   emerald:
-    "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
-  amber:
-    "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
-  brand: "stat-card-gradient-blue border-sky-100/70 dark:border-sky-900/40",
-  info: "stat-card-gradient-blue border-cyan-100/70 dark:border-cyan-900/40",
-  warning:
-    "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
-  error: "stat-card-gradient-rose border-rose-100/70 dark:border-rose-900/40",
+    "stat-card-gradient-emerald border-emerald-100/70 dark:border-[#1C2029]",
+  amber: "stat-card-gradient-amber border-amber-100/70 dark:border-[#1C2029]",
+  brand: "stat-card-gradient-blue border-sky-100/70 dark:border-[#1C2029]",
+  info: "stat-card-gradient-blue border-cyan-100/70 dark:border-[#1C2029]",
+  warning: "stat-card-gradient-amber border-amber-100/70 dark:border-[#1C2029]",
+  error: "stat-card-gradient-rose border-rose-100/70 dark:border-[#1C2029]",
   success:
-    "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
+    "stat-card-gradient-emerald border-emerald-100/70 dark:border-[#1C2029]",
   neutral:
-    "stat-card-gradient-neutral border-slate-100/80 dark:border-gray-800",
+    "stat-card-gradient-neutral border-slate-100/80 dark:border-[#1C2029]",
 };
 
 const KPI_ICON_GRADIENTS: Record<
@@ -127,10 +134,15 @@ const KPI_ICON_GRADIENTS: Record<
     shadow: "shadow-md shadow-blue-500/25",
     aura: "bg-sky-400/25",
   },
+  cyan: {
+    bg: "bg-linear-135 from-blue-600 via-sky-500 to-cyan-400 text-white",
+    shadow: "shadow-md shadow-cyan-500/25",
+    aura: "bg-cyan-400/25",
+  },
   purple: {
-    bg: "bg-linear-135 from-purple-600 via-indigo-500 to-blue-500 text-white",
-    shadow: "shadow-md shadow-purple-500/25",
-    aura: "bg-purple-400/25",
+    bg: "bg-linear-135 from-blue-600 via-sky-500 to-cyan-400 text-white",
+    shadow: "shadow-md shadow-cyan-500/25",
+    aura: "bg-cyan-400/25",
   },
   emerald: {
     bg: "bg-linear-135 from-emerald-600 via-teal-500 to-cyan-400 text-white",
@@ -335,7 +347,7 @@ export function StatCard({
       </p>
 
       {/* Secondary note and optional trend badge */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-[#1C2029]">
         <p className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
           {note}
         </p>

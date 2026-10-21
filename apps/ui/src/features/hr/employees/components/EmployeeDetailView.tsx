@@ -35,6 +35,7 @@ import {
 import { downloadProfilePdf } from "../api";
 import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useEmployee, useEmployeeStatusHistory } from "../hooks";
@@ -59,7 +60,6 @@ import { LinkAccountDialog } from "./LinkAccountDialog";
 const HISTORY_PAGE_SIZE = 10;
 
 const dash = (v: string | null | undefined) => (v && v.length > 0 ? v : "—");
-const dateOnly = (v: string | null) => (v ? v.slice(0, 10) : "—");
 
 function DetailField({
   label,
@@ -105,6 +105,8 @@ export function EmployeeDetailView({ id }: { id: number }) {
   );
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
+  const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
 
   if (!canRead) {
     return (

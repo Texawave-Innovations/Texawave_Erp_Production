@@ -53,7 +53,7 @@ export function DepartmentBarChart({
 
   return (
     <div
-      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-gray-800 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -64,7 +64,7 @@ export function DepartmentBarChart({
         <div className="relative">
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-[#1C2029] dark:bg-[#161B26] dark:text-gray-300"
           >
             <span>{period}</span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
@@ -91,7 +91,7 @@ export function DepartmentBarChart({
                 <span className="w-6 text-[10px] font-medium text-slate-400 dark:text-gray-500 text-right shrink-0">
                   {stepVal}
                 </span>
-                <div className="flex-1 border-b border-dashed border-slate-100 dark:border-gray-800/80" />
+                <div className="flex-1 border-b border-dashed border-slate-100 dark:border-[#1C2029]" />
               </div>
             ))}
           </div>
@@ -118,7 +118,7 @@ export function DepartmentBarChart({
                   <div className="w-full flex-1 flex items-end">
                     <div
                       style={{ height: `${barHeightPct}%` }}
-                      className="w-full rounded-t-md bg-linear-to-t from-sky-400 via-cyan-400 to-sky-300 shadow-xs transition-all duration-300 group-hover:brightness-105 min-h-1"
+                      className="w-full rounded-t-md bg-linear-to-t from-sky-400 via-cyan-400 to-sky-300 shadow-xs transition-all duration-300 group-hover:brightness-105 min-h-1 dark:from-blue-600 dark:via-sky-500 dark:to-cyan-400"
                     />
                   </div>
 

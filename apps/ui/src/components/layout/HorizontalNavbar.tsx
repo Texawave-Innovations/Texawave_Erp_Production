@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -41,11 +48,25 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
+  Globe,
+  Sliders,
+  Monitor,
+  Sun,
+  Moon,
   type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
+import {
+  useRegionalFormatter,
+  useUserPreferences,
+  useUpdateUserPreferences,
+} from "@/features/settings/preferences/hooks";
+import {
+  applyThemeToDom,
+  resolveIsDark,
+} from "@/features/settings/preferences/theme-manager";
 import type { MenuTreeNode } from "@texawave-erp/api-types";
 
 export interface NavLeafItem {
@@ -135,7 +156,7 @@ const HR_CATEGORIES: NavCategory[] = [
         label: "Departments",
         path: "/hr/departments",
         icon: Building2,
-        iconColor: "text-purple-600",
+        iconColor: "text-cyan-600",
         menuCode: "hr-departments",
       },
       {
@@ -269,14 +290,14 @@ const HR_CATEGORIES: NavCategory[] = [
     id: "compliance",
     label: "Compliance",
     icon: ShieldCheck,
-    iconColor: "text-indigo-600",
+    iconColor: "text-cyan-600",
     children: [
       {
         id: "compliance-overview",
         label: "Statutory Compliance",
         path: "/hr/compliance",
         icon: ShieldCheck,
-        iconColor: "text-indigo-600",
+        iconColor: "text-cyan-600",
         menuCode: "hr-compliance",
       },
     ],
@@ -291,12 +312,14 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
     id: "access-control",
     label: "Access Control",
     icon: Shield,
+    iconColor: "text-emerald-600",
     children: [
       {
         id: "users",
         label: "Users",
         path: "/admin/users",
         icon: Users,
+        iconColor: "text-blue-600",
         menuCode: "admin-users",
       },
       {
@@ -304,20 +327,39 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         label: "Roles",
         path: "/admin/roles",
         icon: Shield,
+        iconColor: "text-emerald-600",
         menuCode: "admin-roles",
       },
     ],
   },
   {
+    id: "preferences",
+    label: "Preferences",
+    icon: Sliders,
+    iconColor: "text-blue-600",
+    path: "/settings/preferences",
+    menuCode: "admin-preferences",
+  },
+  {
+    id: "regional-formats",
+    label: "Regional Formats",
+    icon: Globe,
+    iconColor: "text-cyan-600",
+    path: "/settings/regional",
+    menuCode: "admin-regional",
+  },
+  {
     id: "system-config",
     label: "Configuration",
     icon: Settings,
+    iconColor: "text-slate-600",
     children: [
       {
         id: "menu",
         label: "Navigation Menu",
         path: "/admin/menu",
         icon: MenuIcon,
+        iconColor: "text-slate-600",
         menuCode: "admin-menu",
       },
       {
@@ -325,6 +367,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         label: "Reference Tags",
         path: "/reference/tags",
         icon: Tag,
+        iconColor: "text-cyan-600",
         menuCode: "reference-tags",
       },
     ],
@@ -404,21 +447,14 @@ function collectMenuCodes(
 }
 
 function LiveClock() {
+  const { formatTime } = useRegionalFormatter();
   const [time, setTime] = useState("");
   useEffect(() => {
-    const update = () =>
-      setTime(
-        new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        }),
-      );
+    const update = () => setTime(formatTime(new Date()));
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [formatTime]);
   return (
     <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-300 tabular-nums">
       {time}
@@ -438,7 +474,11 @@ function findRouteNavigationState(pathname: string) {
       }
       if (cat.children) {
         for (const leaf of cat.children) {
-          if (pathname === leaf.path || pathname.startsWith(`${leaf.path}/`)) {
+          const cleanPath = leaf.path.split("#")[0];
+          if (
+            pathname === cleanPath ||
+            (cleanPath !== "/" && pathname.startsWith(`${cleanPath}/`))
+          ) {
             return { moduleId: mod.id, categoryId: cat.id, leafId: leaf.id };
           }
         }
@@ -454,16 +494,61 @@ function findRouteNavigationState(pathname: string) {
   if (pathname === "/admin" || pathname === "/admin/dashboard") {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
-  if (
-    pathname.startsWith("/admin/users") ||
-    pathname.startsWith("/admin/roles") ||
-    pathname.startsWith("/admin/menu") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/reference")
-  ) {
-    return { moduleId: "settings", categoryId: "access-control", leafId: null };
+  if (pathname.startsWith("/admin/users")) {
+    return {
+      moduleId: "settings",
+      categoryId: "access-control",
+      leafId: "users",
+    };
+  }
+  if (pathname.startsWith("/admin/roles") || pathname === "/settings/roles") {
+    return {
+      moduleId: "settings",
+      categoryId: "access-control",
+      leafId: "roles",
+    };
+  }
+  if (pathname.startsWith("/settings/preferences")) {
+    return { moduleId: "settings", categoryId: "preferences", leafId: null };
+  }
+  if (pathname.startsWith("/settings/regional")) {
+    return {
+      moduleId: "settings",
+      categoryId: "regional-formats",
+      leafId: null,
+    };
+  }
+  if (pathname.startsWith("/admin/menu")) {
+    return {
+      moduleId: "settings",
+      categoryId: "system-config",
+      leafId: "menu",
+    };
+  }
+  if (pathname.startsWith("/reference")) {
+    return {
+      moduleId: "settings",
+      categoryId: "system-config",
+      leafId: "reference-tags",
+    };
+  }
+  if (pathname.startsWith("/settings")) {
+    return { moduleId: "settings", categoryId: "preferences", leafId: null };
   }
   return { moduleId: null, categoryId: null, leafId: null };
+}
+
+function subscribeHash(callback: () => void) {
+  window.addEventListener("hashchange", callback);
+  return () => window.removeEventListener("hashchange", callback);
+}
+
+function getHashSnapshot() {
+  return typeof window !== "undefined" ? window.location.hash : "";
+}
+
+function getHashServerSnapshot() {
+  return "";
 }
 
 export interface HorizontalNavbarProps {
@@ -492,6 +577,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const currentHash = useSyncExternalStore(
+    subscribeHash,
+    getHashSnapshot,
+    getHashServerSnapshot,
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -751,9 +841,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       closeAllMenus();
       router.push(cat.path);
     } else if (cat.children && cat.children.length > 0) {
-      // Pin category submenu open
-      setPinnedCategoryId(cat.id);
-      setHoveredCategoryId(cat.id);
+      if (pinnedCategoryId === cat.id) {
+        // Toggle closed
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+      } else {
+        // Pin category submenu open
+        setPinnedCategoryId(cat.id);
+        setHoveredCategoryId(cat.id);
+      }
     }
   };
 
@@ -769,6 +865,18 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     .slice(0, 2)
     .toUpperCase();
 
+  const { data: prefData } = useUserPreferences();
+  const updatePrefMutation = useUpdateUserPreferences();
+  const currentTheme = prefData?.effective?.theme ?? "system";
+  const isDark = resolveIsDark(currentTheme);
+
+  const handleThemeSelect = (newTheme: "light" | "dark" | "system") => {
+    applyThemeToDom(newTheme);
+    updatePrefMutation.mutate({
+      theme: newTheme,
+    });
+  };
+
   return (
     <header
       ref={navContainerRef}
@@ -777,7 +885,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       onMouseLeave={handleMouseLeaveNav}
     >
       {/* Primary Module Rail */}
-      <div className="flex h-16 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-50/90 via-cyan-50/80 to-emerald-50/60 px-3 shadow-xs dark:border-gray-800 dark:bg-gray-dark sm:px-4 lg:px-6">
+      <div className="flex h-16 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-50/90 via-cyan-50/80 to-emerald-50/60 dark:border-[#1C2029] dark:bg-[#08090D] dark:bg-none px-3 shadow-xs sm:px-4 lg:px-6">
         {/* Left: Mobile hamburger + Brand Logo */}
         <div className="flex shrink-0 items-center gap-2.5">
           <button
@@ -787,7 +895,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             }
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-700 hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 md:hidden dark:border-gray-800 dark:bg-gray-800 dark:text-gray-200"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-700 hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 md:hidden dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-gray-200"
           >
             {mobileMenuOpen ? (
               <X className="h-5 w-5" />
@@ -848,15 +956,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   onClick={() => handleModuleClick(mod)}
                   className={`group relative flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-all focus-visible:outline-2 focus-visible:outline-brand-500 lg:px-3 ${
                     isDropdownOpen || (isRouteActive && !openModuleId)
-                      ? "border border-sky-200/90 bg-white/95 text-brand-700 shadow-xs dark:border-sky-800/60 dark:bg-gray-800/95 dark:text-cyan-300 font-semibold"
-                      : "text-gray-600 hover:border hover:border-sky-100 hover:bg-white/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/60 dark:hover:text-white"
+                      ? "border border-sky-200/90 bg-white/95 text-brand-700 shadow-xs dark:border-cyan-500/40 dark:bg-cyan-950/30 dark:text-[#F8FAFC] dark:shadow-[0_0_12px_rgba(6,182,212,0.2)] font-semibold"
+                      : "text-gray-600 hover:border hover:border-sky-100 hover:bg-white/70 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-[#131722] dark:hover:text-white"
                   }`}
                 >
                   <mod.icon
                     className={`h-5 w-5 transition-transform group-hover:scale-110 ${
                       isDropdownOpen || (isRouteActive && !openModuleId)
                         ? "text-brand-600 dark:text-cyan-400"
-                        : "text-slate-600 dark:text-gray-400"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                     aria-hidden="true"
                   />
@@ -900,8 +1008,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                                 onClick={handleLeafClick}
                                 className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                                   isItemActive
-                                    ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
-                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                    ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-blue-600/25 dark:text-cyan-300"
+                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-[#161B26] dark:hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5">
@@ -915,13 +1023,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                                   />
                                   <span>{cat.label}</span>
                                 </div>
-                                <ChevronRight
-                                  className={`h-3.5 w-3.5 ${
-                                    isItemActive
-                                      ? "text-brand-600 dark:text-cyan-400"
-                                      : "text-slate-400/80"
-                                  }`}
-                                />
                               </Link>
                             </div>
                           );
@@ -937,10 +1038,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               onClick={() => handleCategoryClick(cat)}
                               className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-all ${
                                 isCatSelected
-                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
+                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-blue-600/25 dark:text-cyan-300"
                                   : isCatRouteActive
                                     ? "text-brand-800 font-semibold hover:bg-sky-50/80 dark:text-cyan-300"
-                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                    : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-[#161B26] dark:hover:text-white"
                               }`}
                             >
                               <div className="flex items-center gap-2.5">
@@ -983,9 +1084,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                         }`}
                       >
                         {activeSubmenuItems.map((item) => {
-                          const isLeafActive =
-                            pathname === item.path ||
-                            pathname.startsWith(`${item.path}/`);
+                          const cleanPath = item.path.split("#")[0];
+                          const itemHash = item.path.includes("#")
+                            ? "#" + item.path.split("#")[1]
+                            : "";
+                          const isLeafActive = itemHash
+                            ? pathname === cleanPath && currentHash === itemHash
+                            : pathname === cleanPath ||
+                              (cleanPath !== "/" &&
+                                pathname.startsWith(`${cleanPath}/`));
 
                           return (
                             <Link
@@ -994,8 +1101,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               onClick={handleLeafClick}
                               className={`flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
                                 isLeafActive
-                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-brand-500/25 dark:text-cyan-300"
-                                  : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                                  ? "bg-sky-100/90 text-brand-900 font-semibold shadow-2xs dark:bg-blue-600/25 dark:text-cyan-300"
+                                  : "text-slate-700 hover:bg-sky-50/80 hover:text-brand-800 dark:text-gray-300 dark:hover:bg-[#161B26] dark:hover:text-white"
                               }`}
                             >
                               <item.icon
@@ -1038,13 +1145,13 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               aria-label="Search"
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
-              className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/90 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-gray-700 dark:bg-gray-800/80 dark:text-white transition-all"
+              className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/90 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-[#F8FAFC] dark:placeholder:text-gray-500 transition-all"
             />
           </div>
 
           {/* Live IST Clock */}
-          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2.5 py-1 dark:border-cyan-900/40 dark:bg-cyan-950/40 lg:flex">
-            <Clock className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-300" />
+          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2.5 py-1 dark:border-[#1C2029] dark:bg-[#121622] lg:flex">
+            <Clock className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-400" />
             <LiveClock />
           </div>
 
@@ -1059,7 +1166,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                 setNotificationsOpen((prev) => !prev);
                 setProfileOpen(false);
               }}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-gray-300 dark:hover:bg-[#161B26] dark:hover:text-white transition-colors"
             >
               <Bell className="h-4.5 w-4.5" />
               <span
@@ -1072,9 +1179,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               <div
                 role="region"
                 aria-label="Recent notifications"
+                aria-haspopup="false"
                 className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-[22px] p-3 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
-                <div className="flex items-center justify-between border-b border-sky-100/80 pb-2 dark:border-gray-800">
+                <div className="flex items-center justify-between border-b border-sky-100/80 pb-2 dark:border-[#1C2029]">
                   <h4 className="text-xs font-bold text-gray-900 dark:text-white">
                     Notifications
                   </h4>
@@ -1083,8 +1191,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 py-2">
-                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-gray-800/60 transition-colors">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-[#161B26] transition-colors">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950/70 dark:text-cyan-300">
                       <Users className="h-3.5 w-3.5" />
                     </div>
                     <div>
@@ -1096,7 +1204,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-gray-800/60 transition-colors">
+                  <div className="flex items-start gap-2.5 rounded-xl p-2 hover:bg-sky-50/60 dark:hover:bg-[#161B26] transition-colors">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </div>
@@ -1114,6 +1222,21 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             )}
           </div>
 
+          {/* Quick Theme Toggle Button */}
+          <button
+            type="button"
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={() => handleThemeSelect(isDark ? "light" : "dark")}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-slate-600 hover:bg-white hover:text-slate-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-slate-300 dark:hover:bg-[#161B26] dark:hover:text-[#F1F5FC] transition-colors cursor-pointer"
+          >
+            {isDark ? (
+              <Sun className="h-4.5 w-4.5 text-amber-400" />
+            ) : (
+              <Moon className="h-4.5 w-4.5 text-slate-600" />
+            )}
+          </button>
+
           {/* User Profile Dropdown (Glassmorphism) */}
           <div ref={profileRef} className="relative">
             <button
@@ -1124,7 +1247,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                 setProfileOpen((prev) => !prev);
                 setNotificationsOpen(false);
               }}
-              className="flex items-center gap-2 rounded-xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-2 rounded-xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-[#1C2029] dark:bg-[#0D1117] dark:hover:bg-[#161B26] transition-colors"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-linear-to-br from-brand-500 to-brand-cyan text-xs font-bold text-white shadow-xs">
                 {initials}
@@ -1145,7 +1268,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                 role="menu"
                 className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-[22px] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
               >
-                <div className="border-b border-sky-100/80 px-3 py-2 dark:border-gray-800">
+                <div className="border-b border-sky-100/80 px-3 py-2 dark:border-[#1C2029]">
                   <p className="text-xs font-bold text-gray-900 dark:text-white/90">
                     {displayName}
                   </p>
@@ -1153,6 +1276,55 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     {user?.email || "admin@texawave.com"}
                   </p>
                 </div>
+
+                {/* Theme Selector inside Profile Menu */}
+                <div className="flex items-center justify-between border-b border-sky-100/80 px-3 py-2 dark:border-[#1C2029]">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Theme
+                  </span>
+                  <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-[#161B26]">
+                    <button
+                      type="button"
+                      title="Light Mode"
+                      aria-label="Light Mode"
+                      onClick={() => handleThemeSelect("light")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "light"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Sun className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Dark Mode"
+                      aria-label="Dark Mode"
+                      onClick={() => handleThemeSelect("dark")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "dark"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Moon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="System Mode"
+                      aria-label="System Mode"
+                      onClick={() => handleThemeSelect("system")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "system"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Monitor className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-1">
                   <button
                     type="button"

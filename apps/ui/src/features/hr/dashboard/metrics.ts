@@ -6,6 +6,7 @@ import type {
   LeaveRequestRow,
   TicketRow,
 } from "./types";
+import { formatCurrency, formatDate } from "@texawave-erp/core";
 
 /** Calendar date in India Standard Time, `YYYY-MM-DD`. The API counts "today" in IST too. */
 export function istToday(now: Date = new Date()): string {
@@ -193,7 +194,7 @@ export function buildActivityFeed(
     ...expenses.map((e) => ({
       id: `expense-${e.id}`,
       kind: "expense" as const,
-      title: `Expense: ${e.expenseType.replace(/_/g, " ").toLowerCase()} (₹${e.amount.toLocaleString("en-IN")})`,
+      title: `Expense: ${e.expenseType.replace(/_/g, " ").toLowerCase()} (${formatCurrency(e.amount)})`,
       detail: `${e.employee.fullName} · ${e.description || "No description"}`,
       timestamp: Date.parse(e.createdAt),
     })),
@@ -202,10 +203,5 @@ export function buildActivityFeed(
 }
 
 function formatShortDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    timeZone: "UTC",
-  });
+  return formatDate(date);
 }

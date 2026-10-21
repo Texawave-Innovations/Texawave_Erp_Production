@@ -9,6 +9,13 @@ import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { HorizontalNavbar } from "@/components/layout/HorizontalNavbar";
+import { useUserPreferences } from "@/features/settings/preferences/hooks";
+import {
+  applyDensityToDom,
+  applyThemeToDom,
+  getStoredDensity,
+  getStoredTheme,
+} from "@/features/settings/preferences/theme-manager";
 
 /**
  * Client-side route guard ONLY — see Docs/CODING_STANDARDS.md "Frontend
@@ -33,6 +40,30 @@ export default function DashboardLayout({
   // Prime the current user's profile and permissions
   const me = useMe();
   const mustChangePassword = me.data?.mustChangePassword === true;
+
+  // Synchronize user preferences (density & theme) with DOM
+  const prefQuery = useUserPreferences();
+
+  useEffect(() => {
+    // Enforce Main ERP theme immediately on mount and on preference update
+    const userThemePref = prefQuery.data?.preferences?.theme;
+    const storedTheme = getStoredTheme();
+    const effectiveTheme = prefQuery.data?.effective?.theme;
+    const targetTheme = (userThemePref ??
+      storedTheme ??
+      effectiveTheme ??
+      "system") as "light" | "dark" | "system";
+    applyThemeToDom(targetTheme);
+
+    const userDensityPref = prefQuery.data?.preferences?.density;
+    const storedDensity = getStoredDensity();
+    const effectiveDensity = prefQuery.data?.effective?.density;
+    const targetDensity = (userDensityPref ??
+      storedDensity ??
+      effectiveDensity ??
+      "comfortable") as "compact" | "comfortable" | "spacious";
+    applyDensityToDom(targetDensity);
+  }, [prefQuery.data?.effective, prefQuery.data?.preferences]);
 
   // Route newly-invited users to onboarding on first login. Users who have
   // finished onboarding or who were provisioned via seed/admin bypass have
@@ -92,7 +123,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-b from-[#f0f7ff] via-[#f4fbfb] to-[#f8fafc] dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-linear-to-b from-[#f0f7ff] via-[#f4fbfb] to-[#f8fafc] dark:bg-[#08090D] dark:bg-none">
       {/* Full-width horizontal navigation — replaces left sidebar + old header */}
       <HorizontalNavbar onSignOut={() => void handleSignOut()} />
 

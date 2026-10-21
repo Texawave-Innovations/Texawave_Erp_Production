@@ -215,13 +215,13 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-2xl border border-sky-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-dark",
+        "overflow-x-auto rounded-2xl border border-sky-100 bg-white shadow-xs dark:border-[#1C2029] dark:bg-gray-dark",
         className,
       )}
     >
       <table className={cn("w-full text-left text-theme-sm", tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
-        <thead className="border-b border-sky-100/80 bg-linear-to-r from-sky-200/80 via-cyan-100/90 to-emerald-100/80 dark:border-gray-800 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850">
+        <thead className="border-b border-sky-100/80 bg-linear-to-r from-sky-200/80 via-cyan-100/90 to-emerald-100/80 dark:border-[#1C2029] dark:bg-linear-to-r dark:from-[#0A0D14] dark:via-[#0D1117] dark:to-[#0A0D14]">
           <tr>
             {/* Row Selection Header Checkbox */}
             {selectable && (
@@ -236,7 +236,7 @@ export function DataTable<T>({
                   aria-label={selectAllAriaLabel}
                   checked={allSelected}
                   onChange={handleSelectAllChange}
-                  className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-800 transition-colors"
+                  className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-[#161B26] transition-colors"
                 />
               </th>
             )}
@@ -312,7 +312,7 @@ export function DataTable<T>({
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-slate-100 dark:divide-[#1C2029]">
           {totalRowCount === 0 ? (
             <tr>
               <td
@@ -334,8 +334,8 @@ export function DataTable<T>({
                   className={cn(
                     "transition-colors",
                     isRowSelected
-                      ? "bg-blue-50/50 dark:bg-blue-950/20"
-                      : "hover:bg-sky-50/30 dark:hover:bg-gray-800/40",
+                      ? "bg-blue-50/50 dark:bg-blue-950/30"
+                      : "hover:bg-sky-50/30 dark:hover:bg-[#161B26]",
                     onRowClick && "cursor-pointer",
                   )}
                 >
@@ -356,7 +356,7 @@ export function DataTable<T>({
                         onChange={(e) =>
                           onSelectRow?.(rowKey, e.target.checked, row)
                         }
-                        className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-800 transition-colors"
+                        className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-[#161B26] transition-colors"
                       />
                     </td>
                   )}

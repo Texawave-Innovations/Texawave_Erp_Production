@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -86,15 +86,8 @@ function describeStatusError(error: unknown): string {
 function formatTaskDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(
-      dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00Z`,
-    );
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+    const formatted = formatDate(dateStr);
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }
@@ -475,7 +468,7 @@ export function TasksView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Total Requests */}
           <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400">
               <FileText className="h-5 w-5" />
             </div>
             <div>

@@ -350,7 +350,7 @@ export function UsersView() {
                 header: "Name",
                 cell: (u) => (
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-700 text-xs dark:bg-indigo-950 dark:text-indigo-300">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 font-semibold text-cyan-700 text-xs dark:bg-blue-950/70 dark:text-cyan-300">
                       {u.fullName.slice(0, 2).toUpperCase()}
                     </div>
                     <span className="font-semibold text-gray-900 dark:text-white/90">

@@ -19,7 +19,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -381,15 +381,7 @@ function ProfileBody({
                   {e.employeeCode}
                 </span>
                 {p.updatedAt ? (
-                  <>
-                    {" "}
-                    · Last profile update{" "}
-                    {new Date(p.updatedAt).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </>
+                  <> · Last profile update {formatDate(p.updatedAt)}</>
                 ) : null}
               </p>
             </div>

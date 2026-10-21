@@ -12,3 +12,4 @@ export * from "./schemas/new-hire.schema";
 export * from "./schemas/onboarding.schema";
 export * from "./schemas/menu.schema";
 export * from "./schemas/auth.schema";
+export * from "./formatting/index";

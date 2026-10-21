@@ -16,6 +16,7 @@ import {
   type DocumentRecord,
 } from "@/features/onboarding/api";
 import { useMyDocuments } from "@/features/onboarding/hooks";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 
 /**
  * The documents an employee uploaded during onboarding (photo, Aadhaar, PAN,
@@ -28,6 +29,7 @@ import { useMyDocuments } from "@/features/onboarding/hooks";
 export function MyDocumentsView() {
   const query = useMyDocuments();
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
 
   async function handleDownload(row: DocumentRecord) {
@@ -84,7 +86,7 @@ export function MyDocumentsView() {
             { header: "File name", cell: (row) => row.fileName },
             {
               header: "Uploaded",
-              cell: (row) => new Date(row.uploadedAt).toLocaleDateString(),
+              cell: (row) => formatDate(row.uploadedAt),
             },
             {
               header: "",

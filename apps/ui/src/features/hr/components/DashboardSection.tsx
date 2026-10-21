@@ -29,12 +29,12 @@ export function DashboardSection({
   return (
     <section
       aria-labelledby={headingId}
-      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-gray-800 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-shadow duration-200 hover:shadow-theme-sm dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 dark:border-[#1C2029]">
         <div className="flex items-center gap-2.5">
           {Icon && (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:border dark:border-[#1C2029] dark:bg-[#161B26] dark:text-[#A78BFA]">
               <Icon className="h-4 w-4" aria-hidden="true" />
             </div>
           )}

@@ -89,9 +89,9 @@ export function Tabs<T extends string>({
               onKeyDown={(e) => onKeyDown(e, index)}
               className={cn(
                 "flex-1 rounded-lg px-4 py-2 text-theme-sm font-medium transition-colors sm:flex-none",
-                "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/20",
+                "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-cyan-500/30",
                 selected
-                  ? "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white shadow-theme-xs"
+                  ? "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 text-white shadow-theme-xs dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500 dark:text-white dark:shadow-[0_0_12px_rgba(6,182,212,0.25)] font-semibold"
                   : "text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800",
               )}
             >

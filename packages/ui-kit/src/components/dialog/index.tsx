@@ -73,16 +73,16 @@ export function Dialog({
       className={cn(
         "[&:not([open])]:hidden",
         "fixed inset-0 m-auto w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-brand-500/35 bg-white p-0 shadow-dialog-glow backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm",
-        "dark:border-brand-400/40 dark:bg-gray-dark",
+        "dark:border-[#1C2029] dark:bg-gray-dark",
         SIZE_CLASSES[size],
         className,
       )}
     >
       <div className="flex flex-col max-h-[calc(100dvh-2rem)] h-full">
-        <div className="h-1 w-full bg-linear-to-r from-brand-400 via-brand-500 to-brand-600 shrink-0" />
-        <div className="shrink-0 flex items-center justify-between border-b border-gray-100 px-5 sm:px-6 py-4 dark:border-gray-800">
+        <div className="h-1 w-full bg-linear-to-r from-blue-600 via-brand-500 to-cyan-400 shrink-0" />
+        <div className="shrink-0 flex items-center justify-between border-b border-gray-100 px-5 sm:px-6 py-4 dark:border-[#1C2029]">
           <div className="flex items-center gap-2.5">
-            <span className="h-2 w-2 rounded-full bg-brand-500 ring-4 ring-brand-500/20 dark:bg-brand-400 dark:ring-brand-400/20" />
+            <span className="h-2 w-2 rounded-full bg-brand-500 ring-4 ring-brand-500/20 dark:bg-cyan-400 dark:ring-cyan-400/25" />
             <h2
               id="dialog-title"
               className="text-theme-sm font-semibold tracking-tight text-gray-900 dark:text-white/90"
@@ -94,7 +94,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-[#161B26] dark:hover:text-gray-200"
           >
             <svg
               className="h-4 w-4"

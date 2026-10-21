@@ -18,6 +18,7 @@ import {
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { Plus } from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
 import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
 import { useCreateTag, useDeleteTag, useTags } from "../hooks";

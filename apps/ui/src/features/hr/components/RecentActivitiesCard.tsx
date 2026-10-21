@@ -10,7 +10,7 @@ export interface ActivityItem {
   description: string;
   timeAgo: string;
   icon: ComponentType<{ className?: string }>;
-  tone: "blue" | "emerald" | "purple" | "cyan";
+  tone: "blue" | "emerald" | "cyan";
 }
 
 const DEFAULT_ACTIVITIES: ActivityItem[] = [
@@ -36,7 +36,7 @@ const DEFAULT_ACTIVITIES: ActivityItem[] = [
     description: "Today's attendance has been synchronized",
     timeAgo: "1 hour ago",
     icon: Calendar,
-    tone: "purple",
+    tone: "cyan",
   },
   {
     id: "act-4",
@@ -49,12 +49,10 @@ const DEFAULT_ACTIVITIES: ActivityItem[] = [
 ];
 
 const TONE_BADGE: Record<string, string> = {
-  blue: "bg-blue-100/80 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+  blue: "bg-blue-100/80 text-blue-600 dark:bg-blue-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   emerald:
-    "bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
-  purple:
-    "bg-purple-100/80 text-purple-600 dark:bg-purple-950 dark:text-purple-400",
-  cyan: "bg-cyan-100/80 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400",
+    "bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
+  cyan: "bg-cyan-100/80 text-cyan-600 dark:bg-blue-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
 };
 
 export interface RecentActivitiesCardProps {
@@ -68,7 +66,7 @@ export function RecentActivitiesCard({
 }: RecentActivitiesCardProps) {
   return (
     <div
-      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-gray-800 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-slate-100/90 bg-white p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -78,7 +76,7 @@ export function RecentActivitiesCard({
 
         <Link
           href="/hr/employees"
-          className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline dark:text-cyan-400"
+          className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
         >
           View All
         </Link>
@@ -95,7 +93,7 @@ export function RecentActivitiesCard({
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100 dark:divide-gray-800/80">
+        <div className="divide-y divide-slate-100 dark:divide-[#1C2029]">
           {activities.map((item) => {
             const Icon = item.icon;
             const badgeClass = TONE_BADGE[item.tone] || TONE_BADGE.blue;

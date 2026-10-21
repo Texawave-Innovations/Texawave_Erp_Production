@@ -1,4 +1,9 @@
 import type { EffectiveStatus } from "./types";
+import {
+  formatTime as coreFormatTime,
+  type FormatTimeOptions,
+  type TimeFormat,
+} from "@texawave-erp/core";
 
 export const STATUS_LABELS: Record<EffectiveStatus, string> = {
   PRESENT: "Present",
@@ -35,9 +40,11 @@ export function formatMinutes(minutes: number): string {
   return `${h}h ${pad(m)}m`;
 }
 
-export function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+export function formatTime(
+  iso: string,
+  formatOrOptions?: TimeFormat | FormatTimeOptions,
+  timeZone?: string,
+): string {
+  if (!iso) return "—";
+  return coreFormatTime(iso, formatOrOptions, timeZone);
 }

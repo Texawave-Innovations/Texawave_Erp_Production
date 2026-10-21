@@ -6,8 +6,6 @@ import {
   UserPlus,
   Users,
   Download,
-  Search,
-  X,
   SlidersHorizontal,
   ChevronDown,
   ExternalLink,
@@ -27,7 +25,6 @@ import {
   EmptyState,
   ErrorState,
   FilterChips,
-  Input,
   Pagination,
   SearchInput,
   Select,
@@ -36,6 +33,7 @@ import {
   type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
 import { useDebouncedValue, useEmployees, useLookup } from "../hooks";
 import {
@@ -111,6 +109,7 @@ export function EmployeesView() {
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -670,7 +669,7 @@ export function EmployeesView() {
                   header: "Joined",
                   cell: (e) => (
                     <span className="font-mono text-[12px] text-gray-500 dark:text-gray-400">
-                      {e.dateOfJoining}
+                      {formatDate(e.dateOfJoining)}
                     </span>
                   ),
                 },

@@ -78,7 +78,7 @@ export function DonutChart({
           r={radius}
           fill="none"
           strokeWidth="14"
-          className="stroke-gray-100 dark:stroke-gray-800"
+          className="stroke-gray-100 dark:stroke-[#1C2029]"
         />
 
         {/* Dynamic Segments */}

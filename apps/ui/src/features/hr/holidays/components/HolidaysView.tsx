@@ -12,7 +12,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -53,12 +53,7 @@ function formatHolidayDate(dateStr: string) {
   if (!dateStr) return { formatted: "", weekday: "" };
   const date = new Date(`${dateStr}T12:00:00Z`);
   if (isNaN(date.getTime())) return { formatted: dateStr, weekday: "" };
-  const formatted = date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const formatted = formatDate(date) || dateStr;
   const weekday = date.toLocaleDateString("en-US", {
     weekday: "long",
     timeZone: "UTC",

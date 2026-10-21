@@ -1,3 +1,4 @@
+import { formatCurrency } from "@texawave-erp/core";
 import { days, periodLabel } from "./format";
 import type { NamedRef, PayrollEntry, PayrollRun } from "./types";
 
@@ -91,12 +92,9 @@ export function totalsOf(rows: readonly SalaryReportRow[]): SalaryReportTotals {
   return t;
 }
 
-/** Paise → "₹ 1,23,456.00". */
+/** Paise → formatted currency. */
 export function rupees(p: number): string {
-  return `₹ ${(p / 100).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrency(p / 100);
 }
 
 /** Which run a report should read: the approved one, else the latest

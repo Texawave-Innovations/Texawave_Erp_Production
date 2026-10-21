@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatCurrency, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -70,12 +70,7 @@ type DecisionState = {
 
 function formatIndianCurrency(amount: number): string {
   try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrency(amount);
   } catch {
     return `₹ ${amount.toFixed(2)}`;
   }
@@ -84,15 +79,8 @@ function formatIndianCurrency(amount: number): string {
 function formatExpenseDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(
-      dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00Z`,
-    );
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+    const formatted = formatDate(dateStr);
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }
@@ -127,14 +115,14 @@ export function ExpenseApprovalsView() {
 
   // Load employees for code lookup
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
-  const employeeOptions = employeesQuery.data?.data ?? [];
   const employeeCodeMap = useMemo(() => {
     const map = new Map<number, string>();
-    for (const emp of employeeOptions) {
+    const options = employeesQuery.data?.data ?? [];
+    for (const emp of options) {
       map.set(emp.id, emp.employeeCode);
     }
     return map;
-  }, [employeeOptions]);
+  }, [employeesQuery.data?.data]);
 
   // Overview queries for accurate metric card calculation
   const myOverview = useMyExpenseClaims({ page: 1, limit: 100 });
@@ -157,29 +145,24 @@ export function ExpenseApprovalsView() {
       ? "team"
       : requestedTab;
 
-  const myClaimsAll = myOverview.data?.data ?? [];
-  const teamClaimsAll = teamOverview.data?.data ?? [];
-
   // Summary Metrics calculations
   const myMetrics = useMemo(() => {
-    const total = myOverview.data?.meta.total ?? myClaimsAll.length;
-    const approved = myClaimsAll.filter((c) => c.status === "APPROVED").length;
-    const pending = myClaimsAll.filter((c) => c.status === "PENDING").length;
-    const rejected = myClaimsAll.filter((c) => c.status === "REJECTED").length;
+    const claims = myOverview.data?.data ?? [];
+    const total = myOverview.data?.meta?.total ?? claims.length;
+    const approved = claims.filter((c) => c.status === "APPROVED").length;
+    const pending = claims.filter((c) => c.status === "PENDING").length;
+    const rejected = claims.filter((c) => c.status === "REJECTED").length;
     return { total, approved, pending, rejected };
-  }, [myOverview.data?.meta.total, myClaimsAll]);
+  }, [myOverview.data]);
 
   const teamMetrics = useMemo(() => {
-    const total = teamOverview.data?.meta.total ?? teamClaimsAll.length;
-    const pending = teamClaimsAll.filter((c) => c.status === "PENDING").length;
-    const approved = teamClaimsAll.filter(
-      (c) => c.status === "APPROVED",
-    ).length;
-    const rejected = teamClaimsAll.filter(
-      (c) => c.status === "REJECTED",
-    ).length;
+    const claims = teamOverview.data?.data ?? [];
+    const total = teamOverview.data?.meta?.total ?? claims.length;
+    const pending = claims.filter((c) => c.status === "PENDING").length;
+    const approved = claims.filter((c) => c.status === "APPROVED").length;
+    const rejected = claims.filter((c) => c.status === "REJECTED").length;
     return { total, pending, approved, rejected };
-  }, [teamOverview.data?.meta.total, teamClaimsAll]);
+  }, [teamOverview.data]);
 
   // Query for current tab
   const activeQuery = useMemo(
@@ -376,7 +359,7 @@ export function ExpenseApprovalsView() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Total Claims */}
           <div className="flex items-center gap-3.5 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-dark">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400">
               <Receipt className="h-5 w-5" />
             </div>
             <div>
