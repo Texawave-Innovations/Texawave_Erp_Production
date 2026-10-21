@@ -14,6 +14,7 @@ import type {
   UpdateDefectDto,
   UpdateTemplateDto,
 } from "./dto/quality.dto.js";
+import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 
 const text = (v: string | undefined, cur: string | null) =>
   v === undefined ? cur : v.trim() || null;
@@ -289,6 +290,70 @@ export class QualityMastersRepository {
         after: { name: after.name, active: after.active },
       });
       return after;
+    });
+  }
+
+  /** A defect code still referenced by an inspection line, a checkpoint
+   * result or a quarantine record is history and cannot be deleted. */
+  @OrgScoped()
+  async removeDefect(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmQualityDefect.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      const code = row.defectCode;
+      const [lines, quarantined, checkpoints] = await Promise.all([
+        tx.scmQualityInspectionItem.count({ where: { defectCode: code } }),
+        tx.scmQuarantineRecord.count({
+          where: { defectCode: code, organizationId: scope.organizationId },
+        }),
+        tx.$queryRaw<
+          { n: bigint }[]
+        >`SELECT COUNT(*)::bigint AS n FROM scm.quality_inspection_items WHERE checkpoint_results @> ${JSON.stringify([{ defectCode: code }])}::jsonb`,
+      ]);
+      if (lines > 0 || quarantined > 0 || Number(checkpoints[0]?.n ?? 0) > 0) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this defect code is referenced by existing inspection or quarantine records.",
+          "DEFECT_IN_USE",
+        );
+      }
+      await tx.scmQualityDefect.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_quality_defect",
+        entityId: id,
+        action: "delete",
+        before: { defectCode: code, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** A template an inspection was raised from cannot be deleted. */
+  @OrgScoped()
+  async removeTemplate(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmQualityTemplate.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      const used = await tx.scmQualityInspection.count({
+        where: { templateId: id, organizationId: scope.organizationId },
+      });
+      if (used > 0) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this template has been used by one or more inspections.",
+          "TEMPLATE_IN_USE",
+        );
+      }
+      await tx.scmQualityTemplate.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_quality_template",
+        entityId: id,
+        action: "delete",
+        before: { templateCode: row.templateCode, by: actorId },
+      });
+      return true;
     });
   }
 }

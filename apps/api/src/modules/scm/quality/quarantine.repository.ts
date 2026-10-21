@@ -2,7 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { InvalidStateTransitionException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  InvalidStateTransitionException,
+} from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
@@ -360,6 +363,31 @@ export class QuarantineRepository {
         reason: notes,
       });
       return after;
+    });
+  }
+
+  /** A released/rejected record has already posted a stock ledger entry. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmQuarantineRecord.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "RELEASED" || row.status === "REJECTED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this quarantine record has already posted a stock ledger entry.",
+          "QUARANTINE_RESOLVED",
+        );
+      }
+      await tx.scmQuarantineRecord.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_quarantine_record",
+        entityId: id,
+        action: "delete",
+        before: { status: row.status, by: actorId },
+      });
+      return true;
     });
   }
 }

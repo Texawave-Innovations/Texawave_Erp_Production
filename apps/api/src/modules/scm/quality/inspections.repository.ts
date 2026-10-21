@@ -1144,4 +1144,33 @@ export class InspectionsRepository {
       return after;
     });
   }
+
+  /** A COMPLETED inspection has already posted ledger/quarantine entries. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmQualityInspection.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "COMPLETED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this inspection has already posted ledger/quarantine entries.",
+          "INSPECTION_COMPLETED",
+        );
+      }
+      await tx.scmQualityInspection.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_quality_inspection",
+        entityId: id,
+        action: "delete",
+        before: {
+          inspectionNumber: row.inspectionNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
+    });
+  }
 }

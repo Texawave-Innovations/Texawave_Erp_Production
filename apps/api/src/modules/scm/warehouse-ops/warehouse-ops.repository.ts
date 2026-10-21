@@ -22,6 +22,7 @@ import {
   PUTAWAY_TRANSITIONS,
   statusesLeadingTo,
 } from "./warehouse-ops.helpers.js";
+import { StockPostingService } from "../inventory/stock-posting.service.js";
 
 const num = (d: Prisma.Decimal | number | null | undefined) =>
   d === null || d === undefined ? 0 : Number(d);
@@ -44,6 +45,7 @@ export class WarehouseOpsRepository {
     private readonly audit: AuditWriter,
     private readonly numbering: ScmNumberingService,
     private readonly locationStock: LocationStockService,
+    private readonly stock: StockPostingService,
   ) {}
 
   // ---- put-away ----------------------------------------------------------------
@@ -786,5 +788,212 @@ export class WarehouseOpsRepository {
       activeLocations: locations,
       occupiedLocations: occupied.length,
     };
+  }
+
+  /** A COMPLETED put-away has already assigned stock to a bin. */
+  @OrgScoped()
+  async removePutaway(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmPutaway.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "COMPLETED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: stock has already been assigned to a bin location for this putaway.",
+          "PUTAWAY_COMPLETED",
+        );
+      }
+      await tx.scmPutaway.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_putaway",
+        entityId: id,
+        action: "delete",
+        before: {
+          putawayNumber: row.putawayNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
+    });
+  }
+
+  /** A COMPLETED movement has already moved stock between bins (the bin
+   * balances are materialized), so only unfinished movements are deleted. */
+  @OrgScoped()
+  async removeMovement(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmWarehouseMovement.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "COMPLETED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: stock has already been moved between bin locations by this movement.",
+          "MOVEMENT_COMPLETED",
+        );
+      }
+      await tx.scmWarehouseMovement.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_warehouse_movement",
+        entityId: id,
+        action: "delete",
+        before: {
+          movementNumber: row.movementNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
+    });
+  }
+
+  /** Stock by location: every bin's non-zero stock, plus whatever on-hand a
+   * warehouse holds that was never routed into a bin (opening balances, GRNs
+   * awaiting put-away) as an "Unassigned" row — so the total always
+   * reconciles with the authoritative stock ledger balance. */
+  @OrgScoped()
+  async stockView(
+    scope: OrgScope,
+    f: { warehouseId?: number | undefined; q?: string | undefined },
+  ) {
+    const org = scope.organizationId;
+    const wh = f.warehouseId ? { warehouseId: f.warehouseId } : {};
+    const [bins, balances] = await Promise.all([
+      this.prisma.scmLocationStock.findMany({
+        where: { organizationId: org, quantity: { gt: 0 }, ...wh },
+        include: {
+          product: { select: { id: true, productCode: true, name: true } },
+          warehouse: { select: { id: true, name: true, code: true } },
+          location: {
+            select: {
+              id: true,
+              binCode: true,
+              locationCode: true,
+              locationName: true,
+              locationType: true,
+            },
+          },
+        },
+      }),
+      this.prisma.scmStockBalance.findMany({
+        where: { organizationId: org, onHand: { gt: 0 }, ...wh },
+        include: {
+          product: { select: { id: true, productCode: true, name: true } },
+          warehouse: { select: { id: true, name: true, code: true } },
+        },
+      }),
+    ]);
+    const assigned = new Map<string, number>();
+    const rows = bins.map((b) => {
+      const key = `${b.productId}-${b.warehouseId}`;
+      assigned.set(key, (assigned.get(key) ?? 0) + num(b.quantity));
+      return {
+        warehouseId: b.warehouseId,
+        warehouseName: b.warehouse.name,
+        warehouseCode: b.warehouse.code,
+        locationId: b.locationId as number | null,
+        locationCode: b.location.locationCode ?? b.location.binCode,
+        locationName: b.location.locationName,
+        productId: b.productId,
+        productCode: b.product.productCode,
+        productName: b.product.name,
+        quantity: num(b.quantity),
+      };
+    });
+    for (const bal of balances) {
+      const residual =
+        num(bal.onHand) -
+        (assigned.get(`${bal.productId}-${bal.warehouseId}`) ?? 0);
+      if (residual > 0) {
+        rows.push({
+          warehouseId: bal.warehouseId,
+          warehouseName: bal.warehouse.name,
+          warehouseCode: bal.warehouse.code,
+          locationId: null,
+          locationCode: "Unassigned",
+          locationName: null,
+          productId: bal.productId,
+          productCode: bal.product.productCode,
+          productName: bal.product.name,
+          quantity: residual,
+        });
+      }
+    }
+    const q = f.q?.trim().toLowerCase();
+    return rows
+      .filter(
+        (r) =>
+          !q ||
+          r.productCode.toLowerCase().includes(q) ||
+          r.productName.toLowerCase().includes(q) ||
+          r.locationCode.toLowerCase().includes(q),
+      )
+      .sort(
+        (a, b) =>
+          a.warehouseName.localeCompare(b.warehouseName) ||
+          a.locationCode.localeCompare(b.locationCode, undefined, {
+            numeric: true,
+          }) ||
+          a.productCode.localeCompare(b.productCode),
+      );
+  }
+
+  /** Writes stock off: a real ADJUSTMENT_OUT for that exact quantity (so the
+   * product's on-hand drops everywhere at once, guarded against taking
+   * reserved stock), and the bin's own balance is reduced with it. */
+  @OrgScoped()
+  async stockWriteOff(
+    scope: OrgScope,
+    dto: {
+      productId: number;
+      warehouseId: number;
+      locationId?: number | undefined;
+      quantity: number;
+      notes?: string | undefined;
+    },
+    actorId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const org = scope.organizationId;
+      const product = await tx.scmProduct.findFirst({
+        where: { id: dto.productId, organizationId: org },
+        select: { id: true, productCode: true },
+      });
+      if (!product) throw rule("Product not found.", "WH_SOURCE");
+      if (dto.locationId) {
+        await this.locationStock.adjust(
+          tx,
+          org,
+          dto.productId,
+          dto.warehouseId,
+          dto.locationId,
+          -dto.quantity,
+        );
+      }
+      const posted = await this.stock.post(tx, {
+        organizationId: org,
+        productId: dto.productId,
+        warehouseId: dto.warehouseId,
+        locationId: dto.locationId ?? null,
+        transactionType: "ADJUSTMENT_OUT",
+        referenceType: "WAREHOUSE_STOCK_WRITE_OFF",
+        quantityOut: dto.quantity,
+        notes: dto.notes?.trim() || "Written off from Warehouse Stock",
+        createdBy: actorId,
+      });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_ledger",
+        entityId: posted.id,
+        action: "write_off",
+        after: {
+          product: product.productCode,
+          quantity: dto.quantity,
+          locationId: dto.locationId ?? null,
+        },
+      });
+      return { ledgerEntryId: posted.id };
+    });
   }
 }

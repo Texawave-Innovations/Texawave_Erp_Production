@@ -42,6 +42,21 @@ export class BarcodeController {
   resolve(@Body() dto: ResolveCodeDto) {
     return this.svc.resolveCode(dto.code);
   }
+
+  /** Resolves a scanned/typed code (or one of this app's QR payloads) into a
+   * full result card: key facts, a view link, follow-up actions, and every
+   * alternative when the same code matches more than one record. */
+  @Post("scan")
+  @RequirePermission("scm.overview.read")
+  scan(@Body() dto: ResolveCodeDto) {
+    return this.svc.scan(dto.code);
+  }
+
+  @Get("products")
+  @RequirePermission("scm.overview.read")
+  products(@Query("q") q?: string) {
+    return this.svc.barcodeProducts(q?.trim() || undefined);
+  }
 }
 
 @ApiTags("scm-overview")

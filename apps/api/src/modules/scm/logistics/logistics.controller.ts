@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -61,6 +63,13 @@ export class CarriersController {
   @RequirePermission("scm.logistics.write")
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateCarrierDto) {
     return this.svc.updateCarrier(id, dto);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.logistics.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeCarrier(id);
   }
 }
 
@@ -168,5 +177,12 @@ export class ShipmentsController {
   @RequirePermission("scm.logistics.write")
   cancel(@Param("id", ParseIntPipe) id: number, @Body() dto: ReasonDto) {
     return this.svc.cancel(id, dto.reason);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.logistics.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeShipment(id);
   }
 }

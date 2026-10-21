@@ -158,4 +158,13 @@ export class SuppliersService {
     }
     return error;
   }
+
+  async remove(id: number) {
+    const ok = await this.repository.remove(
+      this.tenantContext.getOrgScope(),
+      id,
+      this.tenantContext.getUserId(),
+    );
+    if (!ok) throw new ResourceNotFoundException("Supplier", id);
+  }
 }
