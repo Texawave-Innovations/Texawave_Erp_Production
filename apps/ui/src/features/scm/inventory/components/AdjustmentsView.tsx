@@ -13,12 +13,14 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useAdjustmentDecision,
   useAdjustments,
   useCreateAdjustment,
+  useDeleteAdjustment,
 } from "../hooks";
 
 /** Legacy `ScmAdjustments`: manual stock corrections. Nothing moves until an
@@ -32,6 +34,8 @@ export function AdjustmentsView() {
   const canWrite = usePermission("scm.inventory.write");
   const canApprove = usePermission("scm.inventory.approve");
   const create = useCreateAdjustment();
+  const remove = useDeleteAdjustment();
+  const [deleting, setDeleting] = useState<ScmAdjustment | null>(null);
   const decide = useAdjustmentDecision();
 
   const query = useAdjustments({
@@ -150,28 +154,49 @@ export function AdjustmentsView() {
           header: "Actions",
           headerClassName: "text-right",
           className: "text-right",
-          cell: (a) =>
-            a.status === "PENDING" && canApprove ? (
-              <div className="flex justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void run(a, "approve")}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void run(a, "reject")}
-                >
-                  Reject
-                </Button>
-              </div>
-            ) : null,
+          cell: (a) => (
+            <div className="flex justify-end gap-1">
+              {a.status === "PENDING" && canApprove ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void run(a, "approve")}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void run(a, "reject")}
+                  >
+                    Reject
+                  </Button>
+                </>
+              ) : null}
+              {canWrite ? (
+                <ScmDeleteButton
+                  label="Delete adjustment"
+                  onClick={() => setDeleting(a)}
+                />
+              ) : null}
+            </div>
+          ),
         },
       ]}
     >
+      <ScmDeleteDialog<ScmAdjustment>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete adjustment?"
+        describe={(a) =>
+          `Permanently delete adjustment ${a.adjustmentNumber}? This cannot be undone. An approved adjustment has already posted to the ledger and cannot be deleted.`
+        }
+        confirmText="Delete adjustment"
+        run={(a) => remove.mutateAsync(a.id)}
+        successMessage="Adjustment deleted"
+        errorFallback="Failed to delete adjustment"
+      />
       <ScmFormDialog
         open={open}
         onClose={() => setOpen(false)}
