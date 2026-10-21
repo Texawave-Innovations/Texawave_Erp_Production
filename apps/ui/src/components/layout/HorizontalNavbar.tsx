@@ -86,6 +86,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
 import {
+  SCM_CLIENT_DEMO,
+  SCM_DEMO_MENU_CODES,
+} from "@/features/scm/shared/demo-mode";
+import {
   useNotifications,
   useUnreadNotificationCount,
   useMarkNotificationRead,
@@ -738,7 +742,7 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-requisitions",
-        label: "Purchase Requisitions",
+        label: "Material Requisitions",
         path: "/scm/procurement/requisitions",
         icon: FileText,
         icon3d: "documents",
@@ -916,6 +920,14 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
         menuCode: "scm-reports-inventory",
       },
       {
+        id: "scm-reports-inventory-warehouse",
+        label: "Inventory & Warehouse",
+        path: "/scm/reports/inventory-warehouse",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "scm-reports-inventory-warehouse",
+      },
+      {
         id: "scm-reports-warehouse",
         label: "Warehouse",
         path: "/scm/reports/warehouse",
@@ -990,11 +1002,19 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-movements",
-        label: "Internal Movements",
+        label: "Stock Movements",
         path: "/scm/warehouse/movements",
         icon: ArrowLeftRight,
         icon3d: "overview",
         menuCode: "scm-movements",
+      },
+      {
+        id: "scm-warehouse-stock",
+        label: "Stock View",
+        path: "/scm/warehouse/stock",
+        icon: Table2,
+        icon3d: "overview",
+        menuCode: "scm-warehouse-stock",
       },
       {
         id: "scm-warehouse-activity",
@@ -1296,7 +1316,7 @@ const scmLink = (path: string): NavCategory[] =>
  * Returns / Quality / Reports / Advanced SCM groups. Built from the page
  * list above so every entry keeps its menu-catalogue code (per-user RBAC).
  */
-export const SCM_CATEGORIES: NavCategory[] = [
+const SCM_CATEGORIES_FULL: NavCategory[] = [
   ...scmLink("/scm/overview"),
   ...scmLink("/scm/suppliers"),
   ...scmLink("/scm/barcode"),
@@ -1362,6 +1382,7 @@ export const SCM_CATEGORIES: NavCategory[] = [
   scmGroup("scm-reports-group", "Reports", "Reports", [
     ["/scm/reports", "Overview"],
     ["/scm/reports/procurement"],
+    ["/scm/reports/inventory-warehouse"],
     ["/scm/reports/inventory"],
     ["/scm/reports/warehouse"],
     ["/scm/reports/fulfillment"],
@@ -1375,6 +1396,24 @@ export const SCM_CATEGORIES: NavCategory[] = [
     ["/scm/assistant"],
   ]),
 ];
+
+/** In client-demo mode (see `features/scm/shared/demo-mode.ts`), the SCM
+ * navigation is narrowed to `SCM_DEMO_MENU_CODES` — a leaf not in that set is
+ * hidden (never removed: its route still resolves), and a group left with no
+ * kept leaf disappears entirely. Full SCM (the default) is unfiltered. */
+export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
+  ? SCM_CATEGORIES_FULL.flatMap((cat) => {
+      if (!cat.children) {
+        return cat.menuCode && SCM_DEMO_MENU_CODES.has(cat.menuCode)
+          ? [cat]
+          : [];
+      }
+      const children = cat.children.filter(
+        (child) => child.menuCode && SCM_DEMO_MENU_CODES.has(child.menuCode),
+      );
+      return children.length > 0 ? [{ ...cat, children }] : [];
+    })
+  : SCM_CATEGORIES_FULL;
 
 const ERP_MODULES: ErpModuleConfig[] = [
   {

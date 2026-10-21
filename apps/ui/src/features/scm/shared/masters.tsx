@@ -39,6 +39,29 @@ export function useWarehouseOptions() {
   );
 }
 
+/** The client-demo view (see `demo-mode.ts`) has no warehouse concept —
+ * stock lives in storage locations of one implicit warehouse. Picks the
+ * active warehouse with the most locations (so existing bins stay
+ * selectable), else the oldest active one, else the oldest of any status.
+ * Returns `""` while warehouses are still loading or none exist. */
+export function useDefaultWarehouseId(): string {
+  const warehouses = useWarehouseOptions();
+  const locations = useLocationOptions();
+  const list = warehouses.data ?? [];
+  if (list.length === 0) return "";
+  const active = list.filter((w) => w.status === "Active");
+  const pool = (active.length ? active : list)
+    .slice()
+    .sort((a, b) => a.id - b.id);
+  const count = (id: number) =>
+    (locations.data ?? []).filter((l) => l.warehouseId === id).length;
+  const best = pool.reduce<ScmWarehouse | undefined>(
+    (acc, w) => (!acc || count(w.id) > count(acc.id) ? w : acc),
+    undefined,
+  );
+  return best ? String(best.id) : "";
+}
+
 export function useLocationOptions(warehouseId?: number | null) {
   return useScmData<ScmLocation[]>(
     "locations",
