@@ -32,3 +32,5 @@ export * from "./components/page-header/index";
 export * from "./components/table-toolbar/index";
 export * from "./components/icons-3d/index";
 export * from "./components/segmented-control/index";
+export * from "./components/dropdown-menu/index";
+export * from "./components/dropdown-menu/demo";

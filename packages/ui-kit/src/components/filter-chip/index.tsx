@@ -18,6 +18,7 @@ export interface FilterChipProps {
   onRemove: () => void;
   disabled?: boolean | undefined;
   icon?: ReactNode | undefined;
+  size?: "sm" | "md" | undefined;
   className?: string | undefined;
 }
 
@@ -26,11 +27,12 @@ export interface FilterChipsProps {
   onClearAll?: () => void | undefined;
   clearAllLabel?: string | undefined;
   activeFiltersLabel?: string | undefined;
+  size?: "sm" | "md" | undefined;
   className?: string | undefined;
 }
 
 function CloseIcon({
-  className = "h-3 w-3",
+  className = "h-3.5 w-3.5",
 }: {
   className?: string | undefined;
 }) {
@@ -61,36 +63,45 @@ export function FilterChip({
   onRemove,
   disabled = false,
   icon,
+  size = "md",
   className,
 }: FilterChipProps) {
+  const isSm = size === "sm";
+
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/80 px-2.5 py-1 text-[11px] font-semibold text-gray-700 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-300 transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border border-sky-100/90 bg-sky-50/80 font-medium text-slate-800 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-200 transition-all shadow-2xs hover:border-sky-200 dark:hover:border-slate-700",
+        isSm ? "px-2.5 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
         disabled && "opacity-60 cursor-not-allowed",
         className,
       )}
     >
       {icon && (
-        <span className="flex h-3 w-3 shrink-0 items-center justify-center text-gray-400 dark:text-gray-500">
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center text-slate-400 dark:text-slate-500",
+            isSm ? "h-3 w-3" : "h-3.5 w-3.5",
+          )}
+        >
           {icon}
         </span>
       )}
-      <span className="text-gray-400 dark:text-gray-500 font-normal">
+      <span className="text-slate-500 dark:text-slate-400 font-normal">
         {label}:
       </span>
-      <span className="text-gray-900 dark:text-white font-bold">{value}</span>
+      <span className="text-slate-900 dark:text-white font-bold">{value}</span>
       <button
         type="button"
         disabled={disabled}
         onClick={onRemove}
         aria-label={`Remove filter for ${label}: ${value}`}
         className={cn(
-          "ml-0.5 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-brand-500",
+          "ml-0.5 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-800 dark:hover:bg-slate-700 dark:hover:text-white transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-brand-500",
           disabled && "pointer-events-none opacity-50",
         )}
       >
-        <CloseIcon className="h-3 w-3" />
+        <CloseIcon className={isSm ? "h-3 w-3" : "h-3.5 w-3.5"} />
       </button>
     </span>
   );
@@ -105,13 +116,20 @@ export function FilterChips({
   onClearAll,
   clearAllLabel = "Clear all",
   activeFiltersLabel = "Active filters:",
+  size = "md",
   className,
 }: FilterChipsProps) {
   if (chips.length === 0) return null;
+  const isSm = size === "sm";
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mr-0.5">
+      <span
+        className={cn(
+          "font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-0.5",
+          isSm ? "text-[10px]" : "text-xs",
+        )}
+      >
         {activeFiltersLabel}
       </span>
 
@@ -123,6 +141,7 @@ export function FilterChips({
           onRemove={chip.onRemove}
           disabled={chip.disabled}
           icon={chip.icon}
+          size={size}
         />
       ))}
 
@@ -130,9 +149,13 @@ export function FilterChips({
         <button
           type="button"
           onClick={onClearAll}
-          className="rounded-md px-2 py-0.5 text-[11px] font-bold text-brand-700 hover:text-brand-800 hover:underline dark:text-brand-400 dark:hover:text-brand-300 transition-colors focus-visible:outline-2 focus-visible:outline-brand-500"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border border-rose-200/90 bg-rose-50/90 font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-300 dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/70 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-rose-500 shadow-2xs",
+            isSm ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs",
+          )}
         >
-          {clearAllLabel}
+          <CloseIcon className={isSm ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          <span>{clearAllLabel}</span>
         </button>
       )}
     </div>

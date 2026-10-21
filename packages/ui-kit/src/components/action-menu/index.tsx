@@ -126,6 +126,64 @@ const pointOnCircle = (i: number, n: number, r: number, cx = 0, cy = 0) => {
   return { x, y };
 };
 
+/**
+ * Computes tooltip position radially outward from the center (0, 0),
+ * while intelligently checking viewport screen boundaries (screenX, screenY)
+ * so descriptions never overflow beyond the window margins.
+ */
+function getTooltipPlacement(
+  x: number,
+  y: number,
+  screenX?: number,
+  screenY?: number,
+): string {
+  const winWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const winHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+
+  const itemX = screenX ?? 0;
+  const itemY = screenY ?? 0;
+
+  const isNearRightEdge = itemX > winWidth - 140;
+  const isNearLeftEdge = itemX < 140;
+  const isNearTopEdge = itemY < 70;
+  const isNearBottomEdge = itemY > winHeight - 70;
+
+  // If item is near the right boundary of the viewport, force tooltip inward/leftward
+  if (isNearRightEdge) {
+    if (Math.abs(y) > Math.abs(x) * 1.5) {
+      return y <= 0 ? "bottom-full mb-2 right-0" : "top-full mt-2 right-0";
+    }
+    return "right-full mr-2 top-1/2 -translate-y-1/2";
+  }
+
+  // If item is near the left boundary of the viewport, force tooltip to the right
+  if (isNearLeftEdge) {
+    if (Math.abs(y) > Math.abs(x) * 1.5) {
+      return y <= 0 ? "bottom-full mb-2 left-0" : "top-full mt-2 left-0";
+    }
+    return "left-full ml-2 top-1/2 -translate-y-1/2";
+  }
+
+  // If near top or bottom edges
+  if (isNearTopEdge) {
+    return x <= 0 ? "right-full mr-2 top-0" : "left-full ml-2 top-0";
+  }
+
+  if (isNearBottomEdge) {
+    return x <= 0 ? "right-full mr-2 bottom-0" : "left-full ml-2 bottom-0";
+  }
+
+  // Default radial outward logic
+  if (Math.abs(y) >= Math.abs(x)) {
+    return y <= 0
+      ? "bottom-full mb-2 left-1/2 -translate-x-1/2"
+      : "top-full mt-2 left-1/2 -translate-x-1/2";
+  }
+  return x <= 0
+    ? "right-full mr-2 top-1/2 -translate-y-1/2"
+    : "left-full ml-2 top-1/2 -translate-y-1/2";
+}
+
 const CONSTANTS = {
   itemSize: 42,
   triggerSize: 36,
@@ -174,7 +232,7 @@ export function ActionMenu({
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const radius = items.length <= 3 ? 62 : items.length <= 5 ? 74 : 86;
-    const padding = radius + 28;
+    const padding = radius + 48;
 
     const tx = rect.left + rect.width / 2;
     const ty = rect.top + rect.height / 2;
@@ -310,7 +368,7 @@ export function ActionMenu({
               {/* Center Morphing Trigger Button */}
               <motion.div
                 animate={shakeAnim}
-                className="pointer-events-auto z-50"
+                className="pointer-events-auto z-30"
               >
                 <motion.button
                   type="button"
@@ -357,7 +415,10 @@ export function ActionMenu({
                   return (
                     <div
                       key={`${item.label}-${index}`}
-                      className="absolute flex items-center justify-center pointer-events-auto"
+                      className={cn(
+                        "absolute flex items-center justify-center pointer-events-auto",
+                        isHovered ? "z-50" : "z-20",
+                      )}
                     >
                       <motion.button
                         type="button"
@@ -407,15 +468,23 @@ export function ActionMenu({
                           )}
                         </span>
 
-                        {/* Floating tooltip label appearing on hover */}
+                        {/* Floating tooltip label appearing on hover - radially placed outward to prevent underflowing or colliding with the center X icon */}
                         <AnimatePresence>
                           {isHovered && (
                             <motion.span
-                              initial={{ opacity: 0, y: 4, scale: 0.9 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 2, scale: 0.9 }}
+                              initial={{ opacity: 0, scale: 0.88 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.88 }}
                               transition={{ duration: 0.12 }}
-                              className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900/95 px-2 py-0.5 text-[10px] font-semibold text-white shadow-md backdrop-blur-xs dark:bg-gray-800 dark:border dark:border-gray-700"
+                              className={cn(
+                                "pointer-events-none absolute whitespace-nowrap rounded-md bg-slate-900/95 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xl ring-1 ring-white/10 dark:bg-gray-900 dark:ring-white/20 dark:text-gray-100 z-50 max-w-50 truncate",
+                                getTooltipPlacement(
+                                  x,
+                                  y,
+                                  coords.x + x,
+                                  coords.y + y,
+                                ),
+                              )}
                             >
                               {item.label}
                             </motion.span>
@@ -428,7 +497,8 @@ export function ActionMenu({
               </motion.div>
             </div>
           </div>,
-          document.body,
+          (triggerRef.current?.closest("dialog") as HTMLElement | null) ??
+            document.body,
         )}
     </div>
   );

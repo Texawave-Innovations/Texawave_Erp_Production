@@ -33,6 +33,9 @@ Each has one job; don't duplicate a rule from one into another or into this file
 - Never scope HR data by `@OrgScoped()` alone — use `@TeamScoped()` (Docs/CODING_STANDARDS.md §10a). `@OrgScoped()` is a formality in this single-org app; `@TeamScoped()` is the actual boundary between Software/Mechanical/Electrical. IAM data (users, roles, permissions, menu, departments) is `@OrgScoped()` + `@RequirePermission()` only, not HR data — same section.
 - Never use `uuid()`/`String` for a new table's `id` — `Int @id @default(autoincrement())`, `BigInt` only for `audit_logs`/`status_history` (Docs/ARCHITECTURE.md §5.1).
 - Sales/Purchases/Finance/Inventory/Vault/Projects are paused, not removed — don't delete their folders or tables while doing HR work.
+- **STRICTLY PROHIBITED: NO AI-related logos, icons, or badges anywhere in the application.** Never use `Sparkles`, `Wand`, `Bot`, `Brain`, or any AI-suggestive iconography or "AI generated" indicators. Use standard, deterministic business icons (`KeyRound`, `RefreshCw`, etc.).
+- **STRICTLY PROHIBITED: NO violet, purple, or indigo shades.** Adhere strictly to TexaOne brand Prime Blue (`#1769F5`, `#0284c7`, `#0a3271`), cyan (`#12CFE3`), sky, and slate.
+- **STRICTLY PROHIBITED: NO monospace fonts (`font-mono`).** All employee codes, dates, and numbers must use the application's primary font (Nunito Sans).
 
 ## Working on this repo for the first time
 

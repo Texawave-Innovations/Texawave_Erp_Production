@@ -298,6 +298,21 @@ UI Typography Scale (Labels, controls, data cells):
 - No custom spacing scale — Tailwind's default spacing scale (`p-4`, `gap-2`, etc.) is the spacing system.
 - Density convention across `ui-kit`: form controls and buttons default to a comfortable density (`h-10` / `px-3.5`–`px-4` / `py-2.5`), with a `sm` variant (`h-8` / `px-3`) for compact contexts (table row actions, management toolbars). Never introduce an ad-hoc third density size without a concrete operational need.
 
+### 3.8 Restricted Aesthetics & Prohibited Elements (Non-Negotiable)
+
+1. **NO AI-Related Logos, Badges, or Indicators:**
+   - Icons with AI connotations (`Sparkles`, `Wand`, `Bot`, `Brain`, `Robot`) are strictly forbidden across the entire application.
+   - Any indicators, tooltips, or labels referring to "AI Generated", "AI Assistant", or similar phrasing must never be generated.
+   - Use standard deterministic business icons (e.g., `KeyRound` for credentials, `RefreshCw` for regeneration, `Check` for completion).
+
+2. **NO Violet, Purple, or Indigo Shades:**
+   - The brand aesthetic is strictly Prime Blue (`#1769F5`, `#0284c7`, `#0a3271`), Cyan (`#12CFE3`), Sky (`#38bdf8`), and neutral slate/gray.
+   - Violet, purple, and indigo accents, gradient stops, and glow filters are prohibited.
+
+3. **NO Monospace Fonts (`font-mono`):**
+   - The entire user interface must exclusively use **Nunito Sans** (`--font-sans`).
+   - Monospace typography is prohibited for identifiers, codes (e.g., EMP codes), and dates.
+
 ### 3.8 Borders, Radii, and Form Boundaries
 
 - Radii tokens: `rounded-lg` (buttons, inputs), `rounded-full` (badges, pills, checkbox), `rounded-xl` (cards, tables, dialogs).
@@ -317,10 +332,29 @@ UI Typography Scale (Labels, controls, data cells):
 ### 3.11 Responsive Behavior & Table Overflow
 
 - Breakpoints: Standard Tailwind mobile-first defaults (`sm: 640px`, `md: 768px`, `lg: 1024px`, `xl: 1280px`).
-- Desktop-first ERP shell: Screens are designed for desktop operator density first, but must visually reflow without breaking on narrower viewports.
-- Wide data tables: Horizontally scroll via `DataTable`'s dedicated `overflow-x-auto` wrapper; never allow uncontained table rows to blow out page canvas widths.
 
-### 3.12 Tailwind Class Literals Rule
+### 3.12 Global Calendar & Date Theme System (Ark UI Inspired Glassmorphism)
+
+- **Design Reference:** Ark UI Calendar design token system adapted to the TexaOne glassmorphic aesthetic.
+- **Glass Calendar Surface Token (`.glass-calendar-surface`):**
+  - Light mode: `bg-white/96 backdrop-blur-xl border border-sky-100/90 shadow-2xl`
+  - Dark mode: `bg-slate-900/96 backdrop-blur-xl border border-sky-500/35 shadow-2xl text-white`
+- **Squircle Date Cell Tokens:**
+  - Standard cell: `h-8 w-8 rounded-xl font-semibold text-xs transition-all`
+  - Selected cell: `bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105`
+  - Range ribbon: `bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200`
+  - Today indicator: `ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40`
+- **Standardized Implementations Across the Application:**
+  1. **Single DatePicker (`packages/ui-kit/src/components/date-picker/index.tsx`):** Custom animated `.glass-calendar-surface` popover with squircle cells, month/year navigation, today quick action, clear button, and full ISO date formatting.
+  2. **Month Picker Mode (`DatePicker mode="month"`):** Dedicated 12-month squircle grid and year navigation bar for `type="month"` forms.
+  3. **Universal Input Delegation (`packages/ui-kit/src/components/input/index.tsx`):** `<Input type="date">` and `<Input type="month">` automatically render the themed `DatePicker`, eliminating default OS calendar popups globally.
+  4. **DateRangePicker (`packages/ui-kit/src/components/date-range-picker/index.tsx`):** Glassmorphic range selector with enterprise presets sidebar and dual date boundaries.
+  5. **Top Navbar Calendar (`apps/ui/src/components/layout/HorizontalNavbar.tsx`):** Compact navbar date & time trigger with interactive calendar popover.
+  6. **Monthly Attendance Grid (`apps/ui/src/features/hr/attendance/components/EmployeeMonthTab.tsx`):** Cell status tones and 7-column squircle grid headers.
+- **Browser Picker Suppression:**
+  - Native browser picker indicators suppressed globally via `input[type="date"]::-webkit-calendar-picker-indicator, input[type="month"]::-webkit-calendar-picker-indicator { display: none !important; }` in `theme.css`.
+
+### 3.13 Tailwind Class Literals Rule
 
 - Every Tailwind class name must be a complete string literal in source. Never interpolate variables into class names (e.g., `` `bg-${color}-500` `` is prohibited as Tailwind's compiler drops dynamic classes).
 - Use `Record<Variant, string>` literal maps indexed by variant enum (exemplified in `Button`, `Alert`, and `StatusBadge`).
@@ -748,6 +782,54 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 
 ---
 
+### 4.8 Phase 6 Shared Animated Glassmorphism DropdownMenu & ActionMenu Contracts
+
+#### 1. `DropdownMenu`
+
+- **Location:** `packages/ui-kit/src/components/dropdown-menu/index.tsx`
+- **Re-exports:**
+  - `packages/ui-kit/src/components/ui/dropdown-menu.tsx` (shadcn-compatible path)
+  - `apps/ui/src/components/ui/dropdown-menu.tsx`
+  - `apps/ui/src/components/DropdownMenu.tsx`
+- **Demo / Showcase:** `packages/ui-kit/src/components/dropdown-menu/demo.tsx`
+- **Public API:**
+  - `options: DropdownOption[]`
+    - `label: string`
+    - `onClick: () => void`
+    - `Icon?: ReactNode`
+    - `disabled?: boolean`
+    - `variant?: "default" | "destructive" | "brand"`
+    - `description?: string`
+    - `separator?: boolean`
+    - `badge?: ReactNode`
+  - `children?: ReactNode` (Custom trigger element; automatically injected with accessible `aria-haspopup`, `aria-expanded`, and click/keyboard handlers)
+  - `triggerLabel?: string` (Default: `"Actions"`)
+  - `triggerVariant?: ButtonVariant` (Default: `"secondary"`)
+  - `triggerSize?: ButtonSize` (Default: `"md"`)
+  - `triggerIcon?: ReactNode`
+  - `showChevron?: boolean` (Default: `true`)
+  - `align?: "start" | "center" | "end"` (Default: `"start"`)
+  - `side?: "bottom" | "top"` (Default: `"bottom"`)
+  - `headerSlot?: ReactNode` (Optional pinned header, e.g. User Profile name & email)
+  - `footerSlot?: ReactNode` (Optional pinned footer)
+  - `usePortal?: boolean` (Default: `true`; renders via `createPortal(..., document.body)` to guarantee immunity against `overflow: hidden` table containers)
+  - `closeOnSelect?: boolean` (Default: `true`)
+- **Visual Design & Motion:**
+  - Standardized TexaOne Frosted Glass (`.glass-dropdown`): `bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-sky-100/90 dark:border-sky-900/50 shadow-2xl rounded-2xl`.
+  - Spring-glide entry physics and staggered item animations powered by `framer-motion`.
+  - Animated chevron rotation (`rotate: 180deg`) on open.
+- **Accessibility (WCAG 2.1 AA):**
+  - Full keyboard navigation: `ArrowDown`/`ArrowUp` cycle through active options; `Home`/`End` jump to edges; `Enter`/`Space` execute action; `Escape` dismisses and restores focus.
+  - Global `pointerdown` and `keydown` listeners ensure clean dismissal on outside click and Escape.
+
+#### 2. `ActionMenu` Consolidation
+
+- **Location:** `packages/ui-kit/src/components/action-menu/index.tsx`
+- **Refactoring:** Consolidated to delegate directly to `DropdownMenu`, replacing the legacy radial prototype while strictly preserving the existing `items: ActionMenuItem[]` and `triggerIcon: "vertical" | "horizontal"` prop signatures.
+- **Migrated Consumers:**
+  - `HorizontalNavbar.tsx`: User profile menu migrated to `DropdownMenu` with `headerSlot` and destructive sign-out option.
+  - Data table row actions across `EmployeesView.tsx`, `UsersView.tsx`, `DepartmentsView.tsx`, `MenuView.tsx`, and `TeamCard.tsx` automatically inherit `DropdownMenu` via `ActionMenu`.
+
 ## 5. Application Layout & Navigation Architecture
 
 ### 5.1 Historical Architecture (Two-Tier Dual Sidebar)
@@ -765,7 +847,7 @@ The approved TexaOne specification transitions the navigation to a modern three-
    - Full-width light sky-blue to aqua gradient strip (`bg-linear-to-r from-blue-50/90 via-cyan-50/80 to-emerald-50/60`).
    - Brand logo & tagline ("Run Your Business as One.").
    - Top-level authorized ERP module buttons (Dashboard, Human Resources, Commerce, Finance, Inventory, Projects, Reports, Settings).
-   - Search input, Live IST clock, Notification popover, and User Profile menu.
+   - Date & time calendar popover, Notification popover, and User Profile menu.
    - Hover or click on a module activates its first-level category menu.
 
 2. **Level 2 — First-Level Category Menu:**
@@ -833,10 +915,28 @@ Every domain screen fetching or mutating data must handle these discrete states:
 - **Preserved:** All 10 live queries in `HrDashboardView.tsx` (`useDailyAttendance`, `useHeadcount`, `useLeaveBreakdown`, `useAbsenceLookback`, etc.) and RBAC permissions (`EMPLOYEE_READ`, `LEAVE_REQUEST_READ`, etc.).
 - **Prohibited:** Never inject mock metrics, placeholder graphs, or fake telemetry data.
 
-#### 3. Date Range Filter (`DateRangePicker`)
+#### 3. Global Calendar & Date Range Theme (`DateRangePicker`, `DatePicker`, Full Calendar Grids)
 
-- **Preserved:** Presets (Today, Yesterday, This Week, This Month, Last Month, Last 30 Days), month/year jumpers, range calculation, Clear/Cancel/Apply actions, and visually-hidden accessibility inputs.
-- **Visual Update:** Automatically recolored to Primary Blue via `theme.css` tokens.
+- **Design Reference:** Standardized on Ark UI visual principles adapted into the TexaOne design system (frosted glass surface, squircle date cells, refined navigation controls, and subtle cyan/blue accents).
+- **Core Requirement:** Theme standardization only. All calendar functionality, filter criteria, date ranges, query params, month navigation, API integrations, and RBAC permissions are strictly preserved.
+- **Shared Tokens & Classes (`packages/ui-kit/src/theme.css`):**
+  - **Surface Container (`.glass-calendar-surface`):** Frosted glass `backdrop-blur-xl bg-white/96 dark:bg-slate-900/96`, layered border `border border-sky-100/90 dark:border-sky-900/40`, and diffuse elevation shadow `shadow-[0_16px_40px_-6px_rgba(14,165,233,0.18),0_4px_16px_-2px_rgba(15,23,42,0.08)]`.
+  - **Date Cells (Ark UI Squircle Pattern):** `h-8 w-8 sm:h-8.5 sm:w-8.5 rounded-xl` cells with smooth transitions.
+  - **Selected Date (`.calendar-cell-selected`):** TexaOne linear gradient (`bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105`).
+  - **Today Indicator:** `ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40`.
+  - **Range Ribbon (`.calendar-cell-range`):** Soft continuous brand wash (`bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200`) with `rounded-l-xl` on start date and `rounded-r-xl` on end date.
+  - **Hover State:** `hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300`.
+  - **Outside Month / Filler:** Subdued `text-slate-300 dark:text-slate-600 font-medium`.
+  - **Disabled Date:** `opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-600`.
+  - **Navigation Controls:** Balanced squircle arrow buttons (`h-8 w-8 rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70`).
+  - **Weekday Labels:** Clean uppercase header (`text-[10.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider`).
+- **Preserved Across Consumers:**
+  - Presets (Today, Yesterday, Last 7 days, Last 30 days, This month, Last month, Custom range).
+  - Exact date range calculations, single-day and multi-day range boundaries.
+  - Visually hidden accessibility inputs (`fromAriaLabel`, `toAriaLabel`).
+  - Full-page month attendance calendar (`EmployeeMonthTab.tsx`): all status color indicators (`PRESENT`, `ABSENT`, `ON_LEAVE`, `HALF_DAY`, `OVERTIME`), daily punch timelines, totals, and employee selectors remain 100% intact.
+  - Single date pickers (`DatePicker.tsx`): exact ISO date string handling, zero timezone skew, `.showPicker()` triggers.
+- **Rule for New Calendars:** All newly added calendars and date selection components across any module MUST consume `@texawave-erp/ui-kit`'s `DateRangePicker`, `DatePicker`, or apply `.glass-calendar-surface` tokens. Ad-hoc legacy palettes are prohibited.
 
 #### 4. Alerts and Notifications
 
