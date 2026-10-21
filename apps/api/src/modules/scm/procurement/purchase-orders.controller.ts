@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -68,5 +69,12 @@ export class PurchaseOrdersController {
   @RequirePermission("scm.procurement.write")
   close(@Param("id", ParseIntPipe) id: number) {
     return this.orders.close(id);
+  }
+
+  /** Responds with how many goods receipts were removed with the PO. */
+  @Delete(":id")
+  @RequirePermission("scm.procurement.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.orders.remove(id);
   }
 }

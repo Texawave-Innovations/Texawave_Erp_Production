@@ -360,4 +360,33 @@ export class SupplierQuotationsRepository {
       return created;
     });
   }
+
+  /** Deletes a quotation. Never deletes one a purchase order was raised from. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const q = await tx.scmSupplierQuotation.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!q) return false;
+      const linked = await tx.scmPurchaseOrder.count({
+        where: { quotationId: id, organizationId: scope.organizationId },
+      });
+      if (linked > 0) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — ${linked} purchase order(s) were raised from this quotation.`,
+          "QUOTATION_HAS_PURCHASE_ORDERS",
+        );
+      }
+      await tx.scmSupplierQuotation.delete({ where: { id } });
+      await this.rfqs.refreshResponseStatus(tx, q.rfqId);
+      await this.audit.write(tx, {
+        entityType: "scm_supplier_quotation",
+        entityId: id,
+        action: "delete",
+        before: { quotationNumber: q.quotationNumber, by: actorId },
+      });
+      return true;
+    });
+  }
 }

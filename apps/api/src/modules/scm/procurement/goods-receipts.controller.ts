@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
@@ -37,5 +39,12 @@ export class GoodsReceiptsController {
   @RequirePermission("scm.procurement.write")
   create(@Body() dto: CreateGoodsReceiptDto) {
     return this.receipts.create(dto);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.procurement.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.receipts.remove(id);
   }
 }

@@ -41,4 +41,13 @@ export class GoodsReceiptsService {
       this.tenantContext.getUserId(),
     );
   }
+
+  async remove(id: number) {
+    const ok = await this.repository.remove(
+      this.scope,
+      id,
+      this.tenantContext.getUserId(),
+    );
+    if (!ok) throw new ResourceNotFoundException("Goods receipt", id);
+  }
 }

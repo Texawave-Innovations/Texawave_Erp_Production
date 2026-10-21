@@ -2,11 +2,14 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsBoolean,
+  IsDateString,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Length,
   Min,
+  ValidateIf,
 } from "class-validator";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import {
@@ -107,6 +110,54 @@ export class CreateScmProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      "Barcode value override; when empty the barcode screens derive a Code128 value from the product code. Unique across products.",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Trim()
+  @IsString()
+  @Length(0, 100)
+  barcode?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      "Warehouse chosen for this SKU; its default bin must belong to it.",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsInt()
+  warehouseId?: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "Manually assigned default bin location for this SKU.",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsInt()
+  binLocationId?: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      "Product-level expiry (YYYY-MM-DD); only read when no batch expiry data exists.",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsDateString()
+  expiryDate?: string | null;
+
+  @ApiPropertyOptional({ description: 'Explicit "does not expire" flag.' })
+  @IsOptional()
+  @IsBoolean()
+  expiryNotApplicable?: boolean;
 }
 
 export class UpdateScmProductDto extends PartialType(CreateScmProductDto) {}

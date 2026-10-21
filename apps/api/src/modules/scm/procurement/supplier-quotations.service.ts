@@ -148,4 +148,9 @@ export class SupplierQuotationsService {
   saveComparison(dto: SaveComparisonDto) {
     return this.repository.saveComparison(this.scope, dto, this.actor);
   }
+
+  async remove(id: number) {
+    const ok = await this.repository.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Supplier quotation", id);
+  }
 }

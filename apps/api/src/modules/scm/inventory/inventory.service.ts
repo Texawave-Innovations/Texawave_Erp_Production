@@ -38,9 +38,12 @@ export class InventoryService {
       q: query.q,
       warehouseId: query.warehouseId,
     });
-    const rows = query.stockStatus
+    const byStatus = query.stockStatus
       ? all.filter((r) => r.stockStatus === query.stockStatus)
       : all;
+    const rows = query.hasBadStock
+      ? byStatus.filter((r) => r.damaged > 0)
+      : byStatus;
     const start = (query.page - 1) * query.limit;
     return new PaginatedResponseDto(
       rows.slice(start, start + query.limit),
@@ -63,6 +66,7 @@ export class InventoryService {
       available: rows.reduce((s, r) => s + r.available, 0),
       reserved: rows.reduce((s, r) => s + r.reserved, 0),
       incoming: rows.reduce((s, r) => s + r.incoming, 0),
+      bad: rows.reduce((s, r) => s + r.damaged, 0),
       lowStock: rows.filter((r) => r.stockStatus === "Low Stock").length,
       outOfStock: rows.filter((r) => r.stockStatus === "Out of Stock").length,
     };
@@ -214,5 +218,49 @@ export class InventoryService {
     );
     if (!row) throw new ResourceNotFoundException("Serial number", id);
     return row;
+  }
+
+  async removeAdjustment(id: number) {
+    const ok = await this.repository.removeAdjustment(
+      this.scope,
+      id,
+      this.actor,
+    );
+    if (!ok) throw new ResourceNotFoundException("Stock adjustment", id);
+  }
+  async removeTransfer(id: number) {
+    const ok = await this.repository.removeTransfer(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Stock transfer", id);
+  }
+  async removeBatch(id: number) {
+    const ok = await this.repository.removeBatch(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Batch", id);
+  }
+  async removeSerial(id: number) {
+    const ok = await this.repository.removeSerial(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Serial number", id);
+  }
+  async removeReservation(id: number) {
+    const ok = await this.repository.removeReservation(
+      this.scope,
+      id,
+      this.actor,
+    );
+    if (!ok) throw new ResourceNotFoundException("Reservation", id);
+  }
+
+  async reverseLedgerEntry(id: number) {
+    const result = await this.repository.reverseLedgerEntry(
+      this.scope,
+      id,
+      this.actor,
+    );
+    if (!result) throw new ResourceNotFoundException("Ledger entry", id);
+    return result;
+  }
+
+  /** Create + approve in one step (product page stock edits). */
+  applyAdjustment(dto: CreateAdjustmentDto) {
+    return this.repository.applyAdjustment(this.scope, dto, this.actor);
   }
 }
