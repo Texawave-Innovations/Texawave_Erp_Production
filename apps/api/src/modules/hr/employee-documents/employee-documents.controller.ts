@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -65,11 +66,14 @@ export class EmployeeDocumentsController {
   async download(
     @Param("employeeId", ParseIntPipe) employeeId: number,
     @Param("id", ParseIntPipe) id: number,
+    @Query("inline") inline?: string,
   ) {
     const file = await this.documents.downloadDocument(employeeId, id);
+    const isImage = file.mimeType?.startsWith("image/");
+    const disp = inline === "true" || isImage ? "inline" : "attachment";
     return new StreamableFile(file.buffer, {
       type: file.mimeType,
-      disposition: `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+      disposition: `${disp}; filename="${encodeURIComponent(file.fileName)}"`,
     });
   }
 
