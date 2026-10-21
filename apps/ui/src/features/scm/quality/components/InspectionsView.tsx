@@ -19,9 +19,15 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateInspection, useInspection, useInspections } from "../hooks";
+import {
+  useCreateInspection,
+  useDeleteInspection,
+  useInspection,
+  useInspections,
+} from "../hooks";
 import { InspectionDetailDialog } from "./InspectionDetailDialog";
 import { InspectionForm } from "./InspectionForm";
 
@@ -34,6 +40,10 @@ export function InspectionsView() {
   const [viewingId, setViewingId] = useState<number | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.quality.write");
+  const deletingRowRemove = useDeleteInspection();
+  const [deletingRow, setDeletingRow] = useState<QualityInspection | null>(
+    null,
+  );
   const create = useCreateInspection();
   const detail = useInspection(viewingId);
   const query = useInspections({
@@ -157,8 +167,37 @@ export function InspectionsView() {
             ),
         },
         { header: "Date", cell: (r) => formatDate(r.inspectionDate) },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete inspection"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<QualityInspection>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete inspection?"
+        describe={(r) =>
+          `Permanently delete ${r.inspectionNumber}? This cannot be undone. A completed inspection has already posted ledger/quarantine entries and cannot be deleted.`
+        }
+        confirmText="Delete inspection"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Inspection deleted"
+        errorFallback="Failed to delete inspection"
+      />
       <InspectionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}

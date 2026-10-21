@@ -35,6 +35,7 @@ import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateSupplier,
+  useDeleteSupplier,
   useSuppliers,
   useSupplierTypes,
   useUpdateSupplier,
@@ -42,6 +43,7 @@ import {
 import { supplierStatusToken, toggledStatus } from "../utils";
 import { SupplierForm } from "./SupplierForm";
 
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmPanel } from "../../shared/ScmPanel";
 const PAGE_SIZE = 10;
 const ALL = "all";
@@ -57,6 +59,7 @@ export function SuppliersView() {
   const [typeFilter, setTypeFilter] = useState<string>(ALL);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
+  const [deleting, setDeleting] = useState<Supplier | null>(null);
   const { toast } = useToast();
 
   const canWrite = usePermission("scm.supplier.write");
@@ -70,6 +73,7 @@ export function SuppliersView() {
   const typesQuery = useSupplierTypes();
   const createMutation = useCreateSupplier();
   const updateMutation = useUpdateSupplier();
+  const deleteMutation = useDeleteSupplier();
 
   const hasActiveFilters = Boolean(
     search || statusFilter !== ALL || typeFilter !== ALL,
@@ -378,6 +382,10 @@ export function SuppliersView() {
                               className={`h-4 w-4 ${s.status === "Active" ? "text-success-600" : "text-gray-400"}`}
                             />
                           </Button>
+                          <ScmDeleteButton
+                            label="Delete Supplier"
+                            onClick={() => setDeleting(s)}
+                          />
                         </>
                       ) : null}
                     </div>
@@ -404,6 +412,18 @@ export function SuppliersView() {
         </div>
       )}
 
+      <ScmDeleteDialog<Supplier>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete supplier?"
+        describe={(sup) =>
+          `Delete ${sup.companyName} (${sup.supplierCode})? This can't be undone. Blocked automatically if any purchase orders, bills or payments already exist against this supplier.`
+        }
+        confirmText="Delete supplier"
+        run={(sup) => deleteMutation.mutateAsync(sup.id)}
+        successMessage="Supplier deleted"
+        errorFallback="Failed to delete supplier"
+      />
       <ScmPanel
         open={formOpen}
         onClose={closeForm}

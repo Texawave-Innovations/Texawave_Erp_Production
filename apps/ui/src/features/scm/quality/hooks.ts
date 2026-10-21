@@ -19,7 +19,13 @@ import type {
   UpdateDefectInput,
   UpdateTemplateInput,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPatch, scmPost, scmPut } from "../shared/scm-api";
+import {
+  scmDelete,
+  scmGet,
+  scmPatch,
+  scmPost,
+  scmPut,
+} from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 const Q = "/scm/quality";
@@ -126,3 +132,15 @@ export const useQuarantineAction = () =>
       body?: object | undefined;
     }) => scmPost<QuarantineRecord>(`${Q}/quarantine/${id}/${action}`, body),
   );
+
+export const useDeleteDefect = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/quality/defects/${id}`));
+
+export const useDeleteTemplate = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/quality/templates/${id}`));
+
+export const useDeleteInspection = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/quality/inspections/${id}`));
+
+export const useDeleteQuarantine = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/quality/quarantine/${id}`));

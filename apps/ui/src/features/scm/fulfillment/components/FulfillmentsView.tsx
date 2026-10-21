@@ -16,11 +16,13 @@ import {
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import { useSalesOrders } from "../../sales/hooks";
 import {
   useCreateFulfillment,
+  useDeleteFulfillment,
   useFulfillment,
   useFulfillmentAction,
   useFulfillments,
@@ -79,6 +81,8 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
   const [cancelling, setCancelling] = useState<Fulfillment | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.fulfillment.write");
+  const deletingRowRemove = useDeleteFulfillment();
+  const [deletingRow, setDeletingRow] = useState<Fulfillment | null>(null);
   const canApprove = usePermission("scm.fulfillment.approve");
   const create = useCreateFulfillment();
   const act = useFulfillmentAction();
@@ -159,7 +163,7 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
             variant="ghost"
             size="sm"
             onClick={() =>
-              void run(r, "shortage-requisition", "Purchase requisition raised")
+              void run(r, "shortage-requisition", "Material requisition raised")
             }
           >
             Raise Requisition
@@ -292,8 +296,37 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
             </div>
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete fulfillment"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Fulfillment>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete fulfillment?"
+        describe={(r) =>
+          `Permanently delete ${r.fulfillmentNumber}? This cannot be undone. A fulfillment with active reservations, linked requisitions or warehouse activity cannot be deleted — cancel it first.`
+        }
+        confirmText="Delete fulfillment"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Fulfillment deleted"
+        errorFallback="Failed to delete fulfillment"
+      />
       <ScmFormDialog
         open={formOpen}
         onClose={closeForm}

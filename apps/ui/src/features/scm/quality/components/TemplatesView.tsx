@@ -16,9 +16,15 @@ import {
 import { ClipboardCheck, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateTemplate, useTemplates, useUpdateTemplate } from "../hooks";
+import {
+  useCreateTemplate,
+  useDeleteTemplate,
+  useTemplates,
+  useUpdateTemplate,
+} from "../hooks";
 
 import { ScmPanel } from "../../shared/ScmPanel";
 interface CheckpointDraft {
@@ -44,6 +50,8 @@ export function TemplatesView() {
   const [editing, setEditing] = useState<QualityTemplate | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.quality.write");
+  const deletingRowRemove = useDeleteTemplate();
+  const [deletingRow, setDeletingRow] = useState<QualityTemplate | null>(null);
   const query = useTemplates({ page: c.page, limit: c.pageSize, q: c.q });
 
   return (
@@ -114,8 +122,37 @@ export function TemplatesView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete template"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<QualityTemplate>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete template?"
+        describe={(r) =>
+          `Delete template ${r.templateCode} (${r.name})? This cannot be undone. Blocked automatically if an inspection was raised from it.`
+        }
+        confirmText="Delete template"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Template deleted"
+        errorFallback="Failed to delete template"
+      />
       <TemplateForm
         open={formOpen}
         template={editing}
