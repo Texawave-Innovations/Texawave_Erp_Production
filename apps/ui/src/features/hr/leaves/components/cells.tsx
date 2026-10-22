@@ -14,7 +14,7 @@ export function LeaveTypeCell({
       <span className="font-medium text-gray-900 dark:text-white/90">
         {r.leaveType.name}
       </span>
-      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
         {r.leaveType.code}
       </span>
     </div>

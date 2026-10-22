@@ -108,6 +108,7 @@ function NewLeaveRequestForm({ onClose }: { onClose: () => void }) {
             <Input
               {...fieldProps}
               type="date"
+              align="right"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               required

@@ -305,7 +305,7 @@ function EmployeeList({
             ? `Promotion letter for ${issueFor.name}`
             : "Promotion letter"
         }
-        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        size="3xl"
       >
         {issueFor ? (
           <PromotionForm
@@ -491,7 +491,7 @@ function PromotionLetters({
         open={detailId !== null}
         onClose={() => setDetailId(null)}
         title="Promotion letter details"
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        size="2xl"
       >
         {detail.isPending ? (
           <Skeleton className="h-40 w-full" />
@@ -558,7 +558,7 @@ function PromotionLetters({
         open={editId !== null}
         onClose={() => setEditId(null)}
         title="Edit promotion letter"
-        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        size="3xl"
       >
         {editTarget.isPending ? (
           <Skeleton className="h-48 w-full" />

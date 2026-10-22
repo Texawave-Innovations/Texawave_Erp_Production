@@ -11,7 +11,7 @@ import {
   Copy,
   Check,
   UserPlus,
-  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import {
   ApiError,
@@ -29,6 +29,7 @@ import {
   PasswordField,
   Select,
   Skeleton,
+  Semantic3DIcon,
 } from "@texawave-erp/ui-kit";
 import {
   createNewHire,
@@ -48,6 +49,14 @@ type FieldKey = keyof NewHireFormValues;
 
 const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
 const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
+const generateSecurePassword = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+  let pwd = "";
+  for (let i = 0; i < 14; i++) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pwd;
+};
 
 interface FormState {
   firstName: string;
@@ -199,86 +208,86 @@ export function NewHireView() {
   if (created) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 pb-12 animate-reveal">
-        <Card className="rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300">
-              <Check className="h-5 w-5" />
+        <div className="overflow-hidden rounded-2xl border border-sky-200/90 bg-white shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700 dark:bg-gray-900">
+          {/* Prime Blue Light-Contrast Header */}
+          <div className="flex items-center gap-3.5 border-b border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] px-6 py-4.5 dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] dark:border-gray-700/80 dark:bg-gray-800 select-none">
+              <Semantic3DIcon name="check" size={32} />
             </div>
             <div>
-              <h1 className="text-title-sm font-bold tracking-tight text-gray-900 dark:text-white">
-                New hire created
+              <h1 className="text-title-sm font-bold tracking-tight text-[#0a3271] dark:text-sky-100">
+                New Hire Created
               </h1>
-              <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {created.employee.fullName} ({created.employee.employeeCode})
-                can now sign in.
+              <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
+                {created.employee.fullName} ({created.employee.employeeCode}) can now sign in.
               </p>
             </div>
           </div>
 
-          <div className="mt-5">
+          <div className="p-6 space-y-5">
             <Alert variant="warning" title="Share this temporary password once">
               It is shown only here. The employee must change it on their first
               sign-in.
             </Alert>
-          </div>
 
-          <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-800 dark:bg-gray-800/40 space-y-3">
-            <div>
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Sign-in email
-              </span>
-              <p className="mt-0.5 font-medium text-theme-xs text-gray-900 dark:text-white">
-                {created.email}
-              </p>
+            <div className="rounded-xl border border-sky-200 bg-[#edf6ff]/40 p-4 dark:border-slate-700 dark:bg-slate-800/40 space-y-3">
+              <div>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                  Sign-in email
+                </span>
+                <p className="mt-0.5 font-bold text-theme-sm text-[#0a3271] dark:text-white">
+                  {created.email}
+                </p>
+              </div>
+
+              <div className="border-t border-sky-200 pt-3 dark:border-slate-700">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                  Temporary password
+                </span>
+                <p className="mt-0.5 font-bold text-theme-base text-[#0a3271] dark:text-white tracking-wider">
+                  {created.tempPassword}
+                </p>
+              </div>
             </div>
 
-            <div className="border-t border-gray-200/60 pt-3 dark:border-gray-700/60">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Temporary password
-              </span>
-              <p className="mt-0.5 font-mono font-bold text-theme-sm text-gray-900 dark:text-white tracking-wide">
-                {created.tempPassword}
-              </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button
+                variant="secondary"
+                onClick={() => copyPassword(created.tempPassword)}
+                className="gap-2"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-success-600" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    <span>Copy password</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setCreated(null);
+                  setCopied(false);
+                }}
+                className="gap-2"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Add another hire</span>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/hr/employees")}
+              >
+                Back to employees
+              </Button>
             </div>
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => copyPassword(created.tempPassword)}
-              className="gap-2"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 text-success-600" />
-                  <span>Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  <span>Copy password</span>
-                </>
-              )}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setCreated(null);
-                setCopied(false);
-              }}
-              className="gap-2"
-            >
-              <UserPlus className="h-4 w-4" />
-              <span>Add another hire</span>
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => router.push("/hr/employees")}
-            >
-              Back to employees
-            </Button>
-          </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -298,30 +307,57 @@ export function NewHireView() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-12 animate-reveal">
-      {/* Header with Navigation Link */}
-      <div className="space-y-2">
-        <Link
-          href="/hr/employees"
-          className="inline-flex items-center gap-1.5 text-theme-xs font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to employees</span>
-        </Link>
+      {/* Executive Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Link
+              href="/hr/employees"
+              className="group inline-flex items-center gap-1.5 text-[12px] font-bold text-brand-500 hover:text-[#0a3271] dark:text-sky-400 dark:hover:text-sky-200 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+              <span>Back to employees</span>
+            </Link>
 
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-title-sm font-bold tracking-tight text-gray-900 dark:text-white">
-            New hire
-          </h1>
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800 dark:bg-brand-950 dark:text-brand-300">
-            <Sparkles className="h-3 w-3 text-brand-600 dark:text-brand-400" />
-            Provisioning Wizard
-          </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-title-sm font-bold tracking-tight text-[#0a3271] dark:text-white">
+                New Hire
+              </h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200/90 bg-white/80 px-3 py-0.5 text-[11px] font-bold text-brand-500 shadow-xs dark:border-sky-800/60 dark:bg-slate-800 dark:text-sky-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+                Provisioning Wizard
+              </span>
+            </div>
+
+            <p className="max-w-2xl text-[12px] font-medium text-[#2f6396] dark:text-sky-300/80">
+              Creates the employee master record, organizational assignment, and temporary sign-in credentials.
+            </p>
+          </div>
+
+          <div className="hidden sm:flex sm:items-center sm:gap-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-2 shadow-[0_8px_20px_rgba(23,105,245,0.12)] ring-4 ring-white/70 dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-800/60">
+              <Semantic3DIcon name="recruitment" size={42} alt="New hire onboarding" />
+            </div>
+          </div>
         </div>
 
-        <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-          Creates the employee record and their sign-in account. They will be
-          required to change the temporary password on first login.
-        </p>
+        {/* 3-Step Wizard Roadmap */}
+        <div className="mt-5 pt-4 border-t border-sky-200/90 dark:border-slate-700 flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-semibold text-[#2f6396] dark:text-sky-300/70">
+          <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">1</span>
+            Personal Info
+          </span>
+          <span className="text-sky-300 dark:text-slate-600 font-bold">→</span>
+          <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">2</span>
+            Organization & Roles
+          </span>
+          <span className="text-sky-300 dark:text-slate-600 font-bold">→</span>
+          <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">3</span>
+            Security & Access
+          </span>
+        </div>
       </div>
 
       {listsLoading ? (
@@ -356,69 +392,71 @@ export function NewHireView() {
             stepNumber="01"
             title="Personal Information"
             description="Basic identity and contact details for the employee"
-            icon={User}
+            icon3d="user"
           >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="First name" required error={errors.firstName}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={values.firstName}
-                    disabled={submitting}
-                    onChange={(e) =>
-                      set("firstName", sanitizeName(e.target.value))
-                    }
-                    placeholder="e.g. Priya"
-                  />
-                )}
-              </FormField>
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="First name" required error={errors.firstName}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={values.firstName}
+                      disabled={submitting}
+                      onChange={(e) =>
+                        set("firstName", sanitizeName(e.target.value))
+                      }
+                      placeholder="e.g. Priya"
+                    />
+                  )}
+                </FormField>
 
-              <FormField label="Last name" required error={errors.lastName}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={values.lastName}
-                    disabled={submitting}
-                    onChange={(e) =>
-                      set("lastName", sanitizeName(e.target.value))
-                    }
-                    placeholder="e.g. Sharma"
-                  />
-                )}
-              </FormField>
+                <FormField label="Last name" required error={errors.lastName}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={values.lastName}
+                      disabled={submitting}
+                      onChange={(e) =>
+                        set("lastName", sanitizeName(e.target.value))
+                      }
+                      placeholder="e.g. Sharma"
+                    />
+                  )}
+                </FormField>
 
-              <FormField
-                label="Mobile number"
-                required
-                error={errors.mobile}
-                hint="10 digits, starting with 6 to 9"
-              >
-                {(p) => (
-                  <Input
-                    {...p}
-                    inputMode="numeric"
-                    value={values.mobile}
-                    disabled={submitting}
-                    onChange={(e) =>
-                      set("mobile", sanitizeMobile(e.target.value))
-                    }
-                    placeholder="e.g. 9841055667"
-                  />
-                )}
-              </FormField>
+                <FormField
+                  label="Mobile number"
+                  required
+                  error={errors.mobile}
+                  hint="10 digits, starting with 6 to 9"
+                >
+                  {(p) => (
+                    <Input
+                      {...p}
+                      inputMode="numeric"
+                      value={values.mobile}
+                      disabled={submitting}
+                      onChange={(e) =>
+                        set("mobile", sanitizeMobile(e.target.value))
+                      }
+                      placeholder="e.g. 9841055667"
+                    />
+                  )}
+                </FormField>
 
-              <FormField label="Email (sign-in)" required error={errors.email}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="email"
-                    value={values.email}
-                    disabled={submitting}
-                    onChange={(e) => set("email", e.target.value)}
-                    placeholder="e.g. priya.sharma@texawave.com"
-                  />
-                )}
-              </FormField>
+                <FormField label="Email (sign-in)" required error={errors.email}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      type="email"
+                      value={values.email}
+                      disabled={submitting}
+                      onChange={(e) => set("email", e.target.value)}
+                      placeholder="e.g. priya.sharma@texawave.com"
+                    />
+                  )}
+                </FormField>
+              </div>
             </div>
           </FormSection>
 
@@ -427,133 +465,135 @@ export function NewHireView() {
             stepNumber="02"
             title="Organization"
             description="Departmental assignment, reporting team, and employment terms"
-            icon={Building2}
+            icon3d="departments"
           >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormField
-                label="Department"
-                required
-                error={errors.departmentId}
-              >
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={values.departmentId}
-                    disabled={submitting}
-                    onChange={(e) => set("departmentId", e.target.value)}
-                  >
-                    <option value="">Select a department</option>
-                    {departments.data?.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </FormField>
-
-              <FormField label="Team" required error={errors.teamId}>
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={values.teamId}
-                    disabled={submitting}
-                    onChange={(e) => set("teamId", e.target.value)}
-                  >
-                    <option value="">Select a team</option>
-                    {teams.data?.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </FormField>
-
-              <FormField
-                label="Designation"
-                required
-                error={errors.designationId}
-              >
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={values.designationId}
-                    disabled={submitting}
-                    onChange={(e) => set("designationId", e.target.value)}
-                  >
-                    <option value="">Select a designation</option>
-                    {designations.data?.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </FormField>
-
-              <FormField
-                label="Employment type"
-                required
-                error={errors.employmentTypeId}
-              >
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={values.employmentTypeId}
-                    disabled={submitting}
-                    onChange={(e) => set("employmentTypeId", e.target.value)}
-                  >
-                    <option value="">Select an employment type</option>
-                    {employmentTypes.data?.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </FormField>
-
-              <FormField
-                label="Additional role"
-                error={errors.roleId}
-                hint="Every new hire gets the Employee self-service role automatically. Optionally add another role (e.g. Team Lead) on top of that."
-              >
-                {(p) => (
-                  <Select
-                    {...p}
-                    value={values.roleId}
-                    disabled={submitting}
-                    onChange={(e) => set("roleId", e.target.value)}
-                  >
-                    <option value="">Select a role</option>
-                    {roles.data
-                      ?.filter((r) => r.name !== "Employee")
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <FormField
+                  label="Department"
+                  required
+                  error={errors.departmentId}
+                >
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={values.departmentId}
+                      disabled={submitting}
+                      onChange={(e) => set("departmentId", e.target.value)}
+                    >
+                      <option value="">Select a department</option>
+                      {departments.data?.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
                         </option>
                       ))}
-                  </Select>
-                )}
-              </FormField>
+                    </Select>
+                  )}
+                </FormField>
 
-              <FormField
-                label="Date of joining"
-                required
-                error={errors.dateOfJoining}
-              >
-                {(p) => (
-                  <DatePicker
-                    {...p}
-                    min="1900-01-01"
-                    max="2099-12-31"
-                    value={values.dateOfJoining}
-                    disabled={submitting}
-                    onChange={(e) => set("dateOfJoining", e.target.value)}
-                  />
-                )}
-              </FormField>
+                <FormField label="Team" required error={errors.teamId}>
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={values.teamId}
+                      disabled={submitting}
+                      onChange={(e) => set("teamId", e.target.value)}
+                    >
+                      <option value="">Select a team</option>
+                      {teams.data?.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="Designation"
+                  required
+                  error={errors.designationId}
+                >
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={values.designationId}
+                      disabled={submitting}
+                      onChange={(e) => set("designationId", e.target.value)}
+                    >
+                      <option value="">Select a designation</option>
+                      {designations.data?.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="Employment type"
+                  required
+                  error={errors.employmentTypeId}
+                >
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={values.employmentTypeId}
+                      disabled={submitting}
+                      onChange={(e) => set("employmentTypeId", e.target.value)}
+                    >
+                      <option value="">Select an employment type</option>
+                      {employmentTypes.data?.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="Additional role"
+                  error={errors.roleId}
+                  hint="Every new hire gets the Employee self-service role automatically. Optionally add another role (e.g. Team Lead) on top of that."
+                >
+                  {(p) => (
+                    <Select
+                      {...p}
+                      value={values.roleId}
+                      disabled={submitting}
+                      onChange={(e) => set("roleId", e.target.value)}
+                    >
+                      <option value="">Select a role</option>
+                      {roles.data
+                        ?.filter((r) => r.name !== "Employee")
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </Select>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="Date of joining"
+                  required
+                  error={errors.dateOfJoining}
+                >
+                  {(p) => (
+                    <DatePicker
+                      {...p}
+                      min="1900-01-01"
+                      max="2099-12-31"
+                      value={values.dateOfJoining}
+                      disabled={submitting}
+                      onChange={(e) => set("dateOfJoining", e.target.value)}
+                    />
+                  )}
+                </FormField>
+              </div>
             </div>
           </FormSection>
 
@@ -562,46 +602,79 @@ export function NewHireView() {
             stepNumber="03"
             title="Account Setup"
             description="Initial security credentials for first-time login"
-            icon={KeyRound}
+            icon3d="access-control"
           >
-            <div className="max-w-xl">
-              <FormField
-                label="Temporary password"
-                required
-                error={errors.tempPassword}
-              >
-                {(p) => (
-                  <PasswordField
-                    {...p}
-                    value={values.tempPassword}
-                    disabled={submitting}
-                    onChange={(e) => set("tempPassword", e.target.value)}
-                    placeholder="Enter secure temporary password"
-                  />
-                )}
-              </FormField>
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30 space-y-4">
+              <div className="max-w-xl">
+                <FormField
+                  label="Temporary password"
+                  required
+                  error={errors.tempPassword}
+                  labelAction={
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => {
+                        const generated = generateSecurePassword();
+                        set("tempPassword", generated);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200/90 bg-sky-50/70 px-2.5 py-1 text-[11px] font-bold text-brand-500 hover:bg-sky-100 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-900/50 transition-colors cursor-pointer"
+                    >
+                      <KeyRound className="h-3 w-3 text-brand-500" />
+                      <span>Generate password</span>
+                    </button>
+                  }
+                >
+                  {(p) => (
+                    <PasswordField
+                      {...p}
+                      value={values.tempPassword}
+                      disabled={submitting}
+                      onChange={(e) => set("tempPassword", e.target.value)}
+                      placeholder="Enter or auto-generate secure temporary password"
+                    />
+                  )}
+                </FormField>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-[#edf6ff]/60 p-3.5 text-[11px] text-[#2f6396] dark:border-slate-700 dark:bg-slate-800/40 dark:text-sky-300">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-brand-500 mt-0.5" />
+                <p>
+                  This temporary password will be securely provisioned to the user account. The new employee will be strictly required to configure their own password on their very first sign-in.
+                </p>
+              </div>
             </div>
           </FormSection>
 
           {/* Actions Bar */}
-          <div className="flex items-center justify-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={submitting}
-              onClick={() => router.push("/hr/employees")}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-200/90 bg-white p-4.5 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:bg-gray-900">
+            <Link
+              href="/hr/employees"
+              className="text-[12px] font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={submitting}
-              disabled={submitting}
-              className="min-w-36 shadow-theme-xs"
-            >
-              Create new hire
-            </Button>
+              Cancel and return to employees
+            </Link>
+
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={submitting}
+                onClick={() => router.push("/hr/employees")}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={submitting}
+                disabled={submitting}
+                className="min-w-40 gap-2 shadow-theme-xs font-bold"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Create new hire</span>
+              </Button>
+            </div>
           </div>
         </form>
       )}

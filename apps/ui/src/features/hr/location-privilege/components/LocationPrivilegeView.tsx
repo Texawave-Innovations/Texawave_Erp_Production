@@ -1,62 +1,51 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ChevronRight,
-  MapPin,
-  Search,
-  ShieldCheck,
-  Users,
-  X,
-} from "lucide-react";
+import { Building2, MapPin, Users, Wifi } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
-  Card,
   EmptyState,
   ErrorState,
-  Input,
+  Pagination,
+  SearchInput,
   Skeleton,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components";
-import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useDebouncedValue, useEmployees } from "../../employees/hooks";
 import { READ_ANY_SCOPE } from "../../employees/permissions";
-import { LOCATION_PRIVILEGE_READ } from "../permissions";
-import { EmployeePrivilegeCard } from "./EmployeePrivilegeCard";
+import {
+  LOCATION_PRIVILEGE_READ,
+  LOCATION_PRIVILEGE_WRITE,
+} from "../permissions";
+import { EmployeeAccessControlRow } from "./EmployeeAccessControlRow";
 import { OfficeNetworksCard } from "./OfficeNetworksCard";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 /**
- * Location Privilege has no "list all employees' privileges" API — it is
- * per-employee (`GET/PUT /hr/location-privileges/employees/:id`), so the
- * screen first searches the employee directory (reusing `hr/employees`'
- * search) and then shows/edits the selected employee's privilege. The
- * organization's office network allowlist (a real, separate list endpoint)
- * is shown alongside it.
+ * Location Privilege:
+ * - Executive access control view matching the reference UI.
+ * - Top legend cards explaining Office vs Remote modes.
+ * - Direct 1-click interactive segmented toggles per employee for seamless access control.
+ * - Office networks IP allowlist section below.
  */
 export function LocationPrivilegeView() {
   const [search, setSearch] = useState("");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
-    null,
-  );
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search.trim());
 
   const canReadEmployees = usePermission(READ_ANY_SCOPE);
   const canReadPrivilege = usePermission(LOCATION_PRIVILEGE_READ);
+  const canWritePrivilege = usePermission(LOCATION_PRIVILEGE_WRITE);
 
   const list = useEmployees({
-    page: 1,
+    page,
     limit: PAGE_SIZE,
     sortBy: "fullName",
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
   });
-
-  const selectedEmployee = list.data?.data.find(
-    (e) => e.id === selectedEmployeeId,
-  );
 
   if (!canReadEmployees || !canReadPrivilege) {
     return (
@@ -72,162 +61,149 @@ export function LocationPrivilegeView() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header */}
+      {/* 1. Page Header */}
       <HrPageHeader
         title="Location Privilege"
-        description="Configure office-network restrictions and geo-location attendance check-in permissions."
+        description="Control where each employee can access the portal — Office (desktop only) or Remote (mobile allowed)."
         icon={MapPin}
         badge={
           list.data ? (
-            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3 py-1 text-xs font-semibold text-white">
-              {list.data.meta.total} employees
+            <span className="rounded-full bg-white/20 backdrop-blur-xs px-3.5 py-1 text-xs font-bold text-white shadow-xs">
+              {list.data.meta.total} Employees
             </span>
           ) : null
         }
       />
 
-      {/* Main Grid: Left = Employee Selector, Right = Selected Privilege Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Employee Directory Column */}
-        <div className="lg:col-span-5 flex flex-col gap-3">
-          <Card className="p-4">
-            <div className="flex flex-col gap-3.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-                  <h2 className="text-theme-sm font-semibold text-gray-900 dark:text-white">
-                    Employee Directory
-                  </h2>
-                </div>
-                {list.data ? (
-                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                    {list.data.meta.total} employees
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Search input */}
-              <div className="relative">
-                <Input
-                  type="search"
-                  aria-label="Search employees by name or code"
-                  placeholder="Search employees by name or code"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setSelectedEmployeeId(null);
-                  }}
-                  className="pl-9 pr-8"
-                />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                {search ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setSelectedEmployeeId(null);
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-
-              {/* Search Results / Directory List */}
-              {list.isPending ? (
-                <div className="flex flex-col gap-2 pt-1">
-                  {Array.from({ length: 4 }, (_, i) => (
-                    <Skeleton key={i} className="h-14 w-full rounded-lg" />
-                  ))}
-                </div>
-              ) : list.isError ? (
-                list.error instanceof ApiError &&
-                list.error.isPermissionError ? (
-                  <Alert
-                    variant="warning"
-                    title="You don't have access to employees"
-                  >
-                    Ask an administrator for the <code>hr.employee.read</code>{" "}
-                    permission.
-                  </Alert>
-                ) : (
-                  <ErrorState onRetry={() => void list.refetch()} />
-                )
-              ) : list.data.data.length === 0 ? (
-                <div className="py-6">
-                  <EmptyState
-                    title="No employees match this search"
-                    description="Try a different name or employee code."
-                  />
-                </div>
-              ) : (
-                <ul
-                  className="flex flex-col gap-1.5 max-h-105 overflow-y-auto pr-0.5"
-                  role="list"
-                >
-                  {list.data.data.map((e) => {
-                    const isSelected = e.id === selectedEmployeeId;
-                    return (
-                      <li key={e.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEmployeeId(e.id)}
-                          className={`group w-full rounded-lg px-3 py-2.5 text-left text-theme-sm transition-all duration-150 flex items-center justify-between gap-3 border ${
-                            isSelected
-                              ? "border-brand-300 bg-brand-50/80 shadow-xs dark:border-brand-700/60 dark:bg-brand-950/70"
-                              : "border-gray-100 hover:border-gray-200 hover:bg-gray-50/80 dark:border-gray-800/60 dark:hover:border-gray-700 dark:hover:bg-gray-800/50"
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <EmployeeIdentity
-                              name={e.fullName}
-                              code={e.employeeCode}
-                              subtext={e.designation?.name}
-                              avatarSize="sm"
-                              size="sm"
-                            />
-                          </div>
-                          <ChevronRight
-                            className={`h-4 w-4 shrink-0 transition-transform ${
-                              isSelected
-                                ? "text-brand-600 dark:text-brand-400 translate-x-0.5"
-                                : "text-gray-300 dark:text-gray-600 group-hover:text-gray-500"
-                            }`}
-                          />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+      {/* 2. Mode Explanation / Legend Cards (Exact match to Reference UI) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Office Mode Card */}
+        <div className="flex items-center gap-3.5 rounded-2xl border border-sky-200/80 bg-linear-to-r from-[#edf6ff] to-[#f0f8ff] p-4 shadow-xs dark:border-sky-900/40 dark:from-slate-900 dark:to-slate-800">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-300/80 bg-white text-brand-500 shadow-xs dark:border-sky-800 dark:bg-slate-800 dark:text-sky-300">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm">
+                Office Access
+              </h3>
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10.5px] font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                Network required
+              </span>
             </div>
-          </Card>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Desktop access only · Attendance restricted to configured office IP networks
+            </p>
+          </div>
         </div>
 
-        {/* Selected Employee Privilege Details Column */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
-          {selectedEmployee ? (
-            <EmployeePrivilegeCard employee={selectedEmployee} />
-          ) : (
-            <Card className="flex flex-col items-center justify-center py-16 px-6 text-center border-dashed border-gray-200 dark:border-gray-800">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-400 border border-brand-100 dark:border-brand-900 mb-3.5">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white">
-                Select an Employee
+        {/* Remote Mode Card */}
+        <div className="flex items-center gap-3.5 rounded-2xl border border-emerald-200/80 bg-linear-to-r from-[#f0fdf4] to-[#ecfdf5] p-4 shadow-xs dark:border-emerald-900/40 dark:from-slate-900 dark:to-slate-800">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-300/80 bg-white text-emerald-600 shadow-xs dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
+            <Wifi className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-gray-900 dark:text-white text-sm">
+                Remote Access
               </h3>
-              <p className="text-theme-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1">
-                Choose an employee from the directory on the left to view and
-                modify their attendance location restrictions.
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Mobile allowed
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Mobile & desktop allowed · Punches permitted from any location / network
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Employee Access Control Section */}
+      <div className="relative z-20 focus-within:z-30 rounded-2xl border border-sky-100/90 bg-white/95 p-5 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
+        <div className="flex flex-col gap-4">
+          {/* Header & Search Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users className="h-4.5 w-4.5 text-brand-600 dark:text-brand-400" />
+                <h2 className="text-theme-base font-bold text-gray-900 dark:text-white">
+                  Employee Access Control
+                </h2>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Toggle each employee between Office and Remote attendance mode in one click
               </p>
-            </Card>
+            </div>
+
+            <div className="w-full sm:w-80">
+              <SearchInput
+                placeholder="Search employees by name, code or department..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                onClear={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Employee Access Rows Feed */}
+          {list.isPending ? (
+            <div className="flex flex-col gap-2.5 pt-1">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : list.isError ? (
+            list.error instanceof ApiError && list.error.isPermissionError ? (
+              <Alert
+                variant="warning"
+                title="You don't have access to employees"
+              >
+                Ask an administrator for the <code>hr.employee.read</code>{" "}
+                permission.
+              </Alert>
+            ) : (
+              <ErrorState onRetry={() => void list.refetch()} />
+            )
+          ) : list.data.data.length === 0 ? (
+            <div className="py-8">
+              <EmptyState
+                title="No employees match this search"
+                description="Try a different employee name, code, or department."
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {list.data.data.map((employee) => (
+                <EmployeeAccessControlRow
+                  key={employee.id}
+                  employee={employee}
+                  canWrite={canWritePrivilege}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {list.data && list.data.meta.totalPages > 1 && (
+            <div className="pt-2">
+              <Pagination
+                page={page}
+                totalPages={list.data.meta.totalPages}
+                onPageChange={setPage}
+              />
+            </div>
           )}
         </div>
       </div>
 
-      {/* Office Networks Section (Full width) */}
+      {/* 4. Office Networks Allowlist Section */}
       <OfficeNetworksCard />
     </div>
   );

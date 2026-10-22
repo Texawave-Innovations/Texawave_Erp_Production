@@ -118,7 +118,7 @@ export function DecideLeaveDialog({
             <span className="font-semibold text-gray-900 dark:text-white/90">
               {request.employee.fullName}
             </span>
-            <span className="rounded bg-gray-200/60 px-1.5 py-0.5 font-mono text-theme-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <span className="rounded bg-gray-200/60 px-1.5 py-0.5 text-theme-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
               {request.employee.employeeCode}
             </span>
           </div>
@@ -167,7 +167,7 @@ export function DecideLeaveDialog({
               : "Required. 3–500 characters."
           }
           labelAction={
-            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+            <span className="text-theme-xs font-medium text-gray-400 dark:text-gray-500">
               {note.length}/500
             </span>
           }

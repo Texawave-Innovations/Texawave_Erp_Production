@@ -132,7 +132,7 @@ export function AttendanceDetailDialog({
                   <LogIn className="h-3.5 w-3.5 text-emerald-500" />
                   First Check-in
                 </span>
-                <span className="font-semibold text-theme-sm text-gray-900 dark:text-white font-mono">
+                <span className="font-semibold text-theme-sm text-gray-900 dark:text-white">
                   {firstIn}
                 </span>
               </div>
@@ -142,7 +142,7 @@ export function AttendanceDetailDialog({
                   <LogOut className="h-3.5 w-3.5 text-amber-500" />
                   Last Check-out
                 </span>
-                <span className="font-semibold text-theme-sm text-gray-900 dark:text-white font-mono">
+                <span className="font-semibold text-theme-sm text-gray-900 dark:text-white">
                   {lastOut}
                 </span>
               </div>
@@ -208,7 +208,7 @@ export function AttendanceDetailDialog({
                       <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-brand-50 text-[11px] font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                         {idx + 1}
                       </span>
-                      <div className="flex items-center gap-2 text-theme-sm font-mono text-gray-800 dark:text-gray-200">
+                      <div className="flex items-center gap-2 text-theme-sm font-semibold text-gray-800 dark:text-gray-200">
                         <span>{formatTime(s.checkInAt)}</span>
                         <span className="text-gray-400">→</span>
                         <span>

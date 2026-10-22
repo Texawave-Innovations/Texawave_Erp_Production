@@ -114,11 +114,11 @@ export function SubmitExitRequestDialog({
       open={open}
       onClose={onClose}
       title="Raise exit request"
-      className="w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900 animate-modal my-auto mx-auto"
+      size="lg"
     >
       <form
         onSubmit={handleSubmit}
-        className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto px-0.5 py-1"
+        className="flex flex-col gap-4"
         noValidate
       >
         <FormField label="Reason" required error={errors.reason}>

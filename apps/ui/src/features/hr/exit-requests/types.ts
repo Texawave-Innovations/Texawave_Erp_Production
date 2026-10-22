@@ -40,6 +40,8 @@ export const TRANSITIONS: Readonly<
 export interface EmployeeRef {
   id: number;
   fullName: string;
+  employeeCode?: string;
+  avatarUrl?: string | null;
 }
 
 export interface DeciderRef {

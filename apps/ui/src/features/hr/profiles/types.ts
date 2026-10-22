@@ -18,6 +18,7 @@ export interface ProfileEmployeeSummary {
   phone: string | null;
   dateOfJoining: string;
   status: string;
+  avatarUrl?: string | null;
 }
 
 /** Shape of GET /hr/employees/:id/profile. `updatedAt` is null until a profile row exists. */

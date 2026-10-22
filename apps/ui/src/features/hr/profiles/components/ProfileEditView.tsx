@@ -2,23 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
   EmptyState,
   ErrorState,
   FormField,
   Input,
   Select,
+  Semantic3DIcon,
+  type Icon3DName,
   Skeleton,
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePermission } from "@/hooks/usePermission";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import { useUploadEmployeeDocument } from "@/features/hr/employee-documents/hooks";
 import {
   BLOOD_GROUP_OPTIONS,
   GENDER_OPTIONS,
@@ -106,6 +111,47 @@ function SaveErrorAlert({ error }: { error: unknown }) {
   );
 }
 
+function EditCardSection({
+  title,
+  description,
+  icon3d,
+  children,
+  className = "",
+}: {
+  title: string;
+  description?: string;
+  icon3d: Icon3DName;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`overflow-visible rounded-2xl border border-sky-200/90 bg-white shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(23,105,245,0.12)] dark:border-slate-700/80 dark:bg-gray-900 ${className}`}
+    >
+      <div className="flex items-center gap-3 border-b border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] px-6 py-4.5 rounded-t-2xl dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] dark:border-gray-700/80 dark:bg-gray-800 select-none">
+          <Semantic3DIcon name={icon3d} size={28} />
+        </div>
+        <div>
+          <h2 className="text-theme-sm font-bold tracking-tight text-[#0a3271] dark:text-sky-100">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
+              {description}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfileEditView({ id }: { id: number }) {
   const canWrite = usePermission(PROFILE_WRITE_TEAM_OR_ALL);
   const query = useProfile(id);
@@ -114,10 +160,10 @@ export function ProfileEditView({ id }: { id: number }) {
 
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
+      <div className="mx-auto max-w-5xl space-y-6 pb-12 animate-pulse">
+        <Skeleton className="h-36 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     );
   }
@@ -126,54 +172,117 @@ export function ProfileEditView({ id }: { id: number }) {
     const error = query.error;
     if (error instanceof ApiError && error.isNotFound) {
       return (
-        <Card>
+        <div className="mx-auto max-w-5xl rounded-2xl border border-sky-200/90 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-gray-900">
           <EmptyState
             title="Profile not found"
             description="This employee does not exist, or you don't have access to them."
             action={
               <Link
                 href="/hr/employees"
-                className="text-brand-600 hover:underline"
+                className="font-bold text-brand-500 hover:underline"
               >
                 Back to employees
               </Link>
             }
           />
-        </Card>
+        </div>
       );
     }
     return (
       <ErrorState
-        title="Could not load this profile"
+        title="Could not load profile"
         onRetry={() => void query.refetch()}
       />
     );
   }
 
   return (
-    <EditBody
+    <ProfileEditForm
       id={id}
-      employeeName={query.data.employee.fullName}
       initial={formFromProfile(query.data)}
+      employeeName={query.data.employee.fullName}
+      employeeCode={query.data.employee.employeeCode}
+      initialAvatarUrl={query.data.employee.avatarUrl}
     />
   );
 }
 
-function EditBody({
+function ProfileEditForm({
   id,
-  employeeName,
   initial,
+  employeeName,
+  employeeCode,
+  initialAvatarUrl,
 }: {
   id: number;
-  employeeName: string;
   initial: ProfileFormValues;
+  employeeName: string;
+  employeeCode: string;
+  initialAvatarUrl?: string | null | undefined;
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const updateMutation = useUpdateProfile();
+  const uploadMutation = useUploadEmployeeDocument(id);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(
+    initialAvatarUrl ?? null,
+  );
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<ProfileFormValues>(initial);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saveError, setSaveError] = useState<unknown>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file format",
+        description: "Please select an image file (PNG, JPG, JPEG, or WebP).",
+        variant: "warning",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Photo file size must not exceed 5MB.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    try {
+      setIsUploadingPhoto(true);
+      const res = await uploadMutation.mutateAsync({
+        label: "Profile Photo",
+        file,
+        documentType: "PROFILE_PHOTO",
+      });
+      const newAvatarUrl = `/hr/employees/${id}/documents/${res.id}/file`;
+      setCurrentAvatarUrl(newAvatarUrl);
+      await queryClient.invalidateQueries({ queryKey: ["hr-profiles", id] });
+      toast({
+        title: "Profile photo updated",
+        description: "Employee profile photo has been uploaded and updated successfully.",
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Upload failed",
+        description: "Could not upload the profile photo. Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
   const dirty = isProfileDirty(initial, values);
 
   const set = <K extends keyof ProfileFormValues>(
@@ -182,9 +291,9 @@ function EditBody({
   ) => {
     setValues((v) => ({ ...v, [key]: value }));
     setErrors((e) => {
-      if (!e[key as string]) return e;
+      if (!e[key]) return e;
       const next = { ...e };
-      delete next[key as string];
+      delete next[key];
       return next;
     });
   };
@@ -235,34 +344,119 @@ function EditBody({
   const saving = updateMutation.isPending;
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div className="mx-auto max-w-5xl space-y-6 pb-12 animate-reveal">
+      {/* Executive Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Link
+              href={`/hr/employees/${id}/profile`}
+              className="group inline-flex items-center gap-1.5 text-[12px] font-bold text-brand-500 hover:text-[#0a3271] dark:text-sky-400 dark:hover:text-sky-200 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+              <span>Back to profile</span>
+            </Link>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-title-sm font-bold tracking-tight text-[#0a3271] dark:text-white">
+                Edit Profile: {employeeName}
+              </h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200/90 bg-white/80 px-3 py-0.5 text-[11px] font-bold text-brand-500 shadow-xs dark:border-sky-800/60 dark:bg-slate-800 dark:text-sky-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+                {employeeCode}
+              </span>
+            </div>
+
+            <p className="max-w-2xl text-[12px] font-medium text-[#2f6396] dark:text-sky-300/80">
+              Update personal identity, family members, emergency contact, experience, and residential addresses.
+            </p>
+          </div>
+
+          <div className="hidden sm:flex sm:items-center sm:gap-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-2 shadow-[0_8px_20px_rgba(23,105,245,0.12)] ring-4 ring-white/70 dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-800/60">
+              <Semantic3DIcon name="edit" size={42} alt="Edit employee profile" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form
         onSubmit={handleSave}
         noValidate
-        className="flex min-w-0 flex-col gap-4"
+        className="flex min-w-0 flex-col gap-6"
       >
-        <Link
-          href={`/hr/employees/${id}/profile`}
-          className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-        >
-          ← Back to profile
-        </Link>
-        <div>
-          <h1 className="break-words text-theme-xl font-semibold text-gray-900 dark:text-white/90">
-            Edit profile
-          </h1>
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            {employeeName}
-          </p>
-        </div>
-
         <SaveErrorAlert error={saveError} />
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card className="min-w-0">
-            <h2 className="mb-4 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-              Personal information
-            </h2>
+        {/* Profile Photo Section */}
+        <div className="overflow-visible rounded-2xl border border-sky-200/90 bg-white shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:bg-gray-900">
+          <div className="flex items-center gap-3 border-b border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] px-6 py-4 rounded-t-2xl dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] dark:border-gray-700/80 dark:bg-gray-800 select-none">
+              <Camera className="h-5 w-5 text-brand-500" />
+            </div>
+            <div>
+              <h2 className="text-theme-sm font-bold tracking-tight text-[#0a3271] dark:text-sky-100">
+                Employee Profile Photo
+              </h2>
+              <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
+                Official employee photo. Reflected across HR profiles, employee documents, and system records.
+              </p>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+              <div className="flex items-center gap-4">
+                <EmployeeIdentity
+                  name={employeeName}
+                  code={employeeCode}
+                  avatarUrl={currentAvatarUrl}
+                  size="lg"
+                />
+                <div>
+                  <h3 className="text-sm font-bold text-[#0a3271] dark:text-white">
+                    {employeeName}
+                  </h3>
+                  <p className="text-xs font-semibold text-[#2f6396] dark:text-sky-300">
+                    {currentAvatarUrl ? "Custom profile photo is active" : "Default initials avatar"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    PNG, JPG, or WebP up to 5MB.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isUploadingPhoto}
+                  className="rounded-xl border border-sky-200/90 bg-white px-4 py-2 text-xs font-bold text-[#0a3271] shadow-2xs hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200"
+                >
+                  {isUploadingPhoto ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin text-brand-500" />
+                  ) : (
+                    <Camera className="h-4 w-4 mr-1.5 text-brand-500" />
+                  )}
+                  {isUploadingPhoto ? "Uploading..." : currentAvatarUrl ? "Change Photo" : "Upload Photo"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {/* Personal Information */}
+          <EditCardSection
+            title="Personal Information"
+            icon3d="user"
+            description="Demographics, blood group, and languages"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField
                 label="Title"
@@ -308,12 +502,14 @@ function EditBody({
                 hint="Separate with commas. Up to 10."
               />
             </div>
-          </Card>
+          </EditCardSection>
 
-          <Card className="min-w-0">
-            <h2 className="mb-4 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-              Family details
-            </h2>
+          {/* Family Details */}
+          <EditCardSection
+            title="Family Details"
+            icon3d="people"
+            description="Parental and marital records"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField
                 label="Father's name"
@@ -327,19 +523,23 @@ function EditBody({
                 error={errors.motherName}
                 onChange={(v) => set("motherName", v)}
               />
-              <TextField
-                label="Spouse name"
-                value={values.spouseName}
-                error={errors.spouseName}
-                onChange={(v) => set("spouseName", v)}
-              />
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Spouse name"
+                  value={values.spouseName}
+                  error={errors.spouseName}
+                  onChange={(v) => set("spouseName", v)}
+                />
+              </div>
             </div>
-          </Card>
+          </EditCardSection>
 
-          <Card className="min-w-0">
-            <h2 className="mb-4 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-              Emergency contact
-            </h2>
+          {/* Emergency Contact */}
+          <EditCardSection
+            title="Emergency Contact"
+            icon3d="bell"
+            description="Primary emergency contact details"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField
                 label="Name"
@@ -354,22 +554,26 @@ function EditBody({
                 onChange={(v) => set("emergencyPhone", v)}
                 placeholder="+91 98765 43210"
               />
-              <TextField
-                label="Relation"
-                value={values.emergencyRelation}
-                error={errors.emergencyRelation}
-                onChange={(v) => set("emergencyRelation", v)}
-                placeholder="Father, Spouse"
-              />
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Relation"
+                  value={values.emergencyRelation}
+                  error={errors.emergencyRelation}
+                  onChange={(v) => set("emergencyRelation", v)}
+                  placeholder="Father, Spouse, Friend"
+                />
+              </div>
             </div>
-          </Card>
+          </EditCardSection>
 
-          <Card className="min-w-0">
-            <h2 className="mb-4 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-              Experience
-            </h2>
+          {/* Experience */}
+          <EditCardSection
+            title="Prior Work Experience"
+            icon3d="recruitment"
+            description="Domain history and experience duration"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300 sm:col-span-2">
+              <label className="flex items-center gap-2 text-theme-sm font-semibold text-[#0a3271] dark:text-sky-200 sm:col-span-2">
                 <Checkbox
                   checked={values.isFresher}
                   onChange={(e) => set("isFresher", e.target.checked)}
@@ -390,20 +594,24 @@ function EditBody({
                 error={errors.previousCompany}
                 onChange={(v) => set("previousCompany", v)}
               />
-              <TextField
-                label="Previous role"
-                value={values.previousRole}
-                error={errors.previousRole}
-                onChange={(v) => set("previousRole", v)}
-              />
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Previous role"
+                  value={values.previousRole}
+                  error={errors.previousRole}
+                  onChange={(v) => set("previousRole", v)}
+                />
+              </div>
             </div>
-          </Card>
+          </EditCardSection>
 
+          {/* Addresses */}
           <div className="xl:col-span-2">
-            <Card className="min-w-0">
-              <h2 className="mb-4 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-                Addresses
-              </h2>
+            <EditCardSection
+              title="Residential Addresses"
+              icon3d="departments"
+              description="Current and permanent residence addresses"
+            >
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <AddressFields
                   legend="Current address"
@@ -420,27 +628,37 @@ function EditBody({
                   onChange={(f, v) => setAddress("permanentAddress", f, v)}
                 />
               </div>
-            </Card>
+            </EditCardSection>
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-white/95 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-dark/95">
+        {/* Action Bar */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-sky-200/90 bg-white p-4.5 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700 dark:bg-gray-900">
           {dirty ? (
-            <span className="mr-auto text-theme-xs text-gray-500 dark:text-gray-400">
-              Unsaved changes
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              ● Unsaved changes
             </span>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleCancel}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" loading={saving} disabled={saving || !dirty}>
-            Save profile
-          </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2.5">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCancel}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={saving}
+              disabled={saving || !dirty}
+            >
+              Save profile
+            </Button>
+          </div>
         </div>
       </form>
 
@@ -534,7 +752,7 @@ function AddressFields({
   const err = (f: keyof AddressForm) => errors[`${prefix}.${f}`];
   return (
     <fieldset className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-      <legend className="mb-2 text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <legend className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
         {legend}
       </legend>
       <div className="sm:col-span-2">
@@ -610,7 +828,7 @@ function StatutoryEditForm({ id }: { id: number }) {
   const [saveError, setSaveError] = useState<unknown>(null);
 
   if (query.isPending) {
-    return <Skeleton className="h-40 w-full" />;
+    return <Skeleton className="h-40 w-full rounded-2xl" />;
   }
   if (query.isError) {
     return (
@@ -668,17 +886,12 @@ function StatutoryEditForm({ id }: { id: number }) {
   ];
 
   return (
-    <Card className="min-w-0">
+    <EditCardSection
+      title="Statutory & Bank Details"
+      icon3d="access-control"
+      description="Changes are recorded in the security audit log. Leave blank and save to clear."
+    >
       <form onSubmit={handleSave} noValidate className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-            Statutory and bank
-          </h2>
-          <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-            Changes are recorded in the audit log by field name. Leave a field
-            blank and save to clear it.
-          </p>
-        </div>
         <SaveErrorAlert error={saveError} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.map(([key, label, placeholder]) => (
@@ -692,12 +905,17 @@ function StatutoryEditForm({ id }: { id: number }) {
             />
           ))}
         </div>
-        <div className="flex justify-end">
-          <Button type="submit" loading={saving} disabled={saving || !dirty}>
+        <div className="flex justify-end pt-2">
+          <Button
+            type="submit"
+            variant="primary"
+            loading={saving}
+            disabled={saving || !dirty}
+          >
             Save statutory and bank
           </Button>
         </div>
       </form>
-    </Card>
+    </EditCardSection>
   );
 }

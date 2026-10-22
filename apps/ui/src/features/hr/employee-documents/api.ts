@@ -29,10 +29,14 @@ export function uploadEmployeeDocument(
   employeeId: number,
   label: string,
   file: File,
+  documentType?: string,
 ): Promise<EmployeeDocumentRow> {
   const formData = new FormData();
   formData.append("label", label);
   formData.append("file", file);
+  if (documentType) {
+    formData.append("documentType", documentType);
+  }
   return withAuthRetry(() =>
     apiClient.request<EmployeeDocumentRow>(base(employeeId), {
       method: "POST",

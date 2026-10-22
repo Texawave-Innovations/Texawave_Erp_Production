@@ -143,6 +143,7 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
             {(f) => (
               <DatePicker
                 {...f}
+                align="right"
                 invalid={f.invalid}
                 value={values.endDate}
                 disabled={submitting}
@@ -186,7 +187,7 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
           error={errors.reason}
           hint="3–500 characters. Visible to whoever reads or decides the request."
           labelAction={
-            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+            <span className="text-theme-xs text-gray-400 dark:text-gray-500">
               {values.reason.length}/500
             </span>
           }
