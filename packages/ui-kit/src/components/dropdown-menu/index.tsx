@@ -384,11 +384,9 @@ export function DropdownMenu({
   let triggerElement: ReactNode = null;
 
   if (isValidElement(children)) {
-    const child = children as React.ReactElement<{
-      onClick?: (e: React.MouseEvent) => void;
-      onKeyDown?: (e: KeyboardEvent) => void;
-      ref?: unknown;
-    }>;
+    const child = children as React.ReactElement<
+      React.HTMLAttributes<HTMLElement> & { ref?: unknown }
+    >;
     triggerElement = cloneElement(child, {
       ref: (el: HTMLElement | null) => {
         triggerRef.current = el;
@@ -396,12 +394,12 @@ export function DropdownMenu({
         const originalRef = (child as { ref?: unknown }).ref;
         if (typeof originalRef === "function") originalRef(el);
       },
-      onClick: (e: React.MouseEvent) => {
+      onClick: (e: React.MouseEvent<HTMLElement>) => {
         e.stopPropagation();
         child.props?.onClick?.(e);
         handleToggle();
       },
-      onKeyDown: (e: KeyboardEvent) => {
+      onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
         child.props?.onKeyDown?.(e);
         handleKeyDown(e);
       },
