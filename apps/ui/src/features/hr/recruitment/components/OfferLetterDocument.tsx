@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { Button } from "@texawave-erp/ui-kit";
+import { printOfferLetter } from "../utils";
 
 export interface OfferLetterDocumentData {
   candidateName: string;
@@ -29,6 +30,8 @@ export interface OfferLetterDocumentData {
   companyPhone?: string;
   companyWebsite?: string;
   companyAddress?: string;
+  signatureImageUrl?: string;
+  sealImageUrl?: string;
 }
 
 export interface OfferLetterDocumentProps {
@@ -62,37 +65,22 @@ export function formatDocDate(dateStr: string | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
-/** Vector SVG logo of TEXA for crystal-clear print resolution */
+/** Logo using texawave-logo.png from public folder with original prominent size */
 function TexaLogo() {
   return (
-    <div className="flex items-center gap-1.5">
-      <svg
-        viewBox="0 0 100 32"
-        className="h-8 w-auto"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path d="M6 6H26V11H18.5V26H13.5V11H6V6Z" fill="#439234" />
-        <path
-          d="M29 6H44V11H34.5V13.5H42.5V18.5H34.5V21H44V26H29V6Z"
-          fill="#439234"
-        />
-        <path
-          d="M46 6L53.5 16L46 26H52L56.5 20L61 26H67L59.5 16L67 6H61L56.5 12L52 6H46Z"
-          fill="#78b449"
-        />
-        <path
-          d="M74 6L67 26H72.5L74.5 20H81.5L83.5 26H89L82 6H74ZM76 15.5L78 9.5L80 15.5H76Z"
-          fill="#439234"
-        />
-      </svg>
+    <div className="flex items-center shrink-0">
+      <img
+        src="/texawave-logo.png"
+        alt="TEXAWAVE"
+        className="h-10 sm:h-11 md:h-12 w-auto object-contain"
+      />
     </div>
   );
 }
 
 /**
- * Exact Offer Letter Document reproducing Offer_Letter_kumar (4).pdf
- * Features two-page layout, green border, table formats, and legal acceptance clauses.
+ * Exact Offer Letter Document reproducing reference layout
+ * Features two-page layout, brand blue accent borders, table formats, and legal acceptance clauses.
  */
 export function OfferLetterDocument({
   data,
@@ -101,18 +89,20 @@ export function OfferLetterDocument({
 }: OfferLetterDocumentProps) {
   const [activePage, setActivePage] = useState<"1" | "2" | "all">("all");
 
-  const candidateName = data.candidateName.trim() || "KUMAR";
-  const candidateFirstName = candidateName.split(/\s+/)[0] || candidateName;
-  const role = data.role.trim() || "Software Engineer";
+  const candidateName = data.candidateName.trim() || "CANDIDATE NAME";
+  const candidateFirstName = data.candidateName.trim()
+    ? (candidateName.split(/\s+/)[0] || candidateName)
+    : "Candidate Name";
+  const role = data.role.trim() || "DESIGNATION";
   const location = data.location.trim() || "Chennai";
   const reportingManager =
     data.reportingManager?.trim() || "Mr. Nithyanandan Ramaraj";
 
   const offerDateFormatted =
     formatDocDate(data.offerDate) || formatDocDate(new Date().toISOString());
-  const joiningDateFormatted = formatDocDate(data.joiningDate) || "25/09/2026";
+  const joiningDateFormatted = formatDocDate(data.joiningDate) || "";
   const offerValidityFormatted =
-    formatDocDate(data.offerValidityDate) || "29/08/2026";
+    formatDocDate(data.offerValidityDate) || "26/10/2026";
 
   const basicNum = Number(data.components.basic) || 0;
   const daNum = Number(data.components.da) || 0;
@@ -120,9 +110,9 @@ export function OfferLetterDocument({
   const caNum = Number(data.components.ca) || 0;
 
   const netMonthlyNum =
-    Number(data.grossMonthly) || basicNum + daNum + hraNum + caNum || 43000;
+    Number(data.grossMonthly) || basicNum + daNum + hraNum + caNum || 0;
   const grossAnnualNum =
-    Number(data.grossAnnual) || netMonthlyNum * 12 || 516000;
+    Number(data.grossAnnual) || netMonthlyNum * 12 || 0;
 
   const workScheduleMonFri = data.workScheduleMonFri || "10:00 AM – 7:00 PM";
   const workScheduleSat = data.workScheduleSat || "10:00 AM – 7:00 PM";
@@ -142,26 +132,26 @@ export function OfferLetterDocument({
     if (onPrint) {
       onPrint();
     } else {
-      window.print();
+      printOfferLetter("offer-letter-printable-content");
     }
   }
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
-      {/* Print Controls / Page Switcher (Hidden in print mode) */}
-      <div className="no-print flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2.5 shadow-sm dark:border-gray-800 dark:bg-gray-800">
-        <div className="flex items-center gap-1.5">
-          <FileText className="h-4 w-4 text-[#439234]" />
+      {/* Print Controls / Page Switcher (Hidden in print mode) matching Image 5 */}
+      <div className="no-print flex items-center justify-between rounded-xl border border-gray-200 bg-white p-2.5 shadow-xs dark:border-gray-800 dark:bg-gray-800">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-brand-500" />
           <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
             View Page:
           </span>
-          <div className="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5 text-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-theme-xs dark:border-gray-700 dark:bg-gray-900">
             <button
               type="button"
               onClick={() => setActivePage("all")}
-              className={`rounded px-2.5 py-1 font-medium transition-colors ${
+              className={`rounded-md px-3 py-1 font-semibold transition-all ${
                 activePage === "all"
-                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white"
+                  ? "bg-white text-brand-600 shadow-xs dark:bg-gray-800 dark:text-cyan-400"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
@@ -170,9 +160,9 @@ export function OfferLetterDocument({
             <button
               type="button"
               onClick={() => setActivePage("1")}
-              className={`rounded px-2.5 py-1 font-medium transition-colors ${
+              className={`rounded-md px-3 py-1 font-semibold transition-all ${
                 activePage === "1"
-                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white"
+                  ? "bg-white text-brand-600 shadow-xs dark:bg-gray-800 dark:text-cyan-400"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
@@ -181,9 +171,9 @@ export function OfferLetterDocument({
             <button
               type="button"
               onClick={() => setActivePage("2")}
-              className={`rounded px-2.5 py-1 font-medium transition-colors ${
+              className={`rounded-md px-3 py-1 font-semibold transition-all ${
                 activePage === "2"
-                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white"
+                  ? "bg-white text-brand-600 shadow-xs dark:bg-gray-800 dark:text-cyan-400"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
@@ -196,7 +186,7 @@ export function OfferLetterDocument({
           variant="secondary"
           size="sm"
           onClick={handleDownload}
-          className="inline-flex items-center gap-1.5 text-theme-xs font-medium"
+          className="inline-flex items-center gap-1.5 text-theme-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
         >
           <Download className="h-3.5 w-3.5" />
           Download PDF / Print
@@ -247,21 +237,27 @@ export function OfferLetterDocument({
       />
 
       {/* Document Root Container */}
-      <div className="printable-doc-root flex flex-col gap-6">
+      <div
+        id="offer-letter-printable-content"
+        className="printable-doc-root flex flex-col gap-6"
+      >
         {/* ================= PAGE 1 ================= */}
-        {(activePage === "all" || activePage === "1") && (
-          <div className="doc-page relative mx-auto flex w-full max-w-[210mm] flex-col justify-between rounded-lg border-[2.5px] border-[#5aa846] bg-white p-8 text-gray-900 shadow-md sm:p-10 font-sans">
-            {/* Top Company Header */}
+        <div
+          className={`doc-page relative mx-auto w-full max-w-[210mm] flex-col justify-between rounded-lg border-[2.5px] border-brand-500 bg-white p-6 sm:p-8 md:p-10 text-gray-900 shadow-md font-sans ${
+            activePage === "2" ? "hidden" : "flex"
+          }`}
+        >
+            {/* Top Company Header (Single line with full logo) */}
             <div>
-              <div className="flex items-center justify-center gap-2 border-b border-transparent pb-3">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 border-b border-transparent pb-3">
                 <TexaLogo />
-                <h1 className="text-base sm:text-lg font-extrabold tracking-wide text-[#439234]">
+                <h1 className="text-xs sm:text-sm md:text-base lg:text-lg font-extrabold tracking-wide text-brand-600 dark:text-sky-400 whitespace-nowrap uppercase">
                   TEXAWAVE INNOVATIONS PRIVATE LIMITED
                 </h1>
               </div>
 
-              {/* Title Banner */}
-              <div className="mt-1 rounded-md bg-[#78b449] py-1 text-center shadow-xs">
+              {/* Title Banner (Table Header Gradient) */}
+              <div className="mt-1 rounded-md bg-linear-to-r from-[#0a3271] via-[#1769F5] to-[#0284c7] py-1 text-center shadow-xs">
                 <span className="text-xs sm:text-sm font-extrabold tracking-[0.25em] text-white uppercase">
                   OFFER LETTER
                 </span>
@@ -271,15 +267,15 @@ export function OfferLetterDocument({
               <div className="mt-3 flex justify-end text-xs sm:text-sm">
                 <span className="font-bold text-gray-900">
                   Date:{" "}
-                  <span className="font-bold text-[#439234]">
+                  <span className="font-bold text-brand-600">
                     {offerDateFormatted}
                   </span>
                 </span>
               </div>
 
               {/* Framed Recipient Box */}
-              <div className="mt-2 rounded-lg border border-[#78b449] bg-[#fbfdfa] p-3 text-xs sm:text-sm">
-                <div className="font-bold text-[#439234] text-xs">TO</div>
+              <div className="mt-2 rounded-lg border border-brand-200 bg-brand-50/20 p-3 text-xs sm:text-sm">
+                <div className="font-bold text-brand-600 text-xs">TO</div>
                 <div className="font-extrabold uppercase text-gray-900 text-sm">
                   {candidateName}
                 </div>
@@ -314,14 +310,14 @@ export function OfferLetterDocument({
 
               {/* 1. POSITION & REPORTING STRUCTURE */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   1. POSITION & REPORTING STRUCTURE
                 </div>
                 <div className="mt-1 text-xs sm:text-sm space-y-0.5 text-gray-800 leading-normal">
                   <p>
                     You will be appointed as{" "}
-                    <span className="font-semibold lowercase text-gray-900">
-                      {role}
+                    <span className="font-semibold text-gray-900">
+                      {role === "DESIGNATION" ? "Designation" : role}
                     </span>
                     .
                   </p>
@@ -342,7 +338,7 @@ export function OfferLetterDocument({
 
               {/* 2. DATE OF JOINING */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   2. DATE OF JOINING
                 </div>
                 <div className="mt-1 text-xs sm:text-sm space-y-0.5 text-gray-800 leading-normal">
@@ -363,7 +359,7 @@ export function OfferLetterDocument({
 
               {/* 3. COMPENSATION STRUCTURE */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   3. COMPENSATION STRUCTURE
                 </div>
                 <p className="mt-1 text-xs sm:text-sm text-gray-800 leading-normal">
@@ -375,11 +371,11 @@ export function OfferLetterDocument({
                   allowances.
                 </p>
 
-                {/* Compensation Table */}
-                <div className="mt-2 overflow-hidden rounded border border-[#78b449]">
+                {/* Compensation Table with Table Header Gradient */}
+                <div className="mt-2 overflow-hidden rounded border border-brand-200">
                   <table className="w-full border-collapse text-xs">
                     <thead>
-                      <tr className="bg-[#78b449] text-white">
+                      <tr className="bg-linear-to-r from-[#0a3271] via-[#1769F5] to-[#0284c7] text-white">
                         <th className="py-1 px-3 text-left font-bold tracking-wider">
                           COMPONENT
                         </th>
@@ -388,7 +384,7 @@ export function OfferLetterDocument({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#78b449]/40 text-gray-800">
+                    <tbody className="divide-y divide-brand-100 text-gray-800">
                       <tr>
                         <td className="py-1 px-3 font-medium">Basic</td>
                         <td className="py-1 px-3 text-right font-semibold">
@@ -431,7 +427,7 @@ export function OfferLetterDocument({
                           {formatDocRupees(netMonthlyNum)}
                         </td>
                       </tr>
-                      <tr className="bg-[#78b449] font-extrabold text-white">
+                      <tr className="bg-linear-to-r from-[#0a3271] to-[#1769F5] font-extrabold text-white">
                         <td className="py-1.5 px-3 uppercase tracking-wider">
                           GROSS ANNUAL CTC
                         </td>
@@ -469,23 +465,25 @@ export function OfferLetterDocument({
               </div>
             </div>
           </div>
-        )}
 
         {/* ================= PAGE 2 ================= */}
-        {(activePage === "all" || activePage === "2") && (
-          <div className="doc-page relative mx-auto flex w-full max-w-[210mm] flex-col justify-between rounded-lg border-[2.5px] border-[#5aa846] bg-white p-8 text-gray-900 shadow-md sm:p-10 font-sans">
+        <div
+          className={`doc-page relative mx-auto w-full max-w-[210mm] flex-col justify-between rounded-lg border-[2.5px] border-brand-500 bg-white p-6 sm:p-8 md:p-10 text-gray-900 shadow-md font-sans ${
+            activePage === "1" ? "hidden" : "flex"
+          }`}
+        >
             <div>
-              {/* Header on Page 2 */}
-              <div className="flex items-center justify-center gap-2 border-b border-transparent pb-3">
+              {/* Header on Page 2 (Single line with full logo) */}
+              <div className="flex items-center justify-center gap-2 sm:gap-3 border-b border-transparent pb-3">
                 <TexaLogo />
-                <h2 className="text-base sm:text-lg font-extrabold tracking-wide text-[#439234]">
+                <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-extrabold tracking-wide text-brand-600 dark:text-sky-400 whitespace-nowrap uppercase">
                   TEXAWAVE INNOVATIONS PRIVATE LIMITED
                 </h2>
               </div>
 
               {/* 4. WORKING HOURS & EMPLOYMENT TYPE */}
               <div className="mt-2">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   4. WORKING HOURS & EMPLOYMENT TYPE
                 </div>
                 <p className="mt-1 text-xs sm:text-sm text-gray-800 leading-normal">
@@ -496,11 +494,11 @@ export function OfferLetterDocument({
                   .
                 </p>
 
-                {/* Working hours table */}
-                <div className="mt-2 overflow-hidden rounded border border-[#78b449] max-w-lg">
+                {/* Working hours table with Table Header Gradient */}
+                <div className="mt-2 overflow-hidden rounded border border-brand-200 max-w-lg">
                   <table className="w-full border-collapse text-xs">
                     <thead>
-                      <tr className="bg-[#78b449] text-white">
+                      <tr className="bg-linear-to-r from-[#0a3271] via-[#1769F5] to-[#0284c7] text-white">
                         <th className="py-1 px-3 text-left font-bold tracking-wider">
                           DAY
                         </th>
@@ -509,7 +507,7 @@ export function OfferLetterDocument({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#78b449]/40 text-gray-800">
+                    <tbody className="divide-y divide-brand-100 text-gray-800">
                       <tr>
                         <td className="py-1 px-3 font-semibold">
                           Monday – Friday
@@ -537,7 +535,7 @@ export function OfferLetterDocument({
 
               {/* 5. PROBATION PERIOD */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   5. PROBATION PERIOD
                 </div>
                 <div className="mt-1 text-xs sm:text-sm space-y-0.5 text-gray-800 leading-normal">
@@ -557,7 +555,7 @@ export function OfferLetterDocument({
 
               {/* 6. CODE OF CONDUCT & COMPANY POLICIES */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   6. CODE OF CONDUCT & COMPANY POLICIES
                 </div>
                 <p className="mt-1 text-justify text-xs sm:text-sm text-gray-800 leading-normal">
@@ -569,7 +567,7 @@ export function OfferLetterDocument({
 
               {/* 7. CONFIDENTIALITY & IP OWNERSHIP */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   7. CONFIDENTIALITY & IP OWNERSHIP
                 </div>
                 <p className="mt-1 text-justify text-xs sm:text-sm text-gray-800 leading-normal">
@@ -581,7 +579,7 @@ export function OfferLetterDocument({
 
               {/* 8. BACKGROUND VERIFICATION */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   8. BACKGROUND VERIFICATION
                 </div>
                 <p className="mt-1 text-justify text-xs sm:text-sm text-gray-800 leading-normal">
@@ -593,7 +591,7 @@ export function OfferLetterDocument({
 
               {/* 9. NOTICE PERIOD & TERMINATION CLAUSE */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   9. NOTICE PERIOD & TERMINATION CLAUSE
                 </div>
                 <div className="mt-1 text-xs sm:text-sm space-y-0.5 text-gray-800 leading-normal">
@@ -615,7 +613,7 @@ export function OfferLetterDocument({
 
               {/* 10. OFFER VALIDITY */}
               <div className="mt-3">
-                <div className="rounded bg-[#78b449] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
+                <div className="rounded bg-linear-to-r from-[#0a3271] to-[#1769F5] px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
                   10. OFFER VALIDITY
                 </div>
                 <p className="mt-1 text-xs sm:text-sm text-gray-800 leading-normal">
@@ -630,22 +628,39 @@ export function OfferLetterDocument({
               {/* Signatures & Acceptance Framed Section */}
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* Left Box: Company Signatory */}
-                <div className="rounded-lg border border-[#78b449] bg-[#fbfdfa] p-3.5 text-xs sm:text-sm">
+                <div className="relative rounded-lg border border-brand-200 bg-brand-50/20 p-3.5 text-xs sm:text-sm">
                   <div className="font-semibold text-gray-800">
                     For TexaWave Innovations Pvt Ltd,
                   </div>
-                  <div className="my-2.5 font-serif italic text-base font-bold text-[#439234]">
-                    {signatoryName}
+                  <div className="relative my-2 min-h-11 flex items-center">
+                    {data.signatureImageUrl ? (
+                      <img
+                        src={data.signatureImageUrl}
+                        alt="Signature"
+                        className="h-10 max-w-30 object-contain"
+                      />
+                    ) : (
+                      <div className="font-serif italic text-base font-bold text-brand-600">
+                        {signatoryName}
+                      </div>
+                    )}
+                    {data.sealImageUrl ? (
+                      <img
+                        src={data.sealImageUrl}
+                        alt="Company Seal"
+                        className="absolute right-0 top-0 h-12 w-12 object-contain opacity-90"
+                      />
+                    ) : null}
                   </div>
                   <div className="font-bold text-gray-900">{signatoryName}</div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-brand-600 font-semibold">
                     {signatoryDesignation}
                   </div>
                 </div>
 
                 {/* Right Box: Acceptance of Offer */}
-                <div className="rounded-lg border border-[#78b449] bg-[#fbfdfa] p-3.5 text-xs sm:text-sm flex flex-col justify-between">
-                  <div className="text-center font-bold tracking-wider text-[#439234] uppercase text-xs">
+                <div className="rounded-lg border border-brand-200 bg-brand-50/20 p-3.5 text-xs sm:text-sm flex flex-col justify-between">
+                  <div className="text-center font-bold tracking-wider text-brand-600 uppercase text-xs">
                     ACCEPTANCE OF OFFER
                   </div>
                   <div className="mt-3 space-y-2 text-xs">
@@ -680,7 +695,6 @@ export function OfferLetterDocument({
               </div>
             </div>
           </div>
-        )}
       </div>
     </div>
   );

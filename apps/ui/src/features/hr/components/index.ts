@@ -19,3 +19,7 @@ export * from "./HrPageHeader";
 export * from "./DepartmentBarChart";
 export * from "./EmployeeDistributionDonut";
 export * from "./RecentActivitiesCard";
+export * from "./ExecutiveHeroBanner";
+export * from "./ExecutiveSectionCard";
+export * from "./DetailField";
+export * from "./FormActionBar";

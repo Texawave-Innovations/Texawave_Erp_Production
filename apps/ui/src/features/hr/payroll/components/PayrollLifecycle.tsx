@@ -1,5 +1,5 @@
 import { Alert } from "@texawave-erp/ui-kit";
-import type { PayrollPeriod, PayrollRun } from "../types";
+import type { PayrollPeriod, PayrollRun, RunStatus } from "../types";
 
 const STEPS = ["Period created", "Payroll run", "Approved", "Finalized"];
 
@@ -13,7 +13,7 @@ const NEXT: Record<number, string> = {
 /** How far a period is through run → approve → finalize. */
 export function lifecycleStep(
   period: PayrollPeriod,
-  runs: readonly PayrollRun[],
+  runs: readonly { status: RunStatus }[],
 ): number {
   if (period.status === "FINALIZED") return 4;
   if (runs.some((r) => r.status === "APPROVED")) return 3;

@@ -14,15 +14,17 @@ test.describe("Global UI Kit Phase 3 — Form Controls", () => {
   }) => {
     await signInAsAdmin(page);
 
-    // Navigate to /hr/employees which uses SearchInput
-    await page
-      .getByRole("navigation")
-      .locator("a[href='/hr/employees']")
-      .click();
-    await expect(page).toHaveURL(/\/hr\/employees$/);
-    await expect(
-      page.getByRole("heading", { name: "Employees" }),
-    ).toBeVisible();
+    const nav = page.getByRole("navigation", {
+      name: "Main application navigation",
+    });
+    const hrBtn = nav.getByRole("button", { name: "Human Resources" });
+    await hrBtn.hover();
+    const dropdown = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await dropdown.getByRole("link", { name: "Employees", exact: true }).click();
+    await expect(page).toHaveURL(/\/hr\/employees/);
+    await page.waitForLoadState("networkidle");
 
     const searchBox = page.getByRole("searchbox", { name: "Search employees" });
     await expect(searchBox).toBeVisible();
@@ -47,11 +49,18 @@ test.describe("Global UI Kit Phase 3 — Form Controls", () => {
     await signInAsAdmin(page);
 
     // 1. Test DatePicker on /hr/employees/new (checking min/max constraints, controlled value, and exact date)
-    await page
-      .getByRole("navigation")
-      .locator("a[href='/hr/employees']")
-      .click();
-    await expect(page).toHaveURL(/\/hr\/employees$/);
+    const nav = page.getByRole("navigation", {
+      name: "Main application navigation",
+    });
+    const hrBtn = nav.getByRole("button", { name: "Human Resources" });
+    await hrBtn.hover();
+    const dropdown = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await dropdown.getByRole("link", { name: "Employees", exact: true }).click();
+    await expect(page).toHaveURL(/\/hr\/employees/);
+    await page.waitForLoadState("networkidle");
+
     await page.getByRole("button", { name: "Add Employee" }).click();
     await expect(page).toHaveURL(/\/hr\/employees\/new$/);
     await expect(
@@ -75,10 +84,13 @@ test.describe("Global UI Kit Phase 3 — Form Controls", () => {
     await expect(joiningDatePicker).toHaveValue("");
 
     // 2. Test DatePicker validation on /hr/holidays
-    await page.getByRole("link", { name: "Holidays", exact: true }).click();
-    await expect(
-      page.getByRole("heading", { name: "Holidays", exact: true }),
-    ).toBeVisible();
+    await hrBtn.click();
+    const timeLeaveBtn = dropdown.getByRole("button", { name: "Time & Leave" });
+    await timeLeaveBtn.click();
+    const subMenu = page.getByRole("menu", { name: "Time & Leave items" });
+    await subMenu.getByRole("link", { name: "Holidays" }).click();
+    await expect(page).toHaveURL(/\/hr\/holidays/);
+    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "New holiday" }).click();
     const holidayDatePicker = page.getByLabel("Date", { exact: true });
@@ -104,13 +116,16 @@ test.describe("Global UI Kit Phase 3 — Form Controls", () => {
   }) => {
     await signInAsAdmin(page);
 
-    // Navigate to /admin/users which uses PasswordField in UserForm
-    await page
-      .getByRole("navigation")
-      .locator("a[href='/admin/users']")
-      .click();
-    await expect(page).toHaveURL(/\/admin\/users$/);
-    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+    const settingsBtn = page.getByRole("navigation", {
+      name: "Main application navigation",
+    }).getByRole("button", { name: "Settings" });
+    await settingsBtn.hover();
+    const settingsMenu = page.getByRole("menu", {
+      name: "Settings categories",
+    });
+    await settingsMenu.getByRole("link", { name: "Users", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/users/);
+    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "New user" }).click();
 

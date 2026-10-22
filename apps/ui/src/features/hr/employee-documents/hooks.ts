@@ -27,9 +27,16 @@ export function useEmployeeDocuments(employeeId: number) {
 
 export function useUploadEmployeeDocument(employeeId: number) {
   return useOrgScopedMutation(
-    [KEY],
-    ({ label, file }: { label: string; file: File }) =>
-      uploadEmployeeDocument(employeeId, label, file),
+    [KEY, "hr-employees", "hr-profiles"],
+    ({
+      label,
+      file,
+      documentType,
+    }: {
+      label: string;
+      file: File;
+      documentType?: string;
+    }) => uploadEmployeeDocument(employeeId, label, file, documentType),
   );
 }
 

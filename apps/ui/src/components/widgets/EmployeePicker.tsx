@@ -1,7 +1,6 @@
 "use client";
 
-import { Alert, Input, Select } from "@texawave-erp/ui-kit";
-import { useEffect, useState } from "react";
+import { Alert, Select } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import {
   EMPLOYEE_READ_ANY_SCOPE,
@@ -21,24 +20,11 @@ export interface EmployeePickerProps {
   disabled?: boolean;
 }
 
-function useDebounced<T>(value: T, delayMs = 300): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(t);
-  }, [value, delayMs]);
-  return debounced;
-}
-
 const label = (e: EmployeeOption) => `${e.fullName} (${e.employeeCode})`;
 
 /**
- * Searchable employee select, shared by any HR screen that acts on one
- * employee (salaries, bonuses, loans, PF/ESI profiles…). A widget, not a
- * ui-kit primitive: it calls `GET /hr/employees`, which the server scopes to
- * the caller's own/team/all grant. Use inside `FormField`:
- *
- *   <FormField label="Employee">{(f) => <EmployeePicker {...f} value=… onChange=… />}</FormField>
+ * Clean employee select dropdown, shared by any HR screen that acts on one
+ * employee (salaries, bonuses, loans, gratuity, PF/ESI profiles…).
  */
 export function EmployeePicker({
   value,
@@ -49,9 +35,7 @@ export function EmployeePicker({
   disabled = false,
 }: EmployeePickerProps) {
   const canRead = usePermission(EMPLOYEE_READ_ANY_SCOPE);
-  const [search, setSearch] = useState("");
-  const debounced = useDebounced(search.trim());
-  const query = useEmployeeOptions(debounced, canRead);
+  const query = useEmployeeOptions("", canRead);
 
   if (!canRead) {
     return (
@@ -62,7 +46,7 @@ export function EmployeePicker({
   }
 
   const results = query.data?.data ?? [];
-  // Keep the current selection listed even when the search no longer matches it.
+  // Keep the current selection listed even when it's not in the initial options
   const options =
     value && !results.some((e) => e.id === value.id)
       ? [value, ...results]
@@ -77,41 +61,31 @@ export function EmployeePicker({
         : "Select an employee";
 
   return (
-    <div className="flex flex-col gap-2">
-      <Input
-        type="search"
-        aria-label="Search employees"
-        placeholder="Search by name or code"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        disabled={disabled}
-      />
-      <Select
-        id={id}
-        aria-describedby={describedBy}
-        invalid={invalid}
-        disabled={disabled || query.isPending}
-        value={value ? String(value.id) : ""}
-        onChange={(e) => {
-          const picked = options.find((o) => String(o.id) === e.target.value);
-          onChange(
-            picked
-              ? {
-                  id: picked.id,
-                  employeeCode: picked.employeeCode,
-                  fullName: picked.fullName,
-                }
-              : null,
-          );
-        }}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((e) => (
-          <option key={e.id} value={e.id}>
-            {label(e)}
-          </option>
-        ))}
-      </Select>
-    </div>
+    <Select
+      id={id}
+      aria-describedby={describedBy}
+      invalid={invalid}
+      disabled={disabled || query.isPending}
+      value={value ? String(value.id) : ""}
+      onChange={(e) => {
+        const picked = options.find((o) => String(o.id) === e.target.value);
+        onChange(
+          picked
+            ? {
+                id: picked.id,
+                employeeCode: picked.employeeCode,
+                fullName: picked.fullName,
+              }
+            : null,
+        );
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map((e) => (
+        <option key={e.id} value={e.id}>
+          {label(e)}
+        </option>
+      ))}
+    </Select>
   );
 }

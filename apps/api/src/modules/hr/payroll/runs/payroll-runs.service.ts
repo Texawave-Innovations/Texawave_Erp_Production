@@ -12,6 +12,7 @@ import {
   assertNotSelfApproval,
   requireOrgWideScope,
 } from "../shared/payroll-scope.js";
+import { maskEmployeeBankDetails } from "../shared/sensitive-data.js";
 import type {
   ApprovePayrollRunDto,
   CreatePayrollRunDto,
@@ -243,14 +244,15 @@ export class PayrollRunsService {
       query,
       query,
     );
-    return new PaginatedResponseDto(items, total, query.page, query.limit);
+    const masked = items.map(maskEmployeeBankDetails);
+    return new PaginatedResponseDto(masked, total, query.page, query.limit);
   }
 
   async findEntryById(id: number) {
     const scope = await this.teamContext.resolveScope(READ);
     const entry = await this.repository.findEntryById(scope, id);
     if (!entry) throw new ResourceNotFoundException("Payroll entry", id);
-    return entry;
+    return maskEmployeeBankDetails(entry);
   }
 
   /** Run headers carry no per-employee pay (entries are team-filtered), so

@@ -6,7 +6,6 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
   DataTable,
   EmptyState,
@@ -205,100 +204,111 @@ export function MonthCloseTab() {
   }, [rows]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input
-              type="month"
-              aria-label="Month to close"
-              value={month}
-              max={currentMonth()}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setMonth(e.target.value);
-                  reset();
-                }
-              }}
-            />
-            <Select
-              aria-label="Filter by close status"
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value as "" | MonthLockStatus);
-                reset();
-              }}
-            >
-              <option value="">All statuses</option>
-              {MONTH_LOCK_FILTERS.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_META[s].label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {canFinalize ? (
-              <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={!monthEnded || submittableSelected.length === 0}
-                  loading={finalize.isPending}
-                  onClick={() =>
-                    void submit(submittableSelected.map((r) => r.employee.id))
+    <div className="flex flex-col gap-5">
+      {/* Executive Controls Toolbar */}
+      <div className="relative z-20 focus-within:z-30 rounded-2xl border border-sky-100/90 bg-white/95 p-4 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
+        <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                type="month"
+                aria-label="Month to close"
+                value={month}
+                max={currentMonth()}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setMonth(e.target.value);
+                    reset();
                   }
-                >
-                  <Send className="mr-1.5 h-3.5 w-3.5" />
-                  Submit selected ({submittableSelected.length})
-                </Button>
+                }}
+                className="font-semibold"
+              />
+              <Select
+                aria-label="Filter by close status"
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as "" | MonthLockStatus);
+                  reset();
+                }}
+              >
+                <option value="">All statuses</option>
+                {MONTH_LOCK_FILTERS.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_META[s].label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {canFinalize ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!monthEnded || submittableSelected.length === 0}
+                    loading={finalize.isPending}
+                    onClick={() =>
+                      void submit(submittableSelected.map((r) => r.employee.id))
+                    }
+                    className="inline-flex items-center gap-1.5 text-theme-xs h-9 px-3"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Submit selected ({submittableSelected.length})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!monthEnded}
+                    loading={finalize.isPending}
+                    onClick={() => void submit()}
+                    className="inline-flex items-center gap-1.5 text-theme-xs h-9 px-3"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    Submit all eligible
+                  </Button>
+                </>
+              ) : null}
+              {canApprove ? (
                 <Button
                   type="button"
                   size="sm"
-                  disabled={!monthEnded}
-                  loading={finalize.isPending}
-                  onClick={() => void submit()}
+                  disabled={approvableSelected.length === 0}
+                  loading={approve.isPending}
+                  onClick={() => void approveSelected()}
+                  className="inline-flex items-center gap-1.5 text-theme-xs h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  <Lock className="mr-1.5 h-3.5 w-3.5" />
-                  Submit all eligible
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Approve selected ({approvableSelected.length})
                 </Button>
-              </>
-            ) : null}
-            {canApprove ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={approvableSelected.length === 0}
-                loading={approve.isPending}
-                onClick={() => void approveSelected()}
-              >
-                <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
-                Approve selected ({approvableSelected.length})
-              </Button>
-            ) : null}
+              ) : null}
+            </div>
           </div>
+          {canFinalize && !monthEnded ? (
+            <p className="text-theme-xs text-amber-600 dark:text-amber-400 font-medium">
+              {month} has not ended yet. A month can be submitted from the 1st of
+              the next month.
+            </p>
+          ) : null}
+          {rows.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+              <span className="text-xs font-semibold text-gray-500">Breakdown:</span>
+              {MONTH_LOCK_FILTERS.filter((s) => counts[s]).map((s) => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <span>{STATUS_META[s].label}:</span>
+                  <span className="font-extrabold text-brand-600 dark:text-brand-400">{counts[s]}</span>
+                </span>
+              ))}
+              {(list.data?.meta.totalPages ?? 1) > 1 ? (
+                <span className="text-[11px] text-gray-400">(this page)</span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        {canFinalize && !monthEnded ? (
-          <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
-            {month} has not ended yet. A month can be submitted from the 1st of
-            the next month.
-          </p>
-        ) : null}
-        {rows.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-3 text-theme-xs text-gray-600 dark:text-gray-400">
-            {MONTH_LOCK_FILTERS.filter((s) => counts[s]).map((s) => (
-              <span key={s}>
-                {STATUS_META[s].label}:{" "}
-                <span className="font-semibold">{counts[s]}</span>
-              </span>
-            ))}
-            {(list.data?.meta.totalPages ?? 1) > 1 ? (
-              <span>(this page)</span>
-            ) : null}
-          </div>
-        ) : null}
-      </Card>
+      </div>
 
       {actionError ? (
         <Alert variant="error" title="Nothing was changed">
@@ -337,12 +347,12 @@ export function MonthCloseTab() {
           <ErrorState onRetry={() => void list.refetch()} />
         )
       ) : rows.length === 0 ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-8 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
           <EmptyState
             title="Nobody to show"
             description="No employee in your scope matches this month and status."
           />
-        </Card>
+        </div>
       ) : (
         <>
           <DataTable

@@ -40,6 +40,7 @@ export interface DateRangePickerProps {
    */
   variant?: "inputs" | "button";
   align?: "left" | "right";
+  placement?: "top" | "bottom" | "auto";
   className?: string;
   id?: string;
 }
@@ -61,6 +62,7 @@ export function DateRangePicker({
   disabled = false,
   variant: _variant = "inputs",
   align = "left",
+  placement = "auto",
   className,
   id,
 }: DateRangePickerProps) {
@@ -75,6 +77,8 @@ export function DateRangePicker({
   const currentRange = isControlled ? value : internalValue;
 
   // Popover state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [pendingFrom, setPendingFrom] = useState(currentRange.from);
   const [pendingTo, setPendingTo] = useState(currentRange.to);
@@ -85,27 +89,78 @@ export function DateRangePicker({
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDate.getMonth());
 
-  // Automatic alignment detection to avoid viewport clipping
+  // Dynamic collision detection (flips to top if bottom space is insufficient)
+  const [effectivePlacement, setEffectivePlacement] = useState<
+    "top" | "bottom"
+  >("bottom");
   const [effectiveAlign, setEffectiveAlign] = useState<"left" | "right">(align);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const updatePlacement = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const popoverHeight = 390;
+    const popoverWidth = 540;
 
-  // Auto-detect if opening left would overflow viewport
-  useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
+    // Find closest scrollable or clipping container (dialog, modal, card, or viewport)
+    const scrollParent = containerRef.current.closest<HTMLElement>(
+      'dialog, [role="dialog"], .overflow-y-auto, .overflow-auto, .overflow-hidden',
+    );
+    const containerRect = scrollParent
+      ? scrollParent.getBoundingClientRect()
+      : {
+          top: 0,
+          bottom: window.innerHeight,
+          left: 0,
+          right: window.innerWidth,
+        };
+
+    // Effective space relative to container and viewport
+    const effectiveBottom = Math.min(window.innerHeight, containerRect.bottom);
+    const effectiveTop = Math.max(0, containerRect.top);
+    const effectiveRight = Math.min(window.innerWidth, containerRect.right);
+    const effectiveLeft = Math.max(0, containerRect.left);
+
+    const spaceBelow = effectiveBottom - rect.bottom;
+    const spaceAbove = rect.top - effectiveTop;
+
+    // Vertical collision detection: only flip to top if space above can actually fit popover without clipping
+    if (placement === "top") {
+      setEffectivePlacement("top");
+    } else if (placement === "bottom") {
+      setEffectivePlacement("bottom");
+    } else if (spaceBelow < popoverHeight && spaceAbove >= popoverHeight) {
+      setEffectivePlacement("top");
+    } else {
+      setEffectivePlacement("bottom");
+    }
+
+    // Horizontal collision detection
+    const wouldOverflowRight = rect.left + popoverWidth > effectiveRight - 8;
+    const wouldOverflowLeft = rect.right - popoverWidth < effectiveLeft + 8;
+
     if (align === "right") {
       setEffectiveAlign("right");
-      return;
-    }
-    const rect = containerRef.current.getBoundingClientRect();
-    const popoverWidth = 540;
-    if (rect.left + popoverWidth > window.innerWidth - 20) {
+    } else if (align === "left") {
+      setEffectiveAlign("left");
+    } else if (wouldOverflowRight && !wouldOverflowLeft) {
+      setEffectiveAlign("right");
+    } else if (wouldOverflowRight && rect.right >= popoverWidth) {
       setEffectiveAlign("right");
     } else {
       setEffectiveAlign("left");
     }
-  }, [isOpen, align]);
+  }, [align, placement]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    return () => {
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+    };
+  }, [isOpen, updatePlacement]);
 
   // Sync internal/pending state when prop value changes
   useEffect(() => {
@@ -303,7 +358,11 @@ export function DateRangePicker({
     <div
       ref={containerRef}
       id={pickerId}
-      className={cn("relative inline-block text-left w-full", className)}
+      className={cn(
+        "relative inline-block text-left w-full",
+        isOpen && "z-50",
+        className,
+      )}
     >
       {/* Visually hidden accessible textboxes for automated tests and screen readers */}
       <input
@@ -331,23 +390,23 @@ export function DateRangePicker({
         aria-expanded={isOpen}
         aria-label={placeholder}
         className={cn(
-          "inline-flex items-center justify-between w-full h-10 rounded-lg border px-3.5 py-2 text-theme-xs font-medium shadow-theme-xs transition-all",
-          "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-gray-500 hover:border-gray-700",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 focus-visible:border-brand-500",
-          "dark:bg-gray-900 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:border-gray-400 dark:hover:text-white",
+          "inline-flex items-center justify-between w-full h-10 rounded-xl border px-3.5 py-2 text-xs font-medium shadow-2xs transition-all",
+          "bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 border-sky-100/90 hover:border-sky-300 backdrop-blur-md",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25 focus-visible:border-sky-400",
+          "dark:bg-slate-900/90 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:border-sky-700 dark:hover:text-white",
           isOpen &&
-            "border-brand-500 ring-2 ring-brand-500/20 text-brand-700 dark:text-brand-300",
+            "border-sky-400 ring-2 ring-sky-500/25 text-brand-700 dark:text-cyan-300 dark:border-sky-500",
           disabled && "opacity-50 cursor-not-allowed",
         )}
       >
         <div className="flex items-center gap-2 truncate min-w-0">
-          <CalendarIcon className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
+          <CalendarIcon className="h-4 w-4 text-brand-600 dark:text-cyan-400 shrink-0" />
           <span
             className={cn(
               "truncate font-medium",
               !hasRange
-                ? "text-gray-400 dark:text-gray-500"
-                : "text-gray-900 dark:text-white",
+                ? "text-slate-400 dark:text-slate-500"
+                : "text-slate-900 dark:text-white",
             )}
           >
             {displayRangeText}
@@ -370,15 +429,15 @@ export function DateRangePicker({
                 }
               }}
               title="Clear date range"
-              className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-sky-50 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
             >
               <XIcon className="h-3.5 w-3.5" />
             </span>
           )}
           <ChevronDownIcon
             className={cn(
-              "h-4 w-4 text-gray-400 transition-transform duration-200",
-              isOpen && "rotate-180 text-brand-600 dark:text-brand-400",
+              "h-4 w-4 text-slate-400 transition-transform duration-200",
+              isOpen && "rotate-180 text-brand-600 dark:text-cyan-400",
             )}
           />
         </div>
@@ -392,19 +451,20 @@ export function DateRangePicker({
           aria-modal="true"
           aria-label="Choose date range"
           className={cn(
-            "glass-dropdown absolute z-50 mt-1.5 rounded-2xl p-4 shadow-2xl",
+            "glass-calendar-surface absolute z-999 rounded-2xl p-4 shadow-2xl",
             "w-85 sm:w-135 max-w-[calc(100vw-2rem)]",
             "animate-in fade-in-0 zoom-in-95 duration-150",
-            effectiveAlign === "right"
-              ? "right-0 origin-top-right"
-              : "left-0 origin-top-left",
+            effectivePlacement === "top"
+              ? "bottom-full mb-1.5 origin-bottom"
+              : "top-full mt-1.5 origin-top",
+            effectiveAlign === "right" ? "right-0" : "left-0",
           )}
         >
           <div className="flex flex-col sm:flex-row gap-4">
             {/* PRESETS SIDEBAR / TOPBAR */}
             {showPresets && presets && presets.length > 0 && (
-              <div className="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 sm:pr-3 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-gray-800 sm:w-32 shrink-0">
-                <span className="hidden sm:block text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-2 py-1">
+              <div className="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 sm:pr-3 border-b sm:border-b-0 sm:border-r border-sky-100/80 dark:border-slate-800 sm:w-32 shrink-0">
+                <span className="hidden sm:block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 py-1">
                   Presets
                 </span>
                 {presets.map((preset) => {
@@ -417,10 +477,10 @@ export function DateRangePicker({
                       type="button"
                       onClick={() => applyPreset(preset)}
                       className={cn(
-                        "text-left text-theme-xs font-medium px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap",
+                        "text-left text-xs font-medium px-2.5 py-1.5 rounded-xl transition-all whitespace-nowrap cursor-pointer",
                         isSelected
-                          ? "bg-brand-500 text-white font-semibold shadow-xs"
-                          : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                          ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-semibold shadow-2xs"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-brand-700 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
                       )}
                     >
                       {preset.label}
@@ -438,26 +498,26 @@ export function DateRangePicker({
                   type="button"
                   onClick={prevMonth}
                   aria-label="Previous month"
-                  className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
                 >
                   <ChevronLeftIcon className="h-4 w-4" />
                 </button>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-theme-sm font-semibold text-gray-900 dark:text-white">
+                  <span className="text-sm font-bold text-slate-800 dark:text-white">
                     {MONTH_NAMES[viewMonth]}
                   </span>
                   <select
                     value={viewYear}
                     onChange={(e) => setViewYear(Number(e.target.value))}
                     aria-label="Select year"
-                    className="text-theme-sm font-semibold bg-transparent text-gray-900 dark:text-white border-0 py-0 pl-1 pr-5 rounded focus:ring-1 focus:ring-brand-500 cursor-pointer"
+                    className="text-sm font-bold bg-transparent text-slate-800 dark:text-white border-0 py-0 pl-1 pr-5 rounded-lg focus:ring-1 focus:ring-brand-500 cursor-pointer"
                   >
                     {Array.from({ length: 60 }, (_, i) => 1990 + i).map((y) => (
                       <option
                         key={y}
                         value={y}
-                        className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                        className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                       >
                         {y}
                       </option>
@@ -469,7 +529,7 @@ export function DateRangePicker({
                   type="button"
                   onClick={nextMonth}
                   aria-label="Next month"
-                  className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
                 >
                   <ChevronRightIcon className="h-4 w-4" />
                 </button>
@@ -480,7 +540,7 @@ export function DateRangePicker({
                 {WEEKDAY_NAMES_SHORT.map((day) => (
                   <div
                     key={day}
-                    className="text-[11px] font-bold text-gray-400 dark:text-gray-500 py-1"
+                    className="text-[10.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider py-1"
                   >
                     {day}
                   </div>
@@ -488,14 +548,14 @@ export function DateRangePicker({
               </div>
 
               {/* DAYS GRID */}
-              <div className="grid grid-cols-7 gap-y-1 text-center text-theme-xs">
+              <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
                 {/* PREV MONTH FILLER */}
                 {Array.from({ length: firstDayIndex }).map((_, i) => {
                   const dayNum = prevMonthDays - firstDayIndex + i + 1;
                   return (
                     <div
                       key={`prev-${i}`}
-                      className="h-8 flex items-center justify-center text-gray-300 dark:text-gray-600 select-none"
+                      className="h-8 flex items-center justify-center text-slate-300 dark:text-slate-600 select-none font-medium"
                     >
                       {dayNum}
                     </div>
@@ -535,13 +595,13 @@ export function DateRangePicker({
                         isInRange &&
                           !isStart &&
                           !isEnd &&
-                          "bg-brand-50 dark:bg-brand-950/40 text-brand-900 dark:text-brand-200",
+                          "bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200",
                         isStart &&
                           pendingTo &&
-                          "rounded-l-full bg-brand-50/60 dark:bg-brand-950/20",
+                          "rounded-l-xl bg-sky-100/60 dark:bg-sky-950/30",
                         isEnd &&
                           pendingFrom &&
-                          "rounded-r-full bg-brand-50/60 dark:bg-brand-950/20",
+                          "rounded-r-xl bg-sky-100/60 dark:bg-sky-950/30",
                       )}
                     >
                       <button
@@ -549,18 +609,18 @@ export function DateRangePicker({
                         disabled={isDisabled}
                         onClick={() => handleDateClick(iso)}
                         className={cn(
-                          "h-8 w-8 rounded-full flex items-center justify-center font-medium transition-all",
+                          "h-8 w-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all cursor-pointer",
                           isStart || isEnd
-                            ? "bg-brand-500 text-white font-bold shadow-sm ring-2 ring-brand-500/20"
+                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105"
                             : isInRange
-                              ? "text-brand-900 dark:text-brand-100 hover:bg-brand-200/50 dark:hover:bg-brand-900/60"
-                              : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800",
+                              ? "text-brand-900 dark:text-cyan-200 hover:bg-sky-200/60 dark:hover:bg-sky-900/60"
+                              : "text-slate-700 dark:text-slate-200 hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
                           isToday &&
                             !isStart &&
                             !isEnd &&
-                            "border border-brand-500 text-brand-600 dark:text-brand-400 font-bold",
+                            "ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40",
                           isDisabled &&
-                            "opacity-30 cursor-not-allowed hover:bg-transparent text-gray-400",
+                            "opacity-30 cursor-not-allowed hover:bg-transparent text-slate-400 dark:text-slate-600",
                         )}
                       >
                         {dayNum}
@@ -571,15 +631,15 @@ export function DateRangePicker({
               </div>
 
               {/* FOOTER & ACTIONS */}
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-theme-xs text-gray-500 dark:text-gray-400 truncate w-full sm:w-auto text-center sm:text-left">
+              <div className="mt-4 pt-3 border-t border-sky-100/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs text-slate-500 dark:text-slate-400 truncate w-full sm:w-auto text-center sm:text-left">
                   {pendingFrom && pendingTo ? (
                     <span>
-                      <strong className="text-gray-800 dark:text-gray-200">
+                      <strong className="text-slate-800 dark:text-slate-200">
                         {formatDisplayDate(pendingFrom)}
                       </strong>{" "}
                       –{" "}
-                      <strong className="text-gray-800 dark:text-gray-200">
+                      <strong className="text-slate-800 dark:text-slate-200">
                         {formatDisplayDate(pendingTo)}
                       </strong>{" "}
                       ({countDays(pendingFrom, pendingTo)} days)
@@ -587,7 +647,7 @@ export function DateRangePicker({
                   ) : pendingFrom ? (
                     <span>
                       Start:{" "}
-                      <strong className="text-gray-800 dark:text-gray-200">
+                      <strong className="text-slate-800 dark:text-slate-200">
                         {formatDisplayDate(pendingFrom)}
                       </strong>{" "}
                       (select end date)

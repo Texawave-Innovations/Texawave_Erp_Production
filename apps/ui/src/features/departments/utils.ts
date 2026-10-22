@@ -259,9 +259,9 @@ export function getDepartmentVisual(name: string): DepartmentVisual {
   ) {
     return {
       icon: Scale,
-      bgColor: "bg-indigo-50 dark:bg-indigo-950/40",
-      textColor: "text-indigo-600 dark:text-indigo-400",
-      borderColor: "border-indigo-200/60 dark:border-indigo-800/40",
+      bgColor: "bg-blue-50 dark:bg-blue-950/40",
+      textColor: "-brand-500 dark:text-blue-400",
+      borderColor: "border-blue-200/60 dark:border-blue-800/40",
     };
   }
 

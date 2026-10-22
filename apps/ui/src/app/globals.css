@@ -5,6 +5,7 @@
 
 @theme {
   --ease-spring-glide: cubic-bezier(0.25, 1, 0.4, 1);
+  --font-mono: var(--font-nunito-sans);
 }
 
 :root {

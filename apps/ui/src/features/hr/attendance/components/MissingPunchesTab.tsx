@@ -6,7 +6,6 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DataTable,
   DateRangePicker,
   EmptyState,
@@ -66,8 +65,9 @@ export function MissingPunchesTab() {
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
+    <div className="flex flex-col gap-5">
+      {/* Executive Controls Toolbar */}
+      <div className="relative z-20 focus-within:z-30 rounded-2xl border border-sky-100/90 bg-white/95 p-4 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-center">
           <DateRangePicker
             value={range}
@@ -99,7 +99,7 @@ export function MissingPunchesTab() {
           Employees are listed a page at a time; a page can show fewer rows than
           its size when only some of them have missing punches.
         </p>
-      </Card>
+      </div>
 
       {!valid ? (
         <Alert variant="warning" title="Choose a valid date range">
@@ -125,7 +125,7 @@ export function MissingPunchesTab() {
           <ErrorState onRetry={() => void list.refetch()} />
         )
       ) : list.data.data.length === 0 ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-8 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
           <EmptyState
             title="No missing punches"
             description={
@@ -135,13 +135,15 @@ export function MissingPunchesTab() {
             }
           />
           {list.data.meta.totalPages > 1 ? (
-            <Pagination
-              page={page}
-              totalPages={list.data.meta.totalPages}
-              onPageChange={setPage}
-            />
+            <div className="mt-4">
+              <Pagination
+                page={page}
+                totalPages={list.data.meta.totalPages}
+                onPageChange={setPage}
+              />
+            </div>
           ) : null}
-        </Card>
+        </div>
       ) : (
         <>
           <DataTable
@@ -163,7 +165,7 @@ export function MissingPunchesTab() {
               {
                 header: "Date",
                 cell: (r) => (
-                  <span className="text-theme-xs font-medium">
+                  <span className="text-theme-xs font-semibold text-gray-800 dark:text-gray-200">
                     {r.attendanceDate}
                   </span>
                 ),
@@ -184,7 +186,7 @@ export function MissingPunchesTab() {
                 cell: (r) => (
                   <div className="flex flex-col gap-1">
                     <DayTimeline sessions={r.sessions} className="w-40" />
-                    <span className="font-mono text-[11px] text-gray-500">
+                    <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">
                       {r.sessions.length === 0
                         ? "none"
                         : r.sessions
@@ -205,8 +207,9 @@ export function MissingPunchesTab() {
                       size="sm"
                       variant="secondary"
                       onClick={() => setEditing(r)}
+                      className="inline-flex items-center gap-1.5 text-theme-xs h-8 px-2.5 text-brand-600 hover:text-brand-700 dark:text-brand-400"
                     >
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      <Pencil className="h-3.5 w-3.5" />
                       Fix punches
                     </Button>
                   ) : (

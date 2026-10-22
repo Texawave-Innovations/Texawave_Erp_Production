@@ -744,9 +744,9 @@ export function Icon3dCompliance({
           y2="28"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#818CF8" />
-          <stop offset="50%" stopColor="#4F46E5" />
-          <stop offset="100%" stopColor="#312E81" />
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="50%" stopColor="#1769F5" />
+          <stop offset="100%" stopColor="#0369A1" />
         </linearGradient>
         <linearGradient
           id={`${id}-rim`}
@@ -756,15 +756,15 @@ export function Icon3dCompliance({
           y2="16"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#C7D2FE" />
-          <stop offset="100%" stopColor="#6366F1" />
+          <stop offset="0%" stopColor="#BAE6FD" />
+          <stop offset="100%" stopColor="#0284C7" />
         </linearGradient>
         <filter id={`${id}-glow`} x="-20%" y="-20%" width="140%" height="140%">
           <feDropShadow
             dx="0"
             dy="2"
             stdDeviation="1.8"
-            floodColor="#4F46E5"
+            floodColor="#1769F5"
             floodOpacity="0.4"
           />
         </filter>
@@ -1919,6 +1919,287 @@ export function Icon3dCheerHands({
           fillOpacity="0.7"
         />
       </g>
+    </svg>
+  );
+}
+
+/**
+ * 3D Sales Icon
+ * Dimensional shopping cart with rising revenue arrow and gloss facet.
+ */
+export function Icon3dSales({ size = 32, className, ...props }: Icon3DProps) {
+  const id = useId();
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <defs>
+        <linearGradient
+          id={`${id}-bg`}
+          x1="3"
+          y1="3"
+          x2="29"
+          y2="29"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#34D399" />
+          <stop offset="50%" stopColor="#059669" />
+          <stop offset="100%" stopColor="#064E3B" />
+        </linearGradient>
+        <linearGradient
+          id={`${id}-arrow`}
+          x1="12"
+          y1="18"
+          x2="24"
+          y2="6"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="100%" stopColor="#EAB308" />
+        </linearGradient>
+        <filter id={`${id}-glow`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow
+            dx="0"
+            dy="2"
+            stdDeviation="1.5"
+            floodColor="#059669"
+            floodOpacity="0.35"
+          />
+        </filter>
+      </defs>
+      {/* Base 3D Squircle */}
+      <rect
+        x="3"
+        y="3"
+        width="26"
+        height="26"
+        rx="8"
+        fill={`url(#${id}-bg)`}
+        filter={`url(#${id}-glow)`}
+      />
+      {/* Gloss Highlight Edge */}
+      <path
+        d="M3 11C3 6.58172 6.58172 3 11 3H21C25.4183 3 29 6.58172 29 11V13C29 13 22 10 16 10C10 10 3 13 3 13V11Z"
+        fill="#FFFFFF"
+        fillOpacity="0.3"
+      />
+      {/* Shopping Cart Body */}
+      <path
+        d="M8 9H10.5L12 18H22L24 11H12"
+        stroke="#FFFFFF"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Cart Wheels */}
+      <circle cx="13.5" cy="21.5" r="1.5" fill="#FFFFFF" />
+      <circle cx="20.5" cy="21.5" r="1.5" fill="#FFFFFF" />
+      {/* Rising Trend Indicator Arrow */}
+      <path
+        d="M17 14L22 9M22 9H18.5M22 9V12.5"
+        stroke={`url(#${id}-arrow)`}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * 3D Finance Icon
+ * Neoclassical bank treasury vault with pillars, pediment, and golden coin crest.
+ */
+export function Icon3dFinance({ size = 32, className, ...props }: Icon3DProps) {
+  const id = useId();
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <defs>
+        <linearGradient
+          id={`${id}-bg`}
+          x1="3"
+          y1="3"
+          x2="29"
+          y2="29"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="50%" stopColor="#1E40AF" />
+          <stop offset="100%" stopColor="#0F172A" />
+        </linearGradient>
+        <linearGradient
+          id={`${id}-gold`}
+          x1="8"
+          y1="8"
+          x2="24"
+          y2="24"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="50%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#B45309" />
+        </linearGradient>
+        <filter id={`${id}-glow`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow
+            dx="0"
+            dy="2"
+            stdDeviation="1.5"
+            floodColor="#1E40AF"
+            floodOpacity="0.4"
+          />
+        </filter>
+      </defs>
+      {/* Base 3D Squircle */}
+      <rect
+        x="3"
+        y="3"
+        width="26"
+        height="26"
+        rx="8"
+        fill={`url(#${id}-bg)`}
+        filter={`url(#${id}-glow)`}
+      />
+      {/* Gloss Highlight */}
+      <path
+        d="M3 11C3 6.58172 6.58172 3 11 3H21C25.4183 3 29 6.58172 29 11V13C29 13 22 10 16 10C10 10 3 13 3 13V11Z"
+        fill="#FFFFFF"
+        fillOpacity="0.3"
+      />
+      {/* Bank Triangular Pediment Roof */}
+      <path d="M7 12L16 7L25 12H7Z" fill={`url(#${id}-gold)`} />
+      {/* Bank Pillars */}
+      <rect x="8.5" y="13.5" width="2.5" height="7.5" rx="1" fill="#FFFFFF" />
+      <rect x="14.75" y="13.5" width="2.5" height="7.5" rx="1" fill="#FFFFFF" />
+      <rect x="21" y="13.5" width="2.5" height="7.5" rx="1" fill="#FFFFFF" />
+      {/* Bank Base Podium */}
+      <rect
+        x="6.5"
+        y="21.5"
+        width="19"
+        height="2.5"
+        rx="1"
+        fill={`url(#${id}-gold)`}
+      />
+      {/* Mini Central Currency Dot */}
+      <circle cx="16" cy="10" r="1.2" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+/**
+ * 3D Purchases Icon
+ * Procurement shopping bag with receipt badge and dimensional tag.
+ */
+export function Icon3dPurchases({
+  size = 32,
+  className,
+  ...props
+}: Icon3DProps) {
+  const id = useId();
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <defs>
+        <linearGradient
+          id={`${id}-bg`}
+          x1="3"
+          y1="3"
+          x2="29"
+          y2="29"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#22D3EE" />
+          <stop offset="50%" stopColor="#0891B2" />
+          <stop offset="100%" stopColor="#164E63" />
+        </linearGradient>
+        <linearGradient
+          id={`${id}-tag`}
+          x1="16"
+          y1="14"
+          x2="25"
+          y2="23"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="100%" stopColor="#CA8A04" />
+        </linearGradient>
+        <filter id={`${id}-glow`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow
+            dx="0"
+            dy="2"
+            stdDeviation="1.5"
+            floodColor="#0891B2"
+            floodOpacity="0.35"
+          />
+        </filter>
+      </defs>
+      {/* Base 3D Squircle */}
+      <rect
+        x="3"
+        y="3"
+        width="26"
+        height="26"
+        rx="8"
+        fill={`url(#${id}-bg)`}
+        filter={`url(#${id}-glow)`}
+      />
+      {/* Gloss Highlight */}
+      <path
+        d="M3 11C3 6.58172 6.58172 3 11 3H21C25.4183 3 29 6.58172 29 11V13C29 13 22 10 16 10C10 10 3 13 3 13V11Z"
+        fill="#FFFFFF"
+        fillOpacity="0.3"
+      />
+      {/* Shopping Bag Handle */}
+      <path
+        d="M12 11V9C12 7.34315 13.3431 6 15 6H17C18.6569 6 20 7.34315 20 9V11"
+        stroke="#FFFFFF"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {/* Shopping Bag Body */}
+      <rect
+        x="8.5"
+        y="11"
+        width="15"
+        height="12"
+        rx="2.5"
+        fill="#FFFFFF"
+        fillOpacity="0.95"
+      />
+      {/* Receipt Lines on Bag */}
+      <rect x="11.5" y="14" width="9" height="1.5" rx="0.75" fill="#0891B2" />
+      <rect x="11.5" y="17" width="6" height="1.5" rx="0.75" fill="#0891B2" />
+      {/* Discount Tag Badge */}
+      <circle
+        cx="21"
+        cy="20.5"
+        r="3.5"
+        fill={`url(#${id}-tag)`}
+        stroke="#FFFFFF"
+        strokeWidth="1"
+      />
+      <circle cx="21" cy="20.5" r="1" fill="#FFFFFF" />
     </svg>
   );
 }

@@ -53,7 +53,7 @@ export function EmployeeStatsRow() {
             : "Submitted onboarding profiles"
         }
         icon={ClipboardCheck}
-        tone={s.onboarding.pendingReview > 0 ? "warning" : "neutral"}
+        tone="warning"
       />
       <StatCard
         headingId="employees-stat-onboarding"
@@ -61,7 +61,7 @@ export function EmployeeStatsRow() {
         value={s.onboarding.profileIncomplete}
         note="Profile not yet submitted"
         icon={UserCog}
-        tone="info"
+        tone="cyan"
       />
     </div>
   );

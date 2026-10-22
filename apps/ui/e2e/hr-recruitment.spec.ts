@@ -174,7 +174,7 @@ async function signInAndOpenRecruitment(
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Organization").fill("texawave-innovations");
   await page.getByLabel("Email").fill("hr@texawave.com");
-  await page.getByLabel("Password").fill("not-used-by-mock");
+  await page.locator("#password").fill("not-used-by-mock");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/reference\/tags/);
   // The sidebar mounts after the menu loads and animates in, so retry the
