@@ -1381,55 +1381,39 @@ export const SCM_CATEGORIES: NavCategory[] = [
  */
 export const PROJECTS_CATEGORIES: NavCategory[] = [
   {
-    id: "projects-dashboard",
-    label: "Dashboard",
+    id: "projects-overview",
+    label: "Overview",
     icon: LayoutDashboard,
     icon3d: "dashboard",
     iconColor: "text-blue-600",
     path: "/projects/dashboard",
     menuCode: "projects-dashboard",
-  },
-  {
-    id: "projects-all",
-    label: "All Projects",
-    icon: FolderKanban,
-    icon3d: "projects",
-    iconColor: "text-cyan-600",
-    path: "/projects/list",
-    menuCode: "projects-list",
-  },
-  {
-    id: "projects-execution",
-    label: "Execution & Team",
-    icon: ListTodo,
-    icon3d: "tasks",
-    iconColor: "text-indigo-600",
     children: [
       {
-        id: "projects-my-work",
-        label: "My Work & Tasks",
-        path: "/projects/my-work",
-        icon: Clock,
-        icon3d: "tasks",
-        menuCode: "projects-my-work",
-      },
-      {
-        id: "projects-resources",
-        label: "Resource Allocation",
-        path: "/projects/resources",
-        icon: Users,
-        icon3d: "people",
-        menuCode: "projects-resources",
+        id: "projects-dashboard",
+        label: "Dashboard",
+        path: "/projects/dashboard",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "projects-dashboard",
       },
     ],
   },
   {
-    id: "projects-financials",
-    label: "Financials & Analytics",
-    icon: Receipt,
-    icon3d: "finance",
-    iconColor: "text-emerald-600",
+    id: "projects-projects",
+    label: "Projects",
+    icon: FolderKanban,
+    icon3d: "projects",
+    iconColor: "text-cyan-600",
     children: [
+      {
+        id: "projects-all",
+        label: "All Projects",
+        path: "/projects/list",
+        icon: FolderKanban,
+        icon3d: "projects",
+        menuCode: "projects-list",
+      },
       {
         id: "projects-expenses",
         label: "Project Expenses",
@@ -1438,6 +1422,56 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
         icon3d: "finance",
         menuCode: "projects-expenses",
       },
+      {
+        id: "projects-proposals",
+        label: "Proposal Documents",
+        path: "#",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "projects-proposals",
+      },
+      {
+        id: "projects-mom",
+        label: "Minutes of Meeting",
+        path: "#",
+        icon: ClipboardList,
+        icon3d: "tasks",
+        menuCode: "projects-mom",
+      },
+    ],
+  },
+  {
+    id: "projects-team",
+    label: "Team",
+    icon: Users,
+    icon3d: "people",
+    iconColor: "text-indigo-600",
+    children: [
+      {
+        id: "projects-my-work",
+        label: "My Work",
+        path: "/projects/my-work",
+        icon: Clock,
+        icon3d: "tasks",
+        menuCode: "projects-my-work",
+      },
+      {
+        id: "projects-resources",
+        label: "Resource Tracking",
+        path: "/projects/resources",
+        icon: Users,
+        icon3d: "people",
+        menuCode: "projects-resources",
+      },
+    ],
+  },
+  {
+    id: "projects-insights-finance",
+    label: "Insights & Finance",
+    icon: Scale,
+    icon3d: "finance",
+    iconColor: "text-emerald-600",
+    children: [
       {
         id: "projects-budget",
         label: "Budget Utilization",
@@ -1448,7 +1482,7 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
       },
       {
         id: "projects-analytics",
-        label: "Velocity Analytics",
+        label: "Analytics",
         path: "/projects/analytics",
         icon: BarChart3,
         icon3d: "overview",
@@ -1456,7 +1490,7 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
       },
       {
         id: "projects-points",
-        label: "Gamification Points",
+        label: "Points Master",
         path: "/projects/points-master",
         icon: Award,
         icon3d: "tasks",
@@ -1683,10 +1717,8 @@ function findRouteNavigationState(pathname: string) {
   if (pathname.startsWith("/projects")) {
     return {
       moduleId: "projects",
-      categoryId: pathname.startsWith("/projects/dashboard")
-        ? "projects-dashboard"
-        : null,
-      leafId: null,
+      categoryId: "projects-projects",
+      leafId: "projects-all",
     };
   }
   if (pathname.startsWith("/admin")) {
@@ -1904,8 +1936,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       return categories
         .map((cat) => {
           if (cat.children) {
-            const filteredChildren = cat.children.filter((child) =>
-              allowedCodes.has(child.menuCode),
+            const filteredChildren = cat.children.filter(
+              (child) =>
+                allowedCodes.has(child.menuCode) ||
+                child.path === "#" ||
+                !child.menuCode,
             );
             return {
               ...cat,
@@ -2113,7 +2148,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     // CRM and SCM: clicking the top-level item opens the module's landing page
     // (CRM dashboard / SCM overview) AND keeps the category dropdown pinned
     // open until the user clicks outside / Escape.
-    if (mod.id === "crm" || mod.id === "inventory") {
+    if (mod.id === "crm" || mod.id === "inventory" || mod.id === "projects") {
+      if (pinnedModuleId === mod.id) {
+        setPinnedModuleId(null);
+        setHoveredModuleId(null);
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+        return;
+      }
       setPinnedModuleId(mod.id);
       setHoveredModuleId(mod.id);
       setPinnedCategoryId(null);
