@@ -36,8 +36,10 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     ).toBeVisible();
     await expect(nav.getByRole("button", { name: "Settings" })).toBeVisible();
 
-    // Verify Search, Notifications, Profile
-    await expect(header.getByRole("textbox", { name: "Search" })).toBeVisible();
+    // Verify Date & Time Calendar Trigger, Notifications, Profile
+    await expect(
+      header.getByRole("button", { name: /Current date and time/i }),
+    ).toBeVisible();
     await expect(
       header.getByRole("button", { name: "Notifications" }),
     ).toBeVisible();
@@ -295,7 +297,9 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     await expect(notifPanel).toHaveClass(/glass-dropdown/);
 
     // Profile trigger
-    const profileBtn = page.getByRole("button", { name: /Software Engineer/i });
+    const profileBtn = page.getByRole("button", {
+      name: /Profile menu|Software Engineer|Super Admin/i,
+    });
     await profileBtn.click();
     const profileMenu = page.getByRole("menu");
     await expect(profileMenu).toBeVisible();
