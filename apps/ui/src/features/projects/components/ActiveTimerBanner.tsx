@@ -65,16 +65,22 @@ export function ActiveTimerBanner() {
               <span className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
                 Stopwatch Active
               </span>
-              <span className="text-xs text-white/70">•</span>
-              <span className="text-xs font-medium text-white/90">
-                {activeTimer.task.project.name}
-              </span>
+              {activeTimer.task?.project?.name && (
+                <>
+                  <span className="text-xs text-white/70">•</span>
+                  <span className="text-xs font-medium text-white/90">
+                    {activeTimer.task.project.name}
+                  </span>
+                </>
+              )}
             </div>
             <p className="text-sm font-semibold text-white">
-              <span className="font-mono text-cyan-200">
-                [{activeTimer.task.taskCode}]
-              </span>{" "}
-              {activeTimer.task.title}
+              {activeTimer.task?.taskCode && (
+                <span className="font-mono text-cyan-200">
+                  [{activeTimer.task.taskCode}]
+                </span>
+              )}{" "}
+              {activeTimer.task?.title ?? "Active Task"}
             </p>
           </div>
         </div>

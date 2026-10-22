@@ -128,15 +128,15 @@ export interface ActiveTimer {
   taskId: number;
   employeeId: number;
   startedAt: string;
-  task: {
+  task?: {
     id: number;
     taskCode: string;
     title: string;
-    project: {
+    project?: {
       id: number;
       name: string;
-    };
-  };
+    } | null;
+  } | null;
 }
 
 export interface DashboardMetrics {

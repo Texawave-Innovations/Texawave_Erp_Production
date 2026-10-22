@@ -672,7 +672,15 @@ export class ProjectsRepository {
       },
       include: {
         task: {
-          select: { id: true, taskCode: true, title: true, projectId: true },
+          select: {
+            id: true,
+            taskCode: true,
+            title: true,
+            projectId: true,
+            project: {
+              select: { id: true, projectCode: true, name: true },
+            },
+          },
         },
       },
     });
@@ -688,6 +696,19 @@ export class ProjectsRepository {
         employeeId,
         startedAt: now,
         entryDate: now,
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            taskCode: true,
+            title: true,
+            projectId: true,
+            project: {
+              select: { id: true, projectCode: true, name: true },
+            },
+          },
+        },
       },
     });
   }
