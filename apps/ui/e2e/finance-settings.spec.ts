@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   type MockAnswer,
   type MockRequest,
+  navigateToMasterTab,
   page1,
   signInWithMockedApi,
 } from "./helpers/mock-api";
@@ -106,7 +107,7 @@ async function openFinanceMaster(page: Page, extraPermissions: string[] = []) {
     ],
     handler,
   });
-  await page.goto("/settings/masters/finance");
+  await navigateToMasterTab(page, "Finance Master");
   return session;
 }
 

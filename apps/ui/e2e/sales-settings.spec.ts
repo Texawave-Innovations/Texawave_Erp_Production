@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   type MockAnswer,
   type MockRequest,
+  navigateToMasterTab,
   signInWithMockedApi,
 } from "./helpers/mock-api";
 
@@ -80,7 +81,7 @@ async function openSalesSettings(page: Page, extraPermissions: string[] = []) {
     ],
     handler,
   });
-  await page.goto("/settings/sales-settings");
+  await navigateToMasterTab(page, "Sales & Document Masters");
   return session;
 }
 

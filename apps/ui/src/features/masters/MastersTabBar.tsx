@@ -27,7 +27,12 @@ const TABS: MasterTab[] = [
     icon: Landmark,
     path: "/settings/masters/finance",
   },
-  { id: "projects", label: "Projects Master", icon: Briefcase },
+  {
+    id: "projects",
+    label: "Projects Master",
+    icon: Briefcase,
+    path: "/settings/masters/projects",
+  },
 ];
 
 export interface MastersTabBarProps {
@@ -37,14 +42,15 @@ export interface MastersTabBarProps {
   active: MasterTabId;
 }
 
-/** Secondary nav shown above the Sales & Document Masters, HR Master, and
- * Finance Master screens, letting a user jump between master-data areas.
- * Projects is visually present but disabled (no route yet) — matching the
- * Sales/Purchases/Finance/Inventory/Vault/Projects "paused, not removed"
- * status in CLAUDE.md; Finance Master itself is just the master-list
- * foundation (Expense Types/Payment Modes) ahead of the rest of that
- * module. This is a secondary nav specific to the Masters area, distinct
- * from the main app's HorizontalNavbar. */
+/** Secondary nav shown above the Sales & Document Masters, HR Master,
+ * Finance Master, and Projects Master screens, letting a user jump between
+ * master-data areas. Finance Master is just the master-list foundation
+ * (Expense Types/Payment Modes) ahead of the rest of that module; Projects
+ * Master is the project-code configuration screen (project type registry +
+ * code/task numbering formats), not the full project registry — see
+ * Docs/PROJECTS_MASTER.md. Everything beyond these master lists stays
+ * "paused, not removed" per CLAUDE.md. This is a secondary nav specific to
+ * the Masters area, distinct from the main app's HorizontalNavbar. */
 export function MastersTabBar({ active }: MastersTabBarProps) {
   return (
     <nav

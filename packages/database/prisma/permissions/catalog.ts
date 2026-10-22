@@ -666,6 +666,36 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "finance_settings.master_list_item.write",
     description: "Create/update/delete Finance Master items",
   },
+
+  // apps/api/src/modules/projects-master — the Projects Master Lists screen:
+  // project type/category registry (code, name, description), the project
+  // code format generator, and the task running-number format generator.
+  // Org-wide config, not HR/team data, so @OrgScoped() + @RequirePermission()
+  // only (no .own/.team/.all scoping needed).
+  {
+    code: "projects_master.project.read",
+    description: "View Projects Master entries",
+  },
+  {
+    code: "projects_master.project.write",
+    description: "Create/update/delete Projects Master entries",
+  },
+  {
+    code: "projects_master.project_code_master.read",
+    description: "View the Project Code Master format",
+  },
+  {
+    code: "projects_master.project_code_master.write",
+    description: "Update the Project Code Master format",
+  },
+  {
+    code: "projects_master.task_running_number_master.read",
+    description: "View the Task Running Number Master format",
+  },
+  {
+    code: "projects_master.task_running_number_master.write",
+    description: "Update the Task Running Number Master format",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [

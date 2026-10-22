@@ -43,6 +43,7 @@ import { WorkLocationsModule } from "./modules/master-data/work-locations/work-l
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { SalesSettingsModule } from "./modules/sales-settings/sales-settings.module.js";
 import { FinanceSettingsModule } from "./modules/finance-settings/finance-settings.module.js";
+import { ProjectsMasterModule } from "./modules/projects-master/projects-master.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
@@ -120,6 +121,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     MenuModule,
     SalesSettingsModule,
     FinanceSettingsModule,
+    ProjectsMasterModule,
   ],
   controllers: [AppController],
   providers: [

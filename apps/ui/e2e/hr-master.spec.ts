@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   type MockAnswer,
   type MockRequest,
+  navigateToMasterTab,
   page1,
   signInWithMockedApi,
 } from "./helpers/mock-api";
@@ -172,7 +173,7 @@ async function openHrMaster(page: Page, extraPermissions: string[] = []) {
     ],
     handler,
   });
-  await page.goto("/settings/masters/hr");
+  await navigateToMasterTab(page, "HR Master");
   return session;
 }
 

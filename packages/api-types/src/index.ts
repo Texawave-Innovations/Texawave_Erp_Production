@@ -11,3 +11,4 @@ export * from "./finance-settings";
 export * from "./work-locations";
 export * from "./leave-types";
 export * from "./shifts";
+export * from "./projects-master";

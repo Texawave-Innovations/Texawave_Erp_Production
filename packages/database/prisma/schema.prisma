@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "sales", "finance"]
+  schemas  = ["platform", "hr", "sales", "finance", "projects"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -110,6 +110,9 @@ model Organization {
   financeMasterListItems   FinanceMasterListItem[]
   payrollEarnings          PayrollEarning[]
   payrollDeductions        PayrollDeduction[]
+  projects                 Project[]
+  projectCodeMaster        ProjectCodeMaster?
+  taskRunningNumberMaster  TaskRunningNumberMaster?
   employeeSalaries         EmployeeSalary[]
   payrollSetting           PayrollSetting?
   employeePfProfiles       EmployeePfProfile[]
@@ -317,6 +320,74 @@ model Department {
   @@index([organizationId])
   @@map("departments")
   @@schema("platform")
+}
+
+/// Projects Master Lists — three sub-masters that configure project-code
+/// generation: (1) the project type/category registry (code, name,
+/// description — e.g. ME, SW, EC), (2) the project code format generator
+/// (prefix/category/year/sequence), (3) the task running-number format
+/// generator. This mirrors the legacy ERP's "Projects Master Lists" screen
+/// (3 tabs). Full project records (department/manager/status/dates) are a
+/// separate, not-yet-built module — see Docs/PROJECTS_MASTER.md.
+model Project {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String    @map("code")
+  name           String
+  description    String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@map("projects")
+  @@schema("projects")
+}
+
+/// Project Code Master — one row per organization, configures how
+/// `[Prefix]/[Category]/[Project Code]/[Year]/[Sequence]` is formatted
+/// (see Docs/PROJECTS_MASTER.md tab 2). Sequence allocation itself stays
+/// out of scope here, same as `DocumentNumbering` in sales-settings — this
+/// row only stores the format.
+model ProjectCodeMaster {
+  id                 Int      @id @default(autoincrement())
+  organizationId     Int      @unique @map("organization_id")
+  companyPrefix      String   @default("TXW") @map("company_prefix")
+  moduleIdentifier   String   @default("PRJ") @map("module_identifier")
+  defaultProjectCode String   @default("") @map("default_project_code")
+  financialYear      String   @default("") @map("financial_year")
+  sequenceDigits     Int      @default(3) @map("sequence_digits")
+  updatedBy          Int?     @map("updated_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("project_code_masters")
+  @@schema("projects")
+}
+
+/// Task Running Number Master — one row per organization, configures how
+/// `[Task Prefix][Separator][Sequence]` is formatted and appended to a
+/// generated project code (see Docs/PROJECTS_MASTER.md tab 3).
+model TaskRunningNumberMaster {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @unique @map("organization_id")
+  taskPrefix     String   @default("T") @map("task_prefix")
+  separator      String   @default("-")
+  sequenceDigits Int      @default(2) @map("sequence_digits")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("task_running_number_masters")
+  @@schema("projects")
 }
 
 /// Teams — the real access boundary for HR/team-scoped data
