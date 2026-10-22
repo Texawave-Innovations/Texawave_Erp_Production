@@ -1376,6 +1376,96 @@ export const SCM_CATEGORIES: NavCategory[] = [
   ]),
 ];
 
+/**
+ * Projects Navigation Hierarchy
+ */
+export const PROJECTS_CATEGORIES: NavCategory[] = [
+  {
+    id: "projects-dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-blue-600",
+    path: "/projects/dashboard",
+    menuCode: "projects-dashboard",
+  },
+  {
+    id: "projects-all",
+    label: "All Projects",
+    icon: FolderKanban,
+    icon3d: "projects",
+    iconColor: "text-cyan-600",
+    path: "/projects/list",
+    menuCode: "projects-list",
+  },
+  {
+    id: "projects-execution",
+    label: "Execution & Team",
+    icon: ListTodo,
+    icon3d: "tasks",
+    iconColor: "text-indigo-600",
+    children: [
+      {
+        id: "projects-my-work",
+        label: "My Work & Tasks",
+        path: "/projects/my-work",
+        icon: Clock,
+        icon3d: "tasks",
+        menuCode: "projects-my-work",
+      },
+      {
+        id: "projects-resources",
+        label: "Resource Allocation",
+        path: "/projects/resources",
+        icon: Users,
+        icon3d: "people",
+        menuCode: "projects-resources",
+      },
+    ],
+  },
+  {
+    id: "projects-financials",
+    label: "Financials & Analytics",
+    icon: Receipt,
+    icon3d: "finance",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "projects-expenses",
+        label: "Project Expenses",
+        path: "/projects/expenses",
+        icon: Receipt,
+        icon3d: "finance",
+        menuCode: "projects-expenses",
+      },
+      {
+        id: "projects-budget",
+        label: "Budget Utilization",
+        path: "/projects/budget-utilization",
+        icon: Scale,
+        icon3d: "overview",
+        menuCode: "projects-budget",
+      },
+      {
+        id: "projects-analytics",
+        label: "Velocity Analytics",
+        path: "/projects/analytics",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "projects-analytics",
+      },
+      {
+        id: "projects-points",
+        label: "Gamification Points",
+        path: "/projects/points-master",
+        icon: Award,
+        icon3d: "tasks",
+        menuCode: "projects-points",
+      },
+    ],
+  },
+];
+
 const ERP_MODULES: ErpModuleConfig[] = [
   {
     id: "dashboard",

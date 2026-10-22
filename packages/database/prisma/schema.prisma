@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "crm", "scm"]
+  schemas  = ["platform", "hr", "crm", "scm", "projects"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -183,6 +183,19 @@ model Organization {
   scmPutaways             ScmPutaway[]
   scmWarehouseMovements   ScmWarehouseMovement[]
 
+  projects                Project[]
+  projectMembers          ProjectMember[]
+  projectMilestones       ProjectMilestone[]
+  projectTasks            ProjectTask[]
+  projectTimeEntries      ProjectTimeEntry[]
+  projectExpenses         ProjectExpense[]
+  projectPointsLedger     ProjectPointsLedger[]
+  projectPointsConfig     ProjectPointsConfig?
+  organizationSetting     OrganizationSetting?
+  userPreferences         UserPreference[]
+  exchangeRates           ExchangeRate[]
+
+
   @@map("organizations")
   @@schema("platform")
 }
@@ -243,6 +256,7 @@ model User {
   loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
   loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
+  preference                UserPreference?
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -774,6 +788,12 @@ model Employee {
   pfContributions  PfContribution[]
   esiContributions EsiContribution[]
   taxDeclarations  EmployeeTaxDeclaration[]
+
+  handledProjects         Project[]                  @relation("ProjectClientHandler")
+  projectMemberships      ProjectMember[]
+  assignedProjectTasks    ProjectTask[]
+  projectTimeEntries      ProjectTimeEntry[]
+  projectPointsLedger     ProjectPointsLedger[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -3077,6 +3097,8 @@ model Account {
   quotations   Quotation[]
   notes        CrmNote[]
   coldCallingEntries CrmColdCallingEntry[]
+
+  projects           Project[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -5883,4 +5905,329 @@ model ScmSupplierDocument {
   @@index([organizationId, supplierId])
   @@map("supplier_documents")
   @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// Projects Module Schema — projects
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  active
+  on_hold
+  completed
+  cancelled
+
+  @@schema("projects")
+}
+
+enum MilestoneStatus {
+  not_started
+  in_progress
+  hold
+  completed
+
+  @@schema("projects")
+}
+
+enum TaskStatus {
+  not_started
+  in_progress
+  hold
+  completed
+
+  @@schema("projects")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+
+  @@schema("projects")
+}
+
+enum ProjectExpenseStatus {
+  unpaid
+  paid
+  cancelled
+
+  @@schema("projects")
+}
+
+model Project {
+  id                    Int           @id @default(autoincrement())
+  organizationId        Int           @map("organization_id")
+  projectCode           String        @map("project_code")
+  name                  String
+  description           String?
+  customerId            Int?          @map("customer_id")
+  customerName          String?       @map("customer_name")
+  projectType           String?       @map("project_type")
+  department            String?
+  expectedHours         Decimal       @default(0) @map("expected_hours") @db.Decimal(10, 2)
+  projectPrice          Decimal       @default(0) @map("project_price") @db.Decimal(14, 2)
+  actualCost            Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  status                ProjectStatus @default(active)
+  startDate             DateTime      @map("start_date") @db.Date
+  plannedEndDate        DateTime?     @map("planned_end_date") @db.Date
+  actualEndDate         DateTime?     @map("actual_end_date") @db.Date
+  clientHandlingPersonId Int?         @map("client_handling_person_id")
+  customFields          Json          @default("{}") @map("custom_fields")
+  createdBy             Int?          @map("created_by")
+  updatedBy             Int?          @map("updated_by")
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  organization         Organization        @relation(fields: [organizationId], references: [id])
+  customer             Account?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  clientHandlingPerson Employee?           @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
+  members              ProjectMember[]
+  milestones           ProjectMilestone[]
+  tasks                ProjectTask[]
+  expenses             ProjectExpense[]
+
+  @@unique([organizationId, projectCode])
+  @@index([organizationId, status])
+  @@index([organizationId, department])
+  @@map("projects")
+  @@schema("projects")
+}
+
+model ProjectMember {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  projectId      Int       @map("project_id")
+  employeeId     Int       @map("employee_id")
+  role           String    @default("Contributor")
+  estimatedHours Decimal   @default(0) @map("estimated_hours") @db.Decimal(10, 2)
+  loggedHours    Decimal   @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  hourlyRate     Decimal   @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([projectId, employeeId])
+  @@index([organizationId, employeeId])
+  @@map("project_members")
+  @@schema("projects")
+}
+
+model ProjectMilestone {
+  id             Int             @id @default(autoincrement())
+  organizationId Int             @map("organization_id")
+  projectId      Int             @map("project_id")
+  title          String
+  targetDate     DateTime        @map("target_date") @db.Date
+  actualDate     DateTime?       @map("actual_date") @db.Date
+  status         MilestoneStatus @default(not_started)
+  order          Int             @default(1)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks        ProjectTask[]
+
+  @@index([projectId, order])
+  @@map("project_milestones")
+  @@schema("projects")
+}
+
+model ProjectTask {
+  id                 Int          @id @default(autoincrement())
+  organizationId     Int          @map("organization_id")
+  projectId          Int          @map("project_id")
+  taskCode           String       @map("task_code")
+  milestoneId        Int?         @map("milestone_id")
+  assignedToId       Int?         @map("assigned_to_id")
+  title              String
+  description        String?
+  department         String?
+  startDate          DateTime     @map("start_date") @db.Date
+  endDate            DateTime     @map("end_date") @db.Date
+  actualEndDate      DateTime?    @map("actual_end_date") @db.Date
+  hoursToComplete    Decimal      @default(0) @map("hours_to_complete") @db.Decimal(10, 2)
+  loggedHours        Decimal      @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  status             TaskStatus   @default(not_started)
+  completionPercent  Int          @default(0) @map("completion_percent")
+  priority           TaskPriority @default(medium)
+  dependencyTaskId   Int?         @map("dependency_task_id")
+  points             Int          @default(10)
+  customFields       Json         @default("{}") @map("custom_fields")
+  createdBy          Int?         @map("created_by")
+  updatedBy          Int?         @map("updated_by")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone      ProjectMilestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignedTo     Employee?            @relation(fields: [assignedToId], references: [id])
+  dependencyTask ProjectTask?         @relation("TaskDependencies", fields: [dependencyTaskId], references: [id])
+  dependentTasks ProjectTask[]        @relation("TaskDependencies")
+  timeEntries    ProjectTimeEntry[]
+  pointsLedger   ProjectPointsLedger[]
+
+  @@unique([organizationId, taskCode])
+  @@index([projectId, status])
+  @@index([organizationId, assignedToId])
+  @@map("project_tasks")
+  @@schema("projects")
+}
+
+model ProjectTimeEntry {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  taskId          Int       @map("task_id")
+  employeeId      Int       @map("employee_id")
+  startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationMinutes Int       @default(0) @map("duration_minutes")
+  entryDate       DateTime  @map("entry_date") @db.Date
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, employeeId, entryDate])
+  @@index([taskId])
+  @@map("project_time_entries")
+  @@schema("projects")
+}
+
+model ProjectExpense {
+  id             Int                  @id @default(autoincrement())
+  organizationId Int                  @map("organization_id")
+  projectId      Int                  @map("project_id")
+  department     String?
+  amount         Decimal              @db.Decimal(14, 2)
+  expenseDate    DateTime             @map("expense_date") @db.Date
+  vendor         String?
+  referenceNo    String?              @map("reference_no")
+  status         ProjectExpenseStatus @default(unpaid)
+  notes          String?
+  createdBy      Int?                 @map("created_by")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, projectId])
+  @@map("project_expenses")
+  @@schema("projects")
+}
+
+model ProjectPointsLedger {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @map("employee_id")
+  taskId         Int      @map("task_id")
+  taskTitle      String   @map("task_title")
+  points         Int
+  awardedAt      DateTime @default(now()) @map("awarded_at") @db.Timestamptz(6)
+  note           String?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, employeeId])
+  @@map("project_points_ledger")
+  @@schema("projects")
+}
+
+model ProjectPointsConfig {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @unique @map("organization_id")
+  low            Int      @default(5)
+  medium         Int      @default(10)
+  high           Int      @default(20)
+  urgent         Int      @default(30)
+  customRules    Json     @default("{}") @map("custom_rules")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("project_points_config")
+  @@schema("projects")
+}
+
+model OrganizationSetting {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @unique @map("organization_id")
+  theme                  String    @default("system")
+  density                String    @default("comfortable")
+  country                String    @default("IN")
+  locale                 String    @default("en-IN")
+  timezone               String    @default("Asia/Kolkata")
+  dateFormat             String    @default("DD/MM/YYYY") @map("date_format")
+  timeFormat             String    @default("12h") @map("time_format")
+  baseCurrency           String    @default("INR") @map("base_currency")
+  currencySymbolPosition String    @default("before") @map("currency_symbol_position")
+  numberFormat           String    @default("indian") @map("number_format")
+  fiscalYearStartMonth   Int       @default(4) @map("fiscal_year_start_month")
+  customFields           Json      @default("{}") @map("custom_fields")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("organization_settings")
+  @@schema("platform")
+}
+
+model UserPreference {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique @map("user_id")
+  organizationId  Int       @map("organization_id")
+  theme           String?
+  density         String?
+  locale          String?
+  timezone        String?
+  dateFormat      String?   @map("date_format")
+  timeFormat      String?   @map("time_format")
+  displayCurrency String?   @map("display_currency")
+  customFields    Json      @default("{}") @map("custom_fields")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("user_preferences")
+  @@schema("platform")
+}
+
+model ExchangeRate {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  fromCurrency   String    @map("from_currency") @db.VarChar(3)
+  toCurrency     String    @map("to_currency") @db.VarChar(3)
+  rate           Decimal   @db.Decimal(18, 6)
+  effectiveDate  DateTime  @map("effective_date") @db.Date
+  source         String    @default("manual") @db.VarChar(64)
+  isHistorical   Boolean   @default(false) @map("is_historical")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, fromCurrency, toCurrency, effectiveDate])
+  @@index([organizationId, fromCurrency, toCurrency])
+  @@map("exchange_rates")
+  @@schema("platform")
 }
