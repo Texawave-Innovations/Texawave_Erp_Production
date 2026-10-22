@@ -53,4 +53,7 @@ export interface QueryCrmColdCallingEntriesInput {
   order?: ("asc" | "desc") | undefined;
   search?: string | undefined;
   linkedAccountId?: number | undefined;
+  status?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
 }

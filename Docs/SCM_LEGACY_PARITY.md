@@ -757,3 +757,32 @@ not something this audit is authorized to begin.
   (`Docs/SCM_LEGACY_PARITY.md`) as newly modified beyond the pre-existing uncommitted CRM/menu
   work from the prior session; the legacy repo shows its same two pre-existing, unrelated
   modifications, untouched by this session.
+
+## 13. Implementation status
+
+- **Supplier Master slice: implemented** (2026-10-18, branch `feature/scm`). Prisma `scm.suppliers`
+  (migration `20261018090000_add_scm_supplier`), `scm.supplier.read`/`.write`, NestJS
+  `modules/scm/suppliers`, UI `features/scm/suppliers` (list, form, 13-tab detail), `scm` menu +
+  Inventory-SCM navbar module. Intentional differences from legacy: server-side email format
+  validation (the §3 gap); supplier code allocated by a unique index instead of a claim node; address
+  stored as flat columns. Detail tabs for RFQs/Quotations/POs/GRNs/Bills/Payments/Returns/
+  Performance/Products/Documents show an honest "available with <module>" state until those slices land.
+- Not yet started: Procurement, Inventory, Orders/Fulfillment, Logistics, Returns, Quality, Reports.
+
+- **Supplier finance (Bills / Payments / Documents tabs): implemented** (2026-10-19). Prisma
+  `scm.supplier_bills`, `scm.supplier_payments`, `scm.supplier_documents` (migration
+  `20261019090000_add_scm_supplier_finance`), permissions `scm.finance.read`/`.write` (documents use
+  `scm.supplier.read`/`.write`), NestJS `modules/scm/finance`, UI `features/scm/suppliers`
+  (`SupplierFinanceTabs`, `SupplierReturnsTab`). Legacy's Bills tab was a placeholder, so this is a new,
+  small Accounts Payable: a bill is the supplier's invoice (optionally against a PO / GRN) with a
+  duplicate-invoice guard; a payment applies to one bill (no over-payment) or is an advance; voiding a
+  payment reverses it; "overdue" is derived from the due date. Documents are stored on the shared local-disk
+  `FileStorageService` (PDF/JPG/PNG, 5 MB) instead of Cloudinary. The Returns tab now lists the supplier's
+  vendor returns.
+- **SCM Copilot (assistant): ported** (2026-10-19). The legacy Copilot was never a hosted LLM — it was a
+  local, scored intent classifier over live data. The same design now runs server-side
+  (`scm/overview/assistant.intents.ts` + `assistant.repository.ts`): 16 intents, deep links, persistent
+  suggestions, per-browser chat history, a floating launcher on every SCM screen plus the `/scm/assistant`
+  page. One addition over legacy: a supplier-bills intent. No external AI key is needed.
+- **Camera barcode scanner: intentionally not built.** The Barcode page resolves a typed or handheld-scanned
+  code.

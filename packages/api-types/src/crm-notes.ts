@@ -6,6 +6,9 @@
  * `relatedType`/`relatedId` like Meeting/FollowUp/Activity/CrmTask/
  * CrmDocument — and has no update capability (add/delete only). */
 export interface CrmNote {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   accountId: number;

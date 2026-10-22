@@ -32,6 +32,11 @@ export class LeadsService {
     return new PaginatedResponseDto(items, total, query.page, query.limit);
   }
 
+  async facets() {
+    const scope = await this.teamContext.resolveScope(READ);
+    return this.repository.facets(scope);
+  }
+
   /** 404 — not 403 — for a lead outside the caller's scope, matching the
    * convention used by every other scoped module (e.g. crm.contact). */
   async findOne(id: number) {
@@ -56,6 +61,39 @@ export class LeadsService {
     );
     if (!row) throw new ResourceNotFoundException("Lead", id);
     return row;
+  }
+
+  async listNotes(id: number) {
+    const scope = await this.teamContext.resolveScope(READ);
+    const rows = await this.repository.listNotes(scope, id);
+    if (!rows) throw new ResourceNotFoundException("Lead", id);
+    return rows;
+  }
+
+  async addNote(id: number, content: string) {
+    const scope = await this.teamContext.resolveScope(WRITE);
+    const row = await this.repository.addNote(
+      scope,
+      id,
+      content,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Lead", id);
+    return row;
+  }
+
+  async deleteNote(id: number, noteId: number) {
+    const scope = await this.teamContext.resolveScope(WRITE);
+    const ok = await this.repository.deleteNote(scope, id, noteId);
+    if (ok === null) throw new ResourceNotFoundException("Lead", id);
+    if (!ok) throw new ResourceNotFoundException("Lead note", noteId);
+  }
+
+  async timeline(id: number) {
+    const scope = await this.teamContext.resolveScope(READ);
+    const rows = await this.repository.timeline(scope, id);
+    if (!rows) throw new ResourceNotFoundException("Lead", id);
+    return rows;
   }
 
   async remove(id: number) {
@@ -90,6 +128,14 @@ export class LeadsService {
       industry: query.industry,
       city: query.city,
       country: query.country,
+      converted: query.converted,
+      sortBy: query.sortBy,
+      rating: query.rating,
+      touched: query.touched,
+      createdBy: query.createdBy,
+      createdFrom: query.createdFrom,
+      createdTo: query.createdTo,
+      minAnnualRevenue: query.minAnnualRevenue,
     };
   }
 }

@@ -545,4 +545,276 @@ describe("crm leads (e2e)", () => {
       ).toBeNull();
     });
   });
+
+  describe("list filters / facets", () => {
+    it("filters by converted state, sorts by company, and returns distinct facets (tenant-scoped)", async () => {
+      const tag = randomUUID().slice(0, 6);
+      const mk = async (companyName: string, extra: object = {}) =>
+        (
+          (
+            await request(app.getHttpServer())
+              .post("/crm/leads")
+              .set("Authorization", `Bearer ${tokenAll}`)
+              .send({ companyName, prospectName: "P", ...extra })
+              .expect(201)
+          ).body as { data: { id: number } }
+        ).data;
+      const zed = await mk(`Zed ${tag}`, { industry: `Ind-${tag}` });
+      await mk(`Alpha ${tag}`, { assignedTo: `Owner-${tag}` });
+      await request(app.getHttpServer())
+        .post(`/crm/leads/${zed.id}/convert`)
+        .set("Authorization", `Bearer ${tokenAll}`)
+        .send({ accountMode: "new" })
+        .expect(201);
+
+      const list = async (qs: string) =>
+        (
+          (
+            await request(app.getHttpServer())
+              .get(`/crm/leads?q=${tag}&${qs}`)
+              .set("Authorization", `Bearer ${tokenAll}`)
+              .expect(200)
+          ).body as { data: { companyName: string }[] }
+        ).data.map((l) => l.companyName);
+
+      expect(await list("converted=CONVERTED")).toEqual([`Zed ${tag}`]);
+      expect(await list("converted=NOT_CONVERTED")).toEqual([`Alpha ${tag}`]);
+      expect(await list("sortBy=companyName&order=asc")).toEqual([
+        `Alpha ${tag}`,
+        `Zed ${tag}`,
+      ]);
+      expect(await list("sortBy=companyName&order=desc")).toEqual([
+        `Zed ${tag}`,
+        `Alpha ${tag}`,
+      ]);
+
+      const facets = (
+        (
+          await request(app.getHttpServer())
+            .get("/crm/leads/facets")
+            .set("Authorization", `Bearer ${tokenAll}`)
+            .expect(200)
+        ).body as { data: { owners: string[]; industries: string[] } }
+      ).data;
+      expect(facets.owners).toContain(`Owner-${tag}`);
+      expect(facets.industries).toContain(`Ind-${tag}`);
+
+      const other = (
+        (
+          await request(app.getHttpServer())
+            .get("/crm/leads/facets")
+            .set("Authorization", `Bearer ${tokenB}`)
+            .expect(200)
+        ).body as { data: { owners: string[] } }
+      ).data;
+      expect(other.owners).not.toContain(`Owner-${tag}`);
+
+      await request(app.getHttpServer()).get("/crm/leads/facets").expect(401);
+    });
+  });
+
+  describe("legacy parity: rating, notes, roll-ups, timeline", () => {
+    const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
+    type Body<T> = { body: { data: T } };
+
+    it("stores rating/month/customFields and filters by rating, createdBy, created range and min revenue", async () => {
+      const tag = randomUUID().slice(0, 6);
+      const hot = (
+        (await request(app.getHttpServer())
+          .post("/crm/leads")
+          .set(auth(tokenAll))
+          .send({
+            companyName: `Hot ${tag}`,
+            prospectName: "H",
+            rating: "Hot",
+            month: "October",
+            annualRevenue: "$5,000,000",
+            customFields: { region: "south" },
+          })
+          .expect(201)) as Body<{
+          id: number;
+          rating: string;
+          month: string;
+          customFields: Record<string, string>;
+        }>
+      ).body.data;
+      expect(hot.rating).toBe("Hot");
+      expect(hot.month).toBe("October");
+      expect(hot.customFields).toEqual({ region: "south" });
+      await request(app.getHttpServer())
+        .post("/crm/leads")
+        .set(auth(tokenAll))
+        .send({
+          companyName: `Cold ${tag}`,
+          prospectName: "C",
+          rating: "Cold",
+          annualRevenue: "100",
+        })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post("/crm/leads")
+        .set(auth(tokenAll))
+        .send({
+          companyName: `Bad ${tag}`,
+          prospectName: "B",
+          rating: "Lukewarm",
+        })
+        .expect(400);
+
+      const names = async (qs: string) =>
+        (
+          (await request(app.getHttpServer())
+            .get(`/crm/leads?q=${tag}&${qs}`)
+            .set(auth(tokenAll))
+            .expect(200)) as { body: { data: { companyName: string }[] } }
+        ).body.data
+          .map((l) => l.companyName)
+          .sort();
+
+      expect(await names("rating=Hot")).toEqual([`Hot ${tag}`]);
+      expect(await names("minAnnualRevenue=1000000")).toEqual([`Hot ${tag}`]);
+      expect(await names("minAnnualRevenue=50")).toEqual([
+        `Cold ${tag}`,
+        `Hot ${tag}`,
+      ]);
+      expect(await names("createdFrom=2999-01-01")).toEqual([]);
+      expect(await names("createdTo=2000-01-01")).toEqual([]);
+      expect((await names("createdFrom=2000-01-01")).length).toBe(2);
+      // createdBy facet is a {id,name} list.
+      const facets = (
+        (await request(app.getHttpServer())
+          .get("/crm/leads/facets")
+          .set(auth(tokenAll))
+          .expect(200)) as Body<{ createdBy: { id: number; name: string }[] }>
+      ).body.data;
+      expect(facets.createdBy.length).toBeGreaterThan(0);
+      expect(await names(`createdBy=${facets.createdBy[0]!.id}`)).toHaveLength(
+        2,
+      );
+    });
+
+    it("touched / lastActivityAt roll-ups, notes and the audit timeline", async () => {
+      const tag = randomUUID().slice(0, 6);
+      const id = (
+        (await request(app.getHttpServer())
+          .post("/crm/leads")
+          .set(auth(tokenAll))
+          .send({ companyName: `Roll ${tag}`, prospectName: "R" })
+          .expect(201)) as Body<{ id: number }>
+      ).body.data.id;
+      const row = async () =>
+        (
+          (await request(app.getHttpServer())
+            .get(`/crm/leads/${id}`)
+            .set(auth(tokenAll))
+            .expect(200)) as Body<{
+            touched: boolean;
+            lastActivityAt: string | null;
+            createdByName: string | null;
+          }>
+        ).body.data;
+      let r = await row();
+      expect(r.touched).toBe(false);
+      expect(r.createdByName).toBe("Test User");
+
+      const touchedIds = async (v: string) =>
+        (
+          (await request(app.getHttpServer())
+            .get(`/crm/leads?q=${tag}&touched=${v}`)
+            .set(auth(tokenAll))
+            .expect(200)) as { body: { data: { id: number }[] } }
+        ).body.data.map((l) => l.id);
+      expect(await touchedIds("UNTOUCHED")).toContain(id);
+      expect(await touchedIds("TOUCHED")).not.toContain(id);
+
+      // A status change is an audit entry -> touched.
+      await request(app.getHttpServer())
+        .patch(`/crm/leads/${id}`)
+        .set(auth(tokenAll))
+        .send({ leadStatus: "CONTACTED", rating: "Warm" })
+        .expect(200);
+      r = await row();
+      expect(r.touched).toBe(true);
+      expect(r.lastActivityAt).not.toBeNull();
+      expect(await touchedIds("TOUCHED")).toContain(id);
+
+      // Notes: add / list / delete, tenant isolation, permission.
+      const note = (
+        (await request(app.getHttpServer())
+          .post(`/crm/leads/${id}/notes`)
+          .set(auth(tokenAll))
+          .send({ content: "Called, wants a demo" })
+          .expect(201)) as Body<{ id: number; createdByName: string }>
+      ).body.data;
+      expect(note.createdByName).toBe("Test User");
+      await request(app.getHttpServer())
+        .post(`/crm/leads/${id}/notes`)
+        .set(auth(tokenAll))
+        .send({ content: "" })
+        .expect(400);
+      await request(app.getHttpServer())
+        .get(`/crm/leads/${id}/notes`)
+        .set(auth(tokenB))
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/crm/leads/${id}/notes`)
+        .set(auth(tokenNoPermission))
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/crm/leads/${id}/notes`)
+        .expect(401);
+      let notes = (
+        (await request(app.getHttpServer())
+          .get(`/crm/leads/${id}/notes`)
+          .set(auth(tokenAll))
+          .expect(200)) as Body<{ id: number }[]>
+      ).body.data;
+      expect(notes.map((n) => n.id)).toEqual([note.id]);
+
+      // Timeline: create + update (with the status diff) + note_added.
+      const timeline = (
+        (await request(app.getHttpServer())
+          .get(`/crm/leads/${id}/timeline`)
+          .set(auth(tokenAll))
+          .expect(200)) as Body<
+          {
+            action: string;
+            by: string | null;
+            changes: {
+              field: string;
+              from: string | null;
+              to: string | null;
+            }[];
+          }[]
+        >
+      ).body.data;
+      expect(timeline.map((t) => t.action)).toEqual(
+        expect.arrayContaining(["create", "update", "note_added"]),
+      );
+      const update = timeline.find((t) => t.action === "update")!;
+      expect(update.by).toBe("Test User");
+      expect(update.changes).toEqual(
+        expect.arrayContaining([
+          { field: "leadStatus", from: "NEW", to: "CONTACTED" },
+          { field: "rating", from: null, to: "Warm" },
+        ]),
+      );
+      await request(app.getHttpServer())
+        .get(`/crm/leads/${id}/timeline`)
+        .set(auth(tokenB))
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .delete(`/crm/leads/${id}/notes/${note.id}`)
+        .set(auth(tokenAll))
+        .expect(204);
+      notes = (
+        (await request(app.getHttpServer())
+          .get(`/crm/leads/${id}/notes`)
+          .set(auth(tokenAll))
+          .expect(200)) as Body<{ id: number }[]>
+      ).body.data;
+      expect(notes).toHaveLength(0);
+    });
+  });
 });

@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "crm"]
+  schemas  = ["platform", "hr", "crm", "scm"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -54,6 +54,21 @@ model Organization {
   users                   User[]
   roles                   Role[]
   tags                    Tag[]
+  suppliers               Supplier[]
+  scmProducts             ScmProduct[]
+  scmWarehouses           ScmWarehouse[]
+  scmSupplierBills        ScmSupplierBill[]
+  scmSupplierPayments     ScmSupplierPayment[]
+  scmSupplierDocuments    ScmSupplierDocument[]
+  scmLocations            ScmWarehouseLocation[]
+  scmStockBalances        ScmStockBalance[]
+  scmStockLedger          ScmStockLedgerEntry[]
+  scmBatches              ScmStockBatch[]
+  scmSerials              ScmSerialNumber[]
+  scmReservations         ScmStockReservation[]
+  scmTransfers            ScmStockTransfer[]
+  scmAdjustments          ScmStockAdjustment[]
+  scmNumberSequences      ScmNumberSequence[]
   teams                   Team[]
   departments             Department[]
   userTeamAccess          UserTeamAccess[]
@@ -140,7 +155,33 @@ model Organization {
   crmTasks                CrmTask[]
   crmDocuments            CrmDocument[]
   crmNotes                CrmNote[]
+  crmLeadNotes            CrmLeadNote[]
   crmColdCallingEntries   CrmColdCallingEntry[]
+  crmMiningRows           CrmMiningRow[]
+  crmQuotas               CrmQuota[]
+  crmNotifications        CrmNotification[]
+  crmCustomFieldDefs      CrmCustomFieldDef[]
+  scmRequisitions         ScmPurchaseRequisition[]
+  scmRfqs                 ScmRfq[]
+  scmQuotations           ScmSupplierQuotation[]
+  scmComparisons          ScmQuotationComparison[]
+  scmPurchaseOrders       ScmPurchaseOrder[]
+  scmGoodsReceipts        ScmGoodsReceipt[]
+  scmCustomers            ScmCustomer[]
+  scmSalesOrders          ScmSalesOrder[]
+  scmFulfillments         ScmFulfillment[]
+  scmPickings             ScmPicking[]
+  scmPackings             ScmPacking[]
+  scmCarriers             ScmCarrier[]
+  scmShipments            ScmShipment[]
+  scmReturns              ScmReturn[]
+  scmQualityDefects       ScmQualityDefect[]
+  scmQualityTemplates     ScmQualityTemplate[]
+  scmQualityInspections   ScmQualityInspection[]
+  scmQuarantineRecords    ScmQuarantineRecord[]
+  scmLocationStock        ScmLocationStock[]
+  scmPutaways             ScmPutaway[]
+  scmWarehouseMovements   ScmWarehouseMovement[]
 
   @@map("organizations")
   @@schema("platform")
@@ -2976,6 +3017,12 @@ model Account {
   /// no-DB-enum convention as every other status/type field in this schema.
   accountType        String?   @map("account_type")
   ownerName          String?   @map("owner_name")
+  /// Headquarters / location (legacy `hq`).
+  hq                 String?
+  /// High|Medium|Low — legacy CRM metadata priority chip.
+  priority           String?
+  /// Hot|Warm|Cold — legacy CRM metadata temperature chip.
+  temperature        String?
   industry           String?
   website            String?
   phone              String?
@@ -3116,6 +3163,10 @@ model Lead {
   priority           String?
   assignedTo         String?   @map("assigned_to")
   leadSource         String?   @map("lead_source")
+  /// Hot|Warm|Cold (legacy lead temperature).
+  rating             String?
+  /// Free-text "Month" field (legacy lead row `month`).
+  month              String?
   emailOptOut        Boolean   @default(false) @map("email_opt_out")
   dataProcessingBasis String?  @map("data_processing_basis")
   addressStreet      String?   @map("address_street")
@@ -3149,6 +3200,7 @@ model Lead {
   linkedContact       Contact?     @relation(fields: [linkedContactId], references: [id])
   linkedOpportunity   Opportunity? @relation("LeadLinkedOpportunity", fields: [linkedOpportunityId], references: [id])
   sourcedOpportunities Opportunity[] @relation("OpportunitySourceLead")
+  leadNotes           CrmLeadNote[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3261,6 +3313,8 @@ model Opportunity {
   holdReason         String?   @map("hold_reason")
   holdReasonOther    String?   @map("hold_reason_other")
   expectedResumeDate DateTime? @map("expected_resume_date")
+  /// Best Case|Commit|Pipeline|Omitted|Closed (legacy forecast category).
+  forecastCategory   String?   @map("forecast_category")
   holdNotes          String?   @map("hold_notes")
   onHoldAt           DateTime? @map("on_hold_at")
   resumedAt          DateTime? @map("resumed_at")
@@ -3623,6 +3677,9 @@ model CrmMeeting {
   decisionMaker    String?   @map("decision_maker")
   expectedTimeline String?   @map("expected_timeline")
   nextFollowUpAt   DateTime? @map("next_follow_up_at") @db.Timestamptz(6)
+  nextStep         String?   @map("next_step")
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields     Json?     @map("custom_fields")
   createdBy        Int?      @map("created_by")
   updatedBy        Int?      @map("updated_by")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -3852,6 +3909,8 @@ model CrmColdCallingEntry {
   /// mirrors legacy's `dispositionTag`. Not written automatically.
   dispositionTag  String?   @map("disposition_tag")
   dispositionAt   DateTime? @map("disposition_at") @db.Timestamptz(6)
+  /// Bulk-import auto-created custom columns (CrmCustomFieldDef key -> value)
+  customFields    Json?     @map("custom_fields")
   createdBy       Int?      @map("created_by")
   updatedBy       Int?      @map("updated_by")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -3865,4 +3924,1963 @@ model CrmColdCallingEntry {
   @@index([organizationId, linkedAccountId], map: "crm_cold_calling_entries_org_linked_account_idx")
   @@map("crm_cold_calling_entries")
   @@schema("crm")
+}
+
+/// Legacy `AccountsMiningSheet.tsx` (`crm/accountsMiningSheet`) — an
+/// independent prospecting dataset, deliberately NOT an Account/Lead. All
+/// legacy columns are free text (kept as nullable strings here, matching
+/// legacy). `promotedToLeadId` is the idempotent "Promote to Lead" link
+/// (legacy `promotedToLeadRowId`): once set, the promote action is disabled.
+model CrmMiningRow {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  serialNo          String?   @map("serial_no")
+  minedDate         String?   @map("mined_date")
+  domain            String?
+  companyName       String    @map("company_name")
+  hq                String?
+  website           String?
+  keyDecisionMakers String?   @map("key_decision_makers")
+  title             String?
+  contactNumber     String?   @map("contact_number")
+  email             String?
+  emailStatus       String?   @map("email_status")
+  followUpStatus    String?   @map("follow_up_status")
+  industry          String?
+  numberOfEmployees String?   @map("number_of_employees")
+  city              String?
+  state             String?
+  country           String?
+  linkedInProfile   String?   @map("linkedin_profile")
+  assignedTo        String?   @map("assigned_to")
+  /// High|Medium|Low
+  priority          String?
+  nextFollowUpDate  String?   @map("next_follow_up_date")
+  notes             String?
+  promotedToLeadId  Int?      @map("promoted_to_lead_id")
+  customFields      Json?     @map("custom_fields")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("crm_mining_rows")
+  @@schema("crm")
+}
+
+/// Legacy `domain/quotasService.ts` (`crm/quotas`). `repName` is free text
+/// (matches legacy — no User FK; attainment name-matches Opportunity
+/// ownerName case/whitespace-insensitively). Attainment is computed on
+/// read, never stored.
+model CrmQuota {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  repName        String    @map("rep_name")
+  team           String?
+  managerName    String?   @map("manager_name")
+  targetOwner    String?   @map("target_owner")
+  /// monthly|quarterly
+  period         String
+  /// YYYY-MM | YYYY-Q1..4
+  periodKey      String    @map("period_key")
+  startDate      DateTime? @map("start_date") @db.Timestamptz(6)
+  endDate        DateTime? @map("end_date") @db.Timestamptz(6)
+  targetAmount   Decimal   @map("target_amount") @db.Decimal(16, 2)
+  /// revenue|closedWonValue|dealsWon
+  metric         String    @default("closedWonValue")
+  currency       String?
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, periodKey])
+  @@map("crm_quotas")
+  @@schema("crm")
+}
+
+/// Legacy `notifications/types.ts` `CrmNotification` (`crm/notifications/feed`).
+/// Generated server-side from due dates on Meetings/FollowUps/Tasks/
+/// Opportunities/Quotations/Accounts; (sourceType, sourceId, type, dueDate)
+/// is the idempotency key so regeneration never duplicates a row.
+/// `deletedAt` = the legacy "recycle-bin" tab (admin permanent-delete removes
+/// the row).
+model CrmNotification {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  sourceType     String    @map("source_type")
+  sourceId       Int       @map("source_id")
+  type           String
+  title          String
+  description    String?
+  accountId      Int?      @map("account_id")
+  companyName    String?   @map("company_name")
+  prospectName   String?   @map("prospect_name")
+  dueDate        DateTime  @map("due_date") @db.Timestamptz(6)
+  /// Pending|Acknowledged|Done|Snoozed|Overdue
+  status         String    @default("Pending")
+  /// high|medium|low
+  priority       String    @default("medium")
+  isRead         Boolean   @default(false) @map("is_read")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  snoozeUntil    DateTime? @map("snooze_until") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
+  @@index([organizationId, status])
+  @@map("crm_notifications")
+  @@schema("crm")
+}
+
+/// Legacy `bulkImport/crmCustomFieldsService.ts` (`crm/customFieldDefs`).
+/// An unrecognised Excel header auto-creates one of these (idempotent on
+/// normalised label); values live in each row's `customFields` JSON.
+model CrmCustomFieldDef {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  /// leads|accountsMining|accounts|meetings|coldCalling
+  module         String
+  key            String
+  label          String
+  sourceHeader   String?   @map("source_header")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, module, key], map: "crm_custom_field_defs_org_module_key")
+  @@map("crm_custom_field_defs")
+  @@schema("crm")
+}
+
+/// Lead notes (legacy `crm/notes/<leadId>`; `CrmNote` is account-only).
+model CrmLeadNote {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  leadId         Int       @map("lead_id")
+  content        String
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, leadId])
+  @@map("crm_lead_notes")
+  @@schema("crm")
+}
+
+/// SCM Supplier master — migrated from legacy `contacts/vendors/{id}`
+/// (Docs/SCM_LEGACY_PARITY.md §3). Org-wide reference data, no team
+/// dimension. Legacy's Firebase `supplierCodeClaims` node is replaced by the
+/// `(organization_id, supplier_code)` unique index. `status` is a plain
+/// string (Active | Inactive | Pending Approval | Blocked) with no DB-enforced
+/// transition guard — legacy never had a real approval workflow. The single
+/// default address is stored as flat columns; the legacy-Purchases-only bank
+/// fields and unused `category`/`trusted` are deliberately omitted.
+model Supplier {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  supplierCode   String    @map("supplier_code")
+  companyName    String    @map("company_name")
+  type           String?
+  status         String    @default("Active")
+  gstin          String?
+  pan            String?
+  contactPerson  String    @map("contact_person")
+  phone          String?
+  email          String?
+  street         String?
+  city           String?
+  state          String?
+  country        String?   @default("India")
+  pincode        String?
+  paymentTerms   String?   @default("30 Days") @map("payment_terms")
+  creditLimit    Decimal   @default(0) @map("credit_limit") @db.Decimal(14, 2)
+  currency       String    @default("INR")
+  leadTimeDays   Int       @default(0) @map("lead_time_days")
+  rating         Int?
+  notes          String?
+  customFields   Json?     @map("custom_fields")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  rfqSuppliers   ScmRfqSupplier[]
+  quotations     ScmSupplierQuotation[]
+  purchaseOrders ScmPurchaseOrder[]
+  goodsReceipts  ScmGoodsReceipt[]
+  bills          ScmSupplierBill[]
+  payments       ScmSupplierPayment[]
+  documents      ScmSupplierDocument[]
+
+  @@unique([organizationId, supplierCode])
+  @@index([organizationId, status])
+  @@map("suppliers")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// SCM foundation + inventory (Docs/SCM_LEGACY_PARITY.md section 5). Quantities
+// are Decimal(14,3), money Decimal(14,2). Legacy Firebase patterns (posting
+// claims, action locks, composite string keys) are replaced by transactions,
+// row locks and unique constraints.
+// ---------------------------------------------------------------------------
+
+/// Per-organization, per-prefix, per-financial-year document counter
+/// (`TW/PR/26-27/0001`). Replaces the legacy Firebase transactional counter.
+model ScmNumberSequence {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  prefix         String
+  fiscalYear     String   @map("fiscal_year")
+  lastValue      Int      @default(0) @map("last_value")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, prefix, fiscalYear])
+  @@map("number_sequences")
+  @@schema("scm")
+}
+
+/// SCM product master (inventory-owned settings merged in: reorder/min/max,
+/// cost, batch/serial tracking). Replaces the legacy reconciliation of the
+/// Sales module's dual-shape product records.
+model ScmProduct {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  productCode    String    @map("product_code")
+  name           String
+  category       String?
+  uom            String    @default("PCS")
+  hsn            String?
+  unitPrice      Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
+  costPrice      Decimal   @default(0) @map("cost_price") @db.Decimal(14, 2)
+  reorderLevel   Decimal?  @map("reorder_level") @db.Decimal(14, 3)
+  minimumStock   Decimal?  @map("minimum_stock") @db.Decimal(14, 3)
+  maximumStock   Decimal?  @map("maximum_stock") @db.Decimal(14, 3)
+  batchTracked   Boolean   @default(false) @map("batch_tracked")
+  serialTracked  Boolean   @default(false) @map("serial_tracked")
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  balances     ScmStockBalance[]
+  ledger       ScmStockLedgerEntry[]
+  batches      ScmStockBatch[]
+  serials      ScmSerialNumber[]
+  reservations ScmStockReservation[]
+  transfers    ScmStockTransfer[]
+  adjustments  ScmStockAdjustment[]
+  requisitionItems ScmPurchaseRequisitionItem[]
+  rfqItems         ScmRfqItem[]
+  quotationItems   ScmSupplierQuotationItem[]
+  purchaseOrderItems ScmPurchaseOrderItem[]
+  goodsReceiptItems  ScmGoodsReceiptItem[]
+  salesOrderItems    ScmSalesOrderItem[]
+  fulfillmentItems   ScmFulfillmentItem[]
+  pickingItems       ScmPickingItem[]
+  packingPackageItems ScmPackingPackageItem[]
+  returnItems              ScmReturnItem[]
+  qualityInspectionItems   ScmQualityInspectionItem[]
+  quarantineRecords        ScmQuarantineRecord[]
+  locationStock      ScmLocationStock[]
+  putawayItems       ScmPutawayItem[]
+  movementItems      ScmWarehouseMovementItem[]
+
+  @@unique([organizationId, productCode])
+  @@map("products")
+  @@schema("scm")
+}
+
+model ScmWarehouse {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String
+  name           String
+  /// Main | Regional | Transit | Virtual | Other | Distribution | Fulfillment | Returns
+  type           String    @default("Main")
+  address        String?
+  city           String?
+  state          String?
+  country        String?
+  postalCode     String?   @map("postal_code")
+  managerName    String?   @map("manager_name")
+  status         String    @default("Active")
+  contactPerson  String?   @map("contact_person")
+  phone          String?
+  email          String?
+  capacity       Decimal?  @db.Decimal(14, 3)
+  capacityUnit   String?   @map("capacity_unit")
+  operatingHours String?   @map("operating_hours")
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  locations    ScmWarehouseLocation[]
+  balances     ScmStockBalance[]
+  ledger       ScmStockLedgerEntry[]
+  batches      ScmStockBatch[]
+  serials      ScmSerialNumber[]
+  reservations ScmStockReservation[]
+  adjustments  ScmStockAdjustment[]
+  transfersOut ScmStockTransfer[]     @relation("TransferSource")
+  transfersIn  ScmStockTransfer[]     @relation("TransferDestination")
+  requisitions   ScmPurchaseRequisition[]
+  rfqs           ScmRfq[]
+  purchaseOrders ScmPurchaseOrder[]
+  goodsReceipts  ScmGoodsReceipt[]
+  fulfillments   ScmFulfillment[]
+  pickings       ScmPicking[]
+  packings       ScmPacking[]
+  shipments      ScmShipment[]
+  returns            ScmReturn[]
+  quarantineRecords  ScmQuarantineRecord[]
+  locationStock   ScmLocationStock[]
+  putaways        ScmPutaway[]
+  movements       ScmWarehouseMovement[]
+
+  @@unique([organizationId, code])
+  @@map("warehouses")
+  @@schema("scm")
+}
+
+/// Zone -> Rack -> Shelf -> Bin hierarchy. `locationCode` is unique per warehouse.
+model ScmWarehouseLocation {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  warehouseId      Int       @map("warehouse_id")
+  parentLocationId Int?      @map("parent_location_id")
+  /// ZONE | RACK | SHELF | BIN
+  locationType     String?   @map("location_type")
+  locationCode     String?   @map("location_code")
+  zone             String?
+  rack             String?
+  shelf            String?
+  binCode          String    @map("bin_code")
+  locationName     String?   @map("location_name")
+  capacity         Decimal?  @db.Decimal(14, 3)
+  capacityUnit     String?   @map("capacity_unit")
+  notes            String?
+  status           String    @default("Active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
+  parent       ScmWarehouseLocation?  @relation("LocationTree", fields: [parentLocationId], references: [id])
+  children     ScmWarehouseLocation[] @relation("LocationTree")
+  locationStock ScmLocationStock[]
+
+  @@unique([warehouseId, locationCode])
+  @@index([organizationId, warehouseId])
+  @@map("warehouse_locations")
+  @@schema("scm")
+}
+
+/// Materialized on-hand snapshot, one row per product per warehouse. The
+/// ledger stays authoritative; this row is only ever changed by StockService
+/// inside the same transaction as the ledger insert, under a row lock.
+model ScmStockBalance {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  productId      Int      @map("product_id")
+  warehouseId    Int      @map("warehouse_id")
+  onHand         Decimal  @default(0) @map("on_hand") @db.Decimal(14, 3)
+  reserved       Decimal  @default(0) @db.Decimal(14, 3)
+  incoming       Decimal  @default(0) @db.Decimal(14, 3)
+  damaged        Decimal  @default(0) @db.Decimal(14, 3)
+  quarantine     Decimal  @default(0) @db.Decimal(14, 3)
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([productId, warehouseId])
+  @@index([organizationId, warehouseId])
+  @@map("stock_balances")
+  @@schema("scm")
+}
+
+/// Append-only (DB trigger) stock history. Corrections are new offsetting rows.
+/// `idempotencyKey` replaces legacy `postOnce` claims: a retried posting with
+/// the same key is a no-op that returns the original entry.
+model ScmStockLedgerEntry {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  productId       Int      @map("product_id")
+  warehouseId     Int      @map("warehouse_id")
+  locationId      Int?     @map("location_id")
+  batchId         Int?     @map("batch_id")
+  serialId        Int?     @map("serial_id")
+  transactionType String   @map("transaction_type")
+  referenceType   String   @map("reference_type")
+  referenceId     Int?     @map("reference_id")
+  referenceNumber String?  @map("reference_number")
+  quantityIn      Decimal  @default(0) @map("quantity_in") @db.Decimal(14, 3)
+  quantityOut     Decimal  @default(0) @map("quantity_out") @db.Decimal(14, 3)
+  unitCost        Decimal? @map("unit_cost") @db.Decimal(14, 2)
+  transactionDate DateTime @default(now()) @map("transaction_date")
+  idempotencyKey  String?  @map("idempotency_key")
+  notes           String?
+  createdBy       Int?     @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, productId, warehouseId])
+  @@index([organizationId, referenceType, referenceId])
+  @@index([organizationId, transactionDate])
+  @@map("stock_ledger")
+  @@schema("scm")
+}
+
+model ScmStockBatch {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  batchNumber       String    @map("batch_number")
+  productId         Int       @map("product_id")
+  warehouseId       Int       @map("warehouse_id")
+  locationId        Int?      @map("location_id")
+  manufacturingDate DateTime? @map("manufacturing_date") @db.Date
+  expiryDate        DateTime? @map("expiry_date") @db.Date
+  quantity          Decimal   @default(0) @db.Decimal(14, 3)
+  /// ACTIVE | EXPIRED | QUARANTINED | BLOCKED
+  status            String    @default("ACTIVE")
+  createdBy         Int?      @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, batchNumber, productId, warehouseId])
+  @@map("stock_batches")
+  @@schema("scm")
+}
+
+model ScmSerialNumber {
+  id               Int      @id @default(autoincrement())
+  organizationId   Int      @map("organization_id")
+  serialNumber     String   @map("serial_number")
+  productId        Int      @map("product_id")
+  warehouseId      Int      @map("warehouse_id")
+  locationId       Int?     @map("location_id")
+  /// AVAILABLE | RESERVED | SOLD | TRANSFERRED | DAMAGED | RETURNED | QUARANTINED
+  status           String   @default("AVAILABLE")
+  currentReference String?  @map("current_reference")
+  createdBy        Int?     @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, serialNumber])
+  @@map("serial_numbers")
+  @@schema("scm")
+}
+
+model ScmStockReservation {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  productId        Int       @map("product_id")
+  warehouseId      Int       @map("warehouse_id")
+  salesOrderId     Int?      @map("sales_order_id")
+  salesOrderNumber String?   @map("sales_order_number")
+  fulfillmentId    Int?      @map("fulfillment_id")
+  quantity         Decimal   @db.Decimal(14, 3)
+  /// ACTIVE | RELEASED | FULFILLED | CANCELLED
+  status           String    @default("ACTIVE")
+  notes            String?
+  createdBy        Int?      @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  releasedBy       Int?      @map("released_by")
+  releasedAt       DateTime? @map("released_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+  salesOrder  ScmSalesOrder?  @relation(fields: [salesOrderId], references: [id])
+  fulfillment ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("stock_reservations")
+  @@schema("scm")
+}
+
+model ScmStockTransfer {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  transferNumber         String    @map("transfer_number")
+  productId              Int       @map("product_id")
+  sourceWarehouseId      Int       @map("source_warehouse_id")
+  sourceLocationId       Int?      @map("source_location_id")
+  destinationWarehouseId Int       @map("destination_warehouse_id")
+  destinationLocationId  Int?      @map("destination_location_id")
+  quantity               Decimal   @db.Decimal(14, 3)
+  /// DRAFT | REQUESTED | APPROVED | IN_TRANSIT | RECEIVED | CANCELLED
+  status                 String    @default("REQUESTED")
+  notes                  String?
+  requestedBy            Int?      @map("requested_by")
+  approvedBy             Int?      @map("approved_by")
+  dispatchedBy           Int?      @map("dispatched_by")
+  receivedBy             Int?      @map("received_by")
+  approvedAt             DateTime? @map("approved_at")
+  dispatchedAt           DateTime? @map("dispatched_at")
+  receivedAt             DateTime? @map("received_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  product              ScmProduct   @relation(fields: [productId], references: [id])
+  sourceWarehouse      ScmWarehouse @relation("TransferSource", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouse ScmWarehouse @relation("TransferDestination", fields: [destinationWarehouseId], references: [id])
+
+  @@unique([organizationId, transferNumber])
+  @@map("stock_transfers")
+  @@schema("scm")
+}
+
+model ScmStockAdjustment {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  adjustmentNumber String    @map("adjustment_number")
+  productId        Int       @map("product_id")
+  warehouseId      Int       @map("warehouse_id")
+  locationId       Int?      @map("location_id")
+  quantity         Decimal   @db.Decimal(14, 3)
+  /// IN | OUT
+  direction        String
+  reason           String
+  notes            String?
+  /// PENDING | APPROVED | REJECTED
+  status           String    @default("PENDING")
+  requestedBy      Int?      @map("requested_by")
+  approvedBy       Int?      @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, adjustmentNumber])
+  @@map("stock_adjustments")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// SCM procurement: PR -> RFQ -> Supplier Quotation -> Comparison -> PO -> GRN
+// (Docs/SCM_LEGACY_PARITY.md section 4). Documents keep point-in-time name
+// snapshots where legacy intentionally froze them (supplier name/GSTIN, line
+// product names); everything else is a live join. Totals are always computed
+// server-side.
+// ---------------------------------------------------------------------------
+
+model ScmPurchaseRequisition {
+  id                      Int       @id @default(autoincrement())
+  organizationId          Int       @map("organization_id")
+  requisitionNumber       String    @map("requisition_number")
+  requestedBy             Int?      @map("requested_by")
+  requestedByName         String    @map("requested_by_name")
+  department              String?
+  requestDate             DateTime  @map("request_date") @db.Date
+  requiredDate            DateTime? @map("required_date") @db.Date
+  /// Low | Normal | High | Urgent
+  priority                String    @default("Normal")
+  warehouseId             Int       @map("warehouse_id")
+  locationId              Int?      @map("location_id")
+  purpose                 String?
+  notes                   String?
+  subtotal                Decimal   @default(0) @db.Decimal(14, 2)
+  tax                     Decimal   @default(0) @db.Decimal(14, 2)
+  total                   Decimal   @default(0) @db.Decimal(14, 2)
+  /// DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED | CONVERTED
+  status                  String    @default("DRAFT")
+  approvedBy              Int?      @map("approved_by")
+  approvedByName          String?   @map("approved_by_name")
+  approvedAt              DateTime? @map("approved_at")
+  rejectionReason         String?   @map("rejection_reason")
+  sourceSalesOrderId      Int?      @map("source_sales_order_id")
+  sourceSalesOrderNumber  String?   @map("source_sales_order_number")
+  fulfillmentId           Int?      @map("fulfillment_id")
+  createdBy               Int?      @map("created_by")
+  updatedBy               Int?      @map("updated_by")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse                @relation(fields: [warehouseId], references: [id])
+  items        ScmPurchaseRequisitionItem[]
+  rfqs         ScmRfq[]
+  sourceSalesOrder ScmSalesOrder?  @relation(fields: [sourceSalesOrderId], references: [id])
+  fulfillment      ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
+
+  @@unique([organizationId, requisitionNumber])
+  @@index([organizationId, status])
+  @@map("purchase_requisitions")
+  @@schema("scm")
+}
+
+model ScmPurchaseRequisitionItem {
+  id                 Int       @id @default(autoincrement())
+  requisitionId      Int       @map("requisition_id")
+  lineNo             Int       @map("line_no")
+  productId          Int       @map("product_id")
+  productNameSnapshot String   @map("product_name_snapshot")
+  uom                String
+  quantity           Decimal   @db.Decimal(14, 3)
+  estimatedUnitCost  Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_unit_cost")
+  estimatedTotal     Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_total")
+  requiredDate       DateTime? @map("required_date") @db.Date
+  notes              String?
+
+  requisition ScmPurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  product     ScmProduct             @relation(fields: [productId], references: [id])
+
+  @@index([requisitionId])
+  @@map("purchase_requisition_items")
+  @@schema("scm")
+}
+
+model ScmRfq {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  rfqNumber        String    @map("rfq_number")
+  requisitionId    Int?      @map("requisition_id")
+  issueDate        DateTime  @map("issue_date") @db.Date
+  responseDueDate  DateTime? @map("response_due_date") @db.Date
+  warehouseId      Int       @map("warehouse_id")
+  deliveryLocation String?   @map("delivery_location")
+  currency         String    @default("INR")
+  paymentTerms     String?   @map("payment_terms")
+  deliveryTerms    String?   @map("delivery_terms")
+  notes            String?
+  /// DRAFT | RESPONSES_PENDING | PARTIALLY_RESPONDED | RESPONDED | CLOSED | CANCELLED
+  status           String    @default("DRAFT")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse            @relation(fields: [warehouseId], references: [id])
+  requisition  ScmPurchaseRequisition? @relation(fields: [requisitionId], references: [id])
+  items        ScmRfqItem[]
+  suppliers    ScmRfqSupplier[]
+  quotations   ScmSupplierQuotation[]
+  comparisons  ScmQuotationComparison[]
+  purchaseOrders ScmPurchaseOrder[]
+
+  @@unique([organizationId, rfqNumber])
+  @@index([organizationId, status])
+  @@map("rfqs")
+  @@schema("scm")
+}
+
+model ScmRfqItem {
+  id                  Int     @id @default(autoincrement())
+  rfqId               Int     @map("rfq_id")
+  lineNo              Int     @map("line_no")
+  productId           Int     @map("product_id")
+  productNameSnapshot String  @map("product_name_snapshot")
+  uom                 String
+  quantity            Decimal @db.Decimal(14, 3)
+  notes               String?
+
+  rfq     ScmRfq     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  product ScmProduct @relation(fields: [productId], references: [id])
+
+  @@index([rfqId])
+  @@map("rfq_items")
+  @@schema("scm")
+}
+
+/// Many-to-many RFQ <-> Supplier (legacy `supplierIds[]` + name snapshot map).
+model ScmRfqSupplier {
+  id                   Int    @id @default(autoincrement())
+  rfqId                Int    @map("rfq_id")
+  supplierId           Int    @map("supplier_id")
+  supplierNameSnapshot String @map("supplier_name_snapshot")
+
+  rfq      ScmRfq   @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  @@unique([rfqId, supplierId])
+  @@map("rfq_suppliers")
+  @@schema("scm")
+}
+
+model ScmSupplierQuotation {
+  id                      Int       @id @default(autoincrement())
+  organizationId          Int       @map("organization_id")
+  quotationNumber         String    @map("quotation_number")
+  supplierQuotationNumber String?   @map("supplier_quotation_number")
+  rfqId                   Int       @map("rfq_id")
+  supplierId              Int       @map("supplier_id")
+  vendorNameSnapshot      String    @map("vendor_name_snapshot")
+  vendorGstinSnapshot     String?   @map("vendor_gstin_snapshot")
+  quotationDate           DateTime  @map("quotation_date") @db.Date
+  validUntil              DateTime? @map("valid_until") @db.Date
+  currency                String    @default("INR")
+  paymentTerms            String?   @map("payment_terms")
+  deliveryTerms           String?   @map("delivery_terms")
+  freight                 Decimal   @default(0) @db.Decimal(14, 2)
+  discount                Decimal   @default(0) @db.Decimal(14, 2)
+  tax                     Decimal   @default(0) @db.Decimal(14, 2)
+  subtotal                Decimal   @default(0) @db.Decimal(14, 2)
+  total                   Decimal   @default(0) @db.Decimal(14, 2)
+  notes                   String?
+  /// RECEIVED | SHORTLISTED | SELECTED | REJECTED | CANCELLED
+  status                  String    @default("RECEIVED")
+  createdBy               Int?      @map("created_by")
+  updatedBy               Int?      @map("updated_by")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  rfq            ScmRfq                    @relation(fields: [rfqId], references: [id])
+  supplier       Supplier                  @relation(fields: [supplierId], references: [id])
+  items          ScmSupplierQuotationItem[]
+  purchaseOrders ScmPurchaseOrder[]
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId, rfqId])
+  @@map("supplier_quotations")
+  @@schema("scm")
+}
+
+model ScmSupplierQuotationItem {
+  id                   Int       @id @default(autoincrement())
+  quotationId          Int       @map("quotation_id")
+  lineNo               Int       @map("line_no")
+  productId            Int       @map("product_id")
+  productNameSnapshot  String    @map("product_name_snapshot")
+  uom                  String
+  quantity             Decimal   @db.Decimal(14, 3)
+  unitPrice            Decimal   @default(0) @db.Decimal(14, 2) @map("unit_price")
+  discount             Decimal   @default(0) @db.Decimal(14, 2)
+  taxRate              Decimal   @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  taxAmount            Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  total                Decimal   @default(0) @db.Decimal(14, 2)
+  promisedDeliveryDate DateTime? @map("promised_delivery_date") @db.Date
+  notes                String?
+
+  quotation ScmSupplierQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   ScmProduct           @relation(fields: [productId], references: [id])
+
+  @@index([quotationId])
+  @@map("supplier_quotation_items")
+  @@schema("scm")
+}
+
+/// One saved comparison decision per save (history), as legacy. Selecting a
+/// quotation also moves the quotations' statuses, in one transaction.
+model ScmQuotationComparison {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  rfqId                Int       @map("rfq_id")
+  quotationIds         Int[]     @map("quotation_ids")
+  selectedQuotationIds Int[]     @map("selected_quotation_ids")
+  selectedBy           Int?      @map("selected_by")
+  selectedAt           DateTime? @map("selected_at")
+  remarks              String?
+  /// OPEN | DECIDED
+  status               String    @default("OPEN")
+  createdBy            Int?      @map("created_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  rfq          ScmRfq       @relation(fields: [rfqId], references: [id])
+
+  @@index([organizationId, rfqId])
+  @@map("quotation_comparisons")
+  @@schema("scm")
+}
+
+model ScmPurchaseOrder {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  poNumber            String    @map("po_number")
+  supplierId          Int       @map("supplier_id")
+  vendorNameSnapshot  String    @map("vendor_name_snapshot")
+  vendorGstinSnapshot String?   @map("vendor_gstin_snapshot")
+  rfqId               Int?      @map("rfq_id")
+  quotationId         Int?      @map("quotation_id")
+  poDate              DateTime  @map("po_date") @db.Date
+  expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
+  warehouseId         Int       @map("warehouse_id")
+  deliveryLocation    String?   @map("delivery_location")
+  paymentTerms        String?   @map("payment_terms")
+  currency            String    @default("INR")
+  freight             Decimal   @default(0) @db.Decimal(14, 2)
+  discount            Decimal   @default(0) @db.Decimal(14, 2)
+  subtotal            Decimal   @default(0) @db.Decimal(14, 2)
+  taxAmount           Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  total               Decimal   @default(0) @db.Decimal(14, 2)
+  notes               String?
+  /// DRAFT | PENDING_APPROVAL | APPROVED | SENT | PARTIALLY_RECEIVED | RECEIVED | CANCELLED | CLOSED
+  status              String    @default("DRAFT")
+  approvedBy          Int?      @map("approved_by")
+  approvedByName      String?   @map("approved_by_name")
+  approvedAt          DateTime? @map("approved_at")
+  /// True once StockBalance.incoming was raised for this PO's unreceived qty.
+  incomingApplied     Boolean   @default(false) @map("incoming_applied")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  supplier     Supplier               @relation(fields: [supplierId], references: [id])
+  warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
+  rfq          ScmRfq?                @relation(fields: [rfqId], references: [id])
+  quotation    ScmSupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  items        ScmPurchaseOrderItem[]
+  receipts     ScmGoodsReceipt[]
+  bills        ScmSupplierBill[]
+
+  @@unique([organizationId, poNumber])
+  @@index([organizationId, status])
+  @@map("purchase_orders")
+  @@schema("scm")
+}
+
+model ScmPurchaseOrderItem {
+  id                  Int     @id @default(autoincrement())
+  purchaseOrderId     Int     @map("purchase_order_id")
+  lineNo              Int     @map("line_no")
+  productId           Int     @map("product_id")
+  productNameSnapshot String  @map("product_name_snapshot")
+  uom                 String
+  quantity            Decimal @db.Decimal(14, 3)
+  receivedQuantity    Decimal @default(0) @db.Decimal(14, 3) @map("received_quantity")
+  unitPrice           Decimal @default(0) @db.Decimal(14, 2) @map("unit_price")
+  discount            Decimal @default(0) @db.Decimal(14, 2)
+  taxRate             Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  taxAmount           Decimal @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  total               Decimal @default(0) @db.Decimal(14, 2)
+
+  purchaseOrder ScmPurchaseOrder    @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       ScmProduct          @relation(fields: [productId], references: [id])
+  receiptItems  ScmGoodsReceiptItem[]
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_items")
+  @@schema("scm")
+}
+
+/// A GRN is posted atomically with its stock effects, so it is only ever
+/// COMPLETED (or later CANCELLED); legacy's DRAFT-then-"Retry posting" state
+/// existed only to survive Firebase's lack of transactions.
+model ScmGoodsReceipt {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  grnNumber           String    @map("grn_number")
+  purchaseOrderId     Int       @map("purchase_order_id")
+  supplierId          Int       @map("supplier_id")
+  vendorNameSnapshot  String    @map("vendor_name_snapshot")
+  receiptDate         DateTime  @map("receipt_date") @db.Date
+  warehouseId         Int       @map("warehouse_id")
+  locationId          Int?      @map("location_id")
+  receivedBy          Int?      @map("received_by")
+  receivedByName      String    @map("received_by_name")
+  notes               String?
+  /// COMPLETED | CANCELLED
+  status              String    @default("COMPLETED")
+  createdBy           Int?      @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization  Organization         @relation(fields: [organizationId], references: [id])
+  purchaseOrder ScmPurchaseOrder     @relation(fields: [purchaseOrderId], references: [id])
+  supplier      Supplier             @relation(fields: [supplierId], references: [id])
+  warehouse     ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  items         ScmGoodsReceiptItem[]
+  bills         ScmSupplierBill[]
+
+  @@unique([organizationId, grnNumber])
+  @@index([organizationId, purchaseOrderId])
+  @@map("goods_receipts")
+  @@schema("scm")
+}
+
+model ScmGoodsReceiptItem {
+  id                         Int      @id @default(autoincrement())
+  goodsReceiptId             Int      @map("goods_receipt_id")
+  purchaseOrderItemId        Int      @map("purchase_order_item_id")
+  productId                  Int      @map("product_id")
+  productNameSnapshot        String   @map("product_name_snapshot")
+  uom                        String
+  orderedQuantity            Decimal  @db.Decimal(14, 3) @map("ordered_quantity")
+  previouslyReceivedQuantity Decimal  @db.Decimal(14, 3) @map("previously_received_quantity")
+  receivingQuantity          Decimal  @db.Decimal(14, 3) @map("receiving_quantity")
+  rejectedQuantity           Decimal  @default(0) @db.Decimal(14, 3) @map("rejected_quantity")
+  acceptedQuantity           Decimal  @db.Decimal(14, 3) @map("accepted_quantity")
+  batchNumber                String?  @map("batch_number")
+  serialNumbers              String[] @map("serial_numbers")
+  unitCost                   Decimal  @default(0) @db.Decimal(14, 2) @map("unit_cost")
+  totalCost                  Decimal  @default(0) @db.Decimal(14, 2) @map("total_cost")
+  notes                      String?
+
+  goodsReceipt  ScmGoodsReceipt     @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem ScmPurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+  product       ScmProduct          @relation(fields: [productId], references: [id])
+
+  @@index([goodsReceiptId])
+  @@map("goods_receipt_items")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// SCM sales orders, fulfillment, picking/packing, logistics
+// (Docs/SCM_LEGACY_PARITY.md section 6). The new ERP has no Sales module, so a
+// minimal SCM-owned customer + sales order exists as the demand source; it can
+// be re-pointed at a real Sales module later. Fulfillment never duplicates the
+// order — it tracks the slice of it being worked and rolls progress into one
+// status.
+// ---------------------------------------------------------------------------
+
+model ScmCustomer {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  customerCode    String    @map("customer_code")
+  name            String
+  contactPerson   String?   @map("contact_person")
+  email           String?
+  phone           String?
+  gstin           String?
+  billingAddress  String?   @map("billing_address")
+  shippingAddress String?   @map("shipping_address")
+  status          String    @default("Active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  salesOrders  ScmSalesOrder[]
+  fulfillments ScmFulfillment[]
+  shipments    ScmShipment[]
+
+  @@unique([organizationId, customerCode])
+  @@map("customers")
+  @@schema("scm")
+}
+
+model ScmSalesOrder {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  soNumber         String    @map("so_number")
+  customerId       Int       @map("customer_id")
+  customerName     String    @map("customer_name")
+  orderDate        DateTime  @map("order_date") @db.Date
+  expectedDate     DateTime? @map("expected_date") @db.Date
+  shipToAddress    String?   @map("ship_to_address")
+  billToAddress    String?   @map("bill_to_address")
+  currency         String    @default("INR")
+  subtotal         Decimal   @default(0) @db.Decimal(14, 2)
+  taxAmount        Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  total            Decimal   @default(0) @db.Decimal(14, 2)
+  notes            String?
+  /// DRAFT | CONFIRMED | CANCELLED | CLOSED (CONFIRMED orders may be fulfilled)
+  status           String    @default("DRAFT")
+  /// Not Shipped | Partially Shipped | Shipped (rolled up from dispatched shipments)
+  shippedStatus    String    @default("Not Shipped") @map("shipped_status")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  customer     ScmCustomer        @relation(fields: [customerId], references: [id])
+  items        ScmSalesOrderItem[]
+  fulfillments ScmFulfillment[]
+  pickings     ScmPicking[]
+  shipments    ScmShipment[]
+  reservations ScmStockReservation[]
+  requisitions ScmPurchaseRequisition[]
+
+  @@unique([organizationId, soNumber])
+  @@index([organizationId, status])
+  @@map("sales_orders")
+  @@schema("scm")
+}
+
+model ScmSalesOrderItem {
+  id                  Int     @id @default(autoincrement())
+  salesOrderId        Int     @map("sales_order_id")
+  lineNo              Int     @map("line_no")
+  productId           Int     @map("product_id")
+  itemCode            String  @map("item_code")
+  itemDescription     String  @map("item_description")
+  uom                 String
+  salesQty            Decimal @db.Decimal(14, 3) @map("sales_qty")
+  unitPrice           Decimal @default(0) @db.Decimal(14, 2) @map("unit_price")
+  taxRate             Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  total               Decimal @default(0) @db.Decimal(14, 2)
+
+  salesOrder       ScmSalesOrder        @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product          ScmProduct           @relation(fields: [productId], references: [id])
+  fulfillmentItems ScmFulfillmentItem[]
+
+  @@index([salesOrderId])
+  @@map("sales_order_items")
+  @@schema("scm")
+}
+
+model ScmFulfillment {
+  id                    Int       @id @default(autoincrement())
+  organizationId        Int       @map("organization_id")
+  fulfillmentNumber     String    @map("fulfillment_number")
+  salesOrderId          Int       @map("sales_order_id")
+  salesOrderNumber      String    @map("sales_order_number")
+  customerId            Int       @map("customer_id")
+  customerName          String    @map("customer_name")
+  warehouseId           Int       @map("warehouse_id")
+  /// PENDING | PARTIALLY_AVAILABLE | AVAILABLE | RESERVED | PICKING | PACKING | READY_TO_SHIP | FULFILLED | CANCELLED | ON_HOLD
+  status                String    @default("AVAILABLE")
+  /// NOT_DELIVERED | PARTIALLY_DELIVERED | DELIVERED
+  deliveryStatus        String    @default("NOT_DELIVERED") @map("delivery_status")
+  deliveredAt           DateTime? @map("delivered_at")
+  cancelledBy           Int?      @map("cancelled_by")
+  cancelledAt           DateTime? @map("cancelled_at")
+  cancellationReason    String?   @map("cancellation_reason")
+  notes                 String?
+  createdBy             Int?      @map("created_by")
+  updatedBy             Int?      @map("updated_by")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  salesOrder   ScmSalesOrder        @relation(fields: [salesOrderId], references: [id])
+  customer     ScmCustomer          @relation(fields: [customerId], references: [id])
+  warehouse    ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  items        ScmFulfillmentItem[]
+  pickings     ScmPicking[]
+  packings     ScmPacking[]
+  shipments    ScmShipment[]
+  reservations ScmStockReservation[]
+  requisitions ScmPurchaseRequisition[]
+
+  @@unique([organizationId, fulfillmentNumber])
+  @@index([organizationId, status])
+  @@index([salesOrderId])
+  @@map("fulfillments")
+  @@schema("scm")
+}
+
+model ScmFulfillmentItem {
+  id                  Int     @id @default(autoincrement())
+  fulfillmentId       Int     @map("fulfillment_id")
+  lineNo              Int     @map("line_no")
+  /// The sales-order line this slice covers (a SO may repeat a product).
+  salesOrderItemId    Int     @map("sales_order_item_id")
+  productId           Int     @map("product_id")
+  itemCode            String  @map("item_code")
+  itemDescription     String  @map("item_description")
+  uom                 String
+  orderedQty          Decimal @db.Decimal(14, 3) @map("ordered_qty")
+  reservedQty         Decimal @default(0) @db.Decimal(14, 3) @map("reserved_qty")
+  issuedQty           Decimal @default(0) @db.Decimal(14, 3) @map("issued_qty")
+
+  fulfillment    ScmFulfillment    @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  salesOrderItem ScmSalesOrderItem @relation(fields: [salesOrderItemId], references: [id])
+  product        ScmProduct        @relation(fields: [productId], references: [id])
+
+  @@index([fulfillmentId])
+  @@map("fulfillment_items")
+  @@schema("scm")
+}
+
+model ScmPicking {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  pickNumber       String    @map("pick_number")
+  salesOrderId     Int       @map("sales_order_id")
+  salesOrderNumber String    @map("sales_order_number")
+  fulfillmentId    Int       @map("fulfillment_id")
+  warehouseId      Int       @map("warehouse_id")
+  pickerId         Int?      @map("picker_id")
+  pickerName       String?   @map("picker_name")
+  /// Low | Normal | High | Urgent
+  priority         String    @default("Normal")
+  /// PENDING | ASSIGNED | IN_PROGRESS | PARTIALLY_PICKED | COMPLETED | CANCELLED
+  status           String    @default("PENDING")
+  startedAt        DateTime? @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  /// Set when the fulfillment's SALES_ISSUE posts: the units left their bins.
+  stockIssuedAt    DateTime? @map("stock_issued_at")
+  notes            String?
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  salesOrder   ScmSalesOrder   @relation(fields: [salesOrderId], references: [id])
+  fulfillment  ScmFulfillment  @relation(fields: [fulfillmentId], references: [id])
+  warehouse    ScmWarehouse    @relation(fields: [warehouseId], references: [id])
+  items        ScmPickingItem[]
+  packings     ScmPacking[]
+
+  @@unique([organizationId, pickNumber])
+  @@index([organizationId, status])
+  @@index([fulfillmentId])
+  @@map("pickings")
+  @@schema("scm")
+}
+
+model ScmPickingItem {
+  id                  Int      @id @default(autoincrement())
+  pickingId           Int      @map("picking_id")
+  productId           Int      @map("product_id")
+  productCode         String   @map("product_code")
+  productName         String   @map("product_name")
+  requestedQuantity   Decimal  @db.Decimal(14, 3) @map("requested_quantity")
+  pickedQuantity      Decimal  @default(0) @db.Decimal(14, 3) @map("picked_quantity")
+  sourceLocationId    Int?     @map("source_location_id")
+  batchId             Int?     @map("batch_id")
+  serialNumbers       String[] @map("serial_numbers")
+  notes               String?
+
+  picking ScmPicking @relation(fields: [pickingId], references: [id], onDelete: Cascade)
+  product ScmProduct @relation(fields: [productId], references: [id])
+
+  @@index([pickingId])
+  @@map("picking_items")
+  @@schema("scm")
+}
+
+model ScmPacking {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  packNumber       String    @map("pack_number")
+  pickingId        Int       @map("picking_id")
+  salesOrderId     Int       @map("sales_order_id")
+  salesOrderNumber String    @map("sales_order_number")
+  fulfillmentId    Int       @map("fulfillment_id")
+  warehouseId      Int       @map("warehouse_id")
+  packerId         Int?      @map("packer_id")
+  packerName       String?   @map("packer_name")
+  /// PENDING | IN_PROGRESS | PACKED | CANCELLED
+  status           String    @default("PENDING")
+  completedAt      DateTime? @map("completed_at")
+  notes            String?
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  picking      ScmPicking         @relation(fields: [pickingId], references: [id])
+  fulfillment  ScmFulfillment     @relation(fields: [fulfillmentId], references: [id])
+  warehouse    ScmWarehouse       @relation(fields: [warehouseId], references: [id])
+  packages     ScmPackingPackage[]
+  shipmentLinks ScmShipmentPacking[]
+
+  @@unique([organizationId, packNumber])
+  @@index([organizationId, status])
+  @@index([fulfillmentId])
+  @@map("packings")
+  @@schema("scm")
+}
+
+model ScmPackingPackage {
+  id            Int      @id @default(autoincrement())
+  packingId     Int      @map("packing_id")
+  packageNumber String   @map("package_number")
+  packageType   String?  @map("package_type")
+  weight        Decimal? @db.Decimal(14, 3)
+  length        Decimal? @db.Decimal(14, 3)
+  width         Decimal? @db.Decimal(14, 3)
+  height        Decimal? @db.Decimal(14, 3)
+  notes         String?
+
+  packing ScmPacking            @relation(fields: [packingId], references: [id], onDelete: Cascade)
+  items   ScmPackingPackageItem[]
+
+  @@index([packingId])
+  @@map("packing_packages")
+  @@schema("scm")
+}
+
+model ScmPackingPackageItem {
+  id          Int     @id @default(autoincrement())
+  packageId   Int     @map("package_id")
+  productId   Int     @map("product_id")
+  productCode String  @map("product_code")
+  productName String  @map("product_name")
+  quantity    Decimal @db.Decimal(14, 3)
+
+  package ScmPackingPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product ScmProduct        @relation(fields: [productId], references: [id])
+
+  @@index([packageId])
+  @@map("packing_package_items")
+  @@schema("scm")
+}
+
+model ScmCarrier {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  carrierCode         String    @map("carrier_code")
+  carrierName         String    @map("carrier_name")
+  serviceTypes        String[]  @map("service_types")
+  contact             String?
+  phone               String?
+  email               String?
+  website             String?
+  /// e.g. https://track.example.com/{trackingNumber}
+  trackingUrlTemplate String?   @map("tracking_url_template")
+  /// ACTIVE | INACTIVE
+  status              String    @default("ACTIVE")
+  notes               String?
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  shipments    ScmShipment[]
+
+  @@unique([organizationId, carrierCode])
+  @@map("carriers")
+  @@schema("scm")
+}
+
+model ScmShipment {
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  shipmentNumber      String    @map("shipment_number")
+  fulfillmentId       Int       @map("fulfillment_id")
+  salesOrderId        Int       @map("sales_order_id")
+  salesOrderNumber    String    @map("sales_order_number")
+  customerId          Int       @map("customer_id")
+  customerName        String    @map("customer_name")
+  warehouseId         Int       @map("warehouse_id")
+  /// Point-in-time package/line snapshot taken from the packed packings.
+  packages            Json
+  totalPackages       Int       @map("total_packages")
+  totalWeight         Decimal   @default(0) @db.Decimal(14, 3) @map("total_weight")
+  shippingAddress     String    @map("shipping_address")
+  billingAddress      String?   @map("billing_address")
+  carrierId           Int?      @map("carrier_id")
+  carrierName         String?   @map("carrier_name")
+  /// STANDARD | EXPRESS | SAME_DAY | ECONOMY | OTHER
+  serviceType         String?   @map("service_type")
+  trackingNumber      String?   @map("tracking_number")
+  trackingUrl         String?   @map("tracking_url")
+  shippingCost        Decimal?  @db.Decimal(14, 2) @map("shipping_cost")
+  currency            String    @default("INR")
+  /// READY_TO_SHIP | CARRIER_ASSIGNED | LABEL_CREATED | DISPATCHED | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | DELIVERY_EXCEPTION | FAILED_DELIVERY | CANCELLED
+  status              String    @default("READY_TO_SHIP")
+  shipmentDate        DateTime? @map("shipment_date") @db.Date
+  expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
+  actualDeliveryDate  DateTime? @map("actual_delivery_date") @db.Date
+  recipientName       String?   @map("recipient_name")
+  deliveryNotes       String?   @map("delivery_notes")
+  proofOfDeliveryUrl  String?   @map("proof_of_delivery_url")
+  carrierAssignedBy   Int?      @map("carrier_assigned_by")
+  carrierAssignedAt   DateTime? @map("carrier_assigned_at")
+  dispatchedBy        Int?      @map("dispatched_by")
+  dispatchedAt        DateTime? @map("dispatched_at")
+  deliveredBy         Int?      @map("delivered_by")
+  deliveredAt         DateTime? @map("delivered_at")
+  cancelledBy         Int?      @map("cancelled_by")
+  cancelledAt         DateTime? @map("cancelled_at")
+  cancellationReason  String?   @map("cancellation_reason")
+  notes               String?
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  fulfillment  ScmFulfillment          @relation(fields: [fulfillmentId], references: [id])
+  salesOrder   ScmSalesOrder           @relation(fields: [salesOrderId], references: [id])
+  customer     ScmCustomer             @relation(fields: [customerId], references: [id])
+  warehouse    ScmWarehouse            @relation(fields: [warehouseId], references: [id])
+  carrier      ScmCarrier?             @relation(fields: [carrierId], references: [id])
+  packingLinks ScmShipmentPacking[]
+  events       ScmShipmentTrackingEvent[]
+  exceptions   ScmShipmentException[]
+
+  @@unique([organizationId, shipmentNumber])
+  @@index([organizationId, status])
+  @@index([fulfillmentId])
+  @@map("shipments")
+  @@schema("scm")
+}
+
+/// Which packings a shipment carries. A packing can be on at most one
+/// non-cancelled shipment (partial index in the migration).
+model ScmShipmentPacking {
+  id         Int @id @default(autoincrement())
+  shipmentId Int @map("shipment_id")
+  packingId  Int @map("packing_id")
+
+  shipment ScmShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  packing  ScmPacking  @relation(fields: [packingId], references: [id])
+
+  @@unique([shipmentId, packingId])
+  @@map("shipment_packings")
+  @@schema("scm")
+}
+
+/// Append-only (DB trigger): a faithful shipment timeline.
+model ScmShipmentTrackingEvent {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  shipmentId     Int      @map("shipment_id")
+  status         String
+  location       String?
+  description    String?
+  eventTime      DateTime @default(now()) @map("event_time")
+  /// SYSTEM | MANUAL
+  source         String   @default("SYSTEM")
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  shipment ScmShipment @relation(fields: [shipmentId], references: [id])
+
+  @@index([shipmentId, eventTime])
+  @@map("shipment_tracking_events")
+  @@schema("scm")
+}
+
+model ScmShipmentException {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  shipmentId     Int       @map("shipment_id")
+  /// CUSTOMER_UNAVAILABLE | ADDRESS_ISSUE | WEATHER_DELAY | DAMAGED_PACKAGE | CARRIER_DELAY | OTHER
+  exceptionCode  String    @map("exception_code")
+  description    String
+  occurredAt     DateTime  @default(now()) @map("occurred_at")
+  resolution     String?
+  resolvedAt     DateTime? @map("resolved_at")
+  resolvedBy     Int?      @map("resolved_by")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  shipment ScmShipment @relation(fields: [shipmentId], references: [id])
+
+  @@index([shipmentId])
+  @@map("shipment_exceptions")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// SCM returns and quality control (Docs/SCM_LEGACY_PARITY.md sections 7-8).
+// One ScmReturn entity discriminated by return_type (customer / vendor). The
+// over-return guard is enforced under a row lock on the source document, not
+// a separate reservation tree. Quality owns the inspection engine, defect and
+// template masters and the quarantine register; stock effects go through
+// StockPostingService only.
+// ---------------------------------------------------------------------------
+
+model ScmReturn {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  returnNumber      String    @map("return_number")
+  /// CUSTOMER_RETURN | VENDOR_RETURN
+  returnType        String    @map("return_type")
+  salesOrderId      Int?      @map("sales_order_id")
+  salesOrderNumber  String?   @map("sales_order_number")
+  fulfillmentId     Int?      @map("fulfillment_id")
+  fulfillmentNumber String?   @map("fulfillment_number")
+  shipmentId        Int?      @map("shipment_id")
+  shipmentNumber    String?   @map("shipment_number")
+  customerId        Int?      @map("customer_id")
+  customerName      String?   @map("customer_name")
+  purchaseOrderId   Int?      @map("purchase_order_id")
+  purchaseOrderNumber String? @map("purchase_order_number")
+  grnId             Int?      @map("grn_id")
+  grnNumber         String?   @map("grn_number")
+  supplierId        Int?      @map("supplier_id")
+  supplierName      String?   @map("supplier_name")
+  warehouseId       Int       @map("warehouse_id")
+  reasonCode        String    @map("reason_code")
+  reasonDescription String?   @map("reason_description")
+  /// Customer: REQUESTED PENDING_APPROVAL APPROVED REJECTED IN_TRANSIT RECEIVED
+  /// INSPECTION_PENDING INSPECTED DISPOSITION_PENDING COMPLETED CANCELLED.
+  /// Vendor: REQUESTED PENDING_APPROVAL APPROVED REJECTED READY_TO_SHIP SHIPPED
+  /// VENDOR_RECEIVED COMPLETED CANCELLED.
+  status            String    @default("REQUESTED")
+  requestedDate     DateTime  @default(now()) @map("requested_date")
+  approvedBy        Int?      @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+  rejectionReason   String?   @map("rejection_reason")
+  receivedBy        Int?      @map("received_by")
+  receivedAt        DateTime? @map("received_at")
+  inspectedBy       Int?      @map("inspected_by")
+  inspectedAt       DateTime? @map("inspected_at")
+  shippedBy         Int?      @map("shipped_by")
+  shippedAt         DateTime? @map("shipped_at")
+  vendorReceivedAt  DateTime? @map("vendor_received_at")
+  completedBy       Int?      @map("completed_by")
+  completedAt       DateTime? @map("completed_at")
+  cancelledBy       Int?      @map("cancelled_by")
+  cancelledAt       DateTime? @map("cancelled_at")
+  cancellationReason String?  @map("cancellation_reason")
+  /// Manual reverse-leg tracking: { carrier, trackingNumber, shippedDate, receivedDate, notes }
+  returnShipment    Json?     @map("return_shipment")
+  qualityInspectionId Int?    @map("quality_inspection_id")
+  notes             String?
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse          @relation(fields: [warehouseId], references: [id])
+  items        ScmReturnItem[]
+  inspections  ScmReturnInspection[]
+  dispositions ScmReturnDisposition[]
+
+  @@unique([organizationId, returnNumber])
+  @@index([organizationId, returnType, status])
+  @@index([fulfillmentId])
+  @@index([grnId])
+  @@map("returns")
+  @@schema("scm")
+}
+
+model ScmReturnItem {
+  id                Int      @id @default(autoincrement())
+  returnId          Int      @map("return_id")
+  lineNo            Int      @map("line_no")
+  productId         Int      @map("product_id")
+  productCode       String   @map("product_code")
+  productName       String   @map("product_name")
+  uom               String   @default("PCS")
+  orderedQty        Decimal? @map("ordered_qty") @db.Decimal(14, 3)
+  /// Customer: units issued on the fulfillment; vendor: units accepted on the GRN line.
+  sourceQty         Decimal  @map("source_qty") @db.Decimal(14, 3)
+  previouslyReturnedQty Decimal @default(0) @map("previously_returned_qty") @db.Decimal(14, 3)
+  requestedQty      Decimal  @map("requested_qty") @db.Decimal(14, 3)
+  receivedReturnQty Decimal? @map("received_return_qty") @db.Decimal(14, 3)
+  acceptedQty       Decimal? @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty       Decimal? @map("rejected_qty") @db.Decimal(14, 3)
+  condition         String?
+  grnItemId         Int?     @map("grn_item_id")
+  batchId           Int?     @map("batch_id")
+  batchNumber       String?  @map("batch_number")
+  serialNumbers     String[] @map("serial_numbers")
+  warehouseId       Int      @map("warehouse_id")
+  locationId        Int?     @map("location_id")
+  /// Vendor return: PURCHASE_RETURN ledger entry posted at ship time.
+  postedLedgerEntryId Int?   @map("posted_ledger_entry_id")
+  unitCost          Decimal? @map("unit_cost") @db.Decimal(14, 4)
+  notes             String?
+
+  return       ScmReturn              @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product      ScmProduct             @relation(fields: [productId], references: [id])
+  dispositions ScmReturnDisposition[]
+
+  @@index([returnId])
+  @@index([productId])
+  @@map("return_items")
+  @@schema("scm")
+}
+
+model ScmReturnInspection {
+  id           Int      @id @default(autoincrement())
+  organizationId Int    @map("organization_id")
+  returnId     Int      @map("return_id")
+  inspectorId  Int      @map("inspector_id")
+  inspectionDate DateTime @default(now()) @map("inspection_date")
+  condition    String
+  acceptedQty  Decimal  @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty  Decimal  @map("rejected_qty") @db.Decimal(14, 3)
+  /// ACCEPTED | PARTIALLY_ACCEPTED | REJECTED
+  result       String
+  items        Json
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  return ScmReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("return_inspections")
+  @@schema("scm")
+}
+
+/// One row per disposition decision on a return line (a line may be split
+/// across several). Append-only; RESTOCK draws on accepted units, REJECT on
+/// rejected units.
+model ScmReturnDisposition {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  returnId       Int      @map("return_id")
+  returnItemId   Int      @map("return_item_id")
+  productId      Int      @map("product_id")
+  /// RESTOCK | QUARANTINE | DAMAGED | SCRAP | REJECT
+  disposition    String
+  quantity       Decimal  @db.Decimal(14, 3)
+  warehouseId    Int      @map("warehouse_id")
+  locationId     Int?     @map("location_id")
+  notes          String?
+  ledgerEntryIds Int[]    @map("ledger_entry_ids")
+  quarantineRecordId Int? @map("quarantine_record_id")
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  return     ScmReturn     @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  returnItem ScmReturnItem @relation(fields: [returnItemId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([returnItemId])
+  @@map("return_dispositions")
+  @@schema("scm")
+}
+
+model ScmQualityDefect {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  defectCode     String   @map("defect_code")
+  name           String
+  description    String?
+  category       String
+  severity       String
+  active         Boolean  @default(true)
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, defectCode])
+  @@map("quality_defects")
+  @@schema("scm")
+}
+
+model ScmQualityTemplate {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  templateCode   String   @map("template_code")
+  name           String
+  description    String?
+  /// INCOMING | CUSTOMER_RETURN | INVENTORY | PRE_DISPATCH
+  inspectionType String   @map("inspection_type")
+  active         Boolean  @default(true)
+  /// [{ checkpointId, name, description?, required, expectedValue?, unit?, sequence }]
+  checkpoints    Json
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, templateCode])
+  @@map("quality_templates")
+  @@schema("scm")
+}
+
+model ScmQualityInspection {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  inspectionNumber String    @map("inspection_number")
+  /// INCOMING | CUSTOMER_RETURN | INVENTORY | PRE_DISPATCH
+  inspectionType   String    @map("inspection_type")
+  /// GRN | RETURN | INVENTORY | FULFILLMENT
+  sourceType       String    @map("source_type")
+  sourceId         Int       @map("source_id")
+  sourceNumber     String?   @map("source_number")
+  templateId       Int?      @map("template_id")
+  templateName     String?   @map("template_name")
+  supplierId       Int?      @map("supplier_id")
+  supplierName     String?   @map("supplier_name")
+  customerId       Int?      @map("customer_id")
+  customerName     String?   @map("customer_name")
+  warehouseId      Int?      @map("warehouse_id")
+  locationId       Int?      @map("location_id")
+  /// DRAFT | PENDING_INSPECTION | IN_PROGRESS | COMPLETED | CANCELLED
+  status           String    @default("PENDING_INSPECTION")
+  /// PASSED | PARTIALLY_PASSED | FAILED | ON_HOLD (set on completion)
+  result           String?
+  /// LOW | MEDIUM | HIGH | CRITICAL
+  priority         String    @default("MEDIUM")
+  inspectionDate   DateTime  @default(now()) @map("inspection_date")
+  startedAt        DateTime? @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  inspectorId      Int?      @map("inspector_id")
+  inspectorName    String?   @map("inspector_name")
+  notes            String?
+  cancelledBy      Int?      @map("cancelled_by")
+  cancelledAt      DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason")
+  createdBy        Int?      @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  items        ScmQualityInspectionItem[]
+
+  @@unique([organizationId, inspectionNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, sourceType, sourceId])
+  @@map("quality_inspections")
+  @@schema("scm")
+}
+
+model ScmQualityInspectionItem {
+  id               Int      @id @default(autoincrement())
+  inspectionId     Int      @map("inspection_id")
+  lineNo           Int      @map("line_no")
+  productId        Int      @map("product_id")
+  productCode      String   @map("product_code")
+  productName      String   @map("product_name")
+  sourceLineId     Int?     @map("source_line_id")
+  batchId          Int?     @map("batch_id")
+  batchNumber      String?  @map("batch_number")
+  serialNumbers    String[] @map("serial_numbers")
+  orderedQty       Decimal? @map("ordered_qty") @db.Decimal(14, 3)
+  sourceQty        Decimal  @map("source_qty") @db.Decimal(14, 3)
+  inspectedQty     Decimal  @default(0) @map("inspected_qty") @db.Decimal(14, 3)
+  acceptedQty      Decimal  @default(0) @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty      Decimal  @default(0) @map("rejected_qty") @db.Decimal(14, 3)
+  /// PASS | PARTIAL_PASS | FAIL | HOLD
+  inspectionResult String?  @map("inspection_result")
+  condition        String?
+  defectCode       String?  @map("defect_code")
+  defectDescription String? @map("defect_description")
+  /// ACCEPT | RELEASE | QUARANTINE | REWORK | DAMAGED | SCRAP | REJECT
+  disposition      String?
+  notes            String?
+  warehouseId      Int?     @map("warehouse_id")
+  locationId       Int?     @map("location_id")
+  unitCost         Decimal? @map("unit_cost") @db.Decimal(14, 4)
+  /// [{ checkpointId, name, required, result, observedValue?, notes?, defectCode? }]
+  checkpointResults Json    @default("[]") @map("checkpoint_results")
+  ledgerEntryId    Int?     @map("ledger_entry_id")
+  quarantineRecordId Int?   @map("quarantine_record_id")
+
+  inspection ScmQualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  product    ScmProduct           @relation(fields: [productId], references: [id])
+
+  @@index([inspectionId])
+  @@index([productId])
+  @@map("quality_inspection_items")
+  @@schema("scm")
+}
+
+model ScmQuarantineRecord {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  productId        Int       @map("product_id")
+  productCode      String    @map("product_code")
+  productName      String    @map("product_name")
+  batchId          Int?      @map("batch_id")
+  batchNumber      String?   @map("batch_number")
+  serialNumbers    String[]  @map("serial_numbers")
+  warehouseId      Int       @map("warehouse_id")
+  locationId       Int?      @map("location_id")
+  quantity         Decimal   @db.Decimal(14, 3)
+  /// GRN | RETURN | INVENTORY | FULFILLMENT
+  sourceType       String    @map("source_type")
+  sourceId         Int?      @map("source_id")
+  sourceNumber     String?   @map("source_number")
+  inspectionId     Int?      @map("inspection_id")
+  inspectionNumber String?   @map("inspection_number")
+  defectCode       String?   @map("defect_code")
+  reason           String?
+  /// QUARANTINED | UNDER_REVIEW | RELEASED | REJECTED
+  status           String    @default("QUARANTINED")
+  quarantineDate   DateTime  @default(now()) @map("quarantine_date")
+  reviewedBy       Int?      @map("reviewed_by")
+  reviewedAt       DateTime? @map("reviewed_at")
+  releasedBy       Int?      @map("released_by")
+  releasedAt       DateTime? @map("released_at")
+  releaseLedgerEntryId Int?  @map("release_ledger_entry_id")
+  rejectedBy       Int?      @map("rejected_by")
+  rejectedAt       DateTime? @map("rejected_at")
+  rejectLedgerEntryId Int?   @map("reject_ledger_entry_id")
+  notes            String?
+  createdBy        Int?      @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  product      ScmProduct   @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([productId])
+  @@map("quarantine_records")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// Warehouse operations: put-away (received stock -> a bin) and internal
+// movements (bin -> bin within one warehouse). Neither posts to the stock
+// ledger — total on-hand per product/warehouse is unchanged, only *where*
+// inside the warehouse it sits. `ScmLocationStock` is the running per-bin
+// balance both post into under a row lock, which is a more direct design
+// than the legacy Firebase port (which had no balance table and replayed
+// every putaway/movement/picking document on every read).
+// ---------------------------------------------------------------------------
+
+model ScmLocationStock {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  productId      Int      @map("product_id")
+  warehouseId    Int      @map("warehouse_id")
+  locationId     Int      @map("location_id")
+  quantity       Decimal  @default(0) @db.Decimal(14, 3)
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  product      ScmProduct           @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  location     ScmWarehouseLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, warehouseId, locationId])
+  @@map("location_stock")
+  @@schema("scm")
+}
+
+model ScmPutaway {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  putawayNumber  String    @map("putaway_number")
+  warehouseId    Int       @map("warehouse_id")
+  grnId          Int?      @map("grn_id")
+  grnNumber      String?   @map("grn_number")
+  /// PENDING | IN_PROGRESS | COMPLETED | CANCELLED
+  status         String    @default("PENDING")
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  startedAt      DateTime? @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  cancelledAt    DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse     @relation(fields: [warehouseId], references: [id])
+  items        ScmPutawayItem[]
+
+  @@unique([organizationId, putawayNumber])
+  @@index([organizationId, status])
+  @@map("putaways")
+  @@schema("scm")
+}
+
+model ScmPutawayItem {
+  id                    Int      @id @default(autoincrement())
+  putawayId             Int      @map("putaway_id")
+  lineNo                Int      @map("line_no")
+  productId             Int      @map("product_id")
+  productCode           String   @map("product_code")
+  productName           String   @map("product_name")
+  quantity              Decimal  @db.Decimal(14, 3)
+  destinationLocationId Int?     @map("destination_location_id")
+  putAwayQuantity        Decimal  @default(0) @map("put_away_quantity") @db.Decimal(14, 3)
+  batchId               Int?     @map("batch_id")
+  batchNumber           String?  @map("batch_number")
+  serialNumbers         String[] @map("serial_numbers")
+  notes                 String?
+
+  putaway  ScmPutaway @relation(fields: [putawayId], references: [id], onDelete: Cascade)
+  product  ScmProduct @relation(fields: [productId], references: [id])
+
+  @@index([putawayId])
+  @@map("putaway_items")
+  @@schema("scm")
+}
+
+model ScmWarehouseMovement {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  movementNumber String    @map("movement_number")
+  warehouseId    Int       @map("warehouse_id")
+  /// DRAFT | REQUESTED | APPROVED | IN_PROGRESS | COMPLETED | CANCELLED
+  status         String    @default("DRAFT")
+  requestedBy    Int?      @map("requested_by")
+  approvedBy     Int?      @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  notes          String?
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  completedAt    DateTime? @map("completed_at")
+  cancelledAt    DateTime? @map("cancelled_at")
+  cancellationReason String? @map("cancellation_reason")
+
+  organization Organization               @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse               @relation(fields: [warehouseId], references: [id])
+  items        ScmWarehouseMovementItem[]
+
+  @@unique([organizationId, movementNumber])
+  @@index([organizationId, status])
+  @@map("warehouse_movements")
+  @@schema("scm")
+}
+
+model ScmWarehouseMovementItem {
+  id                    Int      @id @default(autoincrement())
+  movementId            Int      @map("movement_id")
+  lineNo                Int      @map("line_no")
+  productId             Int      @map("product_id")
+  productCode           String   @map("product_code")
+  productName           String   @map("product_name")
+  quantity              Decimal  @db.Decimal(14, 3)
+  sourceLocationId      Int      @map("source_location_id")
+  destinationLocationId Int      @map("destination_location_id")
+  batchId               Int?     @map("batch_id")
+  batchNumber           String?  @map("batch_number")
+  serialNumbers         String[] @map("serial_numbers")
+
+  movement ScmWarehouseMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  product  ScmProduct           @relation(fields: [productId], references: [id])
+
+  @@index([movementId])
+  @@map("warehouse_movement_items")
+  @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// SCM supplier finance: Accounts Payable bills, payments made, and supplier
+// documents (legacy supplier detail tabs "Bills", "Payments", "Documents").
+// Money is Decimal(14,2). A bill's `paidAmount` is only ever changed together
+// with a payment row, inside one transaction under a row lock.
+// ---------------------------------------------------------------------------
+
+/// A supplier's invoice recorded for payment, optionally against a PO / GRN.
+model ScmSupplierBill {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  billNumber         String    @map("bill_number")
+  /// The supplier's own invoice number.
+  supplierBillNumber String?   @map("supplier_bill_number")
+  supplierId         Int       @map("supplier_id")
+  purchaseOrderId    Int?      @map("purchase_order_id")
+  goodsReceiptId     Int?      @map("goods_receipt_id")
+  billDate           DateTime  @map("bill_date") @db.Date
+  dueDate            DateTime? @map("due_date") @db.Date
+  currency           String    @default("INR")
+  subtotal           Decimal   @default(0) @db.Decimal(14, 2)
+  taxAmount          Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  total              Decimal   @default(0) @db.Decimal(14, 2)
+  paidAmount         Decimal   @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  /// OPEN | PARTIALLY_PAID | PAID | CANCELLED. "Overdue" is derived from dueDate.
+  status             String    @default("OPEN")
+  notes              String?
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization  Organization         @relation(fields: [organizationId], references: [id])
+  supplier      Supplier             @relation(fields: [supplierId], references: [id])
+  purchaseOrder ScmPurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+  goodsReceipt  ScmGoodsReceipt?     @relation(fields: [goodsReceiptId], references: [id])
+  payments      ScmSupplierPayment[]
+
+  @@unique([organizationId, billNumber])
+  @@index([organizationId, supplierId])
+  @@index([organizationId, status])
+  @@map("supplier_bills")
+  @@schema("scm")
+}
+
+/// A payment made to a supplier, optionally applied to one bill. An unapplied
+/// payment is an advance / on-account payment.
+model ScmSupplierPayment {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  paymentNumber   String    @map("payment_number")
+  supplierId      Int       @map("supplier_id")
+  billId          Int?      @map("bill_id")
+  paymentDate     DateTime  @map("payment_date") @db.Date
+  /// BANK_TRANSFER | CASH | CHEQUE | UPI | CARD | OTHER
+  mode            String
+  referenceNumber String?   @map("reference_number")
+  amount          Decimal   @db.Decimal(14, 2)
+  currency        String    @default("INR")
+  notes           String?
+  /// POSTED | VOIDED
+  status          String    @default("POSTED")
+  voidedAt        DateTime? @map("voided_at")
+  voidReason      String?   @map("void_reason")
+  createdBy       Int?      @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  supplier     Supplier        @relation(fields: [supplierId], references: [id])
+  bill         ScmSupplierBill? @relation(fields: [billId], references: [id])
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId, supplierId])
+  @@index([billId])
+  @@map("supplier_payments")
+  @@schema("scm")
+}
+
+/// A file uploaded against a supplier (GST certificate, PAN, contract...).
+/// The bytes live in local-disk file storage under `storageKey`.
+model ScmSupplierDocument {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  supplierId     Int       @map("supplier_id")
+  name           String
+  documentType   String?   @map("document_type")
+  fileName       String    @map("file_name")
+  storageKey     String    @map("storage_key")
+  mimeType       String    @map("mime_type")
+  sizeBytes      Int       @map("size_bytes")
+  uploadedBy     Int?      @map("uploaded_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  supplier     Supplier     @relation(fields: [supplierId], references: [id])
+
+  @@index([organizationId, supplierId])
+  @@map("supplier_documents")
+  @@schema("scm")
 }

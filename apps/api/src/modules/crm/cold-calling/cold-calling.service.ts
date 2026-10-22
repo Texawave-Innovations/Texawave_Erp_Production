@@ -24,10 +24,20 @@ export class CrmColdCallingService {
   async findAll(query: QueryCrmColdCallingEntryDto) {
     const { items, total } = await this.repository.findMany(
       this.tenantContext.getOrgScope(),
-      { search: query.search, linkedAccountId: query.linkedAccountId },
+      {
+        search: query.search,
+        linkedAccountId: query.linkedAccountId,
+        status: query.status,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      },
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  distinctStatuses() {
+    return this.repository.distinctStatuses(this.tenantContext.getOrgScope());
   }
 
   async findOne(id: number) {

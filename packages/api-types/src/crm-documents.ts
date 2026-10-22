@@ -9,6 +9,10 @@ import type { RelatedType } from "./crm-related-entity.js";
  * upload, no update endpoint. Reproduced the same way: create/list/delete
  * only. */
 export interface CrmDocument {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
+  uploadedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   relatedType: RelatedType;
@@ -35,4 +39,6 @@ export interface QueryCrmDocumentsInput {
   order?: ("asc" | "desc") | undefined;
   relatedType?: RelatedType | undefined;
   relatedId?: number | undefined;
+  /** Account roll-up: the account's own records plus those of its contacts and opportunities. */
+  rollupAccountId?: number | undefined;
 }

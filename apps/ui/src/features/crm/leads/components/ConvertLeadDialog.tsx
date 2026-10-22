@@ -2,348 +2,393 @@
 
 import type { ConvertLeadInput, Lead } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  Button,
-  Checkbox,
-  FormField,
-  Input,
-  Select,
-} from "@texawave-erp/ui-kit";
+import { AlertTriangle, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AccountCombobox } from "../../accounts/components/AccountCombobox";
+import { toast } from "sonner";
+import { Button } from "@/components/legacy-ui/button";
+import { Checkbox } from "@/components/legacy-ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/legacy-ui/dialog";
+import { Input } from "@/components/legacy-ui/input";
+import { Label } from "@/components/legacy-ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { celebrateCrm } from "@/features/crm/celebration";
+import { DatePicker } from "@/features/crm/legacy-ui/DatePicker";
+import { AccountPicker } from "../../accounts/components/AccountPicker";
+import { useAccount } from "../../accounts/hooks";
 import { usePipelineStages } from "../../pipeline-stages/hooks";
 import { useConvertLead } from "../hooks";
 
-export interface ConvertLeadDialogProps {
+export interface LeadConvertDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   lead: Lead;
-  onConverted: () => void;
-  onCancel: () => void;
+  onConverted?: ((lead: Lead) => void) | undefined;
+  /** Navigate to the new Account after converting (default true, like the
+   * Leads list; the Lead detail page passes false and stays put). */
+  navigateToAccountOnSuccess?: boolean | undefined;
 }
 
-/** Reproduces legacy domain/LeadConvertDialog.tsx, including the
- * "Create a Deal" step (wired to the real Opportunities API — see
- * apps/api/src/modules/crm/leads/leads.repository.ts `convert()`).
- * Server-side duplicate detection (`DUPLICATE_ACCOUNT`) surfaces as a
- * warning with a "Create anyway" action, matching the legacy
- * confirm-and-retry flow.
- *
- * The caller must mount this with `key={lead.id}` (see LeadList.tsx) so
- * switching to a different lead remounts the form with fresh initial
- * values, rather than needing an effect to re-sync state off a changed
- * prop. */
-export function ConvertLeadDialog({
+/** Legacy `domain/LeadConvertDialog.tsx`: Lead -> Account / Contact / optional
+ * Deal. Wired to `POST /crm/leads/:id/convert`; duplicate-account detection is
+ * done server-side (`DUPLICATE_ACCOUNT`) and surfaces as the legacy "Create
+ * anyway" warning. */
+export function LeadConvertDialog({
+  open,
+  onOpenChange,
   lead,
   onConverted,
-  onCancel,
-}: ConvertLeadDialogProps) {
-  const [accountMode, setAccountMode] = useState<"new" | "existing">("new");
-  const [existingAccountId, setExistingAccountId] = useState<
-    number | undefined
-  >();
-  const [contactName, setContactName] = useState(lead.prospectName);
-  const [contactTitle, setContactTitle] = useState(lead.title ?? "");
-  const [contactEmail, setContactEmail] = useState(lead.email ?? "");
-  const [contactPhone, setContactPhone] = useState(lead.contactNumber ?? "");
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const convertMutation = useConvertLead();
-
-  const [createDeal, setCreateDeal] = useState(true);
-  const [dealTitle, setDealTitle] = useState(
-    `${lead.companyName} — Opportunity`,
+  navigateToAccountOnSuccess = true,
+}: LeadConvertDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl max-w-lg max-h-[85vh] overflow-y-auto">
+        <ConvertForm
+          lead={lead}
+          onClose={() => onOpenChange(false)}
+          onConverted={onConverted}
+          navigateToAccountOnSuccess={navigateToAccountOnSuccess}
+        />
+      </DialogContent>
+    </Dialog>
   );
-  const [dealAmount, setDealAmount] = useState("");
-  const [dealCloseDate, setDealCloseDate] = useState("");
-  const [dealStageId, setDealStageId] = useState<number | undefined>();
-  const [campaignSource, setCampaignSource] = useState("");
-  const [contactRole, setContactRole] = useState("");
+}
+
+function ConvertForm({
+  lead,
+  onClose,
+  onConverted,
+  navigateToAccountOnSuccess,
+}: {
+  lead: Lead;
+  onClose: () => void;
+  onConverted: ((lead: Lead) => void) | undefined;
+  navigateToAccountOnSuccess: boolean;
+}) {
+  const router = useRouter();
   const stagesQuery = usePipelineStages();
   const boardStages = (stagesQuery.data ?? [])
     .filter((s) => !s.isWon && !s.isLost && !s.isOnHold)
     .sort((a, b) => a.order - b.order);
+  const convertMutation = useConvertLead();
+
+  const [accountMode, setAccountMode] = useState<"new" | "existing">("new");
+  const [existingAccountId, setExistingAccountId] = useState("");
+  const existingAccountQuery = useAccount(
+    existingAccountId ? Number(existingAccountId) : undefined,
+  );
+  const [contactName, setContactName] = useState(lead.prospectName);
+  const [contactTitle, setContactTitle] = useState(lead.title ?? "");
+  const [contactEmail, setContactEmail] = useState(lead.email ?? "");
+  const [contactPhone, setContactPhone] = useState(
+    lead.contactNumber ?? lead.mobile ?? "",
+  );
+  const [createDeal, setCreateDeal] = useState(true);
+  const [dealName, setDealName] = useState(
+    lead.areaOfInterest
+      ? `${lead.companyName} — ${lead.areaOfInterest}`
+      : `${lead.companyName} — Opportunity`,
+  );
+  const [dealAmount, setDealAmount] = useState("");
+  const [dealCloseDate, setDealCloseDate] = useState("");
+  const [dealStage, setDealStage] = useState("");
+  const [campaignSource, setCampaignSource] = useState("");
+  const [contactRole, setContactRole] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  const converting = convertMutation.isPending;
+  const isExistingAccountMissing =
+    accountMode === "existing" && !existingAccountId;
+  const stageValue =
+    dealStage || (boardStages[0] ? String(boardStages[0].id) : "");
 
   async function submit(confirmDuplicate: boolean) {
+    if (isExistingAccountMissing) {
+      setError("Select an existing account to link this lead to.");
+      return;
+    }
     setError(null);
     setDuplicateWarning(null);
     const input: ConvertLeadInput = {
       accountMode,
       existingAccountId:
-        accountMode === "existing" ? existingAccountId : undefined,
-      contactName: contactName || undefined,
+        accountMode === "existing" ? Number(existingAccountId) : undefined,
+      contactName: contactName.trim() || undefined,
       contactTitle: contactTitle || undefined,
       contactEmail: contactEmail || undefined,
       contactPhone: contactPhone || undefined,
       confirmDuplicate,
       createDeal,
-      dealTitle: createDeal ? dealTitle || undefined : undefined,
+      dealTitle: createDeal ? dealName || undefined : undefined,
       dealAmount: createDeal && dealAmount ? Number(dealAmount) : undefined,
       dealCloseDate: createDeal ? dealCloseDate || undefined : undefined,
-      dealStageId: createDeal ? dealStageId : undefined,
+      dealStageId: createDeal && stageValue ? Number(stageValue) : undefined,
       campaignSource: createDeal ? campaignSource || undefined : undefined,
       contactRole: createDeal ? contactRole || undefined : undefined,
     };
     try {
-      await convertMutation.mutateAsync({ id: lead.id, input });
-      onConverted();
+      const converted = await convertMutation.mutateAsync({
+        id: lead.id,
+        input,
+      });
+      onConverted?.(converted);
+      onClose();
+      toast.success("Lead converted successfully", {
+        description: `${accountMode === "new" ? "New account" : "Account"} created${
+          contactName.trim() ? ", contact linked" : ""
+        }${createDeal ? ", deal created" : ""}.`,
+      });
+      celebrateCrm("lead.promoted");
+      if (navigateToAccountOnSuccess && converted.linkedAccountId)
+        router.push(`/crm/accounts/${converted.linkedAccountId}`);
     } catch (err) {
       if (err instanceof ApiError && err.errorCode === "DUPLICATE_ACCOUNT") {
         setDuplicateWarning(err.message);
         return;
       }
-      setError(
+      const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to convert this lead — please try again.",
-      );
+          : "Failed to convert this lead — please try again.";
+      setError(message);
+      toast.error("Conversion failed", { description: message });
     }
   }
 
-  const isExistingAccountMissing =
-    accountMode === "existing" && !existingAccountId;
+  const accountLabel =
+    accountMode === "new"
+      ? lead.companyName || "Untitled Account"
+      : existingAccountQuery.data?.name;
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit(false);
-      }}
-      className="flex flex-col gap-5"
-    >
-      <section className="flex flex-col gap-2">
-        <span className="text-theme-xs font-bold uppercase tracking-wide text-gray-500">
-          Account
-        </span>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={accountMode === "new" ? "primary" : "secondary"}
-            className="flex-1"
-            onClick={() => setAccountMode("new")}
-          >
-            Create New Account
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={accountMode === "existing" ? "primary" : "secondary"}
-            className="flex-1"
-            onClick={() => setAccountMode("existing")}
-          >
-            Link Existing Account
-          </Button>
-        </div>
-        {accountMode === "new" ? (
-          <Input value={lead.companyName} disabled />
-        ) : (
-          <AccountCombobox
-            value={existingAccountId}
-            onChange={setExistingAccountId}
-          />
-        )}
-      </section>
+    <>
+      <DialogHeader>
+        <DialogTitle>Convert Lead</DialogTitle>
+        <DialogDescription>
+          Create the Account, Contact and optional Deal this lead should become.
+        </DialogDescription>
+      </DialogHeader>
 
-      <section className="grid grid-cols-2 gap-2">
-        <span className="col-span-2 text-theme-xs font-bold uppercase tracking-wide text-gray-500">
-          Contact
-        </span>
-        <div className="col-span-2">
-          <FormField label="Name">
-            {(fieldProps) => (
-              <Input
-                {...fieldProps}
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-              />
-            )}
-          </FormField>
+      <div className="space-y-5 text-sm">
+        {/* Account */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Account
+          </Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={accountMode === "new" ? "default" : "outline"}
+              className="rounded-xl flex-1"
+              onClick={() => setAccountMode("new")}
+            >
+              Create New Account
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={accountMode === "existing" ? "default" : "outline"}
+              className="rounded-xl flex-1"
+              onClick={() => setAccountMode("existing")}
+            >
+              Link Existing Account
+            </Button>
+          </div>
+          {accountMode === "new" ? (
+            <Input value={lead.companyName || "Untitled Account"} disabled />
+          ) : (
+            <AccountPicker
+              value={existingAccountId ? Number(existingAccountId) : undefined}
+              onChange={(id) => setExistingAccountId(id ? String(id) : "")}
+              placeholder="Select an existing account"
+            />
+          )}
         </div>
-        <FormField label="Title">
-          {(fieldProps) => (
+
+        {/* Contact */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Contact
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
             <Input
-              {...fieldProps}
+              placeholder="Name"
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              className="h-9 rounded-xl col-span-2"
+            />
+            <Input
+              placeholder="Title"
               value={contactTitle}
               onChange={(e) => setContactTitle(e.target.value)}
+              className="h-9 rounded-xl"
             />
-          )}
-        </FormField>
-        <FormField label="Phone">
-          {(fieldProps) => (
             <Input
-              {...fieldProps}
+              placeholder="Phone"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
+              className="h-9 rounded-xl"
             />
-          )}
-        </FormField>
-        <div className="col-span-2">
-          <FormField label="Email">
-            {(fieldProps) => (
-              <Input
-                {...fieldProps}
-                type="email"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
-            )}
-          </FormField>
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300">
-          <Checkbox
-            checked={createDeal}
-            onChange={(e) => setCreateDeal(e.target.checked)}
-          />
-          <span className="text-theme-xs font-bold uppercase tracking-wide text-gray-500">
-            Create a Deal
-          </span>
-        </label>
-        {createDeal ? (
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 p-3 dark:border-gray-800">
-            <div className="col-span-2">
-              <FormField label="Deal Name">
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    value={dealTitle}
-                    onChange={(e) => setDealTitle(e.target.value)}
-                  />
-                )}
-              </FormField>
-            </div>
-            <FormField label="Amount">
-              {(fieldProps) => (
-                <Input
-                  {...fieldProps}
-                  type="number"
-                  min={0}
-                  value={dealAmount}
-                  onChange={(e) => setDealAmount(e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label="Expected Close Date">
-              {(fieldProps) => (
-                <Input
-                  {...fieldProps}
-                  type="date"
-                  value={dealCloseDate}
-                  onChange={(e) => setDealCloseDate(e.target.value)}
-                />
-              )}
-            </FormField>
-            <div className="col-span-2">
-              <FormField label="Stage">
-                {(fieldProps) => (
-                  <Select
-                    {...fieldProps}
-                    value={dealStageId ?? ""}
-                    onChange={(e) =>
-                      setDealStageId(
-                        e.target.value ? Number(e.target.value) : undefined,
-                      )
-                    }
-                    disabled={stagesQuery.isPending}
-                  >
-                    <option value="">First board stage (default)</option>
-                    {boardStages.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </FormField>
-            </div>
-            <FormField label="Campaign Source">
-              {(fieldProps) => (
-                <Input
-                  {...fieldProps}
-                  value={campaignSource}
-                  onChange={(e) => setCampaignSource(e.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label="Contact Role">
-              {(fieldProps) => (
-                <Input
-                  {...fieldProps}
-                  value={contactRole}
-                  onChange={(e) => setContactRole(e.target.value)}
-                />
-              )}
-            </FormField>
+            <Input
+              placeholder="Email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              className="h-9 rounded-xl col-span-2"
+            />
           </div>
-        ) : null}
-      </section>
+        </div>
 
-      <p className="rounded-xl border border-brand-200 bg-brand-50/40 p-3 text-theme-sm text-gray-700 dark:border-brand-900 dark:bg-brand-950/30 dark:text-gray-300">
-        This will{" "}
-        {accountMode === "new"
-          ? "create a new Account"
-          : "link to the existing Account"}{" "}
-        <strong>
-          {accountMode === "new" ? lead.companyName : "the selected account"}
-        </strong>
-        {contactName.trim() ? (
-          <>
-            {" "}
-            with contact <strong>{contactName}</strong>
-          </>
-        ) : null}
-        {createDeal ? (
-          <>
-            {" "}
-            and a Deal{" "}
-            <strong>
-              &quot;{dealTitle || `${lead.companyName} — Opportunity`}&quot;
-            </strong>
-          </>
-        ) : null}
-        .
-      </p>
+        {/* Deal */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={createDeal}
+              onCheckedChange={(v) => setCreateDeal(!!v)}
+            />
+            <Label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Create a Deal
+            </Label>
+          </div>
+          {createDeal && (
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 p-3 bg-slate-50/40">
+              <Input
+                placeholder="Deal Name"
+                value={dealName}
+                onChange={(e) => setDealName(e.target.value)}
+                className="h-9 rounded-xl col-span-2"
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Amount"
+                value={dealAmount}
+                onChange={(e) => setDealAmount(e.target.value)}
+                className="h-9 rounded-xl"
+              />
+              <DatePicker
+                value={dealCloseDate}
+                onChange={setDealCloseDate}
+                className="h-9"
+              />
+              <Select value={stageValue} onValueChange={setDealStage}>
+                <SelectTrigger className="h-9 rounded-xl col-span-2">
+                  <SelectValue placeholder="Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boardStages.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Campaign Source"
+                value={campaignSource}
+                onChange={(e) => setCampaignSource(e.target.value)}
+                className="h-9 rounded-xl"
+              />
+              <Input
+                placeholder="Contact Role"
+                value={contactRole}
+                onChange={(e) => setContactRole(e.target.value)}
+                className="h-9 rounded-xl"
+              />
+            </div>
+          )}
+        </div>
 
-      {duplicateWarning ? (
-        <Alert variant="warning" title="This looks like an existing account">
-          <p>{duplicateWarning}</p>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="mt-2"
-            onClick={() => void submit(true)}
-          >
-            Create anyway
-          </Button>
-        </Alert>
-      ) : null}
+        {/* Confirmation summary */}
+        {accountLabel && (
+          <div className="rounded-2xl border border-brand-200/70 bg-brand-50/40 p-3 text-sm text-slate-700 flex items-start gap-2">
+            <ArrowRight className="h-3.5 w-3.5 text-brand-600 mt-0.5 shrink-0" />
+            <p>
+              This will{" "}
+              {accountMode === "new"
+                ? "create a new Account"
+                : "link to the existing Account"}{" "}
+              <span className="font-bold">&quot;{accountLabel}&quot;</span>
+              {contactName.trim() && (
+                <>
+                  {" "}
+                  with contact <span className="font-bold">{contactName}</span>
+                </>
+              )}
+              {createDeal && (
+                <>
+                  {" "}
+                  and a Deal{" "}
+                  <span className="font-bold">
+                    &quot;{dealName || `${lead.companyName} — Opportunity`}
+                    &quot;
+                  </span>
+                </>
+              )}
+              .
+            </p>
+          </div>
+        )}
 
-      {error ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {error}
-        </p>
-      ) : null}
+        {duplicateWarning && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+            <div className="flex-1">
+              <p className="font-bold">{duplicateWarning}</p>
+              <p className="mt-0.5 text-amber-700">
+                Consider switching to &quot;Link Existing Account&quot; instead
+                of creating a duplicate.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 mt-2 rounded-lg text-xs border-amber-300 bg-white"
+                onClick={() => void submit(true)}
+              >
+                Create anyway
+              </Button>
+            </div>
+          </div>
+        )}
 
-      <div className="flex justify-end gap-2">
+        {error && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50/70 p-3 text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter>
         <Button
-          type="button"
-          variant="secondary"
-          onClick={onCancel}
-          disabled={convertMutation.isPending}
+          variant="outline"
+          className="border-red-200 text-red-600 bg-red-50/50 hover:text-red-700 hover:border-red-400 hover:bg-red-100"
+          disabled={converting}
+          onClick={onClose}
         >
           Cancel
         </Button>
         <Button
-          type="submit"
-          loading={convertMutation.isPending}
-          disabled={isExistingAccountMissing}
+          disabled={converting || isExistingAccountMissing}
+          onClick={() => void submit(false)}
         >
-          Convert
+          {converting ? "Converting…" : "Convert"}
         </Button>
-      </div>
-    </form>
+      </DialogFooter>
+    </>
   );
 }

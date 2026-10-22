@@ -1,222 +1,261 @@
 "use client";
 
-import type { CrmTaskPriority } from "@texawave-erp/api-types";
+import type { CrmTask, CrmTaskPriority } from "@texawave-erp/api-types";
 import { CRM_TASK_PRIORITIES } from "@texawave-erp/api-types";
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  EmptyState,
-  FormField,
-  Input,
-  Select,
-  Skeleton,
-  StatusBadge,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { Textarea } from "@/components/legacy-ui/textarea";
+import { cn } from "@/components/legacy-ui/utils";
+import { celebrateCrm } from "@/features/crm/celebration";
+import {
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { DatePicker } from "@/features/crm/legacy-ui/DatePicker";
 import {
   useCreateCrmTask,
-  useCrmTasks,
+  useDeleteCrmTask,
   useUpdateCrmTaskStatus,
-} from "../../../tasks/hooks";
+} from "@/features/crm/tasks/hooks";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  COMPLETE_BTN_CLASS,
+  CRM_DELETE_BTN_CLASS,
+  FormRow,
+  InlineFormPanel,
+  SectionShell,
+} from "../accountUi";
 
-function CreateTaskForm({
+function TaskInlineForm({
   accountId,
-  onDone,
+  currentUser,
+  onCancel,
+  onSaved,
 }: {
   accountId: number;
-  onDone: () => void;
+  currentUser: string;
+  onCancel: () => void;
+  onSaved: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
-  const [priority, setPriority] = useState<CrmTaskPriority>("Medium");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const createMutation = useCreateCrmTask();
-  const { toast } = useToast();
+  const [form, setForm] = useState({
+    title: "",
+    dueDate: "",
+    assignedTo: currentUser,
+    priority: "Medium" as CrmTaskPriority,
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim() || !dueDate || !assignedTo.trim()) {
-      setError("Title, due date, and assignee are required");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const save = async () => {
+    if (!form.title.trim() || !form.dueDate || !form.assignedTo.trim()) return;
+    setSaving(true);
     try {
       await createMutation.mutateAsync({
         relatedType: "account",
         relatedId: accountId,
-        title,
-        dueDate,
-        assignedTo,
-        priority,
-        notes: notes || undefined,
+        title: form.title.trim(),
+        dueDate: form.dueDate,
+        assignedTo: form.assignedTo.trim(),
+        priority: form.priority,
+        notes: form.notes.trim() || undefined,
       });
-      toast({ title: "Task created", variant: "success" });
-      onDone();
+      onSaved();
     } catch {
-      setError("Could not create the task. Try again.");
+      toast.error("Failed to add task. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormField label="Title" required error={error ?? undefined}>
-        {(fp) => (
+    <InlineFormPanel
+      icon={CheckCircle2}
+      title="Add Task"
+      subtitle="Add a to-do for this account."
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Add Task"
+      saving={saving}
+      canSubmit={Boolean(
+        form.title.trim() && form.dueDate && form.assignedTo.trim(),
+      )}
+    >
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormRow label="Title" required className="md:col-span-2">
           <Input
-            {...fp}
-            invalid={fp.invalid}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            placeholder="e.g. Send updated pricing sheet"
           />
-        )}
-      </FormField>
-      <FormField label="Due date" required>
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Due Date" required>
+          <DatePicker
+            className="h-9"
+            value={form.dueDate}
+            onChange={(v) => set("dueDate", v)}
+          />
+        </FormRow>
+        <FormRow label="Assigned To">
           <Input
-            {...fp}
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={form.assignedTo}
+            onChange={(e) => set("assignedTo", e.target.value)}
           />
-        )}
-      </FormField>
-      <FormField label="Assigned to" required>
-        {(fp) => (
-          <Input
-            {...fp}
-            value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-            disabled={submitting}
-          />
-        )}
-      </FormField>
-      <FormField label="Priority">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Priority">
           <Select
-            {...fp}
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as CrmTaskPriority)}
+            value={form.priority}
+            onValueChange={(v) => set("priority", v as CrmTaskPriority)}
           >
-            {CRM_TASK_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CRM_TASK_PRIORITIES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        )}
-      </FormField>
-      <FormField label="Notes">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Notes" className="md:col-span-2">
           <Textarea
-            {...fp}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
+            rows={2}
+            className="rounded-xl"
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
           />
-        )}
-      </FormField>
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onDone}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          Create
-        </Button>
+        </FormRow>
       </div>
-    </form>
+    </InlineFormPanel>
   );
 }
 
-/** Tasks tab: list + create + mark-complete, using the new tasks api/hooks.
- * `CrmTask` only has Open/Completed (unlike HR's Task). */
-export function TasksTab({ accountId }: { accountId: number }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const query = useCrmTasks({
-    relatedType: "account",
-    relatedId: accountId,
-    limit: 50,
-  });
+export function TasksTab({
+  accountId,
+  currentUser,
+  tasks,
+}: {
+  accountId: number;
+  currentUser: string;
+  tasks: CrmTask[];
+}) {
+  const [adding, setAdding] = useState(false);
+  const canDelete = usePermission("crm.task.delete");
   const updateStatus = useUpdateCrmTaskStatus();
-  const { toast } = useToast();
+  const deleteMutation = useDeleteCrmTask();
 
-  async function toggleComplete(id: number, completed: boolean) {
-    await updateStatus.mutateAsync({
-      id,
-      input: { status: completed ? "Completed" : "Open" },
-    });
-    toast({
-      title: completed ? "Task completed" : "Task reopened",
-      variant: "success",
-    });
+  if (adding) {
+    return (
+      <TaskInlineForm
+        accountId={accountId}
+        currentUser={currentUser}
+        onCancel={() => setAdding(false)}
+        onSaved={() => setAdding(false)}
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Tasks
-        </h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Add Task
+    <SectionShell
+      title="Tasks"
+      action={
+        <Button
+          size="sm"
+          className="rounded-xl gap-1.5"
+          onClick={() => setAdding(true)}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Task
         </Button>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
-        <EmptyState title="No tasks yet" description="Add the first task." />
-      ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((t) => (
-            <li key={t.id} className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={t.status === "Completed"}
-                  onChange={(e) => void toggleComplete(t.id, e.target.checked)}
-                />
-                <div>
-                  <p className="text-theme-sm font-medium text-gray-900 dark:text-white/90">
-                    {t.title}
-                  </p>
-                  <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-                    Due {t.dueDate} · {t.assignedTo}
-                  </p>
-                </div>
-              </div>
-              <StatusBadge
-                label={t.status}
-                colorToken={t.status === "Completed" ? "success" : "brand"}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Add task"
-      >
-        <CreateTaskForm
-          accountId={accountId}
-          onDone={() => setCreateOpen(false)}
+      }
+    >
+      {tasks.length === 0 ? (
+        <EmptyState
+          icon={CheckCircle2}
+          title="No tasks yet"
+          description="Add a to-do for this account."
         />
-      </Dialog>
-    </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {tasks.map((t) => (
+            <div
+              key={t.id}
+              className="p-4 flex items-start justify-between gap-3 flex-wrap"
+            >
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "text-sm font-semibold",
+                    t.status === "Completed"
+                      ? "text-slate-400 line-through"
+                      : "text-slate-800",
+                  )}
+                >
+                  {t.title}
+                </p>
+                <p className="text-sm text-slate-900 mt-1">
+                  Due {t.dueDate.slice(0, 10)} · {t.assignedTo} · {t.priority}{" "}
+                  priority
+                </p>
+                {t.notes && (
+                  <p className="text-sm text-slate-900 mt-0.5">{t.notes}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {t.status !== "Completed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={COMPLETE_BTN_CLASS}
+                    onClick={() =>
+                      updateStatus.mutate(
+                        { id: t.id, input: { status: "Completed" } },
+                        { onSuccess: () => celebrateCrm("task.completed") },
+                      )
+                    }
+                  >
+                    <CheckCircle2 className="h-3 w-3" /> Complete
+                  </Button>
+                )}
+                {canDelete && (
+                  <DeleteConfirmDialog
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={CRM_DELETE_BTN_CLASS}
+                        title="Delete task"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </Button>
+                    }
+                    title="Delete this task?"
+                    description="This task will be moved to the CRM Recycle Bin."
+                    onConfirm={async () => {
+                      await deleteMutation.mutateAsync(t.id);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionShell>
   );
 }

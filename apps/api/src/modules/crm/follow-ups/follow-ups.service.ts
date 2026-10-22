@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
@@ -9,7 +10,10 @@ import type {
   UpdateFollowUpDto,
   UpdateFollowUpStatusDto,
 } from "./dto/follow-up.dto.js";
-import { FollowUpsRepository } from "./follow-ups.repository.js";
+import {
+  FollowUpsRepository,
+  type FollowUpFilter,
+} from "./follow-ups.repository.js";
 
 /** Legacy `getEffectiveFollowUpStatus()` — DISPLAY only, never persisted
  * (see the repository's own comment). A PENDING row whose `scheduledAt` has
@@ -39,6 +43,7 @@ export class FollowUpsService {
       {
         relatedType: query.relatedType,
         relatedId: query.relatedId,
+        rollupAccountId: query.rollupAccountId,
         status: query.status,
       },
       query,
@@ -49,6 +54,17 @@ export class FollowUpsService {
       query.page,
       query.limit,
     );
+  }
+
+  /** Read-only feed for global search / calendar (additive): same org
+   * scoping as findAll, capped at `limit`. */
+  async findFeed(filter: FollowUpFilter, limit: number) {
+    const { items } = await this.repository.findMany(
+      this.tenantContext.getOrgScope(),
+      filter,
+      Object.assign(new PaginationDto(), { limit }),
+    );
+    return items.map(withEffectiveStatus);
   }
 
   async findOne(id: number) {

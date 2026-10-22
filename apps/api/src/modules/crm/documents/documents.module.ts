@@ -6,5 +6,6 @@ import { CrmDocumentsService } from "./documents.service.js";
 @Module({
   controllers: [CrmDocumentsController],
   providers: [CrmDocumentsRepository, CrmDocumentsService],
+  exports: [CrmDocumentsRepository],
 })
 export class CrmDocumentsModule {}

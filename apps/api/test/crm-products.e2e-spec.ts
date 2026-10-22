@@ -359,6 +359,24 @@ describe("crm products (e2e)", () => {
         .send({ items: [{ productId: product.id, quantity: 2 }] })
         .expect(201);
 
+      // "Used In Deals" roll-up on both the detail and the list rows.
+      const detail = await request(app.getHttpServer())
+        .get(`/crm/products/${product.id}`)
+        .set("Authorization", `Bearer ${tokenAll}`)
+        .expect(200);
+      expect(
+        (detail.body as { data: { usageCount: number } }).data.usageCount,
+      ).toBe(1);
+      const list = await request(app.getHttpServer())
+        .get("/crm/products?q=Referenced Product")
+        .set("Authorization", `Bearer ${tokenAll}`)
+        .expect(200);
+      expect(
+        (list.body as { data: { id: number; usageCount: number }[] }).data.find(
+          (p) => p.id === product.id,
+        )?.usageCount,
+      ).toBe(1);
+
       await request(app.getHttpServer())
         .delete(`/crm/products/${product.id}`)
         .set("Authorization", `Bearer ${tokenAll}`)

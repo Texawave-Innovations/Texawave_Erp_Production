@@ -2,221 +2,479 @@
 
 import type { Account } from "@texawave-erp/api-types";
 import {
-  type ChangeAccountStatusTagFormValues,
-  type CreateAccountFormValues,
-} from "@texawave-erp/core";
-import { Button, Dialog, StatusBadge, useToast } from "@texawave-erp/ui-kit";
-import { useState } from "react";
-import { useChangeAccountStatusTag, useUpdateAccount } from "../../hooks";
-import { AccountForm } from "../AccountForm";
-import { StatusTagDialog } from "../StatusTagDialog";
+  AlertTriangle,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Globe,
+  History,
+  IndianRupee,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Package,
+  Phone,
+  Receipt,
+  ShieldAlert,
+  Swords,
+  Tag,
+  TrendingUp,
+  Users,
+  XCircle,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/legacy-ui/badge";
+import { cn } from "@/components/legacy-ui/utils";
+import { StatTile } from "@/features/crm/dashboard/components/intelligence-ui";
+import type { AccountRelated } from "../../useAccountRelated";
+import {
+  accountContactHrefs,
+  formatRupees,
+  InfoField,
+  LinkedinIcon,
+} from "../accountUi";
 
-const STATUS_COLOR: Record<
-  string,
-  "brand" | "gray" | "success" | "warning" | "error"
-> = {
-  Interested: "success",
-  "Not Interested": "error",
-  "Keep in Touch": "brand",
-  "Call Back": "warning",
-  "Send Info": "gray",
-};
+const DAY_MS = 86_400_000;
 
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
-  return (
-    <div>
-      <dt className="text-theme-xs text-gray-500 dark:text-gray-400">
-        {label}
-      </dt>
-      <dd className="text-theme-sm text-gray-900 dark:text-white/90">
-        {value || "—"}
-      </dd>
-    </div>
-  );
+function joinAddress(parts: (string | null)[]): string | undefined {
+  return parts.filter(Boolean).join(", ") || undefined;
 }
 
-/** Overview tab: read all account fields, status-tag badge/change action,
- * and an edit entry point (reuses `AccountForm` in a dialog). */
-export function OverviewTab({ account }: { account: Account }) {
-  const [editOpen, setEditOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
-  const updateMutation = useUpdateAccount();
-  const changeStatusTag = useChangeAccountStatusTag();
-  const { toast } = useToast();
+/** Overview tab — KPI tiles, Company Information card, Account Review, Competitive Landscape. */
+export function OverviewTab({
+  account,
+  related,
+}: {
+  account: Account;
+  related: AccountRelated;
+}) {
+  const hrefs = accountContactHrefs(account);
+  // Stable "now" for the review's days-since math (render stays pure).
+  const [now] = useState(() => Date.now());
+  const {
+    contacts,
+    opportunities,
+    followUps,
+    tasks,
+    activities,
+    quotations,
+    meetings,
+    notes,
+    products,
+  } = related;
 
-  async function handleUpdate(values: CreateAccountFormValues) {
-    await updateMutation.mutateAsync({ id: account.id, input: values });
-    setEditOpen(false);
-    toast({ title: "Account updated", variant: "success" });
-  }
+  const kpis = useMemo(() => {
+    const open = opportunities.filter((o) => o.status === "OPEN");
+    const won = opportunities.filter((o) => o.status === "WON");
+    const lost = opportunities.filter((o) => o.status === "LOST");
+    return {
+      contacts: contacts.length,
+      openDeals: open.length,
+      wonDeals: won.length,
+      lostDeals: lost.length,
+      pipelineValue: open.reduce(
+        (s, o) => s + Number(o.estimatedValue || 0),
+        0,
+      ),
+      totalRevenue: won.reduce(
+        (s, o) => s + Number(o.closingAmount ?? o.estimatedValue ?? 0),
+        0,
+      ),
+      quotes: quotations.length,
+      openActivities:
+        followUps.filter(
+          (f) =>
+            f.effectiveStatus === "PENDING" || f.effectiveStatus === "OVERDUE",
+        ).length + tasks.filter((t) => t.status !== "Completed").length,
+      completedActivities:
+        activities.length +
+        tasks.filter((t) => t.status === "Completed").length,
+    };
+  }, [contacts, opportunities, followUps, tasks, activities, quotations]);
 
-  async function handleStatusChange(values: ChangeAccountStatusTagFormValues) {
-    await changeStatusTag.mutateAsync({ id: account.id, input: values });
-    toast({ title: "Status tag updated", variant: "success" });
-  }
+  const review = useMemo(() => {
+    const touchpoints = [
+      ...activities.map((a) => new Date(a.occurredAt).getTime()),
+      ...meetings
+        .filter((m) => m.status === "COMPLETED")
+        .map((m) => new Date(m.completedAt ?? m.updatedAt).getTime()),
+      ...followUps
+        .filter((f) => f.status === "COMPLETED")
+        .map((f) => new Date(f.updatedAt).getTime()),
+      ...notes.map((n) => new Date(n.createdAt).getTime()),
+    ];
+    const lastInteractionAt = touchpoints.length
+      ? Math.max(...touchpoints)
+      : undefined;
+    const nextFollowUp = followUps
+      .filter((f) => f.effectiveStatus === "PENDING")
+      .sort(
+        (a, b) =>
+          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+      )[0];
+    const openOpportunities = opportunities.filter((o) => o.status === "OPEN");
+    const overdueFollowUps = followUps.filter(
+      (f) => f.effectiveStatus === "OVERDUE",
+    ).length;
+    const daysSince =
+      lastInteractionAt !== undefined
+        ? (now - lastInteractionAt) / DAY_MS
+        : undefined;
+
+    let status: "Active" | "New" | "Dormant" = "New";
+    if (opportunities.length > 0 || activities.length > 0) status = "Active";
+    if (
+      daysSince !== undefined &&
+      daysSince > 30 &&
+      openOpportunities.length === 0
+    )
+      status = "Dormant";
+
+    return {
+      lastInteractionAt,
+      nextFollowUp,
+      openOpportunitiesCount: openOpportunities.length,
+      overdueFollowUps,
+      status,
+      needsAttention:
+        overdueFollowUps > 0 || (daysSince !== undefined && daysSince > 30),
+      daysSince,
+    };
+  }, [activities, meetings, followUps, notes, opportunities, now]);
+
+  const competitors = opportunities.filter((o) => o.competitor?.trim());
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {account.statusTag ? (
-            <StatusBadge
-              label={account.statusTag}
-              colorToken={STATUS_COLOR[account.statusTag] ?? "gray"}
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        <StatTile
+          icon={Users}
+          label="Contacts"
+          value={kpis.contacts}
+          tone="blue"
+        />
+        <StatTile
+          icon={Briefcase}
+          label="Open Deals"
+          value={kpis.openDeals}
+          tone="brand"
+        />
+        <StatTile
+          icon={CheckCircle2}
+          label="Won Deals"
+          value={kpis.wonDeals}
+          tone="emerald"
+        />
+        <StatTile
+          icon={XCircle}
+          label="Lost Deals"
+          value={kpis.lostDeals}
+          tone="red"
+        />
+        <StatTile
+          icon={Receipt}
+          label="Quotes"
+          value={kpis.quotes}
+          tone="purple"
+        />
+        <StatTile
+          icon={IndianRupee}
+          label="Pipeline Value"
+          value={formatRupees(kpis.pipelineValue)}
+          tone="amber"
+        />
+        <StatTile
+          icon={TrendingUp}
+          label="Total Revenue (Won)"
+          value={formatRupees(kpis.totalRevenue)}
+          tone="gold"
+        />
+        <StatTile
+          icon={Package}
+          label="Products on Deals"
+          value={products.length}
+          tone="teal"
+        />
+        <StatTile
+          icon={Clock3}
+          label="Open Activities"
+          value={kpis.openActivities}
+          tone="orange"
+        />
+        <StatTile
+          icon={History}
+          label="Completed Activities"
+          value={kpis.completedActivities}
+          tone="slate"
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-brand-600" /> Company
+              Information
+            </h3>
+          </div>
+          <div className="p-5 grid sm:grid-cols-2 gap-x-3 gap-y-3">
+            <InfoField
+              icon={Building2}
+              label="Account Name"
+              value={account.name}
+              tone="brand"
             />
-          ) : null}
+            <InfoField
+              icon={Users}
+              label="Account Owner"
+              value={account.ownerName}
+            />
+            <InfoField
+              icon={MapPin}
+              label="Location"
+              value={account.hq}
+              tone="rose"
+              showEmpty
+            />
+            <InfoField
+              icon={Briefcase}
+              label="Industry"
+              value={account.industry}
+              tone="indigo"
+              showEmpty
+            />
+            <InfoField
+              icon={Tag}
+              label="Customer Type"
+              value={account.customerCategory || account.accountType}
+              tone="fuchsia"
+              showEmpty
+            />
+            <InfoField
+              icon={Globe}
+              label="Website"
+              value={account.website}
+              href={hrefs.website}
+              tone="amber"
+              showEmpty
+            />
+            <InfoField
+              icon={Phone}
+              label="Phone"
+              value={account.phone}
+              href={hrefs.phone}
+              tone="sky"
+              showEmpty
+            />
+            <InfoField
+              icon={Mail}
+              label="Email"
+              value={account.email}
+              href={hrefs.email}
+              tone="purple"
+              showEmpty
+            />
+            <InfoField
+              icon={MessageCircle}
+              label="WhatsApp"
+              value={account.phone}
+              href={hrefs.whatsapp}
+              tone="emerald"
+              showEmpty
+            />
+            <InfoField
+              icon={LinkedinIcon}
+              label="LinkedIn"
+              value={account.linkedin ? "View Profile" : undefined}
+              href={hrefs.linkedin}
+              tone="blue"
+              showEmpty
+            />
+            <InfoField
+              icon={Users}
+              label="Company Size"
+              value={
+                account.numberOfEmployees
+                  ? `${account.numberOfEmployees} employees`
+                  : undefined
+              }
+            />
+            <InfoField
+              icon={IndianRupee}
+              label="Annual Revenue"
+              value={
+                account.annualRevenue
+                  ? formatRupees(account.annualRevenue)
+                  : undefined
+              }
+              tone="amber"
+            />
+            <InfoField
+              icon={FileText}
+              label="Registration / Reference"
+              value={account.registrationNumber}
+            />
+            <InfoField
+              icon={MapPin}
+              label="Billing Address"
+              value={joinAddress([
+                account.billingStreet,
+                account.billingCity,
+                account.billingState,
+                account.billingPostalCode,
+                account.billingCountry,
+              ])}
+              tone="rose"
+            />
+            <InfoField
+              icon={MapPin}
+              label="Shipping Address"
+              value={joinAddress([
+                account.shippingStreet,
+                account.shippingCity,
+                account.shippingState,
+                account.shippingPostalCode,
+                account.shippingCountry,
+              ])}
+              tone="rose"
+            />
+            <InfoField
+              icon={Tag}
+              label="Customer Class"
+              value={
+                account.customerClass
+                  ? `Class ${account.customerClass}`
+                  : undefined
+              }
+              tone="fuchsia"
+            />
+            <InfoField
+              icon={Briefcase}
+              label="Business Type"
+              value={account.businessType}
+              tone="indigo"
+            />
+            <InfoField
+              icon={Users}
+              label="Reseller / Customer Type"
+              value={account.resellerType}
+            />
+            {account.description && (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-900 mb-1">
+                  Description
+                </p>
+                <p className="text-sm text-slate-700">{account.description}</p>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setStatusOpen(true)}
-          >
-            Change status
-          </Button>
-          <Button size="sm" onClick={() => setEditOpen(true)}>
-            Edit
-          </Button>
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-brand-600" /> Account Review
+            </h3>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-900">Customer Status</span>
+              <Badge
+                className={cn(
+                  "text-xs border",
+                  review.status === "Active"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : review.status === "Dormant"
+                      ? "bg-red-50 text-red-700 border-red-200"
+                      : "bg-slate-100 text-slate-900 border-slate-200",
+                )}
+              >
+                {review.status}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-900">Open Opportunities</span>
+              <span className="text-sm font-semibold text-slate-800">
+                {review.openOpportunitiesCount}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-900">Last Interaction</span>
+              <span className="text-sm font-semibold text-slate-800">
+                {review.lastInteractionAt
+                  ? new Date(review.lastInteractionAt).toLocaleDateString()
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-900">Next Follow-up</span>
+              <span className="text-sm font-semibold text-slate-800">
+                {review.nextFollowUp
+                  ? new Date(
+                      review.nextFollowUp.scheduledAt,
+                    ).toLocaleDateString()
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-900">Overdue Follow-ups</span>
+              <span
+                className={cn(
+                  "text-sm font-semibold",
+                  review.overdueFollowUps > 0
+                    ? "text-red-600"
+                    : "text-slate-800",
+                )}
+              >
+                {review.overdueFollowUps}
+              </span>
+            </div>
+            {review.needsAttention && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>
+                  {review.overdueFollowUps > 0
+                    ? `${review.overdueFollowUps} overdue follow-up${review.overdueFollowUps === 1 ? "" : "s"} need attention.`
+                    : `No interaction in ${Math.floor(review.daysSince || 0)} days — consider reaching out.`}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <section>
-        <h3 className="mb-3 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Company Info
-        </h3>
-        <dl className="grid grid-cols-3 gap-4">
-          <Field label="Account type" value={account.accountType} />
-          <Field label="Owner" value={account.ownerName} />
-          <Field label="Industry" value={account.industry} />
-          <Field label="Website" value={account.website} />
-          <Field
-            label="Employees"
-            value={account.numberOfEmployees?.toString()}
-          />
-          <Field label="Annual revenue" value={account.annualRevenue} />
-        </dl>
-        {account.description ? (
-          <p className="mt-3 text-theme-sm text-gray-700 dark:text-gray-300">
-            {account.description}
-          </p>
-        ) : null}
-      </section>
-
-      <section>
-        <h3 className="mb-3 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Contact Details
-        </h3>
-        <dl className="grid grid-cols-3 gap-4">
-          <Field label="Phone" value={account.phone} />
-          <Field label="Email" value={account.email} />
-          <Field label="LinkedIn" value={account.linkedin} />
-          <Field
-            label="Registration number"
-            value={account.registrationNumber}
-          />
-        </dl>
-      </section>
-
-      <section>
-        <h3 className="mb-3 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Billing Address
-        </h3>
-        <dl className="grid grid-cols-3 gap-4">
-          <Field label="Street" value={account.billingStreet} />
-          <Field label="City" value={account.billingCity} />
-          <Field label="State" value={account.billingState} />
-          <Field label="Postal code" value={account.billingPostalCode} />
-          <Field label="Country" value={account.billingCountry} />
-        </dl>
-      </section>
-
-      <section>
-        <h3 className="mb-3 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Shipping Address
-        </h3>
-        <dl className="grid grid-cols-3 gap-4">
-          <Field label="Street" value={account.shippingStreet} />
-          <Field label="City" value={account.shippingCity} />
-          <Field label="State" value={account.shippingState} />
-          <Field label="Postal code" value={account.shippingPostalCode} />
-          <Field label="Country" value={account.shippingCountry} />
-        </dl>
-      </section>
-
-      <section>
-        <h3 className="mb-3 text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Business Profile
-        </h3>
-        <dl className="grid grid-cols-3 gap-4">
-          <Field label="Customer category" value={account.customerCategory} />
-          <Field label="Customer class" value={account.customerClass} />
-          <Field label="Business type" value={account.businessType} />
-          <Field label="Reseller type" value={account.resellerType} />
-        </dl>
-        {account.tags.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {account.tags.map((tag) => (
-              <StatusBadge key={tag} label={tag} colorToken="gray" />
+      {competitors.length > 0 && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+            <Swords className="h-4 w-4 text-brand-600" />
+            <h3 className="text-sm font-bold text-slate-900">
+              Competitive Landscape
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {competitors.map((o) => (
+              <div
+                key={o.id}
+                className="p-4 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {o.competitor}
+                  </p>
+                  <p className="text-sm text-slate-900 mt-0.5">
+                    Deal: {o.title}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {o.status}
+                </Badge>
+              </div>
             ))}
           </div>
-        ) : null}
-      </section>
-
-      <Dialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        title="Edit account"
-      >
-        <AccountForm
-          initialValues={{
-            name: account.name,
-            accountType: account.accountType ?? undefined,
-            ownerName: account.ownerName ?? undefined,
-            industry: account.industry ?? undefined,
-            website: account.website ?? undefined,
-            phone: account.phone ?? undefined,
-            email: account.email ?? undefined,
-            linkedin: account.linkedin ?? undefined,
-            registrationNumber: account.registrationNumber ?? undefined,
-            numberOfEmployees: account.numberOfEmployees ?? undefined,
-            annualRevenue: account.annualRevenue
-              ? Number(account.annualRevenue)
-              : undefined,
-            description: account.description ?? undefined,
-            billingStreet: account.billingStreet ?? undefined,
-            billingCity: account.billingCity ?? undefined,
-            billingState: account.billingState ?? undefined,
-            billingPostalCode: account.billingPostalCode ?? undefined,
-            billingCountry: account.billingCountry ?? undefined,
-            shippingStreet: account.shippingStreet ?? undefined,
-            shippingCity: account.shippingCity ?? undefined,
-            shippingState: account.shippingState ?? undefined,
-            shippingPostalCode: account.shippingPostalCode ?? undefined,
-            shippingCountry: account.shippingCountry ?? undefined,
-            customerCategory: account.customerCategory ?? undefined,
-            customerClass: account.customerClass ?? undefined,
-            businessType: account.businessType ?? undefined,
-            resellerType: account.resellerType ?? undefined,
-            tags: account.tags,
-          }}
-          onSubmit={handleUpdate}
-          onCancel={() => setEditOpen(false)}
-          submitLabel="Save changes"
-        />
-      </Dialog>
-
-      <StatusTagDialog
-        open={statusOpen}
-        onClose={() => setStatusOpen(false)}
-        currentStatusTag={account.statusTag}
-        onSubmit={handleStatusChange}
-      />
+        </div>
+      )}
     </div>
   );
 }

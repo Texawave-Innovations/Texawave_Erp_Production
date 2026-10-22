@@ -13,6 +13,8 @@ export interface Product {
   taxPercent: string | null;
   description: string | null;
   isActive: boolean;
+  /** Live deal + quotation line items referencing this product. */
+  usageCount?: number;
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;

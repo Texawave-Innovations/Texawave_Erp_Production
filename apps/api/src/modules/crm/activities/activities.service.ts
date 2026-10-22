@@ -1,8 +1,12 @@
 import { Injectable } from "@nestjs/common";
+import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
-import { ActivitiesRepository } from "./activities.repository.js";
+import {
+  ActivitiesRepository,
+  type ActivityFilter,
+} from "./activities.repository.js";
 import type {
   CreateActivityDto,
   QueryActivityDto,
@@ -23,10 +27,23 @@ export class ActivitiesService {
         relatedType: query.relatedType,
         relatedId: query.relatedId,
         type: query.type,
+        search: query.search,
+        accountId: query.accountId,
       },
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  /** Read-only feed for global search / calendar (additive): same org
+   * scoping as findAll, capped at `limit`. */
+  async findFeed(filter: ActivityFilter, limit: number) {
+    const { items } = await this.repository.findMany(
+      this.tenantContext.getOrgScope(),
+      filter,
+      Object.assign(new PaginationDto(), { limit }),
+    );
+    return items;
   }
 
   async findOne(id: number) {

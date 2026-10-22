@@ -6,6 +6,6 @@ import { CrmTasksService } from "./tasks.service.js";
 @Module({
   controllers: [CrmTasksController],
   providers: [CrmTasksRepository, CrmTasksService],
-  exports: [CrmTasksService],
+  exports: [CrmTasksRepository, CrmTasksService],
 })
 export class CrmTasksModule {}

@@ -90,4 +90,20 @@ export class QueryCrmColdCallingEntryDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   linkedAccountId?: number;
+
+  @ApiPropertyOptional({ description: "Exact match on the free-text status" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: "callDate >= (YYYY-MM-DD)" })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: "callDate <= (YYYY-MM-DD)" })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }

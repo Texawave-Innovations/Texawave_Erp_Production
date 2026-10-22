@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
-import { CrmTasksRepository } from "./tasks.repository.js";
+import { CrmTasksRepository, type CrmTaskFilter } from "./tasks.repository.js";
 import type {
   CreateCrmTaskDto,
   QueryCrmTaskDto,
@@ -23,11 +24,23 @@ export class CrmTasksService {
       {
         relatedType: query.relatedType,
         relatedId: query.relatedId,
+        rollupAccountId: query.rollupAccountId,
         status: query.status,
       },
       query,
     );
     return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  /** Read-only feed for global search / calendar (additive): same org
+   * scoping as findAll, capped at `limit`. */
+  async findFeed(filter: CrmTaskFilter, limit: number) {
+    const { items } = await this.repository.findMany(
+      this.tenantContext.getOrgScope(),
+      filter,
+      Object.assign(new PaginationDto(), { limit }),
+    );
+    return items;
   }
 
   async findOne(id: number) {

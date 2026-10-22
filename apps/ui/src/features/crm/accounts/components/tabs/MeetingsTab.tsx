@@ -1,383 +1,492 @@
 "use client";
 
-import type {
-  Meeting,
-  MeetingMode,
-  MeetingStatus,
-} from "@texawave-erp/api-types";
-import { MEETING_MODES, MEETING_STATUSES } from "@texawave-erp/api-types";
+import type { Meeting, MeetingMode } from "@texawave-erp/api-types";
+import { MEETING_MODES } from "@texawave-erp/api-types";
 import {
-  Button,
-  Dialog,
-  EmptyState,
-  FormField,
-  Input,
-  Select,
-  Skeleton,
-  StatusBadge,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+  CalendarClock,
+  CheckCircle2,
+  History,
+  Plus,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/legacy-ui/badge";
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { Textarea } from "@/components/legacy-ui/textarea";
+import { cn } from "@/components/legacy-ui/utils";
+import { celebrateCrm } from "@/features/crm/celebration";
+import {
+  DeleteConfirmDialog,
+  EmptyState,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { DatePicker } from "@/features/crm/legacy-ui/DatePicker";
 import {
   useCompleteMeeting,
   useCreateMeeting,
-  useMeetings,
+  useDeleteMeeting,
   useRescheduleMeeting,
   useUpdateMeetingStatus,
-} from "../../../meetings/hooks";
+} from "@/features/crm/meetings/hooks";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  CANCEL_ROW_BTN_CLASS,
+  COMPLETE_BTN_CLASS,
+  CRM_DELETE_BTN_CLASS,
+  FormRow,
+  InlineFormPanel,
+  MEETING_STATUS_STYLE,
+  ROW_ACTION_BTN_CLASS,
+  SectionShell,
+} from "../accountUi";
+import { RescheduleInlineForm } from "./RescheduleInlineForm";
 
-const STATUS_COLOR: Record<
-  string,
-  "brand" | "gray" | "success" | "warning" | "error"
-> = {
-  REQUESTED: "gray",
-  TENTATIVE: "warning",
-  CONFIRMED: "brand",
-  COMPLETED: "success",
-  CANCELLED: "error",
-  RESCHEDULED: "warning",
-  NO_SHOW: "error",
-};
-
-function CreateMeetingForm({
+function MeetingInlineForm({
   accountId,
-  onDone,
+  onCancel,
+  onSaved,
 }: {
   accountId: number;
-  onDone: () => void;
+  onCancel: () => void;
+  onSaved: () => void;
 }) {
-  const [mode, setMode] = useState<MeetingMode>("Online");
-  const [meetingDate, setMeetingDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
-  const [agenda, setAgenda] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const createMutation = useCreateMeeting();
-  const { toast } = useToast();
+  const [form, setForm] = useState({
+    mode: "Online" as MeetingMode,
+    meetingDate: "",
+    startTime: "",
+    endTime: "",
+    location: "",
+    meetingLink: "",
+    agenda: "",
+    participants: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+  const opt = (v: string) => (v.trim() ? v.trim() : undefined);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!meetingDate) {
-      setError("Meeting date is required");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const save = async () => {
+    if (!form.meetingDate) return;
+    setSaving(true);
     try {
       await createMutation.mutateAsync({
         relatedType: "account",
         relatedId: accountId,
-        mode,
-        meetingDate,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
-        location: location || undefined,
-        meetingLink: meetingLink || undefined,
-        agenda: agenda || undefined,
+        mode: form.mode,
+        meetingDate: form.meetingDate,
+        startTime: opt(form.startTime),
+        endTime: opt(form.endTime),
+        location: opt(form.location),
+        meetingLink: opt(form.meetingLink),
+        agenda: opt(form.agenda),
+        participants: opt(form.participants),
       });
-      toast({ title: "Meeting scheduled", variant: "success" });
-      onDone();
+      onSaved();
     } catch {
-      setError("Could not schedule the meeting. Try again.");
+      toast.error("Failed to schedule meeting. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormField label="Mode">
-        {(fp) => (
+    <InlineFormPanel
+      icon={CalendarClock}
+      title="Schedule Meeting"
+      subtitle="Set up a meeting with this account."
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Schedule"
+      saving={saving}
+      canSubmit={Boolean(form.meetingDate)}
+    >
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormRow label="Mode">
           <Select
-            {...fp}
-            value={mode}
-            onChange={(e) => setMode(e.target.value as MeetingMode)}
+            value={form.mode}
+            onValueChange={(v) => set("mode", v as MeetingMode)}
           >
-            {MEETING_MODES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MEETING_MODES.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        )}
-      </FormField>
-      <FormField label="Date" required>
-        {(fp) => (
-          <Input
-            {...fp}
-            type="date"
-            value={meetingDate}
-            onChange={(e) => setMeetingDate(e.target.value)}
-            disabled={submitting}
+        </FormRow>
+        <FormRow label="Date" required>
+          <DatePicker
+            className="h-9"
+            value={form.meetingDate}
+            onChange={(v) => set("meetingDate", v)}
           />
-        )}
-      </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Start time">
-          {(fp) => (
-            <Input
-              {...fp}
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              disabled={submitting}
-              placeholder="10:00"
-            />
-          )}
-        </FormField>
-        <FormField label="End time">
-          {(fp) => (
-            <Input
-              {...fp}
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              disabled={submitting}
-              placeholder="11:00"
-            />
-          )}
-        </FormField>
-      </div>
-      <FormField label="Location">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Start Time">
           <Input
-            {...fp}
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            type="time"
+            value={form.startTime}
+            onChange={(e) => set("startTime", e.target.value)}
           />
-        )}
-      </FormField>
-      <FormField label="Meeting link">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="End Time">
           <Input
-            {...fp}
-            value={meetingLink}
-            onChange={(e) => setMeetingLink(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            type="time"
+            value={form.endTime}
+            onChange={(e) => set("endTime", e.target.value)}
           />
-        )}
-      </FormField>
-      <FormField label="Agenda">
-        {(fp) => (
+        </FormRow>
+        <FormRow label="Location">
+          <Input
+            className="h-9 rounded-xl"
+            value={form.location}
+            onChange={(e) => set("location", e.target.value)}
+          />
+        </FormRow>
+        <FormRow label="Meeting Link">
+          <Input
+            className="h-9 rounded-xl"
+            value={form.meetingLink}
+            onChange={(e) => set("meetingLink", e.target.value)}
+          />
+        </FormRow>
+        <FormRow label="Agenda" className="md:col-span-2">
           <Textarea
-            {...fp}
-            value={agenda}
-            onChange={(e) => setAgenda(e.target.value)}
-            disabled={submitting}
-            rows={3}
+            rows={2}
+            className="rounded-xl"
+            value={form.agenda}
+            onChange={(e) => set("agenda", e.target.value)}
           />
-        )}
-      </FormField>
-      {error ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onDone}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" loading={submitting}>
-          Schedule
-        </Button>
+        </FormRow>
+        <FormRow label="Participants" className="md:col-span-2">
+          <Input
+            className="h-9 rounded-xl"
+            value={form.participants}
+            onChange={(e) => set("participants", e.target.value)}
+            placeholder="Comma-separated names"
+          />
+        </FormRow>
       </div>
-    </form>
+    </InlineFormPanel>
   );
 }
 
-function MeetingRow({ meeting }: { meeting: Meeting }) {
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [newDate, setNewDate] = useState("");
-  const [completeOpen, setCompleteOpen] = useState(false);
-  const [summary, setSummary] = useState("");
+function MeetingCompleteInlineForm({
+  meeting,
+  onCancel,
+  onSaved,
+}: {
+  meeting: Meeting;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const completeMutation = useCompleteMeeting();
+  const [form, setForm] = useState({
+    summary: "",
+    requirements: "",
+    concerns: "",
+    competitors: "",
+    budget: "",
+    decisionMaker: "",
+    expectedTimeline: "",
+    nextStep: "",
+    nextFollowUpAt: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+  const opt = (v: string) => (v.trim() ? v.trim() : undefined);
+
+  const save = async () => {
+    if (!form.summary.trim()) return;
+    setSaving(true);
+    try {
+      await completeMutation.mutateAsync({
+        id: meeting.id,
+        input: {
+          summary: form.summary.trim(),
+          requirements: opt(form.requirements),
+          concerns: opt(form.concerns),
+          competitors: opt(form.competitors),
+          budget: opt(form.budget),
+          decisionMaker: opt(form.decisionMaker),
+          expectedTimeline: opt(form.expectedTimeline),
+          nextStep: opt(form.nextStep),
+          nextFollowUpAt: opt(form.nextFollowUpAt),
+        },
+      });
+      celebrateCrm("meeting.completed");
+      onSaved();
+    } catch {
+      toast.error("Failed to complete meeting. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <InlineFormPanel
+      icon={CheckCircle2}
+      tone="emerald"
+      title="Complete Meeting"
+      subtitle="Record what happened on this meeting."
+      note={null}
+      onCancel={onCancel}
+      onSubmit={() => void save()}
+      submitLabel="Mark Completed"
+      saving={saving}
+      canSubmit={Boolean(form.summary.trim())}
+    >
+      <div className="space-y-3">
+        <FormRow label="Meeting Summary" required>
+          <Textarea
+            rows={2}
+            className="rounded-xl"
+            value={form.summary}
+            onChange={(e) => set("summary", e.target.value)}
+            placeholder="What was discussed…"
+          />
+        </FormRow>
+        <FormRow label="Client Requirements">
+          <Textarea
+            rows={2}
+            className="rounded-xl"
+            value={form.requirements}
+            onChange={(e) => set("requirements", e.target.value)}
+          />
+        </FormRow>
+        <FormRow label="Concerns Raised">
+          <Textarea
+            rows={2}
+            className="rounded-xl"
+            value={form.concerns}
+            onChange={(e) => set("concerns", e.target.value)}
+          />
+        </FormRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FormRow label="Competitors Mentioned">
+            <Input
+              className="h-9 rounded-xl"
+              value={form.competitors}
+              onChange={(e) => set("competitors", e.target.value)}
+            />
+          </FormRow>
+          <FormRow label="Budget">
+            <Input
+              className="h-9 rounded-xl"
+              value={form.budget}
+              onChange={(e) => set("budget", e.target.value)}
+            />
+          </FormRow>
+          <FormRow label="Decision Maker">
+            <Input
+              className="h-9 rounded-xl"
+              value={form.decisionMaker}
+              onChange={(e) => set("decisionMaker", e.target.value)}
+            />
+          </FormRow>
+          <FormRow label="Expected Timeline">
+            <Input
+              className="h-9 rounded-xl"
+              value={form.expectedTimeline}
+              onChange={(e) => set("expectedTimeline", e.target.value)}
+            />
+          </FormRow>
+        </div>
+        <FormRow label="Next Step">
+          <Input
+            className="rounded-xl"
+            value={form.nextStep}
+            onChange={(e) => set("nextStep", e.target.value)}
+            placeholder="e.g. Send proposal"
+          />
+        </FormRow>
+        <FormRow label="Next Follow-up Date">
+          <DatePicker
+            className="h-9"
+            value={form.nextFollowUpAt}
+            onChange={(v) => set("nextFollowUpAt", v)}
+          />
+        </FormRow>
+      </div>
+    </InlineFormPanel>
+  );
+}
+
+export function MeetingsTab({
+  accountId,
+  meetings,
+}: {
+  accountId: number;
+  meetings: Meeting[];
+}) {
+  const [creating, setCreating] = useState(false);
+  const [completing, setCompleting] = useState<Meeting | null>(null);
+  const [rescheduling, setRescheduling] = useState<Meeting | null>(null);
+  const canDelete = usePermission("crm.meeting.delete");
   const updateStatus = useUpdateMeetingStatus();
   const reschedule = useRescheduleMeeting();
-  const complete = useCompleteMeeting();
-  const { toast } = useToast();
+  const deleteMutation = useDeleteMeeting();
 
-  async function setStatus(status: MeetingStatus) {
-    await updateStatus.mutateAsync({ id: meeting.id, input: { status } });
-    toast({ title: `Meeting marked ${status}`, variant: "success" });
+  if (creating) {
+    return (
+      <MeetingInlineForm
+        accountId={accountId}
+        onCancel={() => setCreating(false)}
+        onSaved={() => setCreating(false)}
+      />
+    );
+  }
+  if (completing) {
+    return (
+      <MeetingCompleteInlineForm
+        meeting={completing}
+        onCancel={() => setCompleting(null)}
+        onSaved={() => setCompleting(null)}
+      />
+    );
+  }
+  if (rescheduling) {
+    return (
+      <RescheduleInlineForm
+        currentDate={rescheduling.meetingDate}
+        label="meeting"
+        onCancel={() => setRescheduling(null)}
+        onConfirm={(newDate, reason) =>
+          reschedule.mutateAsync({
+            id: rescheduling.id,
+            input: { newDate, reason },
+          })
+        }
+        onSaved={() => setRescheduling(null)}
+      />
+    );
   }
 
   return (
-    <li className="flex flex-col gap-2 py-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-theme-sm font-medium text-gray-900 dark:text-white/90">
-            {meeting.meetingDate}{" "}
-            {meeting.startTime ? `· ${meeting.startTime}` : ""}
-          </p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            {meeting.mode} {meeting.location ? `· ${meeting.location}` : ""}
-          </p>
-        </div>
-        <StatusBadge
-          label={meeting.status}
-          colorToken={STATUS_COLOR[meeting.status] ?? "gray"}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Select
-          value=""
-          onChange={(e) => {
-            if (e.target.value) void setStatus(e.target.value as MeetingStatus);
-          }}
-          className="max-w-[160px]"
-        >
-          <option value="">Change status…</option>
-          {MEETING_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </Select>
-        <Button variant="ghost" size="sm" onClick={() => setCompleteOpen(true)}>
-          Complete
-        </Button>
+    <SectionShell
+      title="Meetings"
+      action={
         <Button
-          variant="ghost"
           size="sm"
-          onClick={() => setRescheduleOpen(true)}
+          className="rounded-xl gap-1.5"
+          onClick={() => setCreating(true)}
         >
-          Reschedule
+          <Plus className="h-3.5 w-3.5" /> Schedule Meeting
         </Button>
-      </div>
-
-      <Dialog
-        open={rescheduleOpen}
-        onClose={() => setRescheduleOpen(false)}
-        title="Reschedule meeting"
-      >
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await reschedule.mutateAsync({
-              id: meeting.id,
-              input: { newDate },
-            });
-            setRescheduleOpen(false);
-            toast({ title: "Meeting rescheduled", variant: "success" });
-          }}
-        >
-          <FormField label="New date" required>
-            {(fp) => (
-              <Input
-                {...fp}
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-              />
-            )}
-          </FormField>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setRescheduleOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
-          </div>
-        </form>
-      </Dialog>
-
-      <Dialog
-        open={completeOpen}
-        onClose={() => setCompleteOpen(false)}
-        title="Complete meeting"
-      >
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await complete.mutateAsync({ id: meeting.id, input: { summary } });
-            setCompleteOpen(false);
-            toast({ title: "Meeting completed", variant: "success" });
-          }}
-        >
-          <FormField label="Summary">
-            {(fp) => (
-              <Textarea
-                {...fp}
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                rows={3}
-              />
-            )}
-          </FormField>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setCompleteOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">Complete</Button>
-          </div>
-        </form>
-      </Dialog>
-    </li>
-  );
-}
-
-/** Meetings tab: list + create + status transition + complete + reschedule,
- * using the new meetings api/hooks, hardcoded to `relatedType: 'account'`. */
-export function MeetingsTab({ accountId }: { accountId: number }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const query = useMeetings({
-    relatedType: "account",
-    relatedId: accountId,
-    limit: 50,
-  });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Meetings
-        </h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Schedule Meeting
-        </Button>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
-        <EmptyState
-          title="No meetings yet"
-          description="Schedule the first meeting."
-        />
+      }
+    >
+      {meetings.length === 0 ? (
+        <EmptyState icon={CalendarClock} title="No meetings yet" />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((m) => (
-            <MeetingRow key={m.id} meeting={m} />
-          ))}
-        </ul>
+        <div className="divide-y divide-slate-100">
+          {meetings.map((m) => {
+            const isDone = m.status === "COMPLETED" || m.status === "CANCELLED";
+            return (
+              <div key={m.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {m.mode} meeting — {m.meetingDate.slice(0, 10)}
+                      {m.startTime ? ` at ${m.startTime}` : ""}
+                    </p>
+                    {m.agenda && (
+                      <p className="text-sm text-slate-900 mt-1">{m.agenda}</p>
+                    )}
+                    {m.location && (
+                      <p className="text-sm text-slate-900 mt-0.5">
+                        {m.location}
+                      </p>
+                    )}
+                    {m.status === "COMPLETED" && m.summary && (
+                      <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1 mt-1.5">
+                        {m.summary}
+                      </p>
+                    )}
+                  </div>
+                  <Badge
+                    className={cn(
+                      "border shrink-0",
+                      MEETING_STATUS_STYLE[m.status],
+                    )}
+                  >
+                    {m.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {!isDone && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={COMPLETE_BTN_CLASS}
+                        onClick={() => setCompleting(m)}
+                      >
+                        <CheckCircle2 className="h-3 w-3" /> Complete
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={ROW_ACTION_BTN_CLASS}
+                        onClick={() => setRescheduling(m)}
+                      >
+                        <History className="h-3 w-3" /> Reschedule
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={CANCEL_ROW_BTN_CLASS}
+                        onClick={() =>
+                          updateStatus.mutate({
+                            id: m.id,
+                            input: { status: "CANCELLED" },
+                          })
+                        }
+                      >
+                        <XCircle className="h-3 w-3" /> Cancel
+                      </Button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <DeleteConfirmDialog
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={CRM_DELETE_BTN_CLASS}
+                          title="Delete meeting"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      }
+                      title="Delete this meeting?"
+                      description="This meeting and its recorded outcome will be moved to the CRM Recycle Bin."
+                      onConfirm={async () => {
+                        await deleteMutation.mutateAsync(m.id);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
-
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Schedule meeting"
-      >
-        <CreateMeetingForm
-          accountId={accountId}
-          onDone={() => setCreateOpen(false)}
-        />
-      </Dialog>
-    </div>
+    </SectionShell>
   );
 }

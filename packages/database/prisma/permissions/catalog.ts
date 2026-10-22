@@ -836,6 +836,220 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Delete CRM Cold Calling Status entries — granted separately from crm.coldcalling.write",
   },
+
+  // Remaining legacy CRM parity modules (Docs/CRM_FULL_LEGACY_PARITY.md §12).
+  // Same single-tier `.read`/`.write`/`.delete` shape as the entities above;
+  // legacy gates every delete through the admin-only `isCrmAdmin` check.
+  {
+    code: "crm.miningrow.read",
+    description: "View CRM Accounts Mining Sheet rows",
+  },
+  {
+    code: "crm.miningrow.write",
+    description:
+      "Add/update Accounts Mining Sheet rows and promote them to Leads (does not include delete)",
+  },
+  {
+    code: "crm.miningrow.delete",
+    description:
+      "Delete Accounts Mining Sheet rows — granted separately from crm.miningrow.write",
+  },
+  {
+    code: "crm.quota.read",
+    description: "View CRM sales targets (quotas) and their live attainment",
+  },
+  {
+    code: "crm.quota.write",
+    description:
+      "Set/update CRM sales targets (legacy canManagePipelineConfig tier; does not include delete)",
+  },
+  {
+    code: "crm.quota.delete",
+    description:
+      "Delete CRM sales targets — granted separately from crm.quota.write",
+  },
+  {
+    code: "crm.notification.read",
+    description: "View CRM notifications (bell + action panel)",
+  },
+  {
+    code: "crm.notification.write",
+    description: "Acknowledge/complete/snooze CRM notifications",
+  },
+  {
+    code: "crm.notification.delete",
+    description:
+      "Permanently delete CRM notifications — granted separately from crm.notification.write",
+  },
+  { code: "crm.dashboard.read", description: "View the CRM dashboard" },
+  {
+    code: "crm.overalldata.read",
+    description:
+      "View the CRM Overall Data daily-activity tracker and export it",
+  },
+  { code: "crm.calendar.read", description: "View the CRM calendar" },
+  {
+    code: "crm.search.read",
+    description:
+      "Use global CRM search (results still limited per entity read permission)",
+  },
+  {
+    code: "crm.recyclebin.read",
+    description: "View the CRM Recycle Bin (legacy: admin only)",
+  },
+  {
+    code: "crm.recyclebin.write",
+    description:
+      "Restore or permanently delete CRM Recycle Bin records (legacy: admin only)",
+  },
+  {
+    code: "crm.import.write",
+    description:
+      "Bulk-import CRM data from Excel (incl. auto-creating custom fields)",
+  },
+  { code: "crm.export.read", description: "Export CRM data to Excel/PDF" },
+
+  // apps/api/src/modules/scm/suppliers — migrated from the LEGACY
+  // TexaWave_ERP_old/src/modules/scm/suppliers (RTDB `contacts/vendors`).
+  // Organization-wide reference data, no team dimension — same shape as
+  // crm.product.*. Legacy gated every SCM action behind one module boolean
+  // (Docs/SCM_LEGACY_PARITY.md §3, "Permissions"); read/write is the
+  // smallest split that keeps "can view" separate from "can mutate". No
+  // `.delete`: legacy suppliers have no delete action at all.
+  { code: "scm.supplier.read", description: "View SCM suppliers" },
+  {
+    code: "scm.supplier.write",
+    description: "Create/update/activate/deactivate SCM suppliers",
+  },
+  // SCM supplier finance (apps/api/src/modules/scm/finance): Accounts Payable
+  // bills and payments made to suppliers. Org-wide, no team dimension. The
+  // supplier documents tab is gated by scm.supplier.read/write instead.
+  { code: "scm.finance.read", description: "View supplier bills and payments" },
+  {
+    code: "scm.finance.write",
+    description:
+      "Record, edit and cancel supplier bills; record and void supplier payments",
+  },
+  // SCM product master, warehouses/locations and inventory (stock overview,
+  // ledger, reservations, transfers, adjustments, batches, serials, opening
+  // balance). Org-wide data, no team dimension. `.approve` separates approving
+  // a transfer/adjustment from raising it; legacy gated everything behind a
+  // single module boolean and never separated the two.
+  { code: "scm.product.read", description: "View SCM products" },
+  {
+    code: "scm.product.write",
+    description: "Create/update/delete SCM products",
+  },
+  { code: "scm.warehouse.read", description: "View warehouses and locations" },
+  {
+    code: "scm.warehouse.write",
+    description: "Create/update warehouses and locations",
+  },
+  {
+    code: "scm.inventory.read",
+    description:
+      "View stock overview, ledger, reservations, transfers, adjustments, batches and serials",
+  },
+  {
+    code: "scm.inventory.write",
+    description:
+      "Post opening balances; create/dispatch/receive transfers; reserve stock; request adjustments; manage batches and serials",
+  },
+  {
+    code: "scm.inventory.approve",
+    description: "Approve stock transfers and approve/reject stock adjustments",
+  },
+  // SCM procurement (PR -> RFQ -> quotation -> comparison -> PO -> GRN).
+  // Legacy gated every action behind one module boolean with no approver
+  // separation; `.approve` separates approving/selecting from raising.
+  {
+    code: "scm.procurement.read",
+    description:
+      "View procurement documents (requisitions, RFQs, quotations, purchase orders, goods receipts)",
+  },
+  {
+    code: "scm.procurement.write",
+    description:
+      "Create and progress procurement documents; receive goods against purchase orders",
+  },
+  {
+    code: "scm.procurement.approve",
+    description:
+      "Approve/reject purchase requisitions and purchase orders; select winning supplier quotations",
+  },
+  // SCM sales orders, fulfillment/picking/packing and logistics. The new ERP
+  // has no Sales module, so SCM owns a minimal customer + sales order.
+  // Finalizing a fulfillment reduces on-hand stock, hence its own `.approve`.
+  {
+    code: "scm.sales.read",
+    description: "View SCM customers and sales orders",
+  },
+  {
+    code: "scm.sales.write",
+    description:
+      "Create/update SCM customers and sales orders; confirm or cancel sales orders",
+  },
+  {
+    code: "scm.fulfillment.read",
+    description: "View fulfillments, pick lists and packings",
+  },
+  {
+    code: "scm.fulfillment.write",
+    description: "Create fulfillments; reserve stock; pick and pack; cancel",
+  },
+  {
+    code: "scm.fulfillment.approve",
+    description:
+      "Finalize a fulfillment (posts the sales issue that reduces on-hand stock)",
+  },
+  {
+    code: "scm.logistics.read",
+    description: "View shipments, carriers and tracking",
+  },
+  {
+    code: "scm.logistics.write",
+    description:
+      "Create shipments; assign carriers; dispatch, track, deliver, cancel; manage carriers",
+  },
+  // SCM returns and quality control. Dispositions, vendor shipments,
+  // inspection completion and quarantine release/reject move stock, so
+  // each has its own `.approve`.
+  { code: "scm.returns.read", description: "View customer and vendor returns" },
+  {
+    code: "scm.returns.write",
+    description: "Raise, submit, receive, inspect and cancel returns",
+  },
+  {
+    code: "scm.returns.approve",
+    description:
+      "Approve or reject returns; post dispositions and vendor shipments (moves stock)",
+  },
+  {
+    code: "scm.quality.read",
+    description: "View QC inspections, templates, defects and quarantine",
+  },
+  {
+    code: "scm.quality.write",
+    description: "Create and run QC inspections; manage templates and defects",
+  },
+  {
+    code: "scm.quality.approve",
+    description:
+      "Complete inspections and release or reject quarantine (moves stock)",
+  },
+  // SCM reports — read-only snapshots across every other SCM domain.
+  {
+    code: "scm.reports.read",
+    description:
+      "View SCM reports (procurement, inventory, warehouse, fulfillment, logistics, returns, quality, suppliers)",
+  },
+  // SCM overview, master data search, barcode lookup, control tower,
+  // replenishment and the FAQ assistant — read-only cross-cutting views.
+  {
+    code: "scm.overview.read",
+    description:
+      "View the SCM overview, master data search, barcode lookup, control tower, replenishment and assistant",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [

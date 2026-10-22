@@ -56,8 +56,12 @@ export const createOpportunitySchema = z.object({
   currency: optionalString(10),
   expectedCloseDate: optionalString(10),
   priority: z.enum(OPPORTUNITY_PRIORITIES).optional(),
+  probability: z.number().int().min(0).max(100).optional(),
+  nextAction: optionalString(300),
+  nextActionDate: optionalString(10),
   campaignSource: optionalString(150),
   contactRole: optionalString(150),
+  forecastCategory: optionalString(30),
 });
 
 export type CreateOpportunityFormValues = z.infer<

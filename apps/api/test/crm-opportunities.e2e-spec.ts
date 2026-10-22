@@ -309,13 +309,25 @@ describe("crm pipeline-stages + opportunities (e2e)", () => {
         ownerName: "Rep A",
         stageId,
         estimatedValue: 50000,
+        forecastCategory: "Best Case",
       })
       .expect(201);
     const created = (
       createRes.body as {
-        data: { id: number; opportunityNumber: string; stageId: number };
+        data: {
+          id: number;
+          opportunityNumber: string;
+          stageId: number;
+          forecastCategory: string;
+        };
       }
     ).data;
+    expect(created.forecastCategory).toBe("Best Case");
+    await request(app.getHttpServer())
+      .patch(`/crm/opportunities/${created.id}`)
+      .set("Authorization", `Bearer ${tokenAll}`)
+      .send({ forecastCategory: "Whenever" })
+      .expect(400);
     expect(created.opportunityNumber).toBe(
       `OPP-${String(created.id).padStart(6, "0")}`,
     );

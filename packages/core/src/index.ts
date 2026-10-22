@@ -18,4 +18,6 @@ export * from "./schemas/crm-contact.schema";
 export * from "./schemas/crm-lead.schema";
 export * from "./schemas/crm-opportunity.schema";
 export * from "./schemas/crm-product.schema";
+export * from "./schemas/scm-supplier.schema";
 export * from "./schemas/crm-quotation.schema";
+export * from "./schemas/crm-quota.schema";

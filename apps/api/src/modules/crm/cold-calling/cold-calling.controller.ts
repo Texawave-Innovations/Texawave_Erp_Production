@@ -35,6 +35,12 @@ export class CrmColdCallingController {
     return this.coldCalling.findAll(query);
   }
 
+  @Get("statuses")
+  @RequirePermission("crm.coldcalling.read")
+  statuses() {
+    return this.coldCalling.distinctStatuses();
+  }
+
   @Get(":id")
   @RequirePermission("crm.coldcalling.read")
   findOne(@Param("id", ParseIntPipe) id: number) {

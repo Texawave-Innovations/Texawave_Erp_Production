@@ -37,6 +37,12 @@ export default function LoginPage() {
       });
       setOrganization({ organizationId: 0, organizationSlug });
       applyAuthTokens(data);
+      try {
+        // One-shot flag read by the CRM welcome celebration (legacy Login.tsx).
+        sessionStorage.setItem("justLoggedIn", "1");
+      } catch {
+        // sessionStorage unavailable — the celebration is optional
+      }
       router.push(await landingPathAfterLogin());
     } catch (err) {
       // Values are intentionally NOT cleared on failure (Docs/DESIGN_SYSTEM.md)

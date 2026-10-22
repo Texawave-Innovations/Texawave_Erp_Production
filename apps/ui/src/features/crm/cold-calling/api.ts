@@ -23,6 +23,13 @@ export function listColdCallingEntries(
   ) as Promise<PaginatedEnvelope<CrmColdCallingEntry>>;
 }
 
+export async function listColdCallingStatuses(): Promise<string[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<string[]>("/crm/cold-calling-entries/statuses"),
+  );
+  return data;
+}
+
 export async function getColdCallingEntry(
   id: number,
 ): Promise<CrmColdCallingEntry> {

@@ -6,5 +6,6 @@ import { FollowUpsService } from "./follow-ups.service.js";
 @Module({
   controllers: [FollowUpsController],
   providers: [FollowUpsRepository, FollowUpsService],
+  exports: [FollowUpsRepository, FollowUpsService],
 })
 export class FollowUpsModule {}

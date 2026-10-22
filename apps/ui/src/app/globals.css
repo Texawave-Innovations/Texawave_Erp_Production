@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@texawave-erp/ui-kit/theme.css";
+@import "./crm-legacy-theme.css";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -100,5 +101,35 @@ body {
   .animate-modal {
     animation: none !important;
     transform: none !important;
+  }
+}
+
+/* SCM overview: a small dot travels along each arrow between supply-chain
+   stages so the flow reads as live. The only self-moving element in that scene. */
+@keyframes scm-flow-dot {
+  0% {
+    left: 4%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 80%;
+    opacity: 0;
+  }
+}
+
+.scm-flow-dot {
+  animation: scm-flow-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scm-flow-dot {
+    animation: none;
+    opacity: 0;
   }
 }

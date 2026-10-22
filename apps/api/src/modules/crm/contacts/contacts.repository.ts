@@ -1,15 +1,20 @@
+import { classifyDbError } from "../../../common/database/db-errors.js";
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import { TeamScoped } from "../../../common/decorators/team-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
+import { attachActorNames } from "../shared/actor-names.js";
 import type { CreateContactDto, UpdateContactDto } from "./dto/contact.dto.js";
 
 const ENTITY_TYPE = "crm_contact";
@@ -88,7 +93,7 @@ export class ContactsRepository {
     pagination: PaginationDto,
   ) {
     const where = teamWhere(scope, filterWhere(filter), SCOPE_FIELDS);
-    const [items, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.contact.findMany({
         where,
         include: INCLUDE,
@@ -98,6 +103,36 @@ export class ContactsRepository {
       }),
       this.prisma.contact.count({ where }),
     ]);
+    const named = await attachActorNames(
+      this.prisma,
+      scope.organizationId,
+      rows,
+    );
+    // Linked deal / quote counts for the delete warning (legacy
+    // Contacts.tsx `relatedFor()`).
+    const ids = rows.map((r) => r.id);
+    const [deals, quotes] =
+      ids.length === 0
+        ? [[], []]
+        : await Promise.all([
+            this.prisma.opportunity.groupBy({
+              by: ["contactId"],
+              where: { contactId: { in: ids }, deletedAt: null },
+              _count: { _all: true },
+            }),
+            this.prisma.quotation.groupBy({
+              by: ["contactId"],
+              where: { contactId: { in: ids }, deletedAt: null },
+              _count: { _all: true },
+            }),
+          ]);
+    const dealCount = new Map(deals.map((d) => [d.contactId, d._count._all]));
+    const quoteCount = new Map(quotes.map((d) => [d.contactId, d._count._all]));
+    const items = named.map((c) => ({
+      ...c,
+      linkedOpportunityCount: dealCount.get(c.id) ?? 0,
+      linkedQuotationCount: quoteCount.get(c.id) ?? 0,
+    }));
     return { items, total };
   }
 
@@ -237,5 +272,97 @@ export class ContactsRepository {
       select: { id: true },
     });
     return found !== null;
+  }
+  /** Recycle Bin: this organization's soft-deleted rows, newest deletion first. */
+  @OrgScoped()
+  async findDeleted(scope: OrgScope) {
+    return this.prisma.contact.findMany({
+      where: tenantWhere(scope, { deletedAt: { not: null } }),
+      orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+      take: 2000,
+    });
+  }
+
+  /** Recycle Bin restore: clears `deletedAt`. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async restoreDeleted(scope: OrgScope, id: number, actorId: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.contact.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before || !before.deletedAt) return null;
+        const parent = await tx.account.findFirst({
+          where: { id: before.accountId, organizationId: scope.organizationId },
+          select: { deletedAt: true },
+        });
+        if (parent?.deletedAt) {
+          throw new BusinessRuleViolationException(
+            "Restore the parent account first - it is still in the Recycle Bin.",
+            "PARENT_DELETED",
+          );
+        }
+        const after = await tx.contact.update({
+          where: { id },
+          data: { deletedAt: null, isActive: true, updatedBy: actorId },
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "restore",
+          before: { deletedAt: before.deletedAt },
+          after: { deletedAt: null },
+        });
+        return after;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "unique") {
+        throw new ResourceConflictException(
+          "A live record with the same unique value already exists, so this one can't be restored",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Recycle Bin permanent delete: irreversible hard delete of a soft-deleted row. FK-safe: rows the record owns are removed, nullable references to it are cleared, and anything else still referencing it aborts with STILL_REFERENCED. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async purgeDeleted(scope: OrgScope, id: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.contact.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before) return null;
+        await tx.lead.updateMany({
+          where: { linkedContactId: id, organizationId: scope.organizationId },
+          data: { linkedContactId: null },
+        });
+        await tx.opportunity.updateMany({
+          where: { contactId: id, organizationId: scope.organizationId },
+          data: { contactId: null },
+        });
+        await tx.quotation.updateMany({
+          where: { contactId: id, organizationId: scope.organizationId },
+          data: { contactId: null },
+        });
+        await tx.contact.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "purge",
+          before: { deletedAt: before.deletedAt },
+        });
+        return before;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "foreign_key") {
+        throw new BusinessRuleViolationException(
+          "This record is still referenced by other records and can't be permanently deleted",
+          "STILL_REFERENCED",
+        );
+      }
+      throw error;
+    }
   }
 }

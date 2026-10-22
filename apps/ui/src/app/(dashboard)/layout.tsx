@@ -9,6 +9,7 @@ import { useMyEmployee } from "@/features/onboarding/hooks";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { HorizontalNavbar } from "@/components/layout/HorizontalNavbar";
+import { AssistantWidget } from "@/features/scm/overview/assistant/AssistantWidget";
 
 /**
  * Client-side route guard ONLY — see Docs/CODING_STANDARDS.md "Frontend
@@ -97,9 +98,10 @@ export default function DashboardLayout({
       <HorizontalNavbar onSignOut={() => void handleSignOut()} />
 
       {/* Page content — full width, no left offset */}
-      <main className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
-        {children}
-      </main>
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+
+      {/* SCM Copilot launcher — renders only on /scm screens. */}
+      <AssistantWidget />
     </div>
   );
 }

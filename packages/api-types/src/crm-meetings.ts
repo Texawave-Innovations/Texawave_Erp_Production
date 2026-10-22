@@ -29,6 +29,9 @@ export interface MeetingReschedule {
 }
 
 export interface Meeting {
+  /** Resolved server-side from users.full_name (list responses). */
+  createdByName?: string | null | undefined;
+  updatedByName?: string | null | undefined;
   id: number;
   organizationId: number;
   relatedType: RelatedType;
@@ -51,6 +54,7 @@ export interface Meeting {
   budget: string | null;
   decisionMaker: string | null;
   expectedTimeline: string | null;
+  nextStep: string | null;
   nextFollowUpAt: string | null;
   reschedules: MeetingReschedule[];
   createdBy: number | null;
@@ -90,6 +94,7 @@ export interface CompleteMeetingInput {
   budget?: string | undefined;
   decisionMaker?: string | undefined;
   expectedTimeline?: string | undefined;
+  nextStep?: string | undefined;
   nextFollowUpAt?: string | undefined;
 }
 
@@ -104,5 +109,7 @@ export interface QueryMeetingsInput {
   order?: ("asc" | "desc") | undefined;
   relatedType?: RelatedType | undefined;
   relatedId?: number | undefined;
+  /** Account roll-up: the account's own records plus those of its contacts and opportunities. */
+  rollupAccountId?: number | undefined;
   status?: MeetingStatus | undefined;
 }

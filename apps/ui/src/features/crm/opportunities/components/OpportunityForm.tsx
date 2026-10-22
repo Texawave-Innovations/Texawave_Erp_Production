@@ -1,37 +1,39 @@
 "use client";
 
+import { Button } from "@/components/legacy-ui/button";
+import { Input } from "@/components/legacy-ui/input";
+import { Label } from "@/components/legacy-ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/legacy-ui/select";
+import { DatePicker } from "@/features/crm/legacy-ui/DatePicker";
 import {
   OPPORTUNITY_PRIORITIES,
   createOpportunitySchema,
   type CreateOpportunityFormValues,
 } from "@texawave-erp/core";
-import { Button, FormField, Input, Select } from "@texawave-erp/ui-kit";
 import { useState } from "react";
-import { AccountCombobox } from "../../accounts/components/AccountCombobox";
+import { AccountPicker } from "../../accounts/components/AccountPicker";
 import { usePipelineStages } from "../../pipeline-stages/hooks";
 
 export interface OpportunityFormProps {
-  initialValues?: Partial<CreateOpportunityFormValues>;
+  initialValues?: Partial<CreateOpportunityFormValues> | undefined;
   onSubmit: (values: CreateOpportunityFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
-  /** Stage is only editable on create — a stage move always goes through
-   * the dedicated Move/Won/Lost/On-Hold/Reopen actions, never a silent
-   * side effect of this form (matches UpdateOpportunityDto excluding
-   * stageId). */
-  lockStage?: boolean;
 }
 
-/** Reproduces the legacy Pipeline.tsx "+New Deal" dialog's four required
- * fields (Account, Title, Owner, Estimated Value) plus the optional
- * fields it also carries (currency defaulted server-side, expected close
- * date, priority, campaign source, contact role). */
+/** "New Deal" form (Account, Title, Owner, Estimated Value required; stage, expected close,
+ * priority, campaign source, contact role optional) in the legacy CRM form style. */
 export function OpportunityForm({
   initialValues,
   onSubmit,
   onCancel,
   submitLabel,
-  lockStage,
 }: OpportunityFormProps) {
   const [accountId, setAccountId] = useState<number | undefined>(
     initialValues?.accountId,
@@ -49,7 +51,9 @@ export function OpportunityForm({
   const [expectedCloseDate, setExpectedCloseDate] = useState(
     initialValues?.expectedCloseDate ?? "",
   );
-  const [priority, setPriority] = useState(initialValues?.priority ?? "");
+  const [priority, setPriority] = useState<string>(
+    initialValues?.priority ?? "",
+  );
   const [campaignSource, setCampaignSource] = useState(
     initialValues?.campaignSource ?? "",
   );
@@ -62,7 +66,7 @@ export function OpportunityForm({
 
   const stagesQuery = usePipelineStages();
   const boardStages = (stagesQuery.data ?? [])
-    .filter((s) => !s.isWon && !s.isLost && !s.isOnHold)
+    .filter((s) => s.isActive && !s.isWon && !s.isLost && !s.isOnHold)
     .sort((a, b) => a.order - b.order);
 
   async function handleSubmit(event: React.FormEvent) {
@@ -102,149 +106,134 @@ export function OpportunityForm({
     }
   }
 
+  const err = (key: string) =>
+    errors[key] ? <p className="text-xs text-red-600">{errors[key]}</p> : null;
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <AccountCombobox
-        value={accountId}
-        onChange={setAccountId}
-        disabled={submitting}
-        error={errors.accountId}
-      />
-      <FormField label="Deal Title" required error={errors.title}>
-        {(fieldProps) => (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-bold text-slate-600">Account *</Label>
+        <AccountPicker value={accountId} onChange={setAccountId} />
+        {err("accountId")}
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-bold text-slate-600">Deal Title *</Label>
+        <Input
+          className="h-9 rounded-xl"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        {err("title")}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">Owner *</Label>
           <Input
-            {...fieldProps}
-            invalid={fieldProps.invalid}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={submitting}
+            className="h-9 rounded-xl"
+            value={ownerName}
+            onChange={(e) => setOwnerName(e.target.value)}
           />
-        )}
-      </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Owner" required error={errors.ownerName}>
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
-        <FormField
-          label="Estimated Value"
-          required
-          error={errors.estimatedValue}
-        >
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              type="number"
-              min={0}
-              invalid={fieldProps.invalid}
-              value={estimatedValue}
-              onChange={(e) => setEstimatedValue(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
+          {err("ownerName")}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">
+            Estimated Value *
+          </Label>
+          <Input
+            className="h-9 rounded-xl"
+            type="number"
+            min={0}
+            value={estimatedValue}
+            onChange={(e) => setEstimatedValue(e.target.value)}
+          />
+          {err("estimatedValue")}
+        </div>
       </div>
-      {!lockStage && (
-        <FormField label="Stage" required error={errors.stageId}>
-          {(fieldProps) => (
-            <Select
-              {...fieldProps}
-              value={stageId ?? ""}
-              onChange={(e) =>
-                setStageId(e.target.value ? Number(e.target.value) : undefined)
-              }
-              disabled={submitting || stagesQuery.isPending}
-            >
-              <option value="" disabled>
-                Select a stage
-              </option>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">Stage *</Label>
+          <Select
+            value={stageId ? String(stageId) : ""}
+            onValueChange={(v) => setStageId(Number(v))}
+          >
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue placeholder="Select a stage" />
+            </SelectTrigger>
+            <SelectContent>
               {boardStages.map((s) => (
-                <option key={s.id} value={s.id}>
+                <SelectItem key={s.id} value={String(s.id)}>
                   {s.label}
-                </option>
+                </SelectItem>
               ))}
-            </Select>
-          )}
-        </FormField>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Expected Close Date" error={errors.expectedCloseDate}>
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              type="date"
-              invalid={fieldProps.invalid}
-              value={expectedCloseDate}
-              onChange={(e) => setExpectedCloseDate(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
-        <FormField label="Priority" error={errors.priority}>
-          {(fieldProps) => (
-            <Select
-              {...fieldProps}
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              disabled={submitting}
-            >
-              <option value="">—</option>
+            </SelectContent>
+          </Select>
+          {err("stageId")}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">Priority</Label>
+          <Select value={priority} onValueChange={setPriority}>
+            <SelectTrigger className="h-9 rounded-xl">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
               {OPPORTUNITY_PRIORITIES.map((p) => (
-                <option key={p} value={p}>
+                <SelectItem key={p} value={p}>
                   {p}
-                </option>
+                </SelectItem>
               ))}
-            </Select>
-          )}
-        </FormField>
+            </SelectContent>
+          </Select>
+          {err("priority")}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-bold text-slate-600">
+          Expected Close Date
+        </Label>
+        <DatePicker
+          value={expectedCloseDate}
+          onChange={setExpectedCloseDate}
+          className="h-9"
+        />
+        {err("expectedCloseDate")}
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Campaign Source" error={errors.campaignSource}>
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
-              value={campaignSource}
-              onChange={(e) => setCampaignSource(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
-        <FormField label="Contact Role" error={errors.contactRole}>
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              invalid={fieldProps.invalid}
-              value={contactRole}
-              onChange={(e) => setContactRole(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">
+            Campaign Source
+          </Label>
+          <Input
+            className="h-9 rounded-xl"
+            value={campaignSource}
+            onChange={(e) => setCampaignSource(e.target.value)}
+          />
+          {err("campaignSource")}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold text-slate-600">
+            Contact Role
+          </Label>
+          <Input
+            className="h-9 rounded-xl"
+            value={contactRole}
+            onChange={(e) => setContactRole(e.target.value)}
+          />
+          {err("contactRole")}
+        </div>
       </div>
-      {submitError ? (
-        <p className="text-theme-xs text-error-600 dark:text-error-400">
-          {submitError}
-        </p>
-      ) : null}
+      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
       <div className="flex justify-end gap-2">
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
+          className="rounded-xl border-red-200 text-red-600 bg-red-50/50 hover:text-red-700 hover:border-red-400 hover:bg-red-100"
           onClick={onCancel}
           disabled={submitting}
         >
           Cancel
         </Button>
-        <Button type="submit" loading={submitting}>
-          {submitLabel}
+        <Button type="submit" className="rounded-xl" disabled={submitting}>
+          {submitting ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>

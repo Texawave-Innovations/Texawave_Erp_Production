@@ -1,72 +1,118 @@
 "use client";
 
 import type { Quotation } from "@texawave-erp/api-types";
+import { Eye, Receipt, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/legacy-ui/badge";
+import { Button } from "@/components/legacy-ui/button";
 import {
-  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/legacy-ui/table";
+import {
+  DeleteConfirmDialog,
   EmptyState,
-  Skeleton,
-  StatusBadge,
-} from "@texawave-erp/ui-kit";
-import Link from "next/link";
-import { useQuotations } from "../../../quotations/hooks";
+  formatMoney,
+} from "@/features/crm/legacy-ui/CrmCommon";
+import { useDeleteQuotation } from "@/features/crm/quotations/hooks";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  CRM_DELETE_BTN_CLASS,
+  SectionShell,
+  TABLE_HEAD_STYLE,
+  TH_CLASS,
+  VIEW_BTN_CLASS,
+} from "../accountUi";
 
-const STATUS_COLOR: Record<
-  string,
-  "brand" | "gray" | "success" | "warning" | "error"
-> = {
-  Draft: "gray",
-  Sent: "brand",
-  Accepted: "success",
-  Rejected: "error",
-  Expired: "warning",
-};
-
-/** Quotations tab — reuses the existing Quotations hook (does not rebuild
- * Quotations), scoped to this account via `accountId`. */
-export function QuotationsTab({ accountId }: { accountId: number }) {
-  const query = useQuotations({ accountId, limit: 50 });
+/** Read-only reflection of this account's quotations — they are created from the Quotes tab. */
+export function QuotationsTab({ quotations }: { quotations: Quotation[] }) {
+  const router = useRouter();
+  const canDelete = usePermission("crm.quotation.delete");
+  const deleteMutation = useDeleteQuotation();
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-          Quotations
-        </h3>
-        <Link href={`/crm/quotes/new?accountId=${accountId}`}>
-          <Button size="sm">New Quote</Button>
-        </Link>
-      </div>
-
-      {query.isPending ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError || !query.data || query.data.data.length === 0 ? (
+    <SectionShell title="Quotations">
+      {quotations.length === 0 ? (
         <EmptyState
+          icon={Receipt}
           title="No quotations yet"
-          description="Create the first quote."
+          description="Create a quotation from the main Quotes tab and assign it to this account."
         />
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-          {query.data.data.map((q: Quotation) => (
-            <li key={q.id} className="flex items-center justify-between py-3">
-              <Link
-                href={`/crm/quotes/${q.id}`}
-                className="text-theme-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+        <Table>
+          <TableHeader className="text-white">
+            <TableRow
+              className="hover:bg-transparent border-none"
+              style={TABLE_HEAD_STYLE}
+            >
+              <TableHead className={TH_CLASS}>Number</TableHead>
+              <TableHead className={TH_CLASS}>Amount</TableHead>
+              <TableHead className={TH_CLASS}>Status</TableHead>
+              <TableHead className={TH_CLASS}>Valid Until</TableHead>
+              <TableHead className={`w-40 ${TH_CLASS}`} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {quotations.map((q) => (
+              <TableRow
+                key={q.id}
+                className="border-b border-brand-200 last:border-b-0 hover:bg-brand-50/40"
               >
-                {q.quotationNumber} — {q.subject}
-              </Link>
-              <div className="flex items-center gap-3">
-                <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                  {q.grandTotal} {q.currency ?? ""}
-                </span>
-                <StatusBadge
-                  label={q.status}
-                  colorToken={STATUS_COLOR[q.status] ?? "gray"}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
+                <TableCell className="font-semibold text-slate-700 text-base py-1">
+                  {q.quotationNumber}
+                </TableCell>
+                <TableCell className="text-base text-slate-900 py-1">
+                  {formatMoney(Number(q.grandTotal), q.currency)}
+                </TableCell>
+                <TableCell className="text-base py-1">
+                  <Badge variant="outline" className="text-xs">
+                    {q.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-base text-slate-900 py-1">
+                  {q.validUntil ? q.validUntil.slice(0, 10) : "—"}
+                </TableCell>
+                <TableCell className="text-base py-1">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={VIEW_BTN_CLASS}
+                      title="View quotation"
+                      onClick={() => router.push(`/crm/quotes/${q.id}`)}
+                    >
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                    {canDelete && (
+                      <DeleteConfirmDialog
+                        trigger={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={CRM_DELETE_BTN_CLASS}
+                            title="Delete quotation"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        }
+                        title="Delete this quotation?"
+                        description={`Quotation ${q.quotationNumber} will be moved to the CRM Recycle Bin.`}
+                        onConfirm={async () => {
+                          await deleteMutation.mutateAsync(q.id);
+                        }}
+                      />
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </SectionShell>
   );
 }

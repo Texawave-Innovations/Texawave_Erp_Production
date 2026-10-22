@@ -6,6 +6,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Length,
@@ -33,6 +34,7 @@ export const LEAD_STATUSES = [
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_PRIORITIES = ["High", "Medium", "Low"] as const;
+export const LEAD_RATINGS = ["Hot", "Warm", "Cold"] as const;
 
 /** Migrated from the LIVE legacy TexaWave_ERP/src/modules/crm/Leads.tsx.
  * `companyName` and `prospectName` are hard-required, mirroring the legacy
@@ -158,6 +160,25 @@ export class CreateLeadDto {
   @IsOptional()
   @IsIn(LEAD_PRIORITIES)
   priority?: string;
+
+  @ApiPropertyOptional({ enum: LEAD_RATINGS })
+  @IsOptional()
+  @IsIn(LEAD_RATINGS)
+  rating?: string;
+
+  @ApiPropertyOptional({ description: "Free-text month (legacy lead field)" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 50)
+  month?: string;
+
+  @ApiPropertyOptional({
+    description: "CrmCustomFieldDef key -> value (module 'leads')",
+  })
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, string>;
 
   @ApiPropertyOptional({
     description: "Free-text owner name, as legacy stores it",
@@ -297,6 +318,50 @@ export class QueryLeadDto extends PaginationDto {
   @IsString()
   @Length(0, 100)
   country?: string;
+
+  @ApiPropertyOptional({ enum: ["CONVERTED", "NOT_CONVERTED"] })
+  @IsOptional()
+  @IsIn(["CONVERTED", "NOT_CONVERTED"])
+  converted?: "CONVERTED" | "NOT_CONVERTED";
+
+  @ApiPropertyOptional({ enum: LEAD_RATINGS })
+  @IsOptional()
+  @IsIn(LEAD_RATINGS)
+  rating?: string;
+
+  @ApiPropertyOptional({ enum: ["TOUCHED", "UNTOUCHED"] })
+  @IsOptional()
+  @IsIn(["TOUCHED", "UNTOUCHED"])
+  touched?: "TOUCHED" | "UNTOUCHED";
+
+  @ApiPropertyOptional({ description: "User id of the creator" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  createdBy?: number;
+
+  @ApiPropertyOptional({ description: "ISO date (inclusive)" })
+  @IsOptional()
+  @IsDateString()
+  createdFrom?: string;
+
+  @ApiPropertyOptional({ description: "ISO date (inclusive)" })
+  @IsOptional()
+  @IsDateString()
+  createdTo?: string;
+
+  @ApiPropertyOptional({ description: "Minimum annual revenue (numeric part)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minAnnualRevenue?: number;
+
+  @ApiPropertyOptional({ enum: ["createdAt", "companyName"] })
+  @IsOptional()
+  @IsIn(["createdAt", "companyName"])
+  sortBy?: "createdAt" | "companyName";
 }
 
 /** `POST /crm/leads/:id/convert` — reproduces legacy
@@ -403,4 +468,12 @@ export class ConvertLeadDto {
   @IsString()
   @Length(0, 150)
   contactRole?: string;
+}
+
+export class CreateLeadNoteDto {
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  @Length(1, 5000)
+  content!: string;
 }

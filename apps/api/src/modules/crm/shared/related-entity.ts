@@ -55,3 +55,40 @@ export async function assertRelatedEntityExists(
     );
   }
 }
+
+/** Account roll-up (legacy `AccountDetail`'s `relevantIds`): an account's
+ * related lists include records attached to the account itself, to any of
+ * its live contacts and to any of its live opportunities. Returns a
+ * `where` fragment valid for every polymorphic `relatedType`/`relatedId`
+ * model (meetings, follow-ups, tasks, documents, activities). */
+export async function accountRollupWhere(
+  db: Prisma.TransactionClient,
+  organizationId: number,
+  accountId: number,
+): Promise<{
+  OR: Array<{
+    relatedType: string;
+    relatedId: number | { in: number[] };
+  }>;
+}> {
+  const [contacts, opportunities] = await Promise.all([
+    db.contact.findMany({
+      where: { organizationId, accountId, deletedAt: null },
+      select: { id: true },
+    }),
+    db.opportunity.findMany({
+      where: { organizationId, accountId, deletedAt: null },
+      select: { id: true },
+    }),
+  ]);
+  return {
+    OR: [
+      { relatedType: "account", relatedId: accountId },
+      { relatedType: "contact", relatedId: { in: contacts.map((c) => c.id) } },
+      {
+        relatedType: "opportunity",
+        relatedId: { in: opportunities.map((o) => o.id) },
+      },
+    ],
+  };
+}

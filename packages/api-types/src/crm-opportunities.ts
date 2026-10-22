@@ -87,6 +87,7 @@ export interface Opportunity {
   stuckReason: string | null;
   stuckReasonOther: string | null;
   contactRole: string | null;
+  forecastCategory: string | null;
   campaignSource: string | null;
   closingAmount: string | null;
   closingDate: string | null;
@@ -107,6 +108,7 @@ export interface OpportunityStageHistoryEntry {
   toStageId: number;
   toStage: Pick<PipelineStage, "id" | "code" | "label">;
   changedBy: number | null;
+  changedByName?: string | null | undefined;
   changedAt: string;
   remarks: string | null;
 }
@@ -121,8 +123,12 @@ export interface CreateOpportunityInput {
   currency?: string | undefined;
   expectedCloseDate?: string | undefined;
   priority?: string | undefined;
+  probability?: number | undefined;
+  nextAction?: string | undefined;
+  nextActionDate?: string | undefined;
   campaignSource?: string | undefined;
   contactRole?: string | undefined;
+  forecastCategory?: string | undefined;
 }
 
 export type UpdateOpportunityInput = Partial<

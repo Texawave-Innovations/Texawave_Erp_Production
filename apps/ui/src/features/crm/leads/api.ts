@@ -2,6 +2,9 @@ import type {
   ConvertLeadInput,
   CreateLeadInput,
   Lead,
+  LeadFacets,
+  LeadNote,
+  LeadTimelineEntry,
   PaginatedEnvelope,
   QueryLeadsInput,
   UpdateLeadInput,
@@ -18,6 +21,48 @@ export function listLeads(
   return withAuthRetry(() =>
     apiClient.get<Lead[]>("/crm/leads", { query }),
   ) as Promise<PaginatedEnvelope<Lead>>;
+}
+
+export async function getLeadFacets(): Promise<LeadFacets> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<LeadFacets>("/crm/leads/facets"),
+  );
+  return data;
+}
+
+export async function listLeadNotes(id: number): Promise<LeadNote[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<LeadNote[]>(`/crm/leads/${id}/notes`),
+  );
+  return data;
+}
+
+export async function addLeadNote(
+  id: number,
+  content: string,
+): Promise<LeadNote> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<LeadNote>(`/crm/leads/${id}/notes`, { content }),
+  );
+  return data;
+}
+
+export async function deleteLeadNote(
+  id: number,
+  noteId: number,
+): Promise<void> {
+  await withAuthRetry(() =>
+    apiClient.delete<void>(`/crm/leads/${id}/notes/${noteId}`),
+  );
+}
+
+export async function getLeadTimeline(
+  id: number,
+): Promise<LeadTimelineEntry[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<LeadTimelineEntry[]>(`/crm/leads/${id}/timeline`),
+  );
+  return data;
 }
 
 export async function getLead(id: number): Promise<Lead> {

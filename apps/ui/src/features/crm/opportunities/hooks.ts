@@ -6,6 +6,8 @@ import type {
   CreateOpportunityInput,
   MarkLostInput,
   MarkWonInput,
+  Opportunity,
+  OpportunityStatus,
   QueryOpportunitiesInput,
   ReopenInput,
   SetOnHoldInput,
@@ -21,6 +23,7 @@ import {
   changeOpportunityStage,
   createOpportunity,
   deleteOpportunity,
+  getOpportunity,
   getStageHistory,
   listOpportunities,
   listOpportunityProducts,
@@ -49,6 +52,50 @@ export function useOpportunities(query: QueryOpportunitiesInput) {
     queryKey: opportunitiesKey(organizationId ?? 0, query),
     queryFn: () => listOpportunities(query),
     enabled: Boolean(organizationId),
+  });
+}
+
+/** Legacy loaded every opportunity into the board at once; the API pages at
+ * 100, so walk the pages. `status` omitted = every status. */
+export function useAllOpportunities(status?: OpportunityStatus) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "crm-opportunities",
+      "all",
+      status ?? "any",
+    ),
+    queryFn: async () => {
+      const items: Opportunity[] = [];
+      let page = 1;
+      for (;;) {
+        const res = await listOpportunities({
+          page,
+          limit: 100,
+          ...(status ? { status } : {}),
+        });
+        items.push(...res.data);
+        if (page >= res.meta.totalPages || page >= 100) break;
+        page += 1;
+      }
+      return items;
+    },
+    enabled: Boolean(organizationId),
+  });
+}
+
+export function useOpportunity(id: number | undefined) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "crm-opportunities",
+      "one",
+      id ?? 0,
+    ),
+    queryFn: () => getOpportunity(id as number),
+    enabled: Boolean(organizationId) && id !== undefined,
   });
 }
 

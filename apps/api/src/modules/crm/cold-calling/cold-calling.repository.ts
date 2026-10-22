@@ -1,3 +1,8 @@
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
+import { classifyDbError } from "../../../common/database/db-errors.js";
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
@@ -16,6 +21,9 @@ const ENTITY_TYPE = "crm_cold_calling_entry";
 export interface ColdCallingFilter {
   search?: string | undefined;
   linkedAccountId?: number | undefined;
+  status?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
 }
 
 function snapshot(row: {
@@ -45,6 +53,15 @@ function filterWhere(
   }
   if (filter.linkedAccountId !== undefined)
     clauses.push({ linkedAccountId: filter.linkedAccountId });
+  if (filter.status) clauses.push({ status: filter.status });
+  if (filter.dateFrom)
+    clauses.push({ callDate: { gte: new Date(filter.dateFrom) } });
+  if (filter.dateTo)
+    clauses.push({
+      callDate: {
+        lt: new Date(new Date(filter.dateTo).getTime() + 86_400_000),
+      },
+    });
   return { AND: clauses };
 }
 
@@ -72,6 +89,18 @@ export class CrmColdCallingRepository {
       this.prisma.crmColdCallingEntry.count({ where }),
     ]);
     return { items, total };
+  }
+
+  /** Distinct free-text statuses, for the list's status filter dropdown. */
+  @OrgScoped()
+  async distinctStatuses(scope: OrgScope) {
+    const rows = await this.prisma.crmColdCallingEntry.findMany({
+      where: tenantWhere(scope, { deletedAt: null, status: { not: null } }),
+      select: { status: true },
+      distinct: ["status"],
+      orderBy: { status: "asc" },
+    });
+    return rows.map((r) => (r.status ?? "").trim()).filter((s) => s.length > 0);
   }
 
   @OrgScoped()
@@ -243,5 +272,75 @@ export class CrmColdCallingRepository {
       });
       return after;
     });
+  }
+  /** Recycle Bin: this organization's soft-deleted rows, newest deletion first. */
+  @OrgScoped()
+  async findDeleted(scope: OrgScope) {
+    return this.prisma.crmColdCallingEntry.findMany({
+      where: tenantWhere(scope, { deletedAt: { not: null } }),
+      orderBy: [{ deletedAt: "desc" }, { id: "desc" }],
+      take: 2000,
+    });
+  }
+
+  /** Recycle Bin restore: clears `deletedAt`. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async restoreDeleted(scope: OrgScope, id: number, actorId: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.crmColdCallingEntry.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before || !before.deletedAt) return null;
+        const after = await tx.crmColdCallingEntry.update({
+          where: { id },
+          data: { deletedAt: null, updatedBy: actorId },
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "restore",
+          before: { deletedAt: before.deletedAt },
+          after: { deletedAt: null },
+        });
+        return after;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "unique") {
+        throw new ResourceConflictException(
+          "A live record with the same unique value already exists, so this one can't be restored",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Recycle Bin permanent delete: irreversible hard delete of a soft-deleted row. FK-safe: rows the record owns are removed, nullable references to it are cleared, and anything else still referencing it aborts with STILL_REFERENCED. Returns null when the row is not in the bin. */
+  @OrgScoped()
+  async purgeDeleted(scope: OrgScope, id: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.crmColdCallingEntry.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: { not: null } }),
+        });
+        if (!before) return null;
+        await tx.crmColdCallingEntry.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "purge",
+          before: { deletedAt: before.deletedAt },
+        });
+        return before;
+      });
+    } catch (error) {
+      if (classifyDbError(error)?.kind === "foreign_key") {
+        throw new BusinessRuleViolationException(
+          "This record is still referenced by other records and can't be permanently deleted",
+          "STILL_REFERENCED",
+        );
+      }
+      throw error;
+    }
   }
 }

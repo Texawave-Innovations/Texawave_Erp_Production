@@ -1336,3 +1336,44 @@ Result: **6/6 tests pass** (part of the 8-file/105-test clean run in §11.4).
   follow-up — none of it was in scope.
 - No UI/browser verification was performed in this follow-up either (backend-only scope:
   permission catalog, seeding, e2e).
+
+## 12. Remaining sub-modules implementation record (Phases 2–8)
+
+All remaining legacy CRM sub-modules are now ported. Foundation: migrations
+`20261016120000_add_crm_remaining_foundation` (`CrmMiningRow`, `CrmQuota`,
+`CrmNotification`, `CrmCustomFieldDef`) and `20261016130001_crm_bulk_import_custom_fields`
+(`customFields` on `CrmMeeting`/`CrmColdCallingEntry`); new permissions `crm.miningrow.*`,
+`crm.quota.*`, `crm.notification.*`, `crm.dashboard.read`, `crm.overalldata.read`,
+`crm.calendar.read`, `crm.search.read`, `crm.recyclebin.{read,write}`, `crm.import.write`,
+`crm.export.read`; menu entries for every new route.
+
+| Feature                     | Route                                                                                                                | API module                                                                                | Notes / deviations                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WhatsApp / LinkedIn / Email | `/crm/{whatsapp,linkedin,email}`                                                                                     | `activities` (extended: `search`, `accountId`)                                            | Deep links as legacy. No Owner column; account/contact names from a bounded 100-row lookup. `GET /crm/activities?accountId=` is the unified Account timeline.   |
+| Accounts Mining Sheet       | `/crm/accounts-mining-sheet`                                                                                         | `mining-rows`                                                                             | Idempotent promote-to-lead (422 on repeat); needs `crm.lead.write.*` too. Add saves on close (`companyName` required).                                          |
+| Target / Quotas             | `/crm/quotas`                                                                                                        | `quotas` (`quota-attainment.ts` pure math)                                                | Everyone with `.read` sees all quotas (legacy own-only view would need `crm.quota.read.own`). Legacy `totalDays` off-by-one kept.                               |
+| Overall Data                | `/crm/overall-data`                                                                                                  | `overall-data`                                                                            | 9 rows derived from real tables + audit log; IST day buckets; Excel export added with bulk import. Deal/Stage column blank.                                     |
+| Notifications               | bell + blocking panel in `crm/layout.tsx`                                                                            | `crm-notifications` (not `notifications/`: that dir is tsc/eslint-excluded legacy copies) | Generation driven by UI on load + 60s (no scheduler in repo). WhatsApp/LinkedIn sheet notifications not ported.                                                 |
+| Recycle Bin                 | `/crm/recycle-bin`                                                                                                   | `recycle-bin` (+ `findDeleted/restoreDeleted/purgeDeleted` on owning repos)               | 17 entity types. **Deals and accounts with deals cannot be purged** (`opportunity_stage_history` is append-only → 422 `HAS_IMMUTABLE_HISTORY`). Open decision.  |
+| Global Search               | `/crm/search`                                                                                                        | `search`                                                                                  | Reads via owning services' scope; per-kind read permission.                                                                                                     |
+| Calendar                    | `/crm/calendar`, `/crm/calendar/event/[type]/[id]`                                                                   | `calendar`                                                                                | Hand-built grid. Status-tag dates omitted (already CrmTasks).                                                                                                   |
+| Dashboard                   | `/crm/dashboard`                                                                                                     | `dashboard`                                                                               | Sections null when unreadable. Forecast-category tiles omitted (field not in schema). SVG charts, no new deps.                                                  |
+| Bulk Import / Export        | `/crm/bulk-import` + `ImportExportBar` on Leads, Accounts, Contacts, Products, Quotes (export), Cold Calling, Mining | `bulk-import`                                                                             | Added deps `xlsx@0.18.5`, `exceljs`, `jspdf`, `jspdf-autotable` (need reviewer sign-off; xlsx has upstream advisories). `.doc` export and Deals import omitted. |
+
+**Verification (2026-10-16):** `tsc --noEmit` (api) clean; `eslint src/modules/crm` (api) clean;
+`eslint` on `apps/ui/src/features/crm` + CRM routes clean; `permissions:check` (328) and
+`menu:check` (68) valid; all 17 `test/crm-*.e2e-spec.ts` files pass (183 tests) on
+`texawave_erp_test`. UI `tsc` has one error outside CRM (`framer-motion` missing in
+`circle-menu.tsx`). **No UI page was browser-verified; no Playwright specs were added.**
+
+## 13. Legacy UI parity pass (2026-10-17)
+
+Request: every CRM tab should look and behave like the old ERP's CRM. Done as a presentation-layer port; hooks, permissions, routes and API calls are unchanged.
+
+- **Scoping:** legacy green brand palette, Inter font and shadcn semantic tokens apply only inside `.crm-module` and CRM portals (`apps/ui/src/app/(dashboard)/crm/crm-legacy.css`, `apps/ui/src/app/crm-legacy-theme.css`). Non-CRM pages are unchanged.
+- **Shell:** `features/crm/shell/CrmShell.tsx` reproduces legacy `CRMLayout.tsx` (title card, Search/Bulk Import/Calendar/bell, tinted scrolling tabs, celebrations).
+- **Primitives:** shadcn ports in `components/legacy-ui/`, shared CRM pieces in `features/crm/legacy-ui/`, celebrations in `features/crm/celebration/`.
+- **New routes:** `/crm/leads/[id]`, `/crm/pipeline/[id]`.
+- **New dependencies (reviewer sign-off needed):** Radix UI packages, class-variance-authority, tailwind-merge, cmdk, date-fns, react-day-picker, sonner, tw-animate-css, recharts, canvas-confetti (+types).
+- **Omitted (no backend data):** lead rating/touched/last-activity, account hq + custom fields, Company 360, forecast category, channel-queue Owner column, recycle-bin record snapshots, lead audit timeline, "changed by" names.
+- **Not visually verified in a browser.** `tsc` and `eslint` are clean on all CRM UI files (one unrelated `framer-motion` error in `circle-menu.tsx`).
