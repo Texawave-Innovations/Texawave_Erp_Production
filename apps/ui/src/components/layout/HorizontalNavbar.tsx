@@ -1460,7 +1460,7 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
         path: "/projects/points-master",
         icon: Award,
         icon3d: "tasks",
-        menuCode: "projects-points",
+        menuCode: "projects-points-master",
       },
     ],
   },
@@ -1532,8 +1532,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Projects",
     icon: FolderKanban,
     icon3d: "projects",
-    path: "#",
-    available: false,
+    path: "/projects/dashboard",
+    available: true,
+    categories: PROJECTS_CATEGORIES,
   },
   {
     id: "master-list",
@@ -1675,6 +1676,15 @@ function findRouteNavigationState(pathname: string) {
       moduleId: "crm",
       categoryId: pathname.startsWith("/crm/dashboard")
         ? "crm-dashboard"
+        : null,
+      leafId: null,
+    };
+  }
+  if (pathname.startsWith("/projects")) {
+    return {
+      moduleId: "projects",
+      categoryId: pathname.startsWith("/projects/dashboard")
+        ? "projects-dashboard"
         : null,
       leafId: null,
     };
