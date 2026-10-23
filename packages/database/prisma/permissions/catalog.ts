@@ -471,6 +471,15 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Update the status of my own tasks until admin approval",
   },
 
+  // apps/api/src/modules/hr/candidates — recruitment pipeline, team-scoped
+  // the same way hr.task.*/hr.ticket.* are: read/write seeded as
+  // .own/.team/.all together, following the exact scoped pattern above.
+  ...scopedPermission("hr.candidate.read", "View candidates"),
+  ...scopedPermission(
+    "hr.candidate.write",
+    "Create/update candidates and their pipeline stage",
+  ),
+
   // apps/api/src/platform/audit — read-only; no team dimension (design A-4).
   {
     code: "audit.log.read",
@@ -510,6 +519,19 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Change payroll settings and masters (policy, statutory rules, salary components, templates, tax slabs)",
   },
+
+  // Carried over from an earlier (pre-payroll-module) permission design that
+  // duplicated hr.payroll.read/write above under the same codes with
+  // different descriptions — consolidated here to resolve that duplicate
+  // registration. `hr.payroll.credit` itself was never a duplicate (unique
+  // code) and is preserved as-is; no controller currently checks it
+  // (crediting payslips today runs through hr.payment.write in
+  // apps/api/src/modules/hr/payroll/payments), so it is kept seeded but
+  // unused rather than deleted, per the no-removal constraint.
+  ...scopedPermission(
+    "hr.payroll.credit",
+    "Mark payslips as credited (paid out)",
+  ),
 
   // Salary structures — team-scoped
   ...scopedPermission("hr.salary.read", "View employee salary structures"),
@@ -695,6 +717,440 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "projects_master.task_running_number_master.write",
     description: "Update the Task Running Number Master format",
+  // apps/api/src/modules/crm/accounts — minimal CRM Account foundation
+  // (Phase 4B). Organization-wide reference data (any contact's required
+  // parent), no team dimension — same shape as master-data/* above.
+  { code: "crm.account.read", description: "View CRM accounts" },
+  {
+    code: "crm.account.write",
+    description: "Create/update CRM accounts",
+  },
+
+  // apps/api/src/modules/crm/contacts — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/domain/contactsService.ts (RTDB
+  // `crm/contacts`). `teamId` exists on the table but no production
+  // decision has been made about who owns a contact's team, so read/write
+  // are seeded `.own/.team/.all` per the standard pattern (CODING_STANDARDS
+  // §10a); `.team` is granted to no default role in this phase — see
+  // default-roles.ts.
+  ...scopedPermission("crm.contact.read", "View CRM contacts"),
+  ...scopedPermission("crm.contact.write", "Create/update/delete CRM contacts"),
+
+  // apps/api/src/modules/crm/leads — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Leads.tsx + domain/LeadConvertDialog.tsx
+  // (RTDB `crm/leads`). Same `.own/.team/.all` shape as crm.contact.* —
+  // legacy gates Delete behind "CRM Admin only" (isCrmAdmin), but this app
+  // has no separate CRM-admin role concept yet, so `.write` is the
+  // documented stand-in, same as crm.contact.write. Converting a lead
+  // (create/link Account + Contact) also requires `.write`; it does not
+  // get its own permission since it is just a multi-record write.
+  ...scopedPermission("crm.lead.read", "View CRM leads"),
+  ...scopedPermission(
+    "crm.lead.write",
+    "Create/update/delete/convert CRM leads",
+  ),
+
+  // apps/api/src/modules/crm/pipeline-stages — migrated from the LIVE
+  // legacy TexaWave_ERP/src/modules/crm/domain/pipelineStagesService.ts.
+  // Organization-wide configuration (every opportunity references a
+  // stage), no team dimension — same shape as crm.account.*. Legacy gates
+  // stage management behind "CRM Admin / Sales Head"
+  // (`canManagePipelineConfig`); this app has no separate role concept for
+  // that yet, so `.write` is the stand-in, same convention as
+  // crm.lead.write.
+  { code: "crm.pipeline_stage.read", description: "View CRM pipeline stages" },
+  {
+    code: "crm.pipeline_stage.write",
+    description: "Create/update/reorder/delete CRM pipeline stages",
+  },
+
+  // apps/api/src/modules/crm/opportunities — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Pipeline.tsx + domain/opportunitiesService.ts
+  // + domain/OpportunityDrawer.tsx (RTDB `crm/opportunities` +
+  // `crm/opportunityStageHistory`). Same `.own/.team/.all` shape as
+  // crm.lead.*. Legacy's `canManageOpportunity` lets "CRM Admin"/"Sales
+  // Head" manage any opportunity but a "Sales Executive" only their own —
+  // the closest existing mapping is `.all` for admin/manager-equivalent
+  // roles and `.own` for everyone else, same stand-in pattern as
+  // crm.lead.write for the admin-only Delete gate. Stage-transition
+  // actions (change-stage, won/lost/on-hold/reopen) and reading stage
+  // history all require only the base read/write permission — none of
+  // them are separately permissioned, since legacy does not gate them
+  // more narrowly than "can edit this opportunity" either.
+  ...scopedPermission("crm.opportunity.read", "View CRM opportunities"),
+  ...scopedPermission(
+    "crm.opportunity.write",
+    "Create/update/delete/change-stage CRM opportunities",
+  ),
+
+  // apps/api/src/modules/crm/products — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/Products.tsx + domain/productsService.ts
+  // (RTDB `crm/products`). Organization-wide reference data, no team
+  // dimension — same shape as crm.account.*/crm.pipeline_stage.*, not the
+  // `.own/.team/.all` shape used by crm.lead.*/crm.opportunity.*. Legacy
+  // gates Create/Update behind "CRM Admin / Sales Head"
+  // (`canManageProducts`) and Delete behind "CRM Admin only"
+  // (`isCrmAdmin`) — strictly narrower than Create/Update. This app has
+  // no separate CRM-admin role concept, so `.write` is the single-tier
+  // stand-in for BOTH gates, same convention as crm.pipeline_stage.write.
+  { code: "crm.product.read", description: "View CRM products" },
+  {
+    code: "crm.product.write",
+    description: "Create/update/archive/delete CRM products",
+  },
+
+  // apps/api/src/modules/crm/opportunities (deal line items) — migrated
+  // from the LIVE legacy TexaWave_ERP/src/modules/crm/domain/
+  // dealProductsService.ts + domain/AddDealProductsDialog.tsx
+  // (RTDB `crm/dealProducts`). Adding/editing/removing a line item on an
+  // Opportunity is governed by the SAME permission as editing the
+  // Opportunity itself (crm.opportunity.*) — it is not a separately
+  // permissioned action in legacy either (the Products tab UI gate is
+  // whatever already gates the surrounding DealDetail screen), so no new
+  // permission code is introduced for it.
+
+  // apps/api/src/modules/crm/quotations — migrated from the LIVE legacy
+  // TexaWave_ERP/src/modules/crm/QuoteForm.tsx + Quotes.tsx +
+  // domain/quotationsService.ts (RTDB `crm/quotations` +
+  // `crm/quotationItems`). Organization-wide reference data, no team
+  // dimension — same shape as crm.product.*/crm.pipeline_stage.*
+  // (approved decision D1, Docs/CRM_QUOTES_LEGACY_PARITY.md §4/§6).
+  //
+  // UNLIKE every other CRM entity so far, Delete here is its OWN
+  // permission, `crm.quotation.delete`, deliberately NOT folded into
+  // `.write`. Legacy's Delete is `isCrmAdmin`-only while Create/Update
+  // have NO permission gate at all (verified — `canManageQuotes` does
+  // not exist in roles.ts); this phase's approved decision requires that
+  // an ordinary `.write` grant must NOT be able to delete a quotation,
+  // so collapsing the two tiers the way crm.product.write/
+  // crm.pipeline_stage.write do would violate that explicitly. Grant
+  // `.delete` only to admin-equivalent roles via Settings → Roles.
+  { code: "crm.quotation.read", description: "View CRM quotations" },
+  {
+    code: "crm.quotation.write",
+    description: "Create/update CRM quotations (does not include delete)",
+  },
+  {
+    code: "crm.quotation.delete",
+    description:
+      "Delete CRM quotations — granted separately from crm.quotation.write",
+  },
+
+  // apps/api/src/modules/crm/accounts — Phase 0 (Account-360 foundation,
+  // Docs/CRM_FULL_LEGACY_PARITY.md §4) added delete, which the Phase 4B
+  // foundation never had. Legacy's Delete (incl. cascade-delete) is
+  // `isCrmAdmin`-only, same single-tier admin-only shape as
+  // crm.quotation.delete — not folded into `.write`, granted separately.
+  {
+    code: "crm.account.delete",
+    description:
+      "Delete CRM accounts (incl. cascade) — granted separately from crm.account.write",
+  },
+
+  // apps/api/src/modules/crm/meetings, follow-ups, activities, tasks,
+  // documents, notes — Phase 0 Account-360 supporting entities (legacy
+  // domain/meetingsService.ts, followupsService.ts, activitiesService.ts,
+  // tasksService.ts, documentsService.ts, intelligence/notesService.ts).
+  // Every one of these 6 entities' legacy delete path funnels through the
+  // same generic `assertCrmAdmin` gate (confirmed by direct audit) — same
+  // single-tier admin-only `.delete` shape as crm.account.delete/
+  // crm.quotation.delete above, not a `.own/.team/.all` scope (legacy CRM
+  // has no team dimension for any of these entities).
+  { code: "crm.meeting.read", description: "View CRM meetings" },
+  {
+    code: "crm.meeting.write",
+    description:
+      "Create/update/complete/cancel/reschedule CRM meetings (does not include delete)",
+  },
+  {
+    code: "crm.meeting.delete",
+    description:
+      "Delete CRM meetings — granted separately from crm.meeting.write",
+  },
+  { code: "crm.followup.read", description: "View CRM follow-ups" },
+  {
+    code: "crm.followup.write",
+    description:
+      "Create/update/complete/cancel/reschedule CRM follow-ups (does not include delete)",
+  },
+  {
+    code: "crm.followup.delete",
+    description:
+      "Delete CRM follow-ups — granted separately from crm.followup.write",
+  },
+  { code: "crm.activity.read", description: "View CRM activities" },
+  {
+    code: "crm.activity.write",
+    description: "Log/update CRM activities (does not include delete)",
+  },
+  {
+    code: "crm.activity.delete",
+    description:
+      "Delete CRM activities — granted separately from crm.activity.write",
+  },
+  { code: "crm.task.read", description: "View CRM tasks" },
+  {
+    code: "crm.task.write",
+    description:
+      "Create/update/complete CRM tasks (does not include delete) — distinct from hr.task.*, which is the unrelated employee-assignment task",
+  },
+  {
+    code: "crm.task.delete",
+    description: "Delete CRM tasks — granted separately from crm.task.write",
+  },
+  { code: "crm.document.read", description: "View CRM documents" },
+  {
+    code: "crm.document.write",
+    description:
+      "Add CRM documents (name + external link only, no upload; no update in legacy either)",
+  },
+  {
+    code: "crm.document.delete",
+    description:
+      "Delete CRM documents — granted separately from crm.document.write",
+  },
+  { code: "crm.note.read", description: "View CRM account notes" },
+  {
+    code: "crm.note.write",
+    description: "Add CRM account notes (no update in legacy)",
+  },
+  {
+    code: "crm.note.delete",
+    description:
+      "Delete CRM account notes — granted separately from crm.note.write",
+  },
+
+  // apps/api/src/modules/crm/cold-calling — Phase 1B additive queue (Docs/
+  // CRM_FULL_LEGACY_PARITY.md §10). Legacy `ColdCallingStatus.tsx` gates its
+  // own delete through the same generic `isCrmAdmin` check as every other
+  // CRM entity above — same single-tier admin-only `.delete` shape.
+  {
+    code: "crm.coldcalling.read",
+    description: "View CRM Cold Calling Status entries",
+  },
+  {
+    code: "crm.coldcalling.write",
+    description:
+      "Add/update CRM Cold Calling Status entries, link them to an Account, and record a routed disposition (does not include delete)",
+  },
+  {
+    code: "crm.coldcalling.delete",
+    description:
+      "Delete CRM Cold Calling Status entries — granted separately from crm.coldcalling.write",
+  },
+
+  // Remaining legacy CRM parity modules (Docs/CRM_FULL_LEGACY_PARITY.md §12).
+  // Same single-tier `.read`/`.write`/`.delete` shape as the entities above;
+  // legacy gates every delete through the admin-only `isCrmAdmin` check.
+  {
+    code: "crm.miningrow.read",
+    description: "View CRM Accounts Mining Sheet rows",
+  },
+  {
+    code: "crm.miningrow.write",
+    description:
+      "Add/update Accounts Mining Sheet rows and promote them to Leads (does not include delete)",
+  },
+  {
+    code: "crm.miningrow.delete",
+    description:
+      "Delete Accounts Mining Sheet rows — granted separately from crm.miningrow.write",
+  },
+  {
+    code: "crm.quota.read",
+    description: "View CRM sales targets (quotas) and their live attainment",
+  },
+  {
+    code: "crm.quota.write",
+    description:
+      "Set/update CRM sales targets (legacy canManagePipelineConfig tier; does not include delete)",
+  },
+  {
+    code: "crm.quota.delete",
+    description:
+      "Delete CRM sales targets — granted separately from crm.quota.write",
+  },
+  {
+    code: "crm.notification.read",
+    description: "View CRM notifications (bell + action panel)",
+  },
+  {
+    code: "crm.notification.write",
+    description: "Acknowledge/complete/snooze CRM notifications",
+  },
+  {
+    code: "crm.notification.delete",
+    description:
+      "Permanently delete CRM notifications — granted separately from crm.notification.write",
+  },
+  { code: "crm.dashboard.read", description: "View the CRM dashboard" },
+  {
+    code: "crm.overalldata.read",
+    description:
+      "View the CRM Overall Data daily-activity tracker and export it",
+  },
+  { code: "crm.calendar.read", description: "View the CRM calendar" },
+  {
+    code: "crm.search.read",
+    description:
+      "Use global CRM search (results still limited per entity read permission)",
+  },
+  {
+    code: "crm.recyclebin.read",
+    description: "View the CRM Recycle Bin (legacy: admin only)",
+  },
+  {
+    code: "crm.recyclebin.write",
+    description:
+      "Restore or permanently delete CRM Recycle Bin records (legacy: admin only)",
+  },
+  {
+    code: "crm.import.write",
+    description:
+      "Bulk-import CRM data from Excel (incl. auto-creating custom fields)",
+  },
+  { code: "crm.export.read", description: "Export CRM data to Excel/PDF" },
+
+  // apps/api/src/modules/scm/suppliers — migrated from the LEGACY
+  // TexaWave_ERP_old/src/modules/scm/suppliers (RTDB `contacts/vendors`).
+  // Organization-wide reference data, no team dimension — same shape as
+  // crm.product.*. Legacy gated every SCM action behind one module boolean
+  // (Docs/SCM_LEGACY_PARITY.md §3, "Permissions"); read/write is the
+  // smallest split that keeps "can view" separate from "can mutate". No
+  // `.delete`: legacy suppliers have no delete action at all.
+  { code: "scm.supplier.read", description: "View SCM suppliers" },
+  {
+    code: "scm.supplier.write",
+    description: "Create/update/activate/deactivate SCM suppliers",
+  },
+  // SCM supplier finance (apps/api/src/modules/scm/finance): Accounts Payable
+  // bills and payments made to suppliers. Org-wide, no team dimension. The
+  // supplier documents tab is gated by scm.supplier.read/write instead.
+  { code: "scm.finance.read", description: "View supplier bills and payments" },
+  {
+    code: "scm.finance.write",
+    description:
+      "Record, edit and cancel supplier bills; record and void supplier payments",
+  },
+  // SCM product master, warehouses/locations and inventory (stock overview,
+  // ledger, reservations, transfers, adjustments, batches, serials, opening
+  // balance). Org-wide data, no team dimension. `.approve` separates approving
+  // a transfer/adjustment from raising it; legacy gated everything behind a
+  // single module boolean and never separated the two.
+  { code: "scm.product.read", description: "View SCM products" },
+  {
+    code: "scm.product.write",
+    description: "Create/update/delete SCM products",
+  },
+  { code: "scm.warehouse.read", description: "View warehouses and locations" },
+  {
+    code: "scm.warehouse.write",
+    description: "Create/update warehouses and locations",
+  },
+  {
+    code: "scm.inventory.read",
+    description:
+      "View stock overview, ledger, reservations, transfers, adjustments, batches and serials",
+  },
+  {
+    code: "scm.inventory.write",
+    description:
+      "Post opening balances; create/dispatch/receive transfers; reserve stock; request adjustments; manage batches and serials",
+  },
+  {
+    code: "scm.inventory.approve",
+    description: "Approve stock transfers and approve/reject stock adjustments",
+  },
+  // SCM procurement (PR -> RFQ -> quotation -> comparison -> PO -> GRN).
+  // Legacy gated every action behind one module boolean with no approver
+  // separation; `.approve` separates approving/selecting from raising.
+  {
+    code: "scm.procurement.read",
+    description:
+      "View procurement documents (requisitions, RFQs, quotations, purchase orders, goods receipts)",
+  },
+  {
+    code: "scm.procurement.write",
+    description:
+      "Create and progress procurement documents; receive goods against purchase orders",
+  },
+  {
+    code: "scm.procurement.approve",
+    description:
+      "Approve/reject purchase requisitions and purchase orders; select winning supplier quotations",
+  },
+  // SCM sales orders, fulfillment/picking/packing and logistics. The new ERP
+  // has no Sales module, so SCM owns a minimal customer + sales order.
+  // Finalizing a fulfillment reduces on-hand stock, hence its own `.approve`.
+  {
+    code: "scm.sales.read",
+    description: "View SCM customers and sales orders",
+  },
+  {
+    code: "scm.sales.write",
+    description:
+      "Create/update SCM customers and sales orders; confirm or cancel sales orders",
+  },
+  {
+    code: "scm.fulfillment.read",
+    description: "View fulfillments, pick lists and packings",
+  },
+  {
+    code: "scm.fulfillment.write",
+    description: "Create fulfillments; reserve stock; pick and pack; cancel",
+  },
+  {
+    code: "scm.fulfillment.approve",
+    description:
+      "Finalize a fulfillment (posts the sales issue that reduces on-hand stock)",
+  },
+  {
+    code: "scm.logistics.read",
+    description: "View shipments, carriers and tracking",
+  },
+  {
+    code: "scm.logistics.write",
+    description:
+      "Create shipments; assign carriers; dispatch, track, deliver, cancel; manage carriers",
+  },
+  // SCM returns and quality control. Dispositions, vendor shipments,
+  // inspection completion and quarantine release/reject move stock, so
+  // each has its own `.approve`.
+  { code: "scm.returns.read", description: "View customer and vendor returns" },
+  {
+    code: "scm.returns.write",
+    description: "Raise, submit, receive, inspect and cancel returns",
+  },
+  {
+    code: "scm.returns.approve",
+    description:
+      "Approve or reject returns; post dispositions and vendor shipments (moves stock)",
+  },
+  {
+    code: "scm.quality.read",
+    description: "View QC inspections, templates, defects and quarantine",
+  },
+  {
+    code: "scm.quality.write",
+    description: "Create and run QC inspections; manage templates and defects",
+  },
+  {
+    code: "scm.quality.approve",
+    description:
+      "Complete inspections and release or reject quarantine (moves stock)",
+  },
+  // SCM reports — read-only snapshots across every other SCM domain.
+  {
+    code: "scm.reports.read",
+    description:
+      "View SCM reports (procurement, inventory, warehouse, fulfillment, logistics, returns, quality, suppliers)",
+  },
+  // SCM overview, master data search, barcode lookup, control tower,
+  // replenishment and the FAQ assistant — read-only cross-cutting views.
+  {
+    code: "scm.overview.read",
+    description:
+      "View the SCM overview, master data search, barcode lookup, control tower, replenishment and assistant",
   },
 ];
 

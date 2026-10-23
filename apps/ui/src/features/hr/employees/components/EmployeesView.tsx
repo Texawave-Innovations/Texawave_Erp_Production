@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  UserPlus,
   Users,
-  Download,
   Search,
   X,
   SlidersHorizontal,
@@ -13,8 +11,10 @@ import {
   ExternalLink,
   Edit,
   Eye,
-  Upload,
   ClipboardCheck,
+  RotateCcw,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -31,25 +31,41 @@ import {
   Pagination,
   SearchInput,
   Select,
+  Semantic3DIcon,
   TableSkeleton,
   useToast,
+  cn,
   type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
-import { useDebouncedValue, useEmployees, useLookup } from "../hooks";
 import {
+  useChangeEmployeeStatus,
+  useDebouncedValue,
+  useEmployees,
+  useEmployeeStats,
+  useLookup,
+  useUnlinkEmployeeUser,
+} from "../hooks";
+import {
+  ACCOUNT_WRITE,
   EXPORT_ANY_SCOPE,
   ONBOARDING_APPROVE_TEAM_OR_ALL,
   READ_ANY_SCOPE,
+  STATUS_WRITE,
   WRITE_TEAM_OR_ALL,
 } from "../permissions";
 import { STATUS_LABELS } from "../status";
-import type { EmployeeStatus, OnboardingReviewStatus } from "../types";
+import type {
+  EmployeeListItem,
+  EmployeeStatus,
+  OnboardingReviewStatus,
+} from "../types";
 import { EMPLOYEE_STATUSES, ONBOARDING_REVIEW_STATUSES } from "../types";
 import { EmployeeStatsRow } from "./EmployeeStatsRow";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { ImportEmployeesDialog } from "./ImportEmployeesDialog";
+import { LinkAccountDialog } from "./LinkAccountDialog";
 import { OnboardingReviewBadge, REVIEW_LABELS } from "./OnboardingReviewBadge";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
 import { EmployeeIdentity, HrPageHeader } from "@/features/hr/components";
@@ -108,11 +124,128 @@ export function EmployeesView() {
 
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
+  const canWriteStatus = usePermission(STATUS_WRITE);
+  const canAccount = usePermission(ACCOUNT_WRITE);
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
   const { toast } = useToast();
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [updatingEmployeeId, setUpdatingEmployeeId] = useState<number | null>(
+    null,
+  );
+  const [unlinkingEmployeeId, setUnlinkingEmployeeId] = useState<number | null>(
+    null,
+  );
+  const [linkDialogOpen, setLinkDialogOpen] = useState<EmployeeListItem | null>(
+    null,
+  );
+  const changeStatusMutation = useChangeEmployeeStatus();
+  const unlinkMutation = useUnlinkEmployeeUser();
+  const stats = useEmployeeStats(canRead);
+  const pendingReviewCount = stats.data?.onboarding.pendingReview ?? 0;
+
+  const handleToggleLogin = async (
+    e: React.MouseEvent,
+    emp: EmployeeListItem,
+  ) => {
+    e.stopPropagation();
+    if (!canAccount && !canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You do not have permission to manage employee accounts.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (emp.hasLogin) {
+      setUnlinkingEmployeeId(emp.id);
+      try {
+        await unlinkMutation.mutateAsync({
+          id: emp.id,
+          body: { reason: "Unlinked via employee directory quick action" },
+        });
+        toast({
+          title: "Account unlinked",
+          description: `${emp.fullName}'s login has been detached.`,
+          variant: "success",
+        });
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to unlink employee account";
+        toast({
+          title: "Unlink failed",
+          description: message,
+          variant: "error",
+        });
+      } finally {
+        setUnlinkingEmployeeId(null);
+      }
+    } else {
+      setLinkDialogOpen(emp);
+    }
+  };
+
+  const handleToggleStatus = async (
+    e: React.MouseEvent,
+    emp: EmployeeListItem,
+  ) => {
+    e.stopPropagation();
+    if (!canWriteStatus && !canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You do not have permission to update employee status.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (emp.status !== "ACTIVE" && emp.status !== "INACTIVE") {
+      router.push(`/hr/employees/${emp.id}`);
+      return;
+    }
+
+    const nextStatus: EmployeeStatus =
+      emp.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const today = new Intl.DateTimeFormat("en-CA").format(new Date());
+
+    setUpdatingEmployeeId(emp.id);
+    try {
+      await changeStatusMutation.mutateAsync({
+        id: emp.id,
+        correction: false,
+        body: {
+          status: nextStatus,
+          effectiveDate: today,
+          reason: `Status changed to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"} via employee directory quick action`,
+        },
+      });
+      toast({
+        title: `Status changed to ${STATUS_LABELS[nextStatus]}`,
+        description: `${emp.fullName} is now ${STATUS_LABELS[nextStatus].toLowerCase()}.`,
+        variant: "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to update employee status";
+      toast({
+        title: "Status change failed",
+        description: message,
+        variant: "error",
+      });
+    } finally {
+      setUpdatingEmployeeId(null);
+    }
+  };
 
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -264,6 +397,11 @@ export function EmployeesView() {
     try {
       const { page: _p, limit: _l, ...filtersOnly } = query;
       await exportEmployeesCsv(filtersOnly);
+      toast({
+        title: "Export complete",
+        description: "The employees CSV has been downloaded successfully.",
+        variant: "success",
+      });
     } catch (error) {
       toast({
         title: "Export failed",
@@ -300,7 +438,7 @@ export function EmployeesView() {
                 loading={exporting}
                 className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
               >
-                <Download className="h-4 w-4" />
+                <Semantic3DIcon name="export" size={18} />
                 <span>Export CSV</span>
               </Button>
             ) : null}
@@ -310,7 +448,7 @@ export function EmployeesView() {
                 onClick={() => setImportOpen(true)}
                 className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
               >
-                <Upload className="h-4 w-4" />
+                <Semantic3DIcon name="import" size={18} />
                 <span>Import CSV</span>
               </Button>
             ) : null}
@@ -318,9 +456,9 @@ export function EmployeesView() {
               <Button
                 variant="primary"
                 onClick={() => router.push("/hr/employees/new")}
-                className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+                className="gap-2"
               >
-                <UserPlus className="h-4 w-4" />
+                <Semantic3DIcon name="plus" size={18} />
                 <span>Add Employee</span>
               </Button>
             ) : null}
@@ -330,22 +468,42 @@ export function EmployeesView() {
 
       <EmployeeStatsRow />
 
-      {/* Compact Filter Toolbar */}
-      <div className="rounded-2xl border border-sky-100 bg-white p-3.5 shadow-xs transition-shadow duration-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-3">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          {/* Left: Search Input */}
+      {/* Enhanced Filter Toolbar & Directory Controls */}
+      <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-4 shadow-[0_4px_24px_-4px_rgba(14,165,233,0.08)] backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 transition-all space-y-3.5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Left: Universal Search Input */}
           <SearchInput
-            placeholder="Search by name, code or work e-mail"
+            placeholder="Search by name, code or work e-mail..."
             aria-label="Search employees"
             value={filters.search}
             onChange={(e) => update("search", e.target.value)}
             onClear={() => update("search", "")}
             sizeVariant="sm"
-            className="flex-1 sm:max-w-md"
+            className="flex-1 lg:max-w-md xl:max-w-lg"
           />
 
-          {/* Right: Controls (Filters Toggle, Sort, Clear) */}
+          {/* Right: Controls (Filters Toggle, Clear, Quick Review, Sort, Export) */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Quick filter: HR's onboarding review queue */}
+            <Button
+              type="button"
+              variant={awaitingReview ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={awaitingReview}
+              onClick={() =>
+                update("reviewStatus", awaitingReview ? "" : "PENDING_REVIEW")
+              }
+              className="gap-1.5 h-9 px-3 text-theme-xs cursor-pointer font-medium"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              <span>Awaiting review</span>
+              {pendingReviewCount > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[10px] font-bold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                  {pendingReviewCount}
+                </span>
+              )}
+            </Button>
+
             {/* Filter Toggle Button */}
             <Button
               type="button"
@@ -354,7 +512,7 @@ export function EmployeesView() {
               }
               size="sm"
               onClick={() => setFiltersExpanded((prev) => !prev)}
-              className={`gap-1.5 h-9 px-3 text-theme-xs ${
+              className={`gap-1.5 h-9 px-3 text-theme-xs cursor-pointer font-medium ${
                 activeFilterCount > 0
                   ? "border-brand-300 text-brand-800 dark:border-brand-700 dark:text-brand-300"
                   : ""
@@ -374,23 +532,23 @@ export function EmployeesView() {
               />
             </Button>
 
-            {/* Quick filter: HR's onboarding review queue */}
-            <Button
-              type="button"
-              variant={awaitingReview ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={awaitingReview}
-              onClick={() =>
-                update("reviewStatus", awaitingReview ? "" : "PENDING_REVIEW")
-              }
-              className="gap-1.5 h-9 px-3 text-theme-xs"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              <span>Awaiting review</span>
-            </Button>
+            {/* Sudden-visible Clear Filters Button (Instantly visible in primary bar whenever any filter or search is active) */}
+            {hasFilters && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                title="Clear all active search and filters"
+                className="gap-1.5 h-9 px-2.5 text-theme-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/50 rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Clear filters</span>
+              </Button>
+            )}
 
             {/* Sort Option Select */}
-            <div className="w-44">
+            <div className="w-40 sm:w-44">
               <Select
                 aria-label="Sort by"
                 value={filters.sortBy}
@@ -404,24 +562,62 @@ export function EmployeesView() {
                 ))}
               </Select>
             </div>
-
-            {/* Export Button (Reference Image) */}
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => {}}
-              className="gap-1.5 h-9 bg-linear-135 from-brand-600 to-brand-cyan text-white shadow-xs rounded-xl px-3.5 border-0 hover:opacity-95"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>Export</span>
-            </Button>
           </div>
         </div>
 
+        {/* Active Filter Chips Strip (Prominently visible below search bar) */}
+        {activeChips.length > 0 && (
+          <div className="pt-3 border-t border-sky-100/70 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5">
+            <FilterChips
+              chips={activeChips}
+              onClearAll={clearAllFilters}
+              clearAllLabel="Clear all"
+              size="md"
+            />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              {list.data
+                ? `${list.data.meta.total} ${
+                    list.data.meta.total === 1 ? "employee" : "employees"
+                  } found`
+                : ""}
+            </span>
+          </div>
+        )}
+
         {/* Expandable Advanced Filter Panel */}
         {filtersExpanded && (
-          <div className="pt-3 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="rounded-xl border border-sky-100/90 bg-sky-50/50 p-4 dark:border-slate-800 dark:bg-slate-850/60 animate-in fade-in slide-in-from-top-1 duration-150 space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-sky-100/80 dark:border-slate-800">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Advanced Filters
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Filter workforce by status, department, designation, employment type, or dates
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline dark:text-rose-400 cursor-pointer"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset all</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFiltersExpanded(false)}
+                  aria-label="Close filters panel"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {/* Status */}
               <div>
@@ -580,13 +776,6 @@ export function EmployeesView() {
             </div>
           </div>
         )}
-
-        {/* Active Filter Chips */}
-        {activeChips.length > 0 && (
-          <div className="pt-2.5 border-t border-gray-100 dark:border-gray-800">
-            <FilterChips chips={activeChips} onClearAll={clearAllFilters} />
-          </div>
-        )}
       </div>
 
       {/* Data Table Section */}
@@ -626,9 +815,12 @@ export function EmployeesView() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
+          <div className="rounded-2xl">
             <DataTable
               caption="Employees"
+              tableClassName="w-full text-left text-theme-xs"
+              density="compact"
+              className="overflow-x-auto lg:overflow-x-visible scrollbar-none [&::-webkit-scrollbar]:hidden"
               rows={list.data.data}
               getRowKey={(e) => String(e.id)}
               columns={[
@@ -639,11 +831,13 @@ export function EmployeesView() {
                       name={e.fullName}
                       code={e.employeeCode}
                       href={`/hr/employees/${e.id}`}
+                      size="sm"
                     />
                   ),
                 },
                 {
                   header: "Team",
+                  align: "center",
                   cell: (e) => (
                     <span className="font-medium text-gray-800 dark:text-gray-200">
                       {e.team.name}
@@ -652,6 +846,7 @@ export function EmployeesView() {
                 },
                 {
                   header: "Designation",
+                  align: "center",
                   cell: (e) => (
                     <span className="text-gray-600 dark:text-gray-300">
                       {e.designation.name}
@@ -660,6 +855,7 @@ export function EmployeesView() {
                 },
                 {
                   header: "Employment type",
+                  align: "center",
                   cell: (e) => (
                     <span className="text-gray-600 dark:text-gray-300">
                       {e.employmentType.name}
@@ -668,67 +864,183 @@ export function EmployeesView() {
                 },
                 {
                   header: "Joined",
+                  align: "center",
+                  width: 95,
+                  className: "w-[95px] text-center whitespace-nowrap",
+                  headerClassName: "w-[95px] text-center whitespace-nowrap",
                   cell: (e) => (
-                    <span className="font-mono text-[12px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400">
                       {e.dateOfJoining}
                     </span>
                   ),
                 },
                 {
                   header: "Status",
-                  cell: (e) => <EmployeeStatusBadge status={e.status} />,
+                  align: "center",
+                  width: 92,
+                  className: "w-[92px] text-center whitespace-nowrap",
+                  headerClassName: "w-[92px] text-center whitespace-nowrap",
+                  cell: (e) => {
+                    const isUpdating = updatingEmployeeId === e.id;
+                    if (e.status === "ACTIVE" || e.status === "INACTIVE") {
+                      const isActive = e.status === "ACTIVE";
+                      return (
+                        <div className="flex items-center justify-center">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={(ev) => handleToggleStatus(ev, e)}
+                            disabled={isUpdating}
+                            aria-label={`${isActive ? "Active" : "Inactive"} status for ${e.fullName}. Click to toggle.`}
+                            title={`Click to set ${isActive ? "Inactive" : "Active"}`}
+                            className="w-20.5 min-w-20.5 max-w-20.5 h-7 px-1.5 text-xs font-semibold justify-center shadow-xs hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                          >
+                            {isUpdating ? (
+                              <span className="inline-flex items-center justify-center">
+                                <svg
+                                  className="h-3.5 w-3.5 animate-spin text-white"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                  />
+                                </svg>
+                              </span>
+                            ) : (
+                              <>
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    isActive
+                                      ? "bg-emerald-300 ring-2 ring-emerald-400/40"
+                                      : "bg-red-400 ring-2 ring-red-300/60",
+                                  )}
+                                />
+                                <span>{isActive ? "Active" : "Inactive"}</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex items-center justify-center">
+                        <EmployeeStatusBadge status={e.status} />
+                      </div>
+                    );
+                  },
                 },
                 {
                   header: "Onboarding",
-                  cell: (e) =>
-                    e.onboardingReviewStatus === "NOT_SUBMITTED" ? (
-                      <OnboardingStatusBadge status={e.onboardingStatus} />
-                    ) : e.onboardingReviewStatus === "PENDING_REVIEW" ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          router.push(`/hr/employees/${e.id}/onboarding`)
-                        }
-                        aria-label={`Review submitted details of ${e.fullName}`}
-                        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-                      >
+                  align: "center",
+                  width: 120,
+                  className: "w-[120px] text-center whitespace-nowrap",
+                  headerClassName: "w-[120px] text-center whitespace-nowrap",
+                  cell: (e) => (
+                    <div className="flex items-center justify-center">
+                      {e.onboardingReviewStatus === "NOT_SUBMITTED" ? (
+                        <OnboardingStatusBadge status={e.onboardingStatus} />
+                      ) : e.onboardingReviewStatus === "PENDING_REVIEW" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(`/hr/employees/${e.id}/onboarding`)
+                          }
+                          aria-label={`Review submitted details of ${e.fullName}`}
+                          className="rounded-full inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                        >
+                          <OnboardingReviewBadge
+                            status={e.onboardingReviewStatus}
+                          />
+                        </button>
+                      ) : (
                         <OnboardingReviewBadge
                           status={e.onboardingReviewStatus}
                         />
-                      </button>
-                    ) : (
-                      <OnboardingReviewBadge
-                        status={e.onboardingReviewStatus}
-                      />
-                    ),
-                },
-                {
-                  header: "Login",
-                  cell: (e) => (
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-theme-xs font-semibold ${
-                        e.hasLogin
-                          ? "text-success-700 dark:text-success-300"
-                          : "text-gray-400 dark:text-gray-500"
-                      }`}
-                    >
-                      {e.hasLogin ? (
-                        <>
-                          <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
-                          Linked
-                        </>
-                      ) : (
-                        "—"
                       )}
-                    </span>
+                    </div>
                   ),
                 },
                 {
+                  header: "Login",
+                  align: "center",
+                  width: 92,
+                  className: "w-[92px] text-center whitespace-nowrap",
+                  headerClassName: "w-[92px] text-center whitespace-nowrap",
+                  cell: (e) => {
+                    const isUnlinking = unlinkingEmployeeId === e.id;
+                    const isLinked = e.hasLogin;
+                    return (
+                      <div className="flex items-center justify-center">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={(ev) => handleToggleLogin(ev, e)}
+                          disabled={isUnlinking}
+                          aria-label={`${isLinked ? "Linked" : "Unlinked"} account for ${e.fullName}. Click to ${isLinked ? "unlink" : "link"}.`}
+                          title={
+                            isLinked
+                              ? "Click to unlink login account"
+                              : "Click to link a platform login account"
+                          }
+                          className="w-20.5 min-w-20.5 max-w-20.5 h-7 px-1.5 text-xs font-semibold justify-center shadow-xs hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                        >
+                          {isUnlinking ? (
+                            <span className="inline-flex items-center justify-center">
+                              <svg
+                                className="h-3.5 w-3.5 animate-spin text-white"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                />
+                              </svg>
+                            </span>
+                          ) : (
+                            <>
+                              {isLinked ? (
+                                <Link2 className="h-3.5 w-3.5 shrink-0 text-white" />
+                              ) : (
+                                <Unlink className="h-3.5 w-3.5 shrink-0 text-white" />
+                              )}
+                              <span>{isLinked ? "Linked" : "Unlinked"}</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  },
+                },
+                {
                   header: "Actions",
-                  className: "text-right",
-                  headerClassName: "text-right",
+                  align: "center",
+                  width: 60,
+                  className: "w-[60px] text-center whitespace-nowrap",
+                  headerClassName: "w-[60px] text-center whitespace-nowrap",
                   cell: (e) => (
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-center">
                       <ActionMenu
                         ariaLabel={`Actions for ${e.fullName}`}
                         items={[
@@ -776,6 +1088,15 @@ export function EmployeesView() {
 
       {importOpen ? (
         <ImportEmployeesDialog open onClose={() => setImportOpen(false)} />
+      ) : null}
+
+      {linkDialogOpen ? (
+        <LinkAccountDialog
+          open={Boolean(linkDialogOpen)}
+          onClose={() => setLinkDialogOpen(null)}
+          employee={linkDialogOpen}
+          mode="link"
+        />
       ) : null}
     </div>
   );

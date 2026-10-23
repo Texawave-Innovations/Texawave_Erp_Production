@@ -20,7 +20,7 @@ export const EMPLOYEE_READ_ANY_SCOPE = [
   "hr.employee.read.all",
 ] as const;
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 function searchEmployees(
   search: string,

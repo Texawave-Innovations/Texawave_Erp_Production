@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert } from "@texawave-erp/ui-kit";
+import { Alert, Tabs } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
 import { HrPageHeader } from "@/features/hr/components";
@@ -75,72 +75,40 @@ export function RecruitmentView() {
           administrator to grant access.
         </Alert>
       ) : (
-        <>
-          {/* Module Tab Navigation */}
-          <div
-            role="tablist"
-            aria-label="Recruitment sections"
-            className="flex w-full flex-wrap gap-1.5 rounded-xl border border-gray-200 bg-gray-50/80 p-1.5 sm:w-auto sm:inline-flex dark:border-gray-800 dark:bg-gray-800/50"
-          >
-            {tabs.map((tab) => {
-              const selected = active?.id === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  id={`recruitment-tab-${tab.id}`}
-                  aria-selected={selected}
-                  aria-controls={`recruitment-panel-${tab.id}`}
-                  onClick={() => setRequested(tab.id)}
-                  className={`flex-1 rounded-lg px-4 py-2 text-theme-sm font-semibold transition-all sm:flex-none ${
-                    selected
-                      ? "bg-white text-gray-900 shadow-sm border border-gray-200/80 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Tab Panel */}
-          <div
-            role="tabpanel"
-            id={active ? `recruitment-panel-${active.id}` : undefined}
-            aria-labelledby={
-              active ? `recruitment-tab-${active.id}` : undefined
-            }
-          >
-            {active?.id === "interviews" ? (
-              <InterviewsPanel canWrite={canWriteInterviews} />
-            ) : null}
-            {active?.id === "offers" ? (
-              <OffersPanel canWrite={canWriteOffers} />
-            ) : null}
-            {active?.id === "revisions" ? (
-              <RevisionsPanel
-                canWrite={canWriteRevisions}
-                canReadEmployees={canReadEmployees}
-              />
-            ) : null}
-            {active?.id === "promotions" ? (
-              <PromotionsPanel
-                canWrite={canWritePromotions}
-                canReadEmployees={canReadEmployees}
-                canReadDesignations={canReadDesignations}
-                canAddDesignation={canWriteDesignations}
-              />
-            ) : null}
-            {active?.id === "candidates" ? (
-              <CandidatesPanel
-                onScheduleCandidate={() => setRequested("interviews")}
-                onGenerateOffer={() => setRequested("offers")}
-              />
-            ) : null}
-          </div>
-        </>
+        <Tabs
+          label="Recruitment sections"
+          idPrefix="recruitment"
+          tabs={tabs}
+          value={active?.id ?? "interviews"}
+          onChange={(id) => setRequested(id)}
+        >
+          {active?.id === "interviews" ? (
+            <InterviewsPanel canWrite={canWriteInterviews} />
+          ) : null}
+          {active?.id === "offers" ? (
+            <OffersPanel canWrite={canWriteOffers} />
+          ) : null}
+          {active?.id === "revisions" ? (
+            <RevisionsPanel
+              canWrite={canWriteRevisions}
+              canReadEmployees={canReadEmployees}
+            />
+          ) : null}
+          {active?.id === "promotions" ? (
+            <PromotionsPanel
+              canWrite={canWritePromotions}
+              canReadEmployees={canReadEmployees}
+              canReadDesignations={canReadDesignations}
+              canAddDesignation={canWriteDesignations}
+            />
+          ) : null}
+          {active?.id === "candidates" ? (
+            <CandidatesPanel
+              onScheduleCandidate={() => setRequested("interviews")}
+              onGenerateOffer={() => setRequested("offers")}
+            />
+          ) : null}
+        </Tabs>
       )}
     </div>
   );

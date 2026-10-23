@@ -101,7 +101,11 @@ function NewDelegationDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => setDelegateUserId(Number(e.target.value))}
             >
               <option value="">
-                {candidates.isPending ? "Loading…" : "Choose a person"}
+                {candidates.isPending
+                  ? "Loading approvers…"
+                  : (candidates.data ?? []).length === 0
+                    ? "No other approvers found"
+                    : "Choose a person"}
               </option>
               {(candidates.data ?? []).map((u) => (
                 <option key={u.id} value={u.id}>

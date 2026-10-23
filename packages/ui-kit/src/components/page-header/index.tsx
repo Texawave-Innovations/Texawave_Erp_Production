@@ -68,13 +68,13 @@ export function PageHeader({
     return (
       <header
         className={cn(
-          "relative flex flex-col gap-4 overflow-hidden rounded-2xl bg-linear-135 from-[#38bdf8] via-[#0ea5e9] to-[#2dd4bf] p-6 sm:p-7 text-white shadow-sm dark:from-sky-800 dark:via-blue-900 dark:to-teal-900",
+          "relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-sky-200/60 bg-linear-to-r from-[#478cf9] via-25%-[#9EDCF7] via-25% to-[#49aff8] via-50% to-[#8BE9F0] via-40% to-[#81edf5] p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(56,189,248,0.14)] dark:border-sky-800/40 dark:from-[#0d2238] dark:via-[#132d4b] dark:to-[#0f2844]",
           className,
         )}
         {...rest}
       >
         {hasBreadcrumbs && (
-          <div className="text-white/80">
+          <div className="text-[#0a3271]/80 dark:text-sky-300/80">
             {breadcrumbsSlot ?? (
               <Breadcrumbs items={breadcrumbs ?? []} tone="banner" />
             )}
@@ -84,19 +84,22 @@ export function PageHeader({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             {icon && (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm">
-                {renderHeaderIcon(icon, "h-6 w-6")}
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white shadow-[0_6px_20px_rgba(30,100,180,0.12),0_1px_3px_rgba(15,23,42,0.04)] dark:border-gray-700/80 dark:bg-gray-800/90">
+                {renderHeaderIcon(
+                  icon,
+                  "h-7 w-7 text-brand-600 dark:text-cyan-400",
+                )}
               </div>
             )}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0a3271] dark:text-sky-100">
                   {title}
                 </h1>
                 {badge}
               </div>
               {description && (
-                <p className="mt-0.5 max-w-2xl text-theme-xs sm:text-theme-sm text-white/85">
+                <p className="mt-0.5 max-w-2xl text-theme-xs sm:text-theme-sm font-medium text-[#2f6396] dark:text-sky-300/80">
                   {description}
                 </p>
               )}
@@ -104,7 +107,7 @@ export function PageHeader({
           </div>
 
           {actionsContent && (
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-auto">
+            <div className="banner-actions flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-auto">
               {actionsContent}
             </div>
           )}

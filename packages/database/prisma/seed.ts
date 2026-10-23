@@ -202,14 +202,32 @@ async function main() {
       },
     });
 
-    const existingAdminEmployee = await prisma.employee.findUnique({
-      where: { userId: superAdminUser.id },
-      select: { id: true },
-    });
+    const existingAdminEmployee =
+      (await prisma.employee.findUnique({
+        where: { userId: superAdminUser.id },
+        select: { id: true, employeeCode: true },
+      })) ??
+      (await prisma.employee.findFirst({
+        where: {
+          organizationId: org.id,
+          workEmail: { equals: SUPER_ADMIN_EMAIL, mode: "insensitive" },
+        },
+        select: { id: true, employeeCode: true },
+      }));
 
-    // EMP-000001 on a fresh DB; otherwise the next free code from the sequence.
-    let adminEmployeeCode = "EMP-000001";
-    if (!existingAdminEmployee) {
+    if (existingAdminEmployee) {
+      await prisma.employee.update({
+        where: { id: existingAdminEmployee.id },
+        data: {
+          userId: superAdminUser.id,
+          fullName: "Super Admin",
+          status: "ACTIVE",
+          onboardingStatus: "COMPLETE",
+        },
+      });
+    } else {
+      // EMP-000001 on a fresh DB; otherwise the next free code from the sequence.
+      let adminEmployeeCode = "EMP-000001";
       const codeTaken = await prisma.employee.findFirst({
         where: { organizationId: org.id, employeeCode: adminEmployeeCode },
         select: { id: true },
@@ -219,34 +237,24 @@ async function main() {
           employeeSequence.nextNumber,
         ).padStart(employeeSequence.padding, "0")}`;
       }
-    }
 
-    await prisma.employee.upsert({
-      where: {
-        userId: superAdminUser.id,
-      },
-      update: {
-        fullName: "Super Admin",
-        status: "ACTIVE",
-        onboardingStatus: "COMPLETE",
-      },
-      create: {
-        organizationId: org.id,
-        employeeCode: adminEmployeeCode,
-        userId: superAdminUser.id,
-        fullName: "Super Admin",
-        workEmail: SUPER_ADMIN_EMAIL,
-        teamId: swTeam.id,
-        departmentId: swTeam.departmentId,
-        designationId: adminDesignation.id,
-        employmentTypeId: permanentType.id,
-        status: "ACTIVE",
-        onboardingStatus: "COMPLETE",
-        dateOfJoining: new Date("2026-01-01"),
-      },
-    });
+      await prisma.employee.create({
+        data: {
+          organizationId: org.id,
+          employeeCode: adminEmployeeCode,
+          userId: superAdminUser.id,
+          fullName: "Super Admin",
+          workEmail: SUPER_ADMIN_EMAIL,
+          teamId: swTeam.id,
+          departmentId: swTeam.departmentId,
+          designationId: adminDesignation.id,
+          employmentTypeId: permanentType.id,
+          status: "ACTIVE",
+          onboardingStatus: "COMPLETE",
+          dateOfJoining: new Date("2026-01-01"),
+        },
+      });
 
-    if (!existingAdminEmployee) {
       const usedNumber = Number(
         adminEmployeeCode.slice(employeeSequence.prefix.length),
       );

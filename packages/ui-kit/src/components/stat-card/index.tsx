@@ -14,6 +14,7 @@ export type StatCardTone =
   | "error"
   | "success"
   | "blue"
+  | "cyan"
   | "purple"
   | "emerald"
   | "amber";
@@ -46,12 +47,13 @@ export interface StatCardProps {
 const TONE_VALUE_CLASS: Record<StatCardTone, string> = {
   neutral: "text-gray-900 dark:text-white/90",
   brand: "text-brand-700 dark:text-brand-400",
-  info: "text-chart-1 dark:text-chart-1",
+  info: "text-cyan-700 dark:text-cyan-400",
   warning: "text-warning-700 dark:text-warning-400",
   error: "text-error-700 dark:text-error-400",
   success: "text-success-700 dark:text-success-400",
   blue: "text-blue-700 dark:text-blue-400",
-  purple: "text-purple-700 dark:text-purple-400",
+  cyan: "text-cyan-700 dark:text-cyan-400",
+  purple: "text-cyan-700 dark:text-cyan-400",
   emerald: "text-emerald-700 dark:text-emerald-400",
   amber: "text-amber-700 dark:text-amber-400",
 };
@@ -59,12 +61,13 @@ const TONE_VALUE_CLASS: Record<StatCardTone, string> = {
 const TONE_EDGE_CLASS: Record<StatCardTone, string> = {
   neutral: "bg-gray-300 dark:bg-gray-700",
   brand: "bg-brand-500",
-  info: "bg-chart-1",
+  info: "bg-cyan-500",
   warning: "bg-warning-500",
   error: "bg-error-500",
   success: "bg-success-500",
   blue: "bg-blue-500",
-  purple: "bg-purple-500",
+  cyan: "bg-cyan-500",
+  purple: "bg-cyan-500",
   emerald: "bg-emerald-500",
   amber: "bg-amber-500",
 };
@@ -72,15 +75,15 @@ const TONE_EDGE_CLASS: Record<StatCardTone, string> = {
 const TONE_ICON_BG: Record<StatCardTone, string> = {
   neutral: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
   brand: "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
-  info: "bg-blue-50 text-chart-1 dark:bg-blue-950/60 dark:text-chart-1",
+  info: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
   warning:
     "bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-300",
   error: "bg-error-50 text-error-700 dark:bg-error-950 dark:text-error-300",
   success:
     "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",
   blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
-  purple:
-    "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300",
+  cyan: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
+  purple: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
   emerald:
     "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
@@ -94,21 +97,22 @@ const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
   error: "gradient-card-border-error",
   success: "gradient-card-border-success",
   blue: "gradient-card-border-info",
-  purple: "gradient-card-border",
+  cyan: "gradient-card-border-info",
+  purple: "gradient-card-border-info",
   emerald: "gradient-card-border-success",
   amber: "gradient-card-border-warning",
 };
 
 const TONE_GRADIENT_CLASS: Record<StatCardTone, string> = {
   blue: "stat-card-gradient-blue border-blue-100/70 dark:border-blue-900/40",
-  purple:
-    "stat-card-gradient-purple border-purple-100/70 dark:border-purple-900/40",
+  cyan: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
+  purple: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
   emerald:
     "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
   amber:
     "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
   brand: "stat-card-gradient-blue border-sky-100/70 dark:border-sky-900/40",
-  info: "stat-card-gradient-blue border-cyan-100/70 dark:border-cyan-900/40",
+  info: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
   warning:
     "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
   error: "stat-card-gradient-rose border-rose-100/70 dark:border-rose-900/40",
@@ -127,10 +131,15 @@ const KPI_ICON_GRADIENTS: Record<
     shadow: "shadow-md shadow-blue-500/25",
     aura: "bg-sky-400/25",
   },
+  cyan: {
+    bg: "bg-linear-135 from-cyan-600 via-sky-500 to-blue-400 text-white",
+    shadow: "shadow-md shadow-cyan-500/25",
+    aura: "bg-cyan-400/25",
+  },
   purple: {
-    bg: "bg-linear-135 from-purple-600 via-indigo-500 to-blue-500 text-white",
-    shadow: "shadow-md shadow-purple-500/25",
-    aura: "bg-purple-400/25",
+    bg: "bg-linear-135 from-cyan-600 via-sky-500 to-blue-400 text-white",
+    shadow: "shadow-md shadow-cyan-500/25",
+    aura: "bg-cyan-400/25",
   },
   emerald: {
     bg: "bg-linear-135 from-emerald-600 via-teal-500 to-cyan-400 text-white",
@@ -211,7 +220,7 @@ export function StatCard({
       <section
         aria-labelledby={headingId}
         className={cn(
-          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 shadow-[0_4px_24px_rgba(15,23,42,0.03)] border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-theme-md",
+          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 border border-sky-100/90 card-light-shadow transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/80 dark:border-sky-950/60 dark:hover:border-sky-700/60",
           gradientBg,
           className,
         )}
@@ -285,7 +294,7 @@ export function StatCard({
     <section
       aria-labelledby={headingId}
       className={cn(
-        "group relative overflow-hidden rounded-2xl p-5 shadow-[0_2px_12px_rgba(23,105,245,0.03)] transition-all duration-200 hover:shadow-theme-sm border",
+        "group relative overflow-hidden rounded-2xl p-5 card-light-shadow transition-all duration-200 border",
         gradientBg,
         borderClass,
         className,

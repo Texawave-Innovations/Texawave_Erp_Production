@@ -151,6 +151,7 @@ export function ApplyOnBehalfDialog({
               <Input
                 {...f}
                 type="date"
+                align="right"
                 invalid={f.invalid}
                 value={values.endDate}
                 disabled={submitting}

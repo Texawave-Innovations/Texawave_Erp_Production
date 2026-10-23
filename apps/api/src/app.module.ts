@@ -6,6 +6,30 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor.js";
 import { LoggerModule } from "./common/logger/logger.module.js";
 import { ConfigModule } from "./config/config.module.js";
+import { AccountsModule } from "./modules/crm/accounts/accounts.module.js";
+import { ContactsModule } from "./modules/crm/contacts/contacts.module.js";
+import { LeadsModule } from "./modules/crm/leads/leads.module.js";
+import { PipelineStagesModule } from "./modules/crm/pipeline-stages/pipeline-stages.module.js";
+import { OpportunitiesModule } from "./modules/crm/opportunities/opportunities.module.js";
+import { ProductsModule } from "./modules/crm/products/products.module.js";
+import { ScmModule } from "./modules/scm/scm.module.js";
+import { QuotationsModule } from "./modules/crm/quotations/quotations.module.js";
+import { MeetingsModule } from "./modules/crm/meetings/meetings.module.js";
+import { FollowUpsModule } from "./modules/crm/follow-ups/follow-ups.module.js";
+import { ActivitiesModule } from "./modules/crm/activities/activities.module.js";
+import { CrmTasksModule } from "./modules/crm/tasks/tasks.module.js";
+import { CrmDocumentsModule } from "./modules/crm/documents/documents.module.js";
+import { CrmNotesModule } from "./modules/crm/notes/notes.module.js";
+import { CrmColdCallingModule } from "./modules/crm/cold-calling/cold-calling.module.js";
+import { CrmNotificationsModule } from "./modules/crm/crm-notifications/crm-notifications.module.js";
+import { CrmRecycleBinModule } from "./modules/crm/recycle-bin/recycle-bin.module.js";
+import { CrmQuotasModule } from "./modules/crm/quotas/quotas.module.js";
+import { CrmOverallDataModule } from "./modules/crm/overall-data/overall-data.module.js";
+import { CrmMiningRowsModule } from "./modules/crm/mining-rows/mining-rows.module.js";
+import { CrmSearchModule } from "./modules/crm/search/search.module.js";
+import { CrmCalendarModule } from "./modules/crm/calendar/calendar.module.js";
+import { CrmDashboardModule } from "./modules/crm/dashboard/dashboard.module.js";
+import { CrmBulkImportModule } from "./modules/crm/bulk-import/bulk-import.module.js";
 import { DepartmentsModule } from "./modules/departments/departments.module.js";
 import { MenuModule } from "./modules/menu/menu.module.js";
 import { TagsModule } from "./modules/_reference/tags/tags.module.js";
@@ -122,6 +146,30 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     SalesSettingsModule,
     FinanceSettingsModule,
     ProjectsMasterModule,
+    AccountsModule,
+    ContactsModule,
+    LeadsModule,
+    PipelineStagesModule,
+    OpportunitiesModule,
+    ProductsModule,
+    ScmModule,
+    QuotationsModule,
+    MeetingsModule,
+    FollowUpsModule,
+    ActivitiesModule,
+    CrmTasksModule,
+    CrmDocumentsModule,
+    CrmNotesModule,
+    CrmColdCallingModule,
+    CrmNotificationsModule,
+    CrmRecycleBinModule,
+    CrmQuotasModule,
+    CrmOverallDataModule,
+    CrmMiningRowsModule,
+    CrmSearchModule,
+    CrmCalendarModule,
+    CrmDashboardModule,
+    CrmBulkImportModule,
   ],
   controllers: [AppController],
   providers: [

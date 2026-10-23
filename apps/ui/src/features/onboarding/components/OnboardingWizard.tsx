@@ -272,7 +272,7 @@ export function OnboardingWizard() {
         setMissing(result.missing);
       } else {
         await queryClient.invalidateQueries();
-        router.replace("/portal");
+        router.replace("/self-service");
       }
     } catch (error) {
       setSaveError(apiMessage(error));

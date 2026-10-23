@@ -14,6 +14,12 @@ export const EMPLOYEE_INCLUDE = {
   employmentType: NAME_ONLY,
   workLocation: NAME_ONLY,
   reportsTo: { select: { id: true, employeeCode: true, fullName: true } },
+  documents: {
+    where: { documentType: "PROFILE_PHOTO", isActive: true },
+    select: { id: true, fileName: true, mimeType: true },
+    orderBy: { uploadedAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.EmployeeInclude;
 
 export type EmployeeRow = Prisma.EmployeeGetPayload<{
@@ -43,6 +49,7 @@ export interface EmployeeListItem {
   onboardingStatus: string;
   /** HR's review of the submitted profile (onboarding-review.policy.ts). */
   onboardingReviewStatus: OnboardingReviewStatus;
+  avatarUrl: string | null;
 }
 
 export interface EmployeeDetail extends EmployeeListItem {
@@ -73,6 +80,7 @@ export interface EmployeeDetail extends EmployeeListItem {
 }
 
 export function toListItem(row: EmployeeRow): EmployeeListItem {
+  const photoDoc = row.documents?.[0];
   return {
     id: row.id,
     employeeCode: row.employeeCode,
@@ -87,6 +95,9 @@ export function toListItem(row: EmployeeRow): EmployeeListItem {
     onboardingStatus: row.onboardingStatus,
     onboardingReviewStatus:
       row.onboardingReviewStatus as OnboardingReviewStatus,
+    avatarUrl: photoDoc
+      ? `/hr/employees/${row.id}/documents/${photoDoc.id}/file`
+      : null,
   };
 }
 

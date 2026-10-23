@@ -93,7 +93,7 @@ export function CancelLeaveDialog({
           label="Note (optional)"
           hint="Optional. 3–500 characters if provided."
           labelAction={
-            <span className="text-theme-xs font-mono text-gray-400 dark:text-gray-500">
+            <span className="text-theme-xs font-medium text-gray-400 dark:text-gray-500">
               {note.length}/500
             </span>
           }

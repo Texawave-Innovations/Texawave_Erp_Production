@@ -14,6 +14,7 @@ export interface ExitRequestListQuery {
   limit: number;
   status?: ExitRequestStatus;
   employeeId?: number;
+  search?: string;
 }
 
 /** HR surface: own/team/all, scoped server-side against

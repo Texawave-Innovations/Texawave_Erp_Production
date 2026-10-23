@@ -30,6 +30,7 @@ export interface DataTableProps<T> {
   caption?: string | undefined;
   className?: string | undefined;
   tableClassName?: string | undefined;
+  density?: "comfortable" | "compact" | undefined;
 
   // Loading, Empty & Error States
   loading?: boolean | undefined;
@@ -133,6 +134,7 @@ export function DataTable<T>({
   caption,
   className,
   tableClassName,
+  density = "comfortable",
   loading = false,
   loadingRowsCount = 6,
   loadingSkeleton,
@@ -212,6 +214,9 @@ export function DataTable<T>({
     onRowClick(row);
   };
 
+  const isCompact = density === "compact";
+  const paddingClass = isCompact ? "px-3 py-2.5" : "px-5 py-3.5";
+
   return (
     <div
       className={cn(
@@ -221,7 +226,7 @@ export function DataTable<T>({
     >
       <table className={cn("w-full text-left text-theme-sm", tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
-        <thead className="border-b border-sky-100/80 bg-linear-to-r from-sky-200/80 via-cyan-100/90 to-emerald-100/80 dark:border-gray-800 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850">
+        <thead className="border-b border-sky-200/90 bg-linear-to-r from-sky-200/80 via-cyan-100/90 to-sky-100/80 dark:border-gray-800 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850">
           <tr>
             {/* Row Selection Header Checkbox */}
             {selectable && (
@@ -276,7 +281,8 @@ export function DataTable<T>({
                       : undefined
                   }
                   className={cn(
-                    "px-5 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200",
+                    paddingClass,
+                    "text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200",
                     alignClass,
                     column.headerClassName,
                   )}
@@ -376,7 +382,8 @@ export function DataTable<T>({
                       <td
                         key={columnKey}
                         className={cn(
-                          "px-5 py-3.5 text-theme-xs text-slate-700 dark:text-white/80",
+                          paddingClass,
+                          "text-theme-xs text-slate-700 dark:text-white/80",
                           alignClass,
                           column.className,
                         )}

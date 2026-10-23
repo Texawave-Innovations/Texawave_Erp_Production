@@ -44,6 +44,7 @@ export interface EmployeeListItem {
   onboardingStatus: string;
   /** HR's review of the submitted profile — see OnboardingReviewBadge. */
   onboardingReviewStatus: OnboardingReviewStatus;
+  avatarUrl?: string | null;
 }
 
 /** Shape of GET /hr/employees/:id. `version` is sent back on every update. */

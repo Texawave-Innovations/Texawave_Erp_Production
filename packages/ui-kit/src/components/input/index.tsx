@@ -1,14 +1,61 @@
 import { type InputHTMLAttributes, forwardRef } from "react";
 import { cn } from "../../lib/cn";
+import { DatePicker } from "../date-picker/index";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
+  align?: "left" | "right" | "auto" | undefined;
+  placement?: "top" | "bottom" | "auto" | undefined;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { invalid = false, className, ...props },
+  { invalid = false, align, placement, className, ...props },
   ref,
 ) {
+  if (props.type === "date") {
+    const { type: _type, ...rest } = props;
+    return (
+      <DatePicker
+        ref={ref}
+        invalid={invalid}
+        align={align}
+        placement={placement}
+        className={className}
+        {...rest}
+      />
+    );
+  }
+
+  if (props.type === "month") {
+    const { type: _type, ...rest } = props;
+    return (
+      <DatePicker
+        ref={ref}
+        mode="month"
+        invalid={invalid}
+        align={align}
+        placement={placement}
+        className={className}
+        {...rest}
+      />
+    );
+  }
+
+  if (props.type === "datetime-local") {
+    const { type: _type, ...rest } = props;
+    return (
+      <DatePicker
+        ref={ref}
+        mode="datetime"
+        invalid={invalid}
+        align={align}
+        placement={placement}
+        className={className}
+        {...rest}
+      />
+    );
+  }
+
   return (
     <input
       ref={ref}

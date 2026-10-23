@@ -1,289 +1,303 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Filter,
+  Lock,
+  Plus,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
 import {
   Button,
   Card,
-  DataTable,
   EmptyState,
+  Input,
   Pagination,
   Select,
 } from "@texawave-erp/ui-kit";
-import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
-import { useAuthStore } from "@/stores/auth-store";
-import { isoDate, periodLabel, timestamp } from "../format";
-import { usePeriods, useRuns } from "../hooks";
-import {
-  PAYROLL_APPROVE,
-  PAYROLL_FINALIZE,
-  PAYROLL_REOPEN,
-  PAYROLL_WRITE,
-} from "../permissions";
-import {
-  PeriodReportsSection,
-  ReopenedNotice,
-  ReopenPeriodDialog,
-} from "./PeriodExtras";
+import { periodLabel } from "../format";
+import { usePeriods } from "../hooks";
+import { PAYROLL_WRITE } from "../permissions";
 import {
   PERIOD_STATUSES,
   type PayrollPeriod,
-  type PayrollRun,
   type PeriodStatus,
 } from "../types";
-import { EntriesDialog } from "./EntriesDialog";
-import { PayrollLifecycle } from "./PayrollLifecycle";
-import { PayrollStatusBadge, periodStatusLabel } from "./PayrollStatusBadge";
-import {
-  ApproveRunDialog,
-  ConfirmPeriodDialog,
-  CreatePeriodDialog,
-  RunPayrollDialog,
-} from "./PeriodDialogs";
+import { PeriodCard } from "./PeriodCard";
+import { CreatePeriodDialog } from "./PeriodDialogs";
+import { periodStatusLabel } from "./PayrollStatusBadge";
 import { QueryState } from "./QueryState";
 
 const PAGE_SIZE = 12;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR + 1 - i);
 
-/** Payroll lifecycle for one period: run → approve (another person) →
- * finalize (generates payslips, locks the period). */
-function PeriodDetail({
-  period,
-  onClose,
-}: {
-  period: PayrollPeriod;
-  onClose: () => void;
-}) {
-  const canWrite = usePermission(PAYROLL_WRITE);
-  const canApprove = usePermission(PAYROLL_APPROVE);
-  const canFinalize = usePermission(PAYROLL_FINALIZE);
-  const canReopen = usePermission(PAYROLL_REOPEN);
-  const [reopening, setReopening] = useState(false);
-  const userId = useAuthStore((s) => s.user?.userId ?? null);
-  const runs = useRuns({ page: 1, limit: 50, payrollPeriodId: period.id });
-  const [runOpen, setRunOpen] = useState(false);
-  const [confirm, setConfirm] = useState<"finalize" | "cancel" | null>(null);
-  const [approving, setApproving] = useState<PayrollRun | null>(null);
-  const [viewing, setViewing] = useState<PayrollRun | null>(null);
-
-  const locked = period.status === "FINALIZED" || period.status === "CANCELLED";
-  const rows = runs.data?.data ?? [];
-  const hasApprovedRun = rows.some((r) => r.status === "APPROVED");
-
-  return (
-    <Card>
-      <section
-        aria-labelledby="period-detail-heading"
-        className="flex flex-col gap-4"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2
-              id="period-detail-heading"
-              className="text-theme-lg font-semibold text-gray-900 dark:text-white/90"
-            >
-              {periodLabel(period)}
-            </h2>
-            <p className="text-theme-sm text-gray-600 dark:text-gray-400">
-              {isoDate(period.periodStart)} – {isoDate(period.periodEnd)} ·{" "}
-              <PayrollStatusBadge status={period.status} />
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {canWrite && !locked ? (
-              <Button onClick={() => setRunOpen(true)}>Run payroll</Button>
-            ) : null}
-            {canFinalize && !locked ? (
-              <Button
-                variant="secondary"
-                disabled={!hasApprovedRun}
-                title={
-                  hasApprovedRun ? undefined : "Approve a run before finalizing"
-                }
-                onClick={() => setConfirm("finalize")}
-              >
-                Finalize
-              </Button>
-            ) : null}
-            {canWrite && !locked ? (
-              <Button variant="ghost" onClick={() => setConfirm("cancel")}>
-                Cancel period
-              </Button>
-            ) : null}
-            {canReopen && period.status === "FINALIZED" ? (
-              <Button variant="secondary" onClick={() => setReopening(true)}>
-                Reopen
-              </Button>
-            ) : null}
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </div>
-
-        <ReopenedNotice period={period} />
-
-        {runs.isSuccess ? (
-          <PayrollLifecycle period={period} runs={rows} />
-        ) : null}
-
-        <PeriodReportsSection period={period} hasApprovedRun={hasApprovedRun} />
-
-        <QueryState query={runs} area="payroll runs" />
-        {runs.isSuccess && rows.length === 0 ? (
-          <EmptyState
-            title="No runs yet"
-            description={
-              canWrite && !locked
-                ? "Run payroll to calculate this period."
-                : "Payroll has not been run for this period."
-            }
-          />
-        ) : null}
-        {runs.isSuccess && rows.length > 0 ? (
-          <DataTable<PayrollRun>
-            caption="Payroll runs"
-            rows={rows}
-            getRowKey={(r) => String(r.id)}
-            columns={[
-              { header: "Run", cell: (r) => `#${r.runNumber}` },
-              {
-                header: "Status",
-                cell: (r) => (
-                  <span className="flex flex-col items-start gap-0.5">
-                    <PayrollStatusBadge status={r.status} />
-                    {r.status === "CANCELLED" ? (
-                      <span className="text-theme-xs text-gray-500">
-                        Replaced by a later run
-                      </span>
-                    ) : null}
-                  </span>
-                ),
-              },
-              { header: "Employees", cell: (r) => r._count.entries },
-              {
-                header: "Run by",
-                cell: (r) => (
-                  <span className="flex flex-col">
-                    <span>{r.runCreator?.fullName ?? "—"}</span>
-                    <span className="text-theme-xs text-gray-500">
-                      {timestamp(r.completedAt ?? r.startedAt)}
-                    </span>
-                  </span>
-                ),
-              },
-              {
-                header: "Notes",
-                cell: (r) =>
-                  r.notes ? (
-                    <span className="line-clamp-2 max-w-48" title={r.notes}>
-                      {r.notes}
-                    </span>
-                  ) : (
-                    "—"
-                  ),
-              },
-              {
-                header: "Approved by",
-                cell: (r) =>
-                  r.runApprover
-                    ? `${r.runApprover.fullName} · ${isoDate(r.approvedAt)}`
-                    : "—",
-              },
-              {
-                header: "Actions",
-                cell: (r) => (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setViewing(r)}
-                    >
-                      View entries
-                    </Button>
-                    {canApprove && r.status === "PROCESSED" && !locked ? (
-                      // Maker-checker, mirrored from the API: the run's
-                      // creator may not approve it.
-                      r.runCreator && r.runCreator.id === userId ? (
-                        <span className="text-theme-xs text-gray-600 dark:text-gray-400">
-                          You ran this — someone else must approve
-                        </span>
-                      ) : (
-                        <Button size="sm" onClick={() => setApproving(r)}>
-                          Approve
-                        </Button>
-                      )
-                    ) : null}
-                  </div>
-                ),
-              },
-            ]}
-          />
-        ) : null}
-      </section>
-
-      {/* Every dialog mounts only while open: ui-kit's Dialog uses a fixed
-          `id="dialog-title"`, so two mounted dialogs share one accessible
-          name. Remove this note once Dialog generates its id with useId(). */}
-      {runOpen ? (
-        <RunPayrollDialog
-          open
-          onClose={() => setRunOpen(false)}
-          period={period}
-        />
-      ) : null}
-      {confirm ? (
-        <ConfirmPeriodDialog
-          open
-          onClose={() => setConfirm(null)}
-          period={period}
-          action={confirm}
-        />
-      ) : null}
-      {approving ? (
-        <ApproveRunDialog
-          open
-          onClose={() => setApproving(null)}
-          run={approving}
-        />
-      ) : null}
-      {viewing ? (
-        <EntriesDialog run={viewing} onClose={() => setViewing(null)} />
-      ) : null}
-      {reopening ? (
-        <ReopenPeriodDialog
-          period={period}
-          onClose={() => setReopening(false)}
-        />
-      ) : null}
-    </Card>
-  );
-}
-
 export function PeriodsPanel() {
   const canWrite = usePermission(PAYROLL_WRITE);
   const [page, setPage] = useState(1);
   const [year, setYear] = useState<number | "">(CURRENT_YEAR);
   const [status, setStatus] = useState<PeriodStatus | "">("");
+  const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
+  // Summary query across all statuses for the active year to power KPI metric cards
+  const summaryQuery = usePeriods({
+    page: 1,
+    limit: 50,
+    ...(year ? { year } : {}),
+  });
+
+  // Filtered periods query
   const query = usePeriods({
     page,
     limit: PAGE_SIZE,
     ...(year ? { year } : {}),
     ...(status ? { status } : {}),
   });
-  const rows = query.data?.data ?? [];
-  // Read the selected period from the (refetched) list so its status and
-  // runs stay current after an action.
-  const selected = rows.find((p) => p.id === selectedId) ?? null;
+
+  const rawRows = query.data?.data ?? [];
+
+  // Filter client-side by search query (matching period name or dates)
+  const rows = useMemo(() => {
+    if (!search.trim()) return rawRows;
+    const q = search.trim().toLowerCase();
+    return rawRows.filter((p) => {
+      const label = periodLabel(p).toLowerCase();
+      const yearStr = String(p.year);
+      const start = p.periodStart.toLowerCase();
+      const end = p.periodEnd.toLowerCase();
+      return (
+        label.includes(q) ||
+        yearStr.includes(q) ||
+        start.includes(q) ||
+        end.includes(q)
+      );
+    });
+  }, [rawRows, search]);
+
+  // KPI Metrics calculation
+  const { totalPeriods, draftCount, reviewCount, finalizedCount } =
+    useMemo(() => {
+      const items = summaryQuery.data?.data ?? [];
+      const total = summaryQuery.data?.meta?.total ?? items.length;
+      const draft = items.filter(
+        (p) => p.status === "DRAFT" || p.status === "REOPENED",
+      ).length;
+      const review = items.filter(
+        (p) =>
+          p.status === "PROCESSING" ||
+          p.status === "PROCESSED" ||
+          p.status === "APPROVED",
+      ).length;
+      const finalized = items.filter((p) => p.status === "FINALIZED").length;
+
+      return {
+        totalPeriods: total,
+        draftCount: draft,
+        reviewCount: review,
+        finalizedCount: finalized,
+      };
+    }, [summaryQuery.data]);
+
+  const hasFilters = status !== "" || search !== "" || year !== CURRENT_YEAR;
+
+  const handleClearFilters = () => {
+    setStatus("");
+    setSearch("");
+    setYear(CURRENT_YEAR);
+    setPage(1);
+  };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 animate-reveal">
+      {/* 4 Interactive Metric KPI Summary Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Total Periods Card */}
+        <button
+          type="button"
+          onClick={() => {
+            setStatus("");
+            setSearch("");
+            setPage(1);
+          }}
+          className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
+            status === "" && search === ""
+              ? "border-2 border-brand-500 bg-sky-50/50 shadow-md ring-2 ring-brand-500/20 dark:border-brand-400 dark:bg-slate-800"
+              : "border border-sky-200/90 bg-white shadow-2xs hover:border-brand-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                Total Periods
+              </p>
+              {status === "" && search === "" ? (
+                <span className="rounded-full bg-brand-500/10 px-1.5 py-0.5 text-[9px] font-bold text-brand-600 dark:text-sky-300">
+                  Active
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-[#0a3271] dark:text-white">
+              {totalPeriods}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              {year ? `All cycles in ${year}` : "All cycles across years"}
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-brand-500 transition-transform group-hover:scale-105 dark:border-slate-700 dark:bg-slate-800">
+            <Calendar className="h-5 w-5" />
+          </div>
+        </button>
+
+        {/* Draft & Open Card */}
+        <button
+          type="button"
+          onClick={() => {
+            setStatus((prev) => (prev === "DRAFT" ? "" : "DRAFT"));
+            setPage(1);
+          }}
+          className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
+            status === "DRAFT" || status === "REOPENED"
+              ? "border-2 border-amber-500 bg-amber-50/60 shadow-md ring-2 ring-amber-500/20 dark:border-amber-400 dark:bg-amber-950/30"
+              : "border border-amber-200/90 bg-white shadow-2xs hover:border-amber-400 hover:shadow-md dark:border-amber-900/60 dark:bg-slate-900/60"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                Draft & Open
+              </p>
+              {status === "DRAFT" || status === "REOPENED" ? (
+                <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:text-amber-300">
+                  Active Filter
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+              {draftCount}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Pending run calculation
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600 transition-transform group-hover:scale-105 dark:border-amber-900 dark:bg-amber-950/40">
+            <Clock className="h-5 w-5" />
+          </div>
+        </button>
+
+        {/* Processing & In Review Card */}
+        <button
+          type="button"
+          onClick={() => {
+            setStatus((prev) => (prev === "PROCESSED" ? "" : "PROCESSED"));
+            setPage(1);
+          }}
+          className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
+            status === "PROCESSING" ||
+            status === "PROCESSED" ||
+            status === "APPROVED"
+              ? "border-2 border-brand-500 bg-sky-50/60 shadow-md ring-2 ring-brand-500/20 dark:border-sky-400 dark:bg-sky-950/30"
+              : "border border-sky-200/90 bg-white shadow-2xs hover:border-brand-400 hover:shadow-md dark:border-sky-900/60 dark:bg-slate-900/60"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-sky-300">
+                In Review & Approval
+              </p>
+              {status === "PROCESSING" ||
+              status === "PROCESSED" ||
+              status === "APPROVED" ? (
+                <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 text-[9px] font-bold text-brand-700 dark:text-sky-300">
+                  Active Filter
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-brand-600 dark:text-sky-400">
+              {reviewCount}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Maker-checker in progress
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-brand-600 transition-transform group-hover:scale-105 dark:border-sky-900 dark:bg-sky-950/40">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+        </button>
+
+        {/* Finalized & Settled Card */}
+        <button
+          type="button"
+          onClick={() => {
+            setStatus((prev) => (prev === "FINALIZED" ? "" : "FINALIZED"));
+            setPage(1);
+          }}
+          className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
+            status === "FINALIZED"
+              ? "border-2 border-emerald-500 bg-emerald-50/60 shadow-md ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-950/30"
+              : "border border-emerald-200/90 bg-white shadow-2xs hover:border-emerald-400 hover:shadow-md dark:border-emerald-900/60 dark:bg-slate-900/60"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                Finalized & Locked
+              </p>
+              {status === "FINALIZED" ? (
+                <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 dark:text-emerald-300">
+                  Active Filter
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+              {finalizedCount}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Payslips generated & locked
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 transition-transform group-hover:scale-105 dark:border-emerald-900 dark:bg-emerald-950/40">
+            <Lock className="h-5 w-5" />
+          </div>
+        </button>
+      </div>
+
+      {/* Filter and Action Toolbar */}
       <Card>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Search & Select Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search month or year..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 pr-8"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+
+            {/* Year Selector */}
             <Select
               aria-label="Filter by year"
               className="w-36"
@@ -300,6 +314,8 @@ export function PeriodsPanel() {
                 </option>
               ))}
             </Select>
+
+            {/* Status Selector */}
             <Select
               aria-label="Filter by status"
               className="w-full sm:w-44"
@@ -316,92 +332,95 @@ export function PeriodsPanel() {
                 </option>
               ))}
             </Select>
+
+            {/* Reset Button */}
+            {hasFilters ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearFilters}
+                className="text-xs text-slate-500 hover:text-brand-600"
+              >
+                <X className="mr-1 h-3.5 w-3.5" />
+                Clear
+              </Button>
+            ) : null}
           </div>
+
+          {/* New Period Trigger Button */}
           {canWrite ? (
-            <Button onClick={() => setCreateOpen(true)}>New period</Button>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold shadow-xs"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              New Period
+            </Button>
           ) : null}
         </div>
       </Card>
 
+      {/* Query Status / Error Banner */}
       <QueryState query={query} area="payroll periods" />
+
+      {/* Empty State */}
       {query.isSuccess && rows.length === 0 ? (
         <Card>
           <EmptyState
-            title="No payroll periods"
+            title="No payroll periods found"
             description={
-              canWrite
-                ? "Create a period to start this month's payroll."
-                : "No payroll periods match these filters."
+              hasFilters
+                ? "No payroll periods match your selected filter criteria. Try resetting filters."
+                : canWrite
+                  ? "Create a new payroll period to calculate pay for this month."
+                  : "No payroll periods have been created yet."
+            }
+            action={
+              hasFilters ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleClearFilters}
+                >
+                  Reset filters
+                </Button>
+              ) : canWrite ? (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Create Period
+                </Button>
+              ) : undefined
             }
           />
         </Card>
       ) : null}
+
+      {/* Interactive Period Cards List */}
       {query.isSuccess && rows.length > 0 ? (
-        <>
-          <DataTable<PayrollPeriod>
-            caption="Payroll periods"
-            rows={rows}
-            getRowKey={(r) => String(r.id)}
-            columns={[
-              {
-                header: "Period",
-                cell: (r) => (
-                  <span className="font-medium">{periodLabel(r)}</span>
-                ),
-              },
-              {
-                header: "Dates",
-                cell: (r) =>
-                  `${isoDate(r.periodStart)} – ${isoDate(r.periodEnd)}`,
-              },
-              {
-                header: "Status",
-                cell: (r) => <PayrollStatusBadge status={r.status} />,
-              },
-              {
-                header: "Latest run",
-                cell: (r) => {
-                  const latest = r.runs[0];
-                  return latest ? (
-                    <span className="flex items-center gap-2">
-                      #{latest.runNumber}
-                      <PayrollStatusBadge status={latest.status} />
-                    </span>
-                  ) : (
-                    "—"
-                  );
-                },
-              },
-              {
-                header: "Actions",
-                cell: (r) => (
-                  <Button
-                    size="sm"
-                    variant={r.id === selectedId ? "primary" : "secondary"}
-                    aria-pressed={r.id === selectedId}
-                    aria-label={`Manage ${periodLabel(r)}`}
-                    onClick={() =>
-                      setSelectedId(r.id === selectedId ? null : r.id)
-                    }
-                  >
-                    Manage
-                  </Button>
-                ),
-              },
-            ]}
-          />
-          <Pagination
-            page={page}
-            totalPages={query.data.meta?.totalPages ?? 1}
-            onPageChange={setPage}
-          />
-        </>
+        <div className="flex flex-col gap-3.5">
+          {rows.map((period) => (
+            <PeriodCard
+              key={period.id}
+              period={period}
+              isExpanded={selectedId === period.id}
+              onToggleExpand={() =>
+                setSelectedId(selectedId === period.id ? null : period.id)
+              }
+            />
+          ))}
+
+          {/* Pagination Controls */}
+          <div className="pt-2">
+            <Pagination
+              page={page}
+              totalPages={query.data?.meta?.totalPages ?? 1}
+              onPageChange={setPage}
+            />
+          </div>
+        </div>
       ) : null}
 
-      {selected ? (
-        <PeriodDetail period={selected} onClose={() => setSelectedId(null)} />
-      ) : null}
-
+      {/* Create Period Modal */}
       {createOpen ? (
         <CreatePeriodDialog
           open
@@ -409,6 +428,7 @@ export function PeriodsPanel() {
           onCreated={(p) => {
             setYear(p.year);
             setStatus("");
+            setSearch("");
             setPage(1);
             setSelectedId(p.id);
           }}

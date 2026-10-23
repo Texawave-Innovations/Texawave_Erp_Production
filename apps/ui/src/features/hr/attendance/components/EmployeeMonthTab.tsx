@@ -1,19 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Search,
+  TrendingUp,
+  UserCheck,
+  UserX,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   EmptyState,
   ErrorState,
   Input,
   Select,
   Skeleton,
+  cn,
 } from "@texawave-erp/ui-kit";
-import { StatCard } from "@/features/hr/components/StatCard";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useAttendanceList, useEmployeeMonthStatuses } from "../hooks";
 import {
@@ -49,14 +57,14 @@ const CELL_TONE: Record<
   string
 > = {
   success:
-    "border-success-200 bg-success-50 dark:border-success-900 dark:bg-success-950/40",
+    "border-emerald-200/90 bg-emerald-50/70 hover:bg-emerald-100/80 dark:border-emerald-900/50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100",
   error:
-    "border-error-200 bg-error-50 dark:border-error-900 dark:bg-error-950/40",
+    "border-rose-200/90 bg-rose-50/70 hover:bg-rose-100/80 dark:border-rose-900/50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100",
   warning:
-    "border-warning-200 bg-warning-50 dark:border-warning-900 dark:bg-warning-950/40",
+    "border-amber-200/90 bg-amber-50/70 hover:bg-amber-100/80 dark:border-amber-900/50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100",
   brand:
-    "border-brand-200 bg-brand-50 dark:border-brand-900 dark:bg-brand-950/40",
-  gray: "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/40",
+    "border-sky-200/90 bg-sky-50/70 hover:bg-sky-100/80 dark:border-sky-900/50 dark:bg-sky-950/40 text-sky-950 dark:text-sky-100",
+  gray: "border-slate-200/80 bg-slate-50/60 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200",
 };
 
 /**
@@ -125,15 +133,21 @@ export function EmployeeMonthTab() {
   const isCurrent = month >= currentMonth();
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
+    <div className="flex flex-col gap-5">
+      {/* Executive Control Toolbar */}
+      <div className="relative z-20 focus-within:z-30 rounded-2xl border border-sky-100/90 bg-white/95 p-4 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-center">
-          <Input
-            aria-label="Find employee"
-            placeholder="Find employee by name or code…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="relative">
+            <Input
+              aria-label="Find employee"
+              placeholder="Find employee by name or code…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
+
           <Select
             aria-label="Employee"
             value={employeeId ?? ""}
@@ -149,6 +163,7 @@ export function EmployeeMonthTab() {
               </option>
             ))}
           </Select>
+
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -156,6 +171,7 @@ export function EmployeeMonthTab() {
               size="sm"
               aria-label="Previous month"
               onClick={() => setMonth(shiftMonth(month, -1))}
+              className="h-9 px-2.5"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -165,7 +181,7 @@ export function EmployeeMonthTab() {
               value={month}
               max={currentMonth()}
               onChange={(e) => e.target.value && setMonth(e.target.value)}
-              className="w-40"
+              className="w-40 font-semibold"
             />
             <Button
               type="button"
@@ -174,22 +190,23 @@ export function EmployeeMonthTab() {
               aria-label="Next month"
               disabled={isCurrent}
               onClick={() => setMonth(shiftMonth(month, 1))}
+              className="h-9 px-2.5"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
 
       {employeeId === null ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-8 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
           <EmptyState
             title="Choose an employee"
             description="Pick someone to see their month as a calendar, with totals and each day's punches."
           />
-        </Card>
+        </div>
       ) : statuses.isPending || records.isPending ? (
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-96 w-full rounded-2xl" />
       ) : statuses.isError || records.isError ? (
         (statuses.error ?? records.error) instanceof ApiError &&
         ((statuses.error ?? records.error) as ApiError).isPermissionError ? (
@@ -206,55 +223,111 @@ export function EmployeeMonthTab() {
           />
         )
       ) : !row ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-8 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
           <EmptyState
             title="No month to show"
             description="This employee is not active, or was not employed in this month."
           />
-        </Card>
+        </div>
       ) : (
         <>
+          {/* Executive KPI Summary Tiles */}
           <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-            <StatCard
-              headingId="em-present"
-              label="Present"
-              value={count("PRESENT")}
-              note={`Half days: ${count("HALF_DAY")}`}
-              tone="success"
-            />
-            <StatCard
-              headingId="em-absent"
-              label="Absent"
-              value={count("ABSENT")}
-              note={`Not marked: ${count("NOT_MARKED")}`}
-              tone="error"
-            />
-            <StatCard
-              headingId="em-leave"
-              label="On leave"
-              value={count("ON_LEAVE")}
-              note={`Holidays: ${count("HOLIDAY")} · Off: ${count("WEEKLY_OFF")}`}
-              tone="brand"
-            />
-            <StatCard
-              headingId="em-worked"
-              label="Hours worked"
-              value={formatMinutes(totals.worked)}
-              note={row.monthComplete ? "Whole month" : "Month so far"}
-              tone="neutral"
-            />
-            <StatCard
-              headingId="em-ot"
-              label="Overtime"
-              value={formatMinutes(totals.overtime)}
-              note="Beyond the shift target"
-              tone="info"
-            />
+            {/* Present */}
+            <div className="flex items-center justify-between rounded-2xl border border-emerald-200/80 bg-linear-to-r from-[#f0fdf4] to-[#ecfdf5] p-3.5 shadow-xs dark:border-emerald-900/40 dark:from-slate-900 dark:to-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                  Present
+                </p>
+                <h3 className="mt-1 text-2xl font-extrabold text-emerald-800 dark:text-white">
+                  {count("PRESENT")}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Half days: {count("HALF_DAY")}
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/80 bg-white text-emerald-600 shadow-xs dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
+                <UserCheck className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* Absent */}
+            <div className="flex items-center justify-between rounded-2xl border border-rose-200/80 bg-linear-to-r from-[#fff1f2] to-[#fff5f5] p-3.5 shadow-xs dark:border-rose-900/40 dark:from-slate-900 dark:to-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
+                  Absent
+                </p>
+                <h3 className="mt-1 text-2xl font-extrabold text-rose-800 dark:text-white">
+                  {count("ABSENT")}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Not marked: {count("NOT_MARKED")}
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-300/80 bg-white text-rose-600 shadow-xs dark:border-rose-800 dark:bg-slate-800 dark:text-rose-300">
+                <UserX className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* On Leave */}
+            <div className="flex items-center justify-between rounded-2xl border border-sky-200/80 bg-linear-to-r from-[#edf6ff] to-[#f0f8ff] p-3.5 shadow-xs dark:border-sky-900/40 dark:from-slate-900 dark:to-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#0a3271] dark:text-sky-300">
+                  On Leave
+                </p>
+                <h3 className="mt-1 text-2xl font-extrabold text-[#0a3271] dark:text-white">
+                  {count("ON_LEAVE")}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Off: {count("WEEKLY_OFF")} · Hol: {count("HOLIDAY")}
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-300/80 bg-white text-brand-500 shadow-xs dark:border-sky-800 dark:bg-slate-800 dark:text-sky-300">
+                <Calendar className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* Hours Worked */}
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 to-slate-100/70 p-3.5 shadow-xs dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Hours Worked
+                </p>
+                <h3 className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-white">
+                  {formatMinutes(totals.worked)}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  {row.monthComplete ? "Whole month" : "Month so far"}
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-300/80 bg-white text-slate-700 shadow-xs dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300">
+                <Clock className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* Overtime */}
+            <div className="flex items-center justify-between rounded-2xl border border-amber-200/80 bg-linear-to-r from-[#fffbeb] to-[#fef3c7] p-3.5 shadow-xs dark:border-amber-900/40 dark:from-slate-900 dark:to-slate-800">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Overtime
+                </p>
+                <h3 className="mt-1 text-2xl font-extrabold text-amber-800 dark:text-white">
+                  {formatMinutes(totals.overtime)}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Beyond shift target
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-300/80 bg-white text-amber-600 shadow-xs dark:border-amber-800 dark:bg-slate-800 dark:text-amber-300">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+            </div>
           </div>
 
-          <Card>
+          {/* Calendar Grid Card */}
+          <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-5 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
             <div
-              className="grid grid-cols-7 gap-1.5"
+              className="grid grid-cols-7 gap-2"
               role="grid"
               aria-label={`Attendance calendar for ${month}`}
             >
@@ -262,7 +335,7 @@ export function EmployeeMonthTab() {
                 <div
                   key={d}
                   role="columnheader"
-                  className="pb-1 text-center text-theme-xs font-semibold text-gray-500 dark:text-gray-400"
+                  className="pb-1.5 text-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider"
                 >
                   {d}
                 </div>
@@ -273,7 +346,7 @@ export function EmployeeMonthTab() {
                 const record = recordByDate.get(date);
                 const tone = status
                   ? CELL_TONE[STATUS_COLOR[status]]
-                  : "border-dashed border-gray-200 dark:border-gray-800";
+                  : "border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/30";
                 return (
                   <button
                     key={date}
@@ -283,18 +356,23 @@ export function EmployeeMonthTab() {
                     aria-label={`${date}: ${status ? STATUS_LABELS[status] : "Upcoming"}`}
                     disabled={!status}
                     onClick={() => setSelectedDay(date)}
-                    className={`flex min-h-16 flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default ${tone} ${selectedDay === date ? "ring-2 ring-brand-500" : ""}`}
+                    className={cn(
+                      "flex min-h-16 flex-col items-start gap-1 rounded-xl border p-2 text-left transition-all cursor-pointer",
+                      "focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default",
+                      tone,
+                      selectedDay === date ? "ring-2 ring-[#1769F5] shadow-xs scale-101" : "hover:shadow-2xs",
+                    )}
                   >
-                    <span className="text-theme-xs font-semibold text-gray-800 dark:text-gray-200">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       {Number(date.slice(8))}
                     </span>
                     {status ? (
-                      <span className="hidden text-[11px] text-gray-600 sm:block dark:text-gray-400">
+                      <span className="hidden text-[10.5px] font-medium text-slate-600 sm:block dark:text-slate-300">
                         {STATUS_LABELS[status]}
                       </span>
                     ) : null}
                     {record && record.workedMinutes > 0 ? (
-                      <span className="font-mono text-[11px] text-gray-500">
+                      <span className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-400">
                         {formatMinutes(record.workedMinutes)}
                       </span>
                     ) : null}
@@ -302,47 +380,68 @@ export function EmployeeMonthTab() {
                 );
               })}
             </div>
-          </Card>
+          </div>
 
+          {/* Selected Day Details Card */}
           {selectedDay ? (
-            <Card>
-              <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white">
-                {selectedDay} ·{" "}
-                {STATUS_LABELS[statusByDate.get(selectedDay) ?? "NOT_MARKED"]}
-              </h3>
-              {selectedRecord && selectedRecord.sessions.length > 0 ? (
-                <div className="mt-3 flex flex-col gap-3">
-                  <DayTimeline sessions={selectedRecord.sessions} />
-                  <ul className="flex flex-col gap-1 text-theme-xs text-gray-700 dark:text-gray-300">
-                    {selectedRecord.sessions.map((s) => (
-                      <li key={s.id} className="font-mono">
-                        {formatTime(s.checkInAt)} →{" "}
-                        {s.checkOutAt ? formatTime(s.checkOutAt) : "open"}
-                        <span className="ml-2 font-sans text-gray-500">
-                          ({s.source.toLowerCase()})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-theme-xs text-gray-600 dark:text-gray-400">
+            <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-5 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <h3 className="text-theme-sm font-bold text-gray-900 dark:text-white">
+                  {selectedDay} ·{" "}
+                  <span className="text-brand-600 dark:text-brand-400 font-semibold">
+                    {STATUS_LABELS[statusByDate.get(selectedDay) ?? "NOT_MARKED"]}
+                  </span>
+                </h3>
+                {selectedRecord && (
+                  <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                     Worked {formatMinutes(selectedRecord.workedMinutes)}
                     {selectedRecord.overtimeMinutes > 0
-                      ? ` · overtime ${formatMinutes(selectedRecord.overtimeMinutes)}`
+                      ? ` · OT +${formatMinutes(selectedRecord.overtimeMinutes)}`
                       : ""}
                     {selectedRecord.shortfallMinutes > 0
-                      ? ` · short ${formatMinutes(selectedRecord.shortfallMinutes)}`
+                      ? ` · Short -${formatMinutes(selectedRecord.shortfallMinutes)}`
                       : ""}
-                  </p>
+                  </span>
+                )}
+              </div>
+
+              {selectedRecord && selectedRecord.sessions.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-3.5">
+                  <DayTimeline sessions={selectedRecord.sessions} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {selectedRecord.sessions.map((s, idx) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40 text-theme-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-50 text-[10px] font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                            {idx + 1}
+                          </span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">
+                            {formatTime(s.checkInAt)} →{" "}
+                            {s.checkOutAt ? formatTime(s.checkOutAt) : (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Open</span>
+                            )}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-white dark:bg-gray-900 px-1.5 py-0.5 rounded border border-gray-200/80 dark:border-gray-700">
+                          {s.source.toLowerCase()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <p className="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                  No punches recorded.
+                <p className="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
+                  No punches recorded for this date.
                 </p>
               )}
-            </Card>
+            </div>
           ) : null}
         </>
       )}
     </div>
   );
 }
+

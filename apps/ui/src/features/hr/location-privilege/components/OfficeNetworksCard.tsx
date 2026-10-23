@@ -160,7 +160,7 @@ export function OfficeNetworksCard() {
                 cell: (n) => (
                   <div className="flex items-center gap-2">
                     <Server className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-                    <span className="font-mono text-theme-xs font-semibold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/80 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                    <span className="text-theme-xs font-semibold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/80 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
                       {n.ipAddress}
                     </span>
                   </div>

@@ -79,6 +79,12 @@ const PROFILE_SELECT = {
   ...EMPLOYEE_SELECT,
   personalDetail: true,
   employeeAddresses: { where: { deletedAt: null } },
+  documents: {
+    where: { documentType: "PROFILE_PHOTO", isActive: true },
+    select: { id: true, fileName: true, mimeType: true },
+    orderBy: { uploadedAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.EmployeeSelect;
 
 type ProfileRow = Prisma.EmployeeGetPayload<{ select: typeof PROFILE_SELECT }>;
@@ -107,6 +113,7 @@ function toAddressValue(row: AddressRow | undefined): AddressValue | null {
  */
 export function toProfileView(row: ProfileRow) {
   const p = row.personalDetail;
+  const photoDoc = row.documents?.[0];
   const address = (type: string) =>
     toAddressValue(row.employeeAddresses.find((a) => a.addressType === type));
   return {
@@ -118,6 +125,9 @@ export function toProfileView(row: ProfileRow) {
       phone: row.phone,
       dateOfJoining: formatDateOnly(row.dateOfJoining),
       status: row.status,
+      avatarUrl: photoDoc
+        ? `/hr/employees/${row.id}/documents/${photoDoc.id}/file`
+        : null,
     },
     profile: {
       title: p?.title ?? null,

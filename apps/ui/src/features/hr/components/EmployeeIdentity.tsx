@@ -1,28 +1,49 @@
 "use client";
 
 import Link from "next/link";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface EmployeeIdentityProps {
   name: string;
   code?: string | undefined;
   subtext?: string | undefined;
   href?: string | undefined;
+  avatarUrl?: string | null | undefined;
   avatarSize?: "sm" | "md" | "lg" | undefined;
   size?: "sm" | "md" | "lg" | undefined;
   className?: string | undefined;
 }
 
+/** Resolves an avatar image path into an authenticated streaming URL */
+export function getResolvedAvatarUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:")
+  ) {
+    return path;
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const token = useAuthStore.getState().accessToken;
+  const separator = path.includes("?") ? "&" : "?";
+  return token
+    ? `${baseUrl}${path}${separator}token=${token}&inline=true`
+    : `${baseUrl}${path}`;
+}
+
 /** Deterministic background color generator based on name initials */
 const AVATAR_PALETTES = [
-  "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-  "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-  "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-  "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800",
-  "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-200 dark:border-teal-800",
-  "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+  "bg-sky-100 text-[#0a3271] dark:bg-sky-950/80 dark:text-sky-200 border-sky-200/90 dark:border-sky-800",
+  "bg-blue-100 text-[#1769F5] dark:bg-blue-950/80 dark:text-blue-200 border-blue-200/90 dark:border-blue-800",
+  "bg-cyan-100 text-[#0369a1] dark:bg-cyan-950/80 dark:text-cyan-200 border-cyan-200/90 dark:border-cyan-800",
+  "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200/90 dark:border-slate-700",
+  "bg-[#e0f2fe] text-[#0284c7] dark:bg-sky-900/60 dark:text-sky-100 border-sky-300/80 dark:border-sky-700",
+  "bg-[#eaf1fb] text-[#1e40af] dark:bg-blue-900/60 dark:text-blue-100 border-blue-300/80 dark:border-blue-700",
 ];
 
-function getInitials(name: string): string {
+export function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0 || !parts[0]) return "—";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -31,7 +52,7 @@ function getInitials(name: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-function getPalette(name: string): string {
+export function getPalette(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -42,7 +63,7 @@ function getPalette(name: string): string {
 
 /**
  * Reusable Employee Identity component conforming to TEXA HR Design System.
- * Displays avatar initials, full name, and employee code.
+ * Displays avatar initials or photo, full name, and employee code.
  * Intended for reuse across: Employees, Attendance, Leaves,
  * Regularization, Payroll, Tickets, Exit Requests, Org Chart.
  */
@@ -51,6 +72,7 @@ export function EmployeeIdentity({
   code,
   subtext,
   href,
+  avatarUrl,
   avatarSize = "md",
   size,
   className = "",
@@ -58,6 +80,7 @@ export function EmployeeIdentity({
   const initials = getInitials(name);
   const palette = getPalette(name);
   const effectiveSize = size ?? avatarSize;
+  const resolvedUrl = getResolvedAvatarUrl(avatarUrl);
 
   const sizeClasses = {
     sm: "h-7 w-7 text-[10px]",
@@ -67,12 +90,23 @@ export function EmployeeIdentity({
 
   const content = (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Avatar Circle */}
+      {/* Avatar Circle / Photo */}
       <div
-        className={`flex shrink-0 items-center justify-center rounded-full border font-bold shadow-theme-xs transition-transform duration-150 ${sizeClasses} ${palette}`}
+        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border font-bold shadow-theme-xs transition-transform duration-150 ${sizeClasses} ${palette}`}
         aria-hidden="true"
       >
-        {initials}
+        {resolvedUrl ? (
+          <img
+            src={resolvedUrl}
+            alt={name}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+        ) : (
+          initials
+        )}
       </div>
 
       {/* Identity Text */}
@@ -91,7 +125,7 @@ export function EmployeeIdentity({
         )}
 
         {code && (
-          <span className="truncate font-mono text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+          <span className="truncate text-[11px] text-gray-500 dark:text-gray-400 font-medium">
             {code}
           </span>
         )}

@@ -163,7 +163,7 @@ export function HolidayForm({
         error={errors.description}
         hint="Optional. Up to 500 characters."
         labelAction={
-          <span className="font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+          <span className="text-theme-xs font-medium text-gray-400 dark:text-gray-500">
             {values.description?.length ?? 0}/500
           </span>
         }

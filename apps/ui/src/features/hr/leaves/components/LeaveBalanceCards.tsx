@@ -83,7 +83,7 @@ export function LeaveBalanceCards({
                 <span className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
                   {b.name}
                 </span>
-                <span className="text-theme-xs font-mono text-gray-500 dark:text-gray-400">
+                <span className="text-theme-xs font-semibold text-gray-500 dark:text-gray-400">
                   {b.code}
                 </span>
               </div>
@@ -123,25 +123,25 @@ export function LeaveBalanceCards({
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px]">
                   <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
                     <span>Entitlement:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300 font-mono">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
                       {b.entitlement}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
                     <span>Accrued:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300 font-mono">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
                       {b.accrued}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
                     <span>Used:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300 font-mono">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
                       {b.used}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
                     <span>Pending:</span>
-                    <span className="font-semibold text-warning-600 dark:text-warning-400 font-mono">
+                    <span className="font-semibold text-warning-600 dark:text-warning-400">
                       {b.pending}
                     </span>
                   </div>

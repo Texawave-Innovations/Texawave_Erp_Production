@@ -121,6 +121,7 @@ export interface PayrollEntry {
   employee: EmployeeRef & {
     team: NamedRef | null;
     department: NamedRef | null;
+    bankDetails?: MaskedBankDetails | null;
   };
   earnings: Array<{
     id: number;

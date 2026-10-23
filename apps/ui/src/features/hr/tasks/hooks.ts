@@ -28,12 +28,12 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useTasks(query: TaskListQuery) {
+export function useTasks(query: TaskListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list", query),
     queryFn: () => listTasks(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 

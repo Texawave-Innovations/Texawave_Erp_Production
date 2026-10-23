@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,7 +12,6 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { User } from "lucide-react";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useCreateTicket } from "../hooks";
 import {
@@ -51,67 +50,55 @@ function describeCreateError(error: unknown): string {
 }
 
 /**
- * Centered modal for raising an employee support ticket.
- * Displays live character counters, pre-populated Employee ID, category dropdown,
- * and handles submission with validation feedback.
+ * Modern modal for raising an employee support ticket or issuing a notice/warning.
+ * Matches Reference 5 layout:
+ * - Category and Target Employee dropdowns
+ * - Clean Nunito Sans typography (zero font-mono)
+ * - Live character counters
  */
 export function RaiseTicketDialog({
   open,
   onClose,
   onSuccess,
   defaultEmployeeId,
-  defaultEmployeeCode,
 }: RaiseTicketDialogProps) {
-  const employeesQuery = useEmployees({ page: 1, limit: 1 });
-  const firstEmployee = employeesQuery.data?.data?.[0];
+  const employeesQuery = useEmployees({ page: 1, limit: 100 });
+  const employeeOptions = useMemo(
+    () => employeesQuery.data?.data ?? [],
+    [employeesQuery.data?.data],
+  );
 
   const [values, setValues] = useState({
     ...EMPTY_CREATE_TICKET_FORM,
-    employeeId:
-      defaultEmployeeCode ??
-      (defaultEmployeeId ? String(defaultEmployeeId) : ""),
+    employeeId: defaultEmployeeId ?? 0,
   });
+
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const create = useCreateTicket();
   const { toast } = useToast();
   const submitting = create.isPending;
 
-  const fallbackEmployeeCode =
-    firstEmployee?.employeeCode ||
-    (firstEmployee?.id ? String(firstEmployee.id) : "");
-  const currentEmployeeId = values.employeeId || fallbackEmployeeCode;
 
   function update<K extends keyof typeof values>(
     key: K,
     value: (typeof values)[K],
   ) {
     setValues((v) => ({ ...v, [key]: value }));
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    // Parse employee ID: strip "EMP-" or non-digits if present, or fallback to numeric ID
-    const rawEmp = String(currentEmployeeId).trim();
-    let parsedEmployeeId = 0;
-    if (rawEmp.toUpperCase().startsWith("EMP-")) {
-      parsedEmployeeId = parseInt(rawEmp.replace(/^EMP-/i, ""), 10);
-    } else {
-      parsedEmployeeId = parseInt(rawEmp, 10);
-    }
-
-    if (isNaN(parsedEmployeeId) || parsedEmployeeId <= 0) {
-      // If employeeCode was matched against firstEmployee, use its numeric ID
-      if (firstEmployee && rawEmp === firstEmployee.employeeCode) {
-        parsedEmployeeId = firstEmployee.id;
-      } else if (defaultEmployeeId) {
-        parsedEmployeeId = defaultEmployeeId;
-      }
-    }
-
     const result = createTicketSchema.safeParse({
-      employeeId: parsedEmployeeId,
+      employeeId: Number(values.employeeId),
       category: values.category,
       subject: values.subject,
       description: values.description,
@@ -134,11 +121,8 @@ export function RaiseTicketDialog({
 
     try {
       await create.mutateAsync(result.data);
-      toast({ title: "Ticket raised successfully", variant: "success" });
-      setValues({
-        ...EMPTY_CREATE_TICKET_FORM,
-        employeeId: firstEmployee?.employeeCode ?? "EMP-0001",
-      });
+      toast({ title: "Ticket created successfully", variant: "success" });
+      setValues(EMPTY_CREATE_TICKET_FORM);
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -147,7 +131,7 @@ export function RaiseTicketDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Raise Ticket" size="lg">
+    <Dialog open={open} onClose={onClose} title="Create Ticket for Employee" size="lg">
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-4.5"
@@ -155,109 +139,125 @@ export function RaiseTicketDialog({
       >
         <div>
           <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            Submit a new support ticket.
+            Submit a support ticket, inquiry, or administrative notice for an employee.
           </p>
         </div>
 
-        {/* Employee ID */}
-        <FormField label="Employee ID" required error={fieldErrors.employeeId}>
-          {(f) => (
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                <User className="h-4 w-4" />
-              </span>
-              <Input
+        {serverError ? (
+          <Alert variant="error" title="Could not create ticket">
+            {serverError}
+          </Alert>
+        ) : null}
+
+        {/* 2-Column Row: Category & Target Employee (Reference 5 Layout) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Category */}
+          <FormField
+            label="Category"
+            required
+            error={fieldErrors.category}
+          >
+            {(f) => (
+              <Select
                 {...f}
                 invalid={f.invalid}
-                placeholder="EMP-0001"
-                value={currentEmployeeId}
+                aria-label="Ticket Category"
+                value={values.category}
                 disabled={submitting}
-                className="pl-9.5 font-mono"
-                onChange={(e) => update("employeeId", e.target.value)}
-              />
-            </div>
-          )}
-        </FormField>
+                onChange={(e) =>
+                  update(
+                    "category",
+                    e.target.value as (typeof TICKET_CATEGORIES)[number],
+                  )
+                }
+              >
+                <option value="">Select category...</option>
+                {TICKET_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
 
-        {/* Category */}
-        <FormField label="Category" required error={fieldErrors.category}>
-          {(f) => (
-            <Select
-              {...f}
-              invalid={f.invalid}
-              value={values.category}
-              disabled={submitting}
-              onChange={(e) =>
-                update("category", e.target.value as typeof values.category)
-              }
-            >
-              <option value="">Select category</option>
-              {TICKET_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
+          {/* Target Employee */}
+          <FormField
+            label="Target Employee"
+            required
+            error={fieldErrors.employeeId}
+          >
+            {(f) => (
+              <Select
+                {...f}
+                invalid={f.invalid}
+                aria-label="Target Employee"
+                value={values.employeeId ? String(values.employeeId) : ""}
+                disabled={submitting}
+                onChange={(e) => update("employeeId", Number(e.target.value))}
+              >
+                <option value="">Select employee...</option>
+                {employeeOptions.map((emp) => (
+                  <option key={emp.id} value={String(emp.id)}>
+                    {emp.fullName} · {emp.designation?.name || emp.team?.name || emp.employeeCode}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+        </div>
 
         {/* Subject */}
         <FormField
           label="Subject"
           required
           error={fieldErrors.subject}
-          labelAction={
-            <span className="text-theme-xs text-gray-400 font-normal">
-              {values.subject.length} / {TICKET_SUBJECT_MAX}
-            </span>
-          }
         >
           {(f) => (
-            <Input
-              {...f}
-              invalid={f.invalid}
-              placeholder="Enter ticket subject..."
-              maxLength={TICKET_SUBJECT_MAX}
-              value={values.subject}
-              disabled={submitting}
-              onChange={(e) => update("subject", e.target.value)}
-            />
+            <div>
+              <Input
+                {...f}
+                invalid={f.invalid}
+                placeholder="Brief subject of the ticket"
+                value={values.subject}
+                disabled={submitting}
+                maxLength={TICKET_SUBJECT_MAX}
+                onChange={(e) => update("subject", e.target.value)}
+              />
+              <span className="text-[11px] text-gray-400 mt-1 block">
+                {values.subject.length}/{TICKET_SUBJECT_MAX} characters
+              </span>
+            </div>
           )}
         </FormField>
 
-        {/* Description */}
+        {/* Description / Message */}
         <FormField
-          label="Description"
+          label="Description / Message"
           required
           error={fieldErrors.description}
-          labelAction={
-            <span className="text-theme-xs text-gray-400 font-normal">
-              {values.description.length} / {TICKET_DESCRIPTION_MAX}
-            </span>
-          }
         >
           {(f) => (
-            <Textarea
-              {...f}
-              rows={4}
-              invalid={f.invalid}
-              placeholder="Enter detailed description of your request..."
-              maxLength={TICKET_DESCRIPTION_MAX}
-              value={values.description}
-              disabled={submitting}
-              onChange={(e) => update("description", e.target.value)}
-            />
+            <div>
+              <Textarea
+                {...f}
+                invalid={f.invalid}
+                placeholder="Write your message or notice to the employee..."
+                value={values.description}
+                disabled={submitting}
+                rows={4}
+                maxLength={TICKET_DESCRIPTION_MAX}
+                onChange={(e) => update("description", e.target.value)}
+              />
+              <span className="text-[11px] text-gray-400 mt-1 block">
+                {values.description.length}/{TICKET_DESCRIPTION_MAX} characters
+              </span>
+            </div>
           )}
         </FormField>
 
-        {serverError ? (
-          <Alert variant="error" title="Could not submit ticket">
-            {serverError}
-          </Alert>
-        ) : null}
-
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-800">
           <Button
             type="button"
             variant="secondary"
@@ -266,12 +266,8 @@ export function RaiseTicketDialog({
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            loading={submitting}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-medium"
-          >
-            Raise Ticket
+          <Button type="submit" loading={submitting}>
+            Create Ticket
           </Button>
         </div>
       </form>

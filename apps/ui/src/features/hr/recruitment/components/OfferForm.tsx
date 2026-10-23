@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, FormField, Input, Select } from "@texawave-erp/ui-kit";
+import { Button, DatePicker, Input } from "@texawave-erp/ui-kit";
 import {
-  User,
-  DollarSign,
-  Calendar,
-  Building2,
   Clock,
-  CheckCircle,
+  ShieldCheck,
+  Stamp,
+  X,
+  FileText,
 } from "lucide-react";
-import { FormSection } from "../../components/FormSection";
 import {
   issuesByField,
   offerFormSchema,
@@ -29,7 +27,6 @@ import type { CreateOfferLetterInput, OfferLetterView } from "../types";
 import {
   addDaysToDateOnly,
   apiErrorMessage,
-  formatRupees,
   todayDateOnly,
 } from "../utils";
 
@@ -40,6 +37,10 @@ export interface OfferFormProps {
   onCancel: () => void;
   submitLabel: string;
   onValuesChange?: (values: OfferFormValues) => void;
+  signatureImageUrl?: string;
+  sealImageUrl?: string;
+  onSignatureChange?: (url: string) => void;
+  onSealChange?: (url: string) => void;
 }
 
 /** Legacy prefills, mirrored from offer-letters.rules.ts OFFER_LETTER_DEFAULTS. */
@@ -58,6 +59,27 @@ export const LEGACY_OFFER_DEFAULTS = {
     "No. 93/206, Canal Bank Road, Indra Nagar, Adyar, Chennai – 600020",
 } as const;
 
+export function toDisplayDate(val: string): string {
+  if (!val) return "";
+  const yyyymmdd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val.trim());
+  if (yyyymmdd && yyyymmdd[1] && yyyymmdd[2] && yyyymmdd[3]) {
+    return `${yyyymmdd[3]}/${yyyymmdd[2]}/${yyyymmdd[1]}`;
+  }
+  return val;
+}
+
+export function toDateOnly(val: string): string {
+  if (!val) return "";
+  const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(val.trim());
+  if (ddmmyyyy && ddmmyyyy[1] && ddmmyyyy[2] && ddmmyyyy[3]) {
+    const day = ddmmyyyy[1].padStart(2, "0");
+    const month = ddmmyyyy[2].padStart(2, "0");
+    const year = ddmmyyyy[3];
+    return `${year}-${month}-${day}`;
+  }
+  return val.trim();
+}
+
 export function emptyOfferValues(): OfferFormValues {
   const offerDate = todayDateOnly();
   return {
@@ -65,7 +87,7 @@ export function emptyOfferValues(): OfferFormValues {
     role: "",
     location: LEGACY_OFFER_DEFAULTS.location,
     reportingManager: LEGACY_OFFER_DEFAULTS.reportingManager,
-    offerDate,
+    offerDate: offerDate,
     joiningDate: "",
     offerValidityDate: addDaysToDateOnly(offerDate, 7),
     basic: "",
@@ -109,13 +131,24 @@ export function offerValuesFrom(offer: OfferLetterView): OfferFormValues {
   };
 }
 
-/** Offer terms form. Field names and limits follow CreateOfferLetterDto. */
+/**
+ * Offer terms form matching Reference Layout:
+ * - Candidate Information
+ * - Working Schedule Timings
+ * - Monthly Salary Components (with 35/15/30/20 auto-calc & green CTC summary)
+ * - Signatory & Company Details
+ * - Signature & Company Seal Uploads
+ */
 export function OfferForm({
   initial,
   onSubmit,
   onCancel,
   submitLabel,
   onValuesChange,
+  signatureImageUrl,
+  sealImageUrl,
+  onSignatureChange,
+  onSealChange,
 }: OfferFormProps) {
   const [values, setValues] = useState<OfferFormValues>(() =>
     initial ? offerValuesFrom(initial) : emptyOfferValues(),
@@ -131,7 +164,7 @@ export function OfferForm({
   const monthlyNet = monthlyTotal(values);
   const annualGross = monthlyNet * 12;
 
-  // Inform parent of current values for live document preview via ref to prevent infinite loops
+  // Inform parent of current values for live document preview
   const onValuesChangeRef = useRef(onValuesChange);
   useEffect(() => {
     onValuesChangeRef.current = onValuesChange;
@@ -151,7 +184,6 @@ export function OfferForm({
     });
   }
 
-  /** Legacy behaviour: one amount drives all four components. */
   function applyAmount(next: string, nextBasis: SalaryBasis) {
     setAmount(next);
     setValues((prev) => ({ ...prev, ...splitAmount(next, nextBasis) }));
@@ -163,9 +195,34 @@ export function OfferForm({
     applyAmount(convertAmount(amount, next), next);
   }
 
+  const handleImageUpload = (
+    type: "signature" | "seal",
+    file: File | null,
+  ) => {
+    if (!file) {
+      if (type === "signature") onSignatureChange?.("");
+      else onSealChange?.("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (type === "signature") onSignatureChange?.(result);
+      else onSealChange?.(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const result = offerFormSchema.safeParse(values);
+    const normalizedValues = {
+      ...values,
+      offerDate: toDateOnly(values.offerDate),
+      joiningDate: toDateOnly(values.joiningDate),
+      offerValidityDate: toDateOnly(values.offerValidityDate),
+    };
+
+    const result = offerFormSchema.safeParse(normalizedValues);
     if (!result.success) {
       setErrors(issuesByField(result.error));
       return;
@@ -209,204 +266,415 @@ export function OfferForm({
     }
   }
 
-  const textField = (
-    key: keyof OfferFormValues,
-    label: string,
-    options: {
-      required?: boolean;
-      hint?: string;
-      type?: string;
-      placeholder?: string;
-    } = {},
-  ) => (
-    <FormField
-      label={label}
-      required={options.required ?? false}
-      error={errors[key]}
-      hint={options.hint ?? ""}
-    >
-      {(fieldProps) => (
-        <Input
-          {...fieldProps}
-          type={options.type ?? "text"}
-          placeholder={options.placeholder}
-          value={values[key]}
-          onChange={(e) => set(key, e.target.value as never)}
-          disabled={submitting}
-        />
-      )}
-    </FormField>
-  );
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
-      {/* 01 Candidate Information */}
-      <FormSection
-        stepNumber="1"
-        title="Candidate Information"
-        description="Enter recipient and appointment details"
-        icon={User}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {textField("candidateName", "Candidate name", {
-            required: true,
-            placeholder: "e.g. Rohit Gupta",
-          })}
-          {textField("role", "Designation", {
-            required: true,
-            placeholder: "e.g. Frontend Developer",
-          })}
-          {textField("location", "Location", {
-            required: true,
-            placeholder: "e.g. Chennai, India",
-          })}
-          {textField("reportingManager", "Reporting manager", {
-            placeholder: "e.g. Mr. Nithyanandan Ramaraj",
-          })}
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 text-sm" noValidate>
+      {/* ================= 1. CANDIDATE INFORMATION ================= */}
+      <div className="space-y-3.5">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          CANDIDATE INFORMATION
+        </h4>
+
+        {/* Candidate Name */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Candidate Name *
+          </label>
+          <Input
+            placeholder="e.g. Arun Kumar R"
+            value={values.candidateName}
+            onChange={(e) => set("candidateName", e.target.value)}
+            disabled={submitting}
+            className={`w-full ${errors.candidateName ? "border-red-500 ring-1 ring-red-500" : ""}`}
+          />
+          {errors.candidateName && (
+            <p className="text-[11px] text-red-500 mt-1">{errors.candidateName}</p>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {textField("offerDate", "Offer date", {
-            required: true,
-            type: "date",
-          })}
-          {textField("joiningDate", "Date of joining", {
-            required: true,
-            type: "date",
-          })}
-          {textField("offerValidityDate", "Offer valid until", {
-            type: "date",
-          })}
-        </div>
-      </FormSection>
-
-      {/* 02 Compensation Details */}
-      <FormSection
-        stepNumber="2"
-        title="Compensation Details"
-        description="Configure structured salary breakdown"
-        icon={DollarSign}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        {/* Role & Location */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-theme-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Pay type
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Role / Designation *
             </label>
-            <div
-              role="group"
-              aria-label="Salary basis"
-              className="inline-flex rounded-lg border border-gray-300 p-0.5 dark:border-gray-700"
-            >
-              {(["monthly", "annual"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={basis === option}
-                  onClick={() => switchBasis(option)}
-                  disabled={submitting}
-                  className={`rounded-md px-3 py-1.5 text-theme-xs font-medium transition-colors ${
-                    basis === option
-                      ? "bg-brand-500 text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  {option === "monthly" ? "Monthly" : "Annual"}
-                </button>
-              ))}
-            </div>
+            <Input
+              placeholder="e.g. Senior Software Eng"
+              value={values.role}
+              onChange={(e) => set("role", e.target.value)}
+              disabled={submitting}
+              className={`w-full ${errors.role ? "border-red-500 ring-1 ring-red-500" : ""}`}
+            />
+            {errors.role && (
+              <p className="text-[11px] text-red-500 mt-1">{errors.role}</p>
+            )}
           </div>
-
-          <div className="flex-1">
-            <FormField
-              label={
-                basis === "monthly"
-                  ? "Total CTC (Monthly)"
-                  : "Total CTC (Annual)"
-              }
-              hint="Splits into Basic 35%, DA 15%, HRA 30%, CA 20%. Specific items can be modified below."
-            >
-              {(fieldProps) => (
-                <Input
-                  {...fieldProps}
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  placeholder="e.g. 85000"
-                  value={amount}
-                  onChange={(e) => applyAmount(e.target.value, basis)}
-                  disabled={submitting}
-                />
-              )}
-            </FormField>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Location *
+            </label>
+            <Input
+              placeholder="Chennai"
+              value={values.location}
+              onChange={(e) => set("location", e.target.value)}
+              disabled={submitting}
+              className={`w-full ${errors.location ? "border-red-500 ring-1 ring-red-500" : ""}`}
+            />
+            {errors.location && (
+              <p className="text-[11px] text-red-500 mt-1">{errors.location}</p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {textField("basic", "Basic salary", {
-            type: "number",
-            placeholder: "₹",
-          })}
-          {textField("hra", "HRA", { type: "number", placeholder: "₹" })}
-          {textField("ca", "Conveyance", { type: "number", placeholder: "₹" })}
-          {textField("da", "Other allowances (DA)", {
-            type: "number",
-            placeholder: "₹",
-          })}
+        {/* Reporting Manager */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Reporting Manager
+          </label>
+          <Input
+            placeholder="e.g. Mr. Nithyanandan Ramaraj"
+            value={values.reportingManager}
+            onChange={(e) => set("reportingManager", e.target.value)}
+            disabled={submitting}
+            className="w-full"
+          />
         </div>
 
-        <div className="grid grid-cols-1 gap-2 rounded-xl border border-brand-200 bg-brand-50/60 p-4 text-theme-sm sm:grid-cols-2 dark:border-brand-800 dark:bg-brand-950/40">
-          <div className="flex justify-between items-center pr-2">
-            <span className="text-gray-600 dark:text-gray-300 font-medium">
-              Monthly CTC:
-            </span>
+        {/* Dates row: Offer Date, Joining Date, Offer Validity with Calendar Picker */}
+        <div className="relative focus-within:z-30 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="relative">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Offer Date
+            </label>
+            <DatePicker
+              value={values.offerDate}
+              onChangeDate={(date) => set("offerDate", date)}
+              disabled={submitting}
+              invalid={Boolean(errors.offerDate)}
+              sizeVariant="sm"
+              placeholder="dd/mm/yyyy"
+              className="w-full text-xs"
+            />
+            {errors.offerDate && (
+              <p className="text-[10px] text-red-500 mt-0.5">{errors.offerDate}</p>
+            )}
+          </div>
+          <div className="relative">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Joining Date *
+            </label>
+            <DatePicker
+              value={values.joiningDate}
+              onChangeDate={(date) => set("joiningDate", date)}
+              disabled={submitting}
+              invalid={Boolean(errors.joiningDate)}
+              sizeVariant="sm"
+              placeholder="dd/mm/yyyy"
+              className="w-full text-xs"
+            />
+            {errors.joiningDate && (
+              <p className="text-[10px] text-red-500 mt-0.5">{errors.joiningDate}</p>
+            )}
+          </div>
+          <div className="relative">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Offer Validity
+            </label>
+            <DatePicker
+              value={values.offerValidityDate}
+              onChangeDate={(date) => set("offerValidityDate", date)}
+              disabled={submitting}
+              invalid={Boolean(errors.offerValidityDate)}
+              sizeVariant="sm"
+              placeholder="dd/mm/yyyy"
+              align="right"
+              className="w-full text-xs"
+            />
+            {errors.offerValidityDate && (
+              <p className="text-[10px] text-red-500 mt-0.5">{errors.offerValidityDate}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ================= 2. WORKING SCHEDULE TIMINGS ================= */}
+      <div className="pt-4 border-t border-gray-200/90 dark:border-gray-800 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5 text-brand-500 dark:text-sky-400" />
+          WORKING SCHEDULE TIMINGS
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Mon – Fri
+            </label>
+            <Input
+              value={values.workScheduleMonFri}
+              onChange={(e) => set("workScheduleMonFri", e.target.value)}
+              disabled={submitting}
+              className="w-full text-xs"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Saturday
+            </label>
+            <Input
+              value={values.workScheduleSat}
+              onChange={(e) => set("workScheduleSat", e.target.value)}
+              disabled={submitting}
+              className="w-full text-xs"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Sunday
+            </label>
+            <Input
+              value={values.workScheduleSun}
+              onChange={(e) => set("workScheduleSun", e.target.value)}
+              disabled={submitting}
+              className="w-full text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ================= 3. MONTHLY SALARY COMPONENTS (INR) ================= */}
+      <div className="pt-4 border-t border-gray-200/90 dark:border-gray-800 space-y-3.5">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          MONTHLY SALARY COMPONENTS (INR)
+        </h4>
+
+        {/* 2 Big Toggle Buttons matching TexaOne brand theme */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => switchBasis("monthly")}
+            disabled={submitting}
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
+              basis === "monthly"
+                ? "bg-brand-500 hover:bg-brand-600 text-white shadow-xs shadow-brand-500/20"
+                : "border border-gray-200 bg-white text-gray-700 hover:bg-brand-50/60 hover:text-brand-600 hover:border-brand-200 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-brand-950/40 dark:hover:text-cyan-400 dark:hover:border-cyan-800"
+            }`}
+          >
+            Monthly Salary
+          </button>
+          <button
+            type="button"
+            onClick={() => switchBasis("annual")}
+            disabled={submitting}
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all duration-200 ${
+              basis === "annual"
+                ? "bg-brand-500 hover:bg-brand-600 text-white shadow-xs shadow-brand-500/20"
+                : "border border-gray-200 bg-white text-gray-700 hover:bg-brand-50/60 hover:text-brand-600 hover:border-brand-200 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-brand-950/40 dark:hover:text-cyan-400 dark:hover:border-cyan-800"
+            }`}
+          >
+            Annual Salary
+          </button>
+        </div>
+
+        {/* Salary Amount Input */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            {basis === "monthly" ? "Monthly Salary Amount" : "Annual Salary Amount"}
+          </label>
+          <Input
+            type="number"
+            min={0}
+            placeholder={basis === "monthly" ? "e.g. 12000" : "e.g. 144000"}
+            value={amount}
+            onChange={(e) => applyAmount(e.target.value, basis)}
+            disabled={submitting}
+            className="w-full"
+          />
+        </div>
+
+        {/* Brand Theme Highlight Summary Box */}
+        <div className="rounded-xl border border-brand-100 bg-linear-to-br from-brand-50/80 via-sky-50/40 to-white p-3.5 space-y-1.5 text-xs text-slate-800 font-medium dark:border-brand-900/40 dark:from-brand-950/40 dark:via-sky-950/20 dark:to-gray-900 dark:text-slate-200">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Net Monthly:</span>
             <span className="font-bold text-gray-900 dark:text-white">
-              {monthlyNet > 0 ? formatRupees(monthlyNet.toFixed(2)) : "—"}
+              {monthlyNet > 0 ? `₹ ${Math.round(monthlyNet).toLocaleString("en-IN")}` : ""}
             </span>
           </div>
-          <div className="flex justify-between items-center pl-2 sm:border-l sm:border-brand-200 dark:sm:border-brand-800">
-            <span className="text-gray-600 dark:text-gray-300 font-medium">
-              Gross Annual CTC:
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Gross Monthly CTC:</span>
+            <span className="font-bold text-gray-900 dark:text-white">
+              {monthlyNet > 0 ? `₹ ${Math.round(monthlyNet).toLocaleString("en-IN")}` : ""}
             </span>
-            <span className="font-bold text-brand-700 dark:text-brand-400">
-              {annualGross > 0 ? formatRupees(annualGross.toFixed(2)) : "—"}
+          </div>
+          <div className="flex justify-between items-center border-t border-brand-100 dark:border-brand-900/60 pt-1.5 text-sm font-extrabold text-brand-600 dark:text-cyan-400">
+            <span>Gross Annual CTC:</span>
+            <span>
+              {annualGross > 0 ? `₹ ${Math.round(annualGross).toLocaleString("en-IN")}` : ""}
             </span>
           </div>
         </div>
-      </FormSection>
 
-      {/* 03 Working Schedule */}
-      <FormSection
-        stepNumber="3"
-        title="Working Schedule"
-        description="Standard hours of duty and weekly off"
-        icon={Clock}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {textField("workScheduleMonFri", "Mon – Fri")}
-          {textField("workScheduleSat", "Saturday")}
-          {textField("workScheduleSun", "Sunday")}
+        {/* 2x2 Components: Basic, DA, HRA, CA matching Image 2 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Basic (35%)
+            </label>
+            <Input
+              type="number"
+              value={values.basic}
+              onChange={(e) => set("basic", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              DA (15%)
+            </label>
+            <Input
+              type="number"
+              value={values.da}
+              onChange={(e) => set("da", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              HRA (30%)
+            </label>
+            <Input
+              type="number"
+              value={values.hra}
+              onChange={(e) => set("hra", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              CA (20%)
+            </label>
+            <Input
+              type="number"
+              value={values.ca}
+              onChange={(e) => set("ca", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
         </div>
-      </FormSection>
+      </div>
 
-      {/* 04 Signatory & Organization */}
-      <FormSection
-        stepNumber="4"
-        title="Authorized Signatory & Organization"
-        description="Authorized representative issuing this contract"
-        icon={Building2}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {textField("signatoryName", "Signatory name", { required: true })}
-          {textField("signatoryDesignation", "Signatory designation", {
-            required: true,
-          })}
-          {textField("companyEmail", "Company e-mail", { required: true })}
-          {textField("companyPhone", "Company phone", { required: true })}
-          {textField("companyWebsite", "Company website", { required: true })}
+      {/* ================= 4. SIGNATORY & COMPANY DETAILS ================= */}
+      <div className="pt-4 border-t border-gray-200/90 dark:border-gray-800 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-brand-500 dark:text-sky-400" />
+          SIGNATORY & COMPANY DETAILS
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Signatory Name
+            </label>
+            <Input
+              value={values.signatoryName}
+              onChange={(e) => set("signatoryName", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Signatory Designation
+            </label>
+            <Input
+              value={values.signatoryDesignation}
+              onChange={(e) => set("signatoryDesignation", e.target.value)}
+              disabled={submitting}
+              className="w-full"
+            />
+          </div>
         </div>
-        {textField("companyAddress", "Company address", { required: true })}
-      </FormSection>
+      </div>
+
+      {/* ================= 5. SIGNATURE & COMPANY SEAL UPLOADS ================= */}
+      <div className="pt-4 border-t border-gray-200/90 dark:border-gray-800 space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <Stamp className="h-3.5 w-3.5 text-brand-500 dark:text-sky-400" />
+          SIGNATURE & COMPANY SEAL UPLOADS
+        </h4>
+
+        {/* Signatory Signature Image */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Signatory Signature Image
+          </label>
+          {signatureImageUrl ? (
+            <div className="flex items-center gap-3 mt-1 p-2 border border-gray-200 rounded-xl bg-gray-50/80 dark:border-gray-700 dark:bg-gray-800/50">
+              <img
+                src={signatureImageUrl}
+                alt="Signature Preview"
+                className="h-10 max-w-30 object-contain border bg-white p-1 rounded"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-red-600 hover:text-red-700 h-8 px-2"
+                onClick={() => onSignatureChange?.("")}
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  handleImageUpload("signature", e.target.files?.[0] || null)
+                }
+                className="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border file:border-brand-200 file:bg-brand-50/70 file:text-brand-700 file:text-xs file:font-semibold hover:file:bg-brand-100 cursor-pointer rounded-xl border border-gray-200 p-1.5 dark:border-gray-700 dark:file:bg-brand-950/40 dark:file:border-brand-800 dark:file:text-cyan-400"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Company Seal / Stamp Image */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Company Seal / Stamp Image
+          </label>
+          {sealImageUrl ? (
+            <div className="flex items-center gap-3 mt-1 p-2 border border-gray-200 rounded-xl bg-gray-50/80 dark:border-gray-700 dark:bg-gray-800/50">
+              <img
+                src={sealImageUrl}
+                alt="Seal Preview"
+                className="h-10 max-w-25 object-contain border bg-white p-1 rounded"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-red-600 hover:text-red-700 h-8 px-2"
+                onClick={() => onSealChange?.("")}
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-1">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  handleImageUpload("seal", e.target.files?.[0] || null)
+                }
+                className="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border file:border-brand-200 file:bg-brand-50/70 file:text-brand-700 file:text-xs file:font-semibold hover:file:bg-brand-100 cursor-pointer rounded-xl border border-gray-200 p-1.5 dark:border-gray-700 dark:file:bg-brand-950/40 dark:file:border-brand-800 dark:file:text-cyan-400"
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {submitError ? (
         <p
@@ -417,16 +685,22 @@ export function OfferForm({
         </p>
       ) : null}
 
+      {/* Footer Buttons */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
         <Button
           type="button"
           variant="secondary"
           onClick={onCancel}
           disabled={submitting}
+          className="rounded-xl px-4 py-2"
         >
           Cancel
         </Button>
-        <Button type="submit" loading={submitting}>
+        <Button
+          type="submit"
+          loading={submitting}
+          className="rounded-xl px-5 py-2 font-bold shadow-md bg-brand-500 hover:bg-brand-600 text-white"
+        >
           {submitLabel}
         </Button>
       </div>

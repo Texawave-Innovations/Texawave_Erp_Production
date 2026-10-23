@@ -158,7 +158,7 @@ export function ImportEntitlementsDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-mono">{e.row}</span>,
+                    cell: (e) => <span className="font-semibold text-slate-700 dark:text-slate-300">{e.row}</span>,
                   },
                   { header: "Problem", cell: (e) => e.message },
                 ]}

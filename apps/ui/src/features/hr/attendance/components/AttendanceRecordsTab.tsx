@@ -15,7 +15,6 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DataTable,
   DateRangePicker,
   EmptyState,
@@ -30,7 +29,6 @@ import {
   FilterChips,
   type FilterChipItem,
 } from "@/features/hr/components/FilterChip";
-import { StatCard } from "@/features/hr/components/StatCard";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useAttendanceList } from "../hooks";
@@ -242,46 +240,85 @@ export function AttendanceRecordsTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Summary Metrics */}
+      {/* Summary Metrics - Executive Presence KPI Tiles */}
       {summaryMetrics ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <StatCard
-            headingId="total-attendance-records"
-            label="Total Records"
-            value={summaryMetrics.total}
-            note="Matching current query"
-            tone="neutral"
-            icon={CalendarCheck}
-          />
-          <StatCard
-            headingId="present-attendance"
-            label="Present"
-            value={summaryMetrics.present}
-            note="In current results view"
-            tone="success"
-            icon={UserCheck}
-          />
-          <StatCard
-            headingId="absent-attendance"
-            label="Absent"
-            value={summaryMetrics.absent}
-            note="In current results view"
-            tone="error"
-            icon={UserX}
-          />
-          <StatCard
-            headingId="half-day-leave-attendance"
-            label="Half Day / Leave"
-            value={summaryMetrics.other}
-            note="In current results view"
-            tone="warning"
-            icon={Clock}
-          />
+        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          {/* Total Records */}
+          <div className="flex items-center justify-between rounded-2xl border border-sky-200/80 bg-linear-to-r from-[#edf6ff] to-[#f0f8ff] p-4 shadow-xs dark:border-sky-900/40 dark:from-slate-900 dark:to-slate-800">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#0a3271] dark:text-sky-300">
+                Total Records
+              </p>
+              <h3 className="mt-1 text-2xl font-extrabold text-[#0a3271] dark:text-white">
+                {summaryMetrics.total}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Matching current query
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-sky-300/80 bg-white text-brand-500 shadow-xs dark:border-sky-800 dark:bg-slate-800 dark:text-sky-300">
+              <CalendarCheck className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Present */}
+          <div className="flex items-center justify-between rounded-2xl border border-emerald-200/80 bg-linear-to-r from-[#f0fdf4] to-[#ecfdf5] p-4 shadow-xs dark:border-emerald-900/40 dark:from-slate-900 dark:to-slate-800">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                Present
+              </p>
+              <h3 className="mt-1 text-2xl font-extrabold text-emerald-800 dark:text-white">
+                {summaryMetrics.present}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                In current view
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-300/80 bg-white text-emerald-600 shadow-xs dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300">
+              <UserCheck className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Absent */}
+          <div className="flex items-center justify-between rounded-2xl border border-rose-200/80 bg-linear-to-r from-[#fff1f2] to-[#fff5f5] p-4 shadow-xs dark:border-rose-900/40 dark:from-slate-900 dark:to-slate-800">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
+                Absent
+              </p>
+              <h3 className="mt-1 text-2xl font-extrabold text-rose-800 dark:text-white">
+                {summaryMetrics.absent}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                In current view
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-300/80 bg-white text-rose-600 shadow-xs dark:border-rose-800 dark:bg-slate-800 dark:text-rose-300">
+              <UserX className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Half Day / Leave */}
+          <div className="flex items-center justify-between rounded-2xl border border-amber-200/80 bg-linear-to-r from-[#fffbeb] to-[#fef3c7] p-4 shadow-xs dark:border-amber-900/40 dark:from-slate-900 dark:to-slate-800">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                Half Day / Leave
+              </p>
+              <h3 className="mt-1 text-2xl font-extrabold text-amber-800 dark:text-white">
+                {summaryMetrics.other}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                In current view
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300/80 bg-white text-amber-600 shadow-xs dark:border-amber-800 dark:bg-slate-800 dark:text-amber-300">
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
         </div>
       ) : null}
 
-      {/* Filters Card */}
-      <Card>
+      {/* Filters Toolbar Card */}
+      <div className="relative z-20 focus-within:z-30 rounded-2xl border border-sky-100/90 bg-white/95 p-4 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
         <div className="flex flex-col gap-3.5">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 items-center">
             <DateRangePicker
@@ -344,7 +381,7 @@ export function AttendanceRecordsTab() {
             />
           ) : null}
         </div>
-      </Card>
+      </div>
 
       {/* Range Error Alert */}
       {rangeError ? (
@@ -367,7 +404,7 @@ export function AttendanceRecordsTab() {
           <ErrorState onRetry={() => void list.refetch()} />
         )
       ) : list.data.data.length === 0 ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-100/90 bg-white/95 p-6 shadow-2xs backdrop-blur-md dark:border-sky-950/40 dark:bg-gray-900/90">
           <EmptyState
             title="No attendance records match these filters"
             description="Try selecting a different date range, employee ID, or attendance status."
@@ -383,7 +420,7 @@ export function AttendanceRecordsTab() {
               ) : undefined
             }
           />
-        </Card>
+        </div>
       ) : (
         <>
           <DataTable
@@ -421,7 +458,7 @@ export function AttendanceRecordsTab() {
                 cell: (r) => {
                   const firstSession = r.sessions[0];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                       {firstSession ? formatTime(firstSession.checkInAt) : "—"}
                     </span>
                   );
@@ -432,7 +469,7 @@ export function AttendanceRecordsTab() {
                 cell: (r) => {
                   const lastSession = r.sessions[r.sessions.length - 1];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                       {lastSession?.checkOutAt ? (
                         formatTime(lastSession.checkOutAt)
                       ) : r.hasOpenSession ? (
@@ -449,7 +486,7 @@ export function AttendanceRecordsTab() {
               {
                 header: "Worked",
                 cell: (r) => (
-                  <span className="font-medium text-gray-800 dark:text-gray-200 text-theme-xs">
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 text-theme-xs">
                     {formatMinutes(r.workedMinutes)}
                   </span>
                 ),
@@ -458,7 +495,7 @@ export function AttendanceRecordsTab() {
                 header: "Overtime",
                 cell: (r) =>
                   r.overtimeMinutes > 0 ? (
-                    <span className="font-semibold text-purple-700 dark:text-purple-400 text-theme-xs">
+                    <span className="font-semibold text-brand-700 dark:text-brand-400 text-theme-xs">
                       +{formatMinutes(r.overtimeMinutes)}
                     </span>
                   ) : (

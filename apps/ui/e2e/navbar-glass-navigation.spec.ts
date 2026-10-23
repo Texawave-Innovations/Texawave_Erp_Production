@@ -36,8 +36,10 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
     ).toBeVisible();
     await expect(nav.getByRole("button", { name: "Settings" })).toBeVisible();
 
-    // Verify Search, Notifications, Profile
-    await expect(header.getByRole("textbox", { name: "Search" })).toBeVisible();
+    // Verify Date & Time Calendar Trigger, Notifications, Profile
+    await expect(
+      header.getByRole("button", { name: /Current date and time/i }),
+    ).toBeVisible();
     await expect(
       header.getByRole("button", { name: "Notifications" }),
     ).toBeVisible();
@@ -261,5 +263,171 @@ test.describe("TexaOne 3-Level Horizontal Navigation & Glass Dropdowns", () => {
 
     // People category is reachable
     await expect(page.getByRole("button", { name: "People" })).toBeVisible();
+  });
+
+  test("Top header renders .glass-navbar and spring-glide active indicator pill (.glass-pill)", async ({
+    page,
+  }) => {
+    const navbar = page.locator(".glass-navbar");
+    await expect(navbar).toBeVisible();
+
+    const pill = navbar.locator(".glass-pill");
+    await expect(pill).toBeAttached();
+
+    // Verify indicator pill tracks Human Resources on /hr
+    const hrBtn = page.getByRole("button", { name: "Human Resources" });
+    await expect(hrBtn).toHaveAttribute("aria-current", "page");
+
+    // Hover Dashboard module and verify glide
+    const dashBtn = page.getByRole("button", { name: "Dashboard" });
+    await dashBtn.hover();
+    await expect(pill).toBeAttached();
+  });
+
+  test("Notifications and Profile menus open with .glass-dropdown styling", async ({
+    page,
+  }) => {
+    // Notifications trigger
+    const notifBtn = page.getByRole("button", { name: /Notifications/i });
+    await notifBtn.click();
+    const notifPanel = page.getByRole("region", {
+      name: "Recent notifications",
+    });
+    await expect(notifPanel).toBeVisible();
+    await expect(notifPanel).toHaveClass(/glass-dropdown/);
+
+    // Profile trigger
+    const profileBtn = page.getByRole("button", {
+      name: /Profile menu|Software Engineer|Super Admin/i,
+    });
+    await profileBtn.click();
+    const profileMenu = page.getByRole("menu");
+    await expect(profileMenu).toBeVisible();
+    await expect(profileMenu).toHaveClass(/glass-dropdown/);
+    await expect(
+      profileMenu.getByRole("menuitem", { name: "Sign out" }),
+    ).toBeVisible();
+  });
+
+  test("HR submenu items synchronize background and border effects immediately without delay and ensure only one item is active", async ({
+    page,
+  }) => {
+    const hrModule = page.getByRole("button", { name: "Human Resources" });
+
+    // 1. Hover HR module on /hr/dashboard -> dropdown opens, only Overview is active
+    await hrModule.hover();
+    const categoryMenu = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    await expect(categoryMenu).toBeVisible();
+
+    const overview = categoryMenu.getByRole("link", { name: "Overview" });
+    const people = categoryMenu.getByRole("button", { name: "People" });
+    const compliance = categoryMenu.getByRole("button", { name: "Compliance" });
+    const payroll = categoryMenu.getByRole("button", { name: "Payroll" });
+
+    // Overview is active matching /hr/dashboard route
+    await expect(overview).toHaveClass(/glass-item-active/);
+    // People is NOT active (no blue background) even though its flyout is open
+    await expect(people).not.toHaveClass(/glass-item-active/);
+
+    // Verify exactly ONE item in Level 2 has glass-item-active
+    const activeLevel2Items = categoryMenu.locator(".glass-item-active");
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    // 2. Hover inactive Compliance -> subtle light hover, does NOT get glass-item-active, Overview stays active
+    await compliance.hover();
+    await expect(compliance).not.toHaveClass(/glass-item-active/);
+    await expect(overview).toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    // 3. Click Compliance -> becomes active, Overview loses active
+    await compliance.click();
+    await expect(compliance).toHaveClass(/glass-item-active/);
+    await expect(overview).not.toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    // 4. Click Payroll -> Payroll activates immediately, Compliance clears immediately
+    await payroll.click();
+    await expect(payroll).toHaveClass(/glass-item-active/);
+    await expect(compliance).not.toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    // Verify computed styles: Payroll has border and background, Compliance has transparent border and no shadow
+    const payrollStyles = await payroll.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      return {
+        border: cs.border,
+        boxShadow: cs.boxShadow,
+        backgroundImage: cs.backgroundImage,
+      };
+    });
+    expect(payrollStyles.backgroundImage).toContain("linear-gradient");
+    expect(payrollStyles.border).toContain("1px solid");
+
+    const complianceStyles = await compliance.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      return {
+        border: cs.border,
+        boxShadow: cs.boxShadow,
+        backgroundImage: cs.backgroundImage,
+      };
+    });
+    expect(complianceStyles.backgroundImage).toBe("none");
+    expect(complianceStyles.boxShadow).toBe("none");
+
+    // 5. Switch between multiple categories rapidly
+    await people.click();
+    await expect(people).toHaveClass(/glass-item-active/);
+    await expect(payroll).not.toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    await compliance.click();
+    await expect(compliance).toHaveClass(/glass-item-active/);
+    await expect(people).not.toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+
+    // 6. Move pointer away from categories column
+    const heading = page.getByRole("heading", { name: /Good/i });
+    await heading.hover();
+    // Compliance remains pinned as active category with glass-item-active
+    await expect(compliance).toHaveClass(/glass-item-active/);
+    await expect(activeLevel2Items).toHaveCount(1);
+  });
+
+  test("CRM module is enabled without 'Soon' badge and navigates to CRM pages", async ({
+    page,
+  }) => {
+    const nav = page.getByRole("navigation", {
+      name: "Main application navigation",
+    });
+    const crmButton = nav.getByRole("button", { name: "CRM" });
+    await expect(crmButton).toBeVisible();
+
+    // CRM should NOT have any 'Soon' badge
+    await expect(crmButton.getByText(/Soon/i)).toHaveCount(0);
+
+    // Hover CRM to open Level 2 categories
+    await crmButton.hover();
+    const dropdown = page.getByRole("menu", { name: "CRM categories" });
+    await expect(dropdown).toBeVisible();
+
+    // Verify CRM categories
+    await expect(
+      dropdown.getByRole("link", { name: "Pipeline", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Sales & Deals" }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Customers & Contacts" }),
+    ).toBeVisible();
+    await expect(
+      dropdown.getByRole("button", { name: "Outreach & Queues" }),
+    ).toBeVisible();
+
+    // Navigate to Pipeline
+    await dropdown.getByRole("link", { name: "Pipeline", exact: true }).click();
+    await expect(page).toHaveURL(/\/crm\/pipeline/);
   });
 });

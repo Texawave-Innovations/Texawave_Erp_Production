@@ -58,6 +58,10 @@ module.exports = {
         "sales-settings",
         // Finance Master foundation (Expense Types, Payment Modes) — apps/api/src/modules/finance-settings.
         "finance-settings",
+        // Business-module scope for the CRM migration (Accounts, Contacts,
+        // Leads, Pipeline/Opportunities, Products, Quotations — see
+        // Docs/CRM_*_PARITY.md).
+        "crm",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

@@ -15,9 +15,5 @@ export default function ChangePasswordPage() {
 
   if (!accessToken) return null;
 
-  return (
-    <div className="flex flex-1 items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
-      <ChangePasswordForm />
-    </div>
-  );
+  return <ChangePasswordForm />;
 }

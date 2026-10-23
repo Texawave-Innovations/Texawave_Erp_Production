@@ -306,7 +306,7 @@ export function SubmitCorrectionDialog({
                     }
                     disabled={submitting}
                     onChange={handleCheckInChange}
-                    className="font-mono text-theme-xs"
+                    className="text-theme-xs font-semibold"
                   />
                 )}
               </FormField>
@@ -336,7 +336,7 @@ export function SubmitCorrectionDialog({
                     }
                     disabled={submitting}
                     onChange={handleCheckOutChange}
-                    className="font-mono text-theme-xs"
+                    className="text-theme-xs font-semibold"
                   />
                 )}
               </FormField>
@@ -351,7 +351,7 @@ export function SubmitCorrectionDialog({
           error={errors.reason}
           labelAction={
             <span
-              className={`font-mono text-[11px] ${
+              className={`text-[11px] font-semibold ${
                 values.reason.length > 500
                   ? "text-error-600 font-bold"
                   : "text-gray-400"

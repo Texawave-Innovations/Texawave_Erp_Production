@@ -72,31 +72,31 @@ export function AttendanceView() {
           <div className="flex flex-wrap items-center gap-2">
             {canSelfService ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => router.push("/portal/attendance")}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-bold"
               >
-                <UserCheck className="h-4 w-4 text-white" />
+                <UserCheck className="h-4 w-4 text-[#0284c7] dark:text-sky-300" />
                 <span>My Attendance</span>
               </Button>
             ) : null}
             {canImport ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => setDialog("import")}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-bold"
               >
-                <Upload className="h-4 w-4 text-white" />
+                <Upload className="h-4 w-4 text-[#0284c7] dark:text-sky-300" />
                 <span>Import punches</span>
               </Button>
             ) : null}
             {canExport ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => setDialog("export")}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-bold"
               >
-                <Download className="h-4 w-4 text-white" />
+                <Download className="h-4 w-4 text-[#0284c7] dark:text-sky-300" />
                 <span>Export CSV</span>
               </Button>
             ) : null}

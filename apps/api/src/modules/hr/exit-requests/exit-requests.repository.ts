@@ -55,6 +55,7 @@ export class ActiveExitRequestExistsException extends BusinessRuleConflictExcept
 export interface ExitRequestFilter {
   employeeId?: number | undefined;
   status?: ExitRequestStatus | undefined;
+  search?: string | undefined;
 }
 
 export interface NewExitRequest {
@@ -74,7 +75,18 @@ export interface ExitRequestUpdate {
 
 const INCLUDE = {
   employee: {
-    select: { id: true, fullName: true, userId: true, teamId: true },
+    select: {
+      id: true,
+      employeeCode: true,
+      fullName: true,
+      userId: true,
+      teamId: true,
+      documents: {
+        where: { documentType: "PROFILE_PHOTO", isActive: true },
+        take: 1,
+        select: { id: true },
+      },
+    },
   },
   decider: { select: { id: true, fullName: true } },
 } satisfies Prisma.ExitRequestInclude;
@@ -87,17 +99,38 @@ const VIA_EMPLOYEE = {
 };
 
 function filterWhere(filter: ExitRequestFilter): Prisma.ExitRequestWhereInput {
-  return {
-    ...(filter.employeeId !== undefined
-      ? { employeeId: filter.employeeId }
-      : {}),
-    ...(filter.status ? { status: filter.status } : {}),
-  };
+  const conditions: Prisma.ExitRequestWhereInput[] = [];
+
+  if (filter.employeeId !== undefined) {
+    conditions.push({ employeeId: filter.employeeId });
+  }
+  if (filter.status) {
+    conditions.push({ status: filter.status });
+  }
+  if (filter.search && filter.search.trim()) {
+    const s = filter.search.trim();
+    conditions.push({
+      OR: [
+        { reason: { contains: s, mode: "insensitive" } },
+        { employee: { fullName: { contains: s, mode: "insensitive" } } },
+        { employee: { employeeCode: { contains: s, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  if (conditions.length === 0) return {};
+  if (conditions.length === 1) return conditions[0]!;
+  return { AND: conditions };
 }
 
 export interface ExitRequestView {
   id: number;
-  employee: { id: number; fullName: string };
+  employee: {
+    id: number;
+    fullName: string;
+    employeeCode: string;
+    avatarUrl: string | null;
+  };
   status: ExitRequestStatus;
   reason: string;
   preferredLastWorkingDate: string;
@@ -113,9 +146,17 @@ export interface ExitRequestView {
 }
 
 function toView(row: ExitRequestRow): ExitRequestView {
+  const photoDoc = row.employee.documents?.[0];
   return {
     id: row.id,
-    employee: { id: row.employee.id, fullName: row.employee.fullName },
+    employee: {
+      id: row.employee.id,
+      fullName: row.employee.fullName,
+      employeeCode: row.employee.employeeCode,
+      avatarUrl: photoDoc
+        ? `/hr/employees/${row.employee.id}/documents/${photoDoc.id}/file`
+        : null,
+    },
     status: row.status as ExitRequestStatus,
     reason: row.reason,
     preferredLastWorkingDate: formatDateOnly(row.preferredLastWorkingDate),

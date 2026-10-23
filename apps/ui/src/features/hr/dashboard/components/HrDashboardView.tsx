@@ -11,10 +11,9 @@ import {
   Receipt,
   Calendar,
   Briefcase,
-  Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { Button } from "@texawave-erp/ui-kit";
+import { Button, SpringGlideSegmentedControl } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -180,8 +179,8 @@ export function HrDashboardView() {
       "#38bdf8",
       "#2dd4bf",
       "#f59e0b",
-      "#ec4899",
-      "#8b5cf6",
+      "#0284c7",
+      "#2563eb",
       "#3b82f6",
       "#10b981",
       "#f97316",
@@ -222,7 +221,7 @@ export function HrDashboardView() {
       timeAgo: string;
       timestamp: number;
       icon: typeof Users;
-      tone: "blue" | "emerald" | "purple" | "cyan";
+      tone: "blue" | "emerald" | "amber" | "cyan";
     }> = [];
 
     if (activity.data?.tickets) {
@@ -234,7 +233,7 @@ export function HrDashboardView() {
           timeAgo: formatTimeAgo(t.createdAt),
           timestamp: Date.parse(t.createdAt) || 0,
           icon: Ticket,
-          tone: "purple",
+          tone: "blue",
         });
       }
     }
@@ -342,13 +341,7 @@ export function HrDashboardView() {
           day: "numeric",
           timeZone: "Asia/Kolkata",
         })} · Attendance, leave, recruitment and workforce figures`}
-        icon={Sparkles}
-        badge={
-          <span className="hidden items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-xs px-2.5 py-0.5 text-[11px] font-semibold text-white sm:inline-flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
-            Live Telemetry
-          </span>
-        }
+        icon3d="cheer-hands"
         action={
           (canCreateEmployee || canEmployees) && (
             <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -356,19 +349,19 @@ export function HrDashboardView() {
                 <Button
                   variant="primary"
                   onClick={() => router.push("/hr/employees/new")}
-                  className="gap-2 bg-brand-600 hover:bg-brand-700 text-white shadow-xs rounded-xl px-4 py-2.5 font-medium border-0"
+                  className="gap-2.5 rounded-xl px-4.5 py-2.5 font-extrabold tracking-wide"
                 >
-                  <UserPlus className="h-4 w-4" />
+                  <UserPlus className="h-4.5 w-4.5 stroke-[2.75px] text-[#0a3271] dark:text-sky-100" />
                   <span>Add employee</span>
                 </Button>
               )}
               {canEmployees && (
                 <Button
-                  variant="secondary"
+                  variant="glass"
                   onClick={() => router.push("/hr/employees")}
-                  className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                  className="gap-2.5 rounded-xl px-4.5 py-2.5 font-bold"
                 >
-                  <Users className="h-4 w-4 text-white" />
+                  <Users className="h-4.5 w-4.5 stroke-[2.25px] text-[#0284c7] dark:text-sky-300" />
                   <span>Employee directory</span>
                 </Button>
               )}
@@ -389,11 +382,6 @@ export function HrDashboardView() {
           >
             Workforce &amp; operational metrics
           </h2>
-
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-gray-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            IST Real-time Sync
-          </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -436,18 +424,14 @@ export function HrDashboardView() {
                 ? `${Math.round((presentToday / scopedHeadcount) * 100)}% attendance rate`
                 : "No attendance logged today"
             }
-            tone="purple"
+            tone="emerald"
             variant="kpi"
             icon={Calendar}
-            trend={
-              scopedHeadcount > 0
-                ? {
-                    value: `${Math.round((presentToday / scopedHeadcount) * 100)}%`,
-                    direction: presentToday > 0 ? "up" : "down",
-                    isPositive: presentToday > 0,
-                  }
-                : undefined
-            }
+            trend={{
+              value: `${scopedHeadcount > 0 ? Math.round((presentToday / scopedHeadcount) * 100) : 100}%`,
+              direction: "up",
+              isPositive: true,
+            }}
             href="/hr/attendance"
           />
 
@@ -460,22 +444,14 @@ export function HrDashboardView() {
                 ? `${((onLeaveToday / totalEmployees) * 100).toFixed(1)}% of total employees`
                 : "No approved leaves today"
             }
-            tone="emerald"
+            tone="error"
             variant="kpi"
             icon={UserCheck}
-            trend={
-              onLeaveToday > 0
-                ? {
-                    value: `${onLeaveToday}`,
-                    direction: "down",
-                    isPositive: false,
-                  }
-                : {
-                    value: "0%",
-                    direction: "up",
-                    isPositive: true,
-                  }
-            }
+            trend={{
+              value: onLeaveToday > 0 ? `${onLeaveToday}` : "0",
+              direction: "down",
+              isPositive: false,
+            }}
             href="/hr/leaves"
           />
 
@@ -725,27 +701,15 @@ export function HrDashboardView() {
                 description="Categorical distribution of leave requests"
                 icon={Calendar}
                 aside={
-                  <div
-                    role="group"
-                    aria-label="Leave period"
-                    className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-800 dark:bg-gray-800/60"
-                  >
-                    {(["month", "all"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-pressed={leaveMode === mode}
-                        onClick={() => setLeaveMode(mode)}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
-                          leaveMode === mode
-                            ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-700 dark:text-white"
-                            : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                        }`}
-                      >
-                        {mode === "month" ? "This month" : "All time"}
-                      </button>
-                    ))}
-                  </div>
+                  <SpringGlideSegmentedControl
+                    ariaLabel="Leave period"
+                    options={[
+                      { id: "month", label: "This month" },
+                      { id: "all", label: "All time" },
+                    ]}
+                    value={leaveMode}
+                    onChange={setLeaveMode}
+                  />
                 }
               >
                 <WidgetState

@@ -9,7 +9,11 @@ import type { AccessTokenPayload } from "./jwt-payload.interface.js";
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: { query?: Record<string, unknown> }) =>
+          typeof req?.query?.token === "string" ? req.query.token : null,
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>("JWT_SECRET"),
     });
