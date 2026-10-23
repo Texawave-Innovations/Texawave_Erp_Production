@@ -67,7 +67,6 @@ import {
   Table2,
   Database,
   Factory,
-  ClipboardList,
   Scale,
   Truck,
   Undo2,
@@ -1614,14 +1613,6 @@ const ERP_MODULES: ErpModuleConfig[] = [
     path: "/projects/dashboard",
     available: true,
     categories: PROJECTS_CATEGORIES,
-  },
-  {
-    id: "master-list",
-    label: "Master list",
-    icon: BarChart3,
-    icon3d: "master-list",
-    path: "#",
-    available: false,
   },
   {
     id: "master-list",
