@@ -115,6 +115,17 @@ export interface MyEmployee {
   id: number;
   fullName: string;
   employeeCode: string;
+  status?: string;
+  dateOfJoining?: string;
+  workEmail?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  team?: { id: number; name: string };
+  department?: { id: number; name: string } | null;
+  designation?: { id: number; name: string };
+  employmentType?: { id: number; name: string };
+  workLocation?: { id: number; name: string } | null;
+  reportsTo?: { id: number; employeeCode: string; fullName: string } | null;
   onboardingStatus: string;
   /** HR's review of the submitted profile (see OnboardingWizard's banner). */
   onboardingReviewStatus?: string;
