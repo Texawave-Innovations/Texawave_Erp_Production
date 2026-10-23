@@ -8,6 +8,7 @@ import {
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
+import { NotificationsService } from "../../../platform/notifications/notifications.service.js";
 import type {
   CreateExpenseClaimDto,
   DecideExpenseClaimDto,
@@ -38,6 +39,7 @@ export class ExpenseClaimsService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---- HR view (own · team · all) ------------------------------------------
@@ -80,6 +82,20 @@ export class ExpenseClaimsService {
       this.tenantContext.getUserId(),
     );
     if (!row) throw new ResourceNotFoundException("Expense claim", id);
+
+    if (row.employee?.userId) {
+      void this.notifications.notifyUser(
+        this.tenantContext.getOrgScope(),
+        row.employee.userId,
+        {
+          type: "expense.decided",
+          title: `Expense Claim ${dto.decision === "APPROVED" ? "Approved ✓" : "Rejected"}`,
+          body: `Your claim of ₹${Number(row.amount).toLocaleString("en-IN")} was ${dto.decision.toLowerCase()}${dto.note ? `: ${dto.note}` : "."}`,
+          link: `/portal/expense-claims?id=${row.id}`,
+        },
+      );
+    }
+
     return row;
   }
 
@@ -96,11 +112,25 @@ export class ExpenseClaimsService {
       );
     }
     const employee = await this.employees.getCurrentEmployee();
-    return this.repository.create(
+    const created = await this.repository.create(
       this.tenantContext.getOrgScope(),
       { ...dto, employeeId: employee.id },
       this.tenantContext.getUserId(),
     );
+
+    const callerUserId = this.tenantContext.getUserId();
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "expense.submitted",
+        title: "New Expense Claim for Approval",
+        body: `${employee.fullName} submitted an expense claim of ₹${Number(dto.amount).toLocaleString("en-IN")}.`,
+        link: `/hr/expense-approvals?id=${created.id}`,
+      },
+      callerUserId,
+    );
+
+    return created;
   }
 
   async findMine(query: QueryMyExpenseClaimDto) {

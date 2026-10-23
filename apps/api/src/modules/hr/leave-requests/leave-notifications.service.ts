@@ -109,7 +109,7 @@ export class LeaveNotificationsService {
               type,
               title,
               body,
-              link: EMPLOYEE_LINK,
+              link: `${EMPLOYEE_LINK}?id=${f.id}`,
             },
           ];
     const toUsers = (
@@ -120,7 +120,13 @@ export class LeaveNotificationsService {
     ) =>
       ids
         .filter((id) => id !== f.employeeUserId)
-        .map((userId) => ({ userId, type, title, body, link: APPROVER_LINK }));
+        .map((userId) => ({
+          userId,
+          type,
+          title,
+          body,
+          link: `/hr/leaves?tab=approvals&id=${f.id}`,
+        }));
 
     switch (event.kind) {
       case "submitted": {

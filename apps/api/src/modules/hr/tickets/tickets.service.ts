@@ -4,6 +4,7 @@ import { ResourceNotFoundException } from "../../../common/exceptions/business.e
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
+import { NotificationsService } from "../../../platform/notifications/notifications.service.js";
 import type {
   CreateMyTicketDto,
   CreateTicketCommentDto,
@@ -26,6 +27,7 @@ export class TicketsService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---- HR / admin view (own · team · all) ----------------------------------
@@ -73,6 +75,16 @@ export class TicketsService {
       this.tenantContext.getUserId(),
     );
     if (!row) throw new ResourceNotFoundException("Ticket", id);
+
+    if (row.employee?.userId) {
+      void this.notifications.notifyUser(scope, row.employee.userId, {
+        type: "ticket.updated",
+        title: `Ticket Status: ${dto.status}`,
+        body: `Your ticket "${row.subject}" has been marked as ${dto.status}.`,
+        link: `/portal/tickets?id=${row.id}`,
+      });
+    }
+
     return row;
   }
 
@@ -85,6 +97,18 @@ export class TicketsService {
       this.tenantContext.getUserId(),
     );
     if (!row) throw new ResourceNotFoundException("Ticket", id);
+
+    void this.repository.findOne(scope, id).then((ticket) => {
+      if (ticket?.employee?.userId) {
+        void this.notifications.notifyUser(scope, ticket.employee.userId, {
+          type: "ticket.comment",
+          title: `New Comment on Ticket: ${ticket.subject}`,
+          body: dto.body.slice(0, 100),
+          link: `/portal/tickets?id=${id}`,
+        });
+      }
+    });
+
     return row;
   }
 
@@ -117,7 +141,7 @@ export class TicketsService {
   async createForCurrentEmployee(dto: CreateMyTicketDto) {
     assertEmployeeCategory(dto.category);
     const employee = await this.employees.getCurrentEmployee();
-    return this.repository.createForEmployee(
+    const created = await this.repository.createForEmployee(
       this.tenantContext.getOrgScope(),
       employee.id,
       {
@@ -127,6 +151,20 @@ export class TicketsService {
       },
       this.tenantContext.getUserId(),
     );
+
+    const callerUserId = this.tenantContext.getUserId();
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "ticket.created",
+        title: "New Support Ticket",
+        body: `${employee.fullName} raised ticket: "${dto.subject}" (${dto.category}).`,
+        link: `/hr/tickets?id=${created.id}`,
+      },
+      callerUserId,
+    );
+
+    return created;
   }
 
   async updateMine(id: number, dto: UpdateMyTicketDto) {
@@ -156,6 +194,19 @@ export class TicketsService {
       dto.body,
     );
     if (!row) throw new ResourceNotFoundException("Ticket", id);
+
+    const callerUserId = this.tenantContext.getUserId();
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "ticket.comment",
+        title: `Reply on Ticket #${id}`,
+        body: `${employee.fullName}: ${dto.body.slice(0, 100)}`,
+        link: `/hr/tickets?id=${id}`,
+      },
+      callerUserId,
+    );
+
     return row;
   }
 

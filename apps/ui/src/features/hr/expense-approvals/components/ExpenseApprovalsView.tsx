@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -173,6 +174,9 @@ interface TableClaimItem extends ExpenseClaimItem {
  * 5. Full Self-Service & Team Scoped Approvals
  */
 export function ExpenseApprovalsView() {
+  const searchParams = useSearchParams();
+  const urlClaimId = searchParams.get("id") || searchParams.get("claimId");
+
   const hasSelfServiceRead = usePermission(SELF_SERVICE_READ);
   const hasSelfServiceCreate = usePermission(SELF_SERVICE_CREATE);
   const canReadAny = usePermission(READ_ANY_SCOPE);
@@ -187,7 +191,9 @@ export function ExpenseApprovalsView() {
   const [collapsedCategories, setCollapsedCategories] = useState<
     Record<string, boolean>
   >({});
-  const [decisionNotes, setDecisionNotes] = useState<Record<number, string>>({});
+  const [decisionNotes, setDecisionNotes] = useState<Record<number, string>>(
+    {},
+  );
   const [isSubmittingMap, setIsSubmittingMap] = useState<
     Record<number, boolean>
   >({});
@@ -230,6 +236,32 @@ export function ExpenseApprovalsView() {
 
   const myClaimsAll = myOverview.data?.data ?? [];
   const teamClaimsAll = teamOverview.data?.data ?? [];
+
+  useEffect(() => {
+    if (!urlClaimId) return;
+    const cid = parseInt(urlClaimId, 10);
+    if (isNaN(cid) || cid <= 0) return;
+
+    const all = [...teamClaimsAll, ...myClaimsAll];
+    const claim = all.find((c) => c.id === cid);
+    if (claim) {
+      const timer = setTimeout(() => {
+        if (teamClaimsAll.some((c) => c.id === cid)) {
+          setActiveTab("team");
+        } else {
+          setActiveTab("mine");
+        }
+        setDetailsTarget(claim);
+        setCollapsedCategories((prev) => ({
+          ...prev,
+          [claim.expenseType]: false,
+        }));
+        const el = document.getElementById(`expense-card-${cid}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [urlClaimId, teamClaimsAll, myClaimsAll]);
 
   // 2-Tier Financial Metrics Calculations
   const metrics = useMemo(() => {
@@ -735,9 +767,7 @@ export function ExpenseApprovalsView() {
                 {teamClaimsAll.filter((c) => c.status === "PENDING").length >
                 0 ? (
                   <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                    {
-                      teamClaimsAll.filter((c) => c.status === "PENDING").length
-                    }
+                    {teamClaimsAll.filter((c) => c.status === "PENDING").length}
                   </span>
                 ) : null}
               </button>
@@ -777,10 +807,7 @@ export function ExpenseApprovalsView() {
               aria-label="Filter by status"
               value={filters.status}
               onChange={(e) =>
-                update(
-                  "status",
-                  e.target.value as "" | ExpenseClaimStatus,
-                )
+                update("status", e.target.value as "" | ExpenseClaimStatus)
               }
             >
               <option value="">All statuses</option>
@@ -905,7 +932,8 @@ export function ExpenseApprovalsView() {
                           {category}
                         </span>
                         <span className="rounded-full bg-gray-200/70 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                          {claims.length} {claims.length === 1 ? "claim" : "claims"}
+                          {claims.length}{" "}
+                          {claims.length === 1 ? "claim" : "claims"}
                         </span>
                         {pendingCount > 0 ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -926,12 +954,21 @@ export function ExpenseApprovalsView() {
                       <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800 p-2 sm:p-3">
                         {claims.map((claim) => {
                           const isPending = claim.status === "PENDING";
-                          const isSubmitting = Boolean(isSubmittingMap[claim.id]);
+                          const isSubmitting = Boolean(
+                            isSubmittingMap[claim.id],
+                          );
+
+                          const isSelected = detailsTarget?.id === claim.id;
 
                           return (
                             <div
                               key={claim.id}
-                              className="flex flex-col gap-3.5 p-4 rounded-xl hover:bg-gray-50/60 dark:hover:bg-gray-850/50 transition-all"
+                              id={`expense-card-${claim.id}`}
+                              className={`flex flex-col gap-3.5 p-4 rounded-xl transition-all ${
+                                isSelected
+                                  ? "bg-brand-50/30 border-2 border-brand-500 ring-2 ring-brand-500/20 shadow-md dark:bg-brand-950/20"
+                                  : "hover:bg-gray-50/60 dark:hover:bg-gray-850/50"
+                              }`}
                             >
                               {/* Top Row: Amount, Status & Actions */}
                               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -939,7 +976,14 @@ export function ExpenseApprovalsView() {
                                   <span className="text-xl font-extrabold text-gray-900 dark:text-white">
                                     {formatIndianCurrency(claim.amount)}
                                   </span>
-                                  <ExpenseClaimStatusBadge status={claim.status} />
+                                  {isSelected && (
+                                    <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[10px] font-bold px-2 py-0.5 border border-brand-300/60 dark:border-brand-700">
+                                      Selected
+                                    </span>
+                                  )}
+                                  <ExpenseClaimStatusBadge
+                                    status={claim.status}
+                                  />
                                   {claim.receiptRef ? (
                                     <span className="rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800">
                                       Receipt #{claim.receiptRef}
@@ -965,7 +1009,9 @@ export function ExpenseApprovalsView() {
                                   {activeTab === "team" ? (
                                     <EmployeeIdentity
                                       name={claim.employee.fullName}
-                                      code={employeeCodeMap.get(claim.employee.id)}
+                                      code={employeeCodeMap.get(
+                                        claim.employee.id,
+                                      )}
                                       size="sm"
                                     />
                                   ) : null}
@@ -978,10 +1024,14 @@ export function ExpenseApprovalsView() {
                                 <div className="flex flex-col text-theme-xs text-gray-500 dark:text-gray-400 gap-1 text-left sm:text-right shrink-0">
                                   <div className="flex items-center gap-1.5 sm:justify-end">
                                     <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                                    <span>Date: {formatExpenseDate(claim.expenseDate)}</span>
+                                    <span>
+                                      Date:{" "}
+                                      {formatExpenseDate(claim.expenseDate)}
+                                    </span>
                                   </div>
                                   <div>
-                                    Submitted: {formatExpenseDate(claim.createdAt)}
+                                    Submitted:{" "}
+                                    {formatExpenseDate(claim.createdAt)}
                                   </div>
                                   {claim.decidedBy && claim.decidedAt ? (
                                     <div className="text-[11px] text-gray-400">
@@ -998,7 +1048,9 @@ export function ExpenseApprovalsView() {
                               </div>
 
                               {/* Inline Decision Bar for Approvers (Reference 3 Feature) */}
-                              {activeTab === "team" && canDecide && isPending ? (
+                              {activeTab === "team" &&
+                              canDecide &&
+                              isPending ? (
                                 <div className="mt-2 pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                   <div className="flex-1">
                                     <input
@@ -1020,7 +1072,10 @@ export function ExpenseApprovalsView() {
                                       type="button"
                                       disabled={isSubmitting}
                                       onClick={() =>
-                                        void handleInlineDecision(claim, "APPROVED")
+                                        void handleInlineDecision(
+                                          claim,
+                                          "APPROVED",
+                                        )
                                       }
                                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-xs transition-colors"
                                     >
@@ -1031,7 +1086,10 @@ export function ExpenseApprovalsView() {
                                       type="button"
                                       disabled={isSubmitting}
                                       onClick={() =>
-                                        void handleInlineDecision(claim, "REJECTED")
+                                        void handleInlineDecision(
+                                          claim,
+                                          "REJECTED",
+                                        )
                                       }
                                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 shadow-xs transition-colors"
                                     >
@@ -1097,6 +1155,11 @@ export function ExpenseApprovalsView() {
                         <span className="font-semibold text-theme-sm text-gray-900 dark:text-white">
                           {c.expenseType}
                         </span>
+                        {detailsTarget?.id === c.id && (
+                          <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                            Selected
+                          </span>
+                        )}
                         {c.receiptRef ? (
                           <span className="text-[11px] text-gray-400">
                             (#{c.receiptRef})

@@ -322,11 +322,15 @@ export function LeavesView() {
       : []),
     ...(canReadTypes ? [{ id: "types" as const, label: "Leave types" }] : []),
   ];
-  // A notification links approvers to `?tab=approvals`.
-  const requested = useSearchParams().get("tab");
-  const [chosen, setChosen] = useState<LeavesTab | null>(
-    requested as LeavesTab | null,
-  );
+  // A notification links approvers to `?tab=approvals` or `?id=...`
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("tab");
+  const requestedId = searchParams.get("id");
+  const [chosen, setChosen] = useState<LeavesTab | null>(() => {
+    if (requested) return requested as LeavesTab;
+    if (requestedId && canApprove) return "approvals";
+    return null;
+  });
   const active: LeavesTab | undefined =
     tabs.find((t) => t.id === chosen)?.id ?? tabs[0]?.id;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -79,7 +79,6 @@ export function RaiseTicketDialog({
   const { toast } = useToast();
   const submitting = create.isPending;
 
-
   function update<K extends keyof typeof values>(
     key: K,
     value: (typeof values)[K],
@@ -131,7 +130,12 @@ export function RaiseTicketDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Create Ticket for Employee" size="lg">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Create Ticket for Employee"
+      size="lg"
+    >
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-4.5"
@@ -139,7 +143,8 @@ export function RaiseTicketDialog({
       >
         <div>
           <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            Submit a support ticket, inquiry, or administrative notice for an employee.
+            Submit a support ticket, inquiry, or administrative notice for an
+            employee.
           </p>
         </div>
 
@@ -152,11 +157,7 @@ export function RaiseTicketDialog({
         {/* 2-Column Row: Category & Target Employee (Reference 5 Layout) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Category */}
-          <FormField
-            label="Category"
-            required
-            error={fieldErrors.category}
-          >
+          <FormField label="Category" required error={fieldErrors.category}>
             {(f) => (
               <Select
                 {...f}
@@ -199,7 +200,10 @@ export function RaiseTicketDialog({
                 <option value="">Select employee...</option>
                 {employeeOptions.map((emp) => (
                   <option key={emp.id} value={String(emp.id)}>
-                    {emp.fullName} · {emp.designation?.name || emp.team?.name || emp.employeeCode}
+                    {emp.fullName} ·{" "}
+                    {emp.designation?.name ||
+                      emp.team?.name ||
+                      emp.employeeCode}
                   </option>
                 ))}
               </Select>
@@ -208,11 +212,7 @@ export function RaiseTicketDialog({
         </div>
 
         {/* Subject */}
-        <FormField
-          label="Subject"
-          required
-          error={fieldErrors.subject}
-        >
+        <FormField label="Subject" required error={fieldErrors.subject}>
           {(f) => (
             <div>
               <Input

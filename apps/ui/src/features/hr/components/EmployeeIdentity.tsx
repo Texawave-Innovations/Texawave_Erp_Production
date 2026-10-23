@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -15,7 +16,9 @@ export interface EmployeeIdentityProps {
 }
 
 /** Resolves an avatar image path into an authenticated streaming URL */
-export function getResolvedAvatarUrl(path: string | null | undefined): string | null {
+export function getResolvedAvatarUrl(
+  path: string | null | undefined,
+): string | null {
   if (!path) return null;
   if (
     path.startsWith("http://") ||
@@ -77,10 +80,12 @@ export function EmployeeIdentity({
   size,
   className = "",
 }: EmployeeIdentityProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const initials = getInitials(name);
   const palette = getPalette(name);
   const effectiveSize = size ?? avatarSize;
   const resolvedUrl = getResolvedAvatarUrl(avatarUrl);
+  const showImg = Boolean(resolvedUrl && failedUrl !== resolvedUrl);
 
   const sizeClasses = {
     sm: "h-7 w-7 text-[10px]",
@@ -95,14 +100,13 @@ export function EmployeeIdentity({
         className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border font-bold shadow-theme-xs transition-transform duration-150 ${sizeClasses} ${palette}`}
         aria-hidden="true"
       >
-        {resolvedUrl ? (
+        {showImg ? (
           <img
-            src={resolvedUrl}
+            key={resolvedUrl}
+            src={resolvedUrl!}
             alt={name}
             className="h-full w-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLElement).style.display = "none";
-            }}
+            onError={() => setFailedUrl(resolvedUrl)}
           />
         ) : (
           initials

@@ -26,7 +26,7 @@ export type EmployeeRow = Prisma.EmployeeGetPayload<{
   include: typeof EMPLOYEE_INCLUDE;
 }>;
 
-interface Ref {
+export interface Ref {
   id: number;
   name: string;
 }

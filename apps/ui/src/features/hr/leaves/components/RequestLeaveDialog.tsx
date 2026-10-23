@@ -102,7 +102,12 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
             <Select
               {...f}
               value={values.leaveTypeId || ""}
-              disabled={submitting || balances.isPending}
+              disabled={submitting || balances.isPending || types.length === 0}
+              placeholder={
+                types.length === 0
+                  ? "No leave types available"
+                  : "Select a leave type"
+              }
               onChange={(e) =>
                 setValues((v) => ({
                   ...v,
@@ -110,7 +115,11 @@ export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
                 }))
               }
             >
-              <option value="">Select a leave type</option>
+              <option value="">
+                {types.length === 0
+                  ? "No leave types available"
+                  : "Select a leave type"}
+              </option>
               {types.map((t) => (
                 <option key={t.leaveTypeId} value={t.leaveTypeId}>
                   {t.name}

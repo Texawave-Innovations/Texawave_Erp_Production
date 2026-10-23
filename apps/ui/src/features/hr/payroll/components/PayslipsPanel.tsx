@@ -63,6 +63,7 @@ import { PayslipDocumentDialog } from "./PayslipDocumentDialog";
 import { PeriodFilterSelect } from "./PeriodFilterSelect";
 import { QueryState } from "./QueryState";
 import { RegeneratePayslipDialog } from "./RegeneratePayslipDialog";
+import { HrPageHeader } from "@/features/hr/components";
 
 const PAGE_SIZE = 12;
 
@@ -218,8 +219,42 @@ export function MyPayslipsSection() {
   const canRead = usePermission(MY_PAYSLIP_READ);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<Payslip | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const query = useMyPayslips({ page, limit: PAGE_SIZE }, canRead);
   const rows = query.data?.data ?? [];
+
+  // Summary statistics across available payslips
+  const summary = useMemo(() => {
+    if (rows.length === 0) {
+      return { latestNet: 0, avgNet: 0, totalSlips: 0, latestPeriod: "—" };
+    }
+    const latest = rows[0];
+    const totalAmount = rows.reduce(
+      (acc, r) => acc + (Number(r.netPayable) || 0),
+      0,
+    );
+    return {
+      latestNet: latest ? Number(latest.netPayable) || 0 : 0,
+      avgNet: Math.round(totalAmount / rows.length),
+      totalSlips: query.data?.meta?.total ?? rows.length,
+      latestPeriod: latest?.payrollPeriod
+        ? periodLabel(latest.payrollPeriod)
+        : "—",
+    };
+  }, [rows, query.data?.meta?.total]);
+
+  // Filtered rows for client search
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return rows;
+    const q = searchQuery.toLowerCase();
+    return rows.filter((r) => {
+      const num = r.payslipNumber.toLowerCase();
+      const p = r.payrollPeriod
+        ? periodLabel(r.payrollPeriod).toLowerCase()
+        : "";
+      return num.includes(q) || p.includes(q);
+    });
+  }, [rows, searchQuery]);
 
   if (!canRead) return null;
   if (
@@ -228,54 +263,136 @@ export function MyPayslipsSection() {
   )
     return null;
 
+  const metricCards = [
+    {
+      label: "Latest Net Take-Home",
+      value: money(summary.latestNet),
+      subtext: summary.latestPeriod,
+      Icon: Wallet,
+      color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
+    },
+    {
+      label: "Average Take-Home",
+      value: money(summary.avgNet),
+      subtext: "Per payroll cycle",
+      Icon: Coins,
+      color: "text-brand-500 bg-sky-50 dark:bg-sky-950/40",
+    },
+    {
+      label: "Total Salary Slips",
+      value: summary.totalSlips.toString(),
+      subtext: "Archived records",
+      Icon: FileText,
+      color: "text-slate-600 bg-slate-100 dark:bg-slate-800",
+    },
+    {
+      label: "Latest Pay Period",
+      value: summary.latestPeriod,
+      subtext: "Most recent payout",
+      Icon: Calendar,
+      color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950/40",
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-5 animate-reveal">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-sky-100 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-        <div>
-          <h2 className="text-theme-lg font-bold text-gray-900 dark:text-white">
-            My Salary Slips
-          </h2>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            View your official compensation breakdowns and download monthly PDF
-            payslips
-          </p>
+    <div className="flex flex-col gap-6 animate-reveal pb-12">
+      {/* 1. Page Header with 3D Payroll Hero */}
+      <HrPageHeader
+        title="My Payslips"
+        description="View official salary slips, detailed compensation breakdowns, and download monthly PDF records."
+        icon3d="payroll"
+      />
+
+      {/* 2. Interactive Status Metric Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {metricCards.map((card, idx) => (
+          <div
+            key={idx}
+            className="flex items-center gap-3.5 rounded-2xl border border-sky-200/90 bg-white p-4 text-left shadow-2xs dark:border-slate-700/80 dark:bg-slate-850"
+          >
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.color}`}
+            >
+              <card.Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {card.label}
+              </span>
+              <span className="text-xl font-bold tracking-tight text-[#0a3271] dark:text-white">
+                {card.value}
+              </span>
+              <span className="block text-[11px] font-medium text-slate-400 truncate">
+                {card.subtext}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 3. Search & Filter Bar: Compact Single-Line Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-sky-200/90 bg-white p-3.5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-850">
+        <div className="w-full sm:w-72">
+          <Input
+            aria-label="Search payslips"
+            placeholder="Search by slip # or period..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
+        {searchQuery ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchQuery("")}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-red-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" />
+            <span>Clear search</span>
+          </Button>
+        ) : null}
       </div>
 
       <QueryState query={query} area="your payslips" />
 
       {query.isSuccess && rows.length === 0 ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-200/90 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <EmptyState
             title="No payslips yet"
             description="Your payslip appears here once a payroll period is finalized."
           />
-        </Card>
+        </div>
       ) : null}
 
       {query.isSuccess && rows.length > 0 ? (
-        <div className="rounded-2xl border border-sky-200/90 bg-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-2xl border border-sky-200/90 bg-white shadow-xs dark:border-slate-700/80 dark:bg-slate-900">
           <DataTable<Payslip>
+            className="border-0 shadow-none rounded-none"
             caption="My payslips"
-            rows={rows}
+            rows={filteredRows}
             getRowKey={(r) => String(r.id)}
             columns={[
               {
                 header: "Payslip #",
                 cell: (r) => (
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-bold text-[#0a3271] dark:text-white">
                     {r.payslipNumber}
                   </span>
                 ),
               },
               {
                 header: "Payroll Period",
-                cell: (r) => periodLabel(r.payrollPeriod),
+                cell: (r) => (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2f6396] dark:text-sky-300">
+                    <Calendar className="h-3.5 w-3.5 text-brand-500" />
+                    <span>{periodLabel(r.payrollPeriod)}</span>
+                  </div>
+                ),
               },
               {
                 header: "Net Take-Home",
                 cell: (r) => (
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="font-bold text-base text-emerald-600 dark:text-emerald-400">
                     {money(r.netPayable)}
                   </span>
                 ),
@@ -285,7 +402,7 @@ export function MyPayslipsSection() {
               {
                 header: "Issued Date",
                 cell: (r) => (
-                  <span className="text-theme-xs text-gray-500">
+                  <span className="text-theme-xs font-medium text-slate-500">
                     {isoDate(r.generatedAt)}
                     {r.version && r.version > 1 ? (
                       <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -297,14 +414,15 @@ export function MyPayslipsSection() {
               },
               {
                 header: "Actions",
+                className: "text-right",
                 cell: (r) => (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-end gap-2">
                     <Button
                       size="sm"
                       variant="secondary"
                       aria-label={`View payslip ${r.payslipNumber}`}
                       onClick={() => setOpen(r)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold hover:border-brand-300 hover:text-brand-600"
                     >
                       <Eye className="mr-1.5 h-3.5 w-3.5" />
                       View Slip
@@ -315,13 +433,15 @@ export function MyPayslipsSection() {
               },
             ]}
           />
-          <div className="mt-4">
-            <Pagination
-              page={page}
-              totalPages={query.data.meta?.totalPages ?? 1}
-              onPageChange={setPage}
-            />
-          </div>
+          {(query.data.meta?.totalPages ?? 1) > 1 ? (
+            <div className="border-t border-sky-100 p-3 dark:border-slate-800">
+              <Pagination
+                page={page}
+                totalPages={query.data.meta?.totalPages ?? 1}
+                onPageChange={setPage}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

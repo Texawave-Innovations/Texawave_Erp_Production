@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -17,14 +17,11 @@ import {
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
-  Check,
   CheckCircle2,
   Clock,
   Download,
   Eye,
-  Inbox,
   LayoutList,
-  MessageSquare,
   Plus,
   RotateCcw,
   Search,
@@ -37,11 +34,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
-import {
-  useAddTicketComment,
-  useSetTicketStatus,
-  useTickets,
-} from "../hooks";
+import { useAddTicketComment, useSetTicketStatus, useTickets } from "../hooks";
 import {
   READ_ANY_SCOPE,
   SELF_SERVICE_READ,
@@ -111,6 +104,9 @@ interface TableTicketRow extends TicketItem {
  */
 export function TicketsView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTicketId = searchParams.get("id") || searchParams.get("ticketId");
+
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_ANY_SCOPE);
   const canSelfService = usePermission(SELF_SERVICE_READ);
@@ -121,12 +117,39 @@ export function TicketsView() {
   const [searchInput, setSearchInput] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [detailId, setDetailId] = useState<number | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(() => {
+    if (!urlTicketId) return null;
+    const parsed = parseInt(urlTicketId, 10);
+    return !isNaN(parsed) && parsed > 0 ? parsed : null;
+  });
+  const [prevUrlTicketId, setPrevUrlTicketId] = useState(urlTicketId);
+  if (urlTicketId !== prevUrlTicketId) {
+    setPrevUrlTicketId(urlTicketId);
+    const parsed = urlTicketId ? parseInt(urlTicketId, 10) : NaN;
+    setDetailId(!isNaN(parsed) && parsed > 0 ? parsed : null);
+  }
+
+  useEffect(() => {
+    if (urlTicketId) {
+      const parsed = parseInt(urlTicketId, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        const timer = setTimeout(() => {
+          const el = document.getElementById(`ticket-card-${parsed}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [urlTicketId]);
 
   // Inline reply & status states per ticket
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
-  const [statusDrafts, setStatusDrafts] = useState<Record<number, TicketStatus>>({});
-  const [submittingMap, setSubmittingMap] = useState<Record<number, boolean>>({});
+  const [statusDrafts, setStatusDrafts] = useState<
+    Record<number, TicketStatus>
+  >({});
+  const [submittingMap, setSubmittingMap] = useState<Record<number, boolean>>(
+    {},
+  );
 
   const setStatusMutation = useSetTicketStatus();
   const addCommentMutation = useAddTicketComment();
@@ -257,7 +280,11 @@ export function TicketsView() {
       if (filters.status === "RESOLVED_CLOSED") {
         setFilters(EMPTY_FILTERS);
       } else {
-        setFilters({ status: "RESOLVED_CLOSED", category: "", adminOnly: false });
+        setFilters({
+          status: "RESOLVED_CLOSED",
+          category: "",
+          adminOnly: false,
+        });
       }
     }
   }
@@ -269,17 +296,27 @@ export function TicketsView() {
     const isStatusChanged = targetStatus !== ticket.status;
 
     if (!replyText && !isStatusChanged) {
-      toast({ title: "Nothing to update", description: "Write a reply or change the status.", variant: "warning" });
+      toast({
+        title: "Nothing to update",
+        description: "Write a reply or change the status.",
+        variant: "warning",
+      });
       return;
     }
 
     setSubmittingMap((prev) => ({ ...prev, [ticket.id]: true }));
     try {
       if (replyText) {
-        await addCommentMutation.mutateAsync({ id: ticket.id, body: replyText });
+        await addCommentMutation.mutateAsync({
+          id: ticket.id,
+          body: replyText,
+        });
       }
       if (isStatusChanged) {
-        await setStatusMutation.mutateAsync({ id: ticket.id, status: targetStatus });
+        await setStatusMutation.mutateAsync({
+          id: ticket.id,
+          status: targetStatus,
+        });
       }
       toast({ title: "Ticket updated successfully", variant: "success" });
       setReplyDrafts((prev) => {
@@ -288,7 +325,8 @@ export function TicketsView() {
         return next;
       });
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Could not update ticket";
+      const msg =
+        err instanceof ApiError ? err.message : "Could not update ticket";
       toast({ title: "Update failed", description: msg, variant: "error" });
     } finally {
       setSubmittingMap((prev) => ({ ...prev, [ticket.id]: false }));
@@ -420,7 +458,10 @@ export function TicketsView() {
 
             {/* Raise Ticket Button */}
             {canWrite ? (
-              <Button onClick={() => setCreateOpen(true)} className="gap-1.5 rounded-xl">
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="gap-1.5 rounded-xl"
+              >
                 <Plus className="h-4 w-4" />
                 <span>Create Ticket</span>
               </Button>
@@ -659,10 +700,16 @@ export function TicketsView() {
                   const currentDraftStatus =
                     statusDrafts[ticket.id] || ticket.status;
 
+                  const isSelected = detailId === ticket.id;
                   return (
                     <div
                       key={ticket.id}
-                      className="flex flex-col gap-3 rounded-2xl border border-gray-200/90 bg-white p-4.5 shadow-xs hover:border-brand-300 hover:shadow-xs transition-all dark:border-gray-800 dark:bg-gray-dark"
+                      id={`ticket-card-${ticket.id}`}
+                      className={`flex flex-col gap-3 rounded-2xl border p-4.5 shadow-xs transition-all ${
+                        isSelected
+                          ? "border-brand-500 bg-brand-50/20 ring-2 ring-brand-500/25 shadow-md dark:border-brand-500 dark:bg-brand-950/20"
+                          : "border-gray-200/90 bg-white hover:border-brand-300 hover:shadow-xs dark:border-gray-800 dark:bg-gray-dark"
+                      }`}
                     >
                       {/* Top Row: Subject, Badges & Meta */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -673,6 +720,11 @@ export function TicketsView() {
                           >
                             {ticket.subject}
                           </h4>
+                          {isSelected && (
+                            <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[10px] font-bold px-2 py-0.5 border border-brand-300/60 dark:border-brand-700">
+                              Selected
+                            </span>
+                          )}
                           <span
                             className={`rounded-md px-2 py-0.5 text-xs font-semibold border ${getCategoryColor(ticket.category)}`}
                           >
@@ -791,9 +843,16 @@ export function TicketsView() {
                   {
                     header: "Ticket ID",
                     cell: (t) => (
-                      <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
-                        {formatTicketId(t.id)}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
+                          {formatTicketId(t.id)}
+                        </span>
+                        {detailId === t.id && (
+                          <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                            Selected
+                          </span>
+                        )}
+                      </div>
                     ),
                   },
                   {

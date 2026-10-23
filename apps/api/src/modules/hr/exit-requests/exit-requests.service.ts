@@ -5,6 +5,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
+import { NotificationsService } from "../../../platform/notifications/notifications.service.js";
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
@@ -40,6 +41,7 @@ export class ExitRequestsService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---- HR view (own · team · all) ------------------------------------------
@@ -110,7 +112,7 @@ export class ExitRequestsService {
       );
     }
     const employee = await this.employees.getCurrentEmployee();
-    return this.repository.create(
+    const created = await this.repository.create(
       this.tenantContext.getOrgScope(),
       {
         employeeId: employee.id,
@@ -121,6 +123,20 @@ export class ExitRequestsService {
       },
       this.tenantContext.getUserId(),
     );
+
+    const callerUserId = this.tenantContext.getUserId();
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "exit.submitted",
+        title: "New Exit Request",
+        body: `${employee.fullName} submitted an exit request (Preferred LWD: ${dto.preferredLastWorkingDate}).`,
+        link: `/hr/exit-requests?id=${created.id}`,
+      },
+      callerUserId,
+    );
+
+    return created;
   }
 
   async findMine(query: QueryMyExitRequestDto) {

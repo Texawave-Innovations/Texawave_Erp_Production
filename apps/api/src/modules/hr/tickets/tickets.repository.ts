@@ -25,7 +25,7 @@ const ENTITY_TYPE = "ticket";
 const EXIT_STATUSES = ["RESIGNED", "TERMINATED"];
 
 const INCLUDE = {
-  employee: { select: { id: true, fullName: true } },
+  employee: { select: { id: true, fullName: true, userId: true } },
   raisedByUser: { select: { id: true, fullName: true } },
 } satisfies Prisma.TicketInclude;
 type TicketRow = Prisma.TicketGetPayload<{ include: typeof INCLUDE }>;
@@ -81,7 +81,7 @@ export interface TicketView {
   isActive: boolean;
   raisedByAdmin: boolean;
   raisedBy: { id: number; fullName: string } | null;
-  employee: { id: number; fullName: string };
+  employee: { id: number; fullName: string; userId?: number | null };
   resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -104,7 +104,11 @@ function toView(row: TicketRow): TicketView {
     raisedBy: row.raisedByUser
       ? { id: row.raisedByUser.id, fullName: row.raisedByUser.fullName }
       : null,
-    employee: { id: row.employee.id, fullName: row.employee.fullName },
+    employee: {
+      id: row.employee.id,
+      fullName: row.employee.fullName,
+      userId: row.employee.userId,
+    },
     resolvedAt: row.resolvedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

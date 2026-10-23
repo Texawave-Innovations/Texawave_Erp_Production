@@ -27,13 +27,26 @@ function makeService(level: "own" | "team" | "all" = "all") {
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
   };
+  const notifications = {
+    notifyUser: vi.fn(),
+    notifyAdmins: vi.fn(),
+    notify: vi.fn(),
+  };
   const service = new TasksService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifications as never,
   );
-  return { service, repository, teamContext, employees, teamScope };
+  return {
+    service,
+    repository,
+    teamContext,
+    employees,
+    teamScope,
+    notifications,
+  };
 }
 
 const future = "2099-12-31";

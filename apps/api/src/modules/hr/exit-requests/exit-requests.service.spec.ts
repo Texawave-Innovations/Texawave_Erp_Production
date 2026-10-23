@@ -34,13 +34,18 @@ function makeService(decideLevel: "own" | "team" | "all" = "all") {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
     findCurrentEmployeeOrNull: vi.fn().mockResolvedValue({ id: 77 }),
   };
+  const notifications = {
+    notifyAdmins: vi.fn(),
+    notifyUser: vi.fn(),
+  };
   const service = new ExitRequestsService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifications as never,
   );
-  return { service, repository, teamContext, employees };
+  return { service, repository, teamContext, employees, notifications };
 }
 
 /** A date that is always after today, so the past-date guard never fires. */

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -33,12 +34,28 @@ const PAGE_SIZE = 10;
  * Never their own requests or ones they applied for (Docs/HR_LEAVE.md §6.1).
  */
 export function ApprovalQueueSection() {
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get("id");
+
   const [page, setPage] = useState(1);
   const [decision, setDecision] = useState<{
     request: LeaveRequestItem;
     decision: "approve" | "reject";
   } | null>(null);
   const list = useAwaitingLeave({ page, limit: PAGE_SIZE });
+
+  useEffect(() => {
+    if (!urlId || !list.data?.data) return;
+    const lid = parseInt(urlId, 10);
+    if (isNaN(lid) || lid <= 0) return;
+    const match = list.data.data.find((r) => r.id === lid);
+    if (match) {
+      const timer = setTimeout(() => {
+        setDecision({ request: match, decision: "approve" });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [urlId, list.data?.data]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,11 +98,18 @@ export function ApprovalQueueSection() {
                 header: "Employee",
                 cell: (r) => (
                   <div className="flex flex-col gap-0.5">
-                    <EmployeeIdentity
-                      name={r.employee.fullName}
-                      code={r.employee.employeeCode}
-                      size="sm"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <EmployeeIdentity
+                        name={r.employee.fullName}
+                        code={r.employee.employeeCode}
+                        size="sm"
+                      />
+                      {urlId && Number(urlId) === r.id && (
+                        <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                          Selected
+                        </span>
+                      )}
+                    </div>
                     {appliedByOther(r) ? (
                       <span className="text-[11px] text-gray-500 dark:text-gray-400">
                         Applied by {appliedByOther(r)}

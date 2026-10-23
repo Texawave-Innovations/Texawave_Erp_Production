@@ -86,7 +86,7 @@ function filterWhere(
 
 export interface ExpenseClaimView {
   id: number;
-  employee: { id: number; fullName: string };
+  employee: { id: number; fullName: string; userId?: number | null };
   expenseType: ExpenseType;
   amount: number;
   expenseDate: string;
@@ -102,7 +102,11 @@ export interface ExpenseClaimView {
 function toView(row: ExpenseClaimRow): ExpenseClaimView {
   return {
     id: row.id,
-    employee: { id: row.employee.id, fullName: row.employee.fullName },
+    employee: {
+      id: row.employee.id,
+      fullName: row.employee.fullName,
+      userId: row.employee.userId,
+    },
     expenseType: row.expenseType as ExpenseType,
     amount: row.amount.toNumber(),
     expenseDate: formatDateOnly(row.expenseDate),

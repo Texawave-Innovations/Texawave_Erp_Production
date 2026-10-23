@@ -32,7 +32,7 @@ const EXIT_STATUSES = ["RESIGNED", "TERMINATED"];
 const OPEN_STATUSES: TaskStatus[] = ["PENDING", "IN_PROGRESS"];
 
 const INCLUDE = {
-  assignee: { select: { id: true, fullName: true } },
+  assignee: { select: { id: true, fullName: true, userId: true } },
   assignedByUser: { select: { id: true, fullName: true } },
   approvedByUser: { select: { id: true, fullName: true } },
 } satisfies Prisma.TaskInclude;
@@ -80,7 +80,7 @@ export interface TaskView {
   dueDate: string;
   isOverdue: boolean;
   awaitingApproval: boolean;
-  assignee: { id: number; fullName: string };
+  assignee: { id: number; fullName: string; userId?: number | null };
   assignedBy: { id: number; fullName: string };
   isEmployeeCreated: boolean;
   requestToAdmin: boolean;
@@ -106,7 +106,11 @@ function toView(row: TaskRow, today: string): TaskView {
       status,
       adminApproved: row.adminApproved,
     }),
-    assignee: { id: row.assignee.id, fullName: row.assignee.fullName },
+    assignee: {
+      id: row.assignee.id,
+      fullName: row.assignee.fullName,
+      userId: row.assignee.userId,
+    },
     assignedBy: {
       id: row.assignedByUser.id,
       fullName: row.assignedByUser.fullName,

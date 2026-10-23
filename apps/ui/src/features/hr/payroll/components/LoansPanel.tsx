@@ -3,53 +3,46 @@
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
-  ArrowUpRight,
+  Calendar,
   CheckCircle2,
   Clock,
+  Coins,
   CreditCard,
-  Filter,
-  History,
   Plus,
   RotateCcw,
   Search,
-  TrendingDown,
-  User,
   Users,
-  Wallet,
   X,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Button,
-  Card,
   DataTable,
   EmptyState,
   Input,
   Pagination,
   Select,
 } from "@texawave-erp/ui-kit";
-import { EMPLOYEE_READ_ANY_SCOPE } from "@/components/widgets/employee-picker.api";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { usePermission } from "@/hooks/usePermission";
-import { describeError, isoDate, money } from "../format";
+import { isoDate, money } from "../format";
 import { useLoans, useMyLoans, useSalaries } from "../hooks";
 import {
-  LOAN_APPROVE,
   LOAN_READ,
-  LOAN_REVIEW,
   LOAN_WRITE,
   MY_LOAN_READ,
   MY_LOAN_WRITE,
   SALARY_READ,
 } from "../permissions";
-import { LOAN_STATUSES, type Loan, type LoanStatus } from "../types";
+import { type Loan } from "../types";
 import { IssueLoanDialog, LoanDetailDialog, outstanding } from "./LoanDialogs";
 import {
   ManageEmployeeData,
   ManageEmployeeLoanDialog,
 } from "./ManageEmployeeLoanDialog";
-import { StatusPill, statusLabel } from "./PayrollStatusBadge";
+import { StatusPill } from "./PayrollStatusBadge";
 import { QueryState } from "./QueryState";
+import { HrPageHeader } from "@/features/hr/components";
 
 const PAGE_SIZE = 10;
 
@@ -75,9 +68,54 @@ export function MyLoansSection() {
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<number | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
   const query = useMyLoans({ page, limit: PAGE_SIZE }, canRead);
   const rows = query.data?.data ?? [];
   const open = rows.find((l) => l.id === openId) ?? null;
+
+  // Summary statistics across personal loans
+  const summary = useMemo(() => {
+    let totalOutstanding = 0;
+    let totalEmi = 0;
+    let activeLoans = 0;
+    let totalPrincipal = 0;
+
+    for (const l of rows) {
+      totalPrincipal += Number(l.principalAmount) || 0;
+      const rem = outstanding(l) / 100;
+      totalOutstanding += rem;
+      if (l.status === "ACTIVE") {
+        activeLoans += 1;
+        totalEmi += Number(l.emiAmount) || 0;
+      }
+    }
+
+    return {
+      activeLoans,
+      totalOutstanding,
+      totalEmi,
+      totalPrincipal,
+    };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((l) => {
+      if (statusFilter && l.status !== statusFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (
+          !l.loanNumber.toLowerCase().includes(q) &&
+          !(l.reason ?? "").toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, statusFilter, searchQuery]);
+
+  const hasFilters = statusFilter !== "" || searchQuery !== "";
 
   if (!canRead) return null;
   if (
@@ -86,25 +124,119 @@ export function MyLoansSection() {
   )
     return null;
 
+  const metricCards = [
+    {
+      label: "Active Loans",
+      value: summary.activeLoans.toString(),
+      subtext: "Running advances",
+      Icon: CreditCard,
+      color: "text-brand-500 bg-sky-50 dark:bg-sky-950/40",
+    },
+    {
+      label: "Total Outstanding",
+      value: money(summary.totalOutstanding),
+      subtext: "Remaining principal",
+      Icon: AlertCircle,
+      color: "text-rose-500 bg-rose-50 dark:bg-rose-950/40",
+    },
+    {
+      label: "Monthly EMI",
+      value: money(summary.totalEmi),
+      subtext: "Salary deduction",
+      Icon: Clock,
+      color: "text-amber-500 bg-amber-50 dark:bg-amber-950/40",
+    },
+    {
+      label: "Principal Borrowed",
+      value: money(summary.totalPrincipal),
+      subtext: "Total loan volume",
+      Icon: Coins,
+      color: "text-slate-600 bg-slate-100 dark:bg-slate-800",
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4 animate-reveal">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-sky-100 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
-        <div>
-          <h2 className="text-theme-lg font-bold text-gray-900 dark:text-white">
-            My Loan Requests & History
-          </h2>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-            View your active loans, track EMI deduction status, or apply for a
-            personal loan
-          </p>
-        </div>
-        {canRequest ? (
-          <Button
-            onClick={() => setRequesting(true)}
-            className="bg-brand-500 hover:bg-brand-600 text-white font-bold"
+    <div className="flex flex-col gap-6 animate-reveal pb-12">
+      {/* 1. Page Header with 3D Payroll Hero */}
+      <HrPageHeader
+        title="My Loans & Advances"
+        description="View active company loans, track EMI deduction schedules, and apply for personal loans."
+        icon3d="payroll"
+        action={
+          canRequest ? (
+            <Button
+              onClick={() => setRequesting(true)}
+              className="flex items-center gap-1.5 rounded-xl font-bold shadow-xs"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Request a loan</span>
+            </Button>
+          ) : null
+        }
+      />
+
+      {/* 2. Interactive Status Metric Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {metricCards.map((card, idx) => (
+          <div
+            key={idx}
+            className="flex items-center gap-3.5 rounded-2xl border border-sky-200/90 bg-white p-4 text-left shadow-2xs dark:border-slate-700/80 dark:bg-slate-850"
           >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Request a loan
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.color}`}
+            >
+              <card.Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {card.label}
+              </span>
+              <span className="text-xl font-bold tracking-tight text-[#0a3271] dark:text-white">
+                {card.value}
+              </span>
+              <span className="block text-[11px] font-medium text-slate-400 truncate">
+                {card.subtext}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 3. Search & Filter Bar: Compact Single-Line Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-sky-200/90 bg-white p-3.5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-850">
+        <div className="w-full sm:w-72">
+          <Input
+            aria-label="Search loans"
+            placeholder="Search by loan # or reason..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="w-full sm:w-52">
+          <Select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="CLOSED">Closed / Repaid</option>
+            <option value="REJECTED">Rejected</option>
+          </Select>
+        </div>
+        {hasFilters ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setStatusFilter("");
+              setSearchQuery("");
+            }}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-red-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" />
+            <span>Clear filters</span>
           </Button>
         ) : null}
       </div>
@@ -112,22 +244,30 @@ export function MyLoansSection() {
       <QueryState query={query} area="your loans" />
 
       {query.isSuccess && rows.length === 0 ? (
-        <Card>
+        <div className="rounded-2xl border border-sky-200/90 bg-white p-8 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <EmptyState
             title="No Personal Loans"
             description="You do not currently have any active or past company loans."
           />
-        </Card>
+        </div>
       ) : null}
 
       {query.isSuccess && rows.length > 0 ? (
-        <div className="rounded-2xl border border-sky-200/90 bg-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-2xl border border-sky-200/90 bg-white shadow-xs dark:border-slate-700/80 dark:bg-slate-900">
           <DataTable<Loan>
+            className="border-0 shadow-none rounded-none"
             caption="My loans"
-            rows={rows}
+            rows={filteredRows}
             getRowKey={(r) => String(r.id)}
             columns={[
-              { header: "Loan #", cell: (r) => r.loanNumber },
+              {
+                header: "Loan #",
+                cell: (r) => (
+                  <span className="font-bold text-[#0a3271] dark:text-white">
+                    {r.loanNumber}
+                  </span>
+                ),
+              },
               {
                 header: "Principal",
                 cell: (r) => money(r.principalAmount),
@@ -137,7 +277,8 @@ export function MyLoansSection() {
               {
                 header: "EMI",
                 cell: (r) => `${money(r.emiAmount)} × ${r.emiMonths} mos`,
-                className: "whitespace-nowrap",
+                className:
+                  "whitespace-nowrap font-medium text-slate-700 dark:text-slate-300",
               },
               {
                 header: "Outstanding",
@@ -149,7 +290,15 @@ export function MyLoansSection() {
                 className: "text-right whitespace-nowrap",
                 headerClassName: "text-right",
               },
-              { header: "Disbursed", cell: (r) => isoDate(r.disbursedDate) },
+              {
+                header: "Disbursed",
+                cell: (r) => (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2f6396] dark:text-sky-300">
+                    <Calendar className="h-3.5 w-3.5 text-brand-500" />
+                    <span>{isoDate(r.disbursedDate)}</span>
+                  </div>
+                ),
+              },
               {
                 header: "Status",
                 cell: (r) => {
@@ -170,12 +319,14 @@ export function MyLoansSection() {
               },
               {
                 header: "Action",
+                className: "text-right",
                 cell: (r) => (
                   <Button
                     size="sm"
                     variant="secondary"
                     aria-label={`View loan ${r.loanNumber}`}
                     onClick={() => setOpenId(r.id)}
+                    className="text-xs font-semibold hover:border-brand-300 hover:text-brand-600"
                   >
                     View Schedule
                   </Button>
@@ -183,13 +334,15 @@ export function MyLoansSection() {
               },
             ]}
           />
-          <div className="mt-4">
-            <Pagination
-              page={page}
-              totalPages={query.data.meta?.totalPages ?? 1}
-              onPageChange={setPage}
-            />
-          </div>
+          {(query.data.meta?.totalPages ?? 1) > 1 ? (
+            <div className="border-t border-sky-100 p-3 dark:border-slate-800">
+              <Pagination
+                page={page}
+                totalPages={query.data.meta?.totalPages ?? 1}
+                onPageChange={setPage}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -212,7 +365,6 @@ export function MyLoansSection() {
 function HrLoansSection() {
   const canRead = usePermission(LOAN_READ);
   const canWrite = usePermission(LOAN_WRITE);
-  const canReadEmployees = usePermission(EMPLOYEE_READ_ANY_SCOPE);
   const canReadSalaries = usePermission(SALARY_READ);
 
   const [page, setPage] = useState(1);
@@ -286,8 +438,6 @@ function HrLoansSection() {
       });
       return Array.from(seen.values());
     }
-
-    const todayStr = new Date().toISOString().slice(0, 10);
 
     return employeesList.map((emp) => {
       const empLoans = allLoans.filter((l) => l.employee.id === emp.id);

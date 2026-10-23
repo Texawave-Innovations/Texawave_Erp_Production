@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,13 +12,11 @@ import {
   Input,
   Pagination,
   Select,
-  StatusBadge,
   TableSkeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
-  Ban,
   Calendar,
   Check,
   CheckCircle2,
@@ -35,7 +33,6 @@ import {
   RotateCcw,
   Search,
   Table,
-  X,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
@@ -132,8 +129,21 @@ export function TasksView() {
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const canSelfService = usePermission(SELF_SERVICE_READ);
+  const searchParams = useSearchParams();
+  const urlTaskId = searchParams.get("id") || searchParams.get("taskId");
+  const urlTab = searchParams.get("tab");
 
-  const [activeTab, setActiveTab] = useState<TabKey>("assigned");
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    urlTab === "requests" ? "requests" : "assigned",
+  );
+  const [prevUrlTab, setPrevUrlTab] = useState(urlTab);
+  if (urlTab !== prevUrlTab) {
+    setPrevUrlTab(urlTab);
+    if (urlTab === "requests") {
+      setActiveTab("requests");
+    }
+  }
+
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -168,6 +178,25 @@ export function TasksView() {
     () => overviewQuery.data?.data ?? [],
     [overviewQuery.data?.data],
   );
+
+  useEffect(() => {
+    if (!urlTaskId) return;
+    const tid = parseInt(urlTaskId, 10);
+    if (isNaN(tid) || tid <= 0) return;
+
+    const task = allTasks.find((t) => t.id === tid);
+    if (task) {
+      const timer = setTimeout(() => {
+        if (task.requestToAdmin || task.isEmployeeCreated) {
+          setActiveTab("requests");
+        }
+        setDetailsTarget(task);
+        const el = document.getElementById(`task-card-${tid}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [urlTaskId, allTasks]);
 
   // Active paginated query for assigned tab
   const isAwaitingApprovalFilter = filters.status === "AWAITING_APPROVAL";
@@ -242,8 +271,7 @@ export function TasksView() {
         ? isAwaitingApprovalFilter
           ? allTasks.filter(
               (t) =>
-                t.awaitingApproval ||
-                (t.status === "DONE" && !t.adminApproved),
+                t.awaitingApproval || (t.status === "DONE" && !t.adminApproved),
             )
           : (list.data?.data ?? [])
         : requestTasks;
@@ -291,7 +319,11 @@ export function TasksView() {
   ]);
 
   const paginatedRows: TableTaskItem[] = useMemo(() => {
-    if (activeTab === "assigned" && !isAwaitingApprovalFilter && !filters.priority) {
+    if (
+      activeTab === "assigned" &&
+      !isAwaitingApprovalFilter &&
+      !filters.priority
+    ) {
       return displayedRows.map((t, idx) => ({
         ...t,
         rowNumber: (page - 1) * PAGE_SIZE + idx + 1,
@@ -440,7 +472,8 @@ export function TasksView() {
     ]);
 
     const csvContent =
-      "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      "\uFEFF" +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -539,7 +572,10 @@ export function TasksView() {
 
             {/* New Task button */}
             {canWrite ? (
-              <Button onClick={() => setCreateOpen(true)} className="gap-1.5 rounded-xl">
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="gap-1.5 rounded-xl"
+              >
                 <Plus className="h-4 w-4" />
                 <span>New Task</span>
               </Button>
@@ -707,7 +743,11 @@ export function TasksView() {
           </div>
 
           <div className="text-theme-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-            Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{displayedRows.length}</span> {activeTab === "assigned" ? "tasks" : "requests"}
+            Showing{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">
+              {displayedRows.length}
+            </span>{" "}
+            {activeTab === "assigned" ? "tasks" : "requests"}
           </div>
         </div>
 
@@ -878,257 +918,286 @@ export function TasksView() {
           {/* A. GRID VIEW (Reference 2 Inspiration: 3-column interactive cards) */}
           {viewMode === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
-              {paginatedRows.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex flex-col justify-between rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs hover:shadow-md hover:border-brand-300 transition-all dark:border-gray-800 dark:bg-gray-dark group"
-                >
-                  <div>
-                    {/* Header: Title + Badges */}
-                    <div className="flex items-start justify-between gap-3 mb-2.5">
-                      <h3
-                        onClick={() => setDetailsTarget(t)}
-                        className="font-bold text-base text-gray-900 group-hover:text-brand-600 dark:text-white/90 dark:group-hover:text-brand-400 cursor-pointer line-clamp-2 transition-colors"
-                      >
-                        {t.title}
-                      </h3>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <TaskPriorityBadge priority={t.priority} />
-                        <TaskStatusBadge status={t.status} />
+              {paginatedRows.map((t) => {
+                const isSelected = detailsTarget?.id === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    id={`task-card-${t.id}`}
+                    className={`flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition-all ${
+                      isSelected
+                        ? "border-brand-500 bg-brand-50/20 ring-2 ring-brand-500/25 shadow-md dark:border-brand-500 dark:bg-brand-950/20"
+                        : "border-gray-200/90 bg-white hover:shadow-md hover:border-brand-300 dark:border-gray-800 dark:bg-gray-dark"
+                    } group`}
+                  >
+                    <div>
+                      {/* Header: Title + Badges */}
+                      <div className="flex items-start justify-between gap-3 mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <h3
+                            onClick={() => setDetailsTarget(t)}
+                            className="font-bold text-base text-gray-900 group-hover:text-brand-600 dark:text-white/90 dark:group-hover:text-brand-400 cursor-pointer line-clamp-2 transition-colors"
+                          >
+                            {t.title}
+                          </h3>
+                          {isSelected && (
+                            <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[10px] font-bold px-2 py-0.5 border border-brand-300/60 dark:border-brand-700 shrink-0">
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <TaskPriorityBadge priority={t.priority} />
+                          <TaskStatusBadge status={t.status} />
+                        </div>
                       </div>
+
+                      {/* Description */}
+                      {t.description ? (
+                        <p className="text-theme-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 leading-relaxed">
+                          {t.description}
+                        </p>
+                      ) : (
+                        <p className="text-theme-xs text-gray-400 italic mb-4">
+                          No description provided
+                        </p>
+                      )}
                     </div>
 
-                    {/* Description */}
-                    {t.description ? (
-                      <p className="text-theme-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 leading-relaxed">
-                        {t.description}
-                      </p>
-                    ) : (
-                      <p className="text-theme-xs text-gray-400 italic mb-4">
-                        No description provided
-                      </p>
-                    )}
-                  </div>
+                    <div>
+                      {/* Divider */}
+                      <div className="h-px w-full bg-gray-100 dark:bg-gray-800 mb-3.5" />
 
-                  <div>
-                    {/* Divider */}
-                    <div className="h-px w-full bg-gray-100 dark:bg-gray-800 mb-3.5" />
-
-                    {/* Assignee & Status Notice */}
-                    <div className="flex items-center justify-between gap-2 mb-3.5">
-                      <EmployeeIdentity
-                        name={t.assignee.fullName}
-                        code={employeeCodeMap.get(t.assignee.id)}
-                        size="sm"
-                      />
-                      {t.awaitingApproval || (!t.adminApproved && t.status === "DONE") ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800">
-                          Awaiting approval
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Footer: Due Date & Actions */}
-                    <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 dark:border-gray-850">
-                      <div className="flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                        <span
-                          className={
-                            t.isOverdue
-                              ? "font-semibold text-rose-600 dark:text-rose-400"
-                              : ""
-                          }
-                        >
-                          {formatTaskDate(t.dueDate)}
-                        </span>
-                        {t.isOverdue ? (
-                          <span className="rounded bg-rose-50 px-1 py-0.2 text-[10px] font-bold text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
-                            Overdue
+                      {/* Assignee & Status Notice */}
+                      <div className="flex items-center justify-between gap-2 mb-3.5">
+                        <EmployeeIdentity
+                          name={t.assignee.fullName}
+                          code={employeeCodeMap.get(t.assignee.id)}
+                          size="sm"
+                        />
+                        {t.awaitingApproval ||
+                        (!t.adminApproved && t.status === "DONE") ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800">
+                            Awaiting approval
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
-                        {canWrite &&
-                        (t.awaitingApproval ||
-                          (!t.adminApproved && t.status === "DONE")) ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void (activeTab === "requests"
-                                  ? handleApproveRequest(t)
-                                  : handleDirectApprove(t))
-                              }
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition-colors"
-                            >
-                              <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void (activeTab === "requests"
-                                  ? handleRejectRequest(t)
-                                  : handleDirectReopen(t))
-                              }
-                              className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                            >
-                              {activeTab === "requests" ? "Reject" : "Reopen"}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              aria-label={`View ${t.title}`}
-                              onClick={() => setDetailsTarget(t)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {canWrite ? (
+                      {/* Footer: Due Date & Actions */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 dark:border-gray-850">
+                        <div className="flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                          <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                          <span
+                            className={
+                              t.isOverdue
+                                ? "font-semibold text-rose-600 dark:text-rose-400"
+                                : ""
+                            }
+                          >
+                            {formatTaskDate(t.dueDate)}
+                          </span>
+                          {t.isOverdue ? (
+                            <span className="rounded bg-rose-50 px-1 py-0.2 text-[10px] font-bold text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+                              Overdue
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {canWrite &&
+                          (t.awaitingApproval ||
+                            (!t.adminApproved && t.status === "DONE")) ? (
+                            <>
                               <button
                                 type="button"
-                                aria-label={`Edit ${t.title}`}
-                                onClick={() => setDetailsTarget(t)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-brand-400 transition-colors"
+                                onClick={() =>
+                                  void (activeTab === "requests"
+                                    ? handleApproveRequest(t)
+                                    : handleDirectApprove(t))
+                                }
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition-colors"
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                                Approve
                               </button>
-                            ) : null}
-                          </>
-                        )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void (activeTab === "requests"
+                                    ? handleRejectRequest(t)
+                                    : handleDirectReopen(t))
+                                }
+                                className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                              >
+                                {activeTab === "requests" ? "Reject" : "Reopen"}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`View ${t.title}`}
+                                onClick={() => setDetailsTarget(t)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              {canWrite ? (
+                                <button
+                                  type="button"
+                                  aria-label={`Edit ${t.title}`}
+                                  onClick={() => setDetailsTarget(t)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-brand-400 transition-colors"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
           {/* B. LIST VIEW (Reference 1 Inspiration: Horizontal stacked cards with direct actions) */}
           {viewMode === "list" && (
             <div className="flex flex-col gap-3">
-              {paginatedRows.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-gray-200/90 bg-white p-4.5 shadow-xs hover:border-brand-300 hover:shadow-xs transition-all dark:border-gray-800 dark:bg-gray-dark"
-                >
-                  <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                    {/* Title & Badges */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        onClick={() => setDetailsTarget(t)}
-                        className="font-bold text-base text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400 cursor-pointer transition-colors"
-                      >
-                        {t.title}
-                      </span>
-                      <TaskPriorityBadge priority={t.priority} />
-                      {t.isEmployeeCreated || t.requestToAdmin ? (
-                        <span className="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-800 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800">
-                          Employee Request
-                        </span>
-                      ) : null}
-                      {t.awaitingApproval ||
-                      (!t.adminApproved && t.status === "DONE") ? (
-                        <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
-                          Awaiting Approval
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Description */}
-                    {t.description ? (
-                      <p className="text-theme-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                        {t.description}
-                      </p>
-                    ) : null}
-
-                    {/* Metadata Line */}
-                    <div className="flex flex-wrap items-center gap-4 text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span>
-                          {activeTab === "requests"
-                            ? "Requested by:"
-                            : "Assigned to:"}
-                        </span>
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          {t.assignee.fullName}
-                        </span>
-                        {employeeCodeMap.get(t.assignee.id) ? (
-                          <span className="text-[11px] text-gray-400">
-                            ({employeeCodeMap.get(t.assignee.id)})
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                        <span>Due:</span>
+              {paginatedRows.map((t) => {
+                const isSelected = detailsTarget?.id === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    id={`task-card-${t.id}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4.5 shadow-xs transition-all ${
+                      isSelected
+                        ? "border-brand-500 bg-brand-50/20 ring-2 ring-brand-500/25 shadow-md dark:border-brand-500 dark:bg-brand-950/20"
+                        : "border-gray-200/90 bg-white hover:border-brand-300 hover:shadow-xs dark:border-gray-800 dark:bg-gray-dark"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                      {/* Title & Badges */}
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={
-                            t.isOverdue
-                              ? "font-semibold text-rose-600 dark:text-rose-400"
-                              : "font-medium text-gray-700 dark:text-gray-300"
-                          }
+                          onClick={() => setDetailsTarget(t)}
+                          className="font-bold text-base text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400 cursor-pointer transition-colors"
                         >
-                          {formatTaskDate(t.dueDate)}
+                          {t.title}
                         </span>
-                        {t.isOverdue ? (
-                          <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 ml-0.5">
-                            (Overdue)
+                        {isSelected && (
+                          <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[10px] font-bold px-2 py-0.5 border border-brand-300/60 dark:border-brand-700">
+                            Selected
+                          </span>
+                        )}
+                        <TaskPriorityBadge priority={t.priority} />
+                        {t.isEmployeeCreated || t.requestToAdmin ? (
+                          <span className="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-800 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800">
+                            Employee Request
+                          </span>
+                        ) : null}
+                        {t.awaitingApproval ||
+                        (!t.adminApproved && t.status === "DONE") ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
+                            Awaiting Approval
                           </span>
                         ) : null}
                       </div>
+
+                      {/* Description */}
+                      {t.description ? (
+                        <p className="text-theme-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                          {t.description}
+                        </p>
+                      ) : null}
+
+                      {/* Metadata Line */}
+                      <div className="flex flex-wrap items-center gap-4 text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span>
+                            {activeTab === "requests"
+                              ? "Requested by:"
+                              : "Assigned to:"}
+                          </span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">
+                            {t.assignee.fullName}
+                          </span>
+                          {employeeCodeMap.get(t.assignee.id) ? (
+                            <span className="text-[11px] text-gray-400">
+                              ({employeeCodeMap.get(t.assignee.id)})
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                          <span>Due:</span>
+                          <span
+                            className={
+                              t.isOverdue
+                                ? "font-semibold text-rose-600 dark:text-rose-400"
+                                : "font-medium text-gray-700 dark:text-gray-300"
+                            }
+                          >
+                            {formatTaskDate(t.dueDate)}
+                          </span>
+                          {t.isOverdue ? (
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 ml-0.5">
+                              (Overdue)
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Side: Status & Fast Actions */}
+                    <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                      <TaskStatusBadge status={t.status} />
+
+                      {canWrite &&
+                      (t.awaitingApproval ||
+                        (!t.adminApproved && t.status === "DONE")) ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void (activeTab === "requests"
+                                ? handleApproveRequest(t)
+                                : handleDirectApprove(t))
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void (activeTab === "requests"
+                                ? handleRejectRequest(t)
+                                : handleDirectReopen(t))
+                            }
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 transition-colors"
+                          >
+                            {activeTab === "requests" ? "Reject" : "Reopen"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        aria-label={`View ${t.title}`}
+                        onClick={() => setDetailsTarget(t)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
-
-                  {/* Right Side: Status & Fast Actions */}
-                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                    <TaskStatusBadge status={t.status} />
-
-                    {canWrite &&
-                    (t.awaitingApproval ||
-                      (!t.adminApproved && t.status === "DONE")) ? (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void (activeTab === "requests"
-                              ? handleApproveRequest(t)
-                              : handleDirectApprove(t))
-                          }
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition-colors"
-                        >
-                          <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void (activeTab === "requests"
-                              ? handleRejectRequest(t)
-                              : handleDirectReopen(t))
-                          }
-                          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 transition-colors"
-                        >
-                          {activeTab === "requests" ? "Reject" : "Reopen"}
-                        </button>
-                      </div>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      aria-label={`View ${t.title}`}
-                      onClick={() => setDetailsTarget(t)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -1152,12 +1221,19 @@ export function TasksView() {
                     header: "Task Title",
                     cell: (t) => (
                       <div className="flex flex-col min-w-0">
-                        <span
-                          onClick={() => setDetailsTarget(t)}
-                          className="font-semibold text-theme-sm text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400 cursor-pointer truncate"
-                        >
-                          {t.title}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            onClick={() => setDetailsTarget(t)}
+                            className="font-semibold text-theme-sm text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400 cursor-pointer truncate"
+                          >
+                            {t.title}
+                          </span>
+                          {detailsTarget?.id === t.id && (
+                            <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                              Selected
+                            </span>
+                          )}
+                        </div>
                         {t.description ? (
                           <span className="text-theme-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
                             {t.description}

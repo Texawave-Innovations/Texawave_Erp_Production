@@ -34,13 +34,19 @@ function makeService(decideLevel: "own" | "team" | "all" = "all") {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 77 }),
     findCurrentEmployeeOrNull: vi.fn().mockResolvedValue({ id: 77 }),
   };
+  const notifications = {
+    notifyUser: vi.fn(),
+    notifyAdmins: vi.fn(),
+    notify: vi.fn(),
+  };
   const service = new ExpenseClaimsService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifications as never,
   );
-  return { service, repository, teamContext, employees };
+  return { service, repository, teamContext, employees, notifications };
 }
 
 const validClaim = {

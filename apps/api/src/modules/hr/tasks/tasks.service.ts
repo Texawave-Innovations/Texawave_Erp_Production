@@ -4,6 +4,7 @@ import { ResourceNotFoundException } from "../../../common/exceptions/business.e
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
+import { NotificationsService } from "../../../platform/notifications/notifications.service.js";
 import type {
   CreateMyTaskDto,
   CreateTaskDto,
@@ -26,6 +27,7 @@ export class TasksService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---- HR / admin view (own · team · all) ----------------------------------
@@ -54,7 +56,7 @@ export class TasksService {
     const scope = await this.writeScope();
     const today = istToday();
     assertDueDateNotPast(dto.dueDate, today);
-    return this.repository.create(
+    const created = await this.repository.create(
       scope,
       {
         title: dto.title,
@@ -66,6 +68,20 @@ export class TasksService {
       this.tenantContext.getUserId(),
       today,
     );
+
+    if (
+      created?.assignee?.userId &&
+      created.assignee.userId !== this.tenantContext.getUserId()
+    ) {
+      void this.notifications.notifyUser(scope, created.assignee.userId, {
+        type: "task.assigned",
+        title: `New Task Assigned: ${created.title}`,
+        body: `HR assigned a new task to you with due date ${created.dueDate}. Priority: ${created.priority}.`,
+        link: `/portal/tasks?id=${created.id}`,
+      });
+    }
+
+    return created;
   }
 
   async reassign(id: number, dto: ReassignTaskDto) {
@@ -78,6 +94,19 @@ export class TasksService {
       istToday(),
     );
     if (!row) throw new ResourceNotFoundException("Task", id);
+
+    if (
+      row?.assignee?.userId &&
+      row.assignee.userId !== this.tenantContext.getUserId()
+    ) {
+      void this.notifications.notifyUser(scope, row.assignee.userId, {
+        type: "task.assigned",
+        title: `Task Assigned to You: ${row.title}`,
+        body: `A task has been assigned to you with due date ${row.dueDate}. Priority: ${row.priority}.`,
+        link: `/portal/tasks?id=${row.id}`,
+      });
+    }
+
     return row;
   }
 
@@ -91,6 +120,19 @@ export class TasksService {
       istToday(),
     );
     if (!row) throw new ResourceNotFoundException("Task", id);
+
+    if (
+      row?.assignee?.userId &&
+      row.assignee.userId !== this.tenantContext.getUserId()
+    ) {
+      void this.notifications.notifyUser(scope, row.assignee.userId, {
+        type: "task.updated",
+        title: `Task Status: ${dto.status}`,
+        body: `Your task "${row.title}" status has been updated to ${dto.status}.`,
+        link: `/portal/tasks?id=${row.id}`,
+      });
+    }
+
     return row;
   }
 
@@ -103,6 +145,19 @@ export class TasksService {
       istToday(),
     );
     if (!row) throw new ResourceNotFoundException("Task", id);
+
+    if (
+      row?.assignee?.userId &&
+      row.assignee.userId !== this.tenantContext.getUserId()
+    ) {
+      void this.notifications.notifyUser(scope, row.assignee.userId, {
+        type: "task.updated",
+        title: `Task Approved ✓`,
+        body: `Your task "${row.title}" has been reviewed and approved by HR.`,
+        link: `/portal/tasks?id=${row.id}`,
+      });
+    }
+
     return row;
   }
 
@@ -149,7 +204,7 @@ export class TasksService {
     const employee = await this.employees.getCurrentEmployee();
     const today = istToday();
     assertDueDateNotPast(dto.dueDate, today);
-    return this.repository.createForEmployee(
+    const created = await this.repository.createForEmployee(
       this.tenantContext.getOrgScope(),
       employee.id,
       {
@@ -162,6 +217,21 @@ export class TasksService {
       this.tenantContext.getUserId(),
       today,
     );
+
+    if (dto.requestToAdmin) {
+      void this.notifications.notifyAdmins(
+        this.tenantContext.getOrgScope(),
+        {
+          type: "task.request",
+          title: "New Task Request for Admin",
+          body: `${employee.fullName} submitted a task request: "${dto.title}".`,
+          link: `/hr/tasks?id=${created.id}&tab=requests`,
+        },
+        this.tenantContext.getUserId(),
+      );
+    }
+
+    return created;
   }
 
   async updateMyStatus(id: number, dto: UpdateMyTaskStatusDto) {
@@ -175,6 +245,20 @@ export class TasksService {
       istToday(),
     );
     if (!row) throw new ResourceNotFoundException("Task", id);
+
+    if (row.requestToAdmin || row.awaitingApproval || dto.status === "DONE") {
+      void this.notifications.notifyAdmins(
+        this.tenantContext.getOrgScope(),
+        {
+          type: "task.completed",
+          title: "Task Submitted for Review",
+          body: `${employee.fullName} marked task "${row.title}" as ${dto.status}.`,
+          link: `/hr/tasks?id=${row.id}&tab=requests`,
+        },
+        this.tenantContext.getUserId(),
+      );
+    }
+
     return row;
   }
 

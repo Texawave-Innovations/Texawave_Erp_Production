@@ -111,7 +111,7 @@ describe("LeaveNotificationsService", () => {
         userId: 20,
         type: "leave.rejected",
         body: expect.stringContaining("no cover") as unknown,
-        link: "/portal/leave",
+        link: "/portal/leave?id=7",
       }),
     ]);
   });
