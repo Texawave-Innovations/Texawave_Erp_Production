@@ -100,7 +100,7 @@ export function ChangePasswordForm() {
           </p>
         </div>
 
-        <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 sm:p-9.5 rounded-3xl relative z-30 pointer-events-auto transition-all">
+        <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 rounded-3xl relative z-30 pointer-events-auto transition-all flex flex-col justify-between">
           <div className="flex flex-col items-center justify-center mb-6">
             <TexaLogo size="md" is3d={true} />
             <h1 className="mt-4 text-2xl font-bold text-slate-900 tracking-tight font-sans">
@@ -111,10 +111,12 @@ export function ChangePasswordForm() {
             </p>
           </div>
 
-          <Alert variant="success" title="You're all set">
-            Your password has been updated successfully. Please sign in with
-            your new password to continue.
-          </Alert>
+          <div className="flex-1 flex flex-col justify-center">
+            <Alert variant="success" title="You're all set">
+              Your password has been updated successfully. Please sign in with
+              your new password to continue.
+            </Alert>
+          </div>
 
           <Button
             type="button"
@@ -140,30 +142,29 @@ export function ChangePasswordForm() {
         </p>
       </div>
 
-      <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 sm:p-9.5 rounded-3xl relative z-30 pointer-events-auto transition-all">
+      <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 rounded-3xl relative z-30 pointer-events-auto transition-all flex flex-col justify-between">
         {/* Header: Official TEXA Logo + Title + Subtitle */}
-        <div className="flex flex-col items-center justify-center mb-6">
+        <div className="flex flex-col items-center justify-center mb-4">
           <TexaLogo size="md" is3d={true} />
-          <h1 className="mt-4 text-2xl font-bold text-slate-900 tracking-tight font-sans text-center">
+          <h1 className="mt-3 text-2xl font-bold text-slate-900 tracking-tight font-sans text-center">
             Change your password
           </h1>
-          <p className="mt-1 text-sm text-slate-500 font-normal text-center">
-            Your account was created with a temporary password. Choose a new one
-            to continue.
+          <p className="mt-1 text-xs sm:text-sm text-slate-500 font-normal text-center max-w-xs leading-snug">
+            Choose a new password for your account to continue.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
           suppressHydrationWarning
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-3 flex-1 justify-between"
           noValidate
         >
           {/* Current Password Field */}
           <div className="flex flex-col">
             <label
               htmlFor="current-password"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               Current (temporary) password{" "}
               <span className="text-red-500">*</span>
@@ -247,7 +248,7 @@ export function ChangePasswordForm() {
           <div className="flex flex-col">
             <label
               htmlFor="new-password"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               New password <span className="text-red-500">*</span>
             </label>
@@ -317,14 +318,9 @@ export function ChangePasswordForm() {
                 )}
               </button>
             </div>
-            {errors.newPassword ? (
+            {errors.newPassword && (
               <p className="mt-1 text-xs text-red-600 font-medium">
                 {errors.newPassword}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-slate-500">
-                At least 8 characters, with an uppercase letter, a lowercase
-                letter, a number and a special character.
               </p>
             )}
           </div>
@@ -333,7 +329,7 @@ export function ChangePasswordForm() {
           <div className="flex flex-col">
             <label
               htmlFor="confirm-password"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               Confirm new password <span className="text-red-500">*</span>
             </label>
@@ -412,6 +408,20 @@ export function ChangePasswordForm() {
             )}
           </div>
 
+          {/* Password Requirement Hint & Back to Sign In Row (Exact match with Login auxiliary row) */}
+          <div className="flex items-center justify-between text-sm pt-0.5">
+            <span className="text-xs font-normal text-slate-500">
+              Min. 8 chars (upper, lower, num, sym)
+            </span>
+
+            <Link
+              href="/login"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Back to sign in
+            </Link>
+          </div>
+
           {/* Submit Error Alert */}
           {submitError && (
             <Alert variant="error" title="Could not change your password">
@@ -430,17 +440,6 @@ export function ChangePasswordForm() {
           >
             Change password →
           </Button>
-
-          {/* Back to sign in link */}
-          <p className="text-center text-xs text-slate-500 pt-1">
-            Changed your mind?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-            >
-              Back to sign in
-            </Link>
-          </p>
         </form>
       </div>
     </>

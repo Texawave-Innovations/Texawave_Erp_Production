@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="hidden lg:flex flex-1 min-w-0" aria-hidden="true" />
 
         {/* Right Column: Dedicated container that never squishes the card */}
-        <div className="flex flex-col items-center justify-center p-6 sm:p-8 lg:p-10 lg:pr-16 xl:pr-24 pointer-events-none shrink-0 w-full lg:w-auto">
+        <div className="flex flex-col items-center justify-center p-4 sm:p-6 lg:py-6 lg:pl-6 lg:pr-16 xl:pr-24 pointer-events-none shrink-0 w-full lg:w-auto">
           {children}
         </div>
       </div>

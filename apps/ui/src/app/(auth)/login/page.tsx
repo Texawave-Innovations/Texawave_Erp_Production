@@ -64,20 +64,20 @@ export default function LoginPage() {
       {/* Mobile / Tablet Top Branding */}
       <div className="lg:hidden flex flex-col items-center mb-6 pointer-events-auto">
         <TexaLogo size="md" is3d={true} />
-        <p className="mt-2 text-xs font-mono text-slate-600 tracking-wider uppercase font-semibold">
+        <p className="mt-2 text-xs font-sans text-slate-600 tracking-wider uppercase font-semibold">
           Enterprise Engineering Platform
         </p>
       </div>
 
       {/* Premium Frosted Glassmorphism Login Card */}
-      <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 sm:p-9.5 rounded-3xl relative z-30 pointer-events-auto transition-all">
-        {/* Header: Official TEXA Logo + Welcome back + Subtitle (Exact Image 1) */}
-        <div className="flex flex-col items-center justify-center mb-6">
+      <div className="glass-login-card login-panel-card w-full sm:w-110 max-w-110 p-8 rounded-3xl relative z-30 pointer-events-auto transition-all flex flex-col justify-between">
+        {/* Header: Official TEXA Logo + Welcome back + Subtitle */}
+        <div className="flex flex-col items-center justify-center mb-5">
           <TexaLogo size="md" is3d={true} />
-          <h1 className="mt-4 text-2xl font-bold text-slate-900 tracking-tight font-sans">
+          <h1 className="mt-3.5 text-2xl font-bold text-slate-900 tracking-tight font-sans">
             Welcome back
           </h1>
-          <p className="mt-1 text-sm text-slate-500 font-normal">
+          <p className="mt-1 text-xs sm:text-sm text-slate-500 font-normal">
             Sign in to access TexaWave ERP
           </p>
         </div>
@@ -85,13 +85,13 @@ export default function LoginPage() {
         <form
           onSubmit={handleSubmit}
           suppressHydrationWarning
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-3.5 flex-1 justify-between"
         >
-          {/* Organization Field (Exact Image 1) */}
+          {/* Organization Field */}
           <div className="flex flex-col">
             <label
               htmlFor="organization"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               Organization
             </label>
@@ -126,7 +126,7 @@ export default function LoginPage() {
           <div className="flex flex-col">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               Email
             </label>
@@ -162,7 +162,7 @@ export default function LoginPage() {
           <div className="flex flex-col">
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-slate-700 mb-1.5"
+              className="block text-xs sm:text-sm font-medium text-slate-700 mb-1"
             >
               Password
             </label>

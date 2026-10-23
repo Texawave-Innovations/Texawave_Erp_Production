@@ -47,6 +47,7 @@ export function toPayrollBankView<E extends WithBankSource>(
 ): Omit<E, "bankDetail" | "employeeGovernmentId"> & {
   bankDetails: PayrollBankView | null;
 } {
+  if (!employee) return employee as never;
   const { bankDetail, employeeGovernmentId, ...rest } = employee;
   const bank = bankDetail && !bankDetail.deletedAt ? bankDetail : null;
   const govId =
@@ -69,12 +70,17 @@ export function toPayrollBankView<E extends WithBankSource>(
 }
 
 /** Applies `toPayrollBankView` to any row shaped `{ employee: {...} }`. */
-export function maskEmployeeBankDetails<T extends { employee: WithBankSource }>(
+export function maskEmployeeBankDetails<
+  T extends { employee?: WithBankSource | null },
+>(
   row: T,
 ): Omit<T, "employee"> & {
-  employee: ReturnType<typeof toPayrollBankView<T["employee"]>>;
+  employee: T["employee"] extends WithBankSource
+    ? ReturnType<typeof toPayrollBankView<T["employee"]>>
+    : T["employee"];
 } {
-  return { ...row, employee: toPayrollBankView(row.employee) };
+  if (!row || !row.employee) return row as never;
+  return { ...row, employee: toPayrollBankView(row.employee) } as never;
 }
 
 /**

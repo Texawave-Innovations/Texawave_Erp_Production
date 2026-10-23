@@ -187,6 +187,37 @@
     inset 0 -1.5px 2px 0 rgba(255, 255, 255, 0.25) !important;
 }
 
+.login-panel-card {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 640px) {
+  .login-panel-card {
+    width: 440px;
+    min-height: 516px;
+  }
+}
+
+/* Strip native Edge/IE password reveal and clear eye icon to prevent duplicate icons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  right: 0 !important;
+}
+
 .glass-input-field {
   background: rgba(255, 255, 255, 0.38) !important;
   -webkit-backdrop-filter: blur(10px) !important;
