@@ -40,7 +40,7 @@ import {
 export const CHECK_IN_ALERT_AFTER_MINUTES = 30;
 export const CHECK_OUT_ALERT_AFTER_MINUTES = 120;
 export const CHECK_OUT_ALERT_WINDOW_MINUTES = 6 * 60;
-export const ATTENDANCE_SELF_LINK = "/self-service/attendance";
+export const ATTENDANCE_SELF_LINK = "/portal";
 export const ATTENDANCE_TEAM_LINK = "/portal/team-attendance";
 
 export type AlertKind = "missing_check_in" | "missing_check_out";
@@ -151,15 +151,15 @@ export function alertNotifications(alert: PlannedAlert): NewNotification[] {
   if (employee.userId !== null) {
     items.push({
       userId: employee.userId,
-      type: `attendance.${kind}`,
+      type: "attendance.reminder",
       title:
         kind === "missing_check_in"
-          ? "You haven't checked in"
-          : "You haven't checked out",
+          ? "Attendance Reminder: Check-in Pending"
+          : "Attendance Reminder: Check-out Pending",
       body:
         kind === "missing_check_in"
-          ? `No check-in recorded for ${date}. Check in now, or raise an attendance correction if you are working.`
-          : `Your session on ${date} is still open. Check out now, or raise an attendance correction with the right time.`,
+          ? `Hi ${employee.fullName}, we noticed you haven't checked in yet today (${date}). Please remember to punch in.`
+          : `Hi ${employee.fullName}, your shift has completed but your attendance session for ${date} is still open. Please remember to punch out.`,
       link: ATTENDANCE_SELF_LINK,
       dedupKey: key,
     });

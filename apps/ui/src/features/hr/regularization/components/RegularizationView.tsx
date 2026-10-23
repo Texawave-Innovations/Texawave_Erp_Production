@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   CalendarCheck,
@@ -71,6 +72,9 @@ type Decision = {
  * - Pure Nunito Sans typography (zero font-mono).
  */
 export function RegularizationView() {
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get("id");
+
   const canRead = usePermission(READ_ANY_SCOPE);
   const canApprove = usePermission(APPROVE_ANY_SCOPE);
   const canCreate = usePermission(SELF_SERVICE_CREATE);
@@ -101,6 +105,23 @@ export function RegularizationView() {
   };
 
   const list = useCorrections(query);
+
+  useEffect(() => {
+    if (!urlId || !list.data?.data) return;
+    const cid = parseInt(urlId, 10);
+    if (isNaN(cid) || cid <= 0) return;
+    const match = list.data.data.find((c) => c.id === cid);
+    if (match) {
+      const timer = setTimeout(() => {
+        if (canApprove && match.status === "SUBMITTED") {
+          setDecision({ correction: match, decision: "approve" });
+        }
+        const el = document.getElementById(`correction-card-${cid}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [urlId, list.data?.data, canApprove]);
   const hasFilters =
     filters.status !== "" || filters.employeeId !== "" || search.trim() !== "";
 
@@ -125,7 +146,9 @@ export function RegularizationView() {
       const code = c.employee.employeeCode.toLowerCase();
       const date = c.attendanceDate.toLowerCase();
       const reason = c.reason.toLowerCase();
-      const type = (CORRECTION_TYPE_LABELS[c.correctionType] || "").toLowerCase();
+      const type = (
+        CORRECTION_TYPE_LABELS[c.correctionType] || ""
+      ).toLowerCase();
       const decider = (c.decidedBy?.fullName || "").toLowerCase();
       return (
         name.includes(q) ||
@@ -429,6 +452,7 @@ export function RegularizationView() {
               key={correction.id}
               correction={correction}
               canApprove={canApprove}
+              isSelected={urlId ? Number(urlId) === correction.id : false}
               onApprove={(c) =>
                 setDecision({ correction: c, decision: "approve" })
               }
@@ -459,12 +483,19 @@ export function RegularizationView() {
               {
                 header: "Employee",
                 cell: (c) => (
-                  <EmployeeIdentity
-                    name={c.employee.fullName}
-                    code={c.employee.employeeCode}
-                    avatarSize="sm"
-                    size="sm"
-                  />
+                  <div className="flex items-center gap-2">
+                    <EmployeeIdentity
+                      name={c.employee.fullName}
+                      code={c.employee.employeeCode}
+                      avatarSize="sm"
+                      size="sm"
+                    />
+                    {urlId && Number(urlId) === c.id && (
+                      <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                        Selected
+                      </span>
+                    )}
+                  </div>
                 ),
               },
               {

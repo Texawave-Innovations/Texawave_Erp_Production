@@ -16,6 +16,7 @@ import type { AttendanceCorrectionItem } from "../types";
 export interface RegularizationCardProps {
   correction: AttendanceCorrectionItem;
   canApprove: boolean;
+  isSelected?: boolean;
   onApprove: (item: AttendanceCorrectionItem) => void;
   onReject: (item: AttendanceCorrectionItem) => void;
 }
@@ -55,6 +56,7 @@ function formatTimestamp(isoStr: string): string {
 export function RegularizationCard({
   correction,
   canApprove,
+  isSelected,
   onApprove,
   onReject,
 }: RegularizationCardProps) {
@@ -67,13 +69,22 @@ export function RegularizationCard({
 
   return (
     <div
+      id={`correction-card-${correction.id}`}
       className={cn(
         "group relative flex flex-col justify-between gap-4 rounded-2xl border p-4.5 sm:p-5 transition-all",
         "bg-white/95 backdrop-blur-md shadow-2xs hover:shadow-xs",
         "dark:bg-gray-900/90 dark:border-gray-800",
-        isPending && "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/40",
-        isApproved && "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/40",
-        isRejected && "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/40",
+        isSelected &&
+          "ring-2 ring-brand-500 border-brand-500 bg-brand-50/20 shadow-md dark:border-brand-500 dark:bg-brand-950/20",
+        !isSelected &&
+          isPending &&
+          "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/40",
+        !isSelected &&
+          isApproved &&
+          "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/40",
+        !isSelected &&
+          isRejected &&
+          "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/40",
       )}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -105,6 +116,11 @@ export function RegularizationCard({
               <span className="font-bold text-gray-900 dark:text-white text-theme-sm">
                 {correction.employee.fullName}
               </span>
+              {isSelected && (
+                <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[10px] font-bold px-2 py-0.5 border border-brand-300/60 dark:border-brand-700">
+                  Selected
+                </span>
+              )}
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 {correction.employee.employeeCode}
               </span>
@@ -142,9 +158,13 @@ export function RegularizationCard({
                 <div className="flex items-center gap-1.5 font-semibold text-brand-600 dark:text-sky-400 bg-sky-50/70 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-sky-100 dark:border-slate-700">
                   <Clock className="h-3.5 w-3.5 text-brand-500 shrink-0" />
                   <span>
-                    {hasIn ? `Check-in: ${formatTime(correction.requestedCheckInAt!)}` : ""}
+                    {hasIn
+                      ? `Check-in: ${formatTime(correction.requestedCheckInAt!)}`
+                      : ""}
                     {hasIn && hasOut ? " • " : ""}
-                    {hasOut ? `Check-out: ${formatTime(correction.requestedCheckOutAt!)}` : ""}
+                    {hasOut
+                      ? `Check-out: ${formatTime(correction.requestedCheckOutAt!)}`
+                      : ""}
                   </span>
                 </div>
               )}
@@ -165,7 +185,9 @@ export function RegularizationCard({
                   <strong className="text-gray-700 dark:text-gray-200 font-semibold">
                     {correction.decidedBy.fullName}
                   </strong>
-                  {correction.decidedAt ? ` on ${formatTimestamp(correction.decidedAt)}` : ""}
+                  {correction.decidedAt
+                    ? ` on ${formatTimestamp(correction.decidedAt)}`
+                    : ""}
                 </span>
                 {correction.decisionNote ? (
                   <span className="italic text-gray-600 dark:text-gray-300">

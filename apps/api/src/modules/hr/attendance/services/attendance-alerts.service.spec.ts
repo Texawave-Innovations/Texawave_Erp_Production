@@ -220,7 +220,7 @@ describe("alertNotifications", () => {
     expect(new Set(items.map((i) => i.dedupKey))).toEqual(
       new Set([`attendance.missing_check_in:1:${TODAY}`]),
     );
-    expect(items[0]?.link).toBe("/self-service/attendance");
+    expect(items[0]?.link).toBe("/portal");
   });
 
   it("skips a missing login and never tells the same user twice", () => {

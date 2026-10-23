@@ -10,6 +10,7 @@ import { TeamContextService } from "../../../platform/tenancy/team-context.servi
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../employees/employee-query.service.js";
 import { LocationPrivilegeService } from "../location-privilege/location-privilege.service.js";
+import { NotificationsService } from "../../../platform/notifications/notifications.service.js";
 import { AttendanceDayContextRepository } from "./attendance-day-context.repository.js";
 import { AttendanceRangeTooLargeException } from "./attendance.exceptions.js";
 import {
@@ -51,6 +52,7 @@ export class AttendanceService {
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
     private readonly locationPrivilege: LocationPrivilegeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---- self-service -------------------------------------------------------
@@ -70,6 +72,23 @@ export class AttendanceService {
       now,
       this.tenantContext.getUserId(),
     );
+
+    const timeFormatted = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "attendance.check_in",
+        title: "Employee Check-in",
+        body: `${employee.fullName} (${employee.employeeCode}) checked in at ${timeFormatted}.`,
+        link: `/hr/attendance?tab=daily&date=${attendanceDate}&employeeId=${employee.id}`,
+      },
+      employee.userId ?? undefined,
+    );
+
     return { ...result, attendanceDate, checkInAt: now };
   }
 
@@ -77,12 +96,30 @@ export class AttendanceService {
     const employee = await this.employees.getCurrentEmployee();
     await this.locationPrivilege.assertPunchAllowed(employee.id);
     const now = new Date();
+    const attendanceDate = istDateOf(now);
     const result = await this.repository.checkOut(
       this.tenantContext.getOrgScope(),
       employee.id,
       now,
       this.tenantContext.getUserId(),
     );
+
+    const timeFormatted = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "attendance.check_out",
+        title: "Employee Check-out",
+        body: `${employee.fullName} (${employee.employeeCode}) checked out at ${timeFormatted}.`,
+        link: `/hr/attendance?tab=daily&date=${attendanceDate}&employeeId=${employee.id}`,
+      },
+      employee.userId ?? undefined,
+    );
+
     return { ...result, checkOutAt: now };
   }
 

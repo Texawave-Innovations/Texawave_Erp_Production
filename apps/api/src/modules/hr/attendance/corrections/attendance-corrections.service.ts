@@ -4,6 +4,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
+import { NotificationsService } from "../../../../platform/notifications/notifications.service.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../../employees/employee-query.service.js";
@@ -28,6 +29,7 @@ export class AttendanceCorrectionsService {
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
     private readonly employees: EmployeeQueryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Submits a correction for the AUTHENTICATED user's own employee record.
@@ -36,11 +38,25 @@ export class AttendanceCorrectionsService {
   async submitForCurrentEmployee(dto: SubmitAttendanceCorrectionDto) {
     validateSubmission(dto);
     const employee = await this.employees.getCurrentEmployee();
-    return this.repository.create(
+    const created = await this.repository.create(
       this.tenantContext.getOrgScope(),
       { ...dto, employeeId: employee.id },
       this.tenantContext.getUserId(),
     );
+
+    const callerUserId = this.tenantContext.getUserId();
+    void this.notifications.notifyAdmins(
+      this.tenantContext.getOrgScope(),
+      {
+        type: "attendance.correction",
+        title: "Attendance Regularization Request",
+        body: `${employee.fullName} requested ${dto.correctionType} on ${dto.attendanceDate}.`,
+        link: `/hr/regularization?id=${created.id}`,
+      },
+      callerUserId,
+    );
+
+    return created;
   }
 
   async findAll(query: QueryAttendanceCorrectionDto) {
@@ -91,11 +107,30 @@ export class AttendanceCorrectionsService {
       throw new AttendanceSelfApprovalForbiddenException();
     }
 
-    return this.repository.decide(this.tenantContext.getOrgScope(), id, {
-      status,
-      decidedBy: userId,
-      note,
-    });
+    const decided = await this.repository.decide(
+      this.tenantContext.getOrgScope(),
+      id,
+      {
+        status,
+        decidedBy: userId,
+        note,
+      },
+    );
+
+    if (current.employee?.userId) {
+      void this.notifications.notifyUser(
+        this.tenantContext.getOrgScope(),
+        current.employee.userId,
+        {
+          type: "attendance.correction.decided",
+          title: `Regularization ${status === "APPROVED" ? "Approved ✓" : "Rejected"}`,
+          body: `Your attendance regularization for ${current.attendanceDate} was ${status.toLowerCase()}.`,
+          link: "/portal",
+        },
+      );
+    }
+
+    return decided;
   }
 }
 

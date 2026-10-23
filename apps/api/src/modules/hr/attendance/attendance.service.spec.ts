@@ -74,6 +74,11 @@ function makeService(opts?: {
   const locationPrivilege = {
     assertPunchAllowed: vi.fn().mockResolvedValue(undefined),
   };
+  const notifications = {
+    notifyUser: vi.fn(),
+    notifyAdmins: vi.fn(),
+    notify: vi.fn(),
+  };
   const service = new AttendanceService(
     repository as never,
     dayContext as never,
@@ -82,6 +87,7 @@ function makeService(opts?: {
     teamContext as never,
     employees as never,
     locationPrivilege as never,
+    notifications as never,
   );
   return {
     service,

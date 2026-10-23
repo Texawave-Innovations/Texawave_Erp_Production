@@ -25,6 +25,7 @@ import {
   type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { HrPageHeader } from "@/features/hr/components";
 import { useCheckIn, useCheckOut, useMyAttendance } from "../hooks";
 import { SELF_SERVICE_PUNCH, SELF_SERVICE_READ } from "../permissions";
 import { formatMinutes, formatTime } from "../status";
@@ -141,16 +142,13 @@ export function MyAttendanceView() {
   const punching = checkIn.isPending || checkOut.isPending;
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-theme-xl font-bold tracking-tight text-gray-900 dark:text-white">
-          My Attendance
-        </h1>
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          View your daily attendance history and punch sessions.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5 font-sans">
+      {/* Executive Page Header */}
+      <HrPageHeader
+        title="My Attendance"
+        description="View your daily attendance history, punch sessions, and worked hours."
+        icon3d="attendance"
+      />
 
       {punchError ? (
         <Alert variant="error" title="Could not record punch">
@@ -158,8 +156,8 @@ export function MyAttendanceView() {
         </Alert>
       ) : null}
 
-      {/* Hero Attendance Action Banner */}
-      <Card className="rounded-2xl border border-sky-100/90 dark:border-sky-950/40 bg-linear-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-900/60 p-5 sm:p-6 shadow-xs">
+      {/* Hero Attendance Action Banner with Crisp Borders */}
+      <Card className="rounded-2xl border border-sky-200/90 dark:border-slate-800 bg-white dark:bg-gray-900 p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Status & Date */}
           <div className="flex flex-col gap-2.5">

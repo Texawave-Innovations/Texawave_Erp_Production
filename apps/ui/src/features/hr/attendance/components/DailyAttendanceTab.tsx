@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar,
   CalendarCheck,
@@ -78,16 +79,39 @@ const BUCKETS: {
  * and pure Nunito Sans typography (zero font-mono).
  */
 export function DailyAttendanceTab() {
+  const searchParams = useSearchParams();
+  const urlDate = searchParams.get("date");
+  const urlEmpId = searchParams.get("employeeId");
+
   const canWrite = usePermission(WRITE_ANY_SCOPE);
-  const [date, setDate] = useState(todayIst());
+  const [date, setDate] = useState(() => urlDate || todayIst());
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<Bucket>("ALL");
   const [detail, setDetail] = useState<DailyAttendanceRow | null>(null);
   const [editing, setEditing] = useState<DailyAttendanceRow | null>(null);
 
+  const [prevUrlDate, setPrevUrlDate] = useState(urlDate);
+  if (urlDate && urlDate !== prevUrlDate) {
+    setPrevUrlDate(urlDate);
+    setDate(urlDate);
+  }
+
   const report = useDailyReport({ date, page, limit: PAGE_SIZE });
   const rows = useMemo(() => report.data?.data ?? [], [report.data]);
+
+  useEffect(() => {
+    if (!urlEmpId || rows.length === 0) return;
+    const eid = parseInt(urlEmpId, 10);
+    if (isNaN(eid) || eid <= 0) return;
+    const match = rows.find((r) => r.employee.id === eid);
+    if (match) {
+      const timer = setTimeout(() => {
+        setDetail(match);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [urlEmpId, rows]);
 
   const counts = useMemo(() => {
     const out = Object.fromEntries(BUCKETS.map((b) => [b.id, 0])) as Record<
@@ -336,12 +360,19 @@ export function DailyAttendanceTab() {
                 {
                   header: "Employee",
                   cell: (r) => (
-                    <EmployeeIdentity
-                      name={r.employee.fullName}
-                      code={r.employee.employeeCode}
-                      avatarSize="sm"
-                      size="sm"
-                    />
+                    <div className="flex items-center gap-2">
+                      <EmployeeIdentity
+                        name={r.employee.fullName}
+                        code={r.employee.employeeCode}
+                        avatarSize="sm"
+                        size="sm"
+                      />
+                      {urlEmpId && Number(urlEmpId) === r.employee.id && (
+                        <span className="rounded-full bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-cyan-300 text-[9px] font-bold px-1.5 py-0.2 border border-brand-300/60 dark:border-brand-700">
+                          Selected
+                        </span>
+                      )}
+                    </div>
                   ),
                 },
                 {

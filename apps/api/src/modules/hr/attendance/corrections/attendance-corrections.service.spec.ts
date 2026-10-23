@@ -56,13 +56,18 @@ function makeService(opts?: {
   const employees = {
     getCurrentEmployee: vi.fn().mockResolvedValue({ id: 7, userId: 5 }),
   };
+  const notifications = {
+    notifyAdmins: vi.fn(),
+    notifyUser: vi.fn(),
+  };
   const service = new AttendanceCorrectionsService(
     repository as never,
     tenantContext as never,
     teamContext as never,
     employees as never,
+    notifications as never,
   );
-  return { service, scope, repository, teamContext, employees };
+  return { service, scope, repository, teamContext, employees, notifications };
 }
 
 const pending = (requestedBy = 5, employeeUserId: number | null = 5) => ({
