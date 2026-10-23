@@ -209,6 +209,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const updatePosition = useCallback(() => {
       if (!triggerRef.current) return;
       const rect = triggerRef.current.getBoundingClientRect();
+
       const estimatedMenuHeight = Math.min(
         Math.max(options.length * 36 + 16, 60),
         280,
@@ -219,10 +220,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         spaceBelow < estimatedMenuHeight && rect.top > estimatedMenuHeight;
 
       const top = openAbove
-        ? Math.max(8, rect.top - estimatedMenuHeight - 6)
-        : Math.min(viewportHeight - 20, rect.bottom + 6);
+        ? Math.max(8, rect.top - estimatedMenuHeight - 4)
+        : Math.min(viewportHeight - 20, rect.bottom + 4);
 
-      const width = Math.max(rect.width, 160);
+      const width = rect.width;
       const left = Math.max(
         8,
         Math.min(rect.left, window.innerWidth - width - 8),
@@ -430,7 +431,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           onClick={toggleMenu}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            "group flex w-full items-center justify-between gap-2 rounded-xl border border-sky-100/90 bg-white/90 px-3.5 py-2 text-left text-theme-sm text-slate-800 shadow-2xs backdrop-blur-md transition-all duration-200 hover:border-sky-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-100 dark:hover:border-sky-700 cursor-pointer",
+            "group flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-left text-theme-sm text-slate-800 shadow-2xs transition-all duration-200 hover:border-slate-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-100 dark:hover:border-sky-700 cursor-pointer",
             invalid &&
               "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-500",
             disabled &&

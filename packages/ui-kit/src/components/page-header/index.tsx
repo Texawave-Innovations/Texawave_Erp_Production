@@ -68,7 +68,7 @@ export function PageHeader({
     return (
       <header
         className={cn(
-          "relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-sky-200/60 bg-linear-to-r from-[#478cf9] via-25%-[#9EDCF7] via-25% to-[#49aff8] via-50% to-[#8BE9F0] via-40% to-[#81edf5] p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(56,189,248,0.14)] dark:border-sky-800/40 dark:from-[#0d2238] dark:via-[#132d4b] dark:to-[#0f2844]",
+          "relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-sky-200/60 bg-linear-to-r from-[#4f93f6] via-30%-[#a3dff8] via-60%-[#5bb4f8] to-[#7fe3ec] p-6 sm:p-7 shadow-[0_4px_20px_-4px_rgba(37,99,235,0.10),0_2px_6px_rgba(15,23,42,0.04)] dark:border-sky-800/40 dark:from-[#0d2238] dark:via-[#132d4b] dark:to-[#0f2844]",
           className,
         )}
         {...rest}

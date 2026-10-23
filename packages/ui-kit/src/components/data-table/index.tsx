@@ -220,7 +220,7 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-2xl border border-sky-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-dark",
+        "overflow-x-auto rounded-2xl border border-slate-200/90 bg-white card-light-shadow dark:border-gray-800 dark:bg-gray-dark",
         className,
       )}
     >
@@ -318,7 +318,7 @@ export function DataTable<T>({
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-slate-200/80 dark:divide-gray-800">
           {totalRowCount === 0 ? (
             <tr>
               <td

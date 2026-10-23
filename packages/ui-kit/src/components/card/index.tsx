@@ -23,8 +23,8 @@ export function Card({ tone = "default", className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl p-5 card-light-shadow",
-        !hasCustomBg && "bg-white dark:bg-gray-dark",
+        "rounded-2xl p-5 border border-slate-200/90 card-light-shadow",
+        !hasCustomBg && "bg-white dark:bg-gray-dark dark:border-slate-800",
         tone !== "none" && !hasCustomBg && TONE_BORDER_CLASSES[tone],
         className,
       )}

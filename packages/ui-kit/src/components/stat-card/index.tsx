@@ -104,22 +104,22 @@ const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
 };
 
 const TONE_GRADIENT_CLASS: Record<StatCardTone, string> = {
-  blue: "stat-card-gradient-blue border-blue-100/70 dark:border-blue-900/40",
-  cyan: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
-  purple: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
+  blue: "stat-card-gradient-blue border-blue-200/90 dark:border-blue-900/60",
+  cyan: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
+  purple: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
   emerald:
-    "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
+    "stat-card-gradient-emerald border-emerald-200/90 dark:border-emerald-900/60",
   amber:
-    "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
-  brand: "stat-card-gradient-blue border-sky-100/70 dark:border-sky-900/40",
-  info: "stat-card-gradient-cyan border-cyan-100/70 dark:border-cyan-900/40",
+    "stat-card-gradient-amber border-amber-200/90 dark:border-amber-900/60",
+  brand: "stat-card-gradient-blue border-sky-200/90 dark:border-sky-900/60",
+  info: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
   warning:
-    "stat-card-gradient-amber border-amber-100/70 dark:border-amber-900/40",
-  error: "stat-card-gradient-rose border-rose-100/70 dark:border-rose-900/40",
+    "stat-card-gradient-amber border-amber-200/90 dark:border-amber-900/60",
+  error: "stat-card-gradient-rose border-rose-200/90 dark:border-rose-900/60",
   success:
-    "stat-card-gradient-emerald border-emerald-100/70 dark:border-emerald-900/40",
+    "stat-card-gradient-emerald border-emerald-200/90 dark:border-emerald-900/60",
   neutral:
-    "stat-card-gradient-neutral border-slate-100/80 dark:border-gray-800",
+    "stat-card-gradient-neutral border-slate-200/90 dark:border-gray-800",
 };
 
 const KPI_ICON_GRADIENTS: Record<
@@ -220,7 +220,7 @@ export function StatCard({
       <section
         aria-labelledby={headingId}
         className={cn(
-          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 border border-sky-100/90 card-light-shadow transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/80 dark:border-sky-950/60 dark:hover:border-sky-700/60",
+          "group relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 border border-slate-200/90 card-light-shadow transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700",
           gradientBg,
           className,
         )}

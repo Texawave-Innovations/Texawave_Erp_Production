@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -223,6 +224,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
       className,
       inputClassName,
       iconClassName,
+      placeholder,
+      type: _type,
       ...props
     },
     ref,
@@ -348,41 +351,70 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     }, [isOpen, updatePlacement]);
 
     // Calendar navigation (Year & Month)
-    const today = new Date();
-    const todayIso = formatDateISO(today);
-    const currentMonthIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-
-    const parsedDate = parseAnyDate(
-      currentValue || (effectiveMin ? effectiveMin.split("T")[0] : undefined),
-    );
-    const [viewYear, setViewYear] = useState<number>(
-      parsedDate ? parsedDate.getFullYear() : today.getFullYear(),
-    );
-    const [viewMonth, setViewMonth] = useState<number>(
-      parsedDate ? parsedDate.getMonth() : today.getMonth(),
+    const today = useMemo(() => new Date(), []);
+    const todayIso = useMemo(() => formatDateISO(today), [today]);
+    const currentMonthIso = useMemo(
+      () =>
+        `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`,
+      [today],
     );
 
-    // Sync view year/month when opened
+    const getInitialViewDate = useCallback((): Date => {
+      if (currentValue) {
+        const parsed = parseAnyDate(currentValue);
+        if (parsed) return parsed;
+      }
+      const now = new Date();
+      if (effectiveMax) {
+        const maxParsed = parseAnyDate(effectiveMax);
+        if (maxParsed && now > maxParsed) return maxParsed;
+      }
+      if (effectiveMin) {
+        const minParsed = parseAnyDate(effectiveMin);
+        if (minParsed && now < minParsed) return minParsed;
+      }
+      return now;
+    }, [currentValue, effectiveMin, effectiveMax]);
+
+    const [viewYear, setViewYear] = useState<number>(() => {
+      return getInitialViewDate().getFullYear();
+    });
+    const [viewMonth, setViewMonth] = useState<number>(() => {
+      return getInitialViewDate().getMonth();
+    });
+
+    type CalendarPickerView = "days" | "months" | "years";
+    const [calendarView, setCalendarView] = useState<CalendarPickerView>(
+      isMonthMode ? "months" : "days",
+    );
+    const [decadeStartYear, setDecadeStartYear] = useState<number>(() => {
+      const yr = getInitialViewDate().getFullYear();
+      return Math.floor(yr / 12) * 12;
+    });
+
+    // Only sync view year/month when transitioning from closed to open
+    const prevIsOpenRef = useRef(false);
     useEffect(() => {
-      if (isOpen) {
+      const justOpened = isOpen && !prevIsOpenRef.current;
+      prevIsOpenRef.current = isOpen;
+
+      if (justOpened) {
+        setCalendarView(isMonthMode ? "months" : "days");
         if (isMonthMode && currentValue && /^\d{4}-\d{2}$/.test(currentValue)) {
           const [y, m] = currentValue.split("-").map(Number);
           if (y && m) {
             setViewYear(y);
             setViewMonth(m - 1);
+            setDecadeStartYear(Math.floor(y / 12) * 12);
           }
         } else {
-          const d = parseAnyDate(
-            currentValue ||
-              (effectiveMin ? effectiveMin.split("T")[0] : undefined),
-          );
-          if (d) {
-            setViewYear(d.getFullYear());
-            setViewMonth(d.getMonth());
-          }
+          const d = getInitialViewDate();
+          setViewYear(d.getFullYear());
+          setViewMonth(d.getMonth());
+          setDecadeStartYear(Math.floor(d.getFullYear() / 12) * 12);
         }
       }
-    }, [isOpen, currentValue, effectiveMin, isMonthMode]);
+    }, [isOpen, currentValue, isMonthMode, getInitialViewDate]);
 
     // Time picker state for DateTime mode
     const initialTime = parseTime(currentValue);
@@ -558,21 +590,25 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         {/* The Input with native browser indicator suppressed */}
         <input
           ref={inputRef}
-          type={
-            isMonthMode ? "month" : isDateTimeMode ? "datetime-local" : "date"
-          }
+          type="text"
           value={currentValue}
-          min={effectiveMin}
-          max={effectiveMax}
+          placeholder={
+            placeholder ??
+            (isMonthMode
+              ? "YYYY-MM"
+              : isDateTimeMode
+                ? "YYYY-MM-DD HH:mm"
+                : "YYYY-MM-DD")
+          }
           disabled={disabled}
-          readOnly={readOnly || isDateTimeMode}
+          readOnly={readOnly}
           tabIndex={0}
           aria-invalid={invalid || undefined}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          autoComplete="off"
           onClick={(e) => {
-            e.preventDefault();
-            if (!disabled) {
+            if (!disabled && !readOnly) {
               updatePlacement();
               setIsOpen(true);
             }
@@ -580,10 +616,12 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
               e.preventDefault();
-              if (!disabled) {
+              if (!disabled && !readOnly) {
                 updatePlacement();
                 setIsOpen((prev) => !prev);
               }
+            } else if (e.key === "Escape") {
+              setIsOpen(false);
             }
           }}
           onChange={(e) => {
@@ -595,8 +633,6 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
             "focus:outline-none focus:ring-2 focus:ring-sky-500/25",
             "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200",
             "dark:bg-slate-900/90 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:border-slate-700",
-            // Suppress default browser calendar picker indicator icon so our glass popover takes full precedence
-            "[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
             SIZE_CLASSES[sizeVariant],
             invalid
               ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-500"
@@ -645,10 +681,124 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                   : "w-76 max-w-[calc(100vw-2.5rem)]",
             )}
           >
-            {isMonthMode ? (
-              /* MONTH PICKER MODE */
+            {/* CALENDAR VIEW: YEARS DECADE SELECTOR */}
+            {calendarView === "years" ? (
               <div>
-                {/* Year Header */}
+                {/* Decade Navigation Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-sky-100/80 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDecadeStartYear((y) => y - 12);
+                    }}
+                    aria-label="Previous 12 years"
+                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4" />
+                  </button>
+
+                  <span className="text-xs font-bold text-slate-800 dark:text-white px-2 py-1">
+                    {decadeStartYear} – {decadeStartYear + 11}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDecadeStartYear((y) => y + 12);
+                    }}
+                    aria-label="Next 12 years"
+                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* 12 Years Grid */}
+                <div className="grid grid-cols-3 gap-2 py-3">
+                  {Array.from(
+                    { length: 12 },
+                    (_, i) => decadeStartYear + i,
+                  ).map((yr) => {
+                    const isSelected = yr === viewYear;
+                    const isCurrentYear = yr === today.getFullYear();
+                    const minYear = effectiveMin
+                      ? parseInt(effectiveMin.slice(0, 4), 10)
+                      : undefined;
+                    const maxYear = effectiveMax
+                      ? parseInt(effectiveMax.slice(0, 4), 10)
+                      : undefined;
+                    const isYearDisabled =
+                      Boolean(
+                        minYear !== undefined &&
+                        !isNaN(minYear) &&
+                        yr < minYear,
+                      ) ||
+                      Boolean(
+                        maxYear !== undefined &&
+                        !isNaN(maxYear) &&
+                        yr > maxYear,
+                      );
+
+                    return (
+                      <button
+                        key={yr}
+                        type="button"
+                        disabled={isYearDisabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewYear(yr);
+                          setCalendarView("months");
+                        }}
+                        className={cn(
+                          "py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center",
+                          isYearDisabled &&
+                            "opacity-35 pointer-events-none cursor-not-allowed",
+                          isSelected
+                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-102"
+                            : isCurrentYear
+                              ? "ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40"
+                              : "text-slate-700 dark:text-slate-200 hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
+                        )}
+                      >
+                        {yr}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Footer */}
+                <div className="pt-2 border-t border-sky-100/80 dark:border-slate-800 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentYr = today.getFullYear();
+                      setViewYear(currentYr);
+                      setDecadeStartYear(Math.floor(currentYr / 12) * 12);
+                      setCalendarView(isMonthMode ? "months" : "days");
+                    }}
+                    className="text-xs font-semibold text-brand-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    This Year ({today.getFullYear()})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCalendarView(isMonthMode ? "months" : "days");
+                    }}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : calendarView === "months" ? (
+              /* CALENDAR VIEW: MONTHS SELECTOR */
+              <div>
+                {/* Year Navigation Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-sky-100/80 dark:border-slate-800">
                   <button
                     type="button"
@@ -658,9 +808,29 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
-                  <span className="text-sm font-bold text-slate-800 dark:text-white">
-                    {viewYear}
-                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDecadeStartYear(Math.floor(viewYear / 12) * 12);
+                      setCalendarView("years");
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 dark:text-white hover:bg-sky-100/70 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Click to select year"
+                  >
+                    <span>{viewYear}</span>
+                    <svg
+                      className="w-3 h-3 text-slate-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleNextYear}
@@ -675,18 +845,40 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                 <div className="grid grid-cols-3 gap-2 py-3">
                   {MONTH_NAMES_SHORT.map((mShort, idx) => {
                     const monthIso = `${viewYear}-${String(idx + 1).padStart(2, "0")}`;
-                    const isSelected = currentValue === monthIso;
+                    const isSelected = isMonthMode
+                      ? currentValue === monthIso
+                      : viewMonth === idx;
                     const isCurrent = currentMonthIso === monthIso;
+                    const minYearMonth = effectiveMin
+                      ? effectiveMin.slice(0, 7)
+                      : undefined;
+                    const maxYearMonth = effectiveMax
+                      ? effectiveMax.slice(0, 7)
+                      : undefined;
+                    const isMonthDisabled =
+                      Boolean(minYearMonth && monthIso < minYearMonth) ||
+                      Boolean(maxYearMonth && monthIso > maxYearMonth);
 
                     return (
                       <button
                         key={mShort}
                         type="button"
-                        onClick={() => handleDateSelect(monthIso)}
+                        disabled={isMonthDisabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewMonth(idx);
+                          if (isMonthMode) {
+                            handleDateSelect(monthIso);
+                          } else {
+                            setCalendarView("days");
+                          }
+                        }}
                         className={cn(
-                          "py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+                          "py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center",
+                          isMonthDisabled &&
+                            "opacity-35 pointer-events-none cursor-not-allowed",
                           isSelected
-                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105"
+                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-102"
                             : isCurrent
                               ? "ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40"
                               : "text-slate-700 dark:text-slate-200 hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
@@ -702,12 +894,33 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                 <div className="pt-2 border-t border-sky-100/80 dark:border-slate-800 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => handleDateSelect(currentMonthIso)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isMonthMode) {
+                        handleDateSelect(currentMonthIso);
+                      } else {
+                        setViewMonth(today.getMonth());
+                        setViewYear(today.getFullYear());
+                        setCalendarView("days");
+                      }
+                    }}
                     className="text-xs font-semibold text-brand-600 dark:text-cyan-400 hover:underline cursor-pointer"
                   >
                     This Month
                   </button>
-                  {hasValue && (
+                  {!isMonthMode && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCalendarView("days");
+                      }}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  {isMonthMode && hasValue && (
                     <button
                       type="button"
                       onClick={() => handleClear()}
@@ -719,9 +932,9 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                 </div>
               </div>
             ) : (
-              /* DATE OR DATETIME PICKER MODE */
+              /* CALENDAR VIEW: DAYS SELECTOR (DEFAULT) */
               <div>
-                {/* Header (Month & Year navigation) */}
+                {/* Header (Interactive Month & Year Buttons) */}
                 <div className="flex items-center justify-between pb-3 border-b border-sky-100/80 dark:border-slate-800">
                   <button
                     type="button"
@@ -732,9 +945,50 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
 
-                  <span className="text-xs font-bold text-slate-800 dark:text-white">
-                    {MONTH_NAMES[viewMonth]} {viewYear}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCalendarView("months");
+                      }}
+                      className="px-2 py-1 rounded-lg text-xs font-bold text-slate-800 dark:text-white hover:bg-sky-100/70 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Click to select month"
+                    >
+                      <span>{MONTH_NAMES[viewMonth]}</span>
+                      <svg
+                        className="w-3 h-3 text-slate-400"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDecadeStartYear(Math.floor(viewYear / 12) * 12);
+                        setCalendarView("years");
+                      }}
+                      className="px-2 py-1 rounded-lg text-xs font-bold text-slate-800 dark:text-white hover:bg-sky-100/70 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Click to select year"
+                    >
+                      <span>{viewYear}</span>
+                      <svg
+                        className="w-3 h-3 text-slate-400"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                  </div>
 
                   <button
                     type="button"
