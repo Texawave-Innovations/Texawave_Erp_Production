@@ -26,7 +26,7 @@ import {
   ScanLine,
   Siren,
   PackageSearch,
-  Bot,
+  Headphones,
   Clock,
   Menu as MenuIcon,
   X,
@@ -76,6 +76,8 @@ import {
   Warehouse,
   PackagePlus,
   ArrowLeftRight,
+  Search,
+  CheckCheck,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -876,7 +878,7 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
         id: "scm-assistant",
         label: "Assistant",
         path: "/scm/assistant",
-        icon: Bot,
+        icon: Headphones,
         icon3d: "overview",
         menuCode: "scm-assistant",
       },
@@ -1696,7 +1698,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     setPinnedModuleId(null);
     setHoveredCategoryId(null);
     setPinnedCategoryId(null);
-    setProfileOpen(false);
     setMobileMenuOpen(false);
   }, []);
 
@@ -1736,9 +1737,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
         !navContainerRef.current.contains(target)
       ) {
         closeAllMenus();
-      }
-      if (profileRef.current && !profileRef.current.contains(target)) {
-        setProfileOpen(false);
       }
     }
 
