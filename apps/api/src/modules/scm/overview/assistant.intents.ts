@@ -149,6 +149,8 @@ const RULES: IntentRule[] = [
       p("low stock", 4),
       p("low-stock", 4),
       p("low in stock", 4),
+      p("low on stock", 4),
+      p("what is low on stock", 4),
       p("running low", 4),
       p("stock shortage", 4),
       p("any stock shortage", 4),
@@ -550,16 +552,16 @@ const BUILDERS: Partial<Record<AssistantIntent, Builder>> = {
     const r = f.requisitions ?? { total: 0, open: 0 };
     if (r.total === 0) {
       return {
-        answer: "No purchase requisitions have been raised yet.",
+        answer: "No material requisitions have been raised yet.",
         navActions: [
-          nav("Open Purchase Requisitions", "/scm/procurement/requisitions"),
+          nav("Open Material Requisitions", "/scm/procurement/requisitions"),
         ],
       };
     }
     return {
-      answer: `${plural(r.total, "purchase requisition")} on record — ${fmtNum(r.open)} open, ${fmtNum(r.total - r.open)} closed (rejected/cancelled/converted).`,
+      answer: `${plural(r.total, "material requisition")} on record — ${fmtNum(r.open)} open, ${fmtNum(r.total - r.open)} closed (rejected/cancelled/converted).`,
       navActions: [
-        nav("Open Purchase Requisitions", "/scm/procurement/requisitions"),
+        nav("Open Material Requisitions", "/scm/procurement/requisitions"),
       ],
     };
   },

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { InventoryModule } from "../inventory/inventory.module.js";
 import {
   MovementsController,
   PutawayController,
@@ -9,6 +10,7 @@ import { WarehouseOpsService } from "./warehouse-ops.service.js";
 import { LocationStockService } from "./location-stock.service.js";
 
 @Module({
+  imports: [InventoryModule],
   controllers: [WarehouseOpsController, PutawayController, MovementsController],
   providers: [
     WarehouseOpsRepository,

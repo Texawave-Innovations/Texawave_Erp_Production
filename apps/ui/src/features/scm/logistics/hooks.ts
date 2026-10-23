@@ -6,7 +6,7 @@ import type {
   ShipmentTrackingEvent,
   ShippableFulfillment,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPatch, scmPost } from "../shared/scm-api";
+import { scmDelete, scmGet, scmPatch, scmPost } from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 export const useCarriers = (q: {
@@ -64,3 +64,9 @@ export const useShipmentAction = () =>
     ({ id, action, body }: { id: number; action: string; body?: object }) =>
       scmPost<Shipment>(`/scm/shipments/${id}/${action}`, body),
   );
+
+export const useDeleteCarrier = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/carriers/${id}`));
+
+export const useDeleteShipment = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/shipments/${id}`));

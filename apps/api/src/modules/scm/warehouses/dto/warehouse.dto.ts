@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEmail,
   IsIn,
   IsInt,
@@ -10,6 +12,7 @@ import {
   Length,
   Min,
   ValidateIf,
+  ValidateNested,
 } from "class-validator";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
@@ -35,6 +38,20 @@ export const VALID_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   RACK: "ZONE",
   SHELF: "RACK",
   BIN: "SHELF",
+};
+
+/** Parent types a location may sit in. The Rack -> Bin layout is the working
+ * model (a rack needs no zone, a bin sits in a rack); Zone/Shelf stay valid
+ * so locations created under the older Zone -> Rack -> Shelf -> Bin layout
+ * keep working. A shelf must always be inside a rack. */
+export const ALLOWED_PARENT_TYPES: Record<
+  LocationType,
+  readonly LocationType[]
+> = {
+  ZONE: [],
+  RACK: ["ZONE"],
+  SHELF: ["RACK"],
+  BIN: ["RACK", "SHELF"],
 };
 
 const present = (_: unknown, v: unknown) =>
@@ -170,6 +187,30 @@ export class QueryWarehouseDto extends PaginationDto {
   status?: (typeof ACTIVE_STATUSES)[number];
 }
 
+/** One bin created together with its rack. */
+export class BinSpecDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 150)
+  name?: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  capacity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 30)
+  capacityUnit?: string;
+}
+
 export class CreateLocationDto {
   @ApiProperty()
   @IsInt()
@@ -220,9 +261,52 @@ export class CreateLocationDto {
   @IsString()
   @Length(0, 2000)
   notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Racks only: bins (B01, B02, ...) created together with the rack.",
+    type: [BinSpecDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => BinSpecDto)
+  bins?: BinSpecDto[];
 }
 
 export class UpdateLocationDto {
+  @ApiPropertyOptional({
+    description:
+      "Moving a location (or changing its type/code) re-derives the code of everything nested under it.",
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  warehouseId?: number;
+
+  @ApiPropertyOptional({ enum: LOCATION_TYPES })
+  @IsOptional()
+  @IsIn(LOCATION_TYPES)
+  locationType?: LocationType;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "null detaches the parent",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Type(() => Number)
+  parentLocationId?: number | null;
+
+  @ApiPropertyOptional({ example: "R03" })
+  @IsOptional()
+  @UpperTrim()
+  @IsString()
+  @Length(1, 50)
+  code?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Trim()

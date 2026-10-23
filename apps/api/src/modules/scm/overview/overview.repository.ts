@@ -291,7 +291,11 @@ export class OverviewRepository {
     const exact = { equals: code, mode: "insensitive" as const };
 
     const product = await this.prisma.scmProduct.findFirst({
-      where: { organizationId: org, productCode: exact },
+      where: {
+        organizationId: org,
+        deletedAt: null,
+        OR: [{ productCode: exact }, { barcode: exact }],
+      },
     });
     if (product) {
       return {

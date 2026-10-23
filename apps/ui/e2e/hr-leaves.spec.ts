@@ -256,8 +256,22 @@ async function mockLeave(page: Page) {
 
 async function openLeaves(page: Page, tab?: string) {
   await signInAsAdmin(page);
-  // Client-side link: a hard navigation drops the in-memory auth store.
-  await page.getByRole("link", { name: "Leaves" }).click();
+  const nav = page.getByRole("navigation", {
+    name: "Main application navigation",
+  });
+  const hrBtn = nav.getByRole("button", { name: "Human Resources" });
+  if (await hrBtn.isVisible()) {
+    await hrBtn.click();
+    const dropdown = page.getByRole("menu", {
+      name: "Human Resources categories",
+    });
+    const timeLeaveBtn = dropdown.getByRole("button", { name: "Time & Leave" });
+    await timeLeaveBtn.click();
+    const subMenu = page.getByRole("menu", { name: "Time & Leave items" });
+    await subMenu.getByRole("link", { name: "Leaves" }).click();
+  } else {
+    await page.getByRole("link", { name: "Leaves" }).click();
+  }
   await expect(
     page.getByRole("heading", { name: "Leaves", exact: true }),
   ).toBeVisible();
@@ -486,4 +500,46 @@ test("blocks an invalid leave request before any request is sent", async ({
       (c) => c.method === "POST" && c.path === "/self-service/leave-requests",
     ),
   ).toBe(false);
+});
+
+test("leave request dialog datepickers fit within dialog boundaries without horizontal overflow", async ({
+  page,
+}) => {
+  await mockLeave(page);
+  await openLeaves(page, "My leave");
+  await page.getByRole("button", { name: "Request leave" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Request leave" });
+  await expect(dialog).toBeVisible();
+
+  // 1. Click Start date to open calendar
+  const startDateInput = page.getByLabel("Start date");
+  await startDateInput.click();
+  const startPopover = page.getByTestId("date-picker-popover");
+  await expect(startPopover).toBeVisible();
+
+  // Verify start popover is contained horizontally inside dialog
+  const dialogBox = (await dialog.boundingBox())!;
+  const startBox = (await startPopover.boundingBox())!;
+  expect(startBox.x).toBeGreaterThanOrEqual(dialogBox.x);
+  expect(startBox.x + startBox.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width + 1);
+
+  // Close start popover by selecting today
+  await startPopover.getByRole("button", { name: "Today" }).click();
+  await expect(startPopover).not.toBeVisible();
+
+  // 2. Click End date to open calendar (right column)
+  const endDateInput = page.getByLabel("End date");
+  await endDateInput.click();
+  const endPopover = page.getByTestId("date-picker-popover");
+  await expect(endPopover).toBeVisible();
+
+  // Verify end popover aligns cleanly within dialog without spilling right
+  const endBox = (await endPopover.boundingBox())!;
+  expect(endBox.x).toBeGreaterThanOrEqual(dialogBox.x);
+  expect(endBox.x + endBox.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width + 1);
+
+  // Verify calendar header is visible (not clipped above dialog top)
+  await expect(endPopover.getByRole("button", { name: "Previous month" })).toBeVisible();
+  await expect(endPopover.getByRole("button", { name: "Next month" })).toBeVisible();
 });

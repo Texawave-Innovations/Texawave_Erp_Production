@@ -10,6 +10,7 @@ import type {
   CreateSupplierDto,
   UpdateSupplierDto,
 } from "./dto/supplier.dto.js";
+import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 
 export const SUPPLIER_ENTITY_TYPE = "scm_supplier";
 export const SUPPLIER_CODE_PREFIX = "VEND-";
@@ -424,5 +425,46 @@ export class SuppliersRepository {
         a.name.localeCompare(b.name),
       ),
     };
+  }
+
+  /** Soft-deletes a supplier (the row stays so history keeps resolving).
+   * Never while purchase orders or accounts-payable records exist against it
+   * — those would be left naming a supplier that can no longer be opened. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const supplier = await tx.supplier.findFirst({
+        where: tenantWhere(scope, { id, deletedAt: null }),
+      });
+      if (!supplier) return false;
+      const [orders, bills, payments] = await Promise.all([
+        tx.scmPurchaseOrder.count({ where: { supplierId: id } }),
+        tx.scmSupplierBill.count({ where: { supplierId: id } }),
+        tx.scmSupplierPayment.count({ where: { supplierId: id } }),
+      ]);
+      if (orders > 0) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — ${orders} purchase order(s) exist against this supplier.`,
+          "SUPPLIER_HAS_PURCHASE_ORDERS",
+        );
+      }
+      if (bills + payments > 0) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — ${bills} bill(s) and ${payments} payment(s) are recorded against this supplier.`,
+          "SUPPLIER_HAS_PAYABLES",
+        );
+      }
+      await tx.supplier.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedBy: actorId },
+      });
+      await this.audit.write(tx, {
+        entityType: SUPPLIER_ENTITY_TYPE,
+        entityId: id,
+        action: "delete",
+        before: snapshot(supplier),
+      });
+      return true;
+    });
   }
 }

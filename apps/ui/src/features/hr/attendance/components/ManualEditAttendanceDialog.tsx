@@ -280,7 +280,7 @@ export function ManualEditAttendanceDialog({
                         onChange={(e) =>
                           updateSession(i, "checkInAt", e.target.value)
                         }
-                        className="w-full text-theme-xs font-mono"
+                        className="w-full text-theme-xs font-medium"
                       />
                     </div>
 
@@ -298,7 +298,7 @@ export function ManualEditAttendanceDialog({
                         onChange={(e) =>
                           updateSession(i, "checkOutAt", e.target.value)
                         }
-                        className="w-full text-theme-xs font-mono"
+                        className="w-full text-theme-xs font-medium"
                       />
                     </div>
 

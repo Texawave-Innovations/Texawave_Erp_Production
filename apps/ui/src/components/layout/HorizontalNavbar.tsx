@@ -15,6 +15,7 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   LogOut,
   LayoutDashboard,
   Users,
@@ -53,6 +54,7 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
+  ClipboardList,
   CheckCheck,
   UserPlus,
   TrendingUp,
@@ -81,10 +83,19 @@ import {
   ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
-import { Spinner, Semantic3DIcon, type Icon3DName } from "@texawave-erp/ui-kit";
+import {
+  Spinner,
+  Semantic3DIcon,
+  DropdownMenu,
+  type Icon3DName,
+} from "@texawave-erp/ui-kit";
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
+import {
+  SCM_CLIENT_DEMO,
+  SCM_DEMO_MENU_CODES,
+} from "@/features/scm/shared/demo-mode";
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -738,7 +749,7 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-requisitions",
-        label: "Purchase Requisitions",
+        label: "Material Requisitions",
         path: "/scm/procurement/requisitions",
         icon: FileText,
         icon3d: "documents",
@@ -916,6 +927,14 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
         menuCode: "scm-reports-inventory",
       },
       {
+        id: "scm-reports-inventory-warehouse",
+        label: "Inventory & Warehouse",
+        path: "/scm/reports/inventory-warehouse",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "scm-reports-inventory-warehouse",
+      },
+      {
         id: "scm-reports-warehouse",
         label: "Warehouse",
         path: "/scm/reports/warehouse",
@@ -990,11 +1009,19 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-movements",
-        label: "Internal Movements",
+        label: "Stock Movements",
         path: "/scm/warehouse/movements",
         icon: ArrowLeftRight,
         icon3d: "overview",
         menuCode: "scm-movements",
+      },
+      {
+        id: "scm-warehouse-stock",
+        label: "Stock View",
+        path: "/scm/warehouse/stock",
+        icon: Table2,
+        icon3d: "overview",
+        menuCode: "scm-warehouse-stock",
       },
       {
         id: "scm-warehouse-activity",
@@ -1296,7 +1323,7 @@ const scmLink = (path: string): NavCategory[] =>
  * Returns / Quality / Reports / Advanced SCM groups. Built from the page
  * list above so every entry keeps its menu-catalogue code (per-user RBAC).
  */
-export const SCM_CATEGORIES: NavCategory[] = [
+const SCM_CATEGORIES_FULL: NavCategory[] = [
   ...scmLink("/scm/overview"),
   ...scmLink("/scm/suppliers"),
   ...scmLink("/scm/barcode"),
@@ -1362,6 +1389,7 @@ export const SCM_CATEGORIES: NavCategory[] = [
   scmGroup("scm-reports-group", "Reports", "Reports", [
     ["/scm/reports", "Overview"],
     ["/scm/reports/procurement"],
+    ["/scm/reports/inventory-warehouse"],
     ["/scm/reports/inventory"],
     ["/scm/reports/warehouse"],
     ["/scm/reports/fulfillment"],
@@ -1499,6 +1527,23 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
     ],
   },
 ];
+/** In client-demo mode (see `features/scm/shared/demo-mode.ts`), the SCM
+ * navigation is narrowed to `SCM_DEMO_MENU_CODES` — a leaf not in that set is
+ * hidden (never removed: its route still resolves), and a group left with no
+ * kept leaf disappears entirely. Full SCM (the default) is unfiltered. */
+export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
+  ? SCM_CATEGORIES_FULL.flatMap((cat) => {
+      if (!cat.children) {
+        return cat.menuCode && SCM_DEMO_MENU_CODES.has(cat.menuCode)
+          ? [cat]
+          : [];
+      }
+      const children = cat.children.filter(
+        (child) => child.menuCode && SCM_DEMO_MENU_CODES.has(child.menuCode),
+      );
+      return children.length > 0 ? [{ ...cat, children }] : [];
+    })
+  : SCM_CATEGORIES_FULL;
 
 const ERP_MODULES: ErpModuleConfig[] = [
   {
@@ -1579,6 +1624,13 @@ const ERP_MODULES: ErpModuleConfig[] = [
     available: false,
   },
   {
+    id: "master-list",
+    label: "Master List",
+    icon: ClipboardList,
+    path: "/settings/sales-settings",
+    available: true,
+  },
+  {
     id: "settings",
     label: "Settings",
     icon: Settings,
@@ -1600,26 +1652,204 @@ export function collectMenuCodes(
   return into;
 }
 
-function LiveClock() {
-  const [time, setTime] = useState("");
+function NavbarDateTimeCalendar() {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const update = () =>
-      setTime(
-        new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        }),
-      );
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
+
+  // Handle outside click & escape key
+  useEffect(() => {
+    if (!calendarOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setCalendarOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCalendarOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [calendarOpen]);
+
+  // Formatted date and time
+  const formattedDateLong = currentDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const formattedDateShort = currentDate.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+  });
+
+  const formattedTimeLong = currentDate.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  const formattedTimeShort = currentDate.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  // Calendar month calculation
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const monthName = viewDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+  const goToToday = () => setViewDate(new Date());
+
+  const days: { day: number; currentMonth: boolean; isToday: boolean }[] = [];
+
+  // Previous month padding
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    days.push({
+      day: daysInPrevMonth - i,
+      currentMonth: false,
+      isToday: false,
+    });
+  }
+  // Current month days
+  const today = new Date();
+  for (let i = 1; i <= daysInMonth; i++) {
+    const isToday =
+      today.getFullYear() === year &&
+      today.getMonth() === month &&
+      today.getDate() === i;
+    days.push({ day: i, currentMonth: true, isToday });
+  }
+  // Next month padding to fill grid
+  const remaining = (7 - (days.length % 7)) % 7;
+  for (let i = 1; i <= remaining; i++) {
+    days.push({ day: i, currentMonth: false, isToday: false });
+  }
+
   return (
-    <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-300 tabular-nums">
-      {time}
-    </span>
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label="Current date and time. Click to open calendar"
+        aria-haspopup="dialog"
+        aria-expanded={calendarOpen}
+        onClick={() => setCalendarOpen((prev) => !prev)}
+        className="flex h-9 items-center gap-1.5 sm:gap-2 rounded-xl border border-sky-100/90 bg-white/80 px-2 sm:px-2.5 2xl:px-3 text-xs font-semibold text-slate-700 shadow-2xs backdrop-blur-md transition-all hover:border-sky-300 hover:bg-white hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-white cursor-pointer"
+      >
+        <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400 shrink-0" />
+        <span className="hidden 2xl:inline font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+          {formattedDateLong}
+        </span>
+        <span className="inline 2xl:hidden font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap text-[11px]">
+          {formattedDateShort}
+        </span>
+        <span className="h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
+        <Clock className="h-3.5 w-3.5 text-sky-500 dark:text-cyan-300 shrink-0" />
+        <span className="hidden 2xl:inline tabular-nums font-semibold text-[11px] text-slate-700 dark:text-slate-300 whitespace-nowrap">
+          {formattedTimeLong}
+        </span>
+        <span className="inline 2xl:hidden tabular-nums font-semibold text-[11px] text-slate-700 dark:text-slate-300 whitespace-nowrap">
+          {formattedTimeShort}
+        </span>
+      </button>
+
+      {/* Interactive Calendar Dropdown Popover */}
+      {calendarOpen && (
+        <div
+          role="dialog"
+          aria-label="Interactive Calendar"
+          className="glass-calendar-surface absolute right-0 top-full mt-2.5 z-50 w-74 rounded-2xl p-3.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-sky-100/70 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={prevMonth}
+              aria-label="Previous month"
+              className="flex h-7.5 w-7.5 items-center justify-center rounded-xl border border-sky-100/80 bg-white/60 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-500 dark:text-slate-400 cursor-pointer shadow-2xs transition-all"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-xs font-bold text-slate-800 dark:text-white">
+              {monthName}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={goToToday}
+                className="rounded-lg bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 hover:bg-sky-100 dark:bg-slate-800 dark:text-cyan-300 cursor-pointer transition-colors"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={nextMonth}
+                aria-label="Next month"
+                className="flex h-7.5 w-7.5 items-center justify-center rounded-xl border border-sky-100/80 bg-white/60 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-500 dark:text-slate-400 cursor-pointer shadow-2xs transition-all"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Days of week */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-1">
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+              <span
+                key={d}
+                className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider"
+              >
+                {d}
+              </span>
+            ))}
+          </div>
+
+          {/* Days grid */}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {days.map((item, idx) => (
+              <span
+                key={idx}
+                className={`flex h-7.5 w-7.5 items-center justify-center rounded-xl text-xs transition-all ${
+                  item.isToday
+                    ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-102"
+                    : item.currentMonth
+                      ? "text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 font-semibold cursor-default"
+                      : "text-slate-300 dark:text-slate-600 cursor-default"
+                }`}
+              >
+                {item.day}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1696,6 +1926,9 @@ function findRouteNavigationState(pathname: string) {
   ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
+  if (pathname.startsWith("/settings/sales-settings")) {
+    return { moduleId: "master-list", categoryId: null, leafId: null };
+  }
   if (
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/roles") ||
@@ -1755,8 +1988,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Notification queries
   const unreadCountQuery = useUnreadNotificationCount();
@@ -1793,6 +2024,21 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   );
   const currentActiveModuleId = routeState.moduleId;
 
+  // Active indicator module state: locks immediately on selection and prevents bounce back during route transition
+  const [clickedModuleId, setClickedModuleId] = useState<string | null>(null);
+  const [prevRouteModuleId, setPrevRouteModuleId] = useState(
+    currentActiveModuleId,
+  );
+
+  if (prevRouteModuleId !== currentActiveModuleId) {
+    setPrevRouteModuleId(currentActiveModuleId);
+    setClickedModuleId(null);
+  }
+
+  const activeIndicatorModuleId =
+    clickedModuleId ?? currentActiveModuleId ?? "hr";
+  const setActiveIndicatorModuleId = setClickedModuleId;
+
   const updateIndicator = useCallback((moduleId: string | null) => {
     if (!moduleId || !navRailRef.current) {
       setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
@@ -1819,31 +2065,27 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     });
   }, []);
 
-  // Active target module for Spring Glide highlight: hovered module takes precedence,
-  // returning smoothly to the current active route module when mouse leaves.
-  const targetIndicatorModuleId = hoveredModuleId ?? currentActiveModuleId;
-
   useEffect(() => {
-    updateIndicator(targetIndicatorModuleId);
-  }, [targetIndicatorModuleId, updateIndicator]);
+    updateIndicator(activeIndicatorModuleId);
+  }, [activeIndicatorModuleId, updateIndicator]);
 
   // Initial calculation / font layout update
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
-      updateIndicator(targetIndicatorModuleId);
+      updateIndicator(activeIndicatorModuleId);
     });
     return () => cancelAnimationFrame(rafId);
-  }, [targetIndicatorModuleId, updateIndicator]);
+  }, [activeIndicatorModuleId, updateIndicator]);
 
   // Recalculate indicator on window resize or container layout change
   useEffect(() => {
     if (!navRailRef.current) return;
     const observer = new ResizeObserver(() => {
-      updateIndicator(targetIndicatorModuleId);
+      updateIndicator(activeIndicatorModuleId);
     });
     observer.observe(navRailRef.current);
     return () => observer.disconnect();
-  }, [targetIndicatorModuleId, updateIndicator]);
+  }, [activeIndicatorModuleId, updateIndicator]);
 
   const handleOpenNotification = (n: AppNotification) => {
     if (!n.readAt) {
@@ -2110,7 +2352,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     const mod = ERP_MODULES.find((m) => m.id === moduleId);
     if (mod && mod.available) {
       setHoveredModuleId(moduleId);
-      updateIndicator(moduleId);
     }
   };
 
@@ -2122,14 +2363,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     if (pinnedModuleId) {
       setHoveredModuleId(null);
       setHoveredCategoryId(null);
-      updateIndicator(pinnedModuleId ?? currentActiveModuleId);
       return;
     }
     // Transient hover close timer
     closeTimerRef.current = setTimeout(() => {
       setHoveredModuleId(null);
       setHoveredCategoryId(null);
-      updateIndicator(currentActiveModuleId);
     }, 120);
   };
 
@@ -2195,7 +2434,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     setHoveredCategoryId(catId);
   };
 
-  const handleCategoryClick = (cat: NavCategory) => {
+  const handleCategoryClick = (cat: NavCategory, targetModuleId?: string) => {
+    if (targetModuleId) {
+      setActiveIndicatorModuleId(targetModuleId);
+    }
     if (cat.path && (!cat.children || cat.children.length === 0)) {
       closeAllMenus();
       router.push(cat.path);
@@ -2206,7 +2448,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     }
   };
 
-  const handleLeafClick = () => {
+  const handleLeafClick = (
+    targetModuleId?: string | React.MouseEvent<HTMLElement>,
+  ) => {
+    if (typeof targetModuleId === "string") {
+      setActiveIndicatorModuleId(targetModuleId);
+    }
     closeAllMenus();
   };
 
@@ -2226,7 +2473,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       onMouseLeave={handleMouseLeaveNav}
     >
       {/* Primary Module Rail with TexaOne Header Banner Linear Gradient Glass */}
-      <div className="glass-navbar flex h-16 items-center justify-between px-3 sm:px-4 lg:px-5 xl:px-6">
+      <div className="glass-navbar flex h-16 items-center justify-between px-3 sm:px-4 lg:px-4 xl:px-4 2xl:px-6">
         {/* Left: Mobile hamburger + Brand Logo */}
         <div className="flex shrink-0 items-center gap-2.5">
           <button
@@ -2259,12 +2506,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           ref={navRailRef}
           aria-label="Main application navigation"
           onMouseLeave={handleNavRailMouseLeave}
-          className="relative hidden flex-1 items-center justify-center gap-0.5 px-0.5 sm:gap-1 md:flex lg:gap-1 2xl:gap-1.5 isolate"
+          className="relative hidden flex-1 min-w-0 items-center justify-center gap-0.5 px-0.5 sm:gap-0.5 md:flex lg:gap-1 2xl:gap-1.5 isolate"
         >
           {/* Spring Glide Active Indicator Pill */}
           <span
             aria-hidden="true"
-            className="glass-pill absolute pointer-events-none z-0 rounded-xl transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
+            className="tab-prime-pill absolute pointer-events-none z-0 rounded-xl transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
             style={{
               left: `${indicatorStyle.left}px`,
               top: `${indicatorStyle.top}px`,
@@ -2275,7 +2522,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           />
 
           {ERP_MODULES.map((mod) => {
-            const isRouteActive = mod.id === currentActiveModuleId;
+            const isRouteActive = mod.id === activeIndicatorModuleId;
             const isDropdownOpen = mod.id === openModuleId;
             const isHovered = mod.id === hoveredModuleId;
             const hasCategories = Boolean(
@@ -2284,31 +2531,36 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
 
             if (!mod.available) {
               return (
-                <div key={mod.id} className="relative group">
+                <div
+                  key={mod.id}
+                  className="relative group shrink min-w-0 w-14 sm:w-15 md:w-15 lg:w-15.5 xl:w-16.5 2xl:w-20.5 h-13.5"
+                >
                   <button
                     type="button"
                     disabled
                     title={`${mod.label}${mod.upcoming ? " — Upcoming module" : " — Coming soon"}`}
-                    className="flex cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 opacity-60 hover:opacity-85 transition-all lg:px-2.5"
+                    className="flex w-full h-full cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 opacity-60 hover:opacity-85 transition-all"
                   >
-                    {mod.icon3d ? (
-                      <Semantic3DIcon
-                        name={mod.icon3d}
-                        size={26}
-                        className="opacity-75 transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <mod.icon className="h-5 w-5 text-gray-500" />
-                    )}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-semibold leading-none text-slate-500 dark:text-gray-400 lg:text-[11px]">
-                        {mod.label}
-                      </span>
+                    <div className="relative flex items-center justify-center">
+                      {mod.icon3d ? (
+                        <Semantic3DIcon
+                          name={mod.icon3d}
+                          size={24}
+                          className="opacity-75 transition-transform group-hover:scale-105 shrink-0"
+                        />
+                      ) : (
+                        <mod.icon className="h-4.5 w-4.5 text-gray-500 shrink-0" />
+                      )}
                       {mod.upcoming && (
-                        <span className="rounded-full bg-sky-100/90 px-1 py-0.2 text-[8px] font-bold text-[#0284c7] border border-sky-200/70 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/60 leading-none">
+                        <span className="absolute -top-1 -right-3 rounded-full bg-sky-100/95 px-1 py-0.2 text-[7.5px] font-bold text-[#0284c7] border border-sky-200/80 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800 leading-none shadow-2xs">
                           Soon
                         </span>
                       )}
+                    </div>
+                    <div className="flex items-center justify-center max-w-full px-0.5">
+                      <span className="text-[9.5px] font-semibold leading-tight text-center text-slate-500 dark:text-gray-400 lg:text-[10px] xl:text-[11px] truncate max-w-full">
+                        {mod.label}
+                      </span>
                     </div>
                   </button>
                 </div>
@@ -2318,7 +2570,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             return (
               <div
                 key={mod.id}
-                className="relative"
+                className="relative shrink min-w-0 w-14 sm:w-15 md:w-15 lg:w-15.5 xl:w-16.5 2xl:w-20.5 h-13.5"
                 onMouseEnter={() => handleMouseEnterModule(mod.id)}
               >
                 <button
@@ -2333,39 +2585,45 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   onClick={() => handleModuleClick(mod)}
                   onFocus={() => handleMouseEnterModule(mod.id)}
                   onBlur={handleNavRailMouseLeave}
-                  className={`group relative z-1 flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 sm:px-2.5 bg-transparent outline-none transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-brand-500 lg:px-2.5 2xl:px-3 ${
+                  className={`group relative z-1 flex w-full h-full flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 outline-none transition-all duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-brand-500 ${
                     isRouteActive
-                      ? "text-brand-700 dark:text-cyan-300 font-semibold"
-                      : isDropdownOpen || isHovered
-                        ? "text-slate-900 dark:text-white font-medium"
-                        : "text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
+                      ? "font-bold text-white shadow-2xs"
+                      : isDropdownOpen
+                        ? "bg-white text-[#0a3271] shadow-2xs dark:bg-slate-800 dark:text-white font-semibold"
+                        : "text-slate-600 hover:bg-white hover:text-[#0a3271] hover:shadow-2xs dark:text-gray-300 dark:hover:bg-slate-800 dark:hover:text-white font-medium"
                   }`}
                 >
                   {mod.icon3d ? (
                     <Semantic3DIcon
                       name={mod.icon3d}
-                      size={28}
-                      className="transition-transform duration-150 group-hover:scale-110"
+                      size={24}
+                      className="transition-transform duration-150 group-hover:scale-110 shrink-0"
                     />
                   ) : (
                     <mod.icon
-                      className={`h-5 w-5 transition-transform duration-150 group-hover:scale-110 ${
+                      className={`h-4.5 w-4.5 transition-transform duration-150 group-hover:scale-110 shrink-0 ${
                         isRouteActive
-                          ? "text-brand-600 dark:text-cyan-400"
-                          : isDropdownOpen || isHovered
-                            ? "text-slate-800 dark:text-gray-200"
-                            : "text-slate-600 dark:text-gray-400"
+                          ? "text-white"
+                          : isDropdownOpen
+                            ? "text-[#0a3271] dark:text-white"
+                            : "text-slate-600 group-hover:text-[#0a3271] dark:text-gray-400 dark:group-hover:text-white"
                       }`}
                       aria-hidden="true"
                     />
                   )}
-                  <span className="text-[10px] font-semibold leading-none lg:text-[11px]">
-                    {mod.label}
-                  </span>
+                  <div className="flex items-center justify-center max-w-full px-0.5">
+                    <span
+                      className={`text-[9.5px] leading-tight text-center lg:text-[10px] xl:text-[10.5px] 2xl:text-[11px] truncate max-w-full ${
+                        isRouteActive ? "font-bold text-white" : "font-semibold"
+                      }`}
+                    >
+                      {mod.label}
+                    </span>
+                  </div>
                   {isRouteActive && (
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-0.5 h-1 w-1 rounded-full bg-brand-600 dark:bg-cyan-400"
+                      className="absolute bottom-0.5 h-1 w-1 rounded-full bg-white/90"
                     />
                   )}
                 </button>
@@ -2404,7 +2662,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             >
                               <Link
                                 href={cat.path}
-                                onClick={handleLeafClick}
+                                onClick={() => handleLeafClick(mod.id)}
                                 className={`group flex w-full items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
                                   isCatActive
                                     ? "glass-item-active"
@@ -2459,7 +2717,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               aria-haspopup="menu"
                               aria-expanded={isCatFlyoutOpen}
                               onMouseEnter={() => handleCategoryHover(cat.id)}
-                              onClick={() => handleCategoryClick(cat)}
+                              onClick={() => handleCategoryClick(cat, mod.id)}
                               className={`group flex w-full items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
                                 isCatActive
                                   ? "glass-item-active"
@@ -2550,7 +2808,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             <Link
                               key={item.id}
                               href={item.path}
-                              onClick={handleLeafClick}
+                              onClick={() => handleLeafClick(mod.id)}
                               className={`group flex items-center justify-between rounded-[18px] border border-transparent outline-none focus:outline-none px-3.5 py-2.5 text-xs font-semibold transition-[color,background-color] duration-150 ${
                                 isLeafActive
                                   ? "glass-item-active"
@@ -2591,34 +2849,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           })}
         </nav>
 
-        {/* Right Section: Search + Live Clock + Notifications + Profile */}
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-2.5">
-          {/* Universal Search Input */}
-          <div
-            className={`relative hidden transition-all duration-200 sm:block ${
-              searchFocused ? "w-40 xl:w-52" : "w-24 lg:w-28 xl:w-32 2xl:w-44"
-            }`}
-          >
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
-              <Search className="h-3.5 w-3.5" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="h-9 w-full rounded-xl border border-white/60 bg-white/70 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 backdrop-blur-md focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-white transition-all"
-            />
-          </div>
-
-          {/* Live IST Clock */}
-          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/50 bg-white/60 backdrop-blur-md px-2.5 py-1 dark:border-cyan-900/40 dark:bg-cyan-950/40 2xl:flex">
-            <Clock className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-300" />
-            <LiveClock />
-          </div>
+        {/* Right Section: Date & Time Calendar + Notifications + Profile */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 xl:gap-2 2xl:gap-2.5">
+          {/* Interactive Date, Time & Calendar Dropdown */}
+          <NavbarDateTimeCalendar />
 
           {/* Notifications Dropdown (Glassmorphism) */}
           <div ref={notifRef} className="relative">
@@ -2734,38 +2968,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             )}
           </div>
 
-          {/* User Profile Dropdown (Glassmorphism) */}
-          <div ref={profileRef} className="relative shrink-0">
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={profileOpen}
-              onClick={() => {
-                setProfileOpen((prev) => !prev);
-                setNotificationsOpen(false);
-              }}
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-white/60 bg-white/70 backdrop-blur-md p-1.5 pr-2 text-left hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:hover:bg-gray-800 transition-all cursor-pointer"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand-500 to-brand-cyan text-xs font-bold text-white shadow-xs">
-                {initials}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90 max-w-24 truncate xl:max-w-32">
-                  {displayName}
-                </span>
-                <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400 max-w-24 truncate xl:max-w-32">
-                  Software Engineer
-                </span>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            </button>
-
-            {profileOpen && (
-              <div
-                role="menu"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-56 rounded-[26px] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
-              >
-                <div className="border-b border-sky-100/80 px-3 py-2 dark:border-gray-800">
+          {/* User Profile Dropdown (Shared Animated Glassmorphism DropdownMenu) */}
+          <div className="relative shrink-0">
+            <DropdownMenu
+              align="end"
+              headerSlot={
+                <div>
                   <p className="text-xs font-bold text-gray-900 dark:text-white/90">
                     {displayName}
                   </p>
@@ -2773,22 +2981,35 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                     {user?.email || "admin@texawave.com"}
                   </p>
                 </div>
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      onSignOut();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-950/40 transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Sign out</span>
-                  </button>
+              }
+              options={[
+                {
+                  label: "Sign out",
+                  Icon: <LogOut className="h-4 w-4" />,
+                  variant: "destructive",
+                  onClick: onSignOut,
+                },
+              ]}
+            >
+              <button
+                type="button"
+                aria-label={`Profile menu for ${displayName}`}
+                className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl border border-white/60 bg-white/70 backdrop-blur-md p-1 2xl:p-1.5 2xl:pr-2 text-left hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:hover:bg-gray-800 transition-all cursor-pointer"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#1769F5] to-brand-cyan text-xs font-bold text-white shadow-xs">
+                  {initials}
                 </div>
-              </div>
-            )}
+                <div className="hidden 2xl:flex flex-col">
+                  <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90 max-w-28 truncate">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400 max-w-28 truncate">
+                    Software Engineer
+                  </span>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              </button>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -2847,7 +3068,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             <Link
                               key={cat.id}
                               href={cat.path}
-                              onClick={handleLeafClick}
+                              onClick={() => handleLeafClick(mod.id)}
                               className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-gray-700 hover:bg-sky-50 dark:text-gray-300"
                             >
                               <cat.icon className="h-3.5 w-3.5 text-brand-500" />
@@ -2884,7 +3105,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                                   <Link
                                     key={child.id}
                                     href={child.path}
-                                    onClick={handleLeafClick}
+                                    onClick={() => handleLeafClick(mod.id)}
                                     className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
                                   >
                                     <child.icon className="h-3 w-3" />

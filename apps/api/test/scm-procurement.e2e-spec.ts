@@ -465,16 +465,22 @@ describe("scm procurement pipeline (e2e)", () => {
       "PARTIALLY_RECEIVED",
     );
 
-    // GRN detail shows the ledger entries it posted
+    // GRN detail shows the ledger entries it posted — one PURCHASE_RECEIPT
+    // per line (plain, batch, serial), plus the rejected unit's own
+    // PURCHASE_RECEIPT-in/DAMAGE-out pair (it was physically received, so it
+    // must show up in inventory as Rejected/Bad stock).
     const detail = data<{ ledgerEntries: { transactionType: string }[] }>(
       await get(tokenAll, `${P}/goods-receipts/${first.id}`).expect(200),
     );
-    expect(detail.ledgerEntries).toHaveLength(3);
+    expect(detail.ledgerEntries).toHaveLength(5);
     expect(
-      detail.ledgerEntries.every(
+      detail.ledgerEntries.filter(
         (e) => e.transactionType === "PURCHASE_RECEIPT",
-      ),
-    ).toBe(true);
+      ).length,
+    ).toBe(4);
+    expect(
+      detail.ledgerEntries.filter((e) => e.transactionType === "DAMAGE").length,
+    ).toBe(1);
 
     // serials already used cannot be received again
     await grn([

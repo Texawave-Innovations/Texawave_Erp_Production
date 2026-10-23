@@ -19,6 +19,17 @@ export interface ScmProduct {
   serialTracked: boolean;
   description: string | null;
   isActive: boolean;
+  /** Barcode override; when null the screens derive one from productCode. */
+  barcode: string | null;
+  /** When the product barcode was first generated (printed on the label). */
+  barcodeCreatedAt: string | null;
+  /** Warehouse chosen for this SKU; its default bin must belong to it. */
+  warehouseId: number | null;
+  /** Manually assigned default bin location. */
+  binLocationId: number | null;
+  /** Product-level expiry (YYYY-MM-DD); read only when no batch expiry exists. */
+  expiryDate: string | null;
+  expiryNotApplicable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +49,11 @@ export interface CreateScmProductInput {
   serialTracked?: boolean | undefined;
   description?: string | undefined;
   isActive?: boolean | undefined;
+  barcode?: string | null | undefined;
+  warehouseId?: number | null | undefined;
+  binLocationId?: number | null | undefined;
+  expiryDate?: string | null | undefined;
+  expiryNotApplicable?: boolean | undefined;
 }
 export type UpdateScmProductInput = Partial<CreateScmProductInput>;
 
@@ -122,6 +138,22 @@ export const VALID_PARENT_TYPE: Record<LocationType, LocationType | null> = {
   BIN: "SHELF",
 };
 
+/** Parent types a location may sit in today: the Rack -> Bin layout is the
+ * working model (a rack needs no zone, a bin sits in a rack) while Zone and
+ * Shelf stay valid for locations created under the older hierarchy. */
+export const ALLOWED_PARENT_TYPES: Record<
+  LocationType,
+  readonly LocationType[]
+> = {
+  ZONE: [],
+  RACK: ["ZONE"],
+  SHELF: ["RACK"],
+  BIN: ["RACK", "SHELF"],
+};
+
+/** Location types offered when creating a new location. */
+export const CREATABLE_LOCATION_TYPES = ["RACK", "BIN"] as const;
+
 export interface ScmLocation {
   id: number;
   warehouseId: number;
@@ -149,8 +181,22 @@ export interface CreateLocationInput {
   capacity?: number | undefined;
   capacityUnit?: string | undefined;
   notes?: string | undefined;
+  /** Racks only: bins (B01, B02, ...) created together with the rack. */
+  bins?:
+    | {
+        name?: string | undefined;
+        capacity?: number | undefined;
+        capacityUnit?: string | undefined;
+      }[]
+    | undefined;
 }
 export interface UpdateLocationInput {
+  /** A structural edit (warehouse / type / parent / code) re-derives the code
+   * of this location and of everything nested under it. */
+  warehouseId?: number | undefined;
+  locationType?: LocationType | undefined;
+  parentLocationId?: number | null | undefined;
+  code?: string | undefined;
   locationName?: string | undefined;
   capacity?: number | undefined;
   capacityUnit?: string | undefined;
@@ -200,6 +246,8 @@ export interface InventoryKpis {
   available: number;
   reserved: number;
   incoming: number;
+  /** Rejected / bad (damaged) units across the rows. */
+  bad: number;
   lowStock: number;
   outOfStock: number;
 }
@@ -210,6 +258,7 @@ export interface QueryOverviewInput {
   q?: string | undefined;
   warehouseId?: number | undefined;
   stockStatus?: StockStatus | undefined;
+  hasBadStock?: boolean | undefined;
 }
 
 export const LEDGER_TRANSACTION_TYPES = [
@@ -263,6 +312,7 @@ export interface ScmBatch {
   batchNumber: string;
   productId: number;
   warehouseId: number;
+  locationId?: number | null;
   manufacturingDate: string | null;
   expiryDate: string | null;
   quantity: string;
@@ -293,6 +343,7 @@ export interface ScmSerial {
   serialNumber: string;
   productId: number;
   warehouseId: number;
+  locationId?: number | null;
   status: SerialStatus;
   currentReference: string | null;
   createdAt: string;
@@ -351,6 +402,7 @@ export const ADJUSTMENT_REASONS = [
   "Other Approved Reason",
 ] as const;
 export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
+export type AdjustmentDirection = "IN" | "OUT";
 export interface ScmAdjustment {
   id: number;
   adjustmentNumber: string;
@@ -425,4 +477,12 @@ export interface CreateSerialsInput {
   productId: number;
   warehouseId: number;
   serialNumbers: string[];
+}
+
+/** Stock stored in a location (non-zero rows only). */
+export interface LocationStockEntry {
+  locationId: number;
+  warehouseId: number;
+  quantity: string;
+  product: { id: number; productCode: string; name: string };
 }

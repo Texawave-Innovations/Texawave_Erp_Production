@@ -38,7 +38,7 @@ const KPI_ICONS: Record<string, LucideIcon> = {
 
 const ACTIONS: DashboardAction[] = [
   {
-    label: "Create Purchase Requisition",
+    label: "Create Material Requisition",
     icon: Plus,
     href: "/scm/procurement/requisitions",
   },

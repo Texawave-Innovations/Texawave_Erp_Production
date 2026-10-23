@@ -66,6 +66,9 @@ import { DesignationsModule } from "./modules/master-data/designations/designati
 import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
 import { WorkLocationsModule } from "./modules/master-data/work-locations/work-locations.module.js";
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
+import { SalesSettingsModule } from "./modules/sales-settings/sales-settings.module.js";
+import { FinanceSettingsModule } from "./modules/finance-settings/finance-settings.module.js";
+import { ProjectsMasterModule } from "./modules/projects-master/projects-master.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
@@ -141,6 +144,9 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     DepartmentsModule,
     UsersModule,
     MenuModule,
+    SalesSettingsModule,
+    FinanceSettingsModule,
+    ProjectsMasterModule,
     AccountsModule,
     ContactsModule,
     LeadsModule,

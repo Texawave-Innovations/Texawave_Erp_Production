@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
@@ -84,6 +86,13 @@ export class FulfillmentsController {
   ) {
     return this.svc.cancel(id, dto.reason);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.fulfillment.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeFulfillment(id);
+  }
 }
 
 /** Legacy `ScmWarehousePicking`. Nothing here reduces on-hand stock. */
@@ -127,6 +136,13 @@ export class PickingsController {
   cancel(@Param("id", ParseIntPipe) id: number) {
     return this.svc.cancelPick(id);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.fulfillment.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removePicking(id);
+  }
 }
 
 /** Legacy `ScmWarehousePacking`. */
@@ -163,5 +179,12 @@ export class PackingsController {
   @RequirePermission("scm.fulfillment.write")
   cancel(@Param("id", ParseIntPipe) id: number) {
     return this.svc.cancelPacking(id);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.fulfillment.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removePacking(id);
   }
 }

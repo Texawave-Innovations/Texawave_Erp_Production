@@ -1,5 +1,32 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Coins,
+  CreditCard,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  Plus,
+  Printer,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  User,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Button,
@@ -8,12 +35,12 @@ import {
   Dialog,
   EmptyState,
   FormField,
+  Input,
   Pagination,
   Select,
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { useState } from "react";
 import {
   type EmployeeOption,
   EmployeePicker,
@@ -31,22 +58,18 @@ import {
 import { MY_PAYSLIP_READ, PAYROLL_WRITE, PAYSLIP_READ } from "../permissions";
 import type { Payslip } from "../types";
 import { DialogActions, ServerError } from "./DialogParts";
-import { RegeneratePayslipDialog } from "./RegeneratePayslipDialog";
+import { exportPayslipsCsv, exportPayslipsExcel } from "./payslip-export";
+import { PayslipDocumentDialog } from "./PayslipDocumentDialog";
 import { PeriodFilterSelect } from "./PeriodFilterSelect";
 import { QueryState } from "./QueryState";
+import { RegeneratePayslipDialog } from "./RegeneratePayslipDialog";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
 
-const SOURCE_LABEL: Record<string, string> = {
-  PF: "Provident Fund",
-  ESI: "ESI",
-  LOAN: "Loan EMI",
-};
-
-// ---- download -------------------------------------------------------------
-
-/** Fetches the PDF with the caller's token and saves it. The API renders it
- * with a headless browser, so it can take a moment — the button shows that. */
+/**
+ * Fetches the PDF with the caller's token and saves it. The API renders it
+ * with a headless browser, so it can take a moment — the button shows that.
+ */
 function DownloadPdfButton({
   payslip,
   selfService,
@@ -82,233 +105,15 @@ function DownloadPdfButton({
       loading={busy}
       aria-label={`Download PDF of payslip ${payslip.payslipNumber}`}
       onClick={() => void handleClick()}
+      className="text-xs font-semibold hover:border-brand-300"
     >
-      Download PDF
+      <Download className="mr-1.5 h-3.5 w-3.5" />
+      PDF
     </Button>
   );
 }
 
-// ---- detail ---------------------------------------------------------------
-
-function Fact({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
-      <dt className="text-theme-xs text-gray-500 dark:text-gray-400">
-        {label}
-      </dt>
-      <dd className="text-theme-sm font-medium text-gray-900 dark:text-white/90">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-/** One payslip as issued: the list row already carries every field, so this
- * needs no extra request. Bank account and PAN arrive masked from the API. */
-function PayslipDetailDialog({
-  payslip: p,
-  selfService,
-  onClose,
-}: {
-  payslip: Payslip;
-  selfService: boolean;
-  onClose: () => void;
-}) {
-  const bank = p.employee.bankDetails;
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={`Payslip ${p.payslipNumber}`}
-      className="max-w-3xl"
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-theme-sm text-gray-700 dark:text-gray-300">
-          {p.employee.fullName} ({p.employee.employeeCode}) ·{" "}
-          {periodLabel(p.payrollPeriod)} · issued {isoDate(p.generatedAt)}
-          {p.version && p.version > 1 ? ` · version ${p.version}` : ""}
-        </p>
-        {p.regenerationReason ? (
-          <p className="rounded-lg bg-gray-50 p-3 text-theme-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-            Regenerated {isoDate(p.regeneratedAt)}: {p.regenerationReason}
-          </p>
-        ) : null}
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Fact
-            label="Designation"
-            value={p.employee.designation?.name ?? "—"}
-          />
-          <Fact label="Department" value={p.employee.department?.name ?? "—"} />
-          <Fact label="Payable days" value={days(p.payrollEntry.payableDays)} />
-          <Fact label="Loss of pay" value={days(p.payrollEntry.lopDays)} />
-          <Fact
-            label="Bank"
-            value={bank ? `${bank.bankName} · ${bank.accountNumber}` : "—"}
-          />
-          <Fact label="PAN" value={bank?.panNumber ?? "—"} />
-          <Fact label="UAN" value={p.employee.pfProfile?.uan ?? "—"} />
-          <Fact
-            label="ESI number"
-            value={p.employee.esiProfile?.insuranceNumber ?? "—"}
-          />
-        </dl>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <DataTable
-            caption="Earnings"
-            rows={p.payrollEntry.earnings}
-            getRowKey={(r) => r.code}
-            columns={[
-              { header: "Earning", cell: (r) => r.name },
-              {
-                header: "Amount",
-                cell: (r) => money(r.calculatedAmount),
-                className: "text-right whitespace-nowrap",
-                headerClassName: "text-right",
-              },
-            ]}
-          />
-          {p.payrollEntry.deductions.length > 0 ? (
-            <DataTable
-              caption="Deductions"
-              rows={p.payrollEntry.deductions}
-              getRowKey={(r) => r.code}
-              columns={[
-                {
-                  header: "Deduction",
-                  cell: (r) =>
-                    r.sourceType && SOURCE_LABEL[r.sourceType]
-                      ? `${r.name} (${SOURCE_LABEL[r.sourceType]})`
-                      : r.name,
-                },
-                {
-                  header: "Amount",
-                  cell: (r) => money(r.amount),
-                  className: "text-right whitespace-nowrap",
-                  headerClassName: "text-right",
-                },
-              ]}
-            />
-          ) : (
-            <p className="text-theme-sm text-gray-600 dark:text-gray-400">
-              No deductions.
-            </p>
-          )}
-        </div>
-
-        <dl className="grid gap-2 sm:grid-cols-3">
-          <Fact
-            label="Gross earnings"
-            value={money(p.payrollEntry.totalGrossEarnings)}
-          />
-          <Fact
-            label="Total deductions"
-            value={money(p.payrollEntry.totalDeductions)}
-          />
-          <Fact
-            label="Net pay"
-            value={<span className="text-theme-md">{money(p.netPayable)}</span>}
-          />
-        </dl>
-
-        <div className="flex justify-end gap-2">
-          <DownloadPdfButton payslip={p} selfService={selfService} size="md" />
-          <Button variant="secondary" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
-
-// ---- table ----------------------------------------------------------------
-
-function PayslipsTable({
-  caption,
-  rows,
-  selfService,
-  onOpen,
-  onRegenerate,
-}: {
-  caption: string;
-  rows: Payslip[];
-  selfService: boolean;
-  onOpen: (p: Payslip) => void;
-  /** HR with an org-wide payroll write grant only. */
-  onRegenerate?: ((p: Payslip) => void) | undefined;
-}) {
-  return (
-    <DataTable<Payslip>
-      caption={caption}
-      rows={rows}
-      getRowKey={(r) => String(r.id)}
-      columns={[
-        { header: "Payslip", cell: (r) => r.payslipNumber },
-        ...(selfService
-          ? []
-          : [
-              {
-                header: "Employee",
-                cell: (r: Payslip) => (
-                  <div className="flex flex-col">
-                    <span className="font-medium">{r.employee.fullName}</span>
-                    <span className="text-theme-xs text-gray-500">
-                      {r.employee.employeeCode}
-                    </span>
-                  </div>
-                ),
-              },
-            ]),
-        { header: "Period", cell: (r) => periodLabel(r.payrollPeriod) },
-        {
-          header: "Net pay",
-          cell: (r) => money(r.netPayable),
-          className: "text-right whitespace-nowrap",
-          headerClassName: "text-right",
-        },
-        {
-          header: "Issued",
-          cell: (r) =>
-            r.version && r.version > 1
-              ? `${isoDate(r.generatedAt)} · v${r.version}`
-              : isoDate(r.generatedAt),
-        },
-        {
-          header: "Actions",
-          cell: (r) => (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`View payslip ${r.payslipNumber}`}
-                onClick={() => onOpen(r)}
-              >
-                View
-              </Button>
-              <DownloadPdfButton payslip={r} selfService={selfService} />
-              {onRegenerate ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Regenerate payslip ${r.payslipNumber}`}
-                  onClick={() => onRegenerate(r)}
-                >
-                  Regenerate
-                </Button>
-              ) : null}
-            </div>
-          ),
-        },
-      ]}
-    />
-  );
-}
-
-// ---- generate -------------------------------------------------------------
-
-/** Payslips come from a period's approved run. Finalizing a period already
- * issues them; this re-issues them (e.g. after bank details changed). */
+/** Generates payslips from a period's approved run */
 function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
   const generate = useGeneratePayslips();
   const periods = usePeriods({ page: 1, limit: 100 });
@@ -335,7 +140,7 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
         ...(reason.trim() ? { reason: reason.trim() } : {}),
       });
       toast({
-        title: `${rows.length} payslip${rows.length === 1 ? "" : "s"} generated`,
+        title: `${rows.length} payslip${rows.length === 1 ? "" : "s"} generated successfully`,
         variant: "success",
       });
       onClose();
@@ -345,13 +150,17 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog open onClose={onClose} title="Generate payslips">
+    <Dialog open onClose={onClose} title="Generate Payslips" size="md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+          Payslips will be generated for all finalized employees in this payroll
+          period.
+        </p>
         <FormField
-          label="Payroll period"
+          label="Payroll Period"
           required
           error={error}
-          hint="Only periods with an approved run. Existing payslips are refreshed, not duplicated."
+          hint="Only periods with an approved or finalized run are eligible."
         >
           {(f) => (
             <Select
@@ -380,13 +189,14 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
           )}
         </FormField>
         <FormField
-          label="Reason"
-          hint="Needed only when an issued payslip would change (at least 10 characters); it becomes a new version."
+          label="Regeneration Reason"
+          hint="Required only if re-generating already issued payslips (at least 10 chars)."
         >
           {(f) => (
             <Textarea
               {...f}
               rows={2}
+              placeholder="e.g. Bank account update for revised disbursement..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -396,17 +206,14 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
         <DialogActions
           onCancel={onClose}
           submitting={generate.isPending}
-          submitLabel="Generate"
+          submitLabel="Generate Now"
         />
       </form>
     </Dialog>
   );
 }
 
-// ---- sections -------------------------------------------------------------
-
-/** The signed-in employee's own payslips. Hidden for an account with no
- * employee record, as the other "My …" sections are. */
+/** The signed-in employee's own personal payslips */
 export function MyPayslipsSection() {
   const canRead = usePermission(MY_PAYSLIP_READ);
   const [page, setPage] = useState(1);
@@ -422,17 +229,21 @@ export function MyPayslipsSection() {
     return null;
 
   return (
-    <section
-      aria-labelledby="my-payslips-heading"
-      className="flex flex-col gap-3"
-    >
-      <h2
-        id="my-payslips-heading"
-        className="text-theme-lg font-semibold text-gray-900 dark:text-white/90"
-      >
-        My payslips
-      </h2>
+    <div className="flex flex-col gap-5 animate-reveal">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-sky-100 dark:border-slate-800 dark:bg-slate-900 shadow-2xs">
+        <div>
+          <h2 className="text-theme-lg font-bold text-gray-900 dark:text-white">
+            My Salary Slips
+          </h2>
+          <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+            View your official compensation breakdowns and download monthly PDF
+            payslips
+          </p>
+        </div>
+      </div>
+
       <QueryState query={query} area="your payslips" />
+
       {query.isSuccess && rows.length === 0 ? (
         <Card>
           <EmptyState
@@ -441,69 +252,395 @@ export function MyPayslipsSection() {
           />
         </Card>
       ) : null}
+
       {query.isSuccess && rows.length > 0 ? (
-        <>
-          <PayslipsTable
+        <div className="rounded-2xl border border-sky-200/90 bg-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+          <DataTable<Payslip>
             caption="My payslips"
             rows={rows}
-            selfService
-            onOpen={setOpen}
+            getRowKey={(r) => String(r.id)}
+            columns={[
+              {
+                header: "Payslip #",
+                cell: (r) => (
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {r.payslipNumber}
+                  </span>
+                ),
+              },
+              {
+                header: "Payroll Period",
+                cell: (r) => periodLabel(r.payrollPeriod),
+              },
+              {
+                header: "Net Take-Home",
+                cell: (r) => (
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {money(r.netPayable)}
+                  </span>
+                ),
+                className: "text-right whitespace-nowrap",
+                headerClassName: "text-right",
+              },
+              {
+                header: "Issued Date",
+                cell: (r) => (
+                  <span className="text-theme-xs text-gray-500">
+                    {isoDate(r.generatedAt)}
+                    {r.version && r.version > 1 ? (
+                      <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        v{r.version}
+                      </span>
+                    ) : null}
+                  </span>
+                ),
+              },
+              {
+                header: "Actions",
+                cell: (r) => (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      aria-label={`View payslip ${r.payslipNumber}`}
+                      onClick={() => setOpen(r)}
+                      className="text-xs font-semibold"
+                    >
+                      <Eye className="mr-1.5 h-3.5 w-3.5" />
+                      View Slip
+                    </Button>
+                    <DownloadPdfButton payslip={r} selfService={true} />
+                  </div>
+                ),
+              },
+            ]}
           />
-          <Pagination
-            page={page}
-            totalPages={query.data.meta?.totalPages ?? 1}
-            onPageChange={setPage}
-          />
-        </>
+          <div className="mt-4">
+            <Pagination
+              page={page}
+              totalPages={query.data.meta?.totalPages ?? 1}
+              onPageChange={setPage}
+            />
+          </div>
+        </div>
       ) : null}
+
       {open ? (
-        <PayslipDetailDialog
+        <PayslipDocumentDialog
           payslip={open}
-          selfService
+          selfService={true}
           onClose={() => setOpen(null)}
         />
       ) : null}
-    </section>
+    </div>
   );
 }
 
+/** HR Organization Payslips Hub (with CSV & Excel exports, single-baseline filters) */
 function HrPayslipsSection() {
   const canRead = usePermission(PAYSLIP_READ);
   const canGenerate = usePermission(PAYROLL_WRITE);
+  const { toast } = useToast();
+
   const [page, setPage] = useState(1);
   const [periodId, setPeriodId] = useState<number | null>(null);
-  const [employee, setEmployee] = useState<EmployeeOption | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
   const [open, setOpen] = useState<Payslip | null>(null);
   const [generating, setGenerating] = useState(false);
   const [regenerating, setRegenerating] = useState<Payslip | null>(null);
+
+  // Summary query to compute KPIs
+  const summaryQuery = usePayslips(
+    {
+      page: 1,
+      limit: 100,
+      ...(periodId ? { payrollPeriodId: periodId } : {}),
+    },
+    canRead,
+  );
+  const allPayslips = summaryQuery.data?.data ?? [];
+
+  // Filtered queries
   const query = usePayslips(
     {
       page,
       limit: PAGE_SIZE,
       ...(periodId ? { payrollPeriodId: periodId } : {}),
-      ...(employee ? { employeeId: employee.id } : {}),
     },
     canRead,
   );
-  const rows = query.data?.data ?? [];
-  const filtered = Boolean(periodId || employee);
+  const rawRows = query.data?.data ?? [];
+
+  // Unique departments for filter dropdown
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    allPayslips.forEach((p) => {
+      const dept =
+        p.employee.department?.name || p.employee.team?.name || "General";
+      if (dept) set.add(dept);
+    });
+    return Array.from(set).sort();
+  }, [allPayslips]);
+
+  // Client-side search and department filtering
+  const filteredRows = useMemo(() => {
+    let result = rawRows;
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((p) => {
+        const name = p.employee.fullName.toLowerCase();
+        const code = p.employee.employeeCode.toLowerCase();
+        const slip = p.payslipNumber.toLowerCase();
+        const dept = (
+          p.employee.department?.name ||
+          p.employee.team?.name ||
+          ""
+        ).toLowerCase();
+        return (
+          name.includes(q) ||
+          code.includes(q) ||
+          slip.includes(q) ||
+          dept.includes(q)
+        );
+      });
+    }
+
+    if (departmentFilter) {
+      result = result.filter((p) => {
+        const dept =
+          p.employee.department?.name || p.employee.team?.name || "General";
+        return dept === departmentFilter;
+      });
+    }
+
+    return result;
+  }, [rawRows, search, departmentFilter]);
+
+  // Active period title for export naming
+  const activePeriodTitle = useMemo(() => {
+    if (periodId && allPayslips[0]) {
+      return periodLabel(allPayslips[0].payrollPeriod);
+    }
+    return "All_Periods";
+  }, [periodId, allPayslips]);
+
+  // KPI Metrics Calculation
+  const {
+    totalSlipsCount,
+    totalNetPayout,
+    totalDeductionsAmount,
+    avgNetSalary,
+  } = useMemo(() => {
+    const totalSlips = allPayslips.length;
+    let netSum = 0;
+    let deductionsSum = 0;
+
+    allPayslips.forEach((p) => {
+      netSum += Number(p.netPayable || 0);
+      deductionsSum += Number(p.payrollEntry.totalDeductions || 0);
+    });
+
+    const avg = totalSlips > 0 ? netSum / totalSlips : 0;
+
+    return {
+      totalSlipsCount: totalSlips,
+      totalNetPayout: netSum,
+      totalDeductionsAmount: deductionsSum,
+      avgNetSalary: avg,
+    };
+  }, [allPayslips]);
+
+  const hasFilters =
+    search !== "" || departmentFilter !== "" || periodId !== null;
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setDepartmentFilter("");
+    setPeriodId(null);
+    setPage(1);
+  };
+
+  const handleExportCsv = () => {
+    if (allPayslips.length === 0) {
+      toast({ title: "No payslips available to export", variant: "warning" });
+      return;
+    }
+    exportPayslipsCsv(allPayslips, activePeriodTitle);
+    setExportOpen(false);
+    toast({ title: "CSV export generated successfully", variant: "success" });
+  };
+
+  const handleExportExcel = () => {
+    if (allPayslips.length === 0) {
+      toast({ title: "No payslips available to export", variant: "warning" });
+      return;
+    }
+    exportPayslipsExcel(allPayslips, activePeriodTitle);
+    setExportOpen(false);
+    toast({
+      title: "Excel (.xls) export generated successfully",
+      variant: "success",
+    });
+  };
 
   if (!canRead) return null;
 
   return (
-    <section
-      aria-labelledby="hr-payslips-heading"
-      className="flex flex-col gap-3"
-    >
-      <h2
-        id="hr-payslips-heading"
-        className="text-theme-lg font-semibold text-gray-900 dark:text-white/90"
-      >
-        Employee payslips
-      </h2>
-      <Card>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">
+    <div className="flex flex-col gap-6 animate-reveal">
+      {/* Executive Header Banner - Soft Low-Contrast Styling */}
+      <div className="relative overflow-visible rounded-2xl border border-sky-200/80 bg-linear-to-r from-sky-50/90 via-sky-50/40 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/60">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:bg-slate-800 dark:text-sky-300">
+                HR Payroll
+              </span>
+            </div>
+            <h1 className="mt-1.5 text-xl font-bold tracking-tight text-[#0a3271] dark:text-white sm:text-2xl">
+              Employee Payslips & Disbursals
+            </h1>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+              Official monthly salary slips, statutory deductions, bank credit
+              advice, and bulk spreadsheet exports.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {canGenerate && (
+              <Button
+                onClick={() => setGenerating(true)}
+                className="bg-[#1769F5] hover:bg-[#1258d4] text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-transform hover:scale-102"
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Generate Payslips
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Interactive KPI Metric Summary Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Total Payslips Issued */}
+        <button
+          type="button"
+          onClick={handleClearFilters}
+          className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
+            !hasFilters
+              ? "border-2 border-brand-500 bg-sky-50/50 shadow-md ring-2 ring-brand-500/20 dark:border-brand-400 dark:bg-slate-800"
+              : "border border-sky-200/90 bg-white shadow-2xs hover:border-brand-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                Total Payslips
+              </p>
+              {!hasFilters ? (
+                <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-brand-600 dark:bg-slate-800 dark:text-sky-300">
+                  All
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-[#0a3271] dark:text-white">
+              {totalSlipsCount}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Generated in scope
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-brand-500 transition-transform group-hover:scale-105 dark:border-slate-700 dark:bg-slate-800">
+            <FileText className="h-5 w-5" />
+          </div>
+        </button>
+
+        {/* Total Net Payout */}
+        <div className="flex items-center justify-between rounded-2xl border border-emerald-200/90 bg-white p-4 shadow-2xs dark:border-emerald-900/60 dark:bg-slate-900/60">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Total Net Disbursed
+            </p>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+              {money(totalNetPayout)}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Credited to employees
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40">
+            <Wallet className="h-5 w-5" />
+          </div>
+        </div>
+
+        {/* Total Deductions */}
+        <div className="flex items-center justify-between rounded-2xl border border-amber-200/90 bg-white p-4 shadow-2xs dark:border-amber-900/60 dark:bg-slate-900/60">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+              Total Deductions
+            </p>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+              {money(totalDeductionsAmount)}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              PF, ESI, TDS & Loan EMIs
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-900 dark:bg-amber-950/40">
+            <TrendingDown className="h-5 w-5" />
+          </div>
+        </div>
+
+        {/* Average Net Take-Home */}
+        <div className="flex items-center justify-between rounded-2xl border border-sky-200/90 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900/60">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+              Avg Net Take-Home
+            </p>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-[#0a3271] dark:text-white">
+              {money(avgNetSalary)}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Per employee average
+            </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-brand-500 dark:border-slate-700 dark:bg-slate-800">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Single-Baseline Filter Toolbar (Fixing Alignment) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-white p-4 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-1 flex-wrap items-center gap-3 min-w-70">
+          {/* Live Search */}
+          <div className="relative flex-1 min-w-55">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by employee name, code, or slip #..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2.5 pl-10 pr-4 text-theme-sm text-gray-900 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-slate-800 dark:bg-slate-800/50 dark:text-white dark:focus:border-brand-400"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+
+          {/* Period Selector */}
+          <div className="w-full sm:w-48">
             <PeriodFilterSelect
               value={periodId}
               onChange={(id) => {
@@ -511,84 +648,294 @@ function HrPayslipsSection() {
                 setPage(1);
               }}
             />
-            <div className="w-full sm:w-64">
-              <FormField label="Filter by employee">
-                {(f) => (
-                  <EmployeePicker
-                    {...f}
-                    value={employee}
-                    onChange={(e) => {
-                      setEmployee(e);
-                      setPage(1);
-                    }}
-                  />
-                )}
-              </FormField>
-            </div>
           </div>
-          {canGenerate ? (
-            <Button onClick={() => setGenerating(true)}>
-              Generate payslips
+
+          {/* Department Filter */}
+          <Select
+            aria-label="Filter by department"
+            className="w-full sm:w-44"
+            value={departmentFilter}
+            onChange={(e) => {
+              setDepartmentFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All Departments</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </Select>
+
+          {hasFilters && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleClearFilters}
+              className="text-gray-600 hover:text-gray-900 dark:text-gray-300"
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Reset
             </Button>
-          ) : null}
+          )}
         </div>
-      </Card>
-      <QueryState query={query} area="payslips" />
-      {query.isSuccess && rows.length === 0 ? (
-        <Card>
+
+        {/* Action Buttons: Export CSV / Excel & Generate */}
+        <div className="flex items-center gap-2 relative">
+          {/* Export Dropdown Menu */}
+          <div className="relative">
+            <Button
+              variant="secondary"
+              onClick={() => setExportOpen((prev) => !prev)}
+              disabled={allPayslips.length === 0}
+              className="border-sky-200 hover:border-brand-400 text-slate-700 dark:text-slate-200 font-semibold"
+            >
+              <Download className="mr-1.5 h-4 w-4 text-brand-500" />
+              Export
+              <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+            </Button>
+
+            {exportOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setExportOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-sky-100 bg-white py-1.5 shadow-xl ring-1 ring-black/5 z-50 dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95">
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-brand-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <FileText className="h-4 w-4 text-brand-500" />
+                    Export CSV (.csv)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                    Export Excel (.xls)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {canGenerate && (
+            <Button
+              onClick={() => setGenerating(true)}
+              className="bg-brand-500 hover:bg-brand-600 text-white font-bold"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Generate
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Payslips Directory Table */}
+      <div className="rounded-2xl border border-sky-200/90 bg-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+        {filteredRows.length === 0 ? (
           <EmptyState
-            title="No payslips"
+            title="No Payslips Found"
             description={
-              filtered
-                ? "No payslips match these filters."
+              hasFilters
+                ? "No payslips match your search or filter criteria. Try adjusting or resetting filters."
                 : "Payslips are issued when a payroll period is finalized."
             }
           />
-        </Card>
-      ) : null}
-      {query.isSuccess && rows.length > 0 ? (
-        <>
-          <PayslipsTable
-            caption="Employee payslips"
-            rows={rows}
-            selfService={false}
-            onOpen={setOpen}
-            onRegenerate={canGenerate ? setRegenerating : undefined}
-          />
-          <Pagination
-            page={page}
-            totalPages={query.data.meta?.totalPages ?? 1}
-            onPageChange={setPage}
-          />
-        </>
-      ) : null}
+        ) : (
+          <>
+            <DataTable<Payslip>
+              caption="Employee Payslips"
+              rows={filteredRows}
+              getRowKey={(r) => String(r.id)}
+              columns={[
+                {
+                  header: "Slip #",
+                  cell: (r) => (
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {r.payslipNumber}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Employee",
+                  cell: (r) => (
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900 dark:text-white">
+                        {r.employee.fullName}
+                      </span>
+                      <span className="text-theme-xs text-gray-500">
+                        {r.employee.employeeCode}
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  header: "Department",
+                  cell: (r) =>
+                    r.employee.department?.name ||
+                    r.employee.team?.name ||
+                    "General",
+                },
+                {
+                  header: "Period",
+                  cell: (r) => periodLabel(r.payrollPeriod),
+                },
+                {
+                  header: "Gross Earnings",
+                  cell: (r) => (
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {money(r.payrollEntry.totalGrossEarnings)}
+                    </span>
+                  ),
+                  className: "text-right whitespace-nowrap",
+                  headerClassName: "text-right",
+                },
+                {
+                  header: "Deductions",
+                  cell: (r) => (
+                    <span className="font-medium text-rose-600 dark:text-rose-400">
+                      {money(r.payrollEntry.totalDeductions)}
+                    </span>
+                  ),
+                  className: "text-right whitespace-nowrap",
+                  headerClassName: "text-right",
+                },
+                {
+                  header: "Net Take-Home",
+                  cell: (r) => (
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {money(r.netPayable)}
+                    </span>
+                  ),
+                  className: "text-right whitespace-nowrap",
+                  headerClassName: "text-right",
+                },
+                {
+                  header: "Issued / Version",
+                  cell: (r) => (
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="text-theme-xs text-gray-500">
+                        {isoDate(r.generatedAt)}
+                      </span>
+                      {r.version && r.version > 1 ? (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          v{r.version} (Regenerated)
+                        </span>
+                      ) : null}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Actions",
+                  cell: (r) => (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label={`View payslip ${r.payslipNumber}`}
+                        onClick={() => setOpen(r)}
+                        className="text-xs font-semibold"
+                      >
+                        <Eye className="mr-1 h-3.5 w-3.5" />
+                        View
+                      </Button>
+                      <DownloadPdfButton payslip={r} selfService={false} />
+                      {canGenerate ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Regenerate payslip ${r.payslipNumber}`}
+                          onClick={() => setRegenerating(r)}
+                          className="text-xs font-semibold text-slate-500 hover:text-brand-600"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+            <div className="mt-4">
+              <Pagination
+                page={page}
+                totalPages={query.data?.meta?.totalPages ?? 1}
+                onPageChange={setPage}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Modal Dialogs */}
       {open ? (
-        <PayslipDetailDialog
+        <PayslipDocumentDialog
           payslip={open}
           selfService={false}
           onClose={() => setOpen(null)}
         />
       ) : null}
+
       {generating ? (
         <GeneratePayslipsDialog onClose={() => setGenerating(false)} />
       ) : null}
+
       {regenerating ? (
         <RegeneratePayslipDialog
           payslip={regenerating}
           onClose={() => setRegenerating(null)}
         />
       ) : null}
-    </section>
+    </div>
   );
 }
 
-/** HR → Payroll → Payslips: the employee's own payslips, then (with
- * hr.payslip.read) everyone's in the caller's scope. */
+/** HR → Payroll → Payslips: Main Component with View Mode Switcher */
 export function PayslipsPanel() {
+  const canReadMy = usePermission(MY_PAYSLIP_READ);
+  const canReadHr = usePermission(PAYSLIP_READ);
+  const [activeTab, setActiveTab] = useState<"hr" | "my">(
+    canReadHr ? "hr" : "my",
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <MyPayslipsSection />
-      <HrPayslipsSection />
+      {/* Top Segmented Mode Switcher */}
+      {canReadHr && canReadMy && (
+        <div className="flex border-b border-gray-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab("hr")}
+            className={`border-b-2 py-3 px-5 text-theme-sm font-bold transition-colors ${
+              activeTab === "hr"
+                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-sky-300"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            Organization Payslips
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("my")}
+            className={`border-b-2 py-3 px-5 text-theme-sm font-bold transition-colors ${
+              activeTab === "my"
+                ? "border-brand-500 text-brand-600 dark:border-brand-400 dark:text-sky-300"
+                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            My Payslips
+          </button>
+        </div>
+      )}
+
+      {activeTab === "hr" && canReadHr && <HrPayslipsSection />}
+      {activeTab === "my" && canReadMy && <MyPayslipsSection />}
     </div>
   );
 }

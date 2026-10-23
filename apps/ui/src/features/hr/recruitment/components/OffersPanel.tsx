@@ -22,9 +22,9 @@ import {
   Search,
   Eye,
   Edit2,
-  Printer,
   Download,
-  CheckCircle,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useCreateOffer, useOffer, useOffers, useUpdateOffer } from "../hooks";
@@ -33,11 +33,11 @@ import {
   apiErrorMessage,
   formatDate,
   formatRupees,
+  printOfferLetter,
   useDebouncedValue,
 } from "../utils";
-import { monthlyTotal } from "../salary";
 import type { OfferFormValues } from "../schema";
-import { DetailList } from "./DetailList";
+import { monthlyTotal } from "../salary";
 import { OfferForm, emptyOfferValues, offerValuesFrom } from "./OfferForm";
 import {
   OfferLetterDocument,
@@ -66,6 +66,9 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
   const [formState, setFormState] = useState<OfferFormValues>(() =>
     emptyOfferValues(),
   );
+
+  const [signatureImageUrl, setSignatureImageUrl] = useState("");
+  const [sealImageUrl, setSealImageUrl] = useState("");
 
   const debouncedSearch = useDebouncedValue(search.trim());
   const query = useOffers({
@@ -105,8 +108,10 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
       companyPhone: formState.companyPhone,
       companyWebsite: formState.companyWebsite,
       companyAddress: formState.companyAddress,
+      signatureImageUrl,
+      sealImageUrl,
     };
-  }, [formState]);
+  }, [formState, signatureImageUrl, sealImageUrl]);
 
   async function handleCreate(input: CreateOfferLetterInput) {
     await createMutation.mutateAsync(input);
@@ -121,6 +126,23 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
     await updateMutation.mutateAsync({ id: editingOffer.id, input });
     setEditingOffer(null);
     toast({ title: "Offer letter updated", variant: "success" });
+  }
+
+  function shareViaWhatsApp(item: OfferLetterView) {
+    const candidate = item.candidateName || "Candidate";
+    const roleName = item.role || "Position";
+    const message = `Hello ${candidate}, Please find attached your Offer Letter for the position of ${roleName} at TexaWave Innovations Pvt Ltd.`;
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  }
+
+  function shareViaEmail(item: OfferLetterView) {
+    const candidate = item.candidateName || "Candidate";
+    const roleName = item.role || "Position";
+    const subject = `Offer Letter - TexaWave Innovations (${candidate})`;
+    const message = `Hello ${candidate},\n\nPlease find attached your Offer Letter for the position of ${roleName} at TexaWave Innovations Pvt Ltd.\n\nBest regards,\nTexaWave Innovations`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    window.open(gmailUrl, "_blank");
   }
 
   // Handle permission error as required by e2e test
@@ -139,28 +161,27 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
   return (
     <div className="flex flex-col gap-6">
       {/* Top Header & Sub-Navigation */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 pb-4 dark:border-gray-800">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200/90 pb-4 dark:border-gray-800 print:hidden">
         <div>
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Offer Letter
+          <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Offer Letter Generator
           </h2>
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            Generate and manage candidate offer letters with live document
-            preview.
+          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Generate, customize, and issue official candidate offer letters with live document preview.
           </p>
         </div>
 
         {/* View Toggle */}
-        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-800/60 self-start sm:self-auto">
+        <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-gray-800 dark:bg-gray-800/80 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => {
               setEditingOffer(null);
               setActiveSubTab("generator");
             }}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-theme-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-theme-xs font-semibold transition-all ${
               activeSubTab === "generator"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                ? "bg-white text-brand-600 shadow-xs dark:bg-gray-900 dark:text-cyan-400"
                 : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
             }`}
           >
@@ -170,9 +191,9 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
           <button
             type="button"
             onClick={() => setActiveSubTab("history")}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-theme-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-theme-xs font-semibold transition-all ${
               activeSubTab === "history"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                ? "bg-white text-brand-600 shadow-xs dark:bg-gray-900 dark:text-cyan-400"
                 : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
             }`}
           >
@@ -186,16 +207,14 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
       {activeSubTab === "generator" ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
           {/* Left section — Offer details and configuration */}
-          <div className="lg:col-span-6 xl:col-span-5">
+          <div className="lg:col-span-6 xl:col-span-5 print:hidden">
             <Card className="p-5 md:p-6 shadow-theme-xs">
-              <div className="mb-5 flex items-center justify-between border-b border-gray-200 pb-3 dark:border-gray-800">
-                <div>
-                  <h3 className="text-theme-base font-bold text-gray-900 dark:text-white/90">
-                    Offer Details
+              <div className="mb-4 flex items-center justify-between border-b border-gray-200/90 pb-3 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-brand-500" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                    Offer Details & Configuration
                   </h3>
-                  <p className="text-theme-xs text-gray-500">
-                    Enter the offer terms and candidate compensation.
-                  </p>
                 </div>
                 {editingOffer ? (
                   <Button
@@ -204,8 +223,10 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                     onClick={() => {
                       setEditingOffer(null);
                       setFormState(emptyOfferValues());
+                      setSignatureImageUrl("");
+                      setSealImageUrl("");
                     }}
-                    className="text-theme-xs"
+                    className="text-theme-xs text-gray-500 hover:text-gray-900"
                   >
                     Reset Form
                   </Button>
@@ -220,26 +241,40 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                   onCancel={() => {
                     setEditingOffer(null);
                     setFormState(emptyOfferValues());
+                    setSignatureImageUrl("");
+                    setSealImageUrl("");
                   }}
                   submitLabel="Save Changes"
                   onValuesChange={setFormState}
+                  signatureImageUrl={signatureImageUrl}
+                  sealImageUrl={sealImageUrl}
+                  onSignatureChange={setSignatureImageUrl}
+                  onSealChange={setSealImageUrl}
                 />
               ) : (
                 <OfferForm
                   key="new-offer"
                   onSubmit={handleCreate}
-                  onCancel={() => setFormState(emptyOfferValues())}
+                  onCancel={() => {
+                    setFormState(emptyOfferValues());
+                    setSignatureImageUrl("");
+                    setSealImageUrl("");
+                  }}
                   submitLabel="Save Offer Letter"
                   onValuesChange={setFormState}
+                  signatureImageUrl={signatureImageUrl}
+                  sealImageUrl={sealImageUrl}
+                  onSignatureChange={setSignatureImageUrl}
+                  onSealChange={setSealImageUrl}
                 />
               )}
             </Card>
           </div>
 
           {/* Right section — Live document preview */}
-          <div className="lg:col-span-6 xl:col-span-7 sticky top-6">
-            <Card className="p-4 md:p-6 shadow-theme-xs bg-gray-50/50 dark:bg-gray-900/40">
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">
+          <div className="lg:col-span-6 xl:col-span-7 sticky top-6 print:static print:w-full print:block">
+            <Card className="p-4 md:p-6 shadow-theme-xs bg-gray-50/50 dark:bg-gray-900/40 print:p-0 print:border-none print:shadow-none print:bg-white">
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-3 dark:border-gray-800 print:hidden">
                 <div>
                   <h3 className="text-theme-base font-bold text-gray-900 dark:text-white/90">
                     Document Preview
@@ -251,18 +286,18 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 self-start sm:self-auto"
+                  onClick={() => printOfferLetter()}
+                  className="inline-flex items-center gap-1.5 self-start sm:self-auto text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
                 >
                   <Download className="h-4 w-4" />
                   Download PDF
                 </Button>
               </div>
 
-              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto rounded-xl p-1">
+              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto rounded-xl p-1 print:max-h-none print:overflow-visible print:p-0">
                 <OfferLetterDocument
                   data={previewData}
-                  onPrint={() => window.print()}
+                  onPrint={() => printOfferLetter()}
                 />
               </div>
             </Card>
@@ -328,8 +363,9 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                 columns={[
                   {
                     header: "Candidate",
+                    align: "center",
                     cell: (item) => (
-                      <div className="flex flex-col">
+                      <div className="flex flex-col items-center justify-center text-center">
                         <span className="font-semibold text-gray-900 dark:text-white/90">
                           {item.candidateName}
                         </span>
@@ -341,79 +377,103 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                   },
                   {
                     header: "Role / Position",
+                    align: "center",
                     cell: (item) => (
-                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                      <span className="block text-center font-medium text-gray-800 dark:text-gray-200">
                         {item.role}
                       </span>
                     ),
                   },
                   {
                     header: "Offer Date",
+                    align: "center",
                     cell: (item) => (
-                      <span className="text-theme-xs text-gray-700 dark:text-gray-300">
+                      <span className="block text-center text-theme-xs text-gray-700 dark:text-gray-300">
                         {formatDate(item.offerDate)}
                       </span>
                     ),
                   },
                   {
                     header: "Joining Date",
+                    align: "center",
                     cell: (item) => (
-                      <span className="text-theme-xs font-medium text-gray-800 dark:text-gray-200">
+                      <span className="block text-center text-theme-xs font-medium text-gray-800 dark:text-gray-200">
                         {formatDate(item.joiningDate)}
                       </span>
                     ),
                   },
                   {
                     header: "Gross Annual CTC",
+                    align: "center",
                     cell: (item) => (
-                      <span className="whitespace-nowrap font-bold text-gray-900 dark:text-white">
+                      <span className="block text-center whitespace-nowrap font-bold text-gray-900 dark:text-white">
                         {formatRupees(item.grossAnnual)}
                       </span>
                     ),
                   },
                   {
                     header: "Status",
+                    align: "center",
                     cell: (item) => (
-                      <StatusBadge
-                        label={
-                          item.status === "GENERATED"
-                            ? "Generated"
-                            : item.status
-                        }
-                        colorToken="brand"
-                      />
+                      <div className="flex items-center justify-center">
+                        <StatusBadge
+                          label={
+                            item.status === "GENERATED"
+                              ? "Generated"
+                              : item.status
+                          }
+                          colorToken="brand"
+                        />
+                      </div>
                     ),
                   },
                   {
                     header: "Actions",
-                    className: "text-right",
+                    align: "center",
+                    className: "text-center",
                     cell: (item) => (
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                      <div className="flex justify-center items-center gap-2">
+                        <button
+                          type="button"
                           onClick={() => setDetailId(item.id)}
+                          title="View Preview"
                           aria-label={`View offer for ${item.candidateName}`}
-                          className="inline-flex items-center gap-1 text-theme-xs"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50/60 text-brand-600 shadow-2xs hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-brand-400 dark:hover:bg-brand-950/40 dark:hover:border-brand-500"
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Button>
+                          <Eye className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => shareViaWhatsApp(item)}
+                          title="Share via WhatsApp"
+                          aria-label={`Share via WhatsApp for ${item.candidateName}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/60 text-emerald-600 shadow-2xs hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40 dark:hover:border-emerald-500"
+                        >
+                          <MessageCircle className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => shareViaEmail(item)}
+                          title="Share via Email"
+                          aria-label={`Share via Email for ${item.candidateName}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50/60 text-sky-600 shadow-2xs hover:bg-sky-50 hover:border-sky-400 hover:text-sky-700 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-gray-700 dark:bg-gray-800 dark:text-sky-400 dark:hover:bg-sky-950/40 dark:hover:border-sky-500"
+                        >
+                          <Mail className="h-4.5 w-4.5" />
+                        </button>
                         {canWrite ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
+                            type="button"
                             onClick={() => {
                               setEditingOffer(item);
                               setFormState(offerValuesFrom(item));
                               setActiveSubTab("generator");
                             }}
+                            title="Edit Offer"
                             aria-label={`Edit offer for ${item.candidateName}`}
-                            className="inline-flex items-center gap-1 text-theme-xs"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50/70 text-slate-700 shadow-2xs hover:bg-slate-100 hover:border-slate-400 hover:text-slate-900 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-750 dark:hover:border-gray-600 dark:hover:text-white"
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            Edit
-                          </Button>
+                            <Edit2 className="h-4.5 w-4.5" />
+                          </button>
                         ) : null}
                       </div>
                     ),
@@ -435,7 +495,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
         open={detailId !== null}
         onClose={() => setDetailId(null)}
         title="Offer letter details"
-        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        size="4xl"
       >
         {detail.isPending ? (
           <Skeleton className="h-48 w-full" />
@@ -467,7 +527,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
                 companyWebsite: detail.data.companyWebsite,
                 companyAddress: detail.data.companyAddress,
               }}
-              onPrint={() => window.print()}
+              onPrint={() => printOfferLetter()}
             />
           </div>
         )}

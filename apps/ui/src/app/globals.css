@@ -5,6 +5,7 @@
 
 @theme {
   --ease-spring-glide: cubic-bezier(0.25, 1, 0.4, 1);
+  --font-mono: var(--font-nunito-sans);
 }
 
 :root {
@@ -130,5 +131,132 @@ body {
   .scm-flow-dot {
     animation: none;
     opacity: 0;
+  }
+}
+
+/* SCM Copilot floating launcher: a soft breathing aura behind a slowly
+   drifting gradient orb, with one small satellite orbiting it — reads as a
+   living presence rather than a static button. */
+@keyframes scm-copilot-aura {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes scm-copilot-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes scm-copilot-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes scm-copilot-satellite {
+  from {
+    transform: rotate(0deg) translateX(26px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(26px) rotate(-360deg);
+  }
+}
+
+.scm-copilot-aura {
+  animation: scm-copilot-aura 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.scm-copilot-orb {
+  background-size: 200% 200%;
+  animation:
+    scm-copilot-breathe 3.2s ease-in-out infinite,
+    scm-copilot-gradient 5s ease infinite;
+}
+
+.scm-copilot-satellite {
+  animation: scm-copilot-satellite 4s linear infinite;
+}
+
+@keyframes scm-copilot-spin-ring {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scm-copilot-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes scm-copilot-twinkle {
+  0%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+.scm-copilot-bob {
+  animation: scm-copilot-bob 3.4s ease-in-out infinite;
+}
+
+.scm-copilot-spin-ring {
+  animation: scm-copilot-spin-ring 3s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    rgba(124, 58, 237, 0.9),
+    rgba(59, 130, 246, 0.9),
+    rgba(56, 189, 248, 0.9),
+    rgba(124, 58, 237, 0.9)
+  );
+}
+
+.scm-copilot-twinkle {
+  animation: scm-copilot-twinkle 1.6s ease-in-out infinite;
+}
+
+.scm-copilot-twinkle-delay {
+  animation: scm-copilot-twinkle 1.6s ease-in-out infinite 0.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scm-copilot-aura,
+  .scm-copilot-orb,
+  .scm-copilot-satellite,
+  .scm-copilot-bob,
+  .scm-copilot-spin-ring,
+  .scm-copilot-twinkle,
+  .scm-copilot-twinkle-delay {
+    animation: none;
   }
 }

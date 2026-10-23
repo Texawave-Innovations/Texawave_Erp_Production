@@ -173,7 +173,7 @@ test("puts a GRN away into a bin and moves stock between bins", async ({
   await detail.getByRole("button", { name: "Close", exact: true }).click();
 
   // 2. Internal movement from A to B
-  await open(page, "Warehouse", "Internal Movements");
+  await open(page, "Warehouse", "Stock Movements");
   await page.getByRole("button", { name: "New Movement" }).click();
   const moveDialog = page.getByRole("dialog");
   await moveDialog.getByLabel("Warehouse").selectOption({ label: whName });

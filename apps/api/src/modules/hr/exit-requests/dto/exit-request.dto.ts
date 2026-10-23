@@ -103,6 +103,14 @@ export class QueryExitRequestDto extends PaginationDto {
   @IsInt()
   @Min(1)
   employeeId?: number;
+
+  @ApiPropertyOptional({
+    description: "Search by employee name, code, or reason",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  search?: string;
 }
 
 /** Self-service list: always the caller's own requests. */

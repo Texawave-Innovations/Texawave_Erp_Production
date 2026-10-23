@@ -12,7 +12,7 @@ import {
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
@@ -23,15 +23,19 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreatePurchaseOrder,
+  useDeletePurchaseOrder,
   usePurchaseOrderAction,
   usePurchaseOrders,
   useQuotation,
+  useRequisition,
 } from "../hooks";
+import { buildMrCoverage } from "../mr-coverage";
 import { PurchaseOrderForm } from "./PurchaseOrderForm";
 
 type Action = "submit" | "approve" | "send" | "cancel" | "close";
@@ -45,11 +49,15 @@ const SUCCESS: Record<Action, string> = {
 };
 
 /** Legacy `ScmPurchaseOrders`. `?fromQuotation=<id>` opens the form for a
- * selected quotation. */
+ * selected quotation; `?requisitionId=<id>&mr=<number>` (from a Material
+ * Requisition's "Open Purchase Orders") restricts the list to POs raised
+ * from that exact requisition. */
 export function PurchaseOrdersView() {
   const router = useRouter();
   const params = useSearchParams();
   const fromQuotationId = params.get("fromQuotation");
+  const mrFilterId = params.get("requisitionId");
+  const mrFilterNumber = params.get("mr");
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [formOpen, setFormOpen] = useState(Boolean(fromQuotationId));
@@ -58,6 +66,7 @@ export function PurchaseOrdersView() {
     po: PurchaseOrder;
     action: "cancel" | "close";
   } | null>(null);
+  const [deleting, setDeleting] = useState<PurchaseOrder | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.procurement.write");
   const canApprove = usePermission("scm.procurement.approve");
@@ -66,12 +75,15 @@ export function PurchaseOrdersView() {
   );
   const create = useCreatePurchaseOrder();
   const act = usePurchaseOrderAction();
+  const remove = useDeletePurchaseOrder();
+  const viewingMr = useRequisition(viewing?.requisitionId ?? null);
 
   const query = usePurchaseOrders({
     page: c.page,
     limit: c.pageSize,
     q: c.q,
     status: status ? (status as PurchaseOrder["status"]) : undefined,
+    requisitionId: mrFilterId ? Number(mrFilterId) : undefined,
   });
 
   async function run(po: PurchaseOrder, action: Action) {
@@ -98,8 +110,27 @@ export function PurchaseOrdersView() {
     } catch (err) {
       throw new Error(errorText(err, "Failed to create purchase order"));
     }
+    // Client-demo auto-issues a fresh PO straight through to the supplier —
+    // there's no separate approval step to walk through in a demo. Stops
+    // silently at whatever stage the caller's permissions allow; the PO is
+    // left at that (still valid) status rather than failing the create.
+    let autoSent = false;
+    if (SCM_CLIENT_DEMO && canWrite) {
+      try {
+        await act.mutateAsync({ id: created.id, action: "submit" });
+        if (canApprove) {
+          await act.mutateAsync({ id: created.id, action: "approve" });
+          await act.mutateAsync({ id: created.id, action: "send" });
+          autoSent = true;
+        }
+      } catch {
+        // Already at the furthest status this user/org state allows — fine.
+      }
+    }
     toast({
-      title: `Purchase order ${created.poNumber} created as draft`,
+      title: autoSent
+        ? `Purchase order ${created.poNumber} created and sent to the supplier`
+        : `Purchase order ${created.poNumber} created as draft`,
       variant: "success",
     });
     closeForm();
@@ -129,7 +160,7 @@ export function PurchaseOrdersView() {
       search={{
         value: c.search,
         onChange: c.setSearch,
-        placeholder: "Search by PO number or supplier...",
+        placeholder: "Search by PO number, supplier or MR number...",
       }}
       filters={
         <div className="w-full sm:w-52">
@@ -150,6 +181,26 @@ export function PurchaseOrdersView() {
           </Select>
         </div>
       }
+      summary={
+        mrFilterId ? (
+          <div className="flex items-center gap-2 text-theme-sm">
+            <StatusBadge
+              label={`Linked to MR ${mrFilterNumber ?? mrFilterId}`}
+              colorToken={scmStatusToken("DRAFT")}
+            />
+            <button
+              type="button"
+              className="text-theme-xs text-brand-600 underline"
+              onClick={() => {
+                router.replace("/scm/procurement/purchase-orders");
+                c.setPage(1);
+              }}
+            >
+              Show all POs
+            </button>
+          </div>
+        ) : undefined
+      }
       hasActiveFilters={Boolean(c.search || status)}
       onResetFilters={() => {
         c.setSearch("");
@@ -161,7 +212,20 @@ export function PurchaseOrdersView() {
         {
           header: "PO #",
           cell: (p) => (
-            <span className="font-mono text-theme-xs">{p.poNumber}</span>
+            <div className="flex flex-col">
+              <span className="font-mono text-theme-xs">{p.poNumber}</span>
+              {p.requisitionNumber || p.requisition ? (
+                <span className="text-theme-xs text-gray-500">
+                  MR:{" "}
+                  <span className="font-mono">
+                    {p.requisition?.requisitionNumber ?? p.requisitionNumber}
+                  </span>
+                  {p.requisition?.requestedByName
+                    ? ` · ${p.requisition.requestedByName}`
+                    : ""}
+                </span>
+              ) : null}
+            </div>
           ),
         },
         { header: "Supplier", cell: (p) => p.vendorNameSnapshot },
@@ -252,6 +316,17 @@ export function PurchaseOrdersView() {
                   Close
                 </Button>
               ) : null}
+              {canWrite ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Delete"
+                  aria-label="Delete purchase order"
+                  onClick={() => setDeleting(p)}
+                >
+                  <Trash2 className="h-4 w-4 text-error-600" />
+                </Button>
+              ) : null}
             </div>
           ),
         },
@@ -283,6 +358,32 @@ export function PurchaseOrdersView() {
           setConfirm(null);
         }}
       />
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onClose={() => setDeleting(null)}
+        title="Delete purchase order?"
+        description={`Permanently delete ${deleting?.poNumber ?? ""}? Every goods receipt received against it is deleted too and its stock is reversed. This cannot be undone.`}
+        confirmText="Delete PO"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!deleting) return;
+          try {
+            const result = await remove.mutateAsync(deleting.id);
+            toast({
+              title: result.receiptsRemoved
+                ? `Purchase order and ${result.receiptsRemoved} goods receipt(s) deleted`
+                : "Purchase order deleted",
+              variant: "success",
+            });
+          } catch (err) {
+            toast({
+              title: errorText(err, "Failed to delete purchase order"),
+              variant: "error",
+            });
+          }
+          setDeleting(null);
+        }}
+      />
       <ScmDetailDialog
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
@@ -295,6 +396,11 @@ export function PurchaseOrdersView() {
           ["PO date", formatDate(viewing?.poDate)],
           ["Expected delivery", formatDate(viewing?.expectedDeliveryDate)],
           ["Payment terms", viewing?.paymentTerms],
+          [
+            "Source requisition",
+            viewing?.requisition?.requisitionNumber ??
+              viewing?.requisitionNumber,
+          ],
           ["Quotation", viewing?.quotation?.quotationNumber],
           ["RFQ", viewing?.rfq?.rfqNumber],
           ["Subtotal", formatMoney(viewing?.subtotal, viewing?.currency)],
@@ -335,7 +441,31 @@ export function PurchaseOrdersView() {
             cell: (i) => formatMoney(i.total, viewing?.currency),
           },
         ]}
-      />
+      >
+        {viewingMr.data ? (
+          <div className="flex flex-col gap-1">
+            <div className="text-theme-sm font-medium">
+              Requisition coverage ({viewingMr.data.requisitionNumber}, all its
+              POs)
+            </div>
+            {buildMrCoverage(viewingMr.data).lines.map((l) => (
+              <div
+                key={l.productId}
+                className="flex justify-between text-theme-xs"
+              >
+                <span>{l.productName}</span>
+                <span className="font-mono">
+                  req {formatQty(l.requested)} · ordered {formatQty(l.ordered)}{" "}
+                  · received {formatQty(l.received)}
+                  {l.toOrder > 0
+                    ? ` · ${formatQty(l.toOrder)} still to order`
+                    : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </ScmDetailDialog>
     </ScmListView>
   );
 }

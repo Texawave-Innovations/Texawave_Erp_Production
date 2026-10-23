@@ -212,4 +212,21 @@ export class QualityService {
   listActivity(query: QueryActivityDto) {
     return this.activity.list(QUALITY_ENTITY_TYPES, query, query.q);
   }
+
+  async removeDefect(id: number) {
+    const ok = await this.masters.removeDefect(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Defect", id);
+  }
+  async removeTemplate(id: number) {
+    const ok = await this.masters.removeTemplate(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Template", id);
+  }
+  async removeInspection(id: number) {
+    const ok = await this.inspections.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Inspection", id);
+  }
+  async removeQuarantine(id: number) {
+    const ok = await this.quarantine.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Quarantine record", id);
+  }
 }

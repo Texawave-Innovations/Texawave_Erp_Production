@@ -1,6 +1,10 @@
 "use client";
 
-import type { WarehouseMovement } from "@texawave-erp/api-types";
+import type {
+  ScmLocation,
+  ScmWarehouse,
+  WarehouseMovement,
+} from "@texawave-erp/api-types";
 import { MOVEMENT_STATUSES } from "@texawave-erp/api-types";
 import {
   Button,
@@ -14,6 +18,7 @@ import {
 import { ArrowLeftRight, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
 import {
   formatDateTime,
   formatQty,
@@ -25,10 +30,12 @@ import {
   useLocationOptions,
   useWarehouseOptions,
 } from "../../shared/masters";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateMovement,
+  useDeleteMovement,
   useMovement,
   useMovementAction,
   useMovements,
@@ -48,7 +55,56 @@ const blankLine = (): LineDraft => ({
   destinationLocationId: "",
 });
 
-/** Legacy `ScmWarehouseMovements`: bin-to-bin transfers inside one warehouse. */
+/** Location cell: code, then its name, its rack (via the real parent link)
+ * and its warehouse (name + code). */
+function LocationCell({
+  locationId,
+  locations,
+  warehouses,
+}: {
+  locationId: number | null | undefined;
+  locations: ReadonlyMap<number, ScmLocation>;
+  warehouses: ReadonlyMap<number, ScmWarehouse>;
+}) {
+  const loc = locationId ? locations.get(locationId) : undefined;
+  if (!loc) return <span className="font-mono text-theme-xs">–</span>;
+  let rack = (loc.locationType ?? "BIN") === "RACK" ? loc : undefined;
+  for (
+    let cur = loc, guard = 0;
+    !rack && cur.parentLocationId && guard < 6;
+    guard++
+  ) {
+    const parent = locations.get(cur.parentLocationId);
+    if (!parent) break;
+    if ((parent.locationType ?? "BIN") === "RACK") rack = parent;
+    cur = parent;
+  }
+  const rackText = rack
+    ? `Rack ${rack.locationName ?? rack.binCode}`
+    : loc.rack
+      ? `Rack ${loc.rack}`
+      : "";
+  const wh = warehouses.get(loc.warehouseId);
+  return (
+    <div className="flex flex-col">
+      <span className="font-mono text-theme-xs">
+        {loc.locationCode ?? loc.binCode}
+      </span>
+      {loc.locationName ? (
+        <span className="text-theme-xs text-gray-500">{loc.locationName}</span>
+      ) : null}
+      {rackText ? (
+        <span className="text-theme-xs text-gray-500">{rackText}</span>
+      ) : null}
+      <span className="text-theme-xs text-gray-500">
+        {wh ? `${wh.name} (${wh.code})` : "Unknown Warehouse"}
+      </span>
+    </div>
+  );
+}
+
+/** Legacy `ScmWarehouseMovements` (renamed Stock Movements): bin-to-bin
+ * transfers inside one warehouse. */
 export function MovementsView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
@@ -56,8 +112,18 @@ export function MovementsView() {
   const [viewingId, setViewingId] = useState<number | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.warehouse.write");
+  const deletingRowRemove = useDeleteMovement();
+  const [deletingRow, setDeletingRow] = useState<WarehouseMovement | null>(
+    null,
+  );
   const create = useCreateMovement();
   const detail = useMovement(viewingId);
+  const allLocations = useLocationOptions();
+  const allWarehouses = useWarehouseOptions();
+  const locationById = new Map((allLocations.data ?? []).map((l) => [l.id, l]));
+  const warehouseById = new Map(
+    (allWarehouses.data ?? []).map((w) => [w.id, w]),
+  );
   const query = useMovements({
     page: c.page,
     limit: c.pageSize,
@@ -67,8 +133,8 @@ export function MovementsView() {
 
   return (
     <ScmListView<WarehouseMovement>
-      title="Internal Movements"
-      description="Move stock between bins, shelves, racks or zones in the same warehouse."
+      title="Stock Movements"
+      description="Move stock between bins or racks. No ledger entry is posted — total on-hand is unchanged, only the location changes."
       icon={ArrowLeftRight}
       noun="movements"
       readPermission="scm.warehouse.read"
@@ -119,13 +185,66 @@ export function MovementsView() {
       emptyDescription="Request a movement to relocate stock inside a warehouse."
       columns={[
         {
-          header: "Movement #",
+          header: "Movement",
           cell: (r) => (
-            <span className="font-mono text-theme-xs">{r.movementNumber}</span>
+            <div className="flex flex-col gap-1">
+              {/* Every line has both a source and a destination bin, so a
+                  movement here is always an exchange between bins. */}
+              <StatusBadge label="Exchanged" colorToken="brand" />
+              <span className="font-mono text-[11px] text-gray-500">
+                {r.movementNumber}
+              </span>
+            </div>
           ),
         },
-        { header: "Warehouse", cell: (r) => r.warehouse?.name ?? "—" },
-        { header: "Lines", align: "right", cell: (r) => r.items.length },
+        ...(SCM_CLIENT_DEMO
+          ? []
+          : [
+              {
+                header: "Warehouse",
+                cell: (r: WarehouseMovement) => r.warehouse?.name ?? "—",
+              },
+            ]),
+        {
+          header: "Product",
+          cell: (r) => (
+            <div className="flex flex-col">
+              <span className="font-medium">
+                {r.items[0]?.productName ?? "—"}
+              </span>
+              <span className="font-mono text-theme-xs text-gray-500">
+                {r.items[0]?.productCode}
+                {r.items.length > 1 ? ` +${r.items.length - 1} more` : ""}
+              </span>
+            </div>
+          ),
+        },
+        {
+          header: "Source",
+          cell: (r) => (
+            <LocationCell
+              locationId={r.items[0]?.sourceLocationId}
+              locations={locationById}
+              warehouses={warehouseById}
+            />
+          ),
+        },
+        {
+          header: "Destination",
+          cell: (r) => (
+            <LocationCell
+              locationId={r.items[0]?.destinationLocationId}
+              locations={locationById}
+              warehouses={warehouseById}
+            />
+          ),
+        },
+        {
+          header: "Quantity",
+          align: "right",
+          cell: (r) =>
+            formatQty(r.items.reduce((sum, i) => sum + Number(i.quantity), 0)),
+        },
         {
           header: "Status",
           cell: (r) => (
@@ -136,8 +255,37 @@ export function MovementsView() {
           ),
         },
         { header: "Created", cell: (r) => formatDateTime(r.createdAt) },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete movement"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<WarehouseMovement>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete movement?"
+        describe={(r) =>
+          `Permanently delete ${r.movementNumber}? This cannot be undone. A completed movement has already moved stock between bins and cannot be deleted.`
+        }
+        confirmText="Delete movement"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Movement deleted"
+        errorFallback="Failed to delete movement"
+      />
       <CreateMovementForm
         open={formOpen}
         onClose={() => setFormOpen(false)}

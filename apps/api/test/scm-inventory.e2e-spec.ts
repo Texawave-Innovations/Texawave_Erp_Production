@@ -214,18 +214,26 @@ describe("scm products, warehouses and inventory (e2e)", () => {
     expect(data<{ locationCode: string }>(rackRes).locationCode).toMatch(
       /-Z01-R01$/,
     );
-    // a BIN may not sit directly in a zone, and a RACK needs a parent
+    // a BIN may not sit directly in a zone
     await post(tokenAll, "/scm/warehouse-locations", {
       warehouseId: whA.id,
       locationType: "BIN",
       parentLocationId: zone.id,
       code: "b01",
     }).expect(422);
+    // a RACK's parent is optional — it may sit directly in the warehouse
     await post(tokenAll, "/scm/warehouse-locations", {
       warehouseId: whA.id,
       locationType: "RACK",
       code: "r02",
-    }).expect(422);
+    }).expect(201);
+    // ...but a RACK may only nest inside a ZONE, never e.g. another RACK
+    await post(tokenAll, "/scm/warehouse-locations", {
+      warehouseId: whA.id,
+      locationType: "RACK",
+      parentLocationId: zone.id,
+      code: "r03",
+    }).expect(201);
     // duplicate code in the same warehouse
     await post(tokenAll, "/scm/warehouse-locations", {
       warehouseId: whA.id,

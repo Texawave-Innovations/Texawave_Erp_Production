@@ -44,6 +44,7 @@ import {
   apiErrorMessage,
   formatDate,
   formatRupees,
+  printOfferLetter,
   useDebouncedValue,
 } from "../utils";
 import type { RevisionFormValues } from "../schema";
@@ -200,6 +201,8 @@ function RevisionWorkspace({
 
   const [formState, setFormState] = useState<RevisionFormValues | null>(null);
   const [formExtra, setFormExtra] = useState<RevisionFormExtra | null>(null);
+  const [signatureImageUrl, setSignatureImageUrl] = useState<string>("");
+  const [sealImageUrl, setSealImageUrl] = useState<string>("");
 
   const previewData: RevisionLetterDocumentData = useMemo(() => {
     const empName =
@@ -216,7 +219,7 @@ function RevisionWorkspace({
     const currCtc = parseFloat(formExtra?.currentCtc || "1000000") || 1000000;
 
     return {
-      ...(editLetter?.documentNo ? { documentNo: editLetter.documentNo } : {}),
+      documentNo: formExtra?.documentNo || editLetter?.documentNo || "TW/HR/REV/26-27/001",
       employeeName: empName,
       employeeCode: empCode,
       designation: desig,
@@ -240,8 +243,10 @@ function RevisionWorkspace({
       },
       signatoryName: formState?.signatoryName || "Amanullah Khan",
       signatoryDesignation: formState?.signatoryDesignation || "Co-Founder",
+      signatureImageUrl: signatureImageUrl || undefined,
+      sealImageUrl: sealImageUrl || undefined,
     };
-  }, [employee, editLetter, formState, formExtra]);
+  }, [employee, editLetter, formState, formExtra, signatureImageUrl, sealImageUrl]);
 
   async function handleIssue(input: CreateRevisionLetterInput) {
     await createMutation.mutateAsync(input);
@@ -280,7 +285,7 @@ function RevisionWorkspace({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
         {/* Left Section — Revision details and configuration */}
-        <div className="lg:col-span-6 xl:col-span-5">
+        <div className="lg:col-span-6 xl:col-span-5 print:hidden">
           <Card className="p-5 md:p-6 shadow-theme-xs">
             <div className="mb-5 border-b border-gray-200 pb-3 dark:border-gray-800">
               <h3 className="text-theme-base font-bold text-gray-900 dark:text-white/90">
@@ -300,6 +305,10 @@ function RevisionWorkspace({
                 onCancel={onBack}
                 submitLabel="Save changes"
                 onValuesChange={handleValuesChange}
+                signatureImageUrl={signatureImageUrl}
+                sealImageUrl={sealImageUrl}
+                onSignatureChange={setSignatureImageUrl}
+                onSealChange={setSealImageUrl}
               />
             ) : employee ? (
               <RevisionForm
@@ -309,15 +318,19 @@ function RevisionWorkspace({
                 onCancel={onBack}
                 submitLabel="Issue revision letter"
                 onValuesChange={handleValuesChange}
+                signatureImageUrl={signatureImageUrl}
+                sealImageUrl={sealImageUrl}
+                onSignatureChange={setSignatureImageUrl}
+                onSealChange={setSealImageUrl}
               />
             ) : null}
           </Card>
         </div>
 
         {/* Right Section — Live output preview */}
-        <div className="lg:col-span-6 xl:col-span-7 sticky top-6">
-          <Card className="p-4 md:p-6 shadow-theme-xs bg-gray-50/50 dark:bg-gray-900/40">
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">
+        <div className="lg:col-span-6 xl:col-span-7 sticky top-6 print:static print:w-full print:block">
+          <Card className="p-4 md:p-6 shadow-theme-xs bg-gray-50/50 dark:bg-gray-900/40 print:p-0 print:border-none print:shadow-none print:bg-white">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-3 dark:border-gray-800 print:hidden">
               <div>
                 <h3 className="text-theme-base font-bold text-gray-900 dark:text-white/90">
                   Document Preview
@@ -330,18 +343,18 @@ function RevisionWorkspace({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 self-start sm:self-auto"
+                onClick={() => printOfferLetter("revision-letter-printable-content")}
+                className="inline-flex items-center gap-1.5 self-start sm:self-auto text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
               >
                 <Download className="h-4 w-4" />
                 Download PDF
               </Button>
             </div>
 
-            <div className="max-h-[calc(100vh-16rem)] overflow-y-auto rounded-xl p-1">
+            <div className="max-h-[calc(100vh-16rem)] overflow-y-auto rounded-xl p-1 print:max-h-none print:overflow-visible print:p-0">
               <RevisionLetterDocument
                 data={previewData}
-                onPrint={() => window.print()}
+                onPrint={() => printOfferLetter("revision-letter-printable-content")}
               />
             </div>
           </Card>
@@ -545,7 +558,7 @@ function RevisionHistory({
               {
                 header: "Document no.",
                 cell: (item) => (
-                  <span className="font-mono text-theme-xs font-bold text-gray-800 dark:text-gray-200">
+                  <span className="text-theme-xs font-bold text-gray-800 dark:text-gray-200">
                     {item.documentNo}
                   </span>
                 ),
@@ -557,7 +570,7 @@ function RevisionHistory({
                     <span className="font-semibold text-gray-900 dark:text-white/90">
                       {item.employeeName}
                     </span>
-                    <span className="font-mono text-theme-xs text-gray-500">
+                    <span className="text-theme-xs text-gray-500 font-medium">
                       {item.employee.employeeCode}
                     </span>
                   </div>
@@ -643,7 +656,7 @@ function RevisionHistory({
         open={detailId !== null}
         onClose={() => setDetailId(null)}
         title="Revision letter details"
-        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        size="4xl"
       >
         {detail.isPending ? (
           <Skeleton className="h-40 w-full" />
@@ -666,7 +679,7 @@ function RevisionHistory({
                 signatoryName: detail.data.signatoryName,
                 signatoryDesignation: detail.data.signatoryDesignation,
               }}
-              onPrint={() => window.print()}
+              onPrint={() => printOfferLetter("revision-letter-printable-content")}
             />
           </div>
         )}

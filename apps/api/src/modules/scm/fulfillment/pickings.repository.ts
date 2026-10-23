@@ -251,4 +251,30 @@ export class PickingsRepository {
       return tx.scmPicking.findUniqueOrThrow({ where: { id }, include });
     });
   }
+
+  /** A pick list a packing already references cannot be deleted. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmPicking.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      const packings = await tx.scmPacking.count({ where: { pickingId: id } });
+      if (packings > 0) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: a packing already references this pick list.",
+          "PICKING_HAS_PACKING",
+        );
+      }
+      await tx.scmPicking.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_picking",
+        entityId: id,
+        action: "delete",
+        before: { pickNumber: row.pickNumber, status: row.status, by: actorId },
+      });
+      return true;
+    });
+  }
 }

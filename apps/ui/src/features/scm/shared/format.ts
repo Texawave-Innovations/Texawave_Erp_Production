@@ -1,8 +1,8 @@
 type Token = "success" | "gray" | "warning" | "error" | "brand";
 
 /** `PARTIALLY_RECEIVED` -> `Partially Received` (legacy `formatStatusLabel`). */
-export function formatStatusLabel(status: string): string {
-  return status
+export function formatStatusLabel(status?: string | null): string {
+  return (status ?? "")
     .toLowerCase()
     .split("_")
     .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))

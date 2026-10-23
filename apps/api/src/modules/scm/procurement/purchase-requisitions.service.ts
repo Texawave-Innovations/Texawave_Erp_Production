@@ -148,4 +148,9 @@ export class PurchaseRequisitionsService {
   cancel(id: number) {
     return this.move(id, ["DRAFT", "SUBMITTED"], "CANCELLED");
   }
+
+  async remove(id: number) {
+    const ok = await this.repository.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Purchase requisition", id);
+  }
 }

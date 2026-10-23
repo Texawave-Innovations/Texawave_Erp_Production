@@ -2,7 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceConflictException,
+} from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
@@ -23,6 +26,11 @@ type Row = Prisma.ScmProductGetPayload<object>;
 
 function snapshot(r: Row) {
   return {
+    barcode: r.barcode,
+    warehouseId: r.warehouseId,
+    binLocationId: r.binLocationId,
+    expiryDate: r.expiryDate,
+    expiryNotApplicable: r.expiryNotApplicable,
     productCode: r.productCode,
     name: r.name,
     uom: r.uom,
@@ -130,6 +138,7 @@ export class ScmProductsRepository {
           serialTracked: dto.serialTracked ?? false,
           description: text(dto.description, null),
           isActive: dto.isActive ?? true,
+          ...(await this.placementData(tx, scope, null, dto)),
           createdBy: actorId,
           updatedBy: actorId,
         },
@@ -173,6 +182,7 @@ export class ScmProductsRepository {
           serialTracked: dto.serialTracked ?? before.serialTracked,
           description: text(dto.description, before.description),
           isActive: dto.isActive ?? before.isActive,
+          ...(await this.placementData(tx, scope, before, dto, id)),
           updatedBy: actorId,
         },
       });
@@ -206,7 +216,13 @@ export class ScmProductsRepository {
       }
       const after = await tx.scmProduct.update({
         where: { id },
-        data: { deletedAt: new Date(), isActive: false, updatedBy: actorId },
+        // The barcode is released so the value can be reused.
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
+          barcode: null,
+          updatedBy: actorId,
+        },
       });
       await this.audit.write(tx, {
         entityType: ENTITY_TYPE,
@@ -217,5 +233,154 @@ export class ScmProductsRepository {
       });
       return after;
     });
+  }
+
+  /** Barcode, warehouse / default-bin and expiry columns for a create/update.
+   * Re-validates against fresh data so a stale client can never persist a
+   * cross-warehouse bin or a duplicate barcode. */
+  private async placementData(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    before: Row | null,
+    dto: CreateScmProductDto | UpdateScmProductDto,
+    selfId?: number,
+  ) {
+    // ---- barcode (unique among live products; the code is also a valid barcode)
+    let barcode = before?.barcode ?? null;
+    let barcodeCreatedAt = before?.barcodeCreatedAt ?? null;
+    if (dto.barcode !== undefined) {
+      barcode = dto.barcode?.trim() || null;
+      if (barcode) {
+        const clash = await tx.scmProduct.findFirst({
+          where: {
+            organizationId: scope.organizationId,
+            deletedAt: null,
+            ...(selfId ? { id: { not: selfId } } : {}),
+            OR: [
+              { barcode: { equals: barcode, mode: "insensitive" } },
+              {
+                barcode: null,
+                productCode: { equals: barcode, mode: "insensitive" },
+              },
+            ],
+          },
+          select: { name: true, productCode: true },
+        });
+        if (clash) {
+          throw new ResourceConflictException(
+            `Barcode already assigned to "${clash.name}" (${clash.productCode})`,
+          );
+        }
+        barcodeCreatedAt = barcodeCreatedAt ?? new Date();
+      } else {
+        barcodeCreatedAt = null;
+      }
+    }
+
+    // ---- warehouse + default bin
+    let warehouseId = before?.warehouseId ?? null;
+    let binLocationId = before?.binLocationId ?? null;
+    if (dto.warehouseId !== undefined) warehouseId = dto.warehouseId;
+    if (dto.binLocationId !== undefined) binLocationId = dto.binLocationId;
+    if (warehouseId !== null) {
+      const wh = await tx.scmWarehouse.findFirst({
+        where: tenantWhere(scope, { id: warehouseId, deletedAt: null }),
+        select: { id: true },
+      });
+      if (!wh) {
+        throw new BusinessRuleViolationException(
+          "The selected warehouse does not exist",
+          "UNKNOWN_WAREHOUSE",
+        );
+      }
+    }
+    if (
+      dto.warehouseId !== undefined &&
+      dto.binLocationId === undefined &&
+      binLocationId !== null
+    ) {
+      // Switching warehouse drops a default bin that sits in the old one.
+      const current = await tx.scmWarehouseLocation.findFirst({
+        where: { id: binLocationId },
+        select: { warehouseId: true },
+      });
+      if (current && current.warehouseId !== warehouseId) binLocationId = null;
+    }
+    if (binLocationId !== null) {
+      await this.assertBinInWarehouse(tx, scope, binLocationId, warehouseId);
+    }
+
+    // ---- expiry
+    let expiryDate = before?.expiryDate ?? null;
+    let expiryNotApplicable = before?.expiryNotApplicable ?? false;
+    if (dto.expiryNotApplicable !== undefined)
+      expiryNotApplicable = dto.expiryNotApplicable;
+    if (dto.expiryDate !== undefined) {
+      expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : null;
+    }
+    if (expiryNotApplicable) expiryDate = null;
+
+    return {
+      barcode,
+      barcodeCreatedAt,
+      warehouseId,
+      binLocationId,
+      expiryDate,
+      expiryNotApplicable,
+    };
+  }
+
+  /** The bin must exist, be active and belong to the chosen warehouse, and
+   * so must every ancestor (a Rack -> Bin chain carries one warehouse). */
+  private async assertBinInWarehouse(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    binLocationId: number,
+    warehouseId: number | null,
+  ) {
+    if (warehouseId === null) {
+      throw new BusinessRuleViolationException(
+        "Select a warehouse before assigning a bin",
+        "NO_WAREHOUSE",
+      );
+    }
+    const loc = await tx.scmWarehouseLocation.findFirst({
+      where: tenantWhere(scope, { id: binLocationId, deletedAt: null }),
+    });
+    if (!loc) {
+      throw new BusinessRuleViolationException(
+        "The selected bin location does not exist",
+        "BIN_NOT_FOUND",
+      );
+    }
+    const name = loc.locationCode || loc.binCode;
+    if (loc.warehouseId !== warehouseId) {
+      throw new BusinessRuleViolationException(
+        `Location "${name}" belongs to a different warehouse than the one selected`,
+        "BIN_WAREHOUSE_MISMATCH",
+      );
+    }
+    if (loc.status === "Inactive") {
+      throw new BusinessRuleViolationException(
+        `Location "${name}" is inactive`,
+        "BIN_INACTIVE",
+      );
+    }
+    const seen = new Set<number>([loc.id]);
+    let parentId = loc.parentLocationId;
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = await tx.scmWarehouseLocation.findFirst({
+        where: { id: parentId },
+      });
+      if (!parent) break;
+      if (parent.warehouseId !== warehouseId) {
+        throw new BusinessRuleViolationException(
+          `Location "${name}" sits under a rack/zone from a different warehouse — inconsistent location data`,
+          "PARENT_WAREHOUSE_MISMATCH",
+        );
+      }
+      parentId = parent.parentLocationId;
+    }
   }
 }

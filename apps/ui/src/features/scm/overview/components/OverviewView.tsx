@@ -30,8 +30,10 @@ import {
   buildFlowNodes,
   SupplyChainFlow,
 } from "../flow/SupplyChainFlow";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
 import { useScmOverview } from "../hooks";
 import { AdvancedScmSummary } from "./AdvancedScmSummary";
+import { ClientDashboardView } from "./ClientDashboardView";
 
 interface QuickAction {
   id: string;
@@ -43,7 +45,7 @@ interface QuickAction {
 const QUICK_ACTIONS: QuickAction[] = [
   {
     id: "pr",
-    label: "Create Purchase Requisition",
+    label: "Create Material Requisition",
     icon: FileText,
     path: "/scm/procurement/requisitions",
   },
@@ -92,6 +94,10 @@ type FlowView = "flow" | "list";
  * animated arrows, with live KPI tiles), a list view of the same stages, and
  * one-click quick actions. */
 export function OverviewView() {
+  return SCM_CLIENT_DEMO ? <ClientDashboardView /> : <ScmFullOverviewView />;
+}
+
+function ScmFullOverviewView() {
   const query = useScmOverview();
   const [view, setView] = useState<FlowView>("flow");
 

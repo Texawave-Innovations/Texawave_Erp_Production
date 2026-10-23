@@ -4,12 +4,14 @@ import { TenantContextService } from "../../../platform/tenancy/tenant-context.s
 import { AssistantRepository } from "./assistant.repository.js";
 import { buildReply, detectIntent } from "./assistant.intents.js";
 import { OverviewRepository } from "./overview.repository.js";
+import { ScanRepository } from "./scan.repository.js";
 
 @Injectable()
 export class OverviewService {
   constructor(
     private readonly repo: OverviewRepository,
     private readonly assistant: AssistantRepository,
+    private readonly scanner: ScanRepository,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -27,6 +29,14 @@ export class OverviewService {
     const hit = await this.repo.resolveCode(this.scope, code);
     if (!hit) throw new ResourceNotFoundException("Code", code);
     return hit;
+  }
+  /** Full scan result (fields, view link, actions, alternatives). */
+  scan(code: string) {
+    return this.scanner.scan(this.scope, code);
+  }
+  /** Products with barcode, bin and expiry for the Barcode Utilities table. */
+  barcodeProducts(q: string | undefined) {
+    return this.scanner.productUtilities(this.scope, q);
   }
   controlTower() {
     return this.repo.controlTowerExceptions(this.scope);

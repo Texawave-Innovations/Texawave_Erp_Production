@@ -248,9 +248,40 @@ export class GoodsReceiptsRepository {
       });
 
       for (const [i, p] of prepared.entries()) {
-        if (p.accepted <= 0) continue;
         const grnItem = grn.items[i]!;
         const unitCost = p.line.unitCost ?? Number(p.item.unitPrice);
+
+        // Units rejected at the dock were physically received, so they must
+        // show up in inventory as Rejected / Bad stock rather than only on
+        // the GRN: receive them, then write them straight off to the damaged
+        // bucket (net on-hand effect is zero). They stay open on the PO.
+        if (p.rejected > 0) {
+          const rejectBase = {
+            organizationId: scope.organizationId,
+            productId: p.item.productId,
+            warehouseId: po.warehouseId,
+            referenceType: "GRN",
+            referenceId: grn.id,
+            referenceNumber: grnNumber,
+            notes: `Rejected at receipt (${grnNumber})`,
+            createdBy: actorId,
+          };
+          await this.stock.post(tx, {
+            ...rejectBase,
+            transactionType: "PURCHASE_RECEIPT",
+            quantityIn: p.rejected,
+            unitCost,
+            idempotencyKey: `GRN:${grn.id}:${grnItem.id}:REJECT_IN`,
+          });
+          await this.stock.post(tx, {
+            ...rejectBase,
+            transactionType: "DAMAGE",
+            quantityOut: p.rejected,
+            idempotencyKey: `GRN:${grn.id}:${grnItem.id}:REJECT_DAMAGE`,
+          });
+        }
+
+        if (p.accepted <= 0) continue;
 
         await tx.scmPurchaseOrderItem.update({
           where: { id: p.item.id },
@@ -351,5 +382,125 @@ export class GoodsReceiptsRepository {
         include,
       });
     });
+  }
+
+  /** Deletes a goods receipt and unwinds what it did. The stock ledger is
+   * append-only, so instead of deleting its entries the accepted quantity is
+   * taken back out with an offsetting adjustment (refused if the stock has
+   * since been used), the PO's received quantity / incoming are restored and
+   * the PO status is recomputed. Receipts tied to a batch or serial numbers
+   * are refused: their lot quantities are maintained separately. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction((tx) =>
+      this.removeInTx(tx, scope, id, actorId),
+    );
+  }
+
+  /** Same as `remove`, inside the caller's transaction (PO delete cascade). */
+  async removeInTx(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    id: number,
+    actorId: number,
+  ): Promise<boolean> {
+    const grn = await tx.scmGoodsReceipt.findFirst({
+      where: tenantWhere(scope, { id }),
+      include: { items: true, bills: { select: { id: true } } },
+    });
+    if (!grn) return false;
+    if (grn.bills.length > 0) {
+      return fail(
+        `Cannot delete ${grn.grnNumber} — ${grn.bills.length} supplier bill(s) reference this receipt.`,
+        "GRN_HAS_BILLS",
+      );
+    }
+    if (
+      grn.items.some(
+        (it) =>
+          it.acceptedQuantity.greaterThan(0) &&
+          (it.batchNumber || it.serialNumbers.length > 0),
+      )
+    ) {
+      return fail(
+        `Cannot delete ${grn.grnNumber}: it is tied to a batch/serial. Post an offsetting adjustment instead.`,
+        "GRN_BATCH_SERIAL",
+      );
+    }
+    await tx.$queryRaw`SELECT id FROM scm.purchase_orders WHERE id = ${grn.purchaseOrderId} AND organization_id = ${scope.organizationId} FOR UPDATE`;
+    const po = await tx.scmPurchaseOrder.findFirstOrThrow({
+      where: { id: grn.purchaseOrderId },
+    });
+
+    for (const it of grn.items) {
+      if (it.rejectedQuantity.greaterThan(0)) {
+        await this.stock.applyDamagedDelta(
+          tx,
+          scope.organizationId,
+          it.productId,
+          grn.warehouseId,
+          -Number(it.rejectedQuantity),
+        );
+      }
+      if (it.acceptedQuantity.lessThanOrEqualTo(0)) continue;
+      const accepted = Number(it.acceptedQuantity);
+      await this.stock.post(tx, {
+        organizationId: scope.organizationId,
+        productId: it.productId,
+        warehouseId: grn.warehouseId,
+        locationId: grn.locationId,
+        transactionType: "ADJUSTMENT_OUT",
+        referenceType: "GRN_REVERSAL",
+        referenceId: grn.id,
+        referenceNumber: grn.grnNumber,
+        quantityOut: accepted,
+        notes: `Reversal: ${grn.grnNumber} deleted`,
+        createdBy: actorId,
+        idempotencyKey: `GRN_DELETE:${grn.id}:${it.id}`,
+      });
+      await tx.scmPurchaseOrderItem.update({
+        where: { id: it.purchaseOrderItemId },
+        data: { receivedQuantity: { decrement: accepted } },
+      });
+      if (po.incomingApplied) {
+        await this.stock.applyIncomingDelta(
+          tx,
+          scope.organizationId,
+          it.productId,
+          grn.warehouseId,
+          accepted,
+        );
+      }
+    }
+
+    await tx.scmGoodsReceipt.delete({ where: { id } });
+
+    const items = await tx.scmPurchaseOrderItem.findMany({
+      where: { purchaseOrderId: po.id },
+    });
+    let status = po.status;
+    if (po.status === "RECEIVED" || po.status === "PARTIALLY_RECEIVED") {
+      status = items.every((i) =>
+        i.quantity.lessThanOrEqualTo(i.receivedQuantity),
+      )
+        ? "RECEIVED"
+        : items.some((i) => i.receivedQuantity.greaterThan(0))
+          ? "PARTIALLY_RECEIVED"
+          : "SENT";
+      if (status !== po.status) {
+        await tx.scmPurchaseOrder.update({
+          where: { id: po.id },
+          data: { status, updatedBy: actorId },
+        });
+      }
+    }
+    await this.audit.write(tx, {
+      entityType: "scm_goods_receipt",
+      entityId: id,
+      action: "delete",
+      before: { grnNumber: grn.grnNumber, purchaseOrder: po.poNumber },
+      after: { poStatus: status },
+    });
+    return true;
   }
 }

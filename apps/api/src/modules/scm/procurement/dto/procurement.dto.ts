@@ -170,7 +170,8 @@ export class RejectRequisitionDto {
 
 export class QueryRequisitionDto extends PaginationDto {
   @ApiPropertyOptional({
-    description: "Matches number/requester/purpose/department",
+    description:
+      "Matches number/requester/purpose/department, or a linked PO's number/supplier",
   })
   @IsOptional()
   @Trim()
@@ -452,6 +453,15 @@ export class CreatePurchaseOrderDto {
   @IsInt()
   quotationId?: number;
 
+  @ApiPropertyOptional({
+    description:
+      "Material Requisition this PO is raised against. It flips to CONVERTED once linked.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  requisitionId?: number;
+
   @ApiPropertyOptional({ description: "Required unless quotationId is given" })
   @IsOptional()
   @Type(() => Number)
@@ -540,6 +550,12 @@ export class QueryPurchaseOrderDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   supplierId?: number;
+
+  @ApiPropertyOptional({ description: "Only POs raised from this requisition" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  requisitionId?: number;
 
   @ApiPropertyOptional({
     description: "Only POs a GRN can be received against",

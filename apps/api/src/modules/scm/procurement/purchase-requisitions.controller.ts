@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
@@ -77,5 +79,12 @@ export class PurchaseRequisitionsController {
   @RequirePermission("scm.procurement.write")
   cancel(@Param("id", ParseIntPipe) id: number) {
     return this.requisitions.cancel(id);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.procurement.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.requisitions.remove(id);
   }
 }

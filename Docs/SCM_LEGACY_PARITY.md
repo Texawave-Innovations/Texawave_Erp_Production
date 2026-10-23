@@ -786,3 +786,38 @@ not something this audit is authorized to begin.
   page. One addition over legacy: a supplier-bills intent. No external AI key is needed.
 - **Camera barcode scanner: intentionally not built.** The Barcode page resolves a typed or handheld-scanned
   code.
+- **Legacy post-snapshot diff (`3381821..HEAD`, 97 files): ported** (2026-10-20). Everything legacy changed
+  after Production's reference snapshot was carried over, module by module: Procurement (PO↔MR link,
+  requisition mapping), Inventory (product barcode/warehouse/bin/expiry fields, bin-assignment rules),
+  Warehouses (locations tree, force-delete override), Products (placement + `assertBinInWarehouse`),
+  Suppliers/Returns/Logistics/Fulfillment/Quality (non-delete UI diffs; delete features for carriers,
+  shipments, returns, defects, inspections, quarantine records and templates were already present in
+  Production's own consolidated list views, so nothing further was needed there), and a full self-written
+  Barcode & Scanning feature (Code128/EAN-13/QR encoders validated against `python-barcode`/`python-qrcode`,
+  no new dependency) — scanner, barcode utilities table, scan history, and a product barcode card on the
+  Inventory product detail page plus QR labels on Locations/Warehouses/Stock View rows.
+  - **Shared infra added:** `ScmPageErrorBoundary` (wraps every SCM page, keyed by pathname),
+    `ScmGlobalSearch` (an SCM-scoped quick search over `SCM_CATEGORIES`, in the SCM header rather than the
+    shared cross-module top bar), and `ScmOnboardingTour` (a replayable product tour, auto-opens once per
+    user on their first Overview visit, keyed by `localStorage` + `userId`; no legacy "scm-only role" concept
+    exists in Production's permission-based RBAC, so it auto-opens for any first-time user instead).
+  - **Reports:** a new combined **Inventory & Warehouse** report page (`/scm/reports/inventory-warehouse`,
+    menu code `scm-reports-inventory-warehouse`) tabs between the existing Inventory and Warehouse reports;
+    both originals are untouched and still individually reachable.
+  - **Demo mode (`SCM_CLIENT_DEMO`, default OFF):** `SCM_CATEGORIES` now filters to `SCM_DEMO_MENU_CODES`
+    when the flag is on (a group with no kept leaf disappears; nothing is removed, every route still
+    resolves); the Overview page renders a new `ClientDashboardView` (a shorter Suppliers → Procurement →
+    Goods Receipt → Inventory flow reusing the real overview metrics) instead of the full flow; and the GRN
+    form shows a hint when no PO is ready to receive. **Not done:** a dedicated "default warehouse" hook to
+    hide warehouse pickers/columns everywhere, a procurement-dashboard KPI filter, and a demo PO
+    auto-issue (DRAFT→PENDING_APPROVAL→APPROVED→SENT) state machine — these are deeper, riskier behavioral
+    changes gated behind a flag that defaults off, left for a dedicated follow-up.
+  - **Architecturally not applicable** (reference-mirror files under `apps/api/src/modules/scm/{ai,advanced,
+demo}` are excluded from the build and were never real Production code; `defaultWarehouse.ts` /
+    `warehouseDisplay.ts`'s orphan-reference labels assume Firebase's lack of foreign keys, which Prisma's
+    FK constraints make impossible in Production; a "scm-only role" hiding Master Data's cross-module links
+    has no RBAC equivalent here).
+  - **Still pending:** `menu:sync` has not been run against a live database from this session (no
+    `DATABASE_URL` configured here — the catalogue itself validates cleanly, 132 items); e2e specs have not
+    been updated for any renames in this pass; a final full `vitest`/`tsc`/`eslint` run across the whole
+    repo (as opposed to the targeted checks done per slice) has not been executed.

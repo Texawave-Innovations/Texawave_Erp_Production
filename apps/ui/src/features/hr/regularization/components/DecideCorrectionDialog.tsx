@@ -135,7 +135,7 @@ export function DecideCorrectionDialog({
                 {CORRECTION_TYPE_LABELS[correction.correctionType]}
               </span>
               {hasIn || hasOut ? (
-                <div className="flex items-center gap-2 font-mono text-[11px] text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2 font-semibold text-[11px] text-gray-700 dark:text-gray-300">
                   <Clock className="h-3 w-3 text-gray-400" />
                   {hasIn ? (
                     <span>

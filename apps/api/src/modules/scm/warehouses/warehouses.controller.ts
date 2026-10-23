@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -59,6 +61,13 @@ export class WarehousesController {
   ) {
     return this.warehouses.update(id, dto);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.warehouse.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.warehouses.removeWarehouse(id);
+  }
 }
 
 @ApiTags("scm-warehouse-locations")
@@ -70,6 +79,17 @@ export class WarehouseLocationsController {
   @RequirePermission("scm.warehouse.read")
   findAll(@Paginate(QueryLocationDto) query: QueryLocationDto) {
     return this.warehouses.findLocations(query);
+  }
+
+  @Get("stock")
+  @RequirePermission("scm.warehouse.read")
+  @ApiOperation({ summary: "Stock stored per location (non-zero rows)" })
+  stock(@Query("warehouseId") warehouseId?: string) {
+    return this.warehouses.locationStock(
+      warehouseId && /^\d+$/.test(warehouseId)
+        ? Number(warehouseId)
+        : undefined,
+    );
   }
 
   @Get("options")
@@ -101,5 +121,16 @@ export class WarehouseLocationsController {
     @Body() dto: UpdateLocationDto,
   ) {
     return this.warehouses.updateLocation(id, dto);
+  }
+
+  /** Deletes the location and everything nested in it. `?force=true`
+   * overrides the "stock is recorded here" refusal. */
+  @Delete(":id")
+  @RequirePermission("scm.warehouse.write")
+  remove(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("force") force?: string,
+  ) {
+    return this.warehouses.removeLocation(id, force === "true");
   }
 }

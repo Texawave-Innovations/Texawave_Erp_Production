@@ -130,7 +130,7 @@ export function Tabs<T extends string>({
         {/* Spring Glide Active Indicator Pill */}
         <span
           aria-hidden="true"
-          className="glass-pill absolute pointer-events-none z-0 rounded-lg shadow-xs transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
+          className="tab-prime-pill absolute pointer-events-none z-0 rounded-lg shadow-sm transition-[left,top,width,height,opacity] duration-200 ease-spring-glide motion-reduce:transition-none"
           style={{
             left: `${indicatorStyle.left}px`,
             top: `${indicatorStyle.top}px`,
@@ -157,11 +157,11 @@ export function Tabs<T extends string>({
               onClick={() => onChange(tab.id)}
               onKeyDown={(e) => onKeyDown(e, index)}
               className={cn(
-                "relative z-1 flex-1 rounded-lg px-4 py-2 text-theme-sm transition-colors sm:flex-none",
+                "relative z-1 flex-1 rounded-lg px-4 py-2 text-theme-sm transition-all sm:flex-none",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40",
                 selected
-                  ? "font-bold text-[#0a3271] dark:text-cyan-200"
-                  : "font-medium text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white",
+                  ? "font-bold text-white shadow-2xs"
+                  : "font-medium text-slate-600 hover:text-[#0a3271] hover:bg-white hover:shadow-2xs dark:text-gray-300 dark:hover:text-white dark:hover:bg-slate-700/60",
               )}
             >
               {tab.label}

@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -18,8 +20,9 @@ import {
 import { SuppliersService } from "./suppliers.service.js";
 
 /** Migrated from the LEGACY TexaWave_ERP_old/src/modules/scm/suppliers
- * (Docs/SCM_LEGACY_PARITY.md section 3). Legacy has no supplier delete
- * action, so there is no DELETE route. Static routes are declared before
+ * (Docs/SCM_LEGACY_PARITY.md section 3). The later legacy cleanup pass added
+ * a supplier delete (blocked while purchase orders exist), so there is a
+ * soft-delete DELETE route. Static routes are declared before
  * `:id` so they are never captured by ParseIntPipe. */
 @ApiTags("scm-suppliers")
 @Controller("scm/suppliers")
@@ -83,5 +86,12 @@ export class SuppliersController {
     @Body() dto: UpdateSupplierDto,
   ) {
     return this.suppliers.update(id, dto);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.supplier.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.suppliers.remove(id);
   }
 }

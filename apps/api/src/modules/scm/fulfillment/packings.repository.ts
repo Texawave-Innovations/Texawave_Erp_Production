@@ -266,4 +266,30 @@ export class PackingsRepository {
       return tx.scmPacking.findUniqueOrThrow({ where: { id }, include });
     });
   }
+
+  /** A PACKED packing is already linked into order fulfillment / a shipment. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmPacking.findFirst({
+        where: tenantWhere(scope, { id }),
+        include: { _count: { select: { shipmentLinks: true } } },
+      });
+      if (!row) return false;
+      if (row.status === "PACKED" || row._count.shipmentLinks > 0) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this packing is already linked to order fulfillment.",
+          "PACKING_LINKED",
+        );
+      }
+      await tx.scmPacking.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_packing",
+        entityId: id,
+        action: "delete",
+        before: { packNumber: row.packNumber, status: row.status, by: actorId },
+      });
+      return true;
+    });
+  }
 }

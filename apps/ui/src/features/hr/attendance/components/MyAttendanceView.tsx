@@ -159,7 +159,7 @@ export function MyAttendanceView() {
       ) : null}
 
       {/* Hero Attendance Action Banner */}
-      <Card className="overflow-hidden border border-gray-200 dark:border-gray-800 bg-linear-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-900/60 p-5 sm:p-6 shadow-xs">
+      <Card className="rounded-2xl border border-sky-100/90 dark:border-sky-950/40 bg-linear-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-900/60 p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Status & Date */}
           <div className="flex flex-col gap-2.5">
@@ -170,14 +170,10 @@ export function MyAttendanceView() {
 
             <div className="flex items-center gap-3">
               <span
-                className={`relative flex h-3 w-3 shrink-0 rounded-full ${
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                   checkedIn ? "bg-emerald-500" : "bg-gray-400 dark:bg-gray-500"
                 }`}
-              >
-                {checkedIn ? (
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                ) : null}
-              </span>
+              />
               <div>
                 <h2 className="text-theme-lg font-bold text-gray-900 dark:text-white">
                   {checkedIn ? "Currently Checked In" : "Currently Checked Out"}
@@ -185,7 +181,7 @@ export function MyAttendanceView() {
                 {checkedIn && currentPunchTime ? (
                   <p className="text-theme-xs text-gray-500 dark:text-gray-400">
                     Active session started at{" "}
-                    <strong className="text-gray-800 dark:text-gray-200 font-mono">
+                    <strong className="text-gray-800 dark:text-gray-200 font-semibold">
                       {currentPunchTime}
                     </strong>
                   </p>
@@ -261,7 +257,7 @@ export function MyAttendanceView() {
       </Card>
 
       {/* Filter Toolbar */}
-      <Card>
+      <Card className="relative z-20 focus-within:z-30">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="w-full md:w-96">
@@ -349,7 +345,7 @@ export function MyAttendanceView() {
                 cell: (r) => {
                   const first = r.sessions[0];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                       {first ? formatTime(first.checkInAt) : "—"}
                     </span>
                   );
@@ -360,7 +356,7 @@ export function MyAttendanceView() {
                 cell: (r) => {
                   const last = r.sessions[r.sessions.length - 1];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                       {last?.checkOutAt ? (
                         formatTime(last.checkOutAt)
                       ) : r.hasOpenSession ? (

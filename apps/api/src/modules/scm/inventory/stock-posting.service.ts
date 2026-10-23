@@ -310,6 +310,30 @@ export class StockPostingService {
     });
   }
 
+  /** Adjusts the `damaged` bucket alone — no ledger entry, no on-hand change.
+   * Used when a document that parked stock there (a GRN's rejected units, which
+   * are received then written off in one net-zero pair) is deleted. */
+  async applyDamagedDelta(
+    tx: Prisma.TransactionClient,
+    organizationId: number,
+    productId: number,
+    warehouseId: number,
+    delta: number,
+  ) {
+    const balance = await this.lockBalance(
+      tx,
+      organizationId,
+      productId,
+      warehouseId,
+    );
+    return tx.scmStockBalance.update({
+      where: { id: balance.id },
+      data: {
+        damaged: Prisma.Decimal.max(ZERO, balance.damaged.plus(delta)),
+      },
+    });
+  }
+
   /** Adds `quantity` onto the batch identified by (batchNumber, product,
    * warehouse), creating it on first sight. The unique index makes two
    * receipts of the same vendor lot accumulate onto one row. */

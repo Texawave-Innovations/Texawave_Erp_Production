@@ -19,10 +19,12 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreatePacking,
+  useDeletePacking,
   usePackingAction,
   usePackings,
   usePickings,
@@ -37,6 +39,8 @@ export function PackingsView() {
   const [viewing, setViewing] = useState<Packing | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.fulfillment.write");
+  const deletingRowRemove = useDeletePacking();
+  const [deletingRow, setDeletingRow] = useState<Packing | null>(null);
   const create = useCreatePacking();
   const act = usePackingAction();
   const packable = usePickings({ page: 1, limit: 50, packable: "true" });
@@ -133,8 +137,37 @@ export function PackingsView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete packing"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Packing>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete packing?"
+        describe={(r) =>
+          `Permanently delete ${r.packNumber}? This cannot be undone. A packing already linked to order fulfillment cannot be deleted.`
+        }
+        confirmText="Delete packing"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Packing deleted"
+        errorFallback="Failed to delete packing"
+      />
       <PackDialog
         picking={packing}
         onClose={() => setPacking(null)}

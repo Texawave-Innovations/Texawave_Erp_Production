@@ -12,6 +12,41 @@ export interface PaginationProps {
   className?: string | undefined;
 }
 
+function getPageNumbers(
+  currentPage: number,
+  totalPages: number,
+): (number | "...")[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      "...",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    "...",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "...",
+    totalPages,
+  ];
+}
+
 export function Pagination({
   page,
   totalPages,
@@ -32,6 +67,8 @@ export function Pagination({
     totalItems !== undefined
       ? Math.min(page * effectivePageSize, totalItems)
       : null;
+
+  const pageNumbers = getPageNumbers(page, Math.max(1, totalPages));
 
   return (
     <nav
@@ -87,22 +124,63 @@ export function Pagination({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Button
           variant="secondary"
           size="sm"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
           aria-label="Previous page"
+          className="cursor-pointer font-medium"
         >
           Previous
         </Button>
+
+        {/* Numbered Page Buttons (1, 2, 3...) */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            {pageNumbers.map((item, idx) => {
+              if (item === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="flex h-8 w-7 items-center justify-center text-xs font-bold text-slate-400 select-none"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                );
+              }
+
+              const isCurrent = item === page;
+              return (
+                <button
+                  key={`page-${item}`}
+                  type="button"
+                  onClick={() => onPageChange(item)}
+                  aria-current={isCurrent ? "page" : undefined}
+                  aria-label={`Page ${item}`}
+                  className={cn(
+                    "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-semibold transition-all cursor-pointer",
+                    isCurrent
+                      ? "bg-brand-500  text-white shadow-xs font-bold pointer-events-none"
+                      : "border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700/80",
+                  )}
+                >
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <Button
           variant="secondary"
           size="sm"
           disabled={page >= totalPages || totalPages === 0}
           onClick={() => onPageChange(page + 1)}
           aria-label="Next page"
+          className="cursor-pointer font-medium"
         >
           Next
         </Button>

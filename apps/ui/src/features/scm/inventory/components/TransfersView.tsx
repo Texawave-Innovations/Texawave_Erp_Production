@@ -14,9 +14,15 @@ import {
 } from "../../shared/format";
 import { useWarehouseOptions } from "../../shared/masters";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateTransfer, useTransferAction, useTransfers } from "../hooks";
+import {
+  useCreateTransfer,
+  useDeleteTransfer,
+  useTransferAction,
+  useTransfers,
+} from "../hooks";
 
 type Action = "approve" | "dispatch" | "receive" | "cancel";
 
@@ -40,6 +46,8 @@ export function TransfersView() {
   const warehouses = useWarehouseOptions();
   const create = useCreateTransfer();
   const act = useTransferAction();
+  const deleteTransfer = useDeleteTransfer();
+  const [deleting, setDeleting] = useState<ScmTransfer | null>(null);
 
   const query = useTransfers({
     page: c.page,
@@ -193,11 +201,29 @@ export function TransfersView() {
                   Cancel
                 </Button>
               ) : null}
+              {canWrite ? (
+                <ScmDeleteButton
+                  label="Delete transfer"
+                  onClick={() => setDeleting(t)}
+                />
+              ) : null}
             </div>
           ),
         },
       ]}
     >
+      <ScmDeleteDialog<ScmTransfer>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete transfer?"
+        describe={(t) =>
+          `Delete transfer ${t.transferNumber} (${formatQty(t.quantity)} × ${t.product?.name ?? "item"})? This cannot be undone. Blocked once it has dispatched or been received — a posted stock move can't be deleted, only reversed with a fresh adjustment.`
+        }
+        confirmText="Delete transfer"
+        run={(t) => deleteTransfer.mutateAsync(t.id)}
+        successMessage="Transfer deleted"
+        errorFallback="Failed to delete transfer"
+      />
       <ScmFormDialog
         open={open}
         onClose={() => setOpen(false)}

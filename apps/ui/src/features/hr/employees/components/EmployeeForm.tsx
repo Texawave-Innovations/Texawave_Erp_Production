@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, CalendarCheck, User } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import { Alert, Button, FormField, Input, Select } from "@texawave-erp/ui-kit";
 import { FormSection } from "@/features/hr/components/FormSection";
@@ -156,9 +155,10 @@ export function EmployeeForm({
         stepNumber="01"
         title="Personal & Contact"
         description="Core employee identity and contact information"
-        icon={User}
+        icon3d="user"
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="Full name" required error={errors.fullName}>
             {(f) => (
               <Input
@@ -198,6 +198,7 @@ export function EmployeeForm({
               />
             )}
           </FormField>
+          </div>
         </div>
       </FormSection>
 
@@ -205,9 +206,10 @@ export function EmployeeForm({
         stepNumber="02"
         title="Employment & Organization"
         description="Organizational placement, role, and reporting relationship"
-        icon={Building2}
+        icon3d="departments"
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Team"
             required
@@ -393,6 +395,7 @@ export function EmployeeForm({
               )}
             </FormField>
           </div>
+          </div>
         </div>
       </FormSection>
 
@@ -400,9 +403,10 @@ export function EmployeeForm({
         stepNumber="03"
         title="Probation & Referral"
         description="Probation and confirmation dates, referral and area of work"
-        icon={CalendarCheck}
+        icon3d="recruitment"
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Probation ends"
             error={errors.probationEndDate}
@@ -473,10 +477,11 @@ export function EmployeeForm({
               />
             )}
           </FormField>
+          </div>
         </div>
       </FormSection>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-3 rounded-2xl border border-sky-200/90 bg-white p-4.5 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700 dark:bg-gray-900">
         <Button
           type="button"
           variant="secondary"
@@ -485,7 +490,7 @@ export function EmployeeForm({
         >
           Cancel
         </Button>
-        <Button type="submit" loading={submitting}>
+        <Button type="submit" variant="primary" loading={submitting}>
           {submitLabel}
         </Button>
       </div>

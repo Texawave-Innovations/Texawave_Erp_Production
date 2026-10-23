@@ -12,6 +12,7 @@ import {
   TextAreaField,
   TextField,
 } from "../../shared/form-bits";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
 import { formatQty } from "../../shared/format";
 import { useLocationOptions, useProductOptions } from "../../shared/masters";
 import { today } from "../../shared/pricing";
@@ -195,6 +196,13 @@ function Body({
             value: String(p.id),
             label: `${p.poNumber} — ${p.vendorNameSnapshot}`,
           }))}
+          hint={
+            SCM_CLIENT_DEMO &&
+            !pos.isPending &&
+            (pos.data?.data ?? []).length === 0
+              ? "No purchase order is ready to receive yet — create one under Purchase Order and get it sent to the supplier first."
+              : undefined
+          }
         />
         <TextField
           label="Receipt Date"

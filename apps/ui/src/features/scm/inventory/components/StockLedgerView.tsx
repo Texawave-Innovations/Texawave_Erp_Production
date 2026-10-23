@@ -5,8 +5,15 @@ import type {
   LedgerTransactionType,
 } from "@texawave-erp/api-types";
 import { LEDGER_TRANSACTION_TYPES } from "@texawave-erp/api-types";
-import { Input, Select, StatusBadge } from "@texawave-erp/ui-kit";
-import { ScrollText } from "lucide-react";
+import {
+  Button,
+  ConfirmDialog,
+  Input,
+  Select,
+  StatusBadge,
+  useToast,
+} from "@texawave-erp/ui-kit";
+import { ScrollText, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -17,8 +24,9 @@ import {
 } from "../../shared/format";
 import { WarehouseSelect } from "../../shared/masters";
 import { ScmListView } from "../../shared/ScmListView";
-import { useListControls } from "../../shared/use-list-controls";
-import { useLedger } from "../hooks";
+import { usePermission } from "@/hooks/usePermission";
+import { errorText, useListControls } from "../../shared/use-list-controls";
+import { useLedger, useReverseLedgerEntry } from "../hooks";
 
 const IN_TYPES = new Set([
   "OPENING_BALANCE",
@@ -37,6 +45,10 @@ export function StockLedgerView() {
   const [warehouseId, setWarehouseId] = useState<number | "">("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [reversing, setReversing] = useState<LedgerEntry | null>(null);
+  const { toast } = useToast();
+  const canWrite = usePermission("scm.inventory.write");
+  const reverse = useReverseLedgerEntry();
 
   const query = useLedger({
     q: c.q,
@@ -185,7 +197,51 @@ export function StockLedgerView() {
           align: "right",
           cell: (e) => (e.unitCost ? formatMoney(e.unitCost) : "—"),
         },
+        {
+          header: "Actions",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (e) =>
+            canWrite && e.referenceType !== "LEDGER_REVERSAL" ? (
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Reverse entry"
+                  aria-label="Reverse ledger entry"
+                  onClick={() => setReversing(e)}
+                >
+                  <Undo2 className="h-4 w-4 text-error-600" />
+                </Button>
+              </div>
+            ) : null,
+        },
       ]}
-    />
+    >
+      <ConfirmDialog
+        open={Boolean(reversing)}
+        onClose={() => setReversing(null)}
+        title="Reverse ledger entry?"
+        description={`Reverse this ${reversing ? formatStatusLabel(reversing.transactionType) : ""} entry for ${reversing?.product?.name ?? ""}? The ledger is the stock source of truth and is append-only, so an offsetting entry is posted and the stock balance is adjusted back by the same quantity. This cannot be undone.`}
+        confirmText="Reverse entry"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!reversing) return;
+          try {
+            await reverse.mutateAsync(reversing.id);
+            toast({
+              title: "Entry reversed and stock balance adjusted",
+              variant: "success",
+            });
+          } catch (err) {
+            toast({
+              title: errorText(err, "Failed to reverse ledger entry"),
+              variant: "error",
+            });
+          }
+          setReversing(null);
+        }}
+      />
+    </ScmListView>
   );
 }

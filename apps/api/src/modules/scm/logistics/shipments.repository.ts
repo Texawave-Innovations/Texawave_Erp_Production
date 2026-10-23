@@ -37,6 +37,15 @@ const today = () => {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 };
 
+const BLOCKED_SHIPMENT_DELETE_STATUSES = [
+  "DISPATCHED",
+  "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "DELIVERY_EXCEPTION",
+  "FAILED_DELIVERY",
+];
+
 @Injectable()
 export class ShipmentsRepository {
   constructor(
@@ -828,6 +837,40 @@ export class ShipmentsRepository {
             : "NOT_DELIVERED",
         deliveredAt: all ? new Date() : null,
       },
+    });
+  }
+
+  /** Once handed to the carrier a shipment is history — only pre-dispatch
+   * shipments (and cancelled ones) can be deleted. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmShipment.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (BLOCKED_SHIPMENT_DELETE_STATUSES.includes(row.status)) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this shipment has already been dispatched to the carrier.",
+          "SHIPMENT_DISPATCHED",
+        );
+      }
+      await tx.scmShipmentTrackingEvent.deleteMany({
+        where: { shipmentId: id },
+      });
+      await tx.scmShipmentException.deleteMany({ where: { shipmentId: id } });
+      await tx.scmShipment.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_shipment",
+        entityId: id,
+        action: "delete",
+        before: {
+          shipmentNumber: row.shipmentNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
     });
   }
 }

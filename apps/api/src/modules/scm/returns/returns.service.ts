@@ -145,4 +145,9 @@ export class ReturnsService {
         : await this.returns.completeVendor(this.scope, id, this.actor),
     );
   }
+
+  async remove(id: number) {
+    const ok = await this.returns.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Return", id);
+  }
 }

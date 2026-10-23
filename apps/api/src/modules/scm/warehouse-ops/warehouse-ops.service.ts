@@ -11,6 +11,8 @@ import type {
   QueryMovementDto,
   QueryPutawayDto,
   RecordPutawayItemDto,
+  StockViewQueryDto,
+  StockWriteOffDto,
 } from "./dto/warehouse-ops.dto.js";
 import { WarehouseOpsRepository } from "./warehouse-ops.repository.js";
 
@@ -160,5 +162,21 @@ export class WarehouseOpsService {
   }
   listActivity(query: QueryActivityDto) {
     return this.activity.list(WAREHOUSE_ENTITY_TYPES, query, query.q);
+  }
+
+  async removePutaway(id: number) {
+    const ok = await this.repo.removePutaway(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Put-away", id);
+  }
+  async removeMovement(id: number) {
+    const ok = await this.repo.removeMovement(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Movement", id);
+  }
+
+  stockView(query: StockViewQueryDto) {
+    return this.repo.stockView(this.scope, query);
+  }
+  stockWriteOff(dto: StockWriteOffDto) {
+    return this.repo.stockWriteOff(this.scope, dto, this.actor);
   }
 }
