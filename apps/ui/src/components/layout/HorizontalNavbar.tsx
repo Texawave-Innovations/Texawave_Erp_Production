@@ -54,6 +54,7 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
+  ClipboardList,
   CheckCheck,
   UserPlus,
   TrendingUp,
@@ -1460,6 +1461,13 @@ const ERP_MODULES: ErpModuleConfig[] = [
     available: false,
   },
   {
+    id: "master-list",
+    label: "Master List",
+    icon: ClipboardList,
+    path: "/settings/sales-settings",
+    available: true,
+  },
+  {
     id: "settings",
     label: "Settings",
     icon: Settings,
@@ -1754,6 +1762,9 @@ function findRouteNavigationState(pathname: string) {
     pathname === "/admin/dashboard/"
   ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
+  }
+  if (pathname.startsWith("/settings/sales-settings")) {
+    return { moduleId: "master-list", categoryId: null, leafId: null };
   }
   if (
     pathname.startsWith("/admin/users") ||

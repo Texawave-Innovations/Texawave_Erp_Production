@@ -174,6 +174,32 @@ export async function signInWithMockedApi(
   return { calls };
 }
 
+/**
+ * Reach a Masters tab page via client-side navigation only.
+ *
+ * `signInWithMockedApi` lands on `/hr` (or `/portal`); the access token
+ * lives only in the in-memory auth store (apps/ui/src/stores/auth-store.ts),
+ * so a `page.goto()` to a protected route after sign-in is a full reload
+ * that wipes it and bounces back to `/login`. The real user path is to
+ * click the "Master List" module button (HorizontalNavbar) and then, for
+ * any tab but Sales & Document Masters, a MastersTabBar link — both use
+ * `router.push`/`next/link`, never a full navigation.
+ */
+export async function navigateToMasterTab(
+  page: Page,
+  tab:
+    | "Sales & Document Masters"
+    | "HR Master"
+    | "Finance Master"
+    | "Projects Master",
+): Promise<void> {
+  await page.getByRole("button", { name: "Master List" }).click();
+  await expect(page).toHaveURL(/\/settings\/sales-settings/);
+  if (tab !== "Sales & Document Masters") {
+    await page.getByRole("link", { name: tab }).click();
+  }
+}
+
 /** An API error body as the backend sends it. */
 export function apiError(status: number, error: string, message = error) {
   return {
