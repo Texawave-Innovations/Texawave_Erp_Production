@@ -65,7 +65,10 @@ function buildService(overrides: Partial<Record<string, unknown>> = {}) {
 describe("ProfileService", () => {
   it("getMyProfile() resolves the employee from the login, taking no id", async () => {
     const { service, employees } = buildService();
-    await expect(service.getMyProfile()).resolves.toEqual(EMPLOYEE);
+    await expect(service.getMyProfile()).resolves.toEqual({
+      ...EMPLOYEE,
+      avatarUrl: null,
+    });
     expect(employees.getCurrentEmployee).toHaveBeenCalledWith();
   });
 

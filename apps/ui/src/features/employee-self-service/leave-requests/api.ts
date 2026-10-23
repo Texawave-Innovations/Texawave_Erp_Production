@@ -35,10 +35,29 @@ export async function listMyLeaveRequests(): Promise<MyLeaveRequest[]> {
 }
 
 export async function listLeaveTypes(): Promise<LeaveType[]> {
-  const { data } = await withAuthRetry(() =>
-    apiClient.get<LeaveType[]>("/hr/leave-types", { query: { limit: 100 } }),
-  );
-  return data;
+  try {
+    const { data } = await withAuthRetry(() =>
+      apiClient.get<Array<{ leaveTypeId?: number; id?: number; name: string }>>(
+        "/self-service/leave-requests/balances",
+      ),
+    );
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((b) => ({
+        id: (b.leaveTypeId ?? b.id) as number,
+        name: b.name,
+      }));
+    }
+  } catch {
+    // fallback
+  }
+  try {
+    const { data } = await withAuthRetry(() =>
+      apiClient.get<LeaveType[]>("/hr/leave-types", { query: { limit: 100 } }),
+    );
+    return data;
+  } catch {
+    return [];
+  }
 }
 
 export async function createMyLeaveRequest(

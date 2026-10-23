@@ -7,6 +7,7 @@ import {
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { UserLoginStateService } from "../../../platform/users/user-login-state.service.js";
 import { EmployeeQueryService } from "../../hr/employees/employee-query.service.js";
+import type { EmployeeDetail } from "../../hr/employees/employee-mappers.js";
 import type { AddressDto } from "./dto/address.dto.js";
 import type { BankDetailsDto } from "./dto/bank-details.dto.js";
 import {
@@ -58,8 +59,19 @@ export class ProfileService {
     private readonly progress: OnboardingProgressService,
   ) {}
 
-  getMyProfile() {
-    return this.employees.getCurrentEmployee();
+  async getMyProfile(): Promise<EmployeeDetail> {
+    const employee = await this.employees.getCurrentEmployee();
+    const photo = await this.repository.getDocument(
+      employee.id,
+      "PROFILE_PHOTO",
+    );
+    return {
+      ...employee,
+      avatarUrl:
+        photo && !photo.deletedAt
+          ? "/employee/profile/documents/PROFILE_PHOTO/file"
+          : null,
+    };
   }
 
   private async currentIdentity() {

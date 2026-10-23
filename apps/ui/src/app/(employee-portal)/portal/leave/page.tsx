@@ -1,5 +1,7 @@
-import { MyLeaveView } from "@/features/employee-self-service/leave-requests/components/MyLeaveView";
+"use client";
+
+import { LeavesView } from "@/features/hr/leaves/components/LeavesView";
 
 export default function PortalLeavePage() {
-  return <MyLeaveView />;
+  return <LeavesView />;
 }

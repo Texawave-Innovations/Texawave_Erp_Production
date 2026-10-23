@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -25,6 +26,7 @@ import { FamilyMemberDto } from "./dto/family-member.dto.js";
 import { GovernmentIdsDto } from "./dto/government-ids.dto.js";
 import { PersonalDetailsDto } from "./dto/personal-details.dto.js";
 import { ProfileService, type UploadedDocument } from "./profile.service.js";
+import type { EmployeeDetail } from "../../hr/employees/employee-mappers.js";
 
 /**
  * Its own permission namespace, so an employee's role never needs `hr.*`.
@@ -42,7 +44,7 @@ export class ProfileController {
   @Get()
   @RequirePermission("employee_self_service.profile.read")
   @ApiOperation({ summary: "The authenticated user's own employee record" })
-  getMine() {
+  getMine(): Promise<EmployeeDetail> {
     return this.profile.getMyProfile();
   }
 
@@ -190,11 +192,16 @@ export class ProfileController {
   @RequirePermission("employee_self_service.profile.read")
   @RawResponse()
   @ApiOperation({ summary: "Download your own document" })
-  async downloadDocument(@Param("documentType") documentType: string) {
+  async downloadDocument(
+    @Param("documentType") documentType: string,
+    @Query("inline") inline?: string,
+  ) {
     const file = await this.profile.downloadDocument(documentType);
+    const isImage = file.mimeType?.startsWith("image/");
+    const disp = inline === "true" || isImage ? "inline" : "attachment";
     return new StreamableFile(file.buffer, {
       type: file.mimeType,
-      disposition: `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+      disposition: `${disp}; filename="${encodeURIComponent(file.fileName)}"`,
     });
   }
 
