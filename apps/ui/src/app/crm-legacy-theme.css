@@ -10,7 +10,7 @@
  * redefines an existing key (`--color-brand-*`, `--color-gray-*`, `--radius-*`,
  * `--shadow-sm` ... are overridden *scoped* in crm-legacy.css instead).
  */
-@import "tw-animate-css";
+@import "./tw-animate.css";
 
 /* `inline`: the value (with its var(--lg-*)) is substituted at the USE site, so it resolves against
    the CRM scope's --lg-* values. A normal @theme entry would resolve once on :root (where --lg-*
