@@ -40,6 +40,7 @@ export interface FlowKpi {
 const STAGE_ICONS: Record<string, LucideIcon> = {
   suppliers: Factory,
   procurement: FileText,
+  "goods-receipt": Truck,
   "inventory-warehouse": Warehouse,
   orders: ShoppingCart,
   quality: ShieldCheck,
@@ -73,7 +74,7 @@ export function buildFlowNodes(m: ScmFlowMetrics): FlowNode[] {
       path: "/scm/procurement/purchase-orders",
       value: String(m.openRequisitions),
       caption: "Open Requisitions",
-      metric: `${m.openRequisitions} open purchase requisitions`,
+      metric: `${m.openRequisitions} open material requisitions`,
     },
     {
       id: "inventory-warehouse",
@@ -106,6 +107,46 @@ export function buildFlowNodes(m: ScmFlowMetrics): FlowNode[] {
       value: "—",
       caption: "Executive Summary",
       metric: "Open the Reports dashboard for full SCM analytics",
+    },
+  ];
+}
+
+/** Client-demo flow (see `demo-mode.ts`): a shorter four-stage pipeline —
+ * Suppliers → Procurement → Goods Receipt → Inventory — for a simpler demo
+ * narrative than the full six-stage flow. */
+export function buildDemoFlowNodes(m: ScmFlowMetrics): FlowNode[] {
+  return [
+    {
+      id: "suppliers",
+      label: "Suppliers",
+      path: "/scm/suppliers",
+      value: String(m.activeSuppliers),
+      caption: "Active Suppliers",
+      metric: `${m.activeSuppliers} active suppliers`,
+    },
+    {
+      id: "procurement",
+      label: "Procurement",
+      path: "/scm/procurement/requisitions",
+      value: String(m.openRequisitions),
+      caption: "Open Requisitions",
+      metric: `${m.openRequisitions} open material requisitions`,
+    },
+    {
+      id: "goods-receipt",
+      label: "Goods Receipt",
+      path: "/scm/procurement/goods-receipts",
+      value: String(m.posAwaitingReceipt),
+      caption: "Pending Receipts",
+      metric: `${m.posAwaitingReceipt} purchase orders awaiting receipt`,
+    },
+    {
+      id: "inventory-warehouse",
+      label: "Inventory",
+      path: "/scm/inventory/overview",
+      value: units(m.unitsAvailable),
+      caption: "Units Available",
+      metric: `${units(m.unitsAvailable)} units available`,
     },
   ];
 }

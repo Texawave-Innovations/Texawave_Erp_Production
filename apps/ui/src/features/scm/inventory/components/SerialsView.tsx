@@ -12,9 +12,15 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateSerials, useSerials, useSetSerialStatus } from "../hooks";
+import {
+  useCreateSerials,
+  useDeleteSerial,
+  useSerials,
+  useSetSerialStatus,
+} from "../hooks";
 
 /** Legacy `ScmSerialNumbers`: serial-number register with bulk add (one per
  * line or comma separated). Serial numbers are unique across the
@@ -27,6 +33,8 @@ export function SerialsView() {
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateSerials();
   const setSerialStatus = useSetSerialStatus();
+  const remove = useDeleteSerial();
+  const [deleting, setDeleting] = useState<ScmSerial | null>(null);
 
   const query = useSerials({
     page: c.page,
@@ -134,8 +142,34 @@ export function SerialsView() {
               />
             ),
         },
+        {
+          header: "Actions",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (s) =>
+            canWrite ? (
+              <div className="flex justify-end gap-1">
+                <ScmDeleteButton
+                  label="Delete serial"
+                  onClick={() => setDeleting(s)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<ScmSerial>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete serial number?"
+        describe={(s) =>
+          `Delete serial ${s.serialNumber}? This cannot be undone. Only Available serials can be deleted.`
+        }
+        confirmText="Delete serial"
+        run={(s) => remove.mutateAsync(s.id)}
+        successMessage="Serial number deleted"
+        errorFallback="Failed to delete serial number"
+      />
       <ScmFormDialog
         open={open}
         onClose={() => setOpen(false)}

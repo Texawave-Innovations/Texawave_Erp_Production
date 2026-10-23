@@ -38,6 +38,14 @@ const listInclude = {
 
 const num = (d: Prisma.Decimal | number) => Number(d);
 
+const BLOCKED_FULFILLMENT_DELETE_STATUSES = [
+  "RESERVED",
+  "PICKING",
+  "PACKING",
+  "READY_TO_SHIP",
+  "FULFILLED",
+];
+
 @Injectable()
 export class FulfillmentsRepository {
   constructor(
@@ -944,6 +952,60 @@ export class FulfillmentsRepository {
     return tx.scmFulfillment.findUniqueOrThrow({
       where: { id },
       include: listInclude,
+    });
+  }
+
+  /** Only a fulfillment that is not holding stock or driving warehouse work
+   * can be deleted: no active reservations, no linked requisitions, no
+   * pick/pack/shipment documents, and not past the availability check. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmFulfillment.findFirst({
+        where: tenantWhere(scope, { id }),
+        include: {
+          _count: {
+            select: {
+              pickings: true,
+              packings: true,
+              shipments: true,
+              requisitions: true,
+            },
+          },
+        },
+      });
+      if (!row) return false;
+      const activeReservations = await tx.scmStockReservation.count({
+        where: { fulfillmentId: id, status: "ACTIVE" },
+      });
+      const c = row._count;
+      if (
+        BLOCKED_FULFILLMENT_DELETE_STATUSES.includes(row.status) ||
+        activeReservations > 0 ||
+        c.requisitions > 0 ||
+        c.pickings + c.packings + c.shipments > 0
+      ) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this fulfillment has active reservations, linked requisitions or warehouse activity — cancel it first.",
+          "FULFILLMENT_IN_PROGRESS",
+        );
+      }
+      await tx.scmStockReservation.updateMany({
+        where: { fulfillmentId: id },
+        data: { fulfillmentId: null },
+      });
+      await tx.scmFulfillment.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_fulfillment",
+        entityId: id,
+        action: "delete",
+        before: {
+          fulfillmentNumber: row.fulfillmentNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
     });
   }
 }

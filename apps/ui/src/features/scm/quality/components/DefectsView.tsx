@@ -8,9 +8,15 @@ import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { formatStatusLabel } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateDefect, useDefects, useUpdateDefect } from "../hooks";
+import {
+  useCreateDefect,
+  useDefects,
+  useDeleteDefect,
+  useUpdateDefect,
+} from "../hooks";
 
 const SEVERITY_TONE: Record<
   string,
@@ -29,6 +35,8 @@ export function DefectsView() {
   const [editing, setEditing] = useState<QualityDefect | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.quality.write");
+  const deletingRowRemove = useDeleteDefect();
+  const [deletingRow, setDeletingRow] = useState<QualityDefect | null>(null);
   const create = useCreateDefect();
   const update = useUpdateDefect();
   const query = useDefects({ page: c.page, limit: c.pageSize, q: c.q });
@@ -102,8 +110,37 @@ export function DefectsView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete defect"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<QualityDefect>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete defect?"
+        describe={(r) =>
+          `Delete defect ${r.defectCode} (${r.name})? This cannot be undone. Blocked automatically if existing inspection or quarantine records reference it.`
+        }
+        confirmText="Delete defect"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Defect deleted"
+        errorFallback="Failed to delete defect"
+      />
       <ScmFormDialog
         open={formOpen}
         onClose={() => {

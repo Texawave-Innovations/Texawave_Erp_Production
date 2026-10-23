@@ -47,6 +47,20 @@ export interface RequisitionFilter {
 const include = {
   items: { orderBy: { lineNo: "asc" } },
   warehouse: { select: { id: true, name: true, code: true } },
+  // Powers the MR -> PO -> receipt trace and the "Purchase Order(s)" column.
+  purchaseOrders: {
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      poNumber: true,
+      vendorNameSnapshot: true,
+      status: true,
+      items: {
+        orderBy: { lineNo: "asc" },
+        select: { productId: true, quantity: true, receivedQuantity: true },
+      },
+    },
+  },
 } satisfies Prisma.ScmPurchaseRequisitionInclude;
 
 const lineCreate = (l: RequisitionLineData, i: number) => ({
@@ -88,6 +102,21 @@ export class PurchaseRequisitionsRepository {
               { requestedByName: { contains: f.q, mode: "insensitive" } },
               { purpose: { contains: f.q, mode: "insensitive" } },
               { department: { contains: f.q, mode: "insensitive" } },
+              {
+                purchaseOrders: {
+                  some: {
+                    OR: [
+                      { poNumber: { contains: f.q, mode: "insensitive" } },
+                      {
+                        vendorNameSnapshot: {
+                          contains: f.q,
+                          mode: "insensitive",
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
             ],
           }
         : {}),
@@ -204,6 +233,31 @@ export class PurchaseRequisitionsRepository {
         after: { total: data.total },
       });
       return updated;
+    });
+  }
+
+  /** Deletes a requisition of any status. Purchase orders raised from it are
+   * left untouched (they keep the requisition number they were raised from);
+   * RFQs that pointed at it simply lose the link. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.scmPurchaseRequisition.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!current) return false;
+      await tx.scmRfq.updateMany({
+        where: { requisitionId: id, organizationId: scope.organizationId },
+        data: { requisitionId: null },
+      });
+      await tx.scmPurchaseRequisition.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_purchase_requisition",
+        entityId: id,
+        action: "delete",
+        before: { requisitionNumber: current.requisitionNumber, by: actorId },
+      });
+      return true;
     });
   }
 

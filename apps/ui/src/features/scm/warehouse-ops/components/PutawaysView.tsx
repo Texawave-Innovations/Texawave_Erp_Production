@@ -24,11 +24,13 @@ import {
   useLocationOptions,
   useWarehouseOptions,
 } from "../../shared/masters";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useAddPutawayLine,
   useCreatePutaway,
+  useDeletePutaway,
   usePutaway,
   usePutawayAction,
   usePutaways,
@@ -45,6 +47,8 @@ export function PutawaysView() {
   const [viewingId, setViewingId] = useState<number | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.warehouse.write");
+  const deletingRowRemove = useDeletePutaway();
+  const [deletingRow, setDeletingRow] = useState<Putaway | null>(null);
   const create = useCreatePutaway();
   const detail = usePutaway(viewingId);
   const query = usePutaways({
@@ -133,8 +137,37 @@ export function PutawaysView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete put-away"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Putaway>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete put-away?"
+        describe={(r) =>
+          `Permanently delete ${r.putawayNumber}? This cannot be undone. A completed put-away has already assigned stock to a bin and cannot be deleted.`
+        }
+        confirmText="Delete put-away"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Put-away deleted"
+        errorFallback="Failed to delete put-away"
+      />
       <CreatePutawayForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
@@ -448,6 +481,10 @@ function RecordItemDialog({
   onClose: () => void;
 }) {
   const locations = useLocationOptions(putaway?.warehouseId ?? null);
+  // Stock is put away into active bins (a rack holds bins, not stock itself).
+  const binOptions = (locations.data ?? []).filter(
+    (l) => l.status === "Active" && (l.locationType ?? "BIN") === "BIN",
+  );
   const record = useRecordPutawayItem();
   const [locationId, setLocationId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -476,14 +513,19 @@ function RecordItemDialog({
             onChange={(e) => setLocationId(e.target.value)}
           >
             <option value="">Select destination</option>
-            {(locations.data ?? [])
-              .filter((l) => l.status === "Active")
-              .map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.locationCode ?? l.binCode}
-                </option>
-              ))}
+            {binOptions.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.locationCode ?? l.binCode}
+                {l.locationName ? ` — ${l.locationName}` : ""}
+              </option>
+            ))}
           </Select>
+          {binOptions.length === 0 ? (
+            <p className="text-theme-xs text-warning-600">
+              No bin locations exist yet — create one under Warehouse →
+              Locations first.
+            </p>
+          ) : null}
           <Input
             type="number"
             min={0}

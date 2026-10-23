@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
@@ -171,5 +173,12 @@ export class ReturnsController {
   @RequirePermission("scm.returns.write")
   complete(@Param("id", ParseIntPipe) id: number) {
     return this.svc.complete(id);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.returns.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.remove(id);
   }
 }

@@ -13,7 +13,7 @@ import {
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { FileText, Plus } from "lucide-react";
+import { FileText, GitCompareArrows, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
@@ -30,13 +30,27 @@ import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateRequisition,
+  useDeleteRequisition,
   useRequisitionAction,
   useRequisitions,
   useUpdateRequisition,
 } from "../hooks";
+import { buildMrCoverage, type MrCoverage } from "../mr-coverage";
 import { RequisitionForm } from "./RequisitionForm";
 
-/** Legacy `ScmPurchaseRequisitions`. */
+const ORDER_STATUS_LABEL: Record<
+  MrCoverage["status"],
+  { label: string; token: ReturnType<typeof scmStatusToken> }
+> = {
+  NOT_ORDERED: { label: "Not ordered", token: scmStatusToken("DRAFT") },
+  PARTIALLY_ORDERED: {
+    label: "Partially ordered",
+    token: scmStatusToken("PARTIALLY_RECEIVED"),
+  },
+  FULLY_ORDERED: { label: "Fully ordered", token: scmStatusToken("RECEIVED") },
+};
+
+/** Legacy `ScmPurchaseRequisitions` (renamed Material Requisitions). */
 export function RequisitionsView() {
   const router = useRouter();
   const c = useListControls();
@@ -50,12 +64,15 @@ export function RequisitionsView() {
   const [cancelling, setCancelling] = useState<PurchaseRequisition | null>(
     null,
   );
+  const [tracing, setTracing] = useState<PurchaseRequisition | null>(null);
+  const [deleting, setDeleting] = useState<PurchaseRequisition | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.procurement.write");
   const canApprove = usePermission("scm.procurement.approve");
   const create = useCreateRequisition();
   const update = useUpdateRequisition();
   const act = useRequisitionAction();
+  const remove = useDeleteRequisition();
 
   const query = useRequisitions({
     page: c.page,
@@ -99,8 +116,8 @@ export function RequisitionsView() {
 
   return (
     <ScmListView<PurchaseRequisition>
-      title="Purchase Requisitions"
-      description="Raise and approve internal purchase requisitions before sourcing suppliers."
+      title="Material Requisitions"
+      description="Raise and approve internal material requisitions before sourcing suppliers."
       icon={FileText}
       noun="requisitions"
       readPermission="scm.procurement.read"
@@ -121,7 +138,7 @@ export function RequisitionsView() {
       search={{
         value: c.search,
         onChange: c.setSearch,
-        placeholder: "Search by number, requester, purpose...",
+        placeholder: "Search by MR number, requester, PO number, supplier...",
       }}
       filters={
         <div className="flex w-full flex-col gap-2 lg:w-auto lg:flex-row">
@@ -169,11 +186,11 @@ export function RequisitionsView() {
         setFrom("");
         setTo("");
       }}
-      emptyTitle="No purchase requisitions yet"
+      emptyTitle="No material requisitions yet"
       emptyDescription="Raise a requisition to request items before sourcing suppliers."
       columns={[
         {
-          header: "PR #",
+          header: "MR #",
           cell: (r) => (
             <span className="font-mono text-theme-xs">
               {r.requisitionNumber}
@@ -211,6 +228,10 @@ export function RequisitionsView() {
           ),
         },
         {
+          header: "Purchase Order(s)",
+          cell: (r) => <MrPoCell mr={r} onOpen={() => setTracing(r)} />,
+        },
+        {
           header: "Actions",
           headerClassName: "text-right",
           className: "text-right",
@@ -219,6 +240,15 @@ export function RequisitionsView() {
               className="flex flex-wrap justify-end gap-1"
               onClick={(e) => e.stopPropagation()}
             >
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Trace MR → PO → receipt"
+                aria-label="Trace MR to PO to receipt"
+                onClick={() => setTracing(r)}
+              >
+                <GitCompareArrows className="h-4 w-4" />
+              </Button>
               {r.status === "DRAFT" && canWrite ? (
                 <>
                   <Button
@@ -286,6 +316,17 @@ export function RequisitionsView() {
                   Cancel
                 </Button>
               ) : null}
+              {canWrite ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Delete"
+                  aria-label="Delete requisition"
+                  onClick={() => setDeleting(r)}
+                >
+                  <Trash2 className="h-4 w-4 text-error-600" />
+                </Button>
+              ) : null}
             </div>
           ),
         },
@@ -342,6 +383,38 @@ export function RequisitionsView() {
           setCancelling(null);
         }}
       />
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onClose={() => setDeleting(null)}
+        title="Delete requisition?"
+        description={`Delete ${deleting?.requisitionNumber ?? ""}? This cannot be undone. Purchase orders raised from it are left untouched and keep its number.`}
+        confirmText="Delete requisition"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!deleting) return;
+          try {
+            await remove.mutateAsync(deleting.id);
+            toast({ title: "Requisition deleted", variant: "success" });
+          } catch (err) {
+            toast({
+              title: errorText(err, "Failed to delete requisition"),
+              variant: "error",
+            });
+          }
+          setDeleting(null);
+        }}
+      />
+      {tracing ? (
+        <MrTraceDialog
+          mr={tracing}
+          onClose={() => setTracing(null)}
+          onOpenPos={() =>
+            router.push(
+              `/scm/procurement/purchase-orders?requisitionId=${tracing.id}&mr=${encodeURIComponent(tracing.requisitionNumber)}`,
+            )
+          }
+        />
+      ) : null}
       <ScmDetailDialog
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
@@ -381,5 +454,133 @@ export function RequisitionsView() {
         ]}
       />
     </ScmListView>
+  );
+}
+
+function MrPoCell({
+  mr,
+  onOpen,
+}: {
+  mr: PurchaseRequisition;
+  onOpen: () => void;
+}) {
+  const linked = mr.purchaseOrders ?? [];
+  if (linked.length === 0) {
+    return <span className="text-theme-xs text-gray-400">—</span>;
+  }
+  const coverage = buildMrCoverage(mr);
+  return (
+    <button
+      type="button"
+      className="flex flex-col gap-0.5 text-left"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      {linked.map((po) => (
+        <span key={po.id} className="text-theme-xs">
+          <span className="font-mono">{po.poNumber}</span> ·{" "}
+          {po.vendorNameSnapshot || "—"} · {formatStatusLabel(po.status)}
+        </span>
+      ))}
+      <span className="text-theme-xs text-gray-500">
+        Ordered {formatQty(coverage.orderedTotal)}/
+        {formatQty(coverage.requestedTotal)} · Received{" "}
+        {formatQty(coverage.receivedTotal)}
+      </span>
+    </button>
+  );
+}
+
+function MrTraceDialog({
+  mr,
+  onClose,
+  onOpenPos,
+}: {
+  mr: PurchaseRequisition;
+  onClose: () => void;
+  onOpenPos: () => void;
+}) {
+  const coverage = buildMrCoverage(mr);
+  const tone = ORDER_STATUS_LABEL[coverage.status];
+  return (
+    <ScmDetailDialog
+      open
+      onClose={onClose}
+      title={`MR → PO → Receipt — ${mr.requisitionNumber}`}
+      status={mr.status}
+      fields={[
+        ["Requested by", mr.requestedByName],
+        ["Request date", formatDate(mr.requestDate)],
+        [
+          "Order coverage",
+          <StatusBadge key="cov" label={tone.label} colorToken={tone.token} />,
+        ],
+      ]}
+      lineCaption="Coverage"
+      lineRows={coverage.lines}
+      getLineKey={(l) => String(l.productId)}
+      lineColumns={[
+        { header: "Item", cell: (l) => l.productName },
+        {
+          header: "Requested",
+          align: "right",
+          cell: (l) => `${formatQty(l.requested)} ${l.uom}`,
+        },
+        {
+          header: "Ordered (PO)",
+          align: "right",
+          cell: (l) => formatQty(l.ordered),
+        },
+        {
+          header: "Received (GR)",
+          align: "right",
+          cell: (l) => formatQty(l.received),
+        },
+        {
+          header: "Still to order",
+          align: "right",
+          cell: (l) => formatQty(l.toOrder),
+        },
+      ]}
+    >
+      <div className="flex flex-col gap-2">
+        <div className="text-theme-sm font-medium">
+          Purchase orders raised from this requisition
+        </div>
+        {(mr.purchaseOrders ?? []).length === 0 ? (
+          <p className="text-theme-sm italic text-gray-500">
+            None yet — pick this requisition under &quot;Link Material
+            Requisition&quot; when creating a purchase order.
+          </p>
+        ) : (
+          <>
+            {(mr.purchaseOrders ?? []).map((po) => (
+              <div
+                key={po.id}
+                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800"
+              >
+                <span className="text-theme-sm">
+                  <span className="font-mono">{po.poNumber}</span>{" "}
+                  <span className="text-gray-500">
+                    — {po.vendorNameSnapshot}
+                  </span>
+                </span>
+                <StatusBadge
+                  label={formatStatusLabel(po.status)}
+                  colorToken={scmStatusToken(po.status)}
+                />
+              </div>
+            ))}
+            <div>
+              <Button variant="secondary" size="sm" onClick={onOpenPos}>
+                Open Purchase Orders
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </ScmDetailDialog>
   );
 }

@@ -9,7 +9,7 @@ import type {
 import { orgScopedKey } from "@texawave-erp/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
-import { scmGet } from "../shared/scm-api";
+import { scmDelete, scmGet } from "../shared/scm-api";
 import {
   createSupplier,
   getNextSupplierCode,
@@ -105,5 +105,18 @@ export function useSupplierProcurement(id: number) {
     queryFn: () =>
       scmGet<SupplierProcurementSummary>(`/scm/suppliers/${id}/procurement`),
     enabled: Boolean(organizationId),
+  });
+}
+
+export function useDeleteSupplier() {
+  const queryClient = useQueryClient();
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useMutation({
+    mutationFn: (id: number) => scmDelete(`/scm/suppliers/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, KEY),
+      });
+    },
   });
 }

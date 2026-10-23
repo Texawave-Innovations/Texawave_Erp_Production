@@ -13,9 +13,15 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useBatches, useCreateBatch, useSetBatchStatus } from "../hooks";
+import {
+  useBatches,
+  useCreateBatch,
+  useDeleteBatch,
+  useSetBatchStatus,
+} from "../hooks";
 
 /** Legacy `ScmBatches`: batch/lot register. Manual registration records
  * metadata at quantity 0; quantity accrues through GRN receipts. */
@@ -27,6 +33,8 @@ export function BatchesView() {
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateBatch();
   const setBatchStatus = useSetBatchStatus();
+  const remove = useDeleteBatch();
+  const [deleting, setDeleting] = useState<ScmBatch | null>(null);
 
   const query = useBatches({
     page: c.page,
@@ -142,8 +150,34 @@ export function BatchesView() {
               />
             ),
         },
+        {
+          header: "Actions",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (b) =>
+            canWrite ? (
+              <div className="flex justify-end gap-1">
+                <ScmDeleteButton
+                  label="Delete batch"
+                  onClick={() => setDeleting(b)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<ScmBatch>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete batch?"
+        describe={(b) =>
+          `Delete batch ${b.batchNumber} (${b.product?.name ?? ""})? This cannot be undone. Blocked automatically while it still holds any quantity.`
+        }
+        confirmText="Delete batch"
+        run={(b) => remove.mutateAsync(b.id)}
+        successMessage="Batch deleted"
+        errorFallback="Failed to delete batch"
+      />
       <ScmFormDialog
         open={open}
         onClose={() => setOpen(false)}

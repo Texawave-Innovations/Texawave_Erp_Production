@@ -20,9 +20,16 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useCreateRfq, useRequisition, useRfqAction, useRfqs } from "../hooks";
+import {
+  useCreateRfq,
+  useDeleteRfq,
+  useRequisition,
+  useRfqAction,
+  useRfqs,
+} from "../hooks";
 import { RfqForm } from "./RfqForm";
 
 const RESPONSE = ["RESPONSES_PENDING", "PARTIALLY_RESPONDED", "RESPONDED"];
@@ -38,11 +45,13 @@ export function RfqsView() {
   const [formOpen, setFormOpen] = useState(Boolean(fromId));
   const [viewing, setViewing] = useState<Rfq | null>(null);
   const [cancelling, setCancelling] = useState<Rfq | null>(null);
+  const [deleting, setDeleting] = useState<Rfq | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.procurement.write");
   const requisition = useRequisition(fromId ? Number(fromId) : null);
   const create = useCreateRfq();
   const act = useRfqAction();
+  const remove = useDeleteRfq();
 
   const query = useRfqs({
     page: c.page,
@@ -229,6 +238,10 @@ export function RfqsView() {
                     Cancel
                   </Button>
                 ) : null}
+                <ScmDeleteButton
+                  label="Delete RFQ"
+                  onClick={() => setDeleting(r)}
+                />
               </div>
             ) : null,
         },
@@ -251,6 +264,18 @@ export function RfqsView() {
           if (cancelling) await run(cancelling, "cancel", "RFQ cancelled");
           setCancelling(null);
         }}
+      />
+      <ScmDeleteDialog<Rfq>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete RFQ?"
+        describe={(r) =>
+          `Delete ${r.rfqNumber}? This cannot be undone. Blocked automatically if any supplier quotation exists against it.`
+        }
+        confirmText="Delete RFQ"
+        run={(r) => remove.mutateAsync(r.id)}
+        successMessage="RFQ deleted"
+        errorFallback="Failed to delete RFQ"
       />
       <ScmDetailDialog
         open={Boolean(viewing)}

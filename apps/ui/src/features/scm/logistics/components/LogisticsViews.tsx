@@ -36,14 +36,16 @@ import {
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
 import { ScmDashboardPage } from "../../shared/ScmDashboardPage";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCarriers,
   useCreateShipment,
+  useDeleteCarrier,
   useSaveCarrier,
-  useShippable,
   useShipments,
+  useShippable,
   useTrackingEvents,
 } from "../hooks";
 
@@ -282,6 +284,8 @@ export function CarriersView() {
   const [editing, setEditing] = useState<Carrier | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.logistics.write");
+  const deletingRowRemove = useDeleteCarrier();
+  const [deletingRow, setDeletingRow] = useState<Carrier | null>(null);
   const save = useSaveCarrier();
   const query = useCarriers({ page: c.page, limit: c.pageSize, q: c.q });
 
@@ -355,8 +359,37 @@ export function CarriersView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete carrier"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Carrier>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete carrier?"
+        describe={(r) =>
+          `Delete carrier ${r.carrierName} (${r.carrierCode})? This cannot be undone. Blocked automatically if shipments exist for this carrier.`
+        }
+        confirmText="Delete carrier"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Carrier deleted"
+        errorFallback="Failed to delete carrier"
+      />
       <ScmFormDialog
         open={formOpen}
         onClose={() => {

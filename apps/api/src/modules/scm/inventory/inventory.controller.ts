@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -124,6 +126,13 @@ export class InventoryController {
     return this.inventory.transitionTransfer(id, "cancel");
   }
 
+  @Delete("transfers/:id")
+  @HttpCode(204)
+  @RequirePermission("scm.inventory.write")
+  removeTransfer(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.removeTransfer(id);
+  }
+
   // adjustments
   @Get("adjustments")
   @RequirePermission("scm.inventory.read")
@@ -191,5 +200,48 @@ export class InventoryController {
     @Body() dto: UpdateSerialStatusDto,
   ) {
     return this.inventory.setSerialStatus(id, dto);
+  }
+
+  /** Applies immediately (create + approve in one step) — the product page's
+   * On Hand / Rejected-Bad edits. Still recorded as an adjustment. */
+  @Post("adjustments/apply")
+  @RequirePermission("scm.inventory.write")
+  applyAdjustment(@Body() dto: CreateAdjustmentDto) {
+    return this.inventory.applyAdjustment(dto);
+  }
+
+  @Delete("adjustments/:id")
+  @HttpCode(204)
+  @RequirePermission("scm.inventory.write")
+  removeAdjustment(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.removeAdjustment(id);
+  }
+
+  @Delete("batches/:id")
+  @HttpCode(204)
+  @RequirePermission("scm.inventory.write")
+  removeBatch(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.removeBatch(id);
+  }
+
+  @Delete("serials/:id")
+  @HttpCode(204)
+  @RequirePermission("scm.inventory.write")
+  removeSerial(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.removeSerial(id);
+  }
+
+  @Delete("reservations/:id")
+  @HttpCode(204)
+  @RequirePermission("scm.inventory.write")
+  removeReservation(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.removeReservation(id);
+  }
+
+  /** Offsetting entry that restores the balance (the ledger is append-only). */
+  @Post("ledger/:id/reverse")
+  @RequirePermission("scm.inventory.write")
+  reverseLedgerEntry(@Param("id", ParseIntPipe) id: number) {
+    return this.inventory.reverseLedgerEntry(id);
   }
 }

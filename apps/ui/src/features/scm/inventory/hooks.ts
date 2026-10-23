@@ -20,7 +20,7 @@ import type {
   ScmSerial,
   ScmTransfer,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPatch, scmPost } from "../shared/scm-api";
+import { scmDelete, scmGet, scmPatch, scmPost } from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 const BASE = "/scm/inventory";
@@ -103,4 +103,26 @@ export const useCreateSerials = () =>
 export const useSetSerialStatus = () =>
   useScmMutation(({ id, status }: { id: number; status: string }) =>
     scmPatch<ScmSerial>(`${BASE}/serials/${id}/status`, { status }),
+  );
+
+export const useDeleteAdjustment = () =>
+  useScmMutation((id: number) => scmDelete(`${BASE}/adjustments/${id}`));
+export const useDeleteTransfer = () =>
+  useScmMutation((id: number) => scmDelete(`${BASE}/transfers/${id}`));
+export const useDeleteBatch = () =>
+  useScmMutation((id: number) => scmDelete(`${BASE}/batches/${id}`));
+export const useDeleteSerial = () =>
+  useScmMutation((id: number) => scmDelete(`${BASE}/serials/${id}`));
+export const useDeleteReservation = () =>
+  useScmMutation((id: number) => scmDelete(`${BASE}/reservations/${id}`));
+/** Posts an offsetting entry that restores the balance (ledger is append-only). */
+export const useReverseLedgerEntry = () =>
+  useScmMutation((id: number) =>
+    scmPost<{ reversalEntryId: number }>(`${BASE}/ledger/${id}/reverse`),
+  );
+
+/** Create + approve in one step (the product page's stock edits). */
+export const useApplyAdjustment = () =>
+  useScmMutation((input: CreateAdjustmentInput) =>
+    scmPost<ScmAdjustment>(`${BASE}/adjustments/apply`, input),
   );

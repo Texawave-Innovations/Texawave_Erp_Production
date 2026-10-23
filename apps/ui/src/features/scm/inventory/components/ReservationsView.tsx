@@ -12,10 +12,12 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateReservation,
+  useDeleteReservation,
   useReleaseReservation,
   useReservations,
 } from "../hooks";
@@ -32,6 +34,8 @@ export function ReservationsView() {
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateReservation();
   const release = useReleaseReservation();
+  const remove = useDeleteReservation();
+  const [deleting, setDeleting] = useState<ScmReservation | null>(null);
 
   const query = useReservations({
     page: c.page,
@@ -134,27 +138,47 @@ export function ReservationsView() {
           headerClassName: "text-right",
           className: "text-right",
           cell: (r) =>
-            canWrite && r.status === "ACTIVE" ? (
+            canWrite ? (
               <div className="flex justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleRelease(r, "RELEASED")}
-                >
-                  Release
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleRelease(r, "CANCELLED")}
-                >
-                  Cancel
-                </Button>
+                {r.status === "ACTIVE" ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRelease(r, "RELEASED")}
+                    >
+                      Release
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRelease(r, "CANCELLED")}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : null}
+                <ScmDeleteButton
+                  label="Delete reservation"
+                  onClick={() => setDeleting(r)}
+                />
               </div>
             ) : null,
         },
       ]}
     >
+      <ScmDeleteDialog<ScmReservation>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete reservation?"
+        describe={(r) =>
+          `Permanently delete this reservation of ${formatQty(r.quantity)} × ${r.product?.productCode ?? ""}? This cannot be undone. An active reservation must be released or cancelled first.`
+        }
+        confirmText="Delete reservation"
+        run={(r) => remove.mutateAsync(r.id)}
+        successMessage="Reservation deleted"
+        errorFallback="Failed to delete reservation"
+      />
       <ScmFormDialog
         open={open}
         onClose={() => setOpen(false)}

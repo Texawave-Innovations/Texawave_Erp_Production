@@ -58,6 +58,15 @@ const listInclude = {
   warehouse: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.ScmReturnInclude;
 
+/** Statuses before any stock moved or disposition completed. */
+const DELETABLE_RETURN_STATUSES = [
+  "REQUESTED",
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "REJECTED",
+  "CANCELLED",
+];
+
 @Injectable()
 export class ReturnsRepository {
   constructor(
@@ -1381,5 +1390,36 @@ export class ReturnsRepository {
         actorId,
       ),
     );
+  }
+
+  /** A return that has not moved stock yet (nothing received/shipped and no
+   * disposition posted) can be deleted; anything past that has ledger
+   * history behind it. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmReturn.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (!DELETABLE_RETURN_STATUSES.includes(row.status)) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: this return has already moved stock or completed disposition.",
+          "RETURN_ALREADY_PROCESSED",
+        );
+      }
+      await tx.scmReturn.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_return",
+        entityId: id,
+        action: "delete",
+        before: {
+          returnNumber: row.returnNumber,
+          status: row.status,
+          by: actorId,
+        },
+      });
+      return true;
+    });
   }
 }

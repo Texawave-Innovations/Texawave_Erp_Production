@@ -914,4 +914,296 @@ export class InventoryRepository {
       return after;
     });
   }
+
+  /** Deletes an adjustment that never posted to the ledger. An approved one
+   * has already moved stock (the ledger is append-only), so it is refused. */
+  @OrgScoped()
+  async removeAdjustment(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmStockAdjustment.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "APPROVED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: a stock ledger entry has already been posted for this adjustment.",
+          "ADJUSTMENT_POSTED",
+        );
+      }
+      await tx.scmStockAdjustment.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_adjustment",
+        entityId: id,
+        action: "delete",
+        before: { adjustmentNumber: row.adjustmentNumber, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** A transfer that already dispatched or received has posted a real
+   * TRANSFER_OUT/TRANSFER_IN ledger entry — never delete one (reverse it
+   * with a fresh adjustment instead). DRAFT/REQUESTED/APPROVED (nothing
+   * posted yet) and CANCELLED (already reversed) may be deleted. */
+  async removeTransfer(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmStockTransfer.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "IN_TRANSIT" || row.status === "RECEIVED") {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: a stock ledger entry has already been posted for this transfer.",
+          "TRANSFER_POSTED",
+        );
+      }
+      await tx.scmStockTransfer.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_transfer",
+        entityId: id,
+        action: "delete",
+        before: { transferNumber: row.transferNumber, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** A batch's quantity is its own lot-level stock — never delete one that
+   * still holds any, or that stock keeps counting with no lot (and no expiry)
+   * to trace it back to. */
+  @OrgScoped()
+  async removeBatch(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmStockBatch.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.quantity.greaterThan(0)) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — this batch still holds ${row.quantity.toString()} unit(s).`,
+          "BATCH_HAS_STOCK",
+        );
+      }
+      await tx.scmStockBatch.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_batch",
+        entityId: id,
+        action: "delete",
+        before: { batchNumber: row.batchNumber, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** Only a serial that is still Available is deletable — anything past that
+   * (sold, reserved, transferred, damaged, returned, quarantined) has real
+   * history attached to that exact unit. */
+  @OrgScoped()
+  async removeSerial(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmSerialNumber.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status !== "AVAILABLE") {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — this serial is ${row.status.toLowerCase()}, not Available.`,
+          "SERIAL_NOT_AVAILABLE",
+        );
+      }
+      await tx.scmSerialNumber.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_serial_number",
+        entityId: id,
+        action: "delete",
+        before: { serialNumber: row.serialNumber, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** An ACTIVE reservation holds stock — release or cancel it first. */
+  @OrgScoped()
+  async removeReservation(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmStockReservation.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      if (row.status === "ACTIVE") {
+        throw new BusinessRuleViolationException(
+          "Release or cancel this reservation before deleting it.",
+          "RESERVATION_ACTIVE",
+        );
+      }
+      await tx.scmStockReservation.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_reservation",
+        entityId: id,
+        action: "delete",
+        before: { status: row.status, by: actorId },
+      });
+      return true;
+    });
+  }
+
+  /** Legacy let an operator delete a ledger entry and silently unwind the
+   * balance. The ledger here is append-only (DB trigger), so the equivalent
+   * is an offsetting entry that restores the balance and keeps the history:
+   * each entry can be reversed once, a reversal cannot itself be reversed,
+   * and entries tied to a batch/serial are refused (their lot quantities are
+   * maintained separately — post an adjustment instead). */
+  @OrgScoped()
+  async reverseLedgerEntry(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.scmStockLedgerEntry.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!entry) return null;
+      if (entry.referenceType === "LEDGER_REVERSAL") {
+        throw new BusinessRuleViolationException(
+          "A reversal entry cannot itself be reversed.",
+          "LEDGER_REVERSAL_OF_REVERSAL",
+        );
+      }
+      if (entry.batchId || entry.serialId) {
+        throw new BusinessRuleViolationException(
+          "Cannot reverse: this entry is tied to a batch/serial. Post an offsetting adjustment instead.",
+          "LEDGER_BATCH_SERIAL",
+        );
+      }
+      const type = entry.transactionType;
+      if (type === "QC_REJECT") {
+        throw new BusinessRuleViolationException(
+          "A QC rejection cannot be reversed here — reverse the inspection instead.",
+          "LEDGER_QC_REJECT",
+        );
+      }
+      const qtyIn = Number(entry.quantityIn);
+      const qtyOut = Number(entry.quantityOut);
+      // Pick the opposite ledger type so every balance bucket unwinds too.
+      const reverseType =
+        type === "QUARANTINE"
+          ? "QC_RELEASE"
+          : type === "QC_RELEASE"
+            ? "QUARANTINE"
+            : qtyIn > 0
+              ? "ADJUSTMENT_OUT"
+              : "ADJUSTMENT_IN";
+      const posted = await this.stock.post(tx, {
+        organizationId: scope.organizationId,
+        productId: entry.productId,
+        warehouseId: entry.warehouseId,
+        locationId: entry.locationId,
+        transactionType: reverseType,
+        referenceType: "LEDGER_REVERSAL",
+        referenceId: entry.id,
+        referenceNumber: entry.referenceNumber,
+        quantityIn:
+          reverseType === "ADJUSTMENT_IN" || reverseType === "QC_RELEASE"
+            ? qtyOut || qtyIn
+            : undefined,
+        quantityOut:
+          reverseType === "ADJUSTMENT_OUT" || reverseType === "QUARANTINE"
+            ? qtyIn || qtyOut
+            : undefined,
+        unitCost: entry.unitCost ? Number(entry.unitCost) : undefined,
+        notes: `Reversal of ledger entry #${entry.id} (${type})`,
+        createdBy: actorId,
+        idempotencyKey: `LEDGER_REVERSE:${entry.id}`,
+      });
+      if (posted.alreadyPosted) {
+        throw new BusinessRuleViolationException(
+          "This ledger entry has already been reversed.",
+          "LEDGER_ALREADY_REVERSED",
+        );
+      }
+      if (type === "DAMAGE") {
+        await this.stock.applyDamagedDelta(
+          tx,
+          scope.organizationId,
+          entry.productId,
+          entry.warehouseId,
+          -qtyOut,
+        );
+      }
+      await this.audit.write(tx, {
+        entityType: "scm_stock_ledger",
+        entityId: entry.id,
+        action: "reverse",
+        after: { reversalEntryId: posted.id, type },
+      });
+      return { reversalEntryId: posted.id };
+    });
+  }
+
+  /** Raises a stock adjustment AND applies it in one step: the same
+   * create-then-approve sequence the Adjustments page runs as two actions
+   * (request, then a second person's approval), run back-to-back inside one
+   * transaction through the same ledger-guarded path. Used by the product
+   * page's On Hand / Rejected-Bad edits so they update straight away; the
+   * adjustment is still recorded under Inventory -> Adjustments as the audit
+   * trail. An OUT is rejected by the ledger guard if it would take stock
+   * negative. */
+  @OrgScoped()
+  async applyAdjustment(
+    scope: OrgScope,
+    dto: CreateAdjustmentDto,
+    actorId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await this.requireProduct(tx, scope, dto.productId);
+      await this.requireWarehouse(tx, scope, dto.warehouseId);
+      const adjustmentNumber = await this.numbering.next(
+        tx,
+        scope.organizationId,
+        "stockAdjustment",
+      );
+      const created = await tx.scmStockAdjustment.create({
+        data: {
+          organizationId: scope.organizationId,
+          adjustmentNumber,
+          productId: product.id,
+          warehouseId: dto.warehouseId,
+          locationId: dto.locationId ?? null,
+          quantity: dto.quantity,
+          direction: dto.direction,
+          reason: dto.reason,
+          notes: dto.notes?.trim() || null,
+          requestedBy: actorId,
+          status: "APPROVED",
+          approvedBy: actorId,
+          approvedAt: new Date(),
+        },
+      });
+      const isIn = dto.direction === "IN";
+      await this.stock.post(tx, {
+        organizationId: scope.organizationId,
+        productId: product.id,
+        warehouseId: dto.warehouseId,
+        locationId: dto.locationId ?? null,
+        transactionType: isIn ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT",
+        referenceType: "ADJUSTMENT",
+        referenceId: created.id,
+        referenceNumber: adjustmentNumber,
+        quantityIn: isIn ? dto.quantity : undefined,
+        quantityOut: isIn ? undefined : dto.quantity,
+        notes: dto.reason,
+        createdBy: actorId,
+        idempotencyKey: `ADJUSTMENT:${created.id}`,
+      });
+      await this.audit.write(tx, {
+        entityType: "scm_stock_adjustment",
+        entityId: created.id,
+        action: "apply",
+        after: {
+          adjustmentNumber,
+          direction: dto.direction,
+          quantity: dto.quantity,
+          reason: dto.reason,
+        },
+      });
+      return created;
+    });
+  }
 }

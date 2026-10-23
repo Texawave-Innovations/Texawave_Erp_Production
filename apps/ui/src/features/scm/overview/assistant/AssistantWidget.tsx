@@ -112,18 +112,50 @@ export function AssistantWidget() {
   }
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((o) => !o);
-          setEverOpened(true);
-        }}
-        aria-label={open ? `Close ${BOT_NAME}` : `Open ${BOT_NAME}`}
-        aria-expanded={open}
-        className="fixed bottom-20 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-brand-600 text-white shadow-lg outline-none transition-transform hover:scale-105 hover:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2 active:scale-95 sm:bottom-20 sm:right-6"
+      <div
+        className={`fixed bottom-20 right-4 z-40 grid h-16 w-16 place-items-center sm:bottom-20 sm:right-6 ${open ? "" : "scm-copilot-bob"}`}
       >
-        {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
-      </button>
+        {open ? null : (
+          <>
+            <span
+              aria-hidden="true"
+              className="scm-copilot-aura pointer-events-none absolute inset-1 rounded-full bg-brand-500"
+            />
+            <span
+              aria-hidden="true"
+              className="scm-copilot-spin-ring pointer-events-none absolute inset-0 rounded-full p-[2.5px] [mask:radial-gradient(farthest-side,transparent_calc(100%-2.5px),#000_calc(100%-2.5px))]"
+            />
+            <span
+              aria-hidden="true"
+              className="scm-copilot-satellite pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-300 shadow-[0_0_6px_2px_rgba(147,197,253,0.8)]"
+            />
+            <span
+              aria-hidden="true"
+              className="scm-copilot-twinkle pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-white shadow-[0_0_6px_1px_rgba(255,255,255,0.9)]"
+            />
+            <span
+              aria-hidden="true"
+              className="scm-copilot-twinkle-delay pointer-events-none absolute -bottom-0.5 -left-0.5 h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_5px_1px_rgba(255,255,255,0.9)]"
+            />
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((o) => !o);
+            setEverOpened(true);
+          }}
+          aria-label={open ? `Close ${BOT_NAME}` : `Open ${BOT_NAME}`}
+          aria-expanded={open}
+          className={`relative grid h-14 w-14 place-items-center rounded-full text-white outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2 active:scale-95 ${
+            open
+              ? "bg-brand-600 shadow-lg hover:bg-brand-700"
+              : "scm-copilot-orb shadow-lg shadow-brand-900/20 bg-gradient-to-br from-brand-400 via-blue-600 to-brand-700"
+          }`}
+        >
+          {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
+        </button>
+      </div>
       {everOpened && open ? <Panel onClose={() => setOpen(false)} /> : null}
     </>
   );

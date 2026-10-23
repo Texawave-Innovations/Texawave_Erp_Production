@@ -3,15 +3,20 @@
 import type { ScmWarehouse, WarehouseType } from "@texawave-erp/api-types";
 import { WAREHOUSE_TYPES } from "@texawave-erp/api-types";
 import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
-import { Building2, Pencil, Plus, Power } from "lucide-react";
+import { Building2, Pencil, Plus, Power, Tag } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { buildQrPayload } from "../../barcode/codes";
+import { LabelDialog } from "../../barcode/LabelDialog";
+import type { BarcodeLabelProps } from "../../barcode/BarcodeLabel";
 import { formatQty } from "../../shared/format";
 import { ScmFormDialog, type ScmFormValues } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateWarehouse,
+  useDeleteWarehouse,
   useUpdateWarehouse,
   useWarehouses,
 } from "../hooks";
@@ -46,8 +51,20 @@ export function WarehousesView() {
   const [editing, setEditing] = useState<ScmWarehouse | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.warehouse.write");
+  const deletingRowRemove = useDeleteWarehouse();
+  const [deletingRow, setDeletingRow] = useState<ScmWarehouse | null>(null);
   const create = useCreateWarehouse();
   const update = useUpdateWarehouse();
+  const [label, setLabel] = useState<BarcodeLabelProps | null>(null);
+
+  function showQrLabel(w: Pick<ScmWarehouse, "id" | "code" | "name">) {
+    setLabel({
+      format: "QR",
+      value: buildQrPayload("WAREHOUSE", w.code, w.id),
+      title: w.name,
+      subtitle: w.code,
+    });
+  }
 
   const query = useWarehouses({
     page: c.page,
@@ -163,6 +180,15 @@ export function WarehousesView() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  title="QR label"
+                  aria-label={`QR label for ${w.name}`}
+                  onClick={() => showQrLabel(w)}
+                >
+                  <Tag className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   aria-label={`Edit ${w.name}`}
                   onClick={() => {
                     setEditing(w);
@@ -185,8 +211,37 @@ export function WarehousesView() {
               </div>
             ) : null,
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete warehouse"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<ScmWarehouse>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete warehouse?"
+        describe={(r) =>
+          `Delete warehouse ${r.name} (${r.code})? This cannot be undone. Blocked automatically while it holds stock or any receipts, orders, shipments, inspections or returns reference it; its empty locations are removed with it.`
+        }
+        confirmText="Delete warehouse"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Warehouse deleted"
+        errorFallback="Failed to delete warehouse"
+      />
       <ScmFormDialog
         open={formOpen}
         onClose={closeForm}
@@ -270,9 +325,10 @@ export function WarehousesView() {
             operatingHours: str("operatingHours"),
             notes: str("notes"),
           };
+          let created: ScmWarehouse | undefined;
           try {
             if (editing) await update.mutateAsync({ id: editing.id, input });
-            else await create.mutateAsync(input);
+            else created = await create.mutateAsync(input);
           } catch (err) {
             throw new Error(errorText(err, "Failed to save warehouse"));
           }
@@ -281,7 +337,14 @@ export function WarehousesView() {
             variant: "success",
           });
           closeForm();
+          if (created) showQrLabel(created);
         }}
+      />
+      <LabelDialog
+        open={label !== null}
+        onClose={() => setLabel(null)}
+        dialogTitle="Warehouse QR Label"
+        label={label}
       />
     </ScmListView>
   );

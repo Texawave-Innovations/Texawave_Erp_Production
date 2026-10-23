@@ -78,7 +78,7 @@ test("runs a purchase from requisition to goods receipt", async ({
   await signInAsAdmin(page);
 
   // 1. Requisition: create, submit, approve
-  await open(page, "Procurement", "Purchase Requisitions");
+  await open(page, "Procurement", "Material Requisitions");
   await page.getByRole("button", { name: "New Requisition" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(/^Warehouse/).selectOption({ label: whName });

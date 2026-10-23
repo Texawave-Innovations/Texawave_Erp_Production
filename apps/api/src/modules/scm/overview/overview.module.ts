@@ -8,6 +8,7 @@ import {
 } from "./overview.controller.js";
 import { AssistantRepository } from "./assistant.repository.js";
 import { OverviewRepository } from "./overview.repository.js";
+import { ScanRepository } from "./scan.repository.js";
 import { OverviewService } from "./overview.service.js";
 
 @Module({
@@ -18,6 +19,11 @@ import { OverviewService } from "./overview.service.js";
     AdvancedController,
     AssistantController,
   ],
-  providers: [OverviewRepository, AssistantRepository, OverviewService],
+  providers: [
+    OverviewRepository,
+    AssistantRepository,
+    ScanRepository,
+    OverviewService,
+  ],
 })
 export class OverviewModule {}

@@ -2,7 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
-import { InvalidStateTransitionException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  InvalidStateTransitionException,
+} from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
@@ -10,6 +13,8 @@ import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import { actorName, toDate } from "../common/scm-actor.helpers.js";
 import { ScmNumberingService } from "../common/scm-numbering.service.js";
 import { StockPostingService } from "../inventory/stock-posting.service.js";
+import { GoodsReceiptsRepository } from "./goods-receipts.repository.js";
+import { LINKABLE_REQUISITION_STATUSES } from "./procurement.helpers.js";
 
 export interface PurchaseOrderLineData {
   productId: number;
@@ -29,6 +34,8 @@ export interface PurchaseOrderData {
   vendorGstin: string | null;
   rfqId?: number | undefined;
   quotationId?: number | undefined;
+  requisitionId?: number | undefined;
+  requisitionNumber?: string | undefined;
   poDate: string;
   expectedDeliveryDate?: string | undefined;
   warehouseId: number;
@@ -48,6 +55,7 @@ export interface PurchaseOrderFilter {
   q?: string | undefined;
   status?: string | undefined;
   supplierId?: number | undefined;
+  requisitionId?: number | undefined;
   statusIn?: readonly string[] | undefined;
 }
 
@@ -57,6 +65,15 @@ export const purchaseOrderInclude = {
   warehouse: { select: { id: true, name: true, code: true } },
   quotation: { select: { id: true, quotationNumber: true } },
   rfq: { select: { id: true, rfqNumber: true } },
+  requisition: {
+    select: {
+      id: true,
+      requisitionNumber: true,
+      requestedByName: true,
+      department: true,
+      purpose: true,
+    },
+  },
   _count: { select: { receipts: true } },
 } satisfies Prisma.ScmPurchaseOrderInclude;
 
@@ -72,6 +89,7 @@ export class PurchaseOrdersRepository {
     private readonly audit: AuditWriter,
     private readonly numbering: ScmNumberingService,
     private readonly stock: StockPostingService,
+    private readonly receipts: GoodsReceiptsRepository,
   ) {}
 
   @OrgScoped()
@@ -80,11 +98,33 @@ export class PurchaseOrdersRepository {
       ...(f.status ? { status: f.status } : {}),
       ...(f.statusIn ? { status: { in: [...f.statusIn] } } : {}),
       ...(f.supplierId ? { supplierId: f.supplierId } : {}),
+      ...(f.requisitionId ? { requisitionId: f.requisitionId } : {}),
       ...(f.q
         ? {
             OR: [
               { poNumber: { contains: f.q, mode: "insensitive" } },
               { vendorNameSnapshot: { contains: f.q, mode: "insensitive" } },
+              { requisitionNumber: { contains: f.q, mode: "insensitive" } },
+              {
+                requisition: {
+                  OR: [
+                    {
+                      requisitionNumber: { contains: f.q, mode: "insensitive" },
+                    },
+                    { requestedByName: { contains: f.q, mode: "insensitive" } },
+                    { department: { contains: f.q, mode: "insensitive" } },
+                    { purpose: { contains: f.q, mode: "insensitive" } },
+                  ],
+                },
+              },
+              {
+                rfq: { rfqNumber: { contains: f.q, mode: "insensitive" } },
+              },
+              {
+                quotation: {
+                  quotationNumber: { contains: f.q, mode: "insensitive" },
+                },
+              },
             ],
           }
         : {}),
@@ -139,6 +179,8 @@ export class PurchaseOrdersRepository {
           vendorGstinSnapshot: data.vendorGstin,
           rfqId: data.rfqId ?? null,
           quotationId: data.quotationId ?? null,
+          requisitionId: data.requisitionId ?? null,
+          requisitionNumber: data.requisitionNumber ?? null,
           poDate: new Date(data.poDate),
           expectedDeliveryDate: toDate(data.expectedDeliveryDate),
           warehouseId: data.warehouseId,
@@ -176,6 +218,26 @@ export class PurchaseOrdersRepository {
         action: "create",
         after: { poNumber, supplier: data.vendorName, total: data.total },
       });
+      if (data.requisitionId) {
+        // Linking converts the requisition, so it drops out of the "not yet
+        // on a PO" suggestions and never gets offered twice.
+        const converted = await tx.scmPurchaseRequisition.updateMany({
+          where: {
+            id: data.requisitionId,
+            organizationId: scope.organizationId,
+            status: { in: [...LINKABLE_REQUISITION_STATUSES] },
+          },
+          data: { status: "CONVERTED", updatedBy: actorId },
+        });
+        if (converted.count > 0) {
+          await this.audit.write(tx, {
+            entityType: "scm_purchase_requisition",
+            entityId: data.requisitionId,
+            action: "converted",
+            after: { status: "CONVERTED", purchaseOrder: poNumber },
+          });
+        }
+      }
       return created;
     });
   }
@@ -308,6 +370,57 @@ export class PurchaseOrdersRepository {
         where: { id },
         include: purchaseOrderInclude,
       });
+    });
+  }
+
+  /** Deletes a purchase order together with every goods receipt received
+   * against it (each one's stock is unwound — see GoodsReceiptsRepository.
+   * removeInTx). Returns the number of receipts removed, or null when the PO
+   * does not exist. Refused while supplier bills reference the PO. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const po = await tx.scmPurchaseOrder.findFirst({
+        where: tenantWhere(scope, { id }),
+        include: {
+          items: true,
+          receipts: { select: { id: true } },
+          bills: { select: { id: true } },
+        },
+      });
+      if (!po) return null;
+      if (po.bills.length > 0) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete ${po.poNumber} — ${po.bills.length} supplier bill(s) reference this purchase order.`,
+          "PO_HAS_BILLS",
+        );
+      }
+      for (const grn of po.receipts) {
+        await this.receipts.removeInTx(tx, scope, grn.id, actorId);
+      }
+      const fresh = await tx.scmPurchaseOrder.findFirstOrThrow({
+        where: { id },
+        include: { items: true },
+      });
+      if (fresh.incomingApplied) {
+        for (const it of fresh.items) {
+          await this.stock.applyIncomingDelta(
+            tx,
+            scope.organizationId,
+            it.productId,
+            fresh.warehouseId,
+            -Number(it.quantity),
+          );
+        }
+      }
+      await tx.scmPurchaseOrder.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_purchase_order",
+        entityId: id,
+        action: "delete",
+        before: { poNumber: po.poNumber, receiptsRemoved: po.receipts.length },
+      });
+      return { receiptsRemoved: po.receipts.length };
     });
   }
 }
