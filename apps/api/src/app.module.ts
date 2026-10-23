@@ -1,3 +1,4 @@
+import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { Module, ValidationPipe } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { AppController } from "./app.controller.js";
@@ -170,6 +171,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CrmCalendarModule,
     CrmDashboardModule,
     CrmBulkImportModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [

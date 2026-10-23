@@ -1145,6 +1145,39 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "View SCM reports (procurement, inventory, warehouse, fulfillment, logistics, returns, quality, suppliers)",
   },
+  // Projects Module permissions
+  {
+    code: "projects.project.read",
+    description: "View projects, dashboards, milestones, and tasks",
+  },
+  {
+    code: "projects.project.write",
+    description: "Create and update projects, assign members",
+  },
+  {
+    code: "projects.project.delete",
+    description: "Soft-delete projects",
+  },
+  {
+    code: "projects.task.write",
+    description: "Create, update, and assign tasks and milestones",
+  },
+  {
+    code: "projects.timer.write",
+    description: "Start and stop stopwatch timers, log time entries",
+  },
+  {
+    code: "projects.expenses.read",
+    description: "View project expenses and budget utilization",
+  },
+  {
+    code: "projects.expenses.write",
+    description: "Create, update, and manage project expenses",
+  },
+  {
+    code: "projects.points.manage",
+    description: "Configure gamification points master",
+  },
   // SCM overview, master data search, barcode lookup, control tower,
   // replenishment and the FAQ assistant — read-only cross-cutting views.
   {

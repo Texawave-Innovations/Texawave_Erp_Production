@@ -1404,6 +1404,129 @@ const SCM_CATEGORIES_FULL: NavCategory[] = [
   ]),
 ];
 
+/**
+ * Projects Navigation Hierarchy
+ */
+export const PROJECTS_CATEGORIES: NavCategory[] = [
+  {
+    id: "projects-overview",
+    label: "Overview",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-blue-600",
+    path: "/projects/dashboard",
+    menuCode: "projects-dashboard",
+    children: [
+      {
+        id: "projects-dashboard",
+        label: "Dashboard",
+        path: "/projects/dashboard",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "projects-dashboard",
+      },
+    ],
+  },
+  {
+    id: "projects-projects",
+    label: "Projects",
+    icon: FolderKanban,
+    icon3d: "projects",
+    iconColor: "text-cyan-600",
+    children: [
+      {
+        id: "projects-all",
+        label: "All Projects",
+        path: "/projects/list",
+        icon: FolderKanban,
+        icon3d: "projects",
+        menuCode: "projects-list",
+      },
+      {
+        id: "projects-expenses",
+        label: "Project Expenses",
+        path: "/projects/expenses",
+        icon: Receipt,
+        icon3d: "finance",
+        menuCode: "projects-expenses",
+      },
+      {
+        id: "projects-proposals",
+        label: "Proposal Documents",
+        path: "#",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "projects-proposals",
+      },
+      {
+        id: "projects-mom",
+        label: "Minutes of Meeting",
+        path: "#",
+        icon: ClipboardList,
+        icon3d: "tasks",
+        menuCode: "projects-mom",
+      },
+    ],
+  },
+  {
+    id: "projects-team",
+    label: "Team",
+    icon: Users,
+    icon3d: "people",
+    iconColor: "text-indigo-600",
+    children: [
+      {
+        id: "projects-my-work",
+        label: "My Work",
+        path: "/projects/my-work",
+        icon: Clock,
+        icon3d: "tasks",
+        menuCode: "projects-my-work",
+      },
+      {
+        id: "projects-resources",
+        label: "Resource Tracking",
+        path: "/projects/resources",
+        icon: Users,
+        icon3d: "people",
+        menuCode: "projects-resources",
+      },
+    ],
+  },
+  {
+    id: "projects-insights-finance",
+    label: "Insights & Finance",
+    icon: Scale,
+    icon3d: "finance",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "projects-budget",
+        label: "Budget Utilization",
+        path: "/projects/budget-utilization",
+        icon: Scale,
+        icon3d: "overview",
+        menuCode: "projects-budget",
+      },
+      {
+        id: "projects-analytics",
+        label: "Analytics",
+        path: "/projects/analytics",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "projects-analytics",
+      },
+      {
+        id: "projects-points",
+        label: "Points Master",
+        path: "/projects/points-master",
+        icon: Award,
+        icon3d: "tasks",
+        menuCode: "projects-points-master",
+      },
+    ],
+  },
+];
 /** In client-demo mode (see `features/scm/shared/demo-mode.ts`), the SCM
  * navigation is narrowed to `SCM_DEMO_MENU_CODES` — a leaf not in that set is
  * hidden (never removed: its route still resolves), and a group left with no
@@ -1488,8 +1611,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Projects",
     icon: FolderKanban,
     icon3d: "projects",
-    path: "#",
-    available: false,
+    path: "/projects/dashboard",
+    available: true,
+    categories: PROJECTS_CATEGORIES,
   },
   {
     id: "master-list",
@@ -1823,6 +1947,13 @@ function findRouteNavigationState(pathname: string) {
       leafId: null,
     };
   }
+  if (pathname.startsWith("/projects")) {
+    return {
+      moduleId: "projects",
+      categoryId: "projects-projects",
+      leafId: "projects-all",
+    };
+  }
   if (pathname.startsWith("/admin")) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
@@ -2047,8 +2178,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       return categories
         .map((cat) => {
           if (cat.children) {
-            const filteredChildren = cat.children.filter((child) =>
-              allowedCodes.has(child.menuCode),
+            const filteredChildren = cat.children.filter(
+              (child) =>
+                allowedCodes.has(child.menuCode) ||
+                child.path === "#" ||
+                !child.menuCode,
             );
             return {
               ...cat,
@@ -2253,7 +2387,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     // CRM and SCM: clicking the top-level item opens the module's landing page
     // (CRM dashboard / SCM overview) AND keeps the category dropdown pinned
     // open until the user clicks outside / Escape.
-    if (mod.id === "crm" || mod.id === "inventory") {
+    if (mod.id === "crm" || mod.id === "inventory" || mod.id === "projects") {
+      if (pinnedModuleId === mod.id) {
+        setPinnedModuleId(null);
+        setHoveredModuleId(null);
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+        return;
+      }
       setPinnedModuleId(mod.id);
       setHoveredModuleId(mod.id);
       setPinnedCategoryId(null);

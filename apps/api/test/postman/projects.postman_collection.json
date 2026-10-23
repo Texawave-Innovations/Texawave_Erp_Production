@@ -1,0 +1,832 @@
+{
+  "info": {
+    "_postman_id": "texawave-projects-api-collection",
+    "name": "TexaWave ERP - Projects Module API",
+    "description": "Comprehensive automated Postman test collection for TexaWave ERP Projects, Milestones, Tasks, Live Stopwatch, Manual Work Logs, Expenses, EVM Financials, Gamification Points, and Analytics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Authentication",
+      "item": [
+        {
+          "name": "Login & Token Extraction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains valid accessToken', () => {",
+                  "    pm.expect(json.data).to.have.property('accessToken');",
+                  "    pm.expect(json.data.accessToken).to.be.a('string');",
+                  "});",
+                  "if (json.data && json.data.accessToken) {",
+                  "    pm.environment.set('token', json.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizationSlug\": \"{{organizationSlug}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Projects Management",
+      "item": [
+        {
+          "name": "Create Project (Auto-issues PRJ-XXXXXX)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Project created with sequential PRJ-XXXXXX code', () => {",
+                  "    pm.expect(json.data.projectCode).to.match(/^PRJ-\\d{6}$/);",
+                  "    pm.expect(json.data.status).to.eq('active');",
+                  "});",
+                  "if (json.data && json.data.id) {",
+                  "    pm.environment.set('projectId', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Automated Inspection & IoT Telemetry\",\n  \"description\": \"Real-time edge sensing and predictive analytics pipeline\",\n  \"department\": \"Engineering\",\n  \"customerName\": \"Apex Industrial Labs\",\n  \"startDate\": \"2026-10-01\",\n  \"plannedEndDate\": \"2026-12-31\",\n  \"expectedHours\": 480,\n  \"projectPrice\": 60000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            }
+          }
+        },
+        {
+          "name": "List Projects (Paginated & Filterable)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns projects array with meta', () => {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "    pm.expect(json.meta).to.have.property('total');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects?page=1&limit=20&status=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "active" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project Detail (With EVM & Health)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Includes health indicator and financials', () => {",
+                  "    pm.expect(json.data.id).to.eq(Number(pm.environment.get('projectId')));",
+                  "    pm.expect(json.data).to.have.property('health');",
+                  "    pm.expect(json.data).to.have.property('earnedAmount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Project Settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Updates project price successfully', () => {",
+                  "    pm.expect(Number(json.data.projectPrice)).to.eq(65000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectPrice\": 65000,\n  \"expectedHours\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}"]
+            }
+          }
+        },
+        {
+          "name": "Add Team Member Allocation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Member allocated with correct role and rate', () => {",
+                  "    pm.expect(json.data.role).to.eq('Lead Architect');",
+                  "    pm.expect(Number(json.data.hourlyRate)).to.eq(75);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": 1,\n  \"role\": \"Lead Architect\",\n  \"estimatedHours\": 120,\n  \"hourlyRate\": 75\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "members"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Milestones",
+      "item": [
+        {
+          "name": "Create Milestone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Milestone created', () => {",
+                  "    pm.expect(json.data.title).to.eq('Phase 1: Architecture & Circuit Design');",
+                  "});",
+                  "if (json.data && json.data.id) { pm.environment.set('milestoneId', json.data.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Phase 1: Architecture & Circuit Design\",\n  \"targetDate\": \"2026-11-15\",\n  \"order\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/milestones",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "milestones"]
+            }
+          }
+        },
+        {
+          "name": "Update Milestone Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Milestone status set to in_progress', () => {",
+                  "    pm.expect(json.data.status).to.eq('in_progress');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/milestones/{{milestoneId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "milestones", "{{milestoneId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Tasks & Execution",
+      "item": [
+        {
+          "name": "Create Task (Auto-issues TSK-XXXXXX & Business Hours)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Task auto-assigned TSK code and calculated hours', () => {",
+                  "    pm.expect(json.data.taskCode).to.match(/^TSK-\\d{6}$/);",
+                  "    pm.expect(Number(json.data.hoursToComplete)).to.be.above(0);",
+                  "    pm.expect(json.data.points).to.eq(20);",
+                  "});",
+                  "if (json.data && json.data.id) {",
+                  "    pm.environment.set('taskId', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Firmware Sensor Polling Loop\",\n  \"description\": \"Telemetry polling via SPI bus on microcontrollers\",\n  \"startDate\": \"2026-10-12\",\n  \"endDate\": \"2026-10-23\",\n  \"priority\": \"high\",\n  \"milestoneId\": {{milestoneId}},\n  \"assignedToId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "List Project Tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns tasks array', () => pm.expect(json.data).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "Get Task Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Task detail matches taskId', () => {",
+                  "    pm.expect(json.data.id).to.eq(Number(pm.environment.get('taskId')));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "{{taskId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Stopwatch & Time Tracking",
+      "item": [
+        {
+          "name": "Start Task Timer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Timer session started', () => {",
+                  "    pm.expect(json.data.taskId).to.eq(Number(pm.environment.get('taskId')));",
+                  "    pm.expect(json.data).to.have.property('startedAt');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/{{taskId}}/timer/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "{{taskId}}", "timer", "start"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Running Timer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Active timer matches current task', () => {",
+                  "    pm.expect(json.data).to.not.be.null;",
+                  "    pm.expect(json.data.taskId).to.eq(Number(pm.environment.get('taskId')));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/timer/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "timer", "active"]
+            }
+          }
+        },
+        {
+          "name": "Stop Task Timer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Timer stopped and duration logged', () => {",
+                  "    pm.expect(json.data).to.have.property('durationMinutes');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Completed SPI sensor loop debugging and verified parity bits\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/{{taskId}}/timer/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "{{taskId}}", "timer", "stop"]
+            }
+          }
+        },
+        {
+          "name": "Manual Work Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Manual time entry recorded', () => {",
+                  "    pm.expect(json.data.durationMinutes).to.eq(90);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entryDate\": \"2026-10-18T10:00:00.000Z\",\n  \"durationMinutes\": 90,\n  \"notes\": \"Manual review of test scenarios and firmware architecture\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/{{taskId}}/time-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "{{taskId}}", "time-entries"]
+            }
+          }
+        },
+        {
+          "name": "Complete Task (Awards Points)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Task completed and 100% progress set', () => {",
+                  "    pm.expect(json.data.status).to.eq('completed');",
+                  "    pm.expect(json.data.completionPercent).to.eq(100);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"completionPercent\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "{{taskId}}"]
+            }
+          }
+        },
+        {
+          "name": "My Work Tasks (Personal Board)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns employee assigned work', () => {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/tasks/my-work",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "tasks", "my-work"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Expenses & Budget Utilization",
+      "item": [
+        {
+          "name": "Record Project Expense",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', () => pm.expect(pm.response.code).to.eq(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Expense recorded and amount confirmed', () => {",
+                  "    pm.expect(Number(json.data.amount)).to.eq(2850);",
+                  "});",
+                  "if (json.data && json.data.id) { pm.environment.set('expenseId', json.data.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 2850,\n  \"expenseDate\": \"2026-10-15\",\n  \"department\": \"Engineering\",\n  \"vendor\": \"Mouser Electronics\",\n  \"referenceNo\": \"INV-MOUS-9912\",\n  \"status\": \"paid\",\n  \"notes\": \"Microcontroller development boards and breakout sensors\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "expenses"]
+            }
+          }
+        },
+        {
+          "name": "List Project Expenses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns list of expenses', () => {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "expenses"]
+            }
+          }
+        },
+        {
+          "name": "Get Project Budget Utilization & EVM",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Computes EVM recognized revenue and budget variance', () => {",
+                  "    pm.expect(json.data).to.have.property('earnedAmount');",
+                  "    pm.expect(json.data).to.have.property('budgetUtilizationPercent');",
+                  "    pm.expect(json.data).to.have.property('budgetVariance');",
+                  "    pm.expect(json.data.isUnderBudget).to.be.a('boolean');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/{{projectId}}/budget-utilization",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "{{projectId}}", "budget-utilization"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Analytics & Gamification",
+      "item": [
+        {
+          "name": "Executive Dashboard Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Metrics include portfolio counts and hours', () => {",
+                  "    pm.expect(json.data.totalProjects).to.be.at.least(1);",
+                  "    pm.expect(json.data.financials).to.have.property('totalContractPrice');",
+                  "    pm.expect(json.data.hours).to.have.property('totalLoggedHours');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/analytics/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "analytics", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Resource Capacity Tracking (160h Base)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Includes resource utilization metrics', () => {",
+                  "    pm.expect(json.data.resources).to.be.an('array');",
+                  "    pm.expect(json.data).to.have.property('overallUtilizationPercent');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/analytics/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "analytics", "resources"]
+            }
+          }
+        },
+        {
+          "name": "Department Spend & Velocity Breakdown",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Includes breakdown array', () => {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/analytics/department-breakdown",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "analytics", "department-breakdown"]
+            }
+          }
+        },
+        {
+          "name": "Gamification Leaderboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Leaderboard returns ranked contributors with points', () => {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "    if (json.data.length > 0) {",
+                  "        pm.expect(json.data[0]).to.have.property('totalPoints');",
+                  "        pm.expect(json.data[0].totalPoints).to.be.above(0);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/points/leaderboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "points", "leaderboard"]
+            }
+          }
+        },
+        {
+          "name": "Points Configuration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.expect(pm.response.code).to.eq(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Config returns default priority points', () => {",
+                  "    pm.expect(json.data.urgent).to.eq(30);",
+                  "    pm.expect(json.data.high).to.eq(20);",
+                  "    pm.expect(json.data.medium).to.eq(10);",
+                  "    pm.expect(json.data.low).to.eq(5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/projects/points/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "points", "config"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
