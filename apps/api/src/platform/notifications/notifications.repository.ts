@@ -131,6 +131,47 @@ export class NotificationsRepository {
     return count;
   }
 
+  @OrgScoped()
+  async findAdminUserIds(scope: OrgScope): Promise<number[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                rolePermissions: {
+                  select: { permission: { select: { code: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const adminIds = users
+      .filter((u) => {
+        if (u.email.toLowerCase().includes("admin")) return true;
+        return u.userRoles.some((ur) =>
+          ur.role.rolePermissions.some(
+            (rp) =>
+              rp.permission.code.startsWith("hr.") ||
+              rp.permission.code.startsWith("settings."),
+          ),
+        );
+      })
+      .map((u) => u.id);
+
+    return adminIds.length > 0 ? adminIds : users.slice(0, 1).map((u) => u.id);
+  }
+
   private mine(
     scope: OrgScope,
     userId: number,

@@ -30,6 +30,42 @@ export class NotificationsService {
     return this.repository.createMany(scope, items);
   }
 
+  async notifyAdmins(
+    scope: OrgScope,
+    notification: Omit<NewNotification, "userId">,
+    excludeUserId?: number,
+  ): Promise<number> {
+    try {
+      const adminIds = await this.repository.findAdminUserIds(scope);
+      const targets = adminIds.filter((id) => id !== excludeUserId);
+      if (targets.length === 0) return 0;
+      const items = targets.map((userId) => ({
+        ...notification,
+        userId,
+        dedupKey: notification.dedupKey
+          ? `${notification.dedupKey}:${userId}`
+          : null,
+      }));
+      return await this.repository.createMany(scope, items);
+    } catch {
+      return 0;
+    }
+  }
+
+  async notifyUser(
+    scope: OrgScope,
+    userId: number,
+    notification: Omit<NewNotification, "userId">,
+  ): Promise<number> {
+    try {
+      return await this.repository.createMany(scope, [
+        { ...notification, userId },
+      ]);
+    } catch {
+      return 0;
+    }
+  }
+
   async findMine(query: QueryNotificationsDto) {
     const { items, total } = await this.repository.findMine(
       this.tenantContext.getOrgScope(),

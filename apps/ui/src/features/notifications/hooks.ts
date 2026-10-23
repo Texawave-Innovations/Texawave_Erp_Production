@@ -34,7 +34,7 @@ export function useNotifications(enabled: boolean) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list"),
-    queryFn: () => listNotifications({ page: 1, limit: 20 }),
+    queryFn: () => listNotifications({ page: 1, limit: 40 }),
     enabled: orgId > 0 && enabled,
   });
 }
