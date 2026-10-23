@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
+import { useMyDocuments, useMyEmployee } from "@/features/onboarding/hooks";
+import { getResolvedAvatarUrl } from "@/features/hr/components/EmployeeIdentity";
 
 export interface GlobalHeaderProps {
   onSignOut: () => void;
@@ -56,7 +58,7 @@ function LiveClockBadge() {
       )}
 
       {currentTime && (
-        <div className="hidden items-center gap-2 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-3 py-1.5 text-theme-xs font-bold font-mono text-cyan-800 dark:border-cyan-900/40 dark:bg-cyan-950/40 dark:text-cyan-300 sm:flex">
+        <div className="hidden items-center gap-2 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-3 py-1.5 text-theme-xs font-bold text-cyan-800 dark:border-cyan-900/40 dark:bg-cyan-950/40 dark:text-cyan-300 sm:flex">
           <Clock className="h-3.5 w-3.5" />
           <span>{currentTime}</span>
         </div>
@@ -88,7 +90,22 @@ export function GlobalHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const displayName = user?.fullName || "Admin User";
+  const myEmployee = useMyEmployee();
+  const myDocuments = useMyDocuments();
+  const photoDoc = myDocuments.data?.find(
+    (d) => d.documentType === "PROFILE_PHOTO",
+  );
+  const rawAvatarUrl =
+    myEmployee.data?.avatarUrl ||
+    (photoDoc ? "/employee/profile/documents/PROFILE_PHOTO/file" : null);
+  const resolvedAvatarUrl = getResolvedAvatarUrl(rawAvatarUrl);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const showAvatarImg = Boolean(
+    resolvedAvatarUrl && failedAvatarUrl !== resolvedAvatarUrl,
+  );
+
+  const displayName =
+    user?.fullName || myEmployee.data?.fullName || "Admin User";
   const initials = displayName
     .split(" ")
     .map((p) => p[0])
@@ -143,8 +160,18 @@ export function GlobalHeader({
             className="flex items-center gap-2.5 rounded-xl border border-slate-200/60 bg-white/80 p-1.5 pr-2.5 text-left hover:bg-white shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-gray-800 dark:bg-gray-800/60 dark:hover:bg-gray-800 transition-colors"
           >
             {/* Avatar Circle */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white shadow-xs">
-              {initials}
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-sky-200/90 bg-linear-to-br from-[#1769F5] to-cyan-500 text-xs font-bold text-white shadow-xs">
+              {showAvatarImg ? (
+                <img
+                  key={resolvedAvatarUrl}
+                  src={resolvedAvatarUrl!}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setFailedAvatarUrl(resolvedAvatarUrl)}
+                />
+              ) : (
+                initials
+              )}
             </div>
 
             {/* User Name & Role */}
@@ -153,7 +180,9 @@ export function GlobalHeader({
                 {displayName}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                Software Engineer
+                {myEmployee.data?.designation?.name ||
+                  myEmployee.data?.department?.name ||
+                  "Administrator"}
               </span>
             </div>
 

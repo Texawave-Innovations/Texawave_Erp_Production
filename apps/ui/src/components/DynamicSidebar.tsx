@@ -9,6 +9,7 @@ import { useMyMenu } from "@/features/menu/hooks";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   Contact,
   FileText,
@@ -43,8 +44,16 @@ import {
   FolderKanban,
   ClipboardList,
   Settings,
+  UserCircle,
+  Percent,
+  Wallet,
+  User,
+  Folder,
+  DoorOpen,
   type LucideIcon,
 } from "lucide-react";
+import { useMyEmployee } from "@/features/onboarding/hooks";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface SubNavItem {
   id: string;
@@ -313,6 +322,188 @@ export const SETTINGS_NAV_ITEMS: GatedNavItem[] = [
   },
 ];
 
+/**
+ * Standardized Employee Portal Navigation Groups matching user layout specifications:
+ * 1. Overview (Dashboard)
+ * 2. Attendance (Check In / Out, Attendance, My Timesheet)
+ * 3. Leaves (Leave Tracker)
+ * 4. Work & Projects (My Work, Personal Tasks)
+ * 5. Expenses (My Expenses)
+ * 6. Payroll (My Payslips, Tax & Declarations, Loans & Advances)
+ * 7. My Info (My Profile, Documents, Raise Ticket, Exit Request)
+ * 8. Team Management (Team Attendance, Team Leaves — conditional on permissions)
+ */
+export const PORTAL_NAV_GROUPS: NavGroup[] = [
+  {
+    id: "portal-overview",
+    label: "Overview",
+    items: [
+      {
+        id: "portal-dashboard",
+        menuCode: "portal",
+        label: "Dashboard",
+        path: "/portal",
+        icon: LayoutGrid,
+        exact: true,
+      },
+    ],
+  },
+  {
+    id: "portal-attendance-group",
+    label: "Attendance",
+    items: [
+      {
+        id: "portal-checkin",
+        menuCode: "portal-attendance",
+        label: "Check In / Out",
+        path: "/portal/attendance?action=punch",
+        icon: MapPin,
+      },
+      {
+        id: "portal-attendance",
+        menuCode: "portal-attendance",
+        label: "Attendance",
+        path: "/portal/attendance",
+        icon: Calendar,
+      },
+      {
+        id: "portal-timesheet",
+        menuCode: "portal-attendance",
+        label: "My Timesheet",
+        path: "/portal/attendance?view=timesheet",
+        icon: Clock,
+      },
+    ],
+  },
+  {
+    id: "portal-leaves-group",
+    label: "Leaves",
+    items: [
+      {
+        id: "portal-leave",
+        menuCode: "portal-leave",
+        label: "Leave Tracker",
+        path: "/portal/leave",
+        icon: CalendarDays,
+      },
+    ],
+  },
+  {
+    id: "portal-work-group",
+    label: "Work & Projects",
+    items: [
+      {
+        id: "portal-tasks",
+        menuCode: "portal-tasks",
+        label: "My Work",
+        path: "/portal/tasks",
+        icon: Briefcase,
+      },
+      {
+        id: "portal-personal-tasks",
+        menuCode: "portal-task-assignment",
+        label: "Personal Tasks",
+        path: "/portal/task-assignment",
+        icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    id: "portal-expenses-group",
+    label: "Expenses",
+    items: [
+      {
+        id: "portal-expense-claims",
+        menuCode: "portal-expense-claims",
+        label: "My Expenses",
+        path: "/portal/expense-claims",
+        icon: Receipt,
+      },
+    ],
+  },
+  {
+    id: "portal-payroll-group",
+    label: "Payroll",
+    items: [
+      {
+        id: "portal-payslips",
+        menuCode: "portal-payslips",
+        label: "My Payslips",
+        path: "/portal/payslips",
+        icon: Wallet,
+      },
+      {
+        id: "portal-tax",
+        menuCode: "portal-tax",
+        label: "Tax & Declarations",
+        path: "/portal/tax",
+        icon: Percent,
+      },
+      {
+        id: "portal-loans",
+        menuCode: "portal-loans",
+        label: "Loans & Advances",
+        path: "/portal/loans",
+        icon: Landmark,
+      },
+    ],
+  },
+  {
+    id: "portal-myinfo-group",
+    label: "My Info",
+    items: [
+      {
+        id: "portal-profile",
+        menuCode: "portal-profile",
+        label: "My Profile",
+        path: "/portal/profile",
+        icon: User,
+      },
+      {
+        id: "portal-documents",
+        menuCode: "portal-documents",
+        label: "Documents",
+        path: "/portal/documents",
+        icon: Folder,
+      },
+      {
+        id: "portal-tickets",
+        menuCode: "portal-tickets",
+        label: "Raise Ticket",
+        path: "/portal/tickets",
+        icon: Ticket,
+      },
+      {
+        id: "portal-exit-requests",
+        menuCode: "portal-exit-requests",
+        label: "Exit Request",
+        path: "/portal/exit-requests",
+        icon: DoorOpen,
+      },
+    ],
+  },
+  {
+    id: "portal-team-group",
+    label: "Team Management",
+    items: [
+      {
+        id: "portal-team-attendance",
+        menuCode: "portal-team-attendance",
+        label: "Team Attendance",
+        path: "/portal/team-attendance",
+        icon: UsersRound,
+      },
+      {
+        id: "portal-team-leaves",
+        menuCode: "portal-team-leaves",
+        label: "Team Leaves",
+        path: "/portal/team-leaves",
+        icon: CalendarCheck,
+      },
+    ],
+  },
+];
+
 export interface DynamicSidebarProps {
   open?: boolean;
   onNavigate?: () => void;
@@ -320,12 +511,47 @@ export interface DynamicSidebarProps {
 }
 
 function checkIsActive(item: SubNavItem, pathname: string): boolean {
-  if (item.exact || item.id === "dashboard") {
+  if (item.exact) {
+    return pathname === item.path;
+  }
+
+  if (item.id === "dashboard") {
     return (
       pathname === item.path ||
       pathname === "/hr" ||
       pathname === "/hr/dashboard"
     );
+  }
+
+  if (item.id === "portal-checkin") {
+    if (typeof window !== "undefined") {
+      return (
+        pathname === "/portal/attendance" &&
+        window.location.search.includes("action=punch")
+      );
+    }
+    return false;
+  }
+
+  if (item.id === "portal-timesheet") {
+    if (typeof window !== "undefined") {
+      return (
+        pathname === "/portal/attendance" &&
+        window.location.search.includes("view=timesheet")
+      );
+    }
+    return false;
+  }
+
+  if (item.id === "portal-attendance") {
+    if (typeof window !== "undefined") {
+      return (
+        pathname === "/portal/attendance" &&
+        !window.location.search.includes("action=punch") &&
+        !window.location.search.includes("view=timesheet")
+      );
+    }
+    return pathname === "/portal/attendance";
   }
 
   if (item.id === "departments") {
@@ -350,7 +576,12 @@ function checkIsActive(item: SubNavItem, pathname: string): boolean {
     );
   }
 
-  return pathname.startsWith(item.path);
+  if (item.path === "/portal") {
+    return pathname === "/portal";
+  }
+
+  const basePath = item.path.split("?")[0]!;
+  return pathname.startsWith(basePath);
 }
 
 /**
@@ -376,7 +607,7 @@ export function NavigationItem({
         isCollapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-1.5"
       } rounded-xl text-theme-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-brand-500 focus-visible:outline-offset-1 ${
         isActive
-          ? "bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan text-white font-semibold shadow-theme-xs"
+          ? "bg-linear-to-r from-[#1769F5] via-[#207cef] to-[#298dee] text-white font-semibold shadow-theme-xs"
           : "text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-white"
       }`}
     >
@@ -578,20 +809,74 @@ function NavItemList({
   );
 }
 
+const PORTAL_ICON_MAP: Record<string, LucideIcon> = {
+  "portal-home": LayoutDashboard,
+  "portal-profile": UserCircle,
+  "portal-leave": CalendarCheck,
+  "portal-tasks": ListTodo,
+  "portal-tickets": Ticket,
+  "portal-expense-claims": Receipt,
+  "portal-exit-requests": UserMinus,
+  "portal-attendance": Clock,
+  "portal-documents": FileText,
+  "portal-task-assignment": ClipboardList,
+  "portal-team-attendance": UsersRound,
+  "portal-team-leaves": CalendarDays,
+  "portal-payslips": Banknote,
+  "portal-loans": Landmark,
+  "portal-tax": Percent,
+};
+
+const PORTAL_PATH_MAP: Record<string, LucideIcon> = {
+  "/portal": LayoutDashboard,
+  "/portal/profile": UserCircle,
+  "/portal/leave": CalendarCheck,
+  "/portal/tasks": ListTodo,
+  "/portal/tickets": Ticket,
+  "/portal/expense-claims": Receipt,
+  "/portal/exit-requests": UserMinus,
+  "/portal/attendance": Clock,
+  "/portal/documents": FileText,
+  "/portal/task-assignment": ClipboardList,
+  "/portal/team-attendance": UsersRound,
+  "/portal/team-leaves": CalendarDays,
+  "/portal/payslips": Banknote,
+  "/portal/loans": Landmark,
+  "/portal/tax": Percent,
+};
+
 function rootItems(menu: MenuTreeNode[], rootCode: string): SubNavItem[] {
-  return (menu.find((item) => item.code === rootCode)?.children ?? []).flatMap(
-    (item): SubNavItem[] =>
-      item.path
-        ? [
-            {
-              id: item.code,
-              label: item.label,
-              path: item.path,
-              icon: ChevronRight,
-            },
-          ]
-        : [],
-  );
+  const children = (
+    menu.find((item) => item.code === rootCode)?.children ?? []
+  ).flatMap((item): SubNavItem[] => {
+    if (!item.path) return [];
+    const icon =
+      PORTAL_ICON_MAP[item.code] ?? PORTAL_PATH_MAP[item.path] ?? ChevronRight;
+    return [
+      {
+        id: item.code,
+        label: item.label,
+        path: item.path,
+        icon,
+      },
+    ];
+  });
+
+  // For portal root, ensure a top-level Dashboard link is present
+  if (rootCode === "portal" && !children.some((c) => c.path === "/portal")) {
+    return [
+      {
+        id: "portal-home",
+        label: "Dashboard",
+        path: "/portal",
+        icon: LayoutDashboard,
+        exact: true,
+      },
+      ...children,
+    ];
+  }
+
+  return children;
 }
 
 /**
@@ -679,54 +964,89 @@ export function DynamicSidebar({
     <aside
       id="app-sidebar"
       onClick={onAsideClick}
-      className={`h-full shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 transition-all duration-200 ${
-        isCollapsed ? "w-20" : "w-64"
+      className={`h-full shrink-0 flex-col border-r border-sky-100 bg-white dark:border-gray-800 dark:bg-gray-900 transition-all duration-200 ${
+        isCollapsed ? "w-16" : "w-60"
       } ${mobileVisibilityClass}`}
     >
-      {/* Brand Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 px-4 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          {!isCollapsed ? (
-            <TexaLogo
-              size="md"
-              variant="full"
-              className="h-8.5 w-auto shrink-0"
-            />
-          ) : (
-            <TexaLogo
-              size="sm"
-              variant="mark"
-              className="h-7 w-auto shrink-0"
-            />
-          )}
-        </div>
+      {/* Brand Header / Sub-header */}
+      {!onlyRootCode ? (
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 px-4 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            {!isCollapsed ? (
+              <TexaLogo
+                size="md"
+                variant="full"
+                className="h-8.5 w-auto shrink-0"
+              />
+            ) : (
+              <TexaLogo
+                size="sm"
+                variant="mark"
+                className="h-7 w-auto shrink-0"
+              />
+            )}
+          </div>
 
-        {/* Desktop Collapse / Expand Toggle */}
-        <button
-          type="button"
-          onClick={() => setIsCollapsed((prev) => !prev)}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden lg:inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
-
-        {/* Mobile Drawer Close Button */}
-        {open && (
+          {/* Desktop Collapse / Expand Toggle */}
           <button
             type="button"
-            onClick={onNavigate}
-            aria-label="Close navigation"
-            className="inline-flex lg:hidden h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
           >
-            <X className="h-5 w-5" />
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </button>
-        )}
-      </div>
+
+          {/* Mobile Drawer Close Button */}
+          {open && (
+            <button
+              type="button"
+              onClick={onNavigate}
+              aria-label="Close navigation"
+              className="inline-flex lg:hidden h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-sky-100/70 px-3.5 dark:border-gray-800 bg-linear-to-r from-sky-50/60 to-white dark:from-gray-900 dark:to-gray-900">
+          {!isCollapsed && (
+            <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300">
+              Employee Portal
+            </span>
+          )}
+          {/* Desktop Collapse / Expand Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-sky-100 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            )}
+          </button>
+
+          {/* Mobile Drawer Close Button */}
+          {open && (
+            <button
+              type="button"
+              onClick={onNavigate}
+              aria-label="Close navigation"
+              className="inline-flex lg:hidden h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Global Module Navigation Bar (Preserves ErpPrimarySidebar modules) */}
       {!onlyRootCode && (
@@ -835,6 +1155,48 @@ export function DynamicSidebar({
         {/* Dynamic RBAC Nav Items */}
         <WithMyMenu>
           {(menu) => {
+            if (onlyRootCode === "portal") {
+              const allowed = collectMenuCodes(menu);
+
+              const portalGroups = PORTAL_NAV_GROUPS.map((group) => ({
+                ...group,
+                items: group.items.filter((item) => {
+                  if (item.id === "portal-dashboard") return true;
+                  if (allowed.size === 0) return true;
+                  return !item.menuCode || allowed.has(item.menuCode);
+                }),
+              })).filter((group) => group.items.length > 0);
+
+              if (portalGroups.length === 0) {
+                return <EmptyNav />;
+              }
+
+              return (
+                <div className="flex flex-col gap-3.5">
+                  {portalGroups.map((group) => (
+                    <div key={group.id} className="flex flex-col gap-1">
+                      {!isCollapsed && (
+                        <div className="px-2.5 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {group.label}
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-0.5">
+                        {group.items.map((item) => (
+                          <NavigationItem
+                            key={item.id}
+                            item={item}
+                            isActive={checkIsActive(item, pathname)}
+                            onNavigate={onNavigate}
+                            isCollapsed={isCollapsed}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
             if (onlyRootCode) {
               return (
                 <NavItemList
@@ -901,6 +1263,73 @@ export function DynamicSidebar({
           }}
         </WithMyMenu>
       </nav>
+
+      {/* Bottom Profile Footer for Portal */}
+      {onlyRootCode === "portal" && (
+        <EmployeeSidebarFooter
+          isCollapsed={isCollapsed}
+          onNavigate={onNavigate}
+        />
+      )}
     </aside>
+  );
+}
+
+/**
+ * Pinned Employee Footer Card for Employee Portal Sidebar
+ * Conforms to TexaOne brand guidelines (Nunito Sans, no monospace, no purple/violet).
+ */
+function EmployeeSidebarFooter({
+  isCollapsed,
+  onNavigate,
+}: {
+  isCollapsed: boolean;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const myEmployee = useMyEmployee();
+  const user = useAuthStore((s) => s.user);
+
+  const empName = myEmployee.data?.fullName || user?.fullName || "Employee";
+  const empRole = myEmployee.data?.designation?.name || "Employee";
+
+  const initials =
+    empName
+      .split(" ")
+      .filter(Boolean)
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "EM";
+
+  return (
+    <div className="border-t border-slate-100 dark:border-slate-800 p-2.5 shrink-0 bg-slate-50/50 dark:bg-slate-900/40">
+      <Link
+        href="/portal/profile"
+        {...(onNavigate ? { onClick: onNavigate } : {})}
+        className={`group flex items-center ${
+          isCollapsed ? "justify-center p-1" : "gap-2.5 p-2"
+        } rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all`}
+        title={isCollapsed ? `${empName} (${empRole})` : undefined}
+      >
+        <div className="relative flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-linear-to-tr from-[#16a34a] to-[#22c55e] text-white text-[11px] font-bold shadow-xs">
+          {initials}
+          <span
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"
+            aria-hidden="true"
+          />
+        </div>
+
+        {!isCollapsed && (
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-600 transition-colors">
+              {empName}
+            </span>
+            <span className="truncate text-[10px] font-medium text-slate-400 dark:text-slate-400 capitalize">
+              {empRole}
+            </span>
+          </div>
+        )}
+      </Link>
+    </div>
   );
 }

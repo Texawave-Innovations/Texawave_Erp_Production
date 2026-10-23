@@ -93,7 +93,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-linear-to-b from-[#f5f9ff] via-[#fafdff] to-white dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-linear-to-b from-[#eef4fb] via-[#f1f5fa] to-[#eaf1f9] dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
       {/* Full-width horizontal navigation — replaces left sidebar + old header */}
       <HorizontalNavbar onSignOut={() => void handleSignOut()} />
 

@@ -11,11 +11,8 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Search,
-  Bell,
   ChevronDown,
   ChevronRight,
-  ChevronLeft,
   LogOut,
   LayoutDashboard,
   Users,
@@ -54,7 +51,6 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
-  CheckCheck,
   UserPlus,
   TrendingUp,
   PhoneCall,
@@ -83,21 +79,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  Spinner,
   Semantic3DIcon,
   DropdownMenu,
   type Icon3DName,
 } from "@texawave-erp/ui-kit";
+import { useMyDocuments, useMyEmployee } from "@/features/onboarding/hooks";
+import { getResolvedAvatarUrl } from "@/features/hr/components/EmployeeIdentity";
+import { NavbarDateTimeCalendar } from "./NavbarDateTimeCalendar";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
-import {
-  useNotifications,
-  useUnreadNotificationCount,
-  useMarkNotificationRead,
-  useMarkAllNotificationsRead,
-} from "@/features/notifications/hooks";
-import type { AppNotification } from "@/features/notifications/types";
 import type { MenuTreeNode } from "@texawave-erp/api-types";
 
 export interface NavLeafItem {
@@ -350,7 +342,7 @@ const HR_CATEGORIES: NavCategory[] = [
     label: "Compliance",
     icon: ShieldCheck,
     icon3d: "compliance",
-    iconColor: "text-indigo-600",
+    iconColor: "text-sky-600",
     children: [
       {
         id: "compliance-overview",
@@ -358,7 +350,7 @@ const HR_CATEGORIES: NavCategory[] = [
         path: "/hr/compliance",
         icon: ShieldCheck,
         icon3d: "compliance",
-        iconColor: "text-indigo-600",
+        iconColor: "text-sky-600",
         menuCode: "hr-compliance",
       },
     ],
@@ -503,7 +495,7 @@ const CRM_CATEGORIES: NavCategory[] = [
     label: "Outreach & Queues",
     icon: Clock,
     icon3d: "time-leave",
-    iconColor: "text-purple-600",
+    iconColor: "text-cyan-600",
     children: [
       {
         id: "cold-calling-status",
@@ -1481,208 +1473,7 @@ export function collectMenuCodes(
   return into;
 }
 
-function NavbarDateTimeCalendar() {
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewDate, setViewDate] = useState(() => new Date());
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Handle outside click & escape key
-  useEffect(() => {
-    if (!calendarOpen) return;
-    const handleOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setCalendarOpen(false);
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCalendarOpen(false);
-    };
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [calendarOpen]);
-
-  // Formatted date and time
-  const formattedDateLong = currentDate.toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const formattedDateShort = currentDate.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-  });
-
-  const formattedTimeLong = currentDate.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  const formattedTimeShort = currentDate.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  // Calendar month calculation
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const monthName = viewDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-
-  const firstDayIndex = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
-  const goToToday = () => setViewDate(new Date());
-
-  const days: { day: number; currentMonth: boolean; isToday: boolean }[] = [];
-
-  // Previous month padding
-  for (let i = firstDayIndex - 1; i >= 0; i--) {
-    days.push({
-      day: daysInPrevMonth - i,
-      currentMonth: false,
-      isToday: false,
-    });
-  }
-  // Current month days
-  const today = new Date();
-  for (let i = 1; i <= daysInMonth; i++) {
-    const isToday =
-      today.getFullYear() === year &&
-      today.getMonth() === month &&
-      today.getDate() === i;
-    days.push({ day: i, currentMonth: true, isToday });
-  }
-  // Next month padding to fill grid
-  const remaining = (7 - (days.length % 7)) % 7;
-  for (let i = 1; i <= remaining; i++) {
-    days.push({ day: i, currentMonth: false, isToday: false });
-  }
-
-  return (
-    <div ref={containerRef} className="relative shrink-0">
-      <button
-        type="button"
-        aria-label="Current date and time. Click to open calendar"
-        aria-haspopup="dialog"
-        aria-expanded={calendarOpen}
-        onClick={() => setCalendarOpen((prev) => !prev)}
-        className="flex h-9 items-center gap-1.5 sm:gap-2 rounded-xl border border-sky-100/90 bg-white/80 px-2 sm:px-2.5 2xl:px-3 text-xs font-semibold text-slate-700 shadow-2xs backdrop-blur-md transition-all hover:border-sky-300 hover:bg-white hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-white cursor-pointer"
-      >
-        <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400 shrink-0" />
-        <span className="hidden 2xl:inline font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-          {formattedDateLong}
-        </span>
-        <span className="inline 2xl:hidden font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap text-[11px]">
-          {formattedDateShort}
-        </span>
-        <span className="h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-        <Clock className="h-3.5 w-3.5 text-sky-500 dark:text-cyan-300 shrink-0" />
-        <span className="hidden 2xl:inline tabular-nums font-semibold text-[11px] text-slate-700 dark:text-slate-300 whitespace-nowrap">
-          {formattedTimeLong}
-        </span>
-        <span className="inline 2xl:hidden tabular-nums font-semibold text-[11px] text-slate-700 dark:text-slate-300 whitespace-nowrap">
-          {formattedTimeShort}
-        </span>
-      </button>
-
-      {/* Interactive Calendar Dropdown Popover */}
-      {calendarOpen && (
-        <div
-          role="dialog"
-          aria-label="Interactive Calendar"
-          className="glass-calendar-surface absolute right-0 top-full mt-2.5 z-50 w-74 rounded-2xl p-3.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-sky-100/70 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={prevMonth}
-              aria-label="Previous month"
-              className="flex h-7.5 w-7.5 items-center justify-center rounded-xl border border-sky-100/80 bg-white/60 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-500 dark:text-slate-400 cursor-pointer shadow-2xs transition-all"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-bold text-slate-800 dark:text-white">
-              {monthName}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={goToToday}
-                className="rounded-lg bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 hover:bg-sky-100 dark:bg-slate-800 dark:text-cyan-300 cursor-pointer transition-colors"
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={nextMonth}
-                aria-label="Next month"
-                className="flex h-7.5 w-7.5 items-center justify-center rounded-xl border border-sky-100/80 bg-white/60 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-500 dark:text-slate-400 cursor-pointer shadow-2xs transition-all"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Days of week */}
-          <div className="grid grid-cols-7 gap-1 text-center mb-1">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-              <span
-                key={d}
-                className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-              >
-                {d}
-              </span>
-            ))}
-          </div>
-
-          {/* Days grid */}
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {days.map((item, idx) => (
-              <span
-                key={idx}
-                className={`flex h-7.5 w-7.5 items-center justify-center rounded-xl text-xs transition-all ${
-                  item.isToday
-                    ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-102"
-                    : item.currentMonth
-                      ? "text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 font-semibold cursor-default"
-                      : "text-slate-300 dark:text-slate-600 cursor-default"
-                }`}
-              >
-                {item.day}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function formatAgo(iso: string): string {
+function _formatAgo(iso: string): string {
   const diffMinutes = Math.round(
     (Date.now() - new Date(iso).getTime()) / 60_000,
   );
@@ -1804,16 +1595,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [submenuAlignLeft, setSubmenuAlignLeft] = useState(false);
 
   // Shell popover states
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Notification queries
-  const unreadCountQuery = useUnreadNotificationCount();
-  const unreadCount = unreadCountQuery.data ?? 0;
-  const notifListQuery = useNotifications(notificationsOpen);
-  const markRead = useMarkNotificationRead();
-  const markAllRead = useMarkAllNotificationsRead();
 
   // Spring glide active indicator state (CodeFronts specification)
   const navRailRef = useRef<HTMLElement>(null);
@@ -1834,7 +1616,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const navContainerRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   // Derive active module, category, and leaf from current URL route
   const routeState = useMemo(
@@ -1906,16 +1687,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     return () => observer.disconnect();
   }, [activeIndicatorModuleId, updateIndicator]);
 
-  const handleOpenNotification = (n: AppNotification) => {
-    if (!n.readAt) {
-      markRead.mutate(n.id);
-    }
-    setNotificationsOpen(false);
-    if (n.link) {
-      router.push(n.link);
-    }
-  };
-
   const closeAllMenus = useCallback(() => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
@@ -1926,7 +1697,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     setHoveredCategoryId(null);
     setPinnedCategoryId(null);
     setProfileOpen(false);
-    setNotificationsOpen(false);
     setMobileMenuOpen(false);
   }, []);
 
@@ -1969,9 +1739,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       }
       if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(target)) {
-        setNotificationsOpen(false);
       }
     }
 
@@ -2266,7 +2033,22 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     closeAllMenus();
   };
 
-  const displayName = user?.fullName || "Super Admin";
+  const myEmployee = useMyEmployee();
+  const myDocuments = useMyDocuments();
+  const photoDoc = myDocuments.data?.find(
+    (d) => d.documentType === "PROFILE_PHOTO",
+  );
+  const rawAvatarUrl =
+    myEmployee.data?.avatarUrl ||
+    (photoDoc ? "/employee/profile/documents/PROFILE_PHOTO/file" : null);
+  const resolvedAvatarUrl = getResolvedAvatarUrl(rawAvatarUrl);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const showAvatarImg = Boolean(
+    resolvedAvatarUrl && failedAvatarUrl !== resolvedAvatarUrl,
+  );
+
+  const displayName =
+    user?.fullName || myEmployee.data?.fullName || "Super Admin";
   const initials = displayName
     .split(" ")
     .map((p) => p[0])
@@ -2333,7 +2115,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           {ERP_MODULES.map((mod) => {
             const isRouteActive = mod.id === activeIndicatorModuleId;
             const isDropdownOpen = mod.id === openModuleId;
-            const isHovered = mod.id === hoveredModuleId;
+            const _isHovered = mod.id === hoveredModuleId;
             const hasCategories = Boolean(
               mod.categories && mod.categories.length > 0,
             );
@@ -2663,119 +2445,8 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           {/* Interactive Date, Time & Calendar Dropdown */}
           <NavbarDateTimeCalendar />
 
-          {/* Notifications Dropdown (Glassmorphism) */}
-          <div ref={notifRef} className="relative">
-            <button
-              type="button"
-              aria-label={
-                unreadCount > 0
-                  ? `Notifications, ${unreadCount} unread`
-                  : "Notifications"
-              }
-              aria-haspopup="dialog"
-              aria-expanded={notificationsOpen}
-              onClick={() => {
-                setNotificationsOpen((prev) => !prev);
-                setProfileOpen(false);
-              }}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-600 hover:bg-white hover:text-slate-900 shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-all"
-            >
-              <Semantic3DIcon name="bell" size={20} />
-              {unreadCount > 0 && (
-                <span
-                  className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs"
-                  aria-hidden="true"
-                >
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {notificationsOpen && (
-              <div
-                role="region"
-                aria-label="Recent notifications"
-                className="glass-dropdown absolute right-0 mt-2 z-50 w-80 rounded-[26px] p-3 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
-              >
-                <div className="flex items-center justify-between border-b border-sky-100/80 pb-2 dark:border-gray-800">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-                    Notifications
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    {unreadCount > 0 && (
-                      <span className="text-[10px] font-semibold text-brand-600 dark:text-cyan-400">
-                        {unreadCount} unread
-                      </span>
-                    )}
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => markAllRead.mutate()}
-                        disabled={markAllRead.isPending}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:underline dark:text-cyan-400 disabled:opacity-50"
-                      >
-                        <CheckCheck className="h-3 w-3" />
-                        <span>Mark all read</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="max-h-80 overflow-y-auto py-2">
-                  {notifListQuery.isPending ? (
-                    <div className="flex justify-center py-6">
-                      <Spinner className="h-5 w-5 text-brand-600" />
-                    </div>
-                  ) : notifListQuery.isError ? (
-                    <p className="py-4 text-center text-xs text-rose-500">
-                      Could not load notifications.
-                    </p>
-                  ) : notifListQuery.data?.data &&
-                    notifListQuery.data.data.length > 0 ? (
-                    <div className="flex flex-col gap-1">
-                      {notifListQuery.data.data.map((n) => (
-                        <button
-                          key={n.id}
-                          type="button"
-                          onClick={() => handleOpenNotification(n)}
-                          className={`flex w-full items-start gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-sky-50/70 dark:hover:bg-gray-800/60 ${
-                            n.readAt
-                              ? "opacity-75"
-                              : "bg-sky-50/50 dark:bg-brand-950/20"
-                          }`}
-                        >
-                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-                            <Bell className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-                              {n.title}
-                            </p>
-                            <p className="text-[10px] text-gray-500 line-clamp-2">
-                              {n.body}
-                            </p>
-                            <span className="text-[9px] text-gray-400">
-                              {formatAgo(n.createdAt)}
-                            </span>
-                          </div>
-                          {!n.readAt && (
-                            <span
-                              className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500 ring-2 ring-white dark:ring-gray-900"
-                              aria-hidden="true"
-                            />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
-                      You&apos;re all caught up.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Unified Rich Notifications Dropdown */}
+          <NotificationBell />
 
           {/* User Profile Dropdown (Shared Animated Glassmorphism DropdownMenu) */}
           <div className="relative shrink-0">
@@ -2805,15 +2476,27 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                 aria-label={`Profile menu for ${displayName}`}
                 className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl border border-white/60 bg-white/70 backdrop-blur-md p-1 2xl:p-1.5 2xl:pr-2 text-left hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:hover:bg-gray-800 transition-all cursor-pointer"
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#1769F5] to-brand-cyan text-xs font-bold text-white shadow-xs">
-                  {initials}
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sky-200/90 bg-linear-to-br from-[#1769F5] to-cyan-500 text-xs font-bold text-white shadow-xs">
+                  {showAvatarImg ? (
+                    <img
+                      key={resolvedAvatarUrl}
+                      src={resolvedAvatarUrl!}
+                      alt={displayName}
+                      className="h-full w-full object-cover"
+                      onError={() => setFailedAvatarUrl(resolvedAvatarUrl)}
+                    />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <div className="hidden 2xl:flex flex-col">
                   <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90 max-w-28 truncate">
                     {displayName}
                   </span>
                   <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400 max-w-28 truncate">
-                    Software Engineer
+                    {myEmployee.data?.designation?.name ||
+                      myEmployee.data?.department?.name ||
+                      "Administrator"}
                   </span>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
