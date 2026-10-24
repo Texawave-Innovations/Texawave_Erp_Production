@@ -1050,6 +1050,85 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "View the SCM overview, master data search, barcode lookup, control tower, replenishment and assistant",
   },
+  // Finance Settings — master list items (expense_type, payment_mode).
+  {
+    code: "finance_settings.master_list_item.read",
+    description:
+      "Read Finance Master list items (expense types, payment modes)",
+  },
+  {
+    code: "finance_settings.master_list_item.write",
+    description:
+      "Create, update, and soft-delete Finance Master list items (expense types, payment modes)",
+  },
+  // Finance — Chart of Accounts
+  {
+    code: "finance.coa.read",
+    description: "View the Chart of Accounts and account balances",
+  },
+  {
+    code: "finance.coa.write",
+    description: "Create and update Chart of Accounts records",
+  },
+  // Finance — General Ledger & Journal Vouchers
+  {
+    code: "finance.journal.read",
+    description: "View journal vouchers and ledger transactions",
+  },
+  {
+    code: "finance.journal.write",
+    description: "Create and edit draft journal vouchers",
+  },
+  {
+    code: "finance.journal.post",
+    description: "Post and reverse journal vouchers",
+  },
+  // Finance — Banking & Treasury
+  {
+    code: "finance.banking.read",
+    description: "View bank accounts, balances, and bank statements",
+  },
+  {
+    code: "finance.banking.write",
+    description: "Manage bank accounts and perform bank reconciliations",
+  },
+  // Finance — Operational Expenses
+  {
+    code: "finance.expense.read",
+    description: "View operational expenses and expense claims",
+  },
+  {
+    code: "finance.expense.write",
+    description: "Create, approve, and record operational expenses",
+  },
+  // Finance — Customer Payments Received
+  {
+    code: "finance.payment_received.read",
+    description: "View incoming customer payments and invoice allocations",
+  },
+  {
+    code: "finance.payment_received.write",
+    description: "Record incoming customer payments and allocate to invoices",
+  },
+  // Finance — Vendor Payments Made
+  {
+    code: "finance.payment_made.read",
+    description: "View vendor disbursements and payment records",
+  },
+  {
+    code: "finance.payment_made.write",
+    description: "Record vendor disbursements and bill settlements",
+  },
+  // Finance — GST & Tax Ledger
+  {
+    code: "finance.gst.read",
+    description:
+      "View GST return summaries, GSTR-1 output tax, and ITC reconciliation",
+  },
+  {
+    code: "finance.gst.write",
+    description: "Manage GST tax periods and file returns",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [

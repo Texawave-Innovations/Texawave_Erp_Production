@@ -51,7 +51,6 @@ module.exports = tseslint.config(
       "src/modules/crm/notifications/**",
       "src/modules/crm/types.ts",
       "src/modules/crm/useOverallDataLive.ts",
-      "src/modules/finance/**",
       "src/modules/projects/**",
       "src/modules/sales/**",
       "src/modules/scm/SCMLayout.tsx",

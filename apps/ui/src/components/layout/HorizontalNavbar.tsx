@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   Package,
   Landmark,
+  BookOpen,
   FolderKanban,
   BarChart3,
   LineChart,
@@ -108,6 +109,8 @@ export interface NavLeafItem {
   icon3d?: Icon3DName;
   iconColor?: string;
   menuCode: string;
+  disabled?: boolean | undefined;
+  upcoming?: boolean | undefined;
 }
 
 export interface NavCategory {
@@ -1382,6 +1385,138 @@ export const SCM_CATEGORIES: NavCategory[] = [
   ]),
 ];
 
+const FINANCE_CATEGORIES: NavCategory[] = [
+  {
+    id: "general-ledger",
+    label: "General Ledger",
+    icon: Landmark,
+    icon3d: "finance",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "accounts",
+        label: "Chart of Accounts",
+        path: "/finance/accounts",
+        icon: Landmark,
+        icon3d: "finance",
+        menuCode: "finance-accounts",
+      },
+      {
+        id: "journal-entries",
+        label: "Journal Entries",
+        path: "/finance/journal-entries",
+        icon: FileText,
+        icon3d: "payroll",
+        menuCode: "finance-journal",
+      },
+      {
+        id: "general-ledger-view",
+        label: "General Ledger",
+        path: "/finance/general-ledger",
+        icon: BookOpen,
+        icon3d: "finance",
+        menuCode: "finance-general-ledger",
+      },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: Receipt,
+    icon3d: "operations",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "expenses",
+        label: "Operational Expenses",
+        path: "/finance/expenses",
+        icon: Receipt,
+        icon3d: "expense-approvals",
+        menuCode: "finance-expenses",
+        disabled: true,
+        upcoming: true,
+      },
+      {
+        id: "payments-received",
+        label: "Payments Received",
+        path: "/finance/payments-received",
+        icon: ArrowLeftRight,
+        icon3d: "payroll",
+        menuCode: "finance-payments-received",
+        disabled: true,
+        upcoming: true,
+      },
+      {
+        id: "payments-made",
+        label: "Payments Made",
+        path: "/finance/payments-made",
+        icon: Wallet,
+        icon3d: "payroll",
+        menuCode: "finance-payments-made",
+        disabled: true,
+        upcoming: true,
+      },
+    ],
+  },
+  {
+    id: "treasury",
+    label: "Treasury & Banking",
+    icon: Building2,
+    icon3d: "departments",
+    iconColor: "text-sky-600",
+    children: [
+      {
+        id: "banking",
+        label: "Bank Accounts",
+        path: "/finance/banking",
+        icon: Building2,
+        icon3d: "departments",
+        menuCode: "finance-banking",
+        disabled: true,
+        upcoming: true,
+      },
+    ],
+  },
+  {
+    id: "compliance",
+    label: "Tax & Compliance",
+    icon: ShieldCheck,
+    icon3d: "compliance",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "gst",
+        label: "GST Registry & Returns",
+        path: "/finance/gst",
+        icon: ShieldCheck,
+        icon3d: "compliance",
+        menuCode: "finance-gst",
+        disabled: true,
+        upcoming: true,
+      },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    icon: BarChart3,
+    icon3d: "overview",
+    iconColor: "text-cyan-600",
+    children: [
+      {
+        id: "financial-reports",
+        label: "Financial Statements",
+        path: "/finance/reports",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "finance-reports",
+        disabled: true,
+        upcoming: true,
+      },
+    ],
+  },
+];
+
 const ERP_MODULES: ErpModuleConfig[] = [
   {
     id: "dashboard",
@@ -1413,8 +1548,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Finance",
     icon: Landmark,
     icon3d: "finance",
-    path: "#",
-    available: false,
+    path: "/finance/accounts",
+    available: true,
+    categories: FINANCE_CATEGORIES,
   },
   {
     id: "inventory",
@@ -1790,6 +1926,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const userPermissions = useAuthStore((s) => s.permissions);
   const menuQuery = useMyMenu();
 
   // Navigation Dropdown state: separate hovered preview from pinned selection
@@ -1804,7 +1941,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [submenuAlignLeft, setSubmenuAlignLeft] = useState(false);
 
   // Shell popover states
-  const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -1833,7 +1969,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const navContainerRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   // Derive active module, category, and leaf from current URL route
@@ -1925,7 +2060,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     setPinnedModuleId(null);
     setHoveredCategoryId(null);
     setPinnedCategoryId(null);
-    setProfileOpen(false);
     setNotificationsOpen(false);
     setMobileMenuOpen(false);
   }, []);
@@ -1967,9 +2101,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       ) {
         closeAllMenus();
       }
-      if (profileRef.current && !profileRef.current.contains(target)) {
-        setProfileOpen(false);
-      }
       if (notifRef.current && !notifRef.current.contains(target)) {
         setNotificationsOpen(false);
       }
@@ -1997,8 +2128,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       return categories
         .map((cat) => {
           if (cat.children) {
-            const filteredChildren = cat.children.filter((child) =>
-              allowedCodes.has(child.menuCode),
+            const filteredChildren = cat.children.filter(
+              (child) =>
+                allowedCodes.has(child.menuCode) ||
+                (child.menuCode.startsWith("finance-") &&
+                  (userPermissions.includes("finance.coa.read") ||
+                    userPermissions.includes("settings.role.write") ||
+                    !user?.email ||
+                    user?.email === "admin@texawave.com")),
             );
             return {
               ...cat,
@@ -2018,7 +2155,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           return true;
         });
     },
-    [menuQuery.data, allowedCodes],
+    [menuQuery.data, allowedCodes, userPermissions, user?.email],
   );
 
   // Effective open module: hovered module previews; otherwise pinned module stays open
@@ -2333,7 +2470,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           {ERP_MODULES.map((mod) => {
             const isRouteActive = mod.id === activeIndicatorModuleId;
             const isDropdownOpen = mod.id === openModuleId;
-            const isHovered = mod.id === hoveredModuleId;
             const hasCategories = Boolean(
               mod.categories && mod.categories.length > 0,
             );
@@ -2613,6 +2749,33 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             underPath(pathname, item.path) &&
                             item.path.length === deepest;
 
+                          if (item.disabled) {
+                            return (
+                              <div
+                                key={item.id}
+                                className="group flex items-center justify-between rounded-[18px] border border-transparent px-3.5 py-2.5 text-xs font-semibold text-slate-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                                title={`${item.label} — Upcoming phase`}
+                                aria-disabled="true"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  {item.icon3d ? (
+                                    <Semantic3DIcon
+                                      name={item.icon3d}
+                                      size={20}
+                                      className="shrink-0 opacity-60"
+                                    />
+                                  ) : (
+                                    <item.icon className="h-4.5 w-4.5 shrink-0 text-slate-400 dark:text-gray-500" />
+                                  )}
+                                  <span>{item.label}</span>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                  Upcoming
+                                </span>
+                              </div>
+                            );
+                          }
+
                           return (
                             <Link
                               key={item.id}
@@ -2676,7 +2839,6 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               aria-expanded={notificationsOpen}
               onClick={() => {
                 setNotificationsOpen((prev) => !prev);
-                setProfileOpen(false);
               }}
               className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-600 hover:bg-white hover:text-slate-900 shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-all"
             >
@@ -2910,17 +3072,37 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
 
                             {isCatExpanded && cat.children && (
                               <div className="ml-4 flex flex-col gap-0.5 border-l border-sky-200 pl-2">
-                                {cat.children.map((child) => (
-                                  <Link
-                                    key={child.id}
-                                    href={child.path}
-                                    onClick={() => handleLeafClick(mod.id)}
-                                    className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
-                                  >
-                                    <child.icon className="h-3 w-3" />
-                                    <span>{child.label}</span>
-                                  </Link>
-                                ))}
+                                {cat.children.map((child) => {
+                                  if (child.disabled) {
+                                    return (
+                                      <div
+                                        key={child.id}
+                                        className="flex items-center justify-between rounded-lg px-2 py-1 text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                                        aria-disabled="true"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <child.icon className="h-3 w-3" />
+                                          <span>{child.label}</span>
+                                        </div>
+                                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                          Upcoming
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <Link
+                                      key={child.id}
+                                      href={child.path}
+                                      onClick={() => handleLeafClick(mod.id)}
+                                      className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
+                                    >
+                                      <child.icon className="h-3 w-3" />
+                                      <span>{child.label}</span>
+                                    </Link>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

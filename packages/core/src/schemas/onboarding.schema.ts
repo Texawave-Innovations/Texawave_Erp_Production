@@ -9,7 +9,7 @@ const mobile = z
     /^[6-9]\d{9}$/,
     "Enter a valid 10-digit mobile number starting with 6 to 9.",
   );
-const requiredText = (max = 100) =>
+export const requiredText = (max = 100) =>
   z
     .string()
     .trim()

@@ -65,6 +65,8 @@ import { DesignationsModule } from "./modules/master-data/designations/designati
 import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
 import { WorkLocationsModule } from "./modules/master-data/work-locations/work-locations.module.js";
 import { RolesModule } from "./modules/settings/roles/roles.module.js";
+import { FinanceSettingsModule } from "./modules/finance-settings/finance-settings.module.js";
+import { FinanceModule } from "./modules/finance/finance.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
@@ -164,6 +166,8 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CrmCalendarModule,
     CrmDashboardModule,
     CrmBulkImportModule,
+    FinanceSettingsModule,
+    FinanceModule,
   ],
   controllers: [AppController],
   providers: [

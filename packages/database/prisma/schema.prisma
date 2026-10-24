@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "crm", "scm"]
+  schemas  = ["platform", "hr", "crm", "scm", "finance"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -182,6 +182,17 @@ model Organization {
   scmLocationStock        ScmLocationStock[]
   scmPutaways             ScmPutaway[]
   scmWarehouseMovements   ScmWarehouseMovement[]
+  financeMasterListItems            FinanceMasterListItem[]
+  financeAccounts                   FinanceAccount[]
+  financeJournalEntries             FinanceJournalEntry[]
+  financeJournalLines               FinanceJournalLine[]
+  financeBankAccounts               FinanceBankAccount[]
+  financeBankTransactions           FinanceBankTransaction[]
+  financeExpenses                   FinanceExpense[]
+  financePaymentsReceived           FinancePaymentReceived[]
+  financePaymentReceivedAllocations FinancePaymentReceivedAllocation[]
+  financePaymentsMade               FinancePaymentMade[]
+  financeGstEntries                 FinanceGstEntry[]
 
   @@map("organizations")
   @@schema("platform")
@@ -3077,6 +3088,7 @@ model Account {
   quotations   Quotation[]
   notes        CrmNote[]
   coldCallingEntries CrmColdCallingEntry[]
+  financePaymentsReceived FinancePaymentReceived[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -5853,6 +5865,7 @@ model ScmSupplierPayment {
   organization Organization    @relation(fields: [organizationId], references: [id])
   supplier     Supplier        @relation(fields: [supplierId], references: [id])
   bill         ScmSupplierBill? @relation(fields: [billId], references: [id])
+  financePaymentMade FinancePaymentMade?
 
   @@unique([organizationId, paymentNumber])
   @@index([organizationId, supplierId])
@@ -5883,4 +5896,366 @@ model ScmSupplierDocument {
   @@index([organizationId, supplierId])
   @@map("supplier_documents")
   @@schema("scm")
+}
+
+/// Finance Master — `category` picks which card on the Finance Master page a
+/// row belongs to (Expense Types, Payment Modes; see
+/// `FinanceMasterListCategory`). Same generic value-list shape as
+/// `SalesMasterListItem` (Docs/SALES_SETTINGS_FOUNDATION.md design decision
+/// #2) — a future Finance module (expenses, payments) should reference a row
+/// here by `id`, never copy `value`.
+model FinanceMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  expenseCategories     FinanceExpense[]         @relation("ExpenseCategory")
+  expensePaymentModes   FinanceExpense[]         @relation("ExpensePaymentMode")
+  receivedPaymentModes  FinancePaymentReceived[] @relation("PaymentReceivedMode")
+  madePaymentModes      FinancePaymentMade[]     @relation("PaymentMadeMode")
+
+  @@map("finance_master_list_items")
+  @@schema("finance")
+}
+
+/// Chart of Accounts — general ledger account definitions.
+model FinanceAccount {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  accountCode     String    @map("account_code")
+  accountName     String    @map("account_name")
+  /// ASSET | LIABILITY | EQUITY | REVENUE | EXPENSE
+  accountType     String    @map("account_type")
+  parentAccountId Int?      @map("parent_account_id")
+  currency        String    @default("INR")
+  currentBalance  Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
+  isActive        Boolean   @default(true) @map("is_active")
+  isReconciled    Boolean   @default(false) @map("is_reconciled")
+  description     String?
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization          @relation(fields: [organizationId], references: [id])
+  parentAccount   FinanceAccount?       @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
+  subAccounts     FinanceAccount[]      @relation("AccountHierarchy")
+  journalLines    FinanceJournalLine[]
+  bankAccounts    FinanceBankAccount[]
+  expenses        FinanceExpense[]
+
+  @@unique([organizationId, accountCode])
+  @@index([organizationId, accountType])
+  @@index([organizationId, isActive])
+  @@map("accounts")
+  @@schema("finance")
+}
+
+/// Journal Entries — general ledger vouchers.
+model FinanceJournalEntry {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  entryNumber     String    @map("entry_number")
+  entryDate       DateTime  @map("entry_date") @db.Date
+  /// MANUAL | EXPENSE | PAYMENT_RECEIVED | PAYMENT_MADE | BANK_TRANSFER | OPENING_BALANCE | REVERSAL
+  entryType       String    @default("MANUAL") @map("entry_type")
+  narration       String
+  referenceNumber String?   @map("reference_number")
+  totalDebit      Decimal   @map("total_debit") @db.Decimal(15, 2)
+  totalCredit     Decimal   @map("total_credit") @db.Decimal(15, 2)
+  /// DRAFT | POSTED | REVERSED | VOID
+  status          String    @default("DRAFT")
+  postedAt        DateTime? @map("posted_at") @db.Timestamptz(6)
+  postedBy        Int?      @map("posted_by")
+  reversedEntryId Int?      @unique @map("reversed_entry_id")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization            @relation(fields: [organizationId], references: [id])
+  reversedEntry   FinanceJournalEntry?    @relation("JournalReversal", fields: [reversedEntryId], references: [id])
+  reversalOf      FinanceJournalEntry?    @relation("JournalReversal")
+  lines           FinanceJournalLine[]
+  bankTxnMatch    FinanceBankTransaction?
+  expense         FinanceExpense?
+  receivedPay     FinancePaymentReceived?
+  madePay         FinancePaymentMade?
+
+  @@unique([organizationId, entryNumber])
+  @@index([organizationId, entryDate])
+  @@index([organizationId, status])
+  @@map("journal_entries")
+  @@schema("finance")
+}
+
+/// Journal Lines — individual debit/credit entries for a journal voucher.
+model FinanceJournalLine {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  journalEntryId Int      @map("journal_entry_id")
+  accountId      Int      @map("account_id")
+  lineOrder      Int      @default(0) @map("line_order")
+  description    String?
+  debit          Decimal  @default(0) @db.Decimal(15, 2)
+  credit         Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  journalEntry   FinanceJournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        FinanceAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, journalEntryId])
+  @@index([organizationId, accountId])
+  @@map("journal_lines")
+  @@schema("finance")
+}
+
+/// Bank Accounts — company banking and treasury accounts.
+model FinanceBankAccount {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  accountName    String    @map("account_name")
+  accountNumber  String    @map("account_number")
+  bankName       String    @map("bank_name")
+  ifscCode       String    @map("ifsc_code")
+  branchName     String?   @map("branch_name")
+  /// CURRENT | SAVINGS | OVERDRAFT
+  accountType    String    @default("CURRENT") @map("account_type")
+  currency       String    @default("INR")
+  openingBalance Decimal   @default(0) @map("opening_balance") @db.Decimal(15, 2)
+  currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
+  glAccountId    Int?      @map("gl_account_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  glAccount      FinanceAccount?           @relation(fields: [glAccountId], references: [id])
+  transactions   FinanceBankTransaction[]
+  expenses       FinanceExpense[]
+  paymentsRec    FinancePaymentReceived[]
+  paymentsMade   FinancePaymentMade[]
+
+  @@unique([organizationId, accountNumber])
+  @@index([organizationId, isActive])
+  @@map("bank_accounts")
+  @@schema("finance")
+}
+
+/// Bank Transactions — statement feeds and bank reconciliation records.
+model FinanceBankTransaction {
+  id                    Int       @id @default(autoincrement())
+  organizationId        Int       @map("organization_id")
+  bankAccountId         Int       @map("bank_account_id")
+  transactionDate       DateTime  @map("transaction_date") @db.Date
+  referenceNumber       String?   @map("reference_number")
+  description           String
+  /// CREDIT | DEBIT
+  transactionType       String    @map("transaction_type")
+  amount                Decimal   @db.Decimal(15, 2)
+  balanceAfter          Decimal?  @map("balance_after") @db.Decimal(15, 2)
+  isReconciled          Boolean   @default(false) @map("is_reconciled")
+  reconciledAt          DateTime? @map("reconciled_at") @db.Timestamptz(6)
+  matchedJournalEntryId Int?      @unique @map("matched_journal_entry_id")
+  createdBy             Int?      @map("created_by")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization          Organization         @relation(fields: [organizationId], references: [id])
+  bankAccount           FinanceBankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  matchedEntry          FinanceJournalEntry? @relation(fields: [matchedJournalEntryId], references: [id])
+
+  @@index([organizationId, bankAccountId, transactionDate])
+  @@index([organizationId, isReconciled])
+  @@map("bank_transactions")
+  @@schema("finance")
+}
+
+/// Operational Expenses — direct corporate expense entries.
+model FinanceExpense {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  expenseNumber     String    @map("expense_number")
+  expenseTypeId     Int       @map("expense_type_id")
+  expenseDate       DateTime  @map("expense_date") @db.Date
+  amount            Decimal   @db.Decimal(15, 2)
+  taxAmount         Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  netAmount         Decimal   @default(0) @map("net_amount") @db.Decimal(15, 2)
+  paymentModeId     Int?      @map("payment_mode_id")
+  bankAccountId     Int?      @map("bank_account_id")
+  vendorName        String?   @map("vendor_name")
+  notes             String?
+  receiptUrl        String?   @map("receipt_url")
+  /// DRAFT | PENDING_APPROVAL | APPROVED | PAID | CANCELLED
+  status            String    @default("PAID")
+  glAccountId       Int?      @map("gl_account_id")
+  journalEntryId    Int?      @unique @map("journal_entry_id")
+  hrExpenseClaimId  Int?      @unique @map("hr_expense_claim_id")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization           @relation(fields: [organizationId], references: [id])
+  expenseType       FinanceMasterListItem  @relation("ExpenseCategory", fields: [expenseTypeId], references: [id])
+  paymentMode       FinanceMasterListItem? @relation("ExpensePaymentMode", fields: [paymentModeId], references: [id])
+  bankAccount       FinanceBankAccount?    @relation(fields: [bankAccountId], references: [id])
+  glAccount         FinanceAccount?        @relation(fields: [glAccountId], references: [id])
+  journalEntry      FinanceJournalEntry?   @relation(fields: [journalEntryId], references: [id])
+
+  @@unique([organizationId, expenseNumber])
+  @@index([organizationId, expenseDate])
+  @@index([organizationId, expenseTypeId])
+  @@map("expenses")
+  @@schema("finance")
+}
+
+/// Customer Payments Received — customer inflows with multi-invoice allocation support.
+model FinancePaymentReceived {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  paymentNumber     String    @map("payment_number")
+  paymentDate       DateTime  @map("payment_date") @db.Date
+  customerId        Int?      @map("customer_id")
+  customerName      String    @map("customer_name")
+  amount            Decimal   @db.Decimal(15, 2)
+  allocatedAmount   Decimal   @default(0) @map("allocated_amount") @db.Decimal(15, 2)
+  unallocatedAmount Decimal   @default(0) @map("unallocated_amount") @db.Decimal(15, 2)
+  paymentModeId     Int       @map("payment_mode_id")
+  bankAccountId     Int?      @map("bank_account_id")
+  referenceNumber   String?   @map("reference_number")
+  invoiceReference  String?   @map("invoice_reference")
+  notes             String?
+  /// DRAFT | CONFIRMED | RECONCILED | VOID
+  status            String    @default("CONFIRMED")
+  journalEntryId    Int?      @unique @map("journal_entry_id")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization                        @relation(fields: [organizationId], references: [id])
+  customer          Account?                            @relation(fields: [customerId], references: [id])
+  paymentMode       FinanceMasterListItem               @relation("PaymentReceivedMode", fields: [paymentModeId], references: [id])
+  bankAccount       FinanceBankAccount?                 @relation(fields: [bankAccountId], references: [id])
+  journalEntry      FinanceJournalEntry?                @relation(fields: [journalEntryId], references: [id])
+  allocations       FinancePaymentReceivedAllocation[]
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId, customerId])
+  @@index([organizationId, paymentDate])
+  @@map("payments_received")
+  @@schema("finance")
+}
+
+/// Payment Received Allocations — links a customer payment to specific invoice numbers.
+model FinancePaymentReceivedAllocation {
+  id                Int      @id @default(autoincrement())
+  organizationId    Int      @map("organization_id")
+  paymentReceivedId Int      @map("payment_received_id")
+  invoiceReference  String   @map("invoice_reference")
+  allocatedAmount   Decimal  @map("allocated_amount") @db.Decimal(15, 2)
+  allocationDate    DateTime @default(now()) @map("allocation_date") @db.Timestamptz(6)
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization           @relation(fields: [organizationId], references: [id])
+  paymentReceived   FinancePaymentReceived @relation(fields: [paymentReceivedId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, paymentReceivedId])
+  @@index([organizationId, invoiceReference])
+  @@map("payment_received_allocations")
+  @@schema("finance")
+}
+
+/// Vendor Payments Made — disbursements and supplier payments.
+model FinancePaymentMade {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  paymentNumber        String    @map("payment_number")
+  paymentDate          DateTime  @map("payment_date") @db.Date
+  vendorName           String    @map("vendor_name")
+  amount               Decimal   @db.Decimal(15, 2)
+  paymentModeId        Int       @map("payment_mode_id")
+  bankAccountId        Int?      @map("bank_account_id")
+  referenceNumber      String?   @map("reference_number")
+  billReference        String?   @map("bill_reference")
+  scmSupplierPaymentId Int?      @unique @map("scm_supplier_payment_id")
+  notes                String?
+  /// DRAFT | CONFIRMED | RECONCILED | VOID
+  status               String    @default("CONFIRMED")
+  journalEntryId       Int?      @unique @map("journal_entry_id")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization         Organization          @relation(fields: [organizationId], references: [id])
+  paymentMode          FinanceMasterListItem @relation("PaymentMadeMode", fields: [paymentModeId], references: [id])
+  bankAccount          FinanceBankAccount?   @relation(fields: [bankAccountId], references: [id])
+  journalEntry         FinanceJournalEntry?  @relation(fields: [journalEntryId], references: [id])
+  scmPayment           ScmSupplierPayment?   @relation(fields: [scmSupplierPaymentId], references: [id])
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId, paymentDate])
+  @@map("payments_made")
+  @@schema("finance")
+}
+
+/// GST Entries — tax return ledger supporting GSTR-1 output tax and GSTR-3B ITC reconciliation.
+model FinanceGstEntry {
+  id                 Int      @id @default(autoincrement())
+  organizationId     Int      @map("organization_id")
+  gstin              String
+  period             String   /// e.g. "2026-10"
+  /// OUTPUT_GST | INPUT_TAX_CREDIT
+  entryType          String   @map("entry_type")
+  /// SALES_INVOICE | PURCHASE_BILL | EXPENSE | MANUAL
+  sourceType         String   @map("source_type")
+  sourceId           Int?     @map("source_id")
+  sourceReference    String   @map("source_reference")
+  hsnSacCode         String?  @map("hsn_sac_code")
+  taxableAmount      Decimal  @map("taxable_amount") @db.Decimal(15, 2)
+  cgstRate           Decimal  @default(0) @map("cgst_rate") @db.Decimal(5, 2)
+  cgstAmount         Decimal  @default(0) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstRate           Decimal  @default(0) @map("sgst_rate") @db.Decimal(5, 2)
+  sgstAmount         Decimal  @default(0) @map("sgst_amount") @db.Decimal(15, 2)
+  igstRate           Decimal  @default(0) @map("igst_rate") @db.Decimal(5, 2)
+  igstAmount         Decimal  @default(0) @map("igst_amount") @db.Decimal(15, 2)
+  totalTaxAmount     Decimal  @map("total_tax_amount") @db.Decimal(15, 2)
+  isProformaExcluded Boolean  @default(false) @map("is_proforma_excluded")
+  /// ACTIVE | FILED | RECONCILED | CANCELLED
+  status             String   @default("ACTIVE")
+  createdBy          Int?     @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization       Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, period, entryType])
+  @@index([organizationId, sourceReference])
+  @@map("gst_entries")
+  @@schema("finance")
 }
