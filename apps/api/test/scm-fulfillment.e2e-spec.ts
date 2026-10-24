@@ -99,6 +99,14 @@ describe("scm sales -> fulfillment -> shipment (e2e)", () => {
     orgB = await prisma.organization.create({
       data: { name: `Org B ${suffix}`, slug: `scm-ful-b-${suffix}` },
     });
+
+    // The packing test below submits packageType: "Box" — the
+    // package_type MasterListValueGuard requires it to already be an
+    // active SCM Master value for the org.
+    await prisma.scmMasterListItem.create({
+      data: { organizationId: orgA.id, category: "package_type", value: "Box" },
+    });
+
     const codes = [
       "scm.product.read",
       "scm.product.write",

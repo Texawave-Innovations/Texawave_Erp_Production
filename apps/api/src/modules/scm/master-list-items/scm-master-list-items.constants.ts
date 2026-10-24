@@ -1,0 +1,10 @@
+/** Shared enums for the SCM Master foundation. */
+
+/** `ScmMasterListItem.category` — SCM Master page cards. */
+export const SCM_MASTER_LIST_CATEGORIES = [
+  "supplier_type",
+  "package_type",
+  "warehouse_type",
+  "stock_adjustment_reason",
+] as const;
+export type ScmMasterListCategory = (typeof SCM_MASTER_LIST_CATEGORIES)[number];

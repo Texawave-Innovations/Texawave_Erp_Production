@@ -123,6 +123,7 @@ model Organization {
   sealSignatures                   SealSignature[]
   salesMasterListItems              SalesMasterListItem[]
   financeMasterListItems            FinanceMasterListItem[]
+  scmMasterListItems                 ScmMasterListItem[]
   payrollEarnings                   PayrollEarning[]
   payrollDeductions                 PayrollDeduction[]
   projects                          Project[]
@@ -4448,6 +4449,32 @@ model Supplier {
   @@unique([organizationId, supplierCode])
   @@index([organizationId, status])
   @@map("suppliers")
+  @@schema("scm")
+}
+
+/// SCM Masterlist — generic category/value admin rows (supplier_type,
+/// package_type, warehouse_type, stock_adjustment_reason). Same generic
+/// shape as SalesMasterListItem/FinanceMasterListItem
+/// (Docs/SALES_SETTINGS_FOUNDATION.md design decision #2) — a future
+/// consumer should reference a row here by `id`, never copy `value`.
+model ScmMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("scm_master_list_items")
   @@schema("scm")
 }
 

@@ -1025,6 +1025,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "scm.supplier.write",
     description: "Create/update/activate/deactivate SCM suppliers",
   },
+  // SCM Masterlist (apps/api/src/modules/scm/master-list-items): generic
+  // category/value admin rows — supplier_type, package_type, warehouse_type,
+  // stock_adjustment_reason. Org-wide, no team dimension, same shape as
+  // sales_settings.master_list_item.* / finance_settings.master_list_item.*.
+  {
+    code: "scm.master_list_item.read",
+    description: "View SCM masterlist categories",
+  },
+  {
+    code: "scm.master_list_item.write",
+    description: "Create/update/delete SCM masterlist items",
+  },
   // SCM supplier finance (apps/api/src/modules/scm/finance): Accounts Payable
   // bills and payments made to suppliers. Org-wide, no team dimension. The
   // supplier documents tab is gated by scm.supplier.read/write instead.

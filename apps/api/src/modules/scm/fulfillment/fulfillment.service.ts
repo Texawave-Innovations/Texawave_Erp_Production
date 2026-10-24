@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type {
   AssignPickerDto,
@@ -24,6 +25,7 @@ export class FulfillmentService {
     private readonly pickings: PickingsRepository,
     private readonly packings: PackingsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -173,7 +175,15 @@ export class FulfillmentService {
       await this.packings.findOne(this.scope, id),
     );
   }
-  createPacking(dto: CreatePackingDto) {
+  async createPacking(dto: CreatePackingDto) {
+    for (const pkg of dto.packages) {
+      await this.masterListGuard.assertValid(
+        this.scope,
+        "package_type",
+        pkg.packageType,
+        "Package type",
+      );
+    }
     return this.packings.create(this.scope, dto, this.actor);
   }
   async markPacked(id: number) {

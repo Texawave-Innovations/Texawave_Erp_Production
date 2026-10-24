@@ -14,6 +14,7 @@ import { ScmProductsModule } from "./products/products.module.js";
 import { FinanceModule } from "./finance/finance.module.js";
 import { SuppliersModule } from "./suppliers/suppliers.module.js";
 import { WarehousesModule } from "./warehouses/warehouses.module.js";
+import { ScmMasterListItemsModule } from "./master-list-items/master-list-items.module.js";
 
 /** Aggregates the SCM sub-modules; grows one migrated slice at a time
  * (Docs/SCM_LEGACY_PARITY.md section 11). */
@@ -34,6 +35,7 @@ import { WarehousesModule } from "./warehouses/warehouses.module.js";
     ReportsModule,
     OverviewModule,
     ReturnsModule,
+    ScmMasterListItemsModule,
   ],
 })
 export class ScmModule {}
