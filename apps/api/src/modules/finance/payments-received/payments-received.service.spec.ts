@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@texawave-erp/database";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleViolationException,
@@ -113,22 +114,18 @@ function makeService() {
         .mockResolvedValue({ id: 101, name: "Acme Industrial" }),
     },
     financeMasterListItem: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 5,
-          value: "Bank Transfer",
-          category: "payment_mode",
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 5,
+        value: "Bank Transfer",
+        category: "payment_mode",
+      }),
     },
     financeBankAccount: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 2,
-          accountName: "Corporate Current Account",
-          glAccountId: 20,
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 2,
+        accountName: "Corporate Current Account",
+        glAccountId: 20,
+      }),
     },
     financeAccount: {
       findFirst: vi
@@ -332,6 +329,32 @@ describe("PaymentsReceivedService", () => {
       );
     });
 
+    it("throws ResourceConflictException when paymentNumber belongs to a soft-deleted record", async () => {
+      const { service, repository } = makeService();
+      repository.findByPaymentNumber.mockResolvedValue({
+        ...MOCK_PAYMENT_DRAFT,
+        deletedAt: new Date("2026-10-24"),
+      });
+      const dto = { ...validDto, paymentNumber: "PR-SOFT-DELETED" };
+
+      await expect(service.create(dto)).rejects.toThrow(
+        ResourceConflictException,
+      );
+    });
+
+    it("maps Prisma P2002 unique constraint error from repository.create to ResourceConflictException", async () => {
+      const { service, repository } = makeService();
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed on the fields: (`organization_id`, `payment_number`)",
+        { code: "P2002", clientVersion: "6.0.0" },
+      );
+      repository.create.mockRejectedValue(p2002Error);
+
+      await expect(service.create(validDto)).rejects.toThrow(
+        ResourceConflictException,
+      );
+    });
+
     it("creates DRAFT receipt and computes allocated and unallocated balances accurately", async () => {
       const { service, repository } = makeService();
       const dto: CreatePaymentReceivedDto = {
@@ -405,6 +428,28 @@ describe("PaymentsReceivedService", () => {
       repository.findById.mockResolvedValue(MOCK_PAYMENT_VOID);
 
       await expect(service.update(12, { notes: "New note" })).rejects.toThrow(
+        BusinessRuleViolationException,
+      );
+    });
+
+    it("throws BusinessRuleViolationException when updating a CONFIRMED payment", async () => {
+      const { service, repository } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_CONFIRMED);
+
+      await expect(service.update(11, { notes: "New note" })).rejects.toThrow(
+        BusinessRuleViolationException,
+      );
+    });
+
+    it("throws BusinessRuleViolationException when updating a RECONCILED payment", async () => {
+      const { service, repository } = makeService();
+      repository.findById.mockResolvedValue({
+        ...MOCK_PAYMENT_CONFIRMED,
+        id: 15,
+        status: "RECONCILED",
+      });
+
+      await expect(service.update(15, { notes: "New note" })).rejects.toThrow(
         BusinessRuleViolationException,
       );
     });

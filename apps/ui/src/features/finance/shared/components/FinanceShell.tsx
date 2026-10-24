@@ -58,25 +58,25 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
     id: "expenses",
     label: "Expenses",
     icon: Receipt,
+    path: "/finance/expenses",
     activePathPrefixes: ["/finance/expenses"],
-    disabled: true,
-    upcomingMessage: "Operational Expenses & Claims UI (Sub-Phase 3)",
+    disabled: false,
   },
   {
     id: "payments-received",
     label: "Payments Received",
     icon: ArrowDownLeft,
+    path: "/finance/payments-received",
     activePathPrefixes: ["/finance/payments-received"],
-    disabled: true,
-    upcomingMessage: "Customer Payments Received UI (Sub-Phase 3)",
+    disabled: false,
   },
   {
     id: "payments-made",
     label: "Payments Made",
     icon: Wallet,
+    path: "/finance/payments-made",
     activePathPrefixes: ["/finance/payments-made"],
-    disabled: true,
-    upcomingMessage: "Vendor Payments Made UI (Sub-Phase 3)",
+    disabled: false,
   },
   {
     id: "banking",
@@ -140,32 +140,9 @@ const SUB_TABS_MAP: Record<FinanceSectionId, SubTabConfig[]> = {
       badge: "Upcoming",
     },
   ],
-  expenses: [
-    {
-      id: "business-expenses",
-      label: "Business Expenses",
-      disabled: true,
-    },
-    {
-      id: "employee-claims",
-      label: "Employee Claims",
-      disabled: true,
-    },
-  ],
-  "payments-received": [
-    {
-      id: "receipts",
-      label: "Payments Received",
-      disabled: true,
-    },
-  ],
-  "payments-made": [
-    {
-      id: "disbursements",
-      label: "Payments Made",
-      disabled: true,
-    },
-  ],
+  expenses: [],
+  "payments-received": [],
+  "payments-made": [],
   banking: [
     {
       id: "bank-accounts",

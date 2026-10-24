@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@texawave-erp/database";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleViolationException,
@@ -167,28 +168,41 @@ export class PaymentsReceivedService {
     const initialStatus = dto.status ?? "CONFIRMED";
 
     // 7. Create payment record
-    const created = await this.repository.create(
-      scope,
-      {
-        organizationId: scope.organizationId,
-        paymentNumber,
-        paymentDate: new Date(dto.paymentDate),
-        customerId: dto.customerId ?? null,
-        customerName,
-        amount,
-        allocatedAmount,
-        unallocatedAmount,
-        paymentModeId: dto.paymentModeId,
-        bankAccountId: dto.bankAccountId ?? null,
-        referenceNumber: dto.referenceNumber ?? null,
-        invoiceReference: dto.invoiceReference ?? null,
-        notes: dto.notes ?? null,
-        status: initialStatus === "CONFIRMED" ? "DRAFT" : initialStatus,
-        createdBy: userId,
-        updatedBy: userId,
-      },
-      initialAllocations,
-    );
+    let created;
+    try {
+      created = await this.repository.create(
+        scope,
+        {
+          organizationId: scope.organizationId,
+          paymentNumber,
+          paymentDate: new Date(dto.paymentDate),
+          customerId: dto.customerId ?? null,
+          customerName,
+          amount,
+          allocatedAmount,
+          unallocatedAmount,
+          paymentModeId: dto.paymentModeId,
+          bankAccountId: dto.bankAccountId ?? null,
+          referenceNumber: dto.referenceNumber ?? null,
+          invoiceReference: dto.invoiceReference ?? null,
+          notes: dto.notes ?? null,
+          status: initialStatus === "CONFIRMED" ? "DRAFT" : initialStatus,
+          createdBy: userId,
+          updatedBy: userId,
+        },
+        initialAllocations,
+      );
+    } catch (err: unknown) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        throw new ResourceConflictException(
+          `Payment with number '${paymentNumber}' already exists`,
+        );
+      }
+      throw err;
+    }
 
     if (!created) {
       throw new Error("COULD_NOT_CREATE_PAYMENT_RECORD");
@@ -207,10 +221,10 @@ export class PaymentsReceivedService {
     const userId = this.tenantContext.getUserId();
 
     const existing = await this.findOne(id);
-    if (existing.status === "VOID") {
+    if (existing.status !== "DRAFT") {
       throw new BusinessRuleViolationException(
-        "Cannot modify a voided payment receipt",
-        "IMMUTABLE_VOID_PAYMENT",
+        `Cannot modify a ${existing.status.toLowerCase()} payment receipt. Only draft receipts can be modified.`,
+        "IMMUTABLE_PAYMENT_STATUS",
       );
     }
 

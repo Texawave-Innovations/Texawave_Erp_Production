@@ -47,6 +47,12 @@ const MOCK_PAYMENT_VOID = {
   status: "VOID",
 };
 
+const MOCK_PAYMENT_RECONCILED = {
+  ...MOCK_PAYMENT_CONFIRMED,
+  id: 13,
+  status: "RECONCILED",
+};
+
 function makeService() {
   const repository = {
     findMany: vi
@@ -56,12 +62,10 @@ function makeService() {
     findByPaymentNumber: vi.fn().mockResolvedValue(null),
     generateNextPaymentNumber: vi.fn().mockResolvedValue("PM-202610-0002"),
     create: vi.fn().mockResolvedValue(MOCK_PAYMENT_DRAFT),
-    update: vi
-      .fn()
-      .mockResolvedValue({
-        ...MOCK_PAYMENT_DRAFT,
-        vendorName: "Updated Vendor",
-      }),
+    update: vi.fn().mockResolvedValue({
+      ...MOCK_PAYMENT_DRAFT,
+      vendorName: "Updated Vendor",
+    }),
     postAndConfirmPayment: vi.fn().mockResolvedValue({
       ...MOCK_PAYMENT_DRAFT,
       status: "CONFIRMED",
@@ -85,22 +89,18 @@ function makeService() {
 
   const prisma = {
     financeMasterListItem: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 4,
-          value: "Bank Transfer",
-          category: "payment_mode",
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 4,
+        value: "Bank Transfer",
+        category: "payment_mode",
+      }),
     },
     financeBankAccount: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 2,
-          accountName: "Current Account",
-          glAccountId: 20,
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 2,
+        accountName: "Current Account",
+        glAccountId: 20,
+      }),
     },
     scmSupplierPayment: {
       findFirst: vi
@@ -357,7 +357,7 @@ describe("PaymentsMadeService", () => {
   });
 
   describe("Update Disbursement", () => {
-    it("updates metadata on existing payment", async () => {
+    it("updates metadata on a DRAFT payment", async () => {
       const { service, repository } = makeService();
 
       await service.update(10, {
@@ -375,13 +375,43 @@ describe("PaymentsMadeService", () => {
       );
     });
 
-    it("rejects updating a VOID payment", async () => {
+    it("rejects updating a CONFIRMED payment and does not mutate repository", async () => {
+      const { service, repository } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_CONFIRMED);
+
+      await expect(
+        service.update(11, { vendorName: "New Name" }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects updating a RECONCILED payment and does not mutate repository", async () => {
+      const { service, repository } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_RECONCILED);
+
+      await expect(
+        service.update(13, { vendorName: "New Name" }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects updating a VOID payment and does not mutate repository", async () => {
       const { service, repository } = makeService();
       repository.findById.mockResolvedValue(MOCK_PAYMENT_VOID);
 
       await expect(
         service.update(12, { vendorName: "New Name" }),
       ).rejects.toThrow(BusinessRuleViolationException);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects update when paymentDate is in the future and does not mutate repository", async () => {
+      const { service, repository } = makeService();
+
+      await expect(
+        service.update(10, { paymentDate: "2099-01-01" }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+      expect(repository.update).not.toHaveBeenCalled();
     });
   });
 

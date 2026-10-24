@@ -171,10 +171,10 @@ export class PaymentsMadeService {
     const userId = this.tenantContext.getUserId();
 
     const existing = await this.findOne(id);
-    if (existing.status === "VOID") {
+    if (existing.status !== "DRAFT") {
       throw new BusinessRuleViolationException(
-        "Cannot modify a voided payment disbursement",
-        "IMMUTABLE_VOID_PAYMENT",
+        `Cannot modify a ${existing.status.toLowerCase()} payment disbursement. Only draft disbursements can be modified.`,
+        "IMMUTABLE_PAYMENT_STATUS",
       );
     }
 

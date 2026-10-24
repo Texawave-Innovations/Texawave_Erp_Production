@@ -155,7 +155,6 @@ export class PaymentsReceivedRepository {
     return this.prisma.financePaymentReceived.findFirst({
       where: tenantWhere<Prisma.FinancePaymentReceivedWhereInput>(scope, {
         paymentNumber,
-        deletedAt: null,
       }),
     });
   }
@@ -204,7 +203,6 @@ export class PaymentsReceivedRepository {
             invoiceReference: alloc.invoiceReference,
             allocatedAmount: alloc.allocatedAmount,
             notes: alloc.notes ?? null,
-            createdBy: data.createdBy,
           })),
         });
       }
@@ -488,7 +486,6 @@ export class PaymentsReceivedRepository {
           invoiceReference: allocationData.invoiceReference,
           allocatedAmount: allocationData.allocatedAmount,
           notes: allocationData.notes ?? null,
-          createdBy: updatedBy,
         },
       });
 

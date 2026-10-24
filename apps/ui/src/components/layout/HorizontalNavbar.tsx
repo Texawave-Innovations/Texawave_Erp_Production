@@ -1433,8 +1433,6 @@ const FINANCE_CATEGORIES: NavCategory[] = [
         icon: Receipt,
         icon3d: "expense-approvals",
         menuCode: "finance-expenses",
-        disabled: true,
-        upcoming: true,
       },
       {
         id: "payments-received",
@@ -1443,8 +1441,6 @@ const FINANCE_CATEGORIES: NavCategory[] = [
         icon: ArrowLeftRight,
         icon3d: "payroll",
         menuCode: "finance-payments-received",
-        disabled: true,
-        upcoming: true,
       },
       {
         id: "payments-made",
@@ -1453,8 +1449,6 @@ const FINANCE_CATEGORIES: NavCategory[] = [
         icon: Wallet,
         icon3d: "payroll",
         menuCode: "finance-payments-made",
-        disabled: true,
-        upcoming: true,
       },
     ],
   },

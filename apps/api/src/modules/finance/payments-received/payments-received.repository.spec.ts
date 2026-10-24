@@ -106,7 +106,7 @@ describe("PaymentsReceivedRepository", () => {
       expect(findArg.where.deletedAt).toBeNull();
     });
 
-    it("findByPaymentNumber() restricts to scope.organizationId", async () => {
+    it("findByPaymentNumber() checks across all records including soft-deleted ones", async () => {
       const { repository, financePaymentReceived } = makeRepository();
 
       await repository.findByPaymentNumber(SCOPE_A, "REC-202610-0001");
@@ -116,6 +116,7 @@ describe("PaymentsReceivedRepository", () => {
       ];
       expect(findArg.where.paymentNumber).toBe("REC-202610-0001");
       expect(findArg.where.organizationId).toBe(10);
+      expect(findArg.where.deletedAt).toBeUndefined();
     });
 
     it("generateNextPaymentNumber() formats sequence scoped to organizationId", async () => {
@@ -173,6 +174,16 @@ describe("PaymentsReceivedRepository", () => {
       expect(createArg.data.amount).toBe(10000);
 
       expect(financePaymentReceivedAllocation.createMany).toHaveBeenCalled();
+      const [allocArg] = financePaymentReceivedAllocation.createMany.mock
+        .calls[0] as [{ data: Array<Record<string, unknown>> }];
+      expect(allocArg.data[0]).toEqual({
+        organizationId: 10,
+        paymentReceivedId: 1,
+        invoiceReference: "INV-001",
+        allocatedAmount: 6000,
+        notes: "Partial payment",
+      });
+      expect(allocArg.data[0]).not.toHaveProperty("createdBy");
     });
 
     it("update() restricts modification to scope.organizationId", async () => {
@@ -340,6 +351,7 @@ describe("PaymentsReceivedRepository", () => {
       expect(allocArg.data.paymentReceivedId).toBe(15);
       expect(allocArg.data.invoiceReference).toBe("INV-202610-005");
       expect(allocArg.data.allocatedAmount).toBe(2500);
+      expect(allocArg.data).not.toHaveProperty("createdBy");
 
       const [updateArg] = financePaymentReceived.updateMany.mock.calls[0] as [
         { where: Record<string, unknown>; data: Record<string, unknown> },
