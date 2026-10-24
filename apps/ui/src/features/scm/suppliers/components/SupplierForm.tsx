@@ -20,6 +20,7 @@ import {
   Textarea,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { useNextSupplierCode } from "../hooks";
 
 interface FormState {
@@ -130,6 +131,12 @@ export function SupplierForm({
   // Until the user edits it, a new supplier's code is the server's suggestion.
   const supplierCode =
     isEdit || codeTouched ? form.supplierCode : (nextCode.data ?? "");
+  const supplierTypes = useMasterListItems({
+    category: "supplier_type",
+    page: 1,
+    limit: 100,
+  });
+  const supplierTypeOptions = supplierTypes.data?.data ?? [];
 
   function set<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -235,14 +242,19 @@ export function SupplierForm({
           </div>
           <FormField label="Supplier Type" error={errors.type}>
             {(p) => (
-              <Input
+              <Select
                 {...p}
-                invalid={p.invalid}
                 value={form.type}
                 onChange={(e) => set("type", e.target.value)}
-                placeholder="Manufacturer, Distributor..."
                 disabled={disabled}
-              />
+              >
+                <option value="">Select a type</option>
+                {supplierTypeOptions.map((t) => (
+                  <option key={t.id} value={t.value}>
+                    {t.value}
+                  </option>
+                ))}
+              </Select>
             )}
           </FormField>
           <FormField label="Status" error={errors.status}>
