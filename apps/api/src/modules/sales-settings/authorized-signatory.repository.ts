@@ -15,16 +15,12 @@ export class AuthorizedSignatoryRepository {
   @OrgScoped()
   findOne(scope: OrgScope) {
     return this.prisma.authorizedSignatory.findFirst({
-      where: tenantWhere(scope, { deletedAt: null }),
+      where: tenantWhere(scope, {}),
     });
   }
 
   @OrgScoped()
-  async upsert(
-    scope: OrgScope,
-    dto: UpsertAuthorizedSignatoryDto,
-    actorId: number,
-  ) {
+  async upsert(scope: OrgScope, dto: UpsertAuthorizedSignatoryDto) {
     const existing = await this.findOne(scope);
     const data = {
       ...dto,
@@ -32,17 +28,12 @@ export class AuthorizedSignatoryRepository {
     };
     if (!existing) {
       return this.prisma.authorizedSignatory.create({
-        data: {
-          ...data,
-          organizationId: scope.organizationId,
-          createdBy: actorId,
-          updatedBy: actorId,
-        },
+        data: { ...data, organizationId: scope.organizationId },
       });
     }
     return this.prisma.authorizedSignatory.update({
       where: { id: existing.id },
-      data: { ...data, updatedBy: actorId },
+      data,
     });
   }
 }

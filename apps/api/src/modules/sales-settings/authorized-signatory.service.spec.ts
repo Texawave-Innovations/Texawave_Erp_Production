@@ -45,13 +45,13 @@ describe("AuthorizedSignatoryService", () => {
   });
 
   describe("upsert()", () => {
-    it("upserts within the caller's org, recording the caller as updatedBy", async () => {
+    it("upserts within the caller's org", async () => {
       const { service, repository } = makeService();
       repository.upsert.mockResolvedValue(SIGNATORY);
       const dto: UpsertAuthorizedSignatoryDto = { name: "Jane Doe" };
 
       await expect(service.upsert(dto)).resolves.toBe(SIGNATORY);
-      expect(repository.upsert).toHaveBeenCalledWith(SCOPE, dto, USER_ID);
+      expect(repository.upsert).toHaveBeenCalledWith(SCOPE, dto);
     });
   });
 });

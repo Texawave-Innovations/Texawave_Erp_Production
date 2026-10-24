@@ -35,17 +35,12 @@ export class SalespersonsService {
 
   create(dto: CreateSalespersonDto) {
     const scope = this.tenantContext.getOrgScope();
-    return this.repository.create(scope, dto, this.tenantContext.getUserId());
+    return this.repository.create(scope, dto);
   }
 
   async update(id: number, dto: UpdateSalespersonDto) {
     const scope = this.tenantContext.getOrgScope();
-    const updated = await this.repository.update(
-      scope,
-      id,
-      dto,
-      this.tenantContext.getUserId(),
-    );
+    const updated = await this.repository.update(scope, id, dto);
     if (!updated) {
       throw new ResourceNotFoundException("Salesperson", id);
     }
@@ -54,11 +49,7 @@ export class SalespersonsService {
 
   async remove(id: number): Promise<void> {
     const scope = this.tenantContext.getOrgScope();
-    const deleted = await this.repository.softDelete(
-      scope,
-      id,
-      this.tenantContext.getUserId(),
-    );
+    const deleted = await this.repository.softDelete(scope, id);
     if (!deleted) {
       throw new ResourceNotFoundException("Salesperson", id);
     }

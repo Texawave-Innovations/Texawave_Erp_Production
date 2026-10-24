@@ -18,6 +18,6 @@ export class CompanyDetailService {
 
   upsert(dto: UpsertCompanyDetailDto) {
     const scope = this.tenantContext.getOrgScope();
-    return this.repository.upsert(scope, dto, this.tenantContext.getUserId());
+    return this.repository.upsert(scope, dto);
   }
 }
