@@ -31,21 +31,6 @@ export const SHIPMENT_STATUSES = [
   "FAILED_DELIVERY",
   "CANCELLED",
 ] as const;
-export const SERVICE_TYPES = [
-  "STANDARD",
-  "EXPRESS",
-  "SAME_DAY",
-  "ECONOMY",
-  "OTHER",
-] as const;
-export const EXCEPTION_CODES = [
-  "CUSTOMER_UNAVAILABLE",
-  "ADDRESS_ISSUE",
-  "WEATHER_DELAY",
-  "DAMAGED_PACKAGE",
-  "CARRIER_DELAY",
-  "OTHER",
-] as const;
 const present = (_: unknown, v: unknown) =>
   v !== undefined && v !== null && v !== "";
 
@@ -62,11 +47,11 @@ export class CreateCarrierDto {
   @Length(1, 150)
   carrierName!: string;
 
-  @ApiPropertyOptional({ enum: SERVICE_TYPES, isArray: true })
+  @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
-  @IsIn(SERVICE_TYPES, { each: true })
-  serviceTypes?: (typeof SERVICE_TYPES)[number][];
+  @IsString({ each: true })
+  serviceTypes?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -154,9 +139,10 @@ export class AssignCarrierDto {
   @IsInt()
   carrierId!: number;
 
-  @ApiProperty({ enum: SERVICE_TYPES })
-  @IsIn(SERVICE_TYPES)
-  serviceType!: (typeof SERVICE_TYPES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  serviceType!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -223,9 +209,10 @@ export class DeliverShipmentDto {
 }
 
 export class RecordExceptionDto {
-  @ApiProperty({ enum: EXCEPTION_CODES })
-  @IsIn(EXCEPTION_CODES)
-  exceptionCode!: (typeof EXCEPTION_CODES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  exceptionCode!: string;
 
   @ApiProperty()
   @Trim()

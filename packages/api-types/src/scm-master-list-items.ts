@@ -7,6 +7,12 @@ export const SCM_MASTER_LIST_CATEGORIES = [
   "package_type",
   "warehouse_type",
   "stock_adjustment_reason",
+  "shipment_service_type",
+  "shipment_exception_reason",
+  "return_reason",
+  "quality_defect_category",
+  "requisition_priority",
+  "supplier_document_type",
 ] as const;
 export type ScmMasterListCategory = (typeof SCM_MASTER_LIST_CATEGORIES)[number];
 

@@ -6,6 +6,7 @@ import {
 } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { ScmActivityService } from "../common/scm-activity.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import type {
   CreateDefectDto,
   CreateInspectionDto,
@@ -38,6 +39,7 @@ export class QualityService {
     private readonly quarantine: QuarantineRepository,
     private readonly activity: ScmActivityService,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -67,9 +69,21 @@ export class QualityService {
         `Defect code ${dto.defectCode} already exists.`,
       );
     }
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_category",
+      dto.category,
+      "Defect category",
+    );
     return this.masters.createDefect(this.scope, dto, this.actor);
   }
   async updateDefect(id: number, dto: UpdateDefectDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_category",
+      dto.category,
+      "Defect category",
+    );
     return this.nf(
       "Defect",
       id,

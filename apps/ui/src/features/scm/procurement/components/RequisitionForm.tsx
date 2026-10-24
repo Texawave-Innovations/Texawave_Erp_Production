@@ -5,9 +5,9 @@ import type {
   RequisitionPayload,
   RequisitionPriority,
 } from "@texawave-erp/api-types";
-import { REQUISITION_PRIORITIES } from "@texawave-erp/api-types";
 import { Button } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import {
   FormGrid,
   SelectField,
@@ -100,6 +100,12 @@ function Body({
 }) {
   const warehouses = useWarehouseOptions();
   const defaultWarehouseId = useDefaultWarehouseId();
+  const priorities = useMasterListItems({
+    category: "requisition_priority",
+    page: 1,
+    limit: 100,
+  });
+  const priorityOptions = priorities.data?.data ?? [];
   const [form, setForm] = useState({
     department: requisition?.department ?? "",
     requestDate: requisition?.requestDate.slice(0, 10) ?? today(),
@@ -196,7 +202,10 @@ function Body({
           label="Priority"
           value={form.priority}
           onChange={(v) => set("priority", v)}
-          options={REQUISITION_PRIORITIES.map((p) => ({ value: p, label: p }))}
+          options={priorityOptions.map((p) => ({
+            value: p.value,
+            label: p.value,
+          }))}
         />
         <TextField
           label="Request Date"

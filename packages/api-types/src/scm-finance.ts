@@ -11,13 +11,7 @@ export type SupplierPaymentMode =
 
 export type SupplierPaymentStatus = "POSTED" | "VOIDED";
 
-export type SupplierDocumentType =
-  | "GST_CERTIFICATE"
-  | "PAN"
-  | "BANK_DETAILS"
-  | "CONTRACT"
-  | "COMPLIANCE"
-  | "OTHER";
+export type SupplierDocumentType = string;
 
 export interface SupplierBill {
   id: number;

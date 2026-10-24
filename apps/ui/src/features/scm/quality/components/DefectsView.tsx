@@ -1,11 +1,12 @@
 "use client";
 
 import type { QualityDefect, UpdateDefectInput } from "@texawave-erp/api-types";
-import { DEFECT_CATEGORIES, DEFECT_SEVERITIES } from "@texawave-erp/api-types";
+import { DEFECT_SEVERITIES } from "@texawave-erp/api-types";
 import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { BadgeAlert, Plus } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { formatStatusLabel } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
@@ -40,6 +41,12 @@ export function DefectsView() {
   const create = useCreateDefect();
   const update = useUpdateDefect();
   const query = useDefects({ page: c.page, limit: c.pageSize, q: c.q });
+  const categories = useMasterListItems({
+    category: "quality_defect_category",
+    page: 1,
+    limit: 100,
+  });
+  const categoryOptions = categories.data?.data ?? [];
 
   return (
     <ScmListView<QualityDefect>
@@ -177,9 +184,9 @@ export function DefectsView() {
             label: "Category",
             type: "select",
             required: true,
-            options: DEFECT_CATEGORIES.map((v) => ({
-              value: v,
-              label: formatStatusLabel(v),
+            options: categoryOptions.map((v) => ({
+              value: v.value,
+              label: formatStatusLabel(v.value),
             })),
           },
           {
@@ -225,8 +232,7 @@ export function DefectsView() {
                 defectCode: v.defectCode as string,
                 name: v.name as string,
                 description: (v.description as string) || undefined,
-                category:
-                  v.category as UpdateDefectInput["category"] as (typeof DEFECT_CATEGORIES)[number],
+                category: v.category as string,
                 severity: v.severity as (typeof DEFECT_SEVERITIES)[number],
               });
             }

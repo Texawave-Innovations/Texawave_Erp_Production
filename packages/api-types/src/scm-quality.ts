@@ -27,16 +27,6 @@ export const QUALITY_CONDITIONS = [
   "CONTAMINATED",
   "UNKNOWN",
 ] as const;
-export const DEFECT_CATEGORIES = [
-  "PRODUCT",
-  "PACKAGING",
-  "QUANTITY",
-  "DOCUMENTATION",
-  "FUNCTIONAL",
-  "PHYSICAL_DAMAGE",
-  "WRONG_ITEM",
-  "OTHER",
-] as const;
 export const DEFECT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export type DefectSeverity = (typeof DEFECT_SEVERITIES)[number];
 export const CHECKPOINT_RESULTS = ["PASS", "FAIL", "NA"] as const;
@@ -79,7 +69,7 @@ export interface QualityDefect {
   defectCode: string;
   name: string;
   description: string | null;
-  category: (typeof DEFECT_CATEGORIES)[number];
+  category: string;
   severity: DefectSeverity;
   active: boolean;
   createdAt: string;
@@ -88,13 +78,13 @@ export interface CreateDefectInput {
   defectCode: string;
   name: string;
   description?: string | undefined;
-  category: (typeof DEFECT_CATEGORIES)[number];
+  category: string;
   severity: DefectSeverity;
 }
 export interface UpdateDefectInput {
   name?: string | undefined;
   description?: string | undefined;
-  category?: (typeof DEFECT_CATEGORIES)[number] | undefined;
+  category?: string | undefined;
   severity?: DefectSeverity | undefined;
   active?: boolean | undefined;
 }
@@ -259,7 +249,7 @@ export interface QueryDefectInput {
   limit: number;
   q?: string | undefined;
   severity?: DefectSeverity | undefined;
-  category?: (typeof DEFECT_CATEGORIES)[number] | undefined;
+  category?: string | undefined;
   active?: boolean | undefined;
 }
 export interface QueryTemplateInput {

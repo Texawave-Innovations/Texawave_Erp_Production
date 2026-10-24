@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ScmMasterListItemsModule } from "../master-list-items/master-list-items.module.js";
 import { SuppliersModule } from "../suppliers/suppliers.module.js";
 import {
   SupplierBillsController,
@@ -11,7 +12,7 @@ import { FinanceService } from "./finance.service.js";
 
 /** Supplier finance slice: bills, payments and documents. */
 @Module({
-  imports: [SuppliersModule],
+  imports: [SuppliersModule, ScmMasterListItemsModule],
   controllers: [
     SupplierBillsController,
     SupplierPaymentsController,

@@ -9,11 +9,11 @@ import {
 
 /**
  * SCM Master screen: the Masters tab bar renders with SCM Master active,
- * all 4 category cards (Supplier Types, Package Types, Warehouse Types,
- * Stock Adjustment Reasons) render their seeded chips, add+delete on the
- * Supplier Types card round-trips through the mocked API, and a reader
- * without write permission sees no add form. API fully mocked — the
- * backend's own rules are proven by
+ * all 10 category cards (the 4 from the first SCM Masterlist PR, plus the 6
+ * added for logistics/returns/quality/procurement/finance consumers) render
+ * their seeded chips, add+delete on the Supplier Types card round-trips
+ * through the mocked API, and a reader without write permission sees no add
+ * form. API fully mocked — the backend's own rules are proven by
  * apps/api/test/scm-master-list-items.e2e-spec.ts.
  */
 
@@ -81,16 +81,49 @@ const STOCK_ADJUSTMENT_REASONS = [
   },
 ];
 
+function seedChip(id: number, category: string, value: string) {
+  return {
+    id,
+    organizationId: 1,
+    category,
+    value,
+    numericValue: null,
+    customFields: {},
+    createdBy: 1,
+    updatedBy: 1,
+    createdAt: "2026-10-01T10:00:00.000Z",
+    updatedAt: "2026-10-01T10:00:00.000Z",
+    deletedAt: null,
+  };
+}
+
+const SIMPLE_CATEGORY_CHIPS: Record<string, ReturnType<typeof seedChip>[]> = {
+  shipment_service_type: [seedChip(5, "shipment_service_type", "Standard")],
+  shipment_exception_reason: [
+    seedChip(6, "shipment_exception_reason", "Address Issue"),
+  ],
+  return_reason: [seedChip(7, "return_reason", "Defective")],
+  quality_defect_category: [
+    seedChip(8, "quality_defect_category", "Physical Damage"),
+  ],
+  requisition_priority: [seedChip(9, "requisition_priority", "Urgent")],
+  supplier_document_type: [
+    seedChip(10, "supplier_document_type", "GST Certificate"),
+  ],
+};
+
 function handler(req: MockRequest): MockAnswer | undefined {
   const { method, pathname, search, body } = req;
 
   if (pathname === "/scm/master-list-items" && method === "GET") {
-    const category = search.get("category");
+    const category = search.get("category") ?? "";
     if (category === "supplier_type") return { body: page1(supplierTypes) };
     if (category === "package_type") return { body: page1(PACKAGE_TYPES) };
     if (category === "warehouse_type") return { body: page1(WAREHOUSE_TYPES) };
     if (category === "stock_adjustment_reason")
       return { body: page1(STOCK_ADJUSTMENT_REASONS) };
+    if (category in SIMPLE_CATEGORY_CHIPS)
+      return { body: page1(SIMPLE_CATEGORY_CHIPS[category]!) };
     return { body: page1([]) };
   }
 
@@ -150,7 +183,7 @@ test("shows the Masters tab bar with SCM Master active", async ({ page }) => {
   await expect(page.getByRole("link", { name: "SCM Master" })).toBeVisible();
 });
 
-test("renders all 4 SCM Master cards with their seeded chips", async ({
+test("renders all 10 SCM Master cards with their seeded chips", async ({
   page,
 }) => {
   await openScmMaster(page);
@@ -167,11 +200,35 @@ test("renders all 4 SCM Master cards with their seeded chips", async ({
   await expect(
     page.getByRole("heading", { name: "Stock Adjustment Reasons" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Shipment Service Types" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Shipment Exception Reasons" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Return Reasons" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Quality Defect Categories" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Requisition Priorities" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Supplier Document Types" }),
+  ).toBeVisible();
 
   await expect(page.getByText("Manufacturer")).toBeVisible();
   await expect(page.getByText("Box")).toBeVisible();
   await expect(page.getByText("Main")).toBeVisible();
-  await expect(page.getByText("Damage")).toBeVisible();
+  await expect(page.getByText("Damage", { exact: true })).toBeVisible();
+  await expect(page.getByText("Standard")).toBeVisible();
+  await expect(page.getByText("Address Issue")).toBeVisible();
+  await expect(page.getByText("Defective")).toBeVisible();
+  await expect(page.getByText("Physical Damage")).toBeVisible();
+  await expect(page.getByText("Urgent")).toBeVisible();
+  await expect(page.getByText("GST Certificate")).toBeVisible();
 });
 
 test("adds and deletes a supplier type chip", async ({ page }) => {

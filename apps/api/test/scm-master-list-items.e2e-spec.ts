@@ -9,10 +9,10 @@ import { PrismaService } from "../src/shared/prisma/prisma.service.js";
 
 /**
  * End-to-end proof for the SCM Master foundation
- * (apps/api/src/modules/scm/master-list-items) across its 4 categories:
- * auth, org scoping, permission checks, the generic category/value shape,
- * and tenant isolation. Modeled on `sales-settings.e2e-spec.ts`'s "master
- * list items" block — this is a standalone spec (not a module-wide
+ * (apps/api/src/modules/scm/master-list-items) across its categories: auth,
+ * org scoping, permission checks, the generic category/value shape, and
+ * tenant isolation. Modeled on `sales-settings.e2e-spec.ts`'s "master list
+ * items" block — this is a standalone spec (not a module-wide
  * `scm.e2e-spec.ts`, which doesn't exist yet) since SCM Masterlist is the
  * first SCM resource to get e2e coverage.
  *
@@ -229,12 +229,29 @@ describe("scm master list items (e2e)", () => {
       .expect(400);
   });
 
-  it("rejects a category outside the 4 known SCM masterlist categories", async () => {
+  it("rejects a category outside the known SCM masterlist categories", async () => {
     await request(app.getHttpServer())
       .post("/scm/master-list-items")
       .set("Authorization", `Bearer ${tokenA}`)
       .send({ category: "not_a_real_category", value: "X" })
       .expect(400);
+  });
+
+  it("accepts the categories added for logistics/returns/quality/procurement/finance consumers", async () => {
+    for (const category of [
+      "shipment_service_type",
+      "shipment_exception_reason",
+      "return_reason",
+      "quality_defect_category",
+      "requisition_priority",
+      "supplier_document_type",
+    ]) {
+      await request(app.getHttpServer())
+        .post("/scm/master-list-items")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ category, value: "Test Value" })
+        .expect(201);
+    }
   });
 
   it("never lets one organization see, edit, or delete another's master list item", async () => {

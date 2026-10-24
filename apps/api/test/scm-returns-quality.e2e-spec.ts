@@ -193,6 +193,34 @@ describe("scm returns and quality (e2e)", () => {
     orgB = await prisma.organization.create({
       data: { name: `Org B ${suffix}`, slug: `scm-rq-b-${suffix}` },
     });
+    // The return/defect tests below submit return_reason and
+    // quality_defect_category values — the MasterListValueGuard requires
+    // each to already be an active SCM Master value for the org.
+    await prisma.scmMasterListItem.createMany({
+      data: [
+        {
+          organizationId: orgA.id,
+          category: "return_reason",
+          value: "DEFECTIVE",
+        },
+        { organizationId: orgA.id, category: "return_reason", value: "OTHER" },
+        {
+          organizationId: orgA.id,
+          category: "return_reason",
+          value: "QUALITY_ISSUE",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_category",
+          value: "PHYSICAL_DAMAGE",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_category",
+          value: "OTHER",
+        },
+      ],
+    });
     const codes = [
       "scm.supplier.read",
       "scm.supplier.write",

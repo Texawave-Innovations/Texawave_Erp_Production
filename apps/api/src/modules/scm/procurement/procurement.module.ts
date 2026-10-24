@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { InventoryModule } from "../inventory/inventory.module.js";
+import { ScmMasterListItemsModule } from "../master-list-items/master-list-items.module.js";
 import { ScmProductsModule } from "../products/products.module.js";
 import { SuppliersModule } from "../suppliers/suppliers.module.js";
 import { WarehousesModule } from "../warehouses/warehouses.module.js";
@@ -31,6 +32,7 @@ import { SupplierQuotationsService } from "./supplier-quotations.service.js";
     ScmProductsModule,
     SuppliersModule,
     WarehousesModule,
+    ScmMasterListItemsModule,
   ],
   controllers: [
     ProcurementDashboardController,

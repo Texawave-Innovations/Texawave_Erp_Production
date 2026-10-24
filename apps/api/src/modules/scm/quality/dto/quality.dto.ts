@@ -18,7 +18,6 @@ import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
 import {
   CHECKPOINT_RESULTS,
-  DEFECT_CATEGORIES,
   DEFECT_SEVERITIES,
   INSPECTION_STATUSES,
   INSPECTION_TYPES,
@@ -53,9 +52,10 @@ export class CreateDefectDto {
   @Length(0, 1000)
   description?: string;
 
-  @ApiProperty({ enum: DEFECT_CATEGORIES })
-  @IsIn(DEFECT_CATEGORIES)
-  category!: (typeof DEFECT_CATEGORIES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  category!: string;
 
   @ApiProperty({ enum: DEFECT_SEVERITIES })
   @IsIn(DEFECT_SEVERITIES)
@@ -78,10 +78,11 @@ export class UpdateDefectDto {
   @Length(0, 1000)
   description?: string;
 
-  @ApiPropertyOptional({ enum: DEFECT_CATEGORIES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(DEFECT_CATEGORIES)
-  category?: (typeof DEFECT_CATEGORIES)[number];
+  @Trim()
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional({ enum: DEFECT_SEVERITIES })
   @IsOptional()
@@ -106,10 +107,11 @@ export class QueryDefectDto extends PaginationDto {
   @IsIn(DEFECT_SEVERITIES)
   severity?: (typeof DEFECT_SEVERITIES)[number];
 
-  @ApiPropertyOptional({ enum: DEFECT_CATEGORIES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(DEFECT_CATEGORIES)
-  category?: (typeof DEFECT_CATEGORIES)[number];
+  @Trim()
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

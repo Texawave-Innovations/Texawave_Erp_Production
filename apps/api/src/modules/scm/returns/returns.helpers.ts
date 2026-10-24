@@ -1,19 +1,6 @@
 export const RETURN_TYPES = ["CUSTOMER_RETURN", "VENDOR_RETURN"] as const;
 export type ReturnType = (typeof RETURN_TYPES)[number];
 
-export const RETURN_REASON_CODES = [
-  "DAMAGED",
-  "DEFECTIVE",
-  "WRONG_ITEM",
-  "WRONG_QUANTITY",
-  "CUSTOMER_CHANGED_MIND",
-  "SIZE_OR_VARIANT",
-  "QUALITY_ISSUE",
-  "DELIVERY_DAMAGE",
-  "NOT_AS_DESCRIBED",
-  "OTHER",
-] as const;
-
 export const RETURN_CONDITIONS = [
   "NEW",
   "LIKE_NEW",

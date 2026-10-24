@@ -2,13 +2,7 @@
 // the LEGACY TexaWave_ERP_old/src/modules/scm/procurement. Decimal columns
 // arrive as strings. See packages/api-types/README.md.
 
-export const REQUISITION_PRIORITIES = [
-  "Low",
-  "Normal",
-  "High",
-  "Urgent",
-] as const;
-export type RequisitionPriority = (typeof REQUISITION_PRIORITIES)[number];
+export type RequisitionPriority = string;
 export const REQUISITION_STATUSES = [
   "DRAFT",
   "SUBMITTED",

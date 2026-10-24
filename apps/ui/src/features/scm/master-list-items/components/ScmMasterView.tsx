@@ -89,9 +89,9 @@ function CategoryCard({ category, title }: CategoryCardProps) {
   );
 }
 
-/** SCM Master page — Supplier Types, Package Types, Warehouse Types, and
- * Stock Adjustment Reasons cards. A future SCM consumer (Supplier,
- * ScmPackingPackage, ScmWarehouse, ScmStockAdjustment forms) reads these via
+/** SCM Master page — one card per category. Each SCM consumer form (Supplier,
+ * ScmPackingPackage, ScmWarehouse, ScmStockAdjustment, Carrier, Shipment,
+ * returns, quality defects, requisitions, supplier documents) reads these via
  * `scm/master-list-items?category=...` and references a row by `id`. */
 export function ScmMasterView() {
   return (
@@ -102,6 +102,27 @@ export function ScmMasterView() {
       <CategoryCard
         category="stock_adjustment_reason"
         title="Stock Adjustment Reasons"
+      />
+      <CategoryCard
+        category="shipment_service_type"
+        title="Shipment Service Types"
+      />
+      <CategoryCard
+        category="shipment_exception_reason"
+        title="Shipment Exception Reasons"
+      />
+      <CategoryCard category="return_reason" title="Return Reasons" />
+      <CategoryCard
+        category="quality_defect_category"
+        title="Quality Defect Categories"
+      />
+      <CategoryCard
+        category="requisition_priority"
+        title="Requisition Priorities"
+      />
+      <CategoryCard
+        category="supplier_document_type"
+        title="Supplier Document Types"
       />
     </div>
   );

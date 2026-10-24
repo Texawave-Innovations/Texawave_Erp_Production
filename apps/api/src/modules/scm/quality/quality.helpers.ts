@@ -26,16 +26,6 @@ export const QUALITY_CONDITIONS = [
   "CONTAMINATED",
   "UNKNOWN",
 ] as const;
-export const DEFECT_CATEGORIES = [
-  "PRODUCT",
-  "PACKAGING",
-  "QUANTITY",
-  "DOCUMENTATION",
-  "FUNCTIONAL",
-  "PHYSICAL_DAMAGE",
-  "WRONG_ITEM",
-  "OTHER",
-] as const;
 export const DEFECT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const CHECKPOINT_RESULTS = ["PASS", "FAIL", "NA"] as const;
 export const INSPECTION_STATUSES = [

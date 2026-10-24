@@ -1,15 +1,12 @@
 "use client";
 
 import type { Shipment } from "@texawave-erp/api-types";
-import {
-  SHIPMENT_EXCEPTION_CODES,
-  SHIPMENT_SERVICE_TYPES,
-  SHIPMENT_STATUSES,
-} from "@texawave-erp/api-types";
+import { SHIPMENT_STATUSES } from "@texawave-erp/api-types";
 import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { Truck } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import {
   formatDate,
   formatDateTime,
@@ -54,6 +51,18 @@ export function ShipmentsView() {
   const [deletingRow, setDeletingRow] = useState<Shipment | null>(null);
   const act = useShipmentAction();
   const carriers = useCarrierOptions();
+  const serviceTypes = useMasterListItems({
+    category: "shipment_service_type",
+    page: 1,
+    limit: 100,
+  });
+  const serviceTypeOptions = serviceTypes.data?.data ?? [];
+  const exceptionReasons = useMasterListItems({
+    category: "shipment_exception_reason",
+    page: 1,
+    limit: 100,
+  });
+  const exceptionReasonOptions = exceptionReasons.data?.data ?? [];
   const detail = useShipment(viewingId);
   const query = useShipments({
     page: c.page,
@@ -351,9 +360,9 @@ export function ShipmentsView() {
             label: "Service type",
             type: "select",
             required: true,
-            options: SHIPMENT_SERVICE_TYPES.map((x) => ({
-              value: x,
-              label: formatStatusLabel(x),
+            options: serviceTypeOptions.map((x) => ({
+              value: x.value,
+              label: formatStatusLabel(x.value),
             })),
           },
           {
@@ -441,9 +450,9 @@ export function ShipmentsView() {
             label: "Exception",
             type: "select",
             required: true,
-            options: SHIPMENT_EXCEPTION_CODES.map((x) => ({
-              value: x,
-              label: formatStatusLabel(x),
+            options: exceptionReasonOptions.map((x) => ({
+              value: x.value,
+              label: formatStatusLabel(x.value),
             })),
           },
           {
