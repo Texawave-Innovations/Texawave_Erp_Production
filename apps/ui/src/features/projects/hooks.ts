@@ -5,9 +5,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   addProjectMember,
   createExpense,
+  createManualTimeEntry,
+  getTaskTimeEntries,
   createMilestone,
   createProject,
   createTask,
+  deleteExpense,
   deleteMilestone,
   deleteProject,
   deleteTask,
@@ -31,6 +34,10 @@ import {
   updatePointsConfig,
   updateProject,
   updateTask,
+  listExpenseVendors,
+  getEmployeeWork,
+  getMyAttendanceStatus,
+  getMyTimeSummary,
 } from "./api";
 
 function baseKey(orgId: number, ...parts: unknown[]) {
@@ -284,6 +291,39 @@ export function useActiveTimer() {
   });
 }
 
+export function useMyTimeSummary() {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "timer", "summary"),
+    queryFn: () => getMyTimeSummary(),
+    enabled: Boolean(orgId),
+  });
+}
+
+/** Today's check-in state for the stopwatch gate; polled so a check-out in
+ * another tab (or the attendance auto-checkout) is noticed. */
+export function useMyAttendanceStatus(enabled = true) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "timer", "attendance"),
+    queryFn: () => getMyAttendanceStatus(),
+    enabled: Boolean(orgId) && enabled,
+    refetchInterval: 60000,
+    retry: false,
+  });
+}
+
+/** Manager view of another employee's work (`projects.work.review`). */
+export function useEmployeeWork(employeeId: number | null) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "employee-work", employeeId),
+    queryFn: () => getEmployeeWork(employeeId as number),
+    enabled: Boolean(orgId) && Boolean(employeeId),
+    refetchInterval: 30000,
+  });
+}
+
 export function useStartTimer() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.organizationId) ?? 0;
@@ -292,6 +332,32 @@ export function useStartTimer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: baseKey(orgId, "timer") });
       queryClient.invalidateQueries({ queryKey: baseKey(orgId, "my-work") });
+    },
+  });
+}
+
+export function useTaskTimeEntries(taskId: number | undefined) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "time-entries", taskId),
+    queryFn: () => getTaskTimeEntries(taskId as number),
+    enabled: Boolean(orgId) && Boolean(taskId),
+  });
+}
+
+export function useCreateManualTimeEntry() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      input,
+    }: {
+      taskId: number;
+      input: { durationMinutes: number; entryDate: string; notes?: string };
+    }) => createManualTimeEntry(taskId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: baseKey(orgId) });
     },
   });
 }
@@ -319,6 +385,17 @@ export function useExpenses(query: Record<string, unknown> = {}) {
     queryKey: baseKey(orgId, "expenses", query),
     queryFn: () => listExpenses(query),
     enabled: Boolean(orgId),
+  });
+}
+
+/** Active vendors from the SCM supplier master (expense vendor picker). */
+export function useExpenseVendors() {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "expense-vendors"),
+    queryFn: () => listExpenseVendors(),
+    enabled: Boolean(orgId),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -354,6 +431,18 @@ export function useUpdateExpense() {
       expenseId: number;
       input: Record<string, unknown>;
     }) => updateExpense(expenseId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: baseKey(orgId, "expenses") });
+      queryClient.invalidateQueries({ queryKey: baseKey(orgId, "analytics") });
+    },
+  });
+}
+
+export function useDeleteExpense() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useMutation({
+    mutationFn: (expenseId: number) => deleteExpense(expenseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: baseKey(orgId, "expenses") });
       queryClient.invalidateQueries({ queryKey: baseKey(orgId, "analytics") });

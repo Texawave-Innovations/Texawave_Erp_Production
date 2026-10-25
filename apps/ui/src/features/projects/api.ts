@@ -1,5 +1,9 @@
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 import type {
+  AttendanceGateStatus,
+  EmployeeWorkView,
+  TimeSummary,
+  ExpenseVendor,
   ActiveTimer,
   DashboardMetrics,
   DepartmentSpendItem,
@@ -10,6 +14,7 @@ import type {
   ProjectMilestone,
   ProjectTask,
   ResourceTracking,
+  TaskTimeEntry,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -187,6 +192,29 @@ export async function deleteTask(
 // Time Tracking & Stopwatch
 // ---------------------------------------------------------------------------
 
+export async function getMyTimeSummary(): Promise<TimeSummary> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<TimeSummary>("/projects/tasks/time-summary/me"),
+  );
+  return data;
+}
+
+export async function getMyAttendanceStatus(): Promise<AttendanceGateStatus> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<AttendanceGateStatus>("/projects/tasks/attendance/me"),
+  );
+  return data;
+}
+
+export async function getEmployeeWork(
+  employeeId: number,
+): Promise<EmployeeWorkView> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<EmployeeWorkView>(`/projects/tasks/work/${employeeId}`),
+  );
+  return data;
+}
+
 export async function getActiveTimer(): Promise<ActiveTimer | null> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<ActiveTimer | null>("/projects/tasks/timer/active"),
@@ -224,9 +252,11 @@ export async function createManualTimeEntry(
   return data;
 }
 
-export async function getTaskTimeEntries(taskId: number) {
+export async function getTaskTimeEntries(
+  taskId: number,
+): Promise<TaskTimeEntry[]> {
   const { data } = await withAuthRetry(() =>
-    apiClient.get(`/projects/tasks/${taskId}/time-entries`),
+    apiClient.get<TaskTimeEntry[]>(`/projects/tasks/${taskId}/time-entries`),
   );
   return data;
 }
@@ -240,6 +270,13 @@ export async function listExpenses(
 ): Promise<ProjectExpense[]> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<ProjectExpense[]>("/projects/expenses", { query }),
+  );
+  return data;
+}
+
+export async function listExpenseVendors(): Promise<ExpenseVendor[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<ExpenseVendor[]>("/projects/expenses/vendors"),
   );
   return data;
 }
@@ -262,6 +299,12 @@ export async function updateExpense(
     apiClient.patch<ProjectExpense>(`/projects/expenses/${expenseId}`, input),
   );
   return data;
+}
+
+export async function deleteExpense(expenseId: number): Promise<void> {
+  await withAuthRetry(() =>
+    apiClient.delete<{ success: boolean }>(`/projects/expenses/${expenseId}`),
+  );
 }
 
 // ---------------------------------------------------------------------------
