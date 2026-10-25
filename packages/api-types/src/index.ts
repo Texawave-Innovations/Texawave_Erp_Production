@@ -45,3 +45,5 @@ export * from "./scm-warehouse-ops";
 export * from "./scm-reports";
 export * from "./scm-overview";
 export * from "./scm-finance";
+export * from "./proposals";
+export * from "./mom";

@@ -1214,4 +1214,20 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     parentCode: "projects",
     permission: "projects.points.manage",
   },
+  {
+    code: "projects-proposals",
+    label: "Proposal Documents",
+    path: "/projects/proposals",
+    order: 9,
+    parentCode: "projects",
+    permission: "projects.proposals.read",
+  },
+  {
+    code: "projects-mom",
+    label: "Minutes of Meeting",
+    path: "/projects/mom",
+    order: 10,
+    parentCode: "projects",
+    permission: "projects.mom.read",
+  },
 ];

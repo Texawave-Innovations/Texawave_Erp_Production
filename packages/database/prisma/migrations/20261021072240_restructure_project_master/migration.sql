@@ -10,16 +10,16 @@
 
 */
 -- DropForeignKey
-ALTER TABLE "projects"."projects" DROP CONSTRAINT "projects_department_id_fkey";
+ALTER TABLE "projects"."project_category_masters" DROP CONSTRAINT "project_category_masters_department_id_fkey";
 
 -- DropForeignKey
-ALTER TABLE "projects"."projects" DROP CONSTRAINT "projects_project_manager_id_fkey";
+ALTER TABLE "projects"."project_category_masters" DROP CONSTRAINT "project_category_masters_project_manager_id_fkey";
 
 -- DropIndex
-DROP INDEX "projects"."projects_organization_id_status_idx";
+DROP INDEX "projects"."project_category_masters_organization_id_status_idx";
 
 -- AlterTable
-ALTER TABLE "projects"."projects" DROP COLUMN "custom_fields",
+ALTER TABLE "projects"."project_category_masters" DROP COLUMN "custom_fields",
 DROP COLUMN "department_id",
 DROP COLUMN "planned_end_date",
 DROP COLUMN "project_manager_id",

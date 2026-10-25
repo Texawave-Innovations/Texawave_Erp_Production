@@ -717,6 +717,7 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "projects_master.task_running_number_master.write",
     description: "Update the Task Running Number Master format",
+  },
   // apps/api/src/modules/crm/accounts — minimal CRM Account foundation
   // (Phase 4B). Organization-wide reference data (any contact's required
   // parent), no team dimension — same shape as master-data/* above.
@@ -1167,6 +1168,11 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Start and stop stopwatch timers, log time entries",
   },
   {
+    code: "projects.work.review",
+    description:
+      "View another employee's My Work (assigned tasks, running timer, logged time)",
+  },
+  {
     code: "projects.expenses.read",
     description: "View project expenses and budget utilization",
   },
@@ -1177,6 +1183,50 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "projects.points.manage",
     description: "Configure gamification points master",
+  },
+  // Proposal Documents — legacy src/modules/projects/proposals/ full port.
+  {
+    code: "projects.proposals.read",
+    description: "View proposal documents, templates, and workflow history",
+  },
+  {
+    code: "projects.proposals.write",
+    description:
+      "Create, edit, and submit proposal documents through the review workflow",
+  },
+  {
+    code: "projects.proposals.manage_templates",
+    description: "Create, edit, and publish proposal templates",
+  },
+  {
+    code: "projects.proposals.manage_settings",
+    description: "Configure proposal branding and numbering settings",
+  },
+  {
+    code: "projects.proposals.send",
+    description:
+      "Approve, send to client, and record client decisions on proposals",
+  },
+  {
+    code: "projects.proposals.delete",
+    description: "Archive or delete proposal documents",
+  },
+  // Minutes of Meeting (MoM) — legacy src/modules/projects/mom/ full port.
+  {
+    code: "projects.mom.read",
+    description: "View meeting minutes, templates, and revision history",
+  },
+  {
+    code: "projects.mom.write",
+    description: "Create, edit, finalize, and revise meeting minutes",
+  },
+  {
+    code: "projects.mom.manage_templates",
+    description: "Create, edit, and publish MoM templates",
+  },
+  {
+    code: "projects.mom.delete",
+    description: "Archive or delete meeting minutes",
   },
   // SCM overview, master data search, barcode lookup, control tower,
   // replenishment and the FAQ assistant — read-only cross-cutting views.
