@@ -1,0 +1,43 @@
+{
+  "rules": {
+    "mom_documents": {
+      ".read": "auth != null",
+      "$docId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['reference', 'projectId', 'meetingTitle', 'status'])",
+        "reference": {
+          ".validate": "newData.isString() && newData.val().matches(/^MOM-[0-9]{4}-[0-9]{4}$/)"
+        },
+        "projectId": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "meetingTitle": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "status": {
+          ".validate": "newData.val() === 'draft' || newData.val() === 'finalized' || newData.val() === 'archived'"
+        },
+        "currentRevision": {
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        }
+      }
+    },
+    "mom_templates": {
+      ".read": "auth != null",
+      "$templateId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['name', 'version', 'status'])",
+        "status": {
+          ".validate": "newData.val() === 'active' || newData.val() === 'draft' || newData.val() === 'archived'"
+        }
+      }
+    },
+    "mom_counters": {
+      "$year": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      }
+    }
+  }
+}
