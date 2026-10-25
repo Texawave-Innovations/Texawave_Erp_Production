@@ -1,11 +1,20 @@
 import { Injectable } from "@nestjs/common";
+import type { Prisma } from "@texawave-erp/database";
+import { classifyDbError } from "../../../common/database/db-errors.js";
+import {
+  ResourceConflictException,
+  ResourceNotFoundException,
+} from "../../../common/exceptions/business.exception.js";
+import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
+import { lockEmployee } from "../../hr/employees/employee-lock.js";
 import type { AddressDto } from "./dto/address.dto.js";
 import type { BankDetailsDto } from "./dto/bank-details.dto.js";
 import type { ExperienceDto } from "./dto/experience.dto.js";
 import type { FamilyMemberDto } from "./dto/family-member.dto.js";
 import type { GovernmentIdsDto } from "./dto/government-ids.dto.js";
 import type { PersonalDetailsDto } from "./dto/personal-details.dto.js";
+import type { SelfProfileUpdateDto } from "./dto/self-profile-update.dto.js";
 
 export type AddressType = "PERMANENT" | "PRESENT";
 
@@ -13,6 +22,47 @@ interface Identity {
   organizationId: number;
   teamId: number;
   employeeId: number;
+}
+
+/** Same audit entity as HR's profile edits (hr/profiles/profiles.repository.ts),
+ * so one employee's profile history reads as one trail; the action tells a
+ * self-edit apart from an HR edit. */
+const PROFILE_ENTITY = "employee_profile";
+
+/** Personal-detail columns named in a self-edit (only the keys sent). */
+function selfPersonalData(
+  dto: SelfProfileUpdateDto,
+): Prisma.EmployeePersonalDetailUncheckedUpdateInput {
+  const data: Prisma.EmployeePersonalDetailUncheckedUpdateInput = {};
+  if (dto.dateOfBirth !== undefined)
+    data.dateOfBirth = new Date(dto.dateOfBirth);
+  if (dto.gender !== undefined) data.gender = dto.gender;
+  if (dto.maritalStatus !== undefined)
+    data.maritalStatus = dto.maritalStatus ?? null;
+  if (dto.bloodGroup !== undefined) data.bloodGroup = dto.bloodGroup ?? null;
+  for (const key of [
+    "emergencyContactName",
+    "emergencyContactRelation",
+    "emergencyContactPhone",
+    "fatherName",
+    "fatherPhone",
+    "motherName",
+    "motherPhone",
+  ] as const) {
+    if (dto[key] !== undefined) data[key] = dto[key];
+  }
+  return data;
+}
+
+function addressData(dto: AddressDto) {
+  return {
+    addressLine: dto.addressLine,
+    areaLocality: dto.areaLocality ?? null,
+    district: dto.district,
+    city: dto.city,
+    state: dto.state,
+    pincode: dto.pincode,
+  };
 }
 
 /**
@@ -26,7 +76,129 @@ interface Identity {
  */
 @Injectable()
 export class ProfileRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
+
+  /**
+   * The employee's own post-onboarding edit (PATCH employee/profile): full
+   * name (mirrored to the linked user's display name), phone and referred-by
+   * on the employee row, personal details, and addresses —
+   * one transaction under the employee row lock, with one audit row naming
+   * the changed fields (never their values; same rule as HR's profile audit).
+   * Touching the employee row bumps its optimistic-lock `version`, so an HR
+   * edit made against the old version gets a 409 instead of overwriting.
+   */
+  async selfUpdate(
+    identity: Identity,
+    dto: SelfProfileUpdateDto,
+    actorUserId: number,
+    changedFields: string[],
+  ): Promise<void> {
+    const { employeeId } = identity;
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (!(await lockEmployee(tx, identity.organizationId, employeeId))) {
+          throw new ResourceNotFoundException("Employee", employeeId);
+        }
+
+        const employeeData: Prisma.EmployeeUncheckedUpdateInput = {};
+        if (dto.fullName !== undefined) employeeData.fullName = dto.fullName;
+        if (dto.phone !== undefined) employeeData.phone = dto.phone;
+        if (dto.referredBy !== undefined)
+          employeeData.referredBy = dto.referredBy?.trim() || null;
+        if (Object.keys(employeeData).length > 0) {
+          const updated = await tx.employee.update({
+            where: { id: employeeId },
+            data: {
+              ...employeeData,
+              version: { increment: 1 },
+              updatedBy: actorUserId,
+            },
+            select: { userId: true },
+          });
+          // Legacy synced the name to the portal user record too
+          // (users/{key}.name), so the header/menus show the new name. Only
+          // the display name — never the login e-mail or credentials.
+          if (dto.fullName !== undefined && updated.userId !== null) {
+            await tx.user.updateMany({
+              where: {
+                id: updated.userId,
+                organizationId: identity.organizationId,
+              },
+              data: { fullName: dto.fullName },
+            });
+          }
+        }
+
+        const personal = selfPersonalData(dto);
+        if (Object.keys(personal).length > 0) {
+          await tx.employeePersonalDetail.upsert({
+            where: { employeeId },
+            create: {
+              ...(personal as Prisma.EmployeePersonalDetailUncheckedCreateInput),
+              ...identity,
+              createdBy: actorUserId,
+              updatedBy: actorUserId,
+            },
+            update: { ...personal, updatedBy: actorUserId },
+          });
+        }
+
+        for (const [addressType, value] of [
+          ["PERMANENT", dto.permanentAddress],
+          ["PRESENT", dto.presentAddress],
+        ] as const) {
+          if (value === undefined) continue;
+          if (value === null) {
+            // No PRESENT row means "same as permanent" (the wizard's convention).
+            await tx.employeeAddress.deleteMany({
+              where: { employeeId, addressType },
+            });
+            continue;
+          }
+          await tx.employeeAddress.upsert({
+            where: { employeeId_addressType: { employeeId, addressType } },
+            create: {
+              ...identity,
+              addressType,
+              ...addressData(value),
+              createdBy: actorUserId,
+              updatedBy: actorUserId,
+            },
+            update: {
+              ...addressData(value),
+              deletedAt: null,
+              updatedBy: actorUserId,
+            },
+          });
+        }
+
+        await this.audit.write(tx, {
+          entityType: PROFILE_ENTITY,
+          entityId: employeeId,
+          action: "self_update",
+          after: { employeeId, changedFields },
+        });
+      });
+    } catch (error) {
+      // The per-organization phone index (employees_org_phone_digits_key) —
+      // same mapping as hr/employees' update.
+      const violation = classifyDbError(error);
+      const where = [
+        ...(violation?.columns ?? []),
+        violation?.constraint ?? "",
+        (error as { message?: string }).message ?? "",
+      ].join(",");
+      if (violation?.kind === "unique" && where.includes("phone")) {
+        throw new ResourceConflictException(
+          "Another employee already has this phone number",
+        );
+      }
+      throw error;
+    }
+  }
 
   getPersonal(employeeId: number) {
     return this.prisma.employeePersonalDetail.findUnique({
@@ -67,14 +239,7 @@ export class ProfileRepository {
   }
 
   upsertAddress(identity: Identity, addressType: AddressType, dto: AddressDto) {
-    const data = {
-      addressLine: dto.addressLine,
-      areaLocality: dto.areaLocality ?? null,
-      district: dto.district,
-      city: dto.city,
-      state: dto.state,
-      pincode: dto.pincode,
-    };
+    const data = addressData(dto);
     return this.prisma.employeeAddress.upsert({
       where: {
         employeeId_addressType: {

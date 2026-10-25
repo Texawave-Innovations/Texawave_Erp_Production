@@ -473,7 +473,7 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 The Attendance module frontend (`apps/ui/src/features/hr/attendance/`) implements four unified, responsive, enterprise-grade screens conforming strictly to the TEXA ERP design system:
 
 1. **Attendance HR/Admin View (`AttendanceView.tsx`)**: Global monitoring, summary metrics, and management grid.
-2. **My Attendance View (`MyAttendanceView.tsx`)**: Employee self-service punch hero and personal history.
+2. **My Attendance (portal)**: moved to `apps/ui/src/features/employee-self-service/attendance/components/MyAttendanceTrackerView.tsx` — the legacy-parity week/day timeline, month calendar and regularization tracker (it reuses this module's hooks and types).
 3. **Attendance Details Modal (`AttendanceDetailDialog.tsx`)**: Centered read-only inspection dialog with employee header and sessions timeline.
 4. **Edit Attendance Modal (`ManualEditAttendanceDialog.tsx`)**: Centered administrative punch/session editor with date bounds and live duration calculations.
 

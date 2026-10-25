@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   StreamableFile,
@@ -24,6 +25,7 @@ import { ExperienceDto } from "./dto/experience.dto.js";
 import { FamilyMemberDto } from "./dto/family-member.dto.js";
 import { GovernmentIdsDto } from "./dto/government-ids.dto.js";
 import { PersonalDetailsDto } from "./dto/personal-details.dto.js";
+import { SelfProfileUpdateDto } from "./dto/self-profile-update.dto.js";
 import { ProfileService, type UploadedDocument } from "./profile.service.js";
 
 /**
@@ -44,6 +46,16 @@ export class ProfileController {
   @ApiOperation({ summary: "The authenticated user's own employee record" })
   getMine() {
     return this.profile.getMyProfile();
+  }
+
+  @Patch()
+  @RequirePermission("employee_self_service.profile.write")
+  @ApiOperation({
+    summary:
+      "Edit your own profile (also after onboarding): phone, referred-by, personal details and addresses only. Employment, bank and ID fields stay with HR.",
+  })
+  updateMine(@Body() dto: SelfProfileUpdateDto) {
+    return this.profile.updateMyProfile(dto);
   }
 
   @Get("personal-details")

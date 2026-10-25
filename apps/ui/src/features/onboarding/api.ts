@@ -120,6 +120,22 @@ export interface MyEmployee {
   onboardingReviewStatus?: string;
   /** On CHANGES_REQUESTED: what HR asked the employee to correct. */
   onboardingReviewNote?: string | null;
+  // The rest of GET /employee/profile (EmployeeDetail in apps/api
+  // .../hr/employees/employee-mappers.ts), read by the portal's My Profile.
+  status?: string;
+  dateOfJoining?: string;
+  workEmail?: string | null;
+  phone?: string | null;
+  team?: { id: number; name: string } | null;
+  department?: { id: number; name: string } | null;
+  designation?: { id: number; name: string } | null;
+  employmentType?: { id: number; name: string } | null;
+  workLocation?: { id: number; name: string } | null;
+  reportsTo?: { id: number; employeeCode: string; fullName: string } | null;
+  referredBy?: string | null;
+  workDomain?: string | null;
+  probationEndDate?: string | null;
+  confirmationDate?: string | null;
 }
 
 export interface SubmitResult {
@@ -129,6 +145,44 @@ export interface SubmitResult {
 export function getMyEmployee(): Promise<MyEmployee> {
   return withAuthRetry(() =>
     apiClient.get<MyEmployee>("/employee/profile"),
+  ).then((res) => res.data);
+}
+
+/** The self-editable subset (PATCH /employee/profile — apps/api
+ * .../employee-self-service/profile/dto/self-profile-update.dto.ts). Only the
+ * keys sent change; the API rejects any other field with a 400. */
+export interface SelfProfileAddress {
+  addressLine: string;
+  areaLocality?: string;
+  district: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
+export interface SelfProfileUpdate {
+  fullName?: string;
+  phone?: string;
+  referredBy?: string | null;
+  dateOfBirth?: string;
+  gender?: string;
+  maritalStatus?: string | null;
+  bloodGroup?: string | null;
+  emergencyContactName?: string;
+  emergencyContactRelation?: string;
+  emergencyContactPhone?: string;
+  fatherName?: string;
+  fatherPhone?: string;
+  motherName?: string;
+  motherPhone?: string;
+  permanentAddress?: SelfProfileAddress;
+  /** null = same as permanent. */
+  presentAddress?: SelfProfileAddress | null;
+}
+
+export function updateMyProfile(input: SelfProfileUpdate): Promise<MyEmployee> {
+  return withAuthRetry(() =>
+    apiClient.patch<MyEmployee>("/employee/profile", input),
   ).then((res) => res.data);
 }
 
@@ -309,6 +363,21 @@ export async function downloadMyDocument(
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** The raw file of one of my documents (authenticated fetch), for an
+ * in-page preview or "View" in a new tab. */
+export async function fetchMyDocumentBlob(documentType: string): Promise<Blob> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const token = useAuthStore.getState().accessToken;
+  const res = await fetch(
+    `${baseUrl}/employee/profile/documents/${documentType}/file`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok) {
+    throw new Error(`Download failed with status ${res.status}`);
+  }
+  return res.blob();
 }
 
 /** Multipart upload through the shared client — see `formData` in packages/core. */

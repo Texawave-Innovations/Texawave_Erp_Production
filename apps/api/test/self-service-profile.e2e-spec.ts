@@ -551,6 +551,112 @@ describe("self-service profile (e2e)", () => {
     expect(rows).toBe(0);
   });
 
+  it("lets an onboarded employee edit their own personal/contact details (PATCH), audited, but never HR-only fields", async () => {
+    const who = "onboarded";
+    const patch = (body: object) =>
+      request(app.getHttpServer())
+        .patch("/employee/profile")
+        .set(auth(who))
+        .send(body);
+
+    const res = await patch({
+      fullName: "  Onboarded Renamed  ",
+      phone: "9876501234",
+      referredBy: "Priya",
+      bloodGroup: "O+",
+      ...validPersonal,
+      permanentAddress: validAddress,
+      presentAddress: null,
+    }).expect(200);
+    expect(
+      (
+        res.body as Body<{
+          fullName: string;
+          phone: string;
+          referredBy: string;
+        }>
+      ).data,
+    ).toMatchObject({
+      fullName: "Onboarded Renamed",
+      phone: "9876501234",
+      referredBy: "Priya",
+    });
+    // Legacy parity: the name is mirrored to the login's display name; the
+    // login e-mail is untouched.
+    const { userId } = await prisma.employee.findUniqueOrThrow({
+      where: { id: employeeIds[who] as number },
+      select: { userId: true },
+    });
+    const linkedUser = await prisma.user.findUniqueOrThrow({
+      where: { id: userId as number },
+    });
+    expect(linkedUser.fullName).toBe("Onboarded Renamed");
+    expect(linkedUser.email).toBe(`${who}-${suffix}@example.com`);
+
+    const personal = await prisma.employeePersonalDetail.findUniqueOrThrow({
+      where: { employeeId: employeeIds[who] as number },
+    });
+    expect(personal).toMatchObject({
+      bloodGroup: "O+",
+      emergencyContactName: "Rajesh Sharma",
+    });
+    const permanent = await prisma.employeeAddress.count({
+      where: {
+        employeeId: employeeIds[who] as number,
+        addressType: "PERMANENT",
+      },
+    });
+    expect(permanent).toBe(1);
+
+    // Audited with field NAMES only, as a self-edit.
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: {
+        organizationId: org.id,
+        entityType: "employee_profile",
+        action: "self_update",
+        entityId: BigInt(employeeIds[who] as number),
+      },
+      orderBy: { id: "desc" },
+    });
+    const after = audit.after as { changedFields: string[] };
+    expect(after.changedFields).toEqual(
+      expect.arrayContaining([
+        "fullName",
+        "phone",
+        "bloodGroup",
+        "permanentAddress",
+      ]),
+    );
+    expect(JSON.stringify(audit.after)).not.toContain("9876501234");
+    expect(JSON.stringify(audit.after)).not.toContain("Renamed");
+
+    // HR-only fields are not part of the self-edit contract: 400, nothing written.
+    for (const body of [
+      { workEmail: "x@example.com" },
+      { designationId: 1 },
+      { departmentId: 1 },
+      { dateOfJoining: "2020-01-01" },
+      { bankName: "HDFC Bank" },
+      { panNumber: "ABCDE1234F" },
+    ]) {
+      await patch(body).expect(400);
+    }
+    const employee = await prisma.employee.findUniqueOrThrow({
+      where: { id: employeeIds[who] as number },
+    });
+    expect(employee.fullName).toBe("Onboarded Renamed");
+    expect(employee.workEmail).toBeNull();
+    expect(employee.designationId).toBe(desig);
+
+    // Required-after-onboarding fields cannot be blanked; formats still apply.
+    await patch({ fullName: null }).expect(400);
+    await patch({ fullName: "   " }).expect(400);
+    await patch({ fullName: "R2-D2" }).expect(400);
+    await patch({ emergencyContactName: null }).expect(400);
+    await patch({ phone: "123" }).expect(400);
+    await patch({}).expect(400);
+  });
+
   it("blocks submit for an employee who has not changed their temporary password yet", async () => {
     const res = await request(app.getHttpServer())
       .post("/employee/profile/submit")

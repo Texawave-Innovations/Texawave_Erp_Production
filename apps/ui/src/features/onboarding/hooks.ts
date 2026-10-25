@@ -1,9 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgScopedKey } from "@texawave-erp/core";
 import { useAuthStore } from "@/stores/auth-store";
 import {
+  type SelfProfileUpdate,
+  updateMyProfile,
   getMyBank,
   getMyAddress,
   getMyEmployee,
@@ -104,6 +106,21 @@ export function useMyBank() {
     queryKey: orgScopedKey(organizationId ?? 0, "onboarding", "bank"),
     queryFn: getMyBank,
     enabled: Boolean(accessToken && organizationId),
+  });
+}
+
+/** Saves the employee's own profile edit, then refetches every "my profile"
+ * read (they all live under the org's "onboarding" key prefix). */
+export function useUpdateMyProfile() {
+  const queryClient = useQueryClient();
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useMutation({
+    mutationFn: (input: SelfProfileUpdate) => updateMyProfile(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "onboarding"),
+      });
+    },
   });
 }
 

@@ -26,6 +26,7 @@ function buildService(overrides: Partial<Record<string, unknown>> = {}) {
     upsertDocumentFile: vi
       .fn()
       .mockResolvedValue({ storageKey: "77/PAN/x.png", fileName: "a.png" }),
+    selfUpdate: vi.fn().mockResolvedValue(undefined),
   };
   const encryption = {
     encrypt: vi.fn().mockReturnValue("iv:tag:cipher"),
@@ -190,6 +191,33 @@ describe("ProfileService", () => {
       const { service, repository } = completed();
       await service.getPersonal();
       expect(repository.getPersonal).toHaveBeenCalledWith(77);
+    });
+
+    it("updateMyProfile() still accepts the self-editable subset, keyed by the login and the JWT actor", async () => {
+      const { service, repository } = completed();
+      const dto = {
+        fullName: "Asha Verma",
+        phone: "9876543210",
+        bloodGroup: "O+",
+        emergencyContactPhone: "9841055667",
+        referredBy: undefined,
+      };
+      await service.updateMyProfile(dto as never);
+      expect(repository.selfUpdate).toHaveBeenCalledWith(
+        { organizationId: 1, teamId: 3, employeeId: 77 },
+        dto,
+        99,
+        // Sorted names of the keys actually sent; undefined keys are dropped.
+        ["bloodGroup", "emergencyContactPhone", "fullName", "phone"],
+      );
+    });
+
+    it("updateMyProfile() rejects an empty edit without writing", async () => {
+      const { service, repository } = completed();
+      await expect(
+        service.updateMyProfile({ phone: undefined } as never),
+      ).rejects.toThrow("Nothing to update.");
+      expect(repository.selfUpdate).not.toHaveBeenCalled();
     });
   });
 
