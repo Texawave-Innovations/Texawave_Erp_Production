@@ -5,241 +5,387 @@ import Link from "next/link";
 import {
   Award,
   ListTodo,
-  Loader2,
+  Plus,
   Save,
-  Sliders,
-  Sparkles,
+  Star,
+  Trash2,
   Trophy,
 } from "lucide-react";
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  FormField,
+  Input,
+  Skeleton,
+  useToast,
+} from "@texawave-erp/ui-kit";
 import {
   usePointsConfig,
   usePointsLeaderboard,
   useUpdatePointsConfig,
 } from "@/features/projects/hooks";
+import { errorMessage } from "@/features/projects/format";
 import type { PointsConfig } from "@/features/projects/types";
+
+type PriorityKey = "low" | "medium" | "high" | "urgent";
+
+const PRIORITY_TIERS: {
+  key: PriorityKey;
+  label: string;
+  hint: string;
+  fallback: number;
+  className: string;
+}[] = [
+  {
+    key: "low",
+    label: "Low Priority",
+    hint: "Minor polish, documentation",
+    fallback: 5,
+    className:
+      "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300",
+  },
+  {
+    key: "medium",
+    label: "Medium Priority",
+    hint: "Standard work packages",
+    fallback: 10,
+    className:
+      "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-300",
+  },
+  {
+    key: "high",
+    label: "High Priority",
+    hint: "Primary feature deliverables",
+    fallback: 20,
+    className:
+      "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300",
+  },
+  {
+    key: "urgent",
+    label: "Urgent Priority",
+    hint: "Critical bugs, system blockers",
+    fallback: 30,
+    className:
+      "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300",
+  },
+];
+
+const FORM_ID = "points-master-form";
 
 function PriorityConfigForm({
   initialConfig,
 }: {
   initialConfig?: PointsConfig | undefined;
 }) {
+  const { toast } = useToast();
   const updateConfigMutation = useUpdatePointsConfig();
 
-  const [urgent, setUrgent] = useState<number>(initialConfig?.urgent ?? 30);
-  const [high, setHigh] = useState<number>(initialConfig?.high ?? 20);
-  const [medium, setMedium] = useState<number>(initialConfig?.medium ?? 10);
-  const [low, setLow] = useState<number>(initialConfig?.low ?? 5);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [points, setPoints] = useState<Record<PriorityKey, number>>({
+    low: initialConfig?.low ?? 5,
+    medium: initialConfig?.medium ?? 10,
+    high: initialConfig?.high ?? 20,
+    urgent: initialConfig?.urgent ?? 30,
+  });
+  const [customTypes, setCustomTypes] = useState<
+    { name: string; points: number }[]
+  >(
+    Object.entries(initialConfig?.customRules ?? {}).map(([name, value]) => ({
+      name,
+      points: Number(value) || 0,
+    })),
+  );
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypePoints, setNewTypePoints] = useState(15);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function handleAddCustomType() {
+    const name = newTypeName.trim();
+    if (!name) {
+      setFormError("Please enter a deliverable type name.");
+      return;
+    }
+    if (customTypes.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+      setFormError(`"${name}" already exists.`);
+      return;
+    }
+    setFormError(null);
+    setCustomTypes((prev) => [
+      ...prev,
+      { name, points: Number(newTypePoints) || 0 },
+    ]);
+    setNewTypeName("");
+    setNewTypePoints(15);
+  }
+
+  function updateCustomPoints(index: number, value: number) {
+    setCustomTypes((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, points: value } : t)),
+    );
+  }
+
+  function removeCustomType(index: number) {
+    setCustomTypes((prev) => prev.filter((_, i) => i !== index));
+  }
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveSuccess(false);
-    setSaveError(null);
+    setFormError(null);
+
+    const customRules = Object.fromEntries(
+      customTypes
+        .filter((t) => t.name.trim())
+        .map((t) => [t.name.trim(), Number(t.points) || 0]),
+    );
 
     try {
       await updateConfigMutation.mutateAsync({
-        urgent: Number(urgent) || 30,
-        high: Number(high) || 20,
-        medium: Number(medium) || 10,
-        low: Number(low) || 5,
+        low: Number(points.low) || 5,
+        medium: Number(points.medium) || 10,
+        high: Number(points.high) || 20,
+        urgent: Number(points.urgent) || 30,
+        customRules,
       });
-
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      toast({
+        title: "Points master rules saved successfully",
+        variant: "success",
+      });
     } catch (err: unknown) {
-      setSaveError(
-        err instanceof Error ? err.message : "Failed to save points rules",
-      );
+      setFormError(errorMessage(err, "Failed to save points rules"));
     }
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sliders className="h-5 w-5 text-blue-600 dark:text-cyan-400" />
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">
-            Priority Points Configuration
+    <form
+      id={FORM_ID}
+      onSubmit={handleSaveConfig}
+      className="flex flex-col gap-5"
+    >
+      {formError ? (
+        <p
+          role="alert"
+          className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
+        >
+          {formError}
+        </p>
+      ) : null}
+
+      {/* Default Priority Points — legacy 4-tier grid */}
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+          <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
+            <Award className="h-5 w-5 text-amber-500" />
+            Default Priority Points
           </h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            These default point values automatically populate into new task
+            forms when a priority is selected, and are credited when a task is
+            marked 100% complete.
+          </p>
         </div>
-      </div>
-
-      <p className="mb-5 text-xs text-gray-500 dark:text-gray-400">
-        When an engineer marks a task 100% completed, the points configured
-        below are credited directly to their ledger.
-      </p>
-
-      {saveSuccess && (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400">
-          Points configuration rules successfully updated!
+        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+          {PRIORITY_TIERS.map((tier) => (
+            <div
+              key={tier.key}
+              className={`flex flex-col gap-2 rounded-2xl border p-4 ${tier.className}`}
+            >
+              <p className="text-xs font-black uppercase tracking-wider">
+                {tier.label}
+              </p>
+              <Input
+                type="number"
+                min="1"
+                max="500"
+                aria-label={`${tier.label} points`}
+                value={points[tier.key]}
+                onChange={(e) =>
+                  setPoints((prev) => ({
+                    ...prev,
+                    [tier.key]: Number(e.target.value) || 0,
+                  }))
+                }
+              />
+              <p className="text-[10px] font-semibold opacity-75">
+                {tier.hint} • points awarded on completion
+              </p>
+            </div>
+          ))}
         </div>
-      )}
+      </section>
 
-      {saveError && (
-        <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400">
-          {saveError}
+      {/* Custom Deliverable Types — legacy add-row + list */}
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white">
+            Custom Deliverable Types (Optional)
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            Add point values for specialized deliverable categories beyond the 4
+            priority tiers.
+          </p>
         </div>
-      )}
+        <div className="flex flex-col gap-4 p-5">
+          <div className="flex flex-col items-end gap-3 sm:flex-row">
+            <div className="w-full flex-1">
+              <FormField label="Category Name">
+                {(field) => (
+                  <Input
+                    {...field}
+                    value={newTypeName}
+                    onChange={(e) => setNewTypeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomType();
+                      }
+                    }}
+                    placeholder="e.g. Critical Bug Fix, Architecture Review"
+                  />
+                )}
+              </FormField>
+            </div>
+            <div className="w-full sm:w-32">
+              <FormField label="Points">
+                {(field) => (
+                  <Input
+                    {...field}
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={newTypePoints}
+                    onChange={(e) =>
+                      setNewTypePoints(Number(e.target.value) || 0)
+                    }
+                  />
+                )}
+              </FormField>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleAddCustomType}
+            >
+              <Plus className="h-4 w-4" />
+              Add Type
+            </Button>
+          </div>
 
-      <form onSubmit={handleSaveConfig} className="flex flex-col gap-4">
-        <div className="flex items-center justify-between rounded-xl border border-rose-100 bg-rose-50/50 p-3.5 dark:border-rose-900/30 dark:bg-rose-950/20">
-          <div>
-            <span className="text-xs font-bold text-rose-800 dark:text-rose-300">
-              Urgent Priority
-            </span>
-            <p className="text-[11px] text-rose-600/80 dark:text-rose-400/80">
-              Critical bugs, system blockers
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min="1"
-              max="500"
-              value={urgent}
-              onChange={(e) => setUrgent(Number(e.target.value))}
-              className="w-20 rounded-lg border border-gray-200 bg-white p-2 text-right font-mono text-sm font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-            />
-            <span className="font-mono text-xs text-gray-500">pts</span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/50 p-3.5 dark:border-amber-900/30 dark:bg-amber-950/20">
-          <div>
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              High Priority
-            </span>
-            <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80">
-              Primary feature deliverables
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min="1"
-              max="500"
-              value={high}
-              onChange={(e) => setHigh(Number(e.target.value))}
-              className="w-20 rounded-lg border border-gray-200 bg-white p-2 text-right font-mono text-sm font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-            />
-            <span className="font-mono text-xs text-gray-500">pts</span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 dark:border-blue-900/30 dark:bg-blue-950/20">
-          <div>
-            <span className="text-xs font-bold text-blue-800 dark:text-cyan-300">
-              Medium Priority
-            </span>
-            <p className="text-[11px] text-blue-600/80 dark:text-cyan-400/80">
-              Standard work packages
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min="1"
-              max="500"
-              value={medium}
-              onChange={(e) => setMedium(Number(e.target.value))}
-              className="w-20 rounded-lg border border-gray-200 bg-white p-2 text-right font-mono text-sm font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-            />
-            <span className="font-mono text-xs text-gray-500">pts</span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/50 p-3.5 dark:border-gray-700 dark:bg-gray-800/40">
-          <div>
-            <span className="text-xs font-bold text-gray-800 dark:text-gray-300">
-              Low Priority
-            </span>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              Minor polish, documentation
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min="1"
-              max="500"
-              value={low}
-              onChange={(e) => setLow(Number(e.target.value))}
-              className="w-20 rounded-lg border border-gray-200 bg-white p-2 text-right font-mono text-sm font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-            />
-            <span className="font-mono text-xs text-gray-500">pts</span>
-          </div>
-        </div>
-
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={updateConfigMutation.isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-lg active:scale-95 disabled:opacity-50"
-          >
-            {updateConfigMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving Rules...
-              </>
+          <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+            {customTypes.length === 0 ? (
+              <p className="p-4 text-center text-xs text-gray-400">
+                No custom deliverable types added
+              </p>
             ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save Points Rules
-              </>
+              customTypes.map((ct, idx) => (
+                <div
+                  key={ct.name}
+                  className="flex items-center justify-between gap-3 bg-white p-3.5 text-xs dark:bg-gray-900"
+                >
+                  <span className="font-bold text-gray-800 dark:text-gray-200">
+                    {ct.name}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      max="500"
+                      aria-label={`${ct.name} points`}
+                      value={ct.points}
+                      onChange={(e) =>
+                        updateCustomPoints(idx, Number(e.target.value) || 0)
+                      }
+                      className="w-20 rounded-lg border border-gray-300 bg-white p-1.5 text-right text-xs font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-black text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                      +{ct.points} pts
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeCustomType(idx)}
+                      aria-label={`Remove ${ct.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))
             )}
-          </button>
+          </div>
         </div>
-      </form>
-    </div>
+      </section>
+
+      <Button type="submit" loading={updateConfigMutation.isPending}>
+        <Save className="h-4 w-4" />
+        Save Points Rules
+      </Button>
+    </form>
   );
 }
 
 export default function PointsMasterPage() {
-  const { data: config, isLoading: loadingConfig } = usePointsConfig();
-  const { data: leaderboard, isLoading: loadingLeaderboard } =
-    usePointsLeaderboard();
+  const configQuery = usePointsConfig();
+  const leaderboardQuery = usePointsLeaderboard();
+  const leaderboard = leaderboardQuery.data;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Header */}
+      {/* Header — legacy "Points Master Configuration" with Save Rules */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Gamification Engine & Points Master
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Configure automated priority rewards and view the top contributor
-            leaderboard.
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="rounded-2xl bg-amber-50 p-2.5 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+            <Award className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              Points Master Configuration
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Configure reward points awarded to team members upon completing
+              tasks by priority or type, and view the contributor leaderboard.
+            </p>
+          </div>
         </div>
 
-        <Link
-          href="/projects/my-work"
-          className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          <ListTodo className="h-4 w-4" />
-          My Assigned Work
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/projects/my-work"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <ListTodo className="h-4 w-4" />
+            My Assigned Work
+          </Link>
+          <Button type="submit" form={FORM_ID} disabled={!configQuery.data}>
+            <Save className="h-4 w-4" />
+            Save Rules
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column: Priority Rules Config (5 cols) */}
-        <div className="flex flex-col gap-5 lg:col-span-5">
-          {loadingConfig ? (
-            <div className="flex h-48 items-center justify-center rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-cyan-400" />
+        {/* Left Column: Priority Rules Config */}
+        <div className="flex flex-col gap-5 lg:col-span-7">
+          {configQuery.isPending ? (
+            <div className="flex flex-col gap-3" aria-busy="true">
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <Skeleton className="h-40 w-full rounded-2xl" />
             </div>
+          ) : configQuery.isError ? (
+            <ErrorState
+              title="Could not load points configuration"
+              onRetry={() => configQuery.refetch()}
+            />
           ) : (
             <PriorityConfigForm
-              key={config ? "loaded" : "loading"}
-              initialConfig={config}
+              key={configQuery.data ? "loaded" : "empty"}
+              initialConfig={configQuery.data}
             />
           )}
         </div>
 
-        {/* Right Column: Leaderboard / Hall of Fame (7 cols) */}
-        <div className="flex flex-col gap-5 lg:col-span-7">
+        {/* Right Column: Leaderboard / Hall of Fame */}
+        <div className="flex flex-col gap-5 lg:col-span-5">
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="border-b border-gray-100 bg-gradient-to-r from-blue-600/10 via-cyan-500/10 to-transparent p-5 dark:border-gray-800">
               <div className="flex items-center gap-2.5">
@@ -259,15 +405,22 @@ export default function PointsMasterPage() {
             </div>
 
             <div className="p-4">
-              {loadingLeaderboard ? (
-                <div className="flex h-64 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-cyan-400" />
+              {leaderboardQuery.isPending ? (
+                <div className="flex flex-col gap-2" aria-busy="true">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
                 </div>
+              ) : leaderboardQuery.isError ? (
+                <ErrorState
+                  title="Could not load leaderboard"
+                  onRetry={() => leaderboardQuery.refetch()}
+                />
               ) : !leaderboard || leaderboard.length === 0 ? (
-                <div className="py-16 text-center text-xs text-gray-400">
-                  No gamification activity recorded yet. Complete tasks to earn
-                  points!
-                </div>
+                <EmptyState
+                  title="No reward activity yet"
+                  description="Complete tasks to earn points!"
+                />
               ) : (
                 <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
                   {leaderboard.map((entry, idx) => {
@@ -282,7 +435,7 @@ export default function PointsMasterPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-xl font-mono text-xs font-extrabold ${
+                            className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold ${
                               isFirst
                                 ? "bg-amber-400 text-amber-950 shadow-md shadow-amber-400/30"
                                 : isSecond
@@ -302,7 +455,7 @@ export default function PointsMasterPage() {
                                   `Employee #${entry.employeeId}`}
                               </span>
                               {isFirst && (
-                                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                <Star className="h-3.5 w-3.5 text-amber-500" />
                               )}
                             </div>
                             <div className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -317,12 +470,10 @@ export default function PointsMasterPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-xl bg-amber-50 px-3 py-1 font-mono text-xs font-extrabold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                            <Award className="h-3.5 w-3.5 text-amber-500" />
-                            {entry.totalPoints} pts
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-1 rounded-xl bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                          <Award className="h-3.5 w-3.5 text-amber-500" />
+                          {entry.totalPoints} pts
+                        </span>
                       </div>
                     );
                   })}
