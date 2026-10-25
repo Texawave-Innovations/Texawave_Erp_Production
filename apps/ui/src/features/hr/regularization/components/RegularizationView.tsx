@@ -125,7 +125,9 @@ export function RegularizationView() {
       const code = c.employee.employeeCode.toLowerCase();
       const date = c.attendanceDate.toLowerCase();
       const reason = c.reason.toLowerCase();
-      const type = (CORRECTION_TYPE_LABELS[c.correctionType] || "").toLowerCase();
+      const type = (
+        CORRECTION_TYPE_LABELS[c.correctionType] || ""
+      ).toLowerCase();
       const decider = (c.decidedBy?.fullName || "").toLowerCase();
       return (
         name.includes(q) ||

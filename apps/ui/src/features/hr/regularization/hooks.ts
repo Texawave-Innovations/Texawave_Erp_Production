@@ -20,12 +20,12 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useCorrections(query: CorrectionListQuery) {
+export function useCorrections(query: CorrectionListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list", query),
     queryFn: () => listCorrections(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 

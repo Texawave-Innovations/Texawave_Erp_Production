@@ -71,9 +71,12 @@ export function RegularizationCard({
         "group relative flex flex-col justify-between gap-4 rounded-2xl border p-4.5 sm:p-5 transition-all",
         "bg-white/95 backdrop-blur-md shadow-2xs hover:shadow-xs",
         "dark:bg-gray-900/90 dark:border-gray-800",
-        isPending && "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/40",
-        isApproved && "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/40",
-        isRejected && "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/40",
+        isPending &&
+          "border-amber-200/80 hover:border-amber-300 dark:border-amber-900/40",
+        isApproved &&
+          "border-emerald-200/80 hover:border-emerald-300 dark:border-emerald-900/40",
+        isRejected &&
+          "border-rose-200/80 hover:border-rose-300 dark:border-rose-900/40",
       )}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -142,9 +145,13 @@ export function RegularizationCard({
                 <div className="flex items-center gap-1.5 font-semibold text-brand-600 dark:text-sky-400 bg-sky-50/70 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-sky-100 dark:border-slate-700">
                   <Clock className="h-3.5 w-3.5 text-brand-500 shrink-0" />
                   <span>
-                    {hasIn ? `Check-in: ${formatTime(correction.requestedCheckInAt!)}` : ""}
+                    {hasIn
+                      ? `Check-in: ${formatTime(correction.requestedCheckInAt!)}`
+                      : ""}
                     {hasIn && hasOut ? " • " : ""}
-                    {hasOut ? `Check-out: ${formatTime(correction.requestedCheckOutAt!)}` : ""}
+                    {hasOut
+                      ? `Check-out: ${formatTime(correction.requestedCheckOutAt!)}`
+                      : ""}
                   </span>
                 </div>
               )}
@@ -165,7 +172,9 @@ export function RegularizationCard({
                   <strong className="text-gray-700 dark:text-gray-200 font-semibold">
                     {correction.decidedBy.fullName}
                   </strong>
-                  {correction.decidedAt ? ` on ${formatTimestamp(correction.decidedAt)}` : ""}
+                  {correction.decidedAt
+                    ? ` on ${formatTimestamp(correction.decidedAt)}`
+                    : ""}
                 </span>
                 {correction.decisionNote ? (
                   <span className="italic text-gray-600 dark:text-gray-300">

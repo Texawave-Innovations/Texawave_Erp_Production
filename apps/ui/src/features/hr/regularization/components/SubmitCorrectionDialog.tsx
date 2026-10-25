@@ -25,6 +25,9 @@ import { ALLOWED_TIMES, CORRECTION_TYPES } from "../types";
 export interface SubmitCorrectionDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Pre-fills the attendance date (the portal's per-day "Regularize"
+   * button, as in legacy MyAttendance.tsx). Read on mount. */
+  initialDate?: string;
 }
 
 function describeSubmitError(error: unknown): string {
@@ -92,10 +95,11 @@ const today = () => new Intl.DateTimeFormat("en-CA").format(new Date());
 export function SubmitCorrectionDialog({
   open,
   onClose,
+  initialDate,
 }: SubmitCorrectionDialogProps) {
   const [values, setValues] = useState({
     ...EMPTY_SUBMIT_FORM,
-    attendanceDate: today(),
+    attendanceDate: initialDate ?? today(),
   });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
