@@ -6,6 +6,7 @@ import {
   calculateProjectHealth,
   calculateResourceUtilization,
   hasCircularDependency,
+  isMilestoneUpcoming,
 } from "./project-calculations.js";
 
 describe("Project Calculations", () => {
@@ -72,6 +73,74 @@ describe("Project Calculations", () => {
       ];
       expect(calculateProjectHealth(milestones, false, today)).toBe("on_track");
     });
+
+    it("stays 'on_track' when an incomplete milestone is merely due soon (no third state)", () => {
+      const milestones = [
+        { targetDate: "2026-08-10", status: "completed" },
+        { targetDate: "2026-08-22", status: "in_progress" }, // today + 7
+      ];
+      expect(calculateProjectHealth(milestones, false, today)).toBe("on_track");
+      // Due today is still on track, not delayed — legacy only flips to
+      // 'delayed' once targetDate is strictly before today.
+      expect(
+        calculateProjectHealth(
+          [{ targetDate: "2026-08-15", status: "not_started" }],
+          false,
+          today,
+        ),
+      ).toBe("on_track");
+    });
+
+    it("ignores overdue tasks entirely — legacy health is milestone-only", () => {
+      const milestones = [{ targetDate: "2026-09-30", status: "in_progress" }];
+      expect(calculateProjectHealth(milestones, false, today)).toBe("on_track");
+      expect(calculateProjectHealth([], false, today)).toBe("on_track");
+    });
+  });
+
+  describe("isMilestoneUpcoming", () => {
+    const today = new Date("2026-08-15T00:00:00.000Z");
+
+    it("is true for an incomplete milestone due within the default 7-day window", () => {
+      expect(
+        isMilestoneUpcoming(
+          { targetDate: "2026-08-22", status: "in_progress" },
+          7,
+          today,
+        ),
+      ).toBe(true);
+      expect(
+        isMilestoneUpcoming(
+          { targetDate: "2026-08-15", status: "not_started" },
+          7,
+          today,
+        ),
+      ).toBe(true);
+    });
+
+    it("is false once the milestone is completed or outside the window", () => {
+      expect(
+        isMilestoneUpcoming(
+          { targetDate: "2026-08-22", status: "completed" },
+          7,
+          today,
+        ),
+      ).toBe(false);
+      expect(
+        isMilestoneUpcoming(
+          { targetDate: "2026-08-23", status: "in_progress" },
+          7,
+          today,
+        ),
+      ).toBe(false);
+      expect(
+        isMilestoneUpcoming(
+          { targetDate: "2026-08-10", status: "in_progress" },
+          7,
+          today,
+        ),
+      ).toBe(false);
+    });
   });
 
   describe("calculateEarnedAmount", () => {
@@ -81,10 +150,10 @@ describe("Project Calculations", () => {
       expect(calculateEarnedAmount(10, 0, 100)).toBe(0);
     });
 
-    it("calculates prorated revenue earned correctly", () => {
+    it("calculates prorated revenue earned, rounded to whole rupees (legacy behavior)", () => {
       // Price = 60,000, Expected = 480h -> Rate = 125/h
-      // Logged = 24.5h -> 24.5 * 125 = 3062.50
-      expect(calculateEarnedAmount(24.5, 60000, 480)).toBe(3062.5);
+      // Logged = 24.5h -> 24.5 * 125 = 3062.5 -> rounds to 3063
+      expect(calculateEarnedAmount(24.5, 60000, 480)).toBe(3063);
     });
   });
 

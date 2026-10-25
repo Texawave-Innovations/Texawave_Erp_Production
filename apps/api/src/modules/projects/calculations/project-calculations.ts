@@ -49,17 +49,38 @@ export function calculateBusinessHours(
   }
 }
 
+/** Legacy `DEFAULT_UPCOMING_MILESTONE_DAYS` — the window the legacy dashboard's
+ * "Upcoming Milestones" tracker card uses. This is a distinct signal from
+ * project health (legacy only has two health states: On Track / Delayed). */
+export const DEFAULT_UPCOMING_MILESTONE_DAYS = 7;
+
+export type ProjectHealth = "delayed" | "completed" | "on_track";
+
+export interface TaskScheduleInput {
+  endDate: string | Date | null | undefined;
+  status: string;
+}
+
+function isoDay(value: string | Date): string {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 /**
- * Evaluates a project's health dynamically:
- * - 'completed': all milestones completed or project entity is completed.
+ * Evaluates a project's health. Matches legacy exactly (two-state model):
+ * - 'completed': all milestones completed (when milestones exist) or project
+ *   entity is completed.
  * - 'delayed': at least one incomplete milestone has targetDate < today.
- * - 'on_track': neither delayed nor completed.
+ * - 'on_track': none of the above (default state).
+ *
+ * Legacy has no third "at risk" state — tasks that are overdue, or
+ * milestones due soon, do not change the health signal. "Upcoming
+ * Milestones" is a separate, independent KPI (see `isMilestoneUpcoming`).
  */
 export function calculateProjectHealth(
   milestones: MilestoneHealthInput[] = [],
   isProjectCompleted = false,
   today: Date = new Date(),
-): "delayed" | "completed" | "on_track" {
+): ProjectHealth {
   if (isProjectCompleted) return "completed";
   if (
     milestones.length > 0 &&
@@ -69,15 +90,41 @@ export function calculateProjectHealth(
   }
 
   const todayIso = today.toISOString().slice(0, 10);
+  const open = milestones.filter((m) => m.status !== "completed");
+  if (open.some((m) => isoDay(m.targetDate) < todayIso)) return "delayed";
 
-  const hasDelayedMilestone = milestones.some((m) => {
-    if (m.status === "completed") return false;
-    const targetIso = new Date(m.targetDate).toISOString().slice(0, 10);
-    return targetIso < todayIso;
-  });
-
-  if (hasDelayedMilestone) return "delayed";
   return "on_track";
+}
+
+/**
+ * Check if a milestone is upcoming within N days (legacy `isMilestoneUpcoming`).
+ * Used for the dashboard's distinct "Upcoming Milestones" KPI/tracker card.
+ */
+export function isMilestoneUpcoming(
+  milestone: MilestoneHealthInput,
+  withinDays: number = DEFAULT_UPCOMING_MILESTONE_DAYS,
+  today: Date = new Date(),
+): boolean {
+  if (milestone.status === "completed" || !milestone.targetDate) return false;
+  const target = new Date(milestone.targetDate);
+  if (Number.isNaN(target.getTime())) return false;
+
+  const todayMidnight = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+  );
+  const targetMidnight = new Date(
+    Date.UTC(
+      target.getUTCFullYear(),
+      target.getUTCMonth(),
+      target.getUTCDate(),
+    ),
+  );
+  const diffDays = Math.ceil(
+    (targetMidnight.getTime() - todayMidnight.getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+
+  return diffDays >= 0 && diffDays <= withinDays;
 }
 
 /**
@@ -91,7 +138,8 @@ export function calculateEarnedAmount(
 ): number {
   if (expectedHours <= 0 || loggedHours <= 0 || projectPrice <= 0) return 0;
   const rate = projectPrice / expectedHours;
-  return Math.round(loggedHours * rate * 100) / 100;
+  // Legacy rounds to whole rupees (no decimals).
+  return Math.round(loggedHours * rate);
 }
 
 /**
