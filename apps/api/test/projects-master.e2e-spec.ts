@@ -123,7 +123,7 @@ describe("projects master (e2e)", () => {
 
   afterAll(async () => {
     const orgIds = [orgA.id, orgB.id];
-    await prisma.project.deleteMany({
+    await prisma.projectCategoryMaster.deleteMany({
       where: { organizationId: { in: orgIds } },
     });
     await prisma.projectCodeMaster.deleteMany({
