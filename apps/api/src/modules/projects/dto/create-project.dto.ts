@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ProjectStatus } from "@texawave-erp/database";
 import { Type } from "class-transformer";
 import {
   IsArray,
   IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsObject,
@@ -38,10 +40,25 @@ export class CreateProjectDto {
   @IsString()
   projectType?: string;
 
-  @ApiPropertyOptional({ example: "Software" })
+  @ApiPropertyOptional({
+    example: ["Software", "Electronics"],
+    description:
+      "Multi-department selection (legacy ProjectForm chip-toggle UX)",
+  })
   @IsOptional()
-  @IsString()
-  department?: string;
+  @IsArray()
+  @IsString({ each: true })
+  departments?: string[];
+
+  @ApiPropertyOptional({
+    example: ["Priya Sharma", "Arun Kumar"],
+    description:
+      "Name-based resource assignment (legacy exact parity). Resolved to employeeIds via initialMemberEmployeeIds for FK integrity.",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  resourceNames?: string[];
 
   @ApiPropertyOptional({ example: 480 })
   @IsOptional()
@@ -65,6 +82,16 @@ export class CreateProjectDto {
   @IsOptional()
   @IsDateString()
   plannedEndDate?: string;
+
+  @ApiPropertyOptional({ example: "2026-12-15" })
+  @IsOptional()
+  @IsDateString()
+  actualEndDate?: string;
+
+  @ApiPropertyOptional({ enum: ProjectStatus, default: ProjectStatus.active })
+  @IsOptional()
+  @IsEnum(ProjectStatus)
+  status?: ProjectStatus;
 
   @ApiPropertyOptional({ example: 2 })
   @IsOptional()

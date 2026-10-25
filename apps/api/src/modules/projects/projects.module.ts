@@ -1,5 +1,8 @@
 import { Module } from "@nestjs/common";
 import { EmployeesModule } from "../hr/employees/employees.module.js";
+import { ProjectsMasterModule } from "../projects-master/projects-master.module.js";
+import { SuppliersModule } from "../scm/suppliers/suppliers.module.js";
+import { AttendanceModule } from "../hr/attendance/attendance.module.js";
 import { ProjectsAnalyticsController } from "./analytics.controller.js";
 import { ProjectsAnalyticsService } from "./analytics.service.js";
 import { ExpensesController } from "./expenses.controller.js";
@@ -15,14 +18,22 @@ import { TimeEntriesController } from "./time-entries.controller.js";
 import { TimeEntriesService } from "./time-entries.service.js";
 
 @Module({
-  imports: [EmployeesModule],
+  imports: [
+    EmployeesModule,
+    ProjectsMasterModule,
+    SuppliersModule,
+    AttendanceModule,
+  ],
+  // ProjectsController registers LAST: its `GET /projects/:id` (ParseIntPipe)
+  // would otherwise shadow single-segment literal routes on the same prefix
+  // such as `GET /projects/expenses`, answering them with a 400.
   controllers: [
-    ProjectsController,
+    ExpensesController,
+    ProjectsAnalyticsController,
     MilestonesController,
     TasksController,
     TimeEntriesController,
-    ExpensesController,
-    ProjectsAnalyticsController,
+    ProjectsController,
   ],
   providers: [
     ProjectsRepository,

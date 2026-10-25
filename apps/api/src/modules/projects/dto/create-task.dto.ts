@@ -61,6 +61,29 @@ export class CreateTaskDto {
   @IsInt()
   dependencyTaskId?: number;
 
+  @ApiPropertyOptional({ example: "finish_to_start" })
+  @IsOptional()
+  @IsString()
+  dependencyType?: string;
+
+  @ApiPropertyOptional({ example: "must_complete" })
+  @IsOptional()
+  @IsString()
+  dependencyRequirement?: string;
+
+  @ApiPropertyOptional({
+    description: "Soft dependency target (not necessarily another task row)",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  dependencyTargetId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dependencyTargetName?: string;
+
   @ApiPropertyOptional({ example: 20 })
   @IsOptional()
   @Type(() => Number)
@@ -151,6 +174,27 @@ export class UpdateTaskDto {
   @Type(() => Number)
   @IsInt()
   dependencyTaskId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dependencyType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dependencyRequirement?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  dependencyTargetId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dependencyTargetName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

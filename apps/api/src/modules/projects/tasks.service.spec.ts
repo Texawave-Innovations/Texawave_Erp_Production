@@ -22,10 +22,18 @@ function makeService() {
     getCurrentEmployee: vi.fn(),
     findCurrentEmployeeOrNull: vi.fn(),
   };
+  const taskNumberMaster = {
+    findOne: vi.fn().mockResolvedValue({
+      taskPrefix: "T",
+      separator: "-",
+      sequenceDigits: 2,
+    }),
+  };
   const service = new TasksService(
     repository as never,
     tenantContext as never,
     employeeQuery as never,
+    taskNumberMaster as never,
   );
   return { service, repository, tenantContext, employeeQuery };
 }
@@ -72,7 +80,11 @@ describe("TasksService", () => {
 
   it("calculates default business hours and points on task creation", async () => {
     const { service, repository } = makeService();
-    repository.findOne.mockResolvedValue({ id: 1, name: "Test Project" });
+    repository.findOne.mockResolvedValue({
+      id: 1,
+      name: "Test Project",
+      projectCode: "TXW/PRJ/ME/26-27/001",
+    });
     repository.getPointsConfig.mockResolvedValue({
       low: 5,
       medium: 10,
@@ -103,6 +115,8 @@ describe("TasksService", () => {
       16, // 2 business days * 8 hours
       20, // high priority config points
       10, // userId
+      { id: 1, projectCode: "TXW/PRJ/ME/26-27/001" },
+      { taskPrefix: "T", separator: "-", sequenceDigits: 2 },
     );
   });
 

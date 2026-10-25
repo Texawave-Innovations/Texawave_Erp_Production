@@ -227,14 +227,15 @@ describe("Projects Module (e2e)", () => {
     let createdMilestoneId: number;
     let createdTaskId: number;
 
-    it("creates a new project with auto-issued projectCode (PRJ-XXXXXX)", async () => {
+    it("creates a new project with an auto-issued legacy-format projectCode (TXW/PRJ/<FY>/NNN)", async () => {
       const res = await request(app.getHttpServer())
         .post("/projects")
         .set("Authorization", `Bearer ${tokenA}`)
         .send({
           name: "Mobile Banking App",
           description: "NextGen retail banking mobile app",
-          department: "Engineering",
+          departments: ["Engineering"],
+          resourceNames: ["Priya Sharma"],
           startDate: "2026-10-01",
           plannedEndDate: "2026-12-31",
           expectedHours: 200,
@@ -248,7 +249,9 @@ describe("Projects Module (e2e)", () => {
       expect(body).toBeDefined();
       createdProjectId = body.id;
       expect(body.name).toBe("Mobile Banking App");
-      expect(body.projectCode).toMatch(/^PRJ-\d{6}$/);
+      expect(body.projectCode).toMatch(
+        /^[A-Z0-9-]+\/[A-Z0-9-]+\/([A-Z0-9-]+\/)?\d{2}-\d{2}\/\d{3,}$/,
+      );
       expect(Number(body.expectedHours)).toBe(200);
       expect(Number(body.projectPrice)).toBe(75000);
       expect(body.status).toBe("active");
@@ -264,7 +267,7 @@ describe("Projects Module (e2e)", () => {
       const listRes = res.body as ApiResponse<ProjectData[]>;
       expect(listRes.data).toBeInstanceOf(Array);
       expect(listRes.data.length).toBeGreaterThanOrEqual(1);
-      expect(listRes.data[0]?.projectCode).toMatch(/^PRJ-\d{6}$/);
+      expect(listRes.data[0]?.projectCode).toMatch(/\/\d{2}-\d{2}\/\d{3,}$/);
     });
 
     it("creates a milestone for the project", async () => {
@@ -285,7 +288,7 @@ describe("Projects Module (e2e)", () => {
       createdMilestoneId = body.id;
     });
 
-    it("creates a task with auto-issued taskCode (TSK-XXXXXX) and computed hours", async () => {
+    it("creates a task with an auto-issued <projectCode>-T01 taskCode and computed hours", async () => {
       const res = await request(app.getHttpServer())
         .post(`/projects/${createdProjectId}/tasks`)
         .set("Authorization", `Bearer ${tokenA}`)
@@ -304,7 +307,7 @@ describe("Projects Module (e2e)", () => {
       const body = resBody.data;
       createdTaskId = body.id;
       expect(body.title).toBe("Setup PostgreSQL Schemas");
-      expect(body.taskCode).toMatch(/^TSK-\d{6}$/);
+      expect(body.taskCode).toMatch(/-T\d{2,}$/);
       expect(Number(body.hoursToComplete)).toBe(16); // 2 business days * 8 hours
       expect(body.points).toBe(20); // Default points for high priority
     });
@@ -335,7 +338,28 @@ describe("Projects Module (e2e)", () => {
         .expect(422);
     });
 
+    it("refuses to start a timer before the employee checks in", async () => {
+      await request(app.getHttpServer())
+        .post(`/projects/tasks/${createdTaskId}/timer/start`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(422);
+    });
+
     it("starts a live timer and prevents duplicate active timers", async () => {
+      // The stopwatch is gated on attendance (legacy My Work): check the
+      // employee in for today (IST business date) with an open session.
+      const today = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+      }).format(new Date());
+      await prisma.attendanceRecord.create({
+        data: {
+          organizationId: orgA.id,
+          employeeId: employeeA.id,
+          attendanceDate: new Date(`${today}T00:00:00.000Z`),
+          sessions: { create: { checkInAt: new Date(), source: "SELF" } },
+        },
+      });
+
       // Start timer
       const res = await request(app.getHttpServer())
         .post(`/projects/tasks/${createdTaskId}/timer/start`)
