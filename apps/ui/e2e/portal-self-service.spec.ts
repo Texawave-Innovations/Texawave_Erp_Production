@@ -229,6 +229,8 @@ test("portal tasks offer only the moves the task's state allows", async ({
 }) => {
   const { posts } = await signIntoPortal(page);
   await portalNav(page).getByRole("link", { name: "My Tasks" }).click();
+  // Like legacy MyTasks.tsx, the list opens on "Active"; show every task.
+  await page.getByRole("tab", { name: "All" }).click();
 
   // The PENDING task can be started or completed...
   await expect(page.getByText("Prepare sprint demo").first()).toBeVisible();

@@ -5,7 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DynamicSidebar } from "@/components/DynamicSidebar";
+import { LogOut } from "lucide-react";
+import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
+import { PortalSidebar } from "@/features/employee-self-service/portal/components/PortalSidebar";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMe } from "@/hooks/usePermission";
@@ -126,14 +128,29 @@ export default function EmployeePortalLayout({
     );
   }
 
+  const fullName = employee.data.fullName;
+  const initials =
+    fullName
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "E";
+
+  // Same shell as the legacy employee portal (TexaWave_ERP_old
+  // src/modules/employee/EmployeePortalLayout.tsx): a full-height frame with
+  // a slim top bar (logo + "Texawave ERP / Employee Portal" on the left;
+  // notifications, avatar + name + employee code, Logout on the right), the
+  // grouped portal sidebar, and a scrolling content pane.
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-950"
       onKeyDown={(e) => {
         if (e.key === "Escape") setNavOpen(false);
       }}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-4 lg:px-6 dark:border-gray-800">
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-gray-200/60 bg-white/80 px-4 shadow-sm backdrop-blur-md lg:px-5 dark:border-gray-800 dark:bg-gray-900/80">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -158,14 +175,43 @@ export default function EmployeePortalLayout({
               />
             </svg>
           </button>
-          <span className="truncate text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-            TexaWave ERP
-          </span>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700">
+            <TexaLogo size="sm" variant="mark" className="h-6 w-auto" />
+          </div>
+          <div className="min-w-0 leading-none">
+            <p className="truncate text-theme-sm font-bold text-gray-900 dark:text-white/90">
+              Texawave ERP
+            </p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              Employee Portal
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <NotificationBell />
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
-            Sign out
+          <div className="flex items-center gap-2 border-l border-gray-200/60 pl-3 dark:border-gray-800">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan shadow-sm">
+              <span className="text-[10px] font-bold text-white">
+                {initials}
+              </span>
+            </div>
+            <div className="hidden text-right leading-none sm:block">
+              <p className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+                {fullName}
+              </p>
+              <p className="font-mono text-[11px] text-gray-500 dark:text-gray-400">
+                {employee.data.employeeCode}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="h-8 gap-1.5 text-gray-500 hover:text-error-600 dark:text-gray-400"
+          >
+            <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">Logout</span>
           </Button>
         </div>
       </header>
@@ -178,13 +224,14 @@ export default function EmployeePortalLayout({
             className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
           />
         )}
-        <DynamicSidebar
+        <PortalSidebar
           open={navOpen}
           onNavigate={() => setNavOpen(false)}
-          onlyRootCode="portal"
+          name={fullName}
+          initials={initials}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/60 dark:bg-gray-900/40">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
         </main>
       </div>
     </div>
