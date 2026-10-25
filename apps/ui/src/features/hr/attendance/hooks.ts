@@ -79,12 +79,12 @@ export function useAttendanceRecord(id: number | null) {
   });
 }
 
-export function useMyAttendance(query: AttendanceRangeQuery) {
+export function useMyAttendance(query: AttendanceRangeQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "mine", query),
     queryFn: () => listMyAttendance(query),
-    enabled: orgId > 0,
+    enabled: orgId > 0 && enabled,
   });
 }
 
