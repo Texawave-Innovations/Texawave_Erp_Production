@@ -9,13 +9,20 @@ export const EXPENSE_TYPES = [
   "Other",
 ] as const;
 
+/** Mirrors apps/api .../expense-claims.repository.ts ExpenseClaimView. */
 export interface MyExpenseClaim {
   id: number;
   expenseType: string;
-  amount: string;
+  /** Serialized from NUMERIC(12,2); may arrive as a number or a string. */
+  amount: number | string;
   expenseDate: string;
   description: string;
+  receiptRef: string | null;
   status: string;
+  decidedBy: { id: number; fullName: string } | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  createdAt: string;
 }
 
 export interface CreateExpenseClaimInput {

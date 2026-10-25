@@ -20,6 +20,10 @@ import { DAY_PORTIONS } from "../types";
 export interface RequestLeaveDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Pre-selects a leave type (the portal's balance cards open the dialog
+   * for the card's type, like the legacy Leave Tracker). Read on mount, so
+   * give the dialog a `key` that changes with it. */
+  initialLeaveTypeId?: number;
 }
 
 /** Maps the backend error codes in Docs/HR_LEAVE.md §2-5 to a clear message. */
@@ -52,8 +56,15 @@ function describeSubmitError(error: unknown): string {
  * deliberately no employee picker (Docs/HR_LEAVE.md — no employeeId in the
  * self-service create DTO). Leave type options come from the balances call
  * so only active types the employee can actually see are offered. */
-export function RequestLeaveDialog({ open, onClose }: RequestLeaveDialogProps) {
-  const [values, setValues] = useState(EMPTY_REQUEST_FORM);
+export function RequestLeaveDialog({
+  open,
+  onClose,
+  initialLeaveTypeId,
+}: RequestLeaveDialogProps) {
+  const [values, setValues] = useState(() => ({
+    ...EMPTY_REQUEST_FORM,
+    leaveTypeId: initialLeaveTypeId ?? EMPTY_REQUEST_FORM.leaveTypeId,
+  }));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const balances = useMyLeaveBalances();
