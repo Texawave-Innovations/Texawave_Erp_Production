@@ -9,11 +9,12 @@ import {
 
 /**
  * SCM Master screen: the Masters tab bar renders with SCM Master active,
- * all 10 category cards (the 4 from the first SCM Masterlist PR, plus the 6
- * added for logistics/returns/quality/procurement/finance consumers) render
- * their seeded chips, add+delete on the Supplier Types card round-trips
- * through the mocked API, and a reader without write permission sees no add
- * form. API fully mocked — the backend's own rules are proven by
+ * all 12 category cards (the 4 from the first SCM Masterlist PR, the 6 added
+ * for logistics/returns/quality/procurement/finance consumers, and the 2
+ * split out of quality's shared severity/priority value set) render their
+ * seeded chips, add+delete on the Supplier Types card round-trips through
+ * the mocked API, and a reader without write permission sees no add form.
+ * API fully mocked — the backend's own rules are proven by
  * apps/api/test/scm-master-list-items.e2e-spec.ts.
  */
 
@@ -109,6 +110,10 @@ const SIMPLE_CATEGORY_CHIPS: Record<string, ReturnType<typeof seedChip>[]> = {
   requisition_priority: [seedChip(9, "requisition_priority", "Urgent")],
   supplier_document_type: [
     seedChip(10, "supplier_document_type", "GST Certificate"),
+  ],
+  quality_defect_severity: [seedChip(11, "quality_defect_severity", "High")],
+  quality_inspection_priority: [
+    seedChip(12, "quality_inspection_priority", "Rush"),
   ],
 };
 
@@ -218,6 +223,12 @@ test("renders all 10 SCM Master cards with their seeded chips", async ({
   await expect(
     page.getByRole("heading", { name: "Supplier Document Types" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Quality Defect Severities" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Quality Inspection Priorities" }),
+  ).toBeVisible();
 
   await expect(page.getByText("Manufacturer")).toBeVisible();
   await expect(page.getByText("Box")).toBeVisible();
@@ -229,6 +240,8 @@ test("renders all 10 SCM Master cards with their seeded chips", async ({
   await expect(page.getByText("Physical Damage")).toBeVisible();
   await expect(page.getByText("Urgent")).toBeVisible();
   await expect(page.getByText("GST Certificate")).toBeVisible();
+  await expect(page.getByText("High", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rush")).toBeVisible();
 });
 
 test("adds and deletes a supplier type chip", async ({ page }) => {

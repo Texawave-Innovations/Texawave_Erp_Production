@@ -18,12 +18,10 @@ import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
 import {
   CHECKPOINT_RESULTS,
-  DEFECT_SEVERITIES,
   INSPECTION_STATUSES,
   INSPECTION_TYPES,
   QUALITY_CONDITIONS,
   QUALITY_DISPOSITIONS,
-  QUALITY_PRIORITIES,
   QUARANTINE_STATUSES,
 } from "../quality.helpers.js";
 
@@ -57,9 +55,10 @@ export class CreateDefectDto {
   @IsString()
   category!: string;
 
-  @ApiProperty({ enum: DEFECT_SEVERITIES })
-  @IsIn(DEFECT_SEVERITIES)
-  severity!: (typeof DEFECT_SEVERITIES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  severity!: string;
 }
 
 /** The code is the defect's identity on past inspections, so it is fixed. */
@@ -84,10 +83,11 @@ export class UpdateDefectDto {
   @IsString()
   category?: string;
 
-  @ApiPropertyOptional({ enum: DEFECT_SEVERITIES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(DEFECT_SEVERITIES)
-  severity?: (typeof DEFECT_SEVERITIES)[number];
+  @Trim()
+  @IsString()
+  severity?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -102,10 +102,11 @@ export class QueryDefectDto extends PaginationDto {
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ enum: DEFECT_SEVERITIES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(DEFECT_SEVERITIES)
-  severity?: (typeof DEFECT_SEVERITIES)[number];
+  @Trim()
+  @IsString()
+  severity?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -286,10 +287,11 @@ export class CreateInspectionDto {
   @Min(1)
   templateId?: number;
 
-  @ApiPropertyOptional({ enum: QUALITY_PRIORITIES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(QUALITY_PRIORITIES)
-  priority?: (typeof QUALITY_PRIORITIES)[number];
+  @Trim()
+  @IsString()
+  priority?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

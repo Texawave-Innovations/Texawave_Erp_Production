@@ -245,6 +245,8 @@ describe("scm master list items (e2e)", () => {
       "quality_defect_category",
       "requisition_priority",
       "supplier_document_type",
+      "quality_defect_severity",
+      "quality_inspection_priority",
     ]) {
       await request(app.getHttpServer())
         .post("/scm/master-list-items")

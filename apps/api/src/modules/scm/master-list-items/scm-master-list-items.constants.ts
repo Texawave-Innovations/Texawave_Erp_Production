@@ -12,5 +12,7 @@ export const SCM_MASTER_LIST_CATEGORIES = [
   "quality_defect_category",
   "requisition_priority",
   "supplier_document_type",
+  "quality_defect_severity",
+  "quality_inspection_priority",
 ] as const;
 export type ScmMasterListCategory = (typeof SCM_MASTER_LIST_CATEGORIES)[number];

@@ -75,6 +75,12 @@ export class QualityService {
       dto.category,
       "Defect category",
     );
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_severity",
+      dto.severity,
+      "Severity",
+    );
     return this.masters.createDefect(this.scope, dto, this.actor);
   }
   async updateDefect(id: number, dto: UpdateDefectDto) {
@@ -83,6 +89,12 @@ export class QualityService {
       "quality_defect_category",
       dto.category,
       "Defect category",
+    );
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_severity",
+      dto.severity,
+      "Severity",
     );
     return this.nf(
       "Defect",
@@ -147,7 +159,13 @@ export class QualityService {
   dashboard() {
     return this.inspections.dashboard(this.scope);
   }
-  createInspection(dto: CreateInspectionDto) {
+  async createInspection(dto: CreateInspectionDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_inspection_priority",
+      dto.priority,
+      "Priority",
+    );
     return this.inspections.create(this.scope, dto, this.actor);
   }
   async startInspection(id: number, inspectorName?: string) {

@@ -1,7 +1,6 @@
 "use client";
 
 import type { QualityDefect, UpdateDefectInput } from "@texawave-erp/api-types";
-import { DEFECT_SEVERITIES } from "@texawave-erp/api-types";
 import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { BadgeAlert, Plus } from "lucide-react";
 import { useState } from "react";
@@ -47,6 +46,12 @@ export function DefectsView() {
     limit: 100,
   });
   const categoryOptions = categories.data?.data ?? [];
+  const severities = useMasterListItems({
+    category: "quality_defect_severity",
+    page: 1,
+    limit: 100,
+  });
+  const severityOptions = severities.data?.data ?? [];
 
   return (
     <ScmListView<QualityDefect>
@@ -194,7 +199,10 @@ export function DefectsView() {
             label: "Severity",
             type: "select",
             required: true,
-            options: DEFECT_SEVERITIES.map((v) => ({ value: v, label: v })),
+            options: severityOptions.map((v) => ({
+              value: v.value,
+              label: v.value,
+            })),
           },
           ...(editing
             ? ([
@@ -233,7 +241,7 @@ export function DefectsView() {
                 name: v.name as string,
                 description: (v.description as string) || undefined,
                 category: v.category as string,
-                severity: v.severity as (typeof DEFECT_SEVERITIES)[number],
+                severity: v.severity as string,
               });
             }
           } catch (err) {

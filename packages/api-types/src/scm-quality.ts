@@ -27,8 +27,7 @@ export const QUALITY_CONDITIONS = [
   "CONTAMINATED",
   "UNKNOWN",
 ] as const;
-export const DEFECT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
-export type DefectSeverity = (typeof DEFECT_SEVERITIES)[number];
+export type DefectSeverity = string;
 export const CHECKPOINT_RESULTS = ["PASS", "FAIL", "NA"] as const;
 export const INSPECTION_STATUSES = [
   "DRAFT",
@@ -38,12 +37,7 @@ export const INSPECTION_STATUSES = [
   "CANCELLED",
 ] as const;
 export type QualityInspectionStatus = (typeof INSPECTION_STATUSES)[number];
-export const QUALITY_PRIORITIES = [
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "CRITICAL",
-] as const;
+export type QualityInspectionPriority = string;
 export const QUARANTINE_STATUSES = [
   "QUARANTINED",
   "UNDER_REVIEW",
@@ -188,7 +182,7 @@ export interface QualityInspection {
   locationId: number | null;
   status: QualityInspectionStatus;
   result: QualityOverallResult | null;
-  priority: (typeof QUALITY_PRIORITIES)[number];
+  priority: QualityInspectionPriority;
   inspectionDate: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -211,7 +205,7 @@ export interface CreateInspectionInput {
   warehouseId?: number | undefined;
   quantity?: number | undefined;
   templateId?: number | undefined;
-  priority?: (typeof QUALITY_PRIORITIES)[number] | undefined;
+  priority?: QualityInspectionPriority | undefined;
   notes?: string | undefined;
 }
 

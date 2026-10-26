@@ -124,6 +124,14 @@ export function ScmMasterView() {
         category="supplier_document_type"
         title="Supplier Document Types"
       />
+      <CategoryCard
+        category="quality_defect_severity"
+        title="Quality Defect Severities"
+      />
+      <CategoryCard
+        category="quality_inspection_priority"
+        title="Quality Inspection Priorities"
+      />
     </div>
   );
 }
