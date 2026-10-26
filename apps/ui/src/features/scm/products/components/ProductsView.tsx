@@ -15,6 +15,7 @@ import { formatMoney, formatQty } from "../../shared/format";
 import { ScmFormDialog, type ScmFormValues } from "../../shared/ScmFormDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
+import { usePostOpeningBalance } from "../../inventory/hooks";
 import {
   useCreateScmProduct,
   useDeleteScmProduct,
@@ -61,6 +62,7 @@ export function ProductsView() {
   const create = useCreateScmProduct();
   const update = useUpdateScmProduct();
   const remove = useDeleteScmProduct();
+  const openingBalance = usePostOpeningBalance();
 
   const query = useScmProducts({
     page: c.page,
@@ -307,7 +309,51 @@ export function ProductsView() {
             type: "textarea",
             span: 2,
           },
+          // Create-only: barcode and opening stock have their own flows once the product exists.
+          ...(editing
+            ? []
+            : ([
+                {
+                  name: "barcode",
+                  label: "Barcode / QR Value",
+                  type: "text",
+                  mono: true,
+                  span: 2,
+                  placeholder:
+                    "Optional — leave blank to auto-generate from the product code",
+                },
+                {
+                  name: "openingWarehouseId",
+                  label: "Opening Stock Warehouse",
+                  type: "warehouse",
+                  hint: "Optional — also becomes the product's warehouse",
+                },
+                {
+                  name: "openingQuantity",
+                  label: "Opening Quantity",
+                  type: "number",
+                  min: 0,
+                  step: 0.001,
+                  hint: "Optional — seeds stock with an Opening Balance ledger entry",
+                },
+                {
+                  name: "openingUnitCost",
+                  label: "Opening Unit Cost",
+                  type: "number",
+                  min: 0,
+                  step: 0.01,
+                },
+              ] as const)),
         ]}
+        validate={(v) => {
+          const qty = Number(v.openingQuantity || 0);
+          if (!editing && qty > 0 && !v.openingWarehouseId) {
+            return {
+              openingWarehouseId: "Select a warehouse for the opening quantity",
+            };
+          }
+          return null;
+        }}
         onSubmit={async (v) => {
           const input = {
             productCode: v.productCode as string,
@@ -325,14 +371,52 @@ export function ProductsView() {
             isActive: v.isActive !== "no",
             description: (v.description as string | undefined) ?? "",
           };
+          let createdProduct: ScmProduct | null = null;
           try {
             if (editing) await update.mutateAsync({ id: editing.id, input });
-            else await create.mutateAsync(input);
+            else {
+              createdProduct = await create.mutateAsync({
+                ...input,
+                barcode: (v.barcode as string | undefined) || undefined,
+                warehouseId:
+                  (v.openingWarehouseId as number | undefined) || undefined,
+              });
+            }
           } catch (err) {
             throw new Error(errorText(err, "Failed to save product"));
           }
+          const openingQty = Number(v.openingQuantity ?? 0);
+          if (createdProduct && openingQty > 0 && v.openingWarehouseId) {
+            // Opening stock is best-effort: the product exists either way, so a
+            // failure here is reported separately instead of failing the save.
+            try {
+              await openingBalance.mutateAsync({
+                productId: createdProduct.id,
+                warehouseId: Number(v.openingWarehouseId),
+                quantity: openingQty,
+                unitCost:
+                  v.openingUnitCost === undefined || v.openingUnitCost === ""
+                    ? undefined
+                    : Number(v.openingUnitCost),
+              });
+            } catch (err) {
+              toast({
+                title: errorText(
+                  err,
+                  "Product created, but opening stock failed to post",
+                ),
+                variant: "error",
+              });
+              closeForm();
+              return;
+            }
+          }
           toast({
-            title: editing ? "Product updated" : "Product created",
+            title: editing
+              ? "Product updated"
+              : openingQty > 0
+                ? `Product created with ${openingQty} opening stock`
+                : "Product created",
             variant: "success",
           });
           closeForm();

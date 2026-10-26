@@ -10,6 +10,7 @@ import type {
   CreateCarrierDto,
   UpdateCarrierDto,
 } from "./dto/logistics.dto.js";
+import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 
 const text = (v: string | undefined, cur: string | null) =>
   v === undefined ? cur : v.trim() || null;
@@ -143,6 +144,34 @@ export class CarriersRepository {
         after: { status: after.status },
       });
       return after;
+    });
+  }
+
+  /** Never while shipments reference the carrier. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.scmCarrier.findFirst({
+        where: tenantWhere(scope, { id }),
+      });
+      if (!row) return false;
+      const shipments = await tx.scmShipment.count({
+        where: { carrierId: id },
+      });
+      if (shipments > 0) {
+        throw new BusinessRuleViolationException(
+          "Cannot delete: shipments exist for this carrier.",
+          "CARRIER_HAS_SHIPMENTS",
+        );
+      }
+      await tx.scmCarrier.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_carrier",
+        entityId: id,
+        action: "delete",
+        before: { carrierCode: row.carrierCode, by: actorId },
+      });
+      return true;
     });
   }
 }

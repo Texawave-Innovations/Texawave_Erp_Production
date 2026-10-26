@@ -12,4 +12,18 @@ export {
   type RolePermission,
   type UserRole,
   type Tag,
+  // Projects enums & types
+  ProjectStatus,
+  MilestoneStatus,
+  TaskStatus,
+  TaskPriority,
+  ProjectExpenseStatus,
+  type Project,
+  type ProjectMember,
+  type ProjectMilestone,
+  type ProjectTask,
+  type ProjectTimeEntry,
+  type ProjectExpense,
+  type ProjectPointsLedger,
+  type ProjectPointsConfig,
 } from "../generated/prisma/client.js";

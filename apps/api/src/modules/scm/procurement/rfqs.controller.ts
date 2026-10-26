@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
@@ -58,5 +60,12 @@ export class RfqsController {
   @RequirePermission("scm.procurement.write")
   cancel(@Param("id", ParseIntPipe) id: number) {
     return this.rfqs.cancel(id);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.procurement.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.rfqs.remove(id);
   }
 }

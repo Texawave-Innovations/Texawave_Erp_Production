@@ -1,11 +1,17 @@
 "use client";
 
-import { ChevronRight, Package } from "lucide-react";
+import { ChevronRight, HelpCircle, Package } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { SCM_CATEGORIES } from "@/components/layout/HorizontalNavbar";
 import { ScmPanelHost } from "../shared/ScmPanel";
+import { ScmPageErrorBoundary } from "../shared/ScmPageErrorBoundary";
+import { ScmGlobalSearch } from "./ScmGlobalSearch";
+import {
+  ScmOnboardingTour,
+  type ScmOnboardingTourHandle,
+} from "./ScmOnboardingTour";
 
 /** Every SCM page with its label, from the same list the top navigation is
  * built from, so the breadcrumb and the menu never disagree. */
@@ -29,6 +35,7 @@ const SCM_PAGES: ReadonlyArray<{
  * bar's SCM menu (no side menu); the breadcrumb names the current page. */
 export function ScmShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const tourRef = useRef<ScmOnboardingTourHandle>(null);
 
   // The deepest matching page wins (/scm/procurement/rfqs is "RFQs", not the
   // Procurement dashboard that shares its prefix).
@@ -69,41 +76,56 @@ export function ScmShell({ children }: { children: ReactNode }) {
             </p>
           </div>
         </div>
-        <nav
-          aria-label="Breadcrumb"
-          className="relative flex items-center gap-1.5 text-theme-sm"
-        >
-          <Link
-            href="/scm/overview"
-            className="text-gray-500 hover:text-brand-700 dark:text-gray-400"
+        <div className="relative flex flex-wrap items-center gap-3">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1.5 text-theme-sm"
           >
-            SCM
-          </Link>
-          {current ? (
-            <>
-              <ChevronRight
-                className="h-3.5 w-3.5 text-gray-400"
-                aria-hidden="true"
-              />
-              {current.group && current.group !== current.label ? (
-                <>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {current.group}
-                  </span>
-                  <ChevronRight
-                    className="h-3.5 w-3.5 text-gray-400"
-                    aria-hidden="true"
-                  />
-                </>
-              ) : null}
-              <span className="font-semibold text-gray-900 dark:text-white/90">
-                {current.label}
-              </span>
-            </>
-          ) : null}
-        </nav>
+            <Link
+              href="/scm/overview"
+              className="text-gray-500 hover:text-brand-700 dark:text-gray-400"
+            >
+              SCM
+            </Link>
+            {current ? (
+              <>
+                <ChevronRight
+                  className="h-3.5 w-3.5 text-gray-400"
+                  aria-hidden="true"
+                />
+                {current.group && current.group !== current.label ? (
+                  <>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {current.group}
+                    </span>
+                    <ChevronRight
+                      className="h-3.5 w-3.5 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </>
+                ) : null}
+                <span className="font-semibold text-gray-900 dark:text-white/90">
+                  {current.label}
+                </span>
+              </>
+            ) : null}
+          </nav>
+          <ScmGlobalSearch />
+          <button
+            type="button"
+            onClick={() => tourRef.current?.openTour()}
+            aria-label="Replay the SCM product tour"
+            title="Replay the SCM product tour"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-500 transition-colors hover:bg-white/70 hover:text-brand-700 dark:text-gray-400 dark:hover:bg-gray-800/70"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <ScmPanelHost>{children}</ScmPanelHost>
+      <ScmPanelHost>
+        <ScmPageErrorBoundary key={pathname}>{children}</ScmPageErrorBoundary>
+      </ScmPanelHost>
+      <ScmOnboardingTour ref={tourRef} />
     </div>
   );
 }

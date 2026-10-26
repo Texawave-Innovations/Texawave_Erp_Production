@@ -134,3 +134,26 @@ export interface WarehouseOpsDashboard {
   activeLocations: number;
   occupiedLocations: number;
 }
+
+/** One row of the Warehouse Stock page: stock in a bin, or a warehouse's
+ * unassigned remainder (`locationId` null). */
+export interface WarehouseStockViewRow {
+  warehouseId: number;
+  warehouseName: string;
+  warehouseCode: string;
+  locationId: number | null;
+  locationCode: string;
+  locationName: string | null;
+  productId: number;
+  productCode: string;
+  productName: string;
+  quantity: number;
+}
+
+export interface StockWriteOffInput {
+  productId: number;
+  warehouseId: number;
+  locationId?: number | undefined;
+  quantity: number;
+  notes?: string | undefined;
+}

@@ -18,10 +18,12 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateGoodsReceipt,
+  useDeleteGoodsReceipt,
   useGoodsReceipt,
   useGoodsReceipts,
 } from "../hooks";
@@ -35,9 +37,11 @@ export function GoodsReceiptsView() {
   const c = useListControls();
   const [formOpen, setFormOpen] = useState(Boolean(fromPo));
   const [viewingId, setViewingId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<GoodsReceipt | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.procurement.write");
   const create = useCreateGoodsReceipt();
+  const remove = useDeleteGoodsReceipt();
   const detail = useGoodsReceipt(viewingId);
   const query = useGoodsReceipts({ page: c.page, limit: c.pageSize, q: c.q });
 
@@ -125,6 +129,23 @@ export function GoodsReceiptsView() {
             />
           ),
         },
+        {
+          header: "Actions",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (g) =>
+            canWrite ? (
+              <div
+                className="flex justify-end gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete goods receipt"
+                  onClick={() => setDeleting(g)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
       <GoodsReceiptForm
@@ -132,6 +153,18 @@ export function GoodsReceiptsView() {
         onClose={closeForm}
         initialPoId={fromPo ? Number(fromPo) : null}
         onSubmit={save}
+      />
+      <ScmDeleteDialog<GoodsReceipt>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete goods receipt?"
+        describe={(g) =>
+          `Permanently delete ${g.grnNumber}? The stock it posted is taken back out with an offsetting ledger entry and the purchase order's received quantity is restored. This cannot be undone.`
+        }
+        confirmText="Delete receipt"
+        run={(g) => remove.mutateAsync(g.id)}
+        successMessage="Goods receipt deleted"
+        errorFallback="Failed to delete goods receipt"
       />
       <ScmDetailDialog
         open={viewingId !== null}

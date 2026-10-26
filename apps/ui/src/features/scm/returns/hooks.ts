@@ -13,7 +13,7 @@ import type {
   ShipVendorReturnInput,
   VendorReturnSource,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPost } from "../shared/scm-api";
+import { scmDelete, scmGet, scmPost } from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 const R = "/scm/returns";
@@ -90,3 +90,6 @@ export const useShipVendorReturn = () =>
     ({ id, input }: { id: number; input: ShipVendorReturnInput }) =>
       scmPost<ScmReturn>(`${R}/${id}/ship`, input),
   );
+
+export const useDeleteReturn = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/returns/${id}`));

@@ -615,6 +615,108 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Download my own Form 16",
   },
 
+  // apps/api/src/modules/sales-settings — Sales & Document Masters
+  // foundation. Org-wide configuration, no team dimension (same carve-out as
+  // IAM/platform-config data, Docs/CODING_STANDARDS.md §10a).
+  {
+    code: "sales_settings.company_detail.read",
+    description: "View company details (Sales Settings — Company tab)",
+  },
+  {
+    code: "sales_settings.company_detail.write",
+    description: "Create/update company details",
+  },
+  {
+    code: "sales_settings.document_numbering.read",
+    description:
+      "View document numbering prefixes (Sales Settings — Numbering tab)",
+  },
+  {
+    code: "sales_settings.document_numbering.write",
+    description: "Create/update a document type's numbering prefix",
+  },
+  {
+    code: "sales_settings.bank_account.read",
+    description: "View bank accounts (Sales Settings — Bank & Signatory tab)",
+  },
+  {
+    code: "sales_settings.bank_account.write",
+    description: "Create/update/delete bank accounts",
+  },
+  {
+    code: "sales_settings.authorized_signatory.read",
+    description: "View the authorized signatory",
+  },
+  {
+    code: "sales_settings.authorized_signatory.write",
+    description: "Create/update the authorized signatory",
+  },
+  {
+    code: "sales_settings.salesperson.read",
+    description: "View salespersons",
+  },
+  {
+    code: "sales_settings.salesperson.write",
+    description: "Create/update/delete salespersons",
+  },
+  {
+    code: "sales_settings.seal_signature.read",
+    description: "View the Company Seal / Authorized Signature masterlists",
+  },
+  {
+    code: "sales_settings.seal_signature.write",
+    description:
+      "Create/update/delete entries in the Seal/Signature masterlists",
+  },
+  {
+    code: "sales_settings.master_list_item.read",
+    description:
+      "View Terms & Inventory items (payment terms, delivery terms, dispatch modes, GST rates, item categories/types/groups, units)",
+  },
+  {
+    code: "sales_settings.master_list_item.write",
+    description: "Create/update/delete Terms & Inventory items",
+  },
+
+  // apps/api/src/modules/finance-settings — Finance Master foundation (same
+  // org-wide-config carve-out as sales-settings above).
+  {
+    code: "finance_settings.master_list_item.read",
+    description: "View Finance Master items (expense types, payment modes)",
+  },
+  {
+    code: "finance_settings.master_list_item.write",
+    description: "Create/update/delete Finance Master items",
+  },
+
+  // apps/api/src/modules/projects-master — the Projects Master Lists screen:
+  // project type/category registry (code, name, description), the project
+  // code format generator, and the task running-number format generator.
+  // Org-wide config, not HR/team data, so @OrgScoped() + @RequirePermission()
+  // only (no .own/.team/.all scoping needed).
+  {
+    code: "projects_master.project.read",
+    description: "View Projects Master entries",
+  },
+  {
+    code: "projects_master.project.write",
+    description: "Create/update/delete Projects Master entries",
+  },
+  {
+    code: "projects_master.project_code_master.read",
+    description: "View the Project Code Master format",
+  },
+  {
+    code: "projects_master.project_code_master.write",
+    description: "Update the Project Code Master format",
+  },
+  {
+    code: "projects_master.task_running_number_master.read",
+    description: "View the Task Running Number Master format",
+  },
+  {
+    code: "projects_master.task_running_number_master.write",
+    description: "Update the Task Running Number Master format",
   // apps/api/src/modules/crm/accounts — minimal CRM Account foundation
   // (Phase 4B). Organization-wide reference data (any contact's required
   // parent), no team dimension — same shape as master-data/* above.
@@ -1042,6 +1144,39 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "scm.reports.read",
     description:
       "View SCM reports (procurement, inventory, warehouse, fulfillment, logistics, returns, quality, suppliers)",
+  },
+  // Projects Module permissions
+  {
+    code: "projects.project.read",
+    description: "View projects, dashboards, milestones, and tasks",
+  },
+  {
+    code: "projects.project.write",
+    description: "Create and update projects, assign members",
+  },
+  {
+    code: "projects.project.delete",
+    description: "Soft-delete projects",
+  },
+  {
+    code: "projects.task.write",
+    description: "Create, update, and assign tasks and milestones",
+  },
+  {
+    code: "projects.timer.write",
+    description: "Start and stop stopwatch timers, log time entries",
+  },
+  {
+    code: "projects.expenses.read",
+    description: "View project expenses and budget utilization",
+  },
+  {
+    code: "projects.expenses.write",
+    description: "Create, update, and manage project expenses",
+  },
+  {
+    code: "projects.points.manage",
+    description: "Configure gamification points master",
   },
   // SCM overview, master data search, barcode lookup, control tower,
   // replenishment and the FAQ assistant — read-only cross-cutting views.

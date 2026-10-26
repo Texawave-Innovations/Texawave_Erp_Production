@@ -15,11 +15,13 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCreateCustomerReturn,
   useCreateVendorReturn,
+  useDeleteReturn,
   useReturn,
   useReturns,
 } from "../hooks";
@@ -45,6 +47,8 @@ export function ReturnsListView({
   const [viewingId, setViewingId] = useState<number | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.returns.write");
+  const deletingRowRemove = useDeleteReturn();
+  const [deletingRow, setDeletingRow] = useState<ScmReturn | null>(null);
   const createCustomer = useCreateCustomerReturn();
   const createVendor = useCreateVendorReturn();
   const detail = useReturn(viewingId);
@@ -178,8 +182,37 @@ export function ReturnsListView({
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete return"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<ScmReturn>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete return?"
+        describe={(r) =>
+          `Permanently delete ${r.returnNumber}? This cannot be undone. A return that has already moved stock or completed disposition cannot be deleted.`
+        }
+        confirmText="Delete return"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Return deleted"
+        errorFallback="Failed to delete return"
+      />
       <CustomerReturnForm
         open={customerFormOpen}
         onClose={() => setCustomerFormOpen(false)}

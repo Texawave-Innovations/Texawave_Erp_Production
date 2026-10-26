@@ -51,6 +51,8 @@ import {
   CheckCircle2,
   Wallet,
   UserCheck,
+  ClipboardList,
+  CheckCheck,
   UserPlus,
   TrendingUp,
   PhoneCall,
@@ -92,6 +94,17 @@ import { NotificationBell } from "@/features/notifications/components/Notificati
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { useMyMenu } from "@/features/menu/hooks";
+import {
+  SCM_CLIENT_DEMO,
+  SCM_DEMO_MENU_CODES,
+} from "@/features/scm/shared/demo-mode";
+import {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from "@/features/notifications/hooks";
+import type { AppNotification } from "@/features/notifications/types";
 import type { MenuTreeNode } from "@texawave-erp/api-types";
 
 export interface NavLeafItem {
@@ -738,7 +751,7 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-requisitions",
-        label: "Purchase Requisitions",
+        label: "Material Requisitions",
         path: "/scm/procurement/requisitions",
         icon: FileText,
         icon3d: "documents",
@@ -916,6 +929,14 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
         menuCode: "scm-reports-inventory",
       },
       {
+        id: "scm-reports-inventory-warehouse",
+        label: "Inventory & Warehouse",
+        path: "/scm/reports/inventory-warehouse",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "scm-reports-inventory-warehouse",
+      },
+      {
         id: "scm-reports-warehouse",
         label: "Warehouse",
         path: "/scm/reports/warehouse",
@@ -990,11 +1011,19 @@ const SCM_SOURCE_CATEGORIES: NavCategory[] = [
       },
       {
         id: "scm-movements",
-        label: "Internal Movements",
+        label: "Stock Movements",
         path: "/scm/warehouse/movements",
         icon: ArrowLeftRight,
         icon3d: "overview",
         menuCode: "scm-movements",
+      },
+      {
+        id: "scm-warehouse-stock",
+        label: "Stock View",
+        path: "/scm/warehouse/stock",
+        icon: Table2,
+        icon3d: "overview",
+        menuCode: "scm-warehouse-stock",
       },
       {
         id: "scm-warehouse-activity",
@@ -1296,7 +1325,7 @@ const scmLink = (path: string): NavCategory[] =>
  * Returns / Quality / Reports / Advanced SCM groups. Built from the page
  * list above so every entry keeps its menu-catalogue code (per-user RBAC).
  */
-export const SCM_CATEGORIES: NavCategory[] = [
+const SCM_CATEGORIES_FULL: NavCategory[] = [
   ...scmLink("/scm/overview"),
   ...scmLink("/scm/suppliers"),
   ...scmLink("/scm/barcode"),
@@ -1362,6 +1391,7 @@ export const SCM_CATEGORIES: NavCategory[] = [
   scmGroup("scm-reports-group", "Reports", "Reports", [
     ["/scm/reports", "Overview"],
     ["/scm/reports/procurement"],
+    ["/scm/reports/inventory-warehouse"],
     ["/scm/reports/inventory"],
     ["/scm/reports/warehouse"],
     ["/scm/reports/fulfillment"],
@@ -1375,6 +1405,147 @@ export const SCM_CATEGORIES: NavCategory[] = [
     ["/scm/assistant"],
   ]),
 ];
+
+/**
+ * Projects Navigation Hierarchy
+ */
+export const PROJECTS_CATEGORIES: NavCategory[] = [
+  {
+    id: "projects-overview",
+    label: "Overview",
+    icon: LayoutDashboard,
+    icon3d: "dashboard",
+    iconColor: "text-blue-600",
+    path: "/projects/dashboard",
+    menuCode: "projects-dashboard",
+    children: [
+      {
+        id: "projects-dashboard",
+        label: "Dashboard",
+        path: "/projects/dashboard",
+        icon: LayoutDashboard,
+        icon3d: "dashboard",
+        menuCode: "projects-dashboard",
+      },
+    ],
+  },
+  {
+    id: "projects-projects",
+    label: "Projects",
+    icon: FolderKanban,
+    icon3d: "projects",
+    iconColor: "text-cyan-600",
+    children: [
+      {
+        id: "projects-all",
+        label: "All Projects",
+        path: "/projects/list",
+        icon: FolderKanban,
+        icon3d: "projects",
+        menuCode: "projects-list",
+      },
+      {
+        id: "projects-expenses",
+        label: "Project Expenses",
+        path: "/projects/expenses",
+        icon: Receipt,
+        icon3d: "finance",
+        menuCode: "projects-expenses",
+      },
+      {
+        id: "projects-proposals",
+        label: "Proposal Documents",
+        path: "#",
+        icon: FileText,
+        icon3d: "documents",
+        menuCode: "projects-proposals",
+      },
+      {
+        id: "projects-mom",
+        label: "Minutes of Meeting",
+        path: "#",
+        icon: ClipboardList,
+        icon3d: "tasks",
+        menuCode: "projects-mom",
+      },
+    ],
+  },
+  {
+    id: "projects-team",
+    label: "Team",
+    icon: Users,
+    icon3d: "people",
+    iconColor: "text-indigo-600",
+    children: [
+      {
+        id: "projects-my-work",
+        label: "My Work",
+        path: "/projects/my-work",
+        icon: Clock,
+        icon3d: "tasks",
+        menuCode: "projects-my-work",
+      },
+      {
+        id: "projects-resources",
+        label: "Resource Tracking",
+        path: "/projects/resources",
+        icon: Users,
+        icon3d: "people",
+        menuCode: "projects-resources",
+      },
+    ],
+  },
+  {
+    id: "projects-insights-finance",
+    label: "Insights & Finance",
+    icon: Scale,
+    icon3d: "finance",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "projects-budget",
+        label: "Budget Utilization",
+        path: "/projects/budget-utilization",
+        icon: Scale,
+        icon3d: "overview",
+        menuCode: "projects-budget",
+      },
+      {
+        id: "projects-analytics",
+        label: "Analytics",
+        path: "/projects/analytics",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "projects-analytics",
+      },
+      {
+        id: "projects-points",
+        label: "Points Master",
+        path: "/projects/points-master",
+        icon: Award,
+        icon3d: "tasks",
+        menuCode: "projects-points-master",
+      },
+    ],
+  },
+];
+/** In client-demo mode (see `features/scm/shared/demo-mode.ts`), the SCM
+ * navigation is narrowed to `SCM_DEMO_MENU_CODES` — a leaf not in that set is
+ * hidden (never removed: its route still resolves), and a group left with no
+ * kept leaf disappears entirely. Full SCM (the default) is unfiltered. */
+export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
+  ? SCM_CATEGORIES_FULL.flatMap((cat) => {
+      if (!cat.children) {
+        return cat.menuCode && SCM_DEMO_MENU_CODES.has(cat.menuCode)
+          ? [cat]
+          : [];
+      }
+      const children = cat.children.filter(
+        (child) => child.menuCode && SCM_DEMO_MENU_CODES.has(child.menuCode),
+      );
+      return children.length > 0 ? [{ ...cat, children }] : [];
+    })
+  : SCM_CATEGORIES_FULL;
 
 const ERP_MODULES: ErpModuleConfig[] = [
   {
@@ -1442,8 +1613,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Projects",
     icon: FolderKanban,
     icon3d: "projects",
-    path: "#",
-    available: false,
+    path: "/projects/dashboard",
+    available: true,
+    categories: PROJECTS_CATEGORIES,
   },
   {
     id: "master-list",
@@ -1452,6 +1624,13 @@ const ERP_MODULES: ErpModuleConfig[] = [
     icon3d: "master-list",
     path: "#",
     available: false,
+  },
+  {
+    id: "master-list",
+    label: "Master List",
+    icon: ClipboardList,
+    path: "/settings/sales-settings",
+    available: true,
   },
   {
     id: "settings",
@@ -1548,6 +1727,9 @@ function findRouteNavigationState(pathname: string) {
   ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
+  if (pathname.startsWith("/settings/sales-settings")) {
+    return { moduleId: "master-list", categoryId: null, leafId: null };
+  }
   if (
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/roles") ||
@@ -1564,6 +1746,13 @@ function findRouteNavigationState(pathname: string) {
         ? "crm-dashboard"
         : null,
       leafId: null,
+    };
+  }
+  if (pathname.startsWith("/projects")) {
+    return {
+      moduleId: "projects",
+      categoryId: "projects-projects",
+      leafId: "projects-all",
     };
   }
   if (pathname.startsWith("/admin")) {
@@ -1762,8 +1951,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       return categories
         .map((cat) => {
           if (cat.children) {
-            const filteredChildren = cat.children.filter((child) =>
-              allowedCodes.has(child.menuCode),
+            const filteredChildren = cat.children.filter(
+              (child) =>
+                allowedCodes.has(child.menuCode) ||
+                child.path === "#" ||
+                !child.menuCode,
             );
             return {
               ...cat,
@@ -1968,7 +2160,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     // CRM and SCM: clicking the top-level item opens the module's landing page
     // (CRM dashboard / SCM overview) AND keeps the category dropdown pinned
     // open until the user clicks outside / Escape.
-    if (mod.id === "crm" || mod.id === "inventory") {
+    if (mod.id === "crm" || mod.id === "inventory" || mod.id === "projects") {
+      if (pinnedModuleId === mod.id) {
+        setPinnedModuleId(null);
+        setHoveredModuleId(null);
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+        return;
+      }
       setPinnedModuleId(mod.id);
       setHoveredModuleId(mod.id);
       setPinnedCategoryId(null);

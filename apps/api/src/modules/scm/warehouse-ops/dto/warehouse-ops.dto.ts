@@ -164,3 +164,53 @@ export class QueryActivityDto extends PaginationDto {
   @IsString()
   q?: string;
 }
+
+export class StockViewQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  warehouseId?: number;
+
+  @ApiPropertyOptional({
+    description: "Matches product code/name or location code",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  q?: string;
+}
+
+/** Write a quantity of stock off from one bin (or the unassigned bucket). */
+export class StockWriteOffDto {
+  @ApiProperty()
+  @IsInt()
+  @Min(1)
+  productId!: number;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(1)
+  warehouseId!: number;
+
+  @ApiPropertyOptional({
+    description: "Omit for the warehouse's unassigned stock",
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  locationId?: number;
+
+  @ApiProperty()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
+  quantity!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 500)
+  notes?: string;
+}

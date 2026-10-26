@@ -19,9 +19,10 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { usePickingAction, usePickings } from "../hooks";
+import { useDeletePicking, usePickingAction, usePickings } from "../hooks";
 
 import { ScmPanel } from "../../shared/ScmPanel";
 /** Legacy `ScmPicking`: work through a pick list and record picked quantity. */
@@ -32,6 +33,8 @@ export function PickingsView() {
   const [assigning, setAssigning] = useState<Picking | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.fulfillment.write");
+  const deletingRowRemove = useDeletePicking();
+  const [deletingRow, setDeletingRow] = useState<Picking | null>(null);
   const act = usePickingAction();
   const query = usePickings({
     page: c.page,
@@ -175,8 +178,37 @@ export function PickingsView() {
               </div>
             ) : null,
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete pick list"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Picking>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete pick list?"
+        describe={(r) =>
+          `Permanently delete pick list ${r.pickNumber}? This cannot be undone. Blocked automatically if a packing already references it.`
+        }
+        confirmText="Delete pick list"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Pick list deleted"
+        errorFallback="Failed to delete pick list"
+      />
       <ScmFormDialog
         open={Boolean(assigning)}
         onClose={() => setAssigning(null)}

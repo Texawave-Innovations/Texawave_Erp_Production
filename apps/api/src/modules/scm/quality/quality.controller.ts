@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -73,6 +75,13 @@ export class QualityDefectsController {
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateDefectDto) {
     return this.svc.updateDefect(id, dto);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.quality.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeDefect(id);
+  }
 }
 
 /** Legacy `ScmQualityTemplates`. */
@@ -106,6 +115,13 @@ export class QualityTemplatesController {
     @Body() dto: UpdateTemplateDto,
   ) {
     return this.svc.updateTemplate(id, dto);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.quality.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeTemplate(id);
   }
 }
 
@@ -169,6 +185,13 @@ export class QualityInspectionsController {
   complete(@Param("id", ParseIntPipe) id: number) {
     return this.svc.completeInspection(id);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.quality.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeInspection(id);
+  }
 }
 
 /** Legacy `ScmQualityQuarantine`. */
@@ -205,5 +228,12 @@ export class QualityQuarantineController {
     @Body() dto: QuarantineActionDto,
   ) {
     return this.svc.rejectQuarantine(id, dto.notes);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.quality.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeQuarantine(id);
   }
 }

@@ -461,6 +461,7 @@ export function ReportsIcon() {
 const STAGE_ILLUSTRATIONS: Record<string, () => ReactElement> = {
   suppliers: SuppliersIcon,
   procurement: ProcurementIcon,
+  "goods-receipt": LogisticsIcon,
   "inventory-warehouse": WarehouseIcon,
   orders: SalesIcon,
   quality: QualityIcon,

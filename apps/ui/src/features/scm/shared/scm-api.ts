@@ -37,3 +37,9 @@ export async function scmPut<T>(path: string, body?: object): Promise<T> {
 export async function scmDelete(path: string): Promise<void> {
   await withAuthRetry(() => apiClient.delete<void>(path));
 }
+
+/** DELETE that returns a body (e.g. how many child records went with it). */
+export async function scmDeleteData<T>(path: string): Promise<T> {
+  const { data } = await withAuthRetry(() => apiClient.delete<T>(path));
+  return data;
+}

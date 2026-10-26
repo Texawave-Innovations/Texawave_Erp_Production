@@ -14,27 +14,48 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { formatMoney, formatQty, scmStatusToken } from "../../shared/format";
-import { WarehouseSelect } from "../../shared/masters";
+import { useDeleteScmProduct } from "../../products/hooks";
+import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
+import {
+  useProductOptions,
+  useWarehouseOptions,
+  WarehouseSelect,
+} from "../../shared/masters";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import { useOverview, useOverviewKpis, usePostOpeningBalance } from "../hooks";
+
+/** Status-filter value (not a stock status) for rows holding rejected / bad units. */
+const HAS_BAD_STOCK = "HAS_BAD_STOCK";
 
 /** Legacy `ScmStockOverview`: KPI cards, filterable stock table by product
  * and warehouse, and the "Post Opening Balance" action. */
 export function StockOverviewView() {
   const c = useListControls();
   const [warehouseId, setWarehouseId] = useState<number | "">("");
-  const [status, setStatus] = useState<StockStatus | "">("");
+  const [status, setStatus] = useState<StockStatus | typeof HAS_BAD_STOCK | "">(
+    "",
+  );
   const [openingOpen, setOpeningOpen] = useState(false);
+  const [deleting, setDeleting] = useState<InventoryRow | null>(null);
+  const warehouseOptions = useWarehouseOptions();
+  const productOptions = useProductOptions();
+  const removeProduct = useDeleteScmProduct();
   const { toast } = useToast();
   const canWrite = usePermission("scm.inventory.write");
+  const canProductWrite = usePermission("scm.product.write");
   const post = usePostOpeningBalance();
 
   const filters = {
     q: c.q,
     warehouseId: warehouseId === "" ? undefined : warehouseId,
-    stockStatus: status === "" ? undefined : status,
+    stockStatus:
+      status === "" || status === HAS_BAD_STOCK
+        ? undefined
+        : (status as StockStatus),
+    hasBadStock: status === HAS_BAD_STOCK ? true : undefined,
   };
   const query = useOverview({ ...filters, page: c.page, limit: c.pageSize });
   const kpis = useOverviewKpis({ q: c.q, warehouseId: filters.warehouseId });
@@ -64,7 +85,25 @@ export function StockOverviewView() {
           <Button
             size="sm"
             className="gap-2"
-            onClick={() => setOpeningOpen(true)}
+            onClick={() => {
+              if ((warehouseOptions.data ?? []).length === 0) {
+                toast({
+                  title:
+                    "Create a warehouse first (Warehouse → Warehouses) before posting an opening balance.",
+                  variant: "error",
+                });
+                return;
+              }
+              if ((productOptions.data ?? []).length === 0) {
+                toast({
+                  title:
+                    "No products in the catalog yet — add a product first, then post its opening balance.",
+                  variant: "error",
+                });
+                return;
+              }
+              setOpeningOpen(true);
+            }}
           >
             <PackagePlus className="h-4 w-4" />
             Post Opening Balance
@@ -73,7 +112,7 @@ export function StockOverviewView() {
       }
       summary={
         k ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
             <StatCard
               headingId="kpi-value"
               label="Total Value"
@@ -116,6 +155,13 @@ export function StockOverviewView() {
               tone="error"
             />
             <StatCard
+              headingId="kpi-bad"
+              label="Rejected / Bad Stock"
+              value={formatQty(k.bad)}
+              note="Rejected at receipt, damaged or QC-rejected"
+              tone={k.bad > 0 ? "error" : "neutral"}
+            />
+            <StatCard
               headingId="kpi-incoming"
               label="Incoming"
               value={formatQty(k.incoming)}
@@ -132,27 +178,33 @@ export function StockOverviewView() {
       }}
       filters={
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {SCM_CLIENT_DEMO ||
+          (warehouseOptions.data ?? []).length <= 1 ? null : (
+            <div className="w-full sm:w-52">
+              <WarehouseSelect
+                aria-label="Filter by warehouse"
+                placeholder="All warehouses"
+                value={warehouseId}
+                onChange={(v) => {
+                  setWarehouseId(v);
+                  c.setPage(1);
+                }}
+              />
+            </div>
+          )}
           <div className="w-full sm:w-52">
-            <WarehouseSelect
-              aria-label="Filter by warehouse"
-              placeholder="All warehouses"
-              value={warehouseId}
-              onChange={(v) => {
-                setWarehouseId(v);
-                c.setPage(1);
-              }}
-            />
-          </div>
-          <div className="w-full sm:w-44">
             <Select
               aria-label="Filter by stock status"
               value={status}
               onChange={(e) => {
-                setStatus(e.target.value as StockStatus | "");
+                setStatus(
+                  e.target.value as StockStatus | typeof HAS_BAD_STOCK | "",
+                );
                 c.setPage(1);
               }}
             >
               <option value="">All statuses</option>
+              <option value={HAS_BAD_STOCK}>Has Rejected / Bad Stock</option>
               {STOCK_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -185,7 +237,14 @@ export function StockOverviewView() {
             </div>
           ),
         },
-        { header: "Warehouse", cell: (r) => r.warehouseName },
+        ...(SCM_CLIENT_DEMO
+          ? []
+          : [
+              {
+                header: "Warehouse",
+                cell: (r: InventoryRow) => r.warehouseName,
+              },
+            ]),
         { header: "On Hand", align: "right", cell: (r) => formatQty(r.onHand) },
         {
           header: "Reserved",
@@ -203,9 +262,14 @@ export function StockOverviewView() {
           cell: (r) => (r.incoming > 0 ? formatQty(r.incoming) : "—"),
         },
         {
-          header: "Damaged",
+          header: "Rejected / Bad",
           align: "right",
-          cell: (r) => (r.damaged > 0 ? formatQty(r.damaged) : "—"),
+          cell: (r) =>
+            r.damaged > 0 ? (
+              <StatusBadge label={formatQty(r.damaged)} colorToken="error" />
+            ) : (
+              "—"
+            ),
         },
         {
           header: "Quarantine",
@@ -226,8 +290,34 @@ export function StockOverviewView() {
             />
           ),
         },
+        {
+          header: "Actions",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canProductWrite ? (
+              <div className="flex justify-end">
+                <ScmDeleteButton
+                  label="Delete product"
+                  onClick={() => setDeleting(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<InventoryRow>
+        target={deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete product?"
+        describe={(r) =>
+          `Delete ${r.productName} (${r.productCode}) from the catalog? Products with stock history can't be deleted — mark them inactive instead.`
+        }
+        confirmText="Delete product"
+        run={(r) => removeProduct.mutateAsync(r.productId)}
+        successMessage="Product deleted"
+        errorFallback="Could not delete product"
+      />
       <ScmFormDialog
         open={openingOpen}
         onClose={() => setOpeningOpen(false)}

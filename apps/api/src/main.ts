@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { json } from "express";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module.js";
 
@@ -10,6 +11,12 @@ async function bootstrap() {
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));
+
+  // Express's default json() limit (100kb) is too small for the base64
+  // data-URI image uploads used by seal/signature masterlists and similar
+  // features — raised so those requests reach controller validation
+  // instead of failing with a generic 413 before it.
+  app.use(json({ limit: "5mb" }));
 
   const config = app.get(ConfigService);
 

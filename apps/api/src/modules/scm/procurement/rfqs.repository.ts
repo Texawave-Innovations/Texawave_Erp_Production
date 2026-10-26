@@ -265,4 +265,35 @@ export class RfqsRepository {
     }
     return next;
   }
+
+  /** Deletes an RFQ. Refused while any supplier quotation exists against it. */
+  @OrgScoped()
+  async remove(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const rfq = await tx.scmRfq.findFirst({
+        where: tenantWhere(scope, { id }),
+        include: { _count: { select: { quotations: true } } },
+      });
+      if (!rfq) return false;
+      if (rfq._count.quotations > 0) {
+        throw new BusinessRuleViolationException(
+          `Cannot delete — ${rfq._count.quotations} supplier quotation(s) exist against this RFQ.`,
+          "RFQ_HAS_QUOTATIONS",
+        );
+      }
+      await tx.scmQuotationComparison.deleteMany({ where: { rfqId: id } });
+      await tx.scmPurchaseOrder.updateMany({
+        where: { rfqId: id, organizationId: scope.organizationId },
+        data: { rfqId: null },
+      });
+      await tx.scmRfq.delete({ where: { id } });
+      await this.audit.write(tx, {
+        entityType: "scm_rfq",
+        entityId: id,
+        action: "delete",
+        before: { rfqNumber: rfq.rfqNumber, by: actorId },
+      });
+      return true;
+    });
+  }
 }

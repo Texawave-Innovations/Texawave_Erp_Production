@@ -198,4 +198,13 @@ export class LogisticsService {
       await this.shipments.cancel(this.scope, id, reason.trim(), this.actor),
     );
   }
+
+  async removeCarrier(id: number) {
+    const ok = await this.carriers.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Carrier", id);
+  }
+  async removeShipment(id: number) {
+    const ok = await this.shipments.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Shipment", id);
+  }
 }

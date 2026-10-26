@@ -14,9 +14,14 @@ import {
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
-import { useQuarantine, useQuarantineAction } from "../hooks";
+import {
+  useDeleteQuarantine,
+  useQuarantine,
+  useQuarantineAction,
+} from "../hooks";
 
 /** Legacy `ScmQualityQuarantine`: stock held pending a quality decision. */
 export function QuarantineView() {
@@ -31,6 +36,8 @@ export function QuarantineView() {
   } | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.quality.write");
+  const deletingRowRemove = useDeleteQuarantine();
+  const [deletingRow, setDeletingRow] = useState<QuarantineRecord | null>(null);
   const canApprove = usePermission("scm.quality.approve");
   const act = useQuarantineAction();
   const query = useQuarantine({
@@ -161,8 +168,37 @@ export function QuarantineView() {
             </div>
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete quarantine record"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<QuarantineRecord>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete quarantine record?"
+        describe={(r) =>
+          `Delete the quarantine record for ${r.productName}? This cannot be undone. A released or rejected record has already posted a stock ledger entry and cannot be deleted.`
+        }
+        confirmText="Delete record"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Quarantine record deleted"
+        errorFallback="Failed to delete quarantine record"
+      />
       <ScmFormDialog
         open={Boolean(acting)}
         onClose={() => setActing(null)}

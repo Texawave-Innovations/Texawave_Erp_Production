@@ -1,5 +1,6 @@
 "use client";
 
+import type { AdjustmentDirection } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -13,9 +14,20 @@ import {
   StatusBadge,
   Tabs,
 } from "@texawave-erp/ui-kit";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  expiryTone,
+  formatProductExpiry,
+  productExpiryInfo,
+} from "../../shared/expiry";
+import { useLocationStock } from "../../warehouses/hooks";
+import { useLocationOptions, useWarehouseOptions } from "../../shared/masters";
+import { ProductBarcodeCard } from "./ProductBarcodeCard";
+import { ProductBinCard, ProductExpiryCard } from "./ProductPlacementCards";
+import { ReserveStockDialog, StockAdjustDialog } from "./ProductStockDialogs";
 import {
   formatDate,
   formatDateTime,
@@ -35,10 +47,36 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 /** Legacy `ScmInventoryDetail`: one product's stock across warehouses, its
- * recent ledger movements, batches and serial counts. */
+ * recent ledger movements, batches and serial counts — plus the product's
+ * bin location, life & expiry, and inline On Hand / Reserved / Rejected-Bad
+ * edits. */
 export function InventoryProductDetail({ productId }: { productId: number }) {
   const [tab, setTab] = useState<TabId>("stock");
   const query = useInventoryProductDetail(productId);
+  const canWrite = usePermission("scm.inventory.write");
+  const canEditProduct = usePermission("scm.product.write");
+  const warehousesQuery = useWarehouseOptions();
+  const locationsQuery = useLocationOptions();
+  const locationStock = useLocationStock();
+  const warehouses = useMemo(
+    () => warehousesQuery.data ?? [],
+    [warehousesQuery.data],
+  );
+  const locations = useMemo(
+    () => locationsQuery.data ?? [],
+    [locationsQuery.data],
+  );
+  const [adjustDirection, setAdjustDirection] =
+    useState<AdjustmentDirection | null>(null);
+  const [reserveOpen, setReserveOpen] = useState(false);
+
+  const stockWarehouseIds = useMemo(
+    () =>
+      (query.data?.rows ?? [])
+        .filter((r) => r.onHand > 0)
+        .map((r) => r.warehouseId),
+    [query.data],
+  );
 
   if (query.isPending) {
     return (
@@ -78,16 +116,40 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
     return <ErrorState onRetry={() => void query.refetch()} />;
   }
 
-  const { product, rows, ledger, batches, serialCounts } = query.data;
+  const { rows, ledger, batches, serialCounts } = query.data;
+  const productRecord = query.data.product;
+  const expiryInfo = productExpiryInfo(batches, productRecord);
+  const locById = new Map(locations.map((l) => [l.id, l]));
+  // Where the product actually sits: bins holding its stock, plus the default bin.
+  const binIds = new Set<number>();
+  for (const r of locationStock.data ?? []) {
+    if (r.product.id === productRecord.id) binIds.add(r.locationId);
+  }
+  if (productRecord.binLocationId) binIds.add(productRecord.binLocationId);
+  const binLabels = [...binIds]
+    .map((id) => locById.get(id))
+    .filter((l): l is NonNullable<typeof l> => Boolean(l))
+    .map((l) => l.locationCode ?? l.binCode)
+    .sort();
+  const lastUpdatedMs = Math.max(
+    new Date(productRecord.updatedAt).getTime(),
+    ledger[0] ? new Date(ledger[0].transactionDate).getTime() : 0,
+  );
+  const defaultWarehouseId =
+    rows.find((r) => r.onHand > 0)?.warehouseId ??
+    productRecord.warehouseId ??
+    rows[0]?.warehouseId ??
+    null;
   const total = rows.reduce(
     (acc, r) => ({
       onHand: acc.onHand + r.onHand,
       reserved: acc.reserved + r.reserved,
       available: acc.available + r.available,
       incoming: acc.incoming + r.incoming,
+      damaged: acc.damaged + r.damaged,
       value: acc.value + r.value,
     }),
-    { onHand: 0, reserved: 0, available: 0, incoming: 0, value: 0 },
+    { onHand: 0, reserved: 0, available: 0, incoming: 0, damaged: 0, value: 0 },
   );
 
   return (
@@ -103,30 +165,78 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
               <ArrowLeft className="h-4 w-4" />
             </span>
             <h1 className="text-title-sm sm:text-title-md font-bold tracking-tight text-gray-900 dark:text-white/90">
-              {product.name}
+              {productRecord.name}
             </h1>
           </Link>
           <p className="font-mono text-theme-sm text-gray-500 dark:text-gray-400">
-            {product.productCode} · {product.uom}
-            {product.category ? ` · ${product.category}` : ""}
+            {productRecord.productCode} · {productRecord.uom}
+            {productRecord.category ? ` · ${productRecord.category}` : ""}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-theme-sm text-gray-500 dark:text-gray-400">
+            {productRecord.category ? (
+              <span>
+                Category:{" "}
+                <span className="font-medium text-gray-900 dark:text-white/90">
+                  {productRecord.category}
+                </span>
+              </span>
+            ) : null}
+            <span>
+              UOM:{" "}
+              <span className="font-medium text-gray-900 dark:text-white/90">
+                {productRecord.uom}
+              </span>
+            </span>
+            <span>
+              Bin Location(s):{" "}
+              <span className="font-medium text-gray-900 dark:text-white/90">
+                {binLabels.length ? binLabels.join(", ") : "Not tracked"}
+              </span>
+            </span>
+            <span>
+              Expiry:{" "}
+              <span className={`font-medium ${expiryTone(expiryInfo.status)}`}>
+                {formatProductExpiry(expiryInfo)}
+              </span>
+            </span>
+            <span>
+              Last Updated:{" "}
+              <span className="font-medium text-gray-900 dark:text-white/90">
+                {lastUpdatedMs
+                  ? formatDateTime(new Date(lastUpdatedMs).toISOString())
+                  : "—"}
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard
-          headingId="d-onhand"
-          label="On Hand"
-          value={formatQty(total.onHand)}
-          note="All warehouses"
-        />
-        <StatCard
-          headingId="d-reserved"
-          label="Reserved"
-          value={formatQty(total.reserved)}
-          note="Held for orders"
-          tone="blue"
-        />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <EditableStat
+          canEdit={canWrite}
+          title="Request a stock adjustment"
+          onEdit={() => setAdjustDirection("IN")}
+        >
+          <StatCard
+            headingId="d-onhand"
+            label="On Hand"
+            value={formatQty(total.onHand)}
+            note="All warehouses"
+          />
+        </EditableStat>
+        <EditableStat
+          canEdit={canWrite}
+          title="Reserve stock"
+          onEdit={() => setReserveOpen(true)}
+        >
+          <StatCard
+            headingId="d-reserved"
+            label="Reserved"
+            value={formatQty(total.reserved)}
+            note="Held for orders"
+            tone="blue"
+          />
+        </EditableStat>
         <StatCard
           headingId="d-available"
           label="Available"
@@ -134,6 +244,19 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
           note="On hand − reserved"
           tone="success"
         />
+        <EditableStat
+          canEdit={canWrite}
+          title="Request a write-off adjustment"
+          onEdit={() => setAdjustDirection("OUT")}
+        >
+          <StatCard
+            headingId="d-bad"
+            label="Rejected / Bad"
+            value={formatQty(total.damaged)}
+            note="Rejected, damaged or QC-rejected"
+            tone={total.damaged > 0 ? "error" : "neutral"}
+          />
+        </EditableStat>
         <StatCard
           headingId="d-incoming"
           label="Incoming"
@@ -149,6 +272,48 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
           tone="brand"
         />
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ProductBinCard
+          product={productRecord}
+          warehouses={warehouses}
+          locations={locations}
+          stockWarehouseIds={stockWarehouseIds}
+          canEdit={canEditProduct}
+          lotTracked={
+            batches.length > 0 || Object.keys(serialCounts).length > 0
+          }
+        />
+        <ProductExpiryCard
+          product={productRecord}
+          expiryInfo={expiryInfo}
+          canEdit={canEditProduct}
+        />
+        <ProductBarcodeCard
+          product={productRecord}
+          expiryInfo={expiryInfo}
+          canEdit={canEditProduct}
+          batchDated={batches.length > 0}
+        />
+      </div>
+
+      <StockAdjustDialog
+        open={adjustDirection !== null}
+        onClose={() => setAdjustDirection(null)}
+        direction={adjustDirection ?? "IN"}
+        productId={productRecord.id}
+        productLabel={`${productRecord.name} (${productRecord.productCode})`}
+        warehouses={warehouses}
+        defaultWarehouseId={defaultWarehouseId}
+      />
+      <ReserveStockDialog
+        open={reserveOpen}
+        onClose={() => setReserveOpen(false)}
+        productId={productRecord.id}
+        productLabel={`${productRecord.name} (${productRecord.productCode})`}
+        warehouses={warehouses}
+        defaultWarehouseId={defaultWarehouseId}
+      />
 
       <Tabs
         label="Product inventory sections"
@@ -185,7 +350,7 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
                 cell: (r) => formatQty(r.incoming),
               },
               {
-                header: "Damaged",
+                header: "Rejected / Bad",
                 align: "right",
                 cell: (r) => formatQty(r.damaged),
               },
@@ -253,10 +418,12 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
             <Card>
               <EmptyState
                 title={
-                  product.batchTracked ? "No batches yet" : "Not batch tracked"
+                  productRecord.batchTracked
+                    ? "No batches yet"
+                    : "Not batch tracked"
                 }
                 description={
-                  product.batchTracked
+                  productRecord.batchTracked
                     ? "Batches appear here once received through a GRN or registered manually."
                     : "Enable batch tracking on the product to manage lots."
                 }
@@ -275,6 +442,15 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
                       {b.batchNumber}
                     </span>
                   ),
+                },
+                {
+                  header: "Bin",
+                  cell: (b) => {
+                    const loc = b.locationId
+                      ? locById.get(b.locationId)
+                      : undefined;
+                    return loc ? (loc.locationCode ?? loc.binCode) : "—";
+                  },
                 },
                 { header: "Expiry", cell: (b) => formatDate(b.expiryDate) },
                 {
@@ -301,12 +477,12 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
             <Card>
               <EmptyState
                 title={
-                  product.serialTracked
+                  productRecord.serialTracked
                     ? "No serial numbers yet"
                     : "Not serial tracked"
                 }
                 description={
-                  product.serialTracked
+                  productRecord.serialTracked
                     ? "Serial numbers appear here once received through a GRN or added manually."
                     : "Enable serial tracking on the product to manage serial numbers."
                 }
@@ -327,6 +503,36 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
           )
         ) : null}
       </Tabs>
+    </div>
+  );
+}
+
+/** A KPI card with a small pencil that opens the matching stock edit. */
+function EditableStat({
+  canEdit,
+  title,
+  onEdit,
+  children,
+}: {
+  canEdit: boolean;
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      {children}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          title={title}
+          aria-label={title}
+          className="absolute right-3 top-3 text-gray-400 transition-colors hover:text-brand-600"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

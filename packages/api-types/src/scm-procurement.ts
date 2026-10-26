@@ -53,6 +53,16 @@ export interface PurchaseRequisition {
   createdAt: string;
   items: RequisitionItem[];
   warehouse?: { id: number; name: string; code: string };
+  /** POs raised from this requisition (cancelled ones included). */
+  purchaseOrders?: RequisitionLinkedPo[];
+}
+
+export interface RequisitionLinkedPo {
+  id: number;
+  poNumber: string;
+  vendorNameSnapshot: string;
+  status: PoStatus;
+  items: { productId: number; quantity: string; receivedQuantity: string }[];
 }
 
 export interface RequisitionPayload {
@@ -271,6 +281,8 @@ export interface PurchaseOrder {
   vendorGstinSnapshot: string | null;
   rfqId: number | null;
   quotationId: number | null;
+  requisitionId: number | null;
+  requisitionNumber: string | null;
   poDate: string;
   expectedDeliveryDate: string | null;
   warehouseId: number;
@@ -292,11 +304,20 @@ export interface PurchaseOrder {
   warehouse?: { id: number; name: string; code: string };
   quotation?: { id: number; quotationNumber: string } | null;
   rfq?: { id: number; rfqNumber: string } | null;
+  requisition?: {
+    id: number;
+    requisitionNumber: string;
+    requestedByName: string;
+    department: string | null;
+    purpose: string | null;
+  } | null;
   _count?: { receipts: number };
 }
 
 export interface CreatePurchaseOrderInput {
   quotationId?: number | undefined;
+  /** Material Requisition to link; it flips to CONVERTED. */
+  requisitionId?: number | undefined;
   supplierId?: number | undefined;
   poDate: string;
   expectedDeliveryDate?: string | undefined;
@@ -324,6 +345,7 @@ export interface QueryPurchaseOrdersInput {
   q?: string | undefined;
   status?: PoStatus | undefined;
   supplierId?: number | undefined;
+  requisitionId?: number | undefined;
   receivable?: string | undefined;
 }
 

@@ -53,6 +53,11 @@ module.exports = {
         "hr",
         "employees",
         "attendance",
+        // Sales Settings foundation (Company Detail, Document Numbering,
+        // Seals & Signatures, Terms & Inventory) — apps/api/src/modules/sales-settings.
+        "sales-settings",
+        // Finance Master foundation (Expense Types, Payment Modes) — apps/api/src/modules/finance-settings.
+        "finance-settings",
         // Business-module scope for the CRM migration (Accounts, Contacts,
         // Leads, Pipeline/Opportunities, Products, Quotations — see
         // Docs/CRM_*_PARITY.md).

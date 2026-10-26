@@ -8,6 +8,7 @@ import {
 } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { ScmProductsService } from "../products/products.service.js";
+import { PurchaseRequisitionsService } from "./purchase-requisitions.service.js";
 import { SuppliersService } from "../suppliers/suppliers.service.js";
 import { WarehousesService } from "../warehouses/warehouses.service.js";
 import type {
@@ -20,6 +21,7 @@ import {
   CANCELLABLE_PO_STATUSES,
   CLOSABLE_PO_STATUSES,
   documentTotals,
+  LINKABLE_REQUISITION_STATUSES,
   lineTotal,
   RECEIVABLE_PO_STATUSES,
 } from "./procurement.helpers.js";
@@ -38,6 +40,7 @@ export class PurchaseOrdersService {
     private readonly suppliers: SuppliersService,
     private readonly warehouses: WarehousesService,
     private readonly quotations: SupplierQuotationsService,
+    private readonly requisitions: PurchaseRequisitionsService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -55,6 +58,7 @@ export class PurchaseOrdersService {
         q: query.q,
         status: query.status,
         supplierId: query.supplierId,
+        requisitionId: query.requisitionId,
         statusIn: query.receivable ? RECEIVABLE_PO_STATUSES : undefined,
       },
       query,
@@ -155,6 +159,22 @@ export class PurchaseOrdersService {
       );
     }
 
+    let requisition: { id: number; requisitionNumber: string } | undefined;
+    if (dto.requisitionId) {
+      const mr = await this.requisitions.findOne(dto.requisitionId);
+      if (
+        !(LINKABLE_REQUISITION_STATUSES as readonly string[]).includes(
+          mr.status,
+        )
+      ) {
+        throw new BusinessRuleViolationException(
+          `Requisition ${mr.requisitionNumber} is ${mr.status.toLowerCase()} and cannot be linked to a purchase order.`,
+          "REQUISITION_NOT_LINKABLE",
+        );
+      }
+      requisition = { id: mr.id, requisitionNumber: mr.requisitionNumber };
+    }
+
     const supplier = await this.suppliers.findOne(supplierId as number);
     if (!isSupplierActive(supplier.status)) {
       throw new BusinessRuleViolationException(
@@ -185,6 +205,8 @@ export class PurchaseOrdersService {
           vendorGstin: supplier.gstin,
           rfqId,
           quotationId: dto.quotationId,
+          requisitionId: requisition?.id,
+          requisitionNumber: requisition?.requisitionNumber,
           poDate: dto.poDate,
           expectedDeliveryDate: dto.expectedDeliveryDate,
           warehouseId: dto.warehouseId,
@@ -271,5 +293,11 @@ export class PurchaseOrdersService {
         this.actor,
       ),
     );
+  }
+
+  async remove(id: number) {
+    const result = await this.repository.remove(this.scope, id, this.actor);
+    if (!result) throw new ResourceNotFoundException("Purchase order", id);
+    return result;
   }
 }

@@ -7,7 +7,7 @@ import type {
   PackingPayload,
   Picking,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPost } from "../shared/scm-api";
+import { scmDelete, scmGet, scmPost } from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 export interface FulfillmentQuery {
@@ -88,3 +88,12 @@ export const usePackingAction = () =>
   useScmMutation(({ id, action }: { id: number; action: "cancel" }) =>
     scmPost<Packing>(`/scm/packings/${id}/${action}`),
   );
+
+export const useDeleteFulfillment = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/fulfillments/${id}`));
+
+export const useDeletePicking = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/pickings/${id}`));
+
+export const useDeletePacking = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/packings/${id}`));

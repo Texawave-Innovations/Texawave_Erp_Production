@@ -1,26 +1,33 @@
 import { z } from "zod";
 
 /** Mirrors apps/api/src/modules/employee-self-service/profile/dto/*.ts — same
- * formats and messages, so the wizard rejects exactly what the API rejects. */
-const mobile = z
+ * formats and messages, so the wizard rejects exactly what the API rejects.
+ * Exported so other features validate phone numbers the same way instead of
+ * hand-rolling their own regex. */
+export const mobile = z
   .string()
   .trim()
   .regex(
     /^[6-9]\d{9}$/,
     "Enter a valid 10-digit mobile number starting with 6 to 9.",
   );
-const requiredText = (max = 100) =>
+/** Same format as `mobile`, but absent/empty is fine. */
+export const optionalMobile = mobile.or(z.literal("")).optional();
+/** Shared "required, trimmed, bounded-length" string rule — reuse this
+ * instead of hand-rolling `.trim().min(1).max()` elsewhere. */
+export const requiredText = (max = 100) =>
   z
     .string()
     .trim()
     .min(1, "This field is required.")
     .max(max, `Must be at most ${max} characters.`);
-const NAME_RE = /^[A-Za-z][A-Za-z .'-]*$/;
-const NAME_MSG = "Enter a valid name (letters only).";
+export const NAME_RE = /^[A-Za-z][A-Za-z .'-]*$/;
+export const NAME_MSG = "Enter a valid name (letters only).";
 /** Letters, spaces, and . ' - only — no digits or other symbols. */
-const requiredName = (max = 100) => requiredText(max).regex(NAME_RE, NAME_MSG);
+export const requiredName = (max = 100) =>
+  requiredText(max).regex(NAME_RE, NAME_MSG);
 /** Same character set as requiredName, but absent/empty is fine. */
-const optionalName = (max = 100) =>
+export const optionalName = (max = 100) =>
   z
     .string()
     .trim()
@@ -28,6 +35,19 @@ const optionalName = (max = 100) =>
     .regex(NAME_RE, NAME_MSG)
     .or(z.literal(""))
     .optional();
+const PINCODE_RE = /^[1-9]\d{5}$/;
+export const pincode = z
+  .string()
+  .trim()
+  .regex(PINCODE_RE, "Enter a valid 6-digit pincode.");
+/** Same format as `pincode`, but absent/empty is fine. */
+export const optionalPincode = pincode.or(z.literal("")).optional();
+const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
+const PAN_MSG =
+  "PAN must be 5 letters, 4 digits, then 1 letter (for example ABCDE1234F).";
+export const pan = z.string().trim().toUpperCase().regex(PAN_RE, PAN_MSG);
+/** Same format as `pan`, but absent/empty is fine. */
+export const optionalPan = pan.or(z.literal("")).optional();
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date (YYYY-MM-DD).");
@@ -55,10 +75,7 @@ export const addressSchema = z.object({
   district: requiredName(),
   city: requiredName(),
   state: requiredName(),
-  pincode: z
-    .string()
-    .trim()
-    .regex(/^[1-9]\d{5}$/, "Enter a valid 6-digit pincode."),
+  pincode,
 });
 export type AddressValues = z.infer<typeof addressSchema>;
 
@@ -86,14 +103,7 @@ export const governmentIdsSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{12}$/, "Aadhaar number must be exactly 12 digits."),
-  panNumber: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(
-      /^[A-Z]{5}\d{4}[A-Z]$/,
-      "PAN must be 5 letters, 4 digits, then 1 letter (for example ABCDE1234F).",
-    ),
+  panNumber: pan,
   esiNumber: z
     .string()
     .trim()

@@ -292,6 +292,14 @@ export class QueryOverviewDto extends PaginationDto {
   @IsOptional()
   @IsIn(STOCK_STATUSES)
   stockStatus?: (typeof STOCK_STATUSES)[number];
+
+  @ApiPropertyOptional({
+    description: "Only rows holding rejected / bad (damaged) units",
+  })
+  @IsOptional()
+  @QueryBoolean()
+  @IsBoolean()
+  hasBadStock?: boolean;
 }
 
 export class QueryLedgerDto extends PaginationDto {

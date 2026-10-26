@@ -19,10 +19,12 @@ import {
 } from "../../shared/format";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
+import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
 import {
   useCarrierOptions,
+  useDeleteShipment,
   useShipment,
   useShipmentAction,
   useShipments,
@@ -48,6 +50,8 @@ export function ShipmentsView() {
   const [dlg, setDlg] = useState<Dlg>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.logistics.write");
+  const deletingRowRemove = useDeleteShipment();
+  const [deletingRow, setDeletingRow] = useState<Shipment | null>(null);
   const act = useShipmentAction();
   const carriers = useCarrierOptions();
   const detail = useShipment(viewingId);
@@ -214,8 +218,37 @@ export function ShipmentsView() {
             />
           ),
         },
+        {
+          header: "",
+          headerClassName: "text-right",
+          className: "text-right",
+          cell: (r) =>
+            canWrite ? (
+              <div
+                className="flex justify-end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ScmDeleteButton
+                  label="Delete shipment"
+                  onClick={() => setDeletingRow(r)}
+                />
+              </div>
+            ) : null,
+        },
       ]}
     >
+      <ScmDeleteDialog<Shipment>
+        target={deletingRow}
+        onClose={() => setDeletingRow(null)}
+        title="Delete shipment?"
+        describe={(r) =>
+          `Permanently delete ${r.shipmentNumber}? This cannot be undone. A shipment already dispatched to the carrier cannot be deleted.`
+        }
+        confirmText="Delete shipment"
+        run={(r) => deletingRowRemove.mutateAsync(r.id)}
+        successMessage="Shipment deleted"
+        errorFallback="Failed to delete shipment"
+      />
       <ScmDetailDialog
         open={viewingId !== null}
         onClose={() => {

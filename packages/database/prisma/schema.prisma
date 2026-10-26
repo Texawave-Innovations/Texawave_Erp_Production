@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["platform", "hr", "crm", "scm"]
+  schemas = ["platform", "hr", "sales", "finance", "projects", "crm", "scm"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -51,137 +51,161 @@ model Organization {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users                   User[]
-  roles                   Role[]
-  tags                    Tag[]
-  suppliers               Supplier[]
-  scmProducts             ScmProduct[]
-  scmWarehouses           ScmWarehouse[]
-  scmSupplierBills        ScmSupplierBill[]
-  scmSupplierPayments     ScmSupplierPayment[]
-  scmSupplierDocuments    ScmSupplierDocument[]
-  scmLocations            ScmWarehouseLocation[]
-  scmStockBalances        ScmStockBalance[]
-  scmStockLedger          ScmStockLedgerEntry[]
-  scmBatches              ScmStockBatch[]
-  scmSerials              ScmSerialNumber[]
-  scmReservations         ScmStockReservation[]
-  scmTransfers            ScmStockTransfer[]
-  scmAdjustments          ScmStockAdjustment[]
-  scmNumberSequences      ScmNumberSequence[]
-  teams                   Team[]
-  departments             Department[]
-  userTeamAccess          UserTeamAccess[]
-  approvals               Approval[]
-  employeePersonalDetails EmployeePersonalDetail[]
-  employeeBankDetails     EmployeeBankDetail[]
-  employeeFamilyMembers   EmployeeFamilyMember[]
-  employeeExperiences     EmployeeExperience[]
-  employeeDocuments       EmployeeDocument[]
-  auditLogs               AuditLog[]
-  designations            Designation[]
-  employmentTypes         EmploymentType[]
-  workLocations           WorkLocation[]
-  locationPrivileges      EmployeeLocationPrivilege[]
-  officeNetworkAddresses  OfficeNetworkAddress[]
-  employees               Employee[]
-  employeeStatusHistory   EmployeeStatusHistory[]
-  documentSequences       DocumentSequence[]
-  shifts                  Shift[]
-  shiftAssignments        ShiftAssignment[]
-  holidays                Holiday[]
-  leaveTypes              LeaveType[]
-  leaveRequests           LeaveRequest[]
-  leaveEntitlements       LeaveEntitlement[]
-  leaveDelegations        LeaveApprovalDelegation[]
-  expenseClaims           ExpenseClaim[]
-  exitRequests            ExitRequest[]
-  tasks                   Task[]
-  tickets                 Ticket[]
-  ticketComments          TicketComment[]
-  weeklyOffRules          WeeklyOffRule[]
-  menuItems               MenuItem[]
-  attendanceRecords       AttendanceRecord[]
-  attendanceCorrections   AttendanceCorrection[]
-  attendanceMonthLocks    AttendanceMonthLock[]
-  notifications           Notification[]
-  revisionLetters         RevisionLetter[]
-  promotionLetters        PromotionLetter[]
-  interviews              Interview[]
-  offerLetters            OfferLetter[]
-  employeeProfiles        EmployeeProfile[]
-  employeeSensitiveInfos  EmployeeSensitiveInfo[]
-  employeeAddresses       EmployeeAddress[]
-  employeeGovernmentIds   EmployeeGovernmentId[]
-  payrollPeriods        PayrollPeriod[]
-  payrollRuns           PayrollRun[]
-  payrollEntries        PayrollEntry[]
-  payrollEarnings       PayrollEarning[]
-  payrollDeductions     PayrollDeduction[]
-  employeeSalaries      EmployeeSalary[]
-  payrollSetting        PayrollSetting?
-  employeePfProfiles    EmployeePfProfile[]
-  pfContributions       PfContribution[]
-  employeeEsiProfiles   EmployeeEsiProfile[]
-  esiContributions      EsiContribution[]
-  employeeLoans         EmployeeLoan[]
-  loanRepayments        LoanRepayment[]
-  loanSkipRequests      LoanSkipRequest[]
-  employeeBonuses       EmployeeBonus[]
-  payslips              Payslip[]
-  paymentBatches        PaymentBatch[]
-  payrollPayments       PayrollPayment[]
-  salaryComponents          SalaryComponent[]
-  salaryTemplates           SalaryTemplate[]
-  employeeSalaryComponents  EmployeeSalaryComponent[]
-  professionalTaxSlabs      ProfessionalTaxSlab[]
-  ptLocationStates          PtLocationState[]
-  incomeTaxRegimes          IncomeTaxRegime[]
-  employeeTaxDeclarations   EmployeeTaxDeclaration[]
-  loanPrepayments           LoanPrepayment[]
-  crmAccounts             Account[]
-  crmContacts             Contact[]
-  crmLeads                Lead[]
-  crmPipelineStages       PipelineStage[]
-  crmOpportunities        Opportunity[]
-  crmOpportunityStageHistory OpportunityStageHistory[]
-  crmProducts             Product[]
-  crmOpportunityProducts  OpportunityProduct[]
-  crmQuotations           Quotation[]
-  crmQuotationLineItems   QuotationLineItem[]
-  crmMeetings             CrmMeeting[]
-  crmFollowUps            CrmFollowUp[]
-  crmActivities           CrmActivity[]
-  crmTasks                CrmTask[]
-  crmDocuments            CrmDocument[]
-  crmNotes                CrmNote[]
-  crmLeadNotes            CrmLeadNote[]
-  crmColdCallingEntries   CrmColdCallingEntry[]
-  crmMiningRows           CrmMiningRow[]
-  crmQuotas               CrmQuota[]
-  crmNotifications        CrmNotification[]
-  crmCustomFieldDefs      CrmCustomFieldDef[]
-  scmRequisitions         ScmPurchaseRequisition[]
-  scmRfqs                 ScmRfq[]
-  scmQuotations           ScmSupplierQuotation[]
-  scmComparisons          ScmQuotationComparison[]
-  scmPurchaseOrders       ScmPurchaseOrder[]
-  scmGoodsReceipts        ScmGoodsReceipt[]
-  scmCustomers            ScmCustomer[]
-  scmSalesOrders          ScmSalesOrder[]
-  scmFulfillments         ScmFulfillment[]
-  scmPickings             ScmPicking[]
-  scmPackings             ScmPacking[]
-  scmCarriers             ScmCarrier[]
-  scmShipments            ScmShipment[]
-  scmReturns              ScmReturn[]
-  scmQualityDefects       ScmQualityDefect[]
-  scmQualityTemplates     ScmQualityTemplate[]
-  scmQualityInspections   ScmQualityInspection[]
-  scmQuarantineRecords    ScmQuarantineRecord[]
-  scmLocationStock        ScmLocationStock[]
-  scmPutaways             ScmPutaway[]
-  scmWarehouseMovements   ScmWarehouseMovement[]
+  users                      User[]
+  roles                      Role[]
+  tags                       Tag[]
+  suppliers                  Supplier[]
+  scmProducts                ScmProduct[]
+  scmWarehouses              ScmWarehouse[]
+  scmSupplierBills           ScmSupplierBill[]
+  scmSupplierPayments        ScmSupplierPayment[]
+  scmSupplierDocuments       ScmSupplierDocument[]
+  scmLocations               ScmWarehouseLocation[]
+  scmStockBalances           ScmStockBalance[]
+  scmStockLedger             ScmStockLedgerEntry[]
+  scmBatches                 ScmStockBatch[]
+  scmSerials                 ScmSerialNumber[]
+  scmReservations            ScmStockReservation[]
+  scmTransfers               ScmStockTransfer[]
+  scmAdjustments             ScmStockAdjustment[]
+  scmNumberSequences         ScmNumberSequence[]
+  teams                      Team[]
+  departments                Department[]
+  userTeamAccess             UserTeamAccess[]
+  approvals                  Approval[]
+  employeePersonalDetails    EmployeePersonalDetail[]
+  employeeBankDetails        EmployeeBankDetail[]
+  employeeFamilyMembers      EmployeeFamilyMember[]
+  employeeExperiences        EmployeeExperience[]
+  employeeDocuments          EmployeeDocument[]
+  auditLogs                  AuditLog[]
+  designations               Designation[]
+  employmentTypes            EmploymentType[]
+  workLocations               WorkLocation[]
+  locationPrivileges         EmployeeLocationPrivilege[]
+  officeNetworkAddresses     OfficeNetworkAddress[]
+  employees                  Employee[]
+  employeeStatusHistory      EmployeeStatusHistory[]
+  documentSequences          DocumentSequence[]
+  shifts                     Shift[]
+  shiftAssignments           ShiftAssignment[]
+  holidays                   Holiday[]
+  leaveTypes                 LeaveType[]
+  leaveRequests               LeaveRequest[]
+  leaveEntitlements          LeaveEntitlement[]
+  leaveDelegations           LeaveApprovalDelegation[]
+  expenseClaims              ExpenseClaim[]
+  exitRequests                ExitRequest[]
+  tasks                       Task[]
+  tickets                     Ticket[]
+  ticketComments              TicketComment[]
+  weeklyOffRules              WeeklyOffRule[]
+  menuItems                   MenuItem[]
+  attendanceRecords           AttendanceRecord[]
+  attendanceCorrections       AttendanceCorrection[]
+  attendanceMonthLocks         AttendanceMonthLock[]
+  notifications                Notification[]
+  revisionLetters              RevisionLetter[]
+  promotionLetters             PromotionLetter[]
+  interviews                   Interview[]
+  offerLetters                 OfferLetter[]
+  employeeProfiles              EmployeeProfile[]
+  employeeSensitiveInfos        EmployeeSensitiveInfo[]
+  employeeAddresses             EmployeeAddress[]
+  employeeGovernmentIds         EmployeeGovernmentId[]
+  payrollPeriods                PayrollPeriod[]
+  payrollRuns                   PayrollRun[]
+  payrollEntries                 PayrollEntry[]
+  companyDetail                  CompanyDetail?
+  bankAccounts                   BankAccount[]
+  authorizedSignatory             AuthorizedSignatory?
+  salespersons                    Salesperson[]
+  sealSignatures                   SealSignature[]
+  salesMasterListItems              SalesMasterListItem[]
+  financeMasterListItems            FinanceMasterListItem[]
+  payrollEarnings                   PayrollEarning[]
+  payrollDeductions                 PayrollDeduction[]
+  projects                          Project[]
+  projectCodeMaster                 ProjectCodeMaster?
+  taskRunningNumberMaster           TaskRunningNumberMaster?
+  employeeSalaries                  EmployeeSalary[]
+  payrollSetting                    PayrollSetting?
+  employeePfProfiles                 EmployeePfProfile[]
+  pfContributions                    PfContribution[]
+  employeeEsiProfiles                EmployeeEsiProfile[]
+  esiContributions                   EsiContribution[]
+  employeeLoans                      EmployeeLoan[]
+  loanRepayments                     LoanRepayment[]
+  loanSkipRequests                   LoanSkipRequest[]
+  employeeBonuses                    EmployeeBonus[]
+  payslips                           Payslip[]
+  paymentBatches                     PaymentBatch[]
+  payrollPayments                    PayrollPayment[]
+  salaryComponents                   SalaryComponent[]
+  salaryTemplates                    SalaryTemplate[]
+  employeeSalaryComponents           EmployeeSalaryComponent[]
+  professionalTaxSlabs               ProfessionalTaxSlab[]
+  ptLocationStates                   PtLocationState[]
+  incomeTaxRegimes                   IncomeTaxRegime[]
+  employeeTaxDeclarations            EmployeeTaxDeclaration[]
+  loanPrepayments                    LoanPrepayment[]
+  crmAccounts                        Account[]
+  crmContacts                        Contact[]
+  crmLeads                           Lead[]
+  crmPipelineStages                  PipelineStage[]
+  crmOpportunities                   Opportunity[]
+  crmOpportunityStageHistory         OpportunityStageHistory[]
+  crmProducts                        Product[]
+  crmOpportunityProducts             OpportunityProduct[]
+  crmQuotations                      Quotation[]
+  crmQuotationLineItems              QuotationLineItem[]
+  crmMeetings                        CrmMeeting[]
+  crmFollowUps                       CrmFollowUp[]
+  crmActivities                      CrmActivity[]
+  crmTasks                           CrmTask[]
+  crmDocuments                       CrmDocument[]
+  crmNotes                           CrmNote[]
+  crmLeadNotes                       CrmLeadNote[]
+  crmColdCallingEntries              CrmColdCallingEntry[]
+  crmMiningRows                      CrmMiningRow[]
+  crmQuotas                          CrmQuota[]
+  crmNotifications                   CrmNotification[]
+  crmCustomFieldDefs                 CrmCustomFieldDef[]
+  scmRequisitions                    ScmPurchaseRequisition[]
+  scmRfqs                            ScmRfq[]
+  scmQuotations                      ScmSupplierQuotation[]
+  scmComparisons                     ScmQuotationComparison[]
+  scmPurchaseOrders                  ScmPurchaseOrder[]
+  scmGoodsReceipts                   ScmGoodsReceipt[]
+  scmCustomers                       ScmCustomer[]
+  scmSalesOrders                     ScmSalesOrder[]
+  scmFulfillments                    ScmFulfillment[]
+  scmPickings                        ScmPicking[]
+  scmPackings                        ScmPacking[]
+  scmCarriers                        ScmCarrier[]
+  scmShipments                       ScmShipment[]
+  scmReturns                         ScmReturn[]
+  scmQualityDefects                  ScmQualityDefect[]
+  scmQualityTemplates                ScmQualityTemplate[]
+  scmQualityInspections              ScmQualityInspection[]
+  scmQuarantineRecords               ScmQuarantineRecord[]
+  scmLocationStock                   ScmLocationStock[]
+  scmPutaways                        ScmPutaway[]
+  scmWarehouseMovements              ScmWarehouseMovement[]
+
+
+  projects                Project[]
+  projectMembers          ProjectMember[]
+  projectMilestones       ProjectMilestone[]
+  projectTasks            ProjectTask[]
+  projectTimeEntries      ProjectTimeEntry[]
+  projectExpenses         ProjectExpense[]
+  projectPointsLedger     ProjectPointsLedger[]
+  projectPointsConfig     ProjectPointsConfig?
+  organizationSetting     OrganizationSetting?
+  userPreferences         UserPreference[]
+  exchangeRates           ExchangeRate[]
+
 
   @@map("organizations")
   @@schema("platform")
@@ -201,31 +225,31 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  organization        Organization            @relation(fields: [organizationId], references: [id])
-  userRoles           UserRole[]
-  ledTeams            Team[]                  @relation("TeamLead")
-  teamAccess          UserTeamAccess[]
-  auditLogs           AuditLog[]
-  employee            Employee?
-  statusChanges       EmployeeStatusHistory[]
-  leaveRequested      LeaveRequest[]          @relation("LeaveRequester")
-  leaveDecided        LeaveRequest[]          @relation("LeaveDecider")
-  leaveFirstDecided   LeaveRequest[]          @relation("LeaveFirstDecider")
-  leaveCancelled      LeaveRequest[]          @relation("LeaveCanceller")
-  leaveDelegatedFrom  LeaveApprovalDelegation[] @relation("LeaveDelegator")
-  leaveDelegatedTo    LeaveApprovalDelegation[] @relation("LeaveDelegate")
-  expenseClaimsRequested ExpenseClaim[]       @relation("ExpenseClaimRequester")
-  expenseClaimsDecided   ExpenseClaim[]       @relation("ExpenseClaimDecider")
-  exitRequestsRequested  ExitRequest[]        @relation("ExitRequestRequester")
-  exitRequestsDecided    ExitRequest[]        @relation("ExitRequestDecider")
-  tasksAssignedByMe   Task[]                  @relation("TaskAssignedBy")
-  tasksApprovedByMe   Task[]                  @relation("TaskApprovedBy")
-  ticketsRaisedByMe   Ticket[]                @relation("TicketRaisedBy")
-  ticketCommentsByMe  TicketComment[]         @relation("TicketCommentByHr")
-  attendanceCorrectionsRequested AttendanceCorrection[] @relation("AttendanceCorrectionRequester")
-  attendanceCorrectionsDecided   AttendanceCorrection[] @relation("AttendanceCorrectionDecider")
-  attendanceMonthLocksSubmitted  AttendanceMonthLock[]  @relation("AttendanceMonthLockSubmitter")
-  attendanceMonthLocksDecided    AttendanceMonthLock[]  @relation("AttendanceMonthLockDecider")
+  organization                   Organization              @relation(fields: [organizationId], references: [id])
+  userRoles                      UserRole[]
+  ledTeams                       Team[]                    @relation("TeamLead")
+  teamAccess                     UserTeamAccess[]
+  auditLogs                      AuditLog[]
+  employee                       Employee?
+  statusChanges                  EmployeeStatusHistory[]
+  leaveRequested                 LeaveRequest[]            @relation("LeaveRequester")
+  leaveDecided                   LeaveRequest[]            @relation("LeaveDecider")
+  leaveFirstDecided              LeaveRequest[]            @relation("LeaveFirstDecider")
+  leaveCancelled                 LeaveRequest[]            @relation("LeaveCanceller")
+  leaveDelegatedFrom             LeaveApprovalDelegation[] @relation("LeaveDelegator")
+  leaveDelegatedTo               LeaveApprovalDelegation[] @relation("LeaveDelegate")
+  expenseClaimsRequested         ExpenseClaim[]            @relation("ExpenseClaimRequester")
+  expenseClaimsDecided           ExpenseClaim[]            @relation("ExpenseClaimDecider")
+  exitRequestsRequested          ExitRequest[]             @relation("ExitRequestRequester")
+  exitRequestsDecided            ExitRequest[]             @relation("ExitRequestDecider")
+  tasksAssignedByMe              Task[]                    @relation("TaskAssignedBy")
+  tasksApprovedByMe              Task[]                    @relation("TaskApprovedBy")
+  ticketsRaisedByMe              Ticket[]                  @relation("TicketRaisedBy")
+  ticketCommentsByMe             TicketComment[]           @relation("TicketCommentByHr")
+  attendanceCorrectionsRequested AttendanceCorrection[]    @relation("AttendanceCorrectionRequester")
+  attendanceCorrectionsDecided   AttendanceCorrection[]    @relation("AttendanceCorrectionDecider")
+  attendanceMonthLocksSubmitted  AttendanceMonthLock[]     @relation("AttendanceMonthLockSubmitter")
+  attendanceMonthLocksDecided    AttendanceMonthLock[]     @relation("AttendanceMonthLockDecider")
   notifications                  Notification[]
   passwordResetTokens PasswordResetToken[]
   approvalsRequested  Approval[]              @relation("ApprovalRequester")
@@ -243,6 +267,7 @@ model User {
   loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
   loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
+  preference                UserPreference?
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -368,6 +393,74 @@ model Department {
   @@index([organizationId])
   @@map("departments")
   @@schema("platform")
+}
+
+/// Projects Master Lists — three sub-masters that configure project-code
+/// generation: (1) the project type/category registry (code, name,
+/// description — e.g. ME, SW, EC), (2) the project code format generator
+/// (prefix/category/year/sequence), (3) the task running-number format
+/// generator. This mirrors the legacy ERP's "Projects Master Lists" screen
+/// (3 tabs). Full project records (department/manager/status/dates) are a
+/// separate, not-yet-built module — see Docs/PROJECTS_MASTER.md.
+model Project {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  code           String    @map("code")
+  name           String
+  description    String?
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@map("projects")
+  @@schema("projects")
+}
+
+/// Project Code Master — one row per organization, configures how
+/// `[Prefix]/[Category]/[Project Code]/[Year]/[Sequence]` is formatted
+/// (see Docs/PROJECTS_MASTER.md tab 2). Sequence allocation itself stays
+/// out of scope here, same as `DocumentNumbering` in sales-settings — this
+/// row only stores the format.
+model ProjectCodeMaster {
+  id                 Int      @id @default(autoincrement())
+  organizationId     Int      @unique @map("organization_id")
+  companyPrefix      String   @default("TXW") @map("company_prefix")
+  moduleIdentifier   String   @default("PRJ") @map("module_identifier")
+  defaultProjectCode String   @default("") @map("default_project_code")
+  financialYear      String   @default("") @map("financial_year")
+  sequenceDigits     Int      @default(3) @map("sequence_digits")
+  updatedBy          Int?     @map("updated_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("project_code_masters")
+  @@schema("projects")
+}
+
+/// Task Running Number Master — one row per organization, configures how
+/// `[Task Prefix][Separator][Sequence]` is formatted and appended to a
+/// generated project code (see Docs/PROJECTS_MASTER.md tab 3).
+model TaskRunningNumberMaster {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @unique @map("organization_id")
+  taskPrefix     String   @default("T") @map("task_prefix")
+  separator      String   @default("-")
+  sequenceDigits Int      @default(2) @map("sequence_digits")
+  updatedBy      Int?     @map("updated_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("task_running_number_masters")
+  @@schema("projects")
 }
 
 /// Teams — the real access boundary for HR/team-scoped data
@@ -634,10 +727,10 @@ model WorkLocation {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization   Organization    @relation(fields: [organizationId], references: [id])
-  employees      Employee[]
-  holidays       Holiday[]
-  weeklyOffRules WeeklyOffRule[]
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  employees       Employee[]
+  holidays        Holiday[]
+  weeklyOffRules  WeeklyOffRule[]
   ptLocationState PtLocationState?
 
   @@unique([organizationId, code])
@@ -690,21 +783,21 @@ model DocumentSequence {
 /// Invariants Prisma cannot express (status/exit-date consistency, immutable
 /// code and organization, reporting-line cycles) are in the migration.
 model Employee {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  employeeCode     String    @map("employee_code")
-  userId           Int?      @unique @map("user_id")
-  fullName         String    @map("full_name")
-  workEmail        String?   @map("work_email")
-  phone            String?
-  teamId           Int       @map("team_id")
-  departmentId     Int?      @map("department_id")
-  designationId    Int       @map("designation_id")
-  employmentTypeId Int       @map("employment_type_id")
-  workLocationId   Int?      @map("work_location_id")
-  reportsToId      Int?      @map("reports_to_id")
-  status           String    @default("ACTIVE")
-  onboardingStatus String    @default("PENDING_ACTIVATION") @map("onboarding_status")
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  employeeCode           String    @map("employee_code")
+  userId                 Int?      @unique @map("user_id")
+  fullName               String    @map("full_name")
+  workEmail              String?   @map("work_email")
+  phone                  String?
+  teamId                 Int       @map("team_id")
+  departmentId           Int?      @map("department_id")
+  designationId          Int       @map("designation_id")
+  employmentTypeId       Int       @map("employment_type_id")
+  workLocationId         Int?      @map("work_location_id")
+  reportsToId            Int?      @map("reports_to_id")
+  status                 String    @default("ACTIVE")
+  onboardingStatus       String    @default("PENDING_ACTIVATION") @map("onboarding_status")
   /// HR's review of the submitted onboarding profile, independent of
   /// `onboarding_status` (Docs/ARCHITECTURE.md §7): NOT_SUBMITTED |
   /// PENDING_REVIEW | APPROVED | CHANGES_REQUESTED (CHECK in the migration).
@@ -713,21 +806,21 @@ model Employee {
   onboardingReviewedAt   DateTime? @map("onboarding_reviewed_at") @db.Timestamptz(6)
   onboardingReviewedBy   Int?      @map("onboarding_reviewed_by")
   onboardingReviewNote   String?   @map("onboarding_review_note")
-  dateOfJoining    DateTime  @map("date_of_joining") @db.Date
-  probationEndDate DateTime? @map("probation_end_date") @db.Date
-  confirmationDate DateTime? @map("confirmation_date") @db.Date
-  referredBy       String?   @map("referred_by")
-  workDomain       String?   @map("work_domain")
-  dateOfExit       DateTime? @map("date_of_exit") @db.Date
-  exitReason       String?   @map("exit_reason")
-  version          Int       @default(1)
-  customFields     Json      @default("{}") @map("custom_fields")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  dateOfJoining          DateTime  @map("date_of_joining") @db.Date
+  probationEndDate       DateTime? @map("probation_end_date") @db.Date
+  confirmationDate       DateTime? @map("confirmation_date") @db.Date
+  referredBy             String?   @map("referred_by")
+  workDomain             String?   @map("work_domain")
+  dateOfExit             DateTime? @map("date_of_exit") @db.Date
+  exitReason             String?   @map("exit_reason")
+  version                Int       @default(1)
+  customFields           Json      @default("{}") @map("custom_fields")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization          Organization               @relation(fields: [organizationId], references: [id])
   user                  User?                      @relation(fields: [userId], references: [id])
@@ -763,17 +856,23 @@ model Employee {
   documents             EmployeeDocument[]
   employeeAddresses     EmployeeAddress[]
   employeeGovernmentId  EmployeeGovernmentId?
-  salaries         EmployeeSalary[]
-  pfProfile        EmployeePfProfile?
-  esiProfile       EmployeeEsiProfile?
-  loans            EmployeeLoan[]
-  bonuses          EmployeeBonus[]
-  payrollEntries   PayrollEntry[]
-  payslips         Payslip[]
-  payrollPayments  PayrollPayment[]
-  pfContributions  PfContribution[]
-  esiContributions EsiContribution[]
-  taxDeclarations  EmployeeTaxDeclaration[]
+  salaries              EmployeeSalary[]
+  pfProfile             EmployeePfProfile?
+  esiProfile            EmployeeEsiProfile?
+  loans                 EmployeeLoan[]
+  bonuses               EmployeeBonus[]
+  payrollEntries        PayrollEntry[]
+  payslips              Payslip[]
+  payrollPayments       PayrollPayment[]
+  pfContributions       PfContribution[]
+  esiContributions      EsiContribution[]
+  taxDeclarations       EmployeeTaxDeclaration[]
+
+  handledProjects         Project[]                  @relation("ProjectClientHandler")
+  projectMemberships      ProjectMember[]
+  assignedProjectTasks    ProjectTask[]
+  projectTimeEntries      ProjectTimeEntry[]
+  projectPointsLedger     ProjectPointsLedger[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -971,29 +1070,37 @@ model WeeklyOffRule {
 // the list of types is business data.
 
 model LeaveType {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  code           String
-  name           String
-  description    String?
-  /** Paid leave draws on the balance; unpaid leave is not balance-limited. */
-  isPaid            Boolean  @default(true) @map("is_paid")
-  /** Default annual entitlement in days, accrued monthly (annual / 12 per month). */
-  annualEntitlement Decimal  @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
-  /** Unused days carried into the next year are capped at this value. */
-  carryForwardLimit Decimal  @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
-  /** 1 = one approval (reporting manager or a scoped approver); 2 = the
-   * reporting manager (or a scoped approver) first, then HR (`.all`). */
-  approvalLevels Int       @default(1) @map("approval_levels")
-  customFields   Json      @default("{}") @map("custom_fields")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  code              String
+  name              String
+  description       String?
+  /**
+   * Paid leave draws on the balance; unpaid leave is not balance-limited.
+   */
+  isPaid            Boolean   @default(true) @map("is_paid")
+  /**
+   * Default annual entitlement in days, accrued monthly (annual / 12 per month).
+   */
+  annualEntitlement Decimal   @default(0) @map("annual_entitlement") @db.Decimal(5, 1)
+  /**
+   * Unused days carried into the next year are capped at this value.
+   */
+  carryForwardLimit Decimal   @default(0) @map("carry_forward_limit") @db.Decimal(5, 1)
+  /**
+   * 1 = one approval (reporting manager or a scoped approver); 2 = the
+   * reporting manager (or a scoped approver) first, then HR (`.all`).
+   */
+  approvalLevels    Int       @default(1) @map("approval_levels")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization   @relation(fields: [organizationId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
   requests     LeaveRequest[]
   entitlements LeaveEntitlement[]
 
@@ -1014,40 +1121,50 @@ model LeaveType {
 /// An exclusion constraint forbids two PENDING/APPROVED requests of one
 /// employee covering a common day.
 model LeaveRequest {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  employeeId     Int       @map("employee_id")
-  leaveTypeId    Int       @map("leave_type_id")
-  startDate      DateTime  @map("start_date") @db.Date
-  endDate        DateTime  @map("end_date") @db.Date
-  /** FULL, FIRST_HALF or SECOND_HALF (halves only on a single date). */
-  dayPortion     String    @default("FULL") @map("day_portion")
-  /** Working days consumed: weekly-offs and holidays excluded; half = 0.5. */
-  leaveDays      Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
-  reason         String
-  status         String    @default("PENDING")
-  /** Copied from the leave type at (re)submission, so changing the type
-   * never changes a request already in flight. */
-  approvalLevels Int       @default(1) @map("approval_levels")
-  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(6)
-  cancellationNote String?   @map("cancellation_note")
-  /** Who cancelled: the employee, or HR (`hr.leave.cancel`). */
-  cancelledBy      Int?      @map("cancelled_by")
-  requestedBy    Int       @map("requested_by")
-  /** First of two approvals (approval_levels = 2); status stays PENDING. */
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  employeeId        Int       @map("employee_id")
+  leaveTypeId       Int       @map("leave_type_id")
+  startDate         DateTime  @map("start_date") @db.Date
+  endDate           DateTime  @map("end_date") @db.Date
+  /**
+   * FULL, FIRST_HALF or SECOND_HALF (halves only on a single date).
+   */
+  dayPortion        String    @default("FULL") @map("day_portion")
+  /**
+   * Working days consumed: weekly-offs and holidays excluded; half = 0.5.
+   */
+  leaveDays         Decimal   @default(0) @map("leave_days") @db.Decimal(4, 1)
+  reason            String
+  status            String    @default("PENDING")
+  /**
+   * Copied from the leave type at (re)submission, so changing the type
+   * never changes a request already in flight.
+   */
+  approvalLevels    Int       @default(1) @map("approval_levels")
+  cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancellationNote  String?   @map("cancellation_note")
+  /**
+   * Who cancelled: the employee, or HR (`hr.leave.cancel`).
+   */
+  cancelledBy       Int?      @map("cancelled_by")
+  requestedBy       Int       @map("requested_by")
+  /**
+   * First of two approvals (approval_levels = 2); status stays PENDING.
+   */
   firstDecidedBy    Int?      @map("first_decided_by")
   firstDecidedAt    DateTime? @map("first_decided_at") @db.Timestamptz(6)
   firstDecisionNote String?   @map("first_decision_note")
-  decidedBy      Int?      @map("decided_by")
-  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
-  decisionNote   String?   @map("decision_note")
-  customFields   Json      @default("{}") @map("custom_fields")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  decidedBy         Int?      @map("decided_by")
+  decidedAt         DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote      String?   @map("decision_note")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
@@ -1070,18 +1187,18 @@ model LeaveRequest {
 /// more: team/all approval still comes only from the delegate's own roles.
 /// Not edited: a delegation is revoked (`is_active = false`) and re-created.
 model LeaveApprovalDelegation {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  delegatorUserId Int       @map("delegator_user_id")
-  delegateUserId  Int       @map("delegate_user_id")
-  startDate       DateTime  @map("start_date") @db.Date
-  endDate         DateTime  @map("end_date") @db.Date
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  delegatorUserId Int      @map("delegator_user_id")
+  delegateUserId  Int      @map("delegate_user_id")
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
   reason          String?
-  isActive        Boolean   @default(true) @map("is_active")
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdBy       Int?     @map("created_by")
+  updatedBy       Int?     @map("updated_by")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   delegator    User         @relation("LeaveDelegator", fields: [delegatorUserId], references: [id])
@@ -1183,31 +1300,31 @@ model ExitRequest {
 /// never deleted (none in legacy) — cancellation is the closest equivalent
 /// and, like every other status, is reversible by whoever can write tasks.
 model Task {
-  id                 Int       @id @default(autoincrement())
-  organizationId     Int       @map("organization_id")
-  title              String
-  description        String?
-  assigneeId         Int       @map("assignee_id")
-  assignedByUserId   Int       @map("assigned_by_user_id")
-  createdByEmployeeId Int?     @map("created_by_employee_id")
-  dueDate            DateTime  @map("due_date") @db.Date
-  priority           String    @default("MEDIUM")
-  status             String    @default("PENDING")
-  isEmployeeCreated  Boolean   @default(false) @map("is_employee_created")
-  requestToAdmin     Boolean   @default(false) @map("request_to_admin")
-  adminApproved      Boolean   @default(false) @map("admin_approved")
-  approvedByUserId   Int?      @map("approved_by_user_id")
-  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
-  createdBy          Int?      @map("created_by")
-  updatedBy          Int?      @map("updated_by")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  title               String
+  description         String?
+  assigneeId          Int       @map("assignee_id")
+  assignedByUserId    Int       @map("assigned_by_user_id")
+  createdByEmployeeId Int?      @map("created_by_employee_id")
+  dueDate             DateTime  @map("due_date") @db.Date
+  priority            String    @default("MEDIUM")
+  status              String    @default("PENDING")
+  isEmployeeCreated   Boolean   @default(false) @map("is_employee_created")
+  requestToAdmin      Boolean   @default(false) @map("request_to_admin")
+  adminApproved       Boolean   @default(false) @map("admin_approved")
+  approvedByUserId    Int?      @map("approved_by_user_id")
+  approvedAt          DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  assignee        Employee     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  assignedByUser  User         @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
-  createdByEmployee Employee?  @relation("TaskCreatedBy", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
-  approvedByUser  User?        @relation("TaskApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  assignee          Employee     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignedByUser    User         @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
+  createdByEmployee Employee?    @relation("TaskCreatedBy", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
+  approvedByUser    User?        @relation("TaskApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, assigneeId, status])
   @@index([organizationId, status])
@@ -1223,20 +1340,20 @@ model Task {
 /// `status` is the four legacy values; `resolvedAt` is stamped when a ticket
 /// is resolved or closed and kept on reopen, as the legacy screen does.
 model Ticket {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  employeeId      Int       @map("employee_id")
-  category        String
-  subject         String
-  description     String
-  status          String    @default("OPEN")
-  raisedByAdmin   Boolean   @default(false) @map("raised_by_admin")
-  raisedByUserId  Int?      @map("raised_by_user_id")
-  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  category       String
+  subject        String
+  description    String
+  status         String    @default("OPEN")
+  raisedByAdmin  Boolean   @default(false) @map("raised_by_admin")
+  raisedByUserId Int?      @map("raised_by_user_id")
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization    @relation(fields: [organizationId], references: [id])
   employee     Employee        @relation("TicketRequester", fields: [employeeId], references: [id])
@@ -1321,8 +1438,8 @@ model AttendanceRecord {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization            @relation(fields: [organizationId], references: [id])
-  employee     Employee                @relation(fields: [employeeId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  employee     Employee               @relation(fields: [employeeId], references: [id])
   sessions     AttendanceSession[]
   corrections  AttendanceCorrection[]
 
@@ -1359,34 +1476,34 @@ model AttendanceSession {
 /// REJECTED, both terminal. Decision fields are written only by a conditional
 /// update (status = SUBMITTED), so a decision can happen exactly once.
 model AttendanceCorrection {
-  id                 Int       @id @default(autoincrement())
-  organizationId     Int       @map("organization_id")
-  employeeId         Int       @map("employee_id")
-  attendanceRecordId Int?      @map("attendance_record_id")
-  attendanceDate     DateTime  @map("attendance_date") @db.Date
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  employeeId          Int       @map("employee_id")
+  attendanceRecordId  Int?      @map("attendance_record_id")
+  attendanceDate      DateTime  @map("attendance_date") @db.Date
   /// MISSED_CHECK_IN | MISSED_CHECK_OUT | INCORRECT_TIME | LATE_ARRIVAL | EARLY_DEPARTURE
-  correctionType     String    @map("correction_type")
+  correctionType      String    @map("correction_type")
   requestedCheckInAt  DateTime? @map("requested_check_in_at") @db.Timestamptz(6)
   requestedCheckOutAt DateTime? @map("requested_check_out_at") @db.Timestamptz(6)
-  reason             String
-  status             String    @default("SUBMITTED")
-  requestedBy        Int       @map("requested_by")
-  decidedBy          Int?      @map("decided_by")
-  decidedAt          DateTime? @map("decided_at") @db.Timestamptz(6)
-  decisionNote       String?   @map("decision_note")
-  customFields       Json      @default("{}") @map("custom_fields")
-  isActive           Boolean   @default(true) @map("is_active")
-  createdBy          Int?      @map("created_by")
-  updatedBy          Int?      @map("updated_by")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+  reason              String
+  status              String    @default("SUBMITTED")
+  requestedBy         Int       @map("requested_by")
+  decidedBy           Int?      @map("decided_by")
+  decidedAt           DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote        String?   @map("decision_note")
+  customFields        Json      @default("{}") @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  employee     Employee           @relation(fields: [employeeId], references: [id])
-  record       AttendanceRecord?  @relation(fields: [attendanceRecordId], references: [id])
-  requester    User               @relation("AttendanceCorrectionRequester", fields: [requestedBy], references: [id])
-  decider      User?              @relation("AttendanceCorrectionDecider", fields: [decidedBy], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  employee     Employee          @relation(fields: [employeeId], references: [id])
+  record       AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id])
+  requester    User              @relation("AttendanceCorrectionRequester", fields: [requestedBy], references: [id])
+  decider      User?             @relation("AttendanceCorrectionDecider", fields: [decidedBy], references: [id])
 
   @@index([organizationId, employeeId, attendanceDate])
   @@index([organizationId, status])
@@ -1467,8 +1584,8 @@ model RevisionLetter {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employee     Employee     @relation(fields: [employeeId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  employee     Employee         @relation(fields: [employeeId], references: [id])
   salaries     EmployeeSalary[]
 
   @@unique([organizationId, documentNo])
@@ -1603,31 +1720,31 @@ model OfferLetter {
 /// details. Kept (not dropped) until a reviewer approves the drop; do not add
 /// new readers.
 model EmployeeProfile {
-  id                        Int       @id @default(autoincrement())
-  organizationId            Int       @map("organization_id")
-  employeeId                Int       @unique @map("employee_id")
-  title                     String?
-  dateOfBirth               DateTime? @map("date_of_birth") @db.Date
-  gender                    String?
-  maritalStatus             String?   @map("marital_status")
-  bloodGroup                String?   @map("blood_group")
-  languages                 String[]  @default([])
-  fatherName                String?   @map("father_name")
-  motherName                String?   @map("mother_name")
-  spouseName                String?   @map("spouse_name")
-  emergencyContactName      String?   @map("emergency_contact_name")
-  emergencyContactPhone     String?   @map("emergency_contact_phone")
-  emergencyContactRelation  String?   @map("emergency_contact_relation")
-  presentAddress            Json?     @map("present_address")
-  permanentAddress          Json?     @map("permanent_address")
-  isFresher                 Boolean   @default(false) @map("is_fresher")
-  experienceYears           Decimal?  @map("experience_years") @db.Decimal(4, 1)
-  previousCompany           String?   @map("previous_company")
-  previousRole              String?   @map("previous_role")
-  createdBy                 Int?      @map("created_by")
-  updatedBy                 Int?      @map("updated_by")
-  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @unique @map("employee_id")
+  title                    String?
+  dateOfBirth              DateTime? @map("date_of_birth") @db.Date
+  gender                   String?
+  maritalStatus            String?   @map("marital_status")
+  bloodGroup               String?   @map("blood_group")
+  languages                String[]  @default([])
+  fatherName               String?   @map("father_name")
+  motherName               String?   @map("mother_name")
+  spouseName               String?   @map("spouse_name")
+  emergencyContactName     String?   @map("emergency_contact_name")
+  emergencyContactPhone    String?   @map("emergency_contact_phone")
+  emergencyContactRelation String?   @map("emergency_contact_relation")
+  presentAddress           Json?     @map("present_address")
+  permanentAddress         Json?     @map("permanent_address")
+  isFresher                Boolean   @default(false) @map("is_fresher")
+  experienceYears          Decimal?  @map("experience_years") @db.Decimal(4, 1)
+  previousCompany          String?   @map("previous_company")
+  previousRole             String?   @map("previous_role")
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
@@ -1993,65 +2110,65 @@ model EmployeeGovernmentId {
 /// `payroll-settings.rules.ts`, which equal the values that were hard-coded
 /// before this table existed. Percentages are 0–100 (CHECKs in the migration).
 model PayrollSetting {
-  id                Int      @id @default(autoincrement())
-  organizationId    Int      @unique @map("organization_id")
+  id                      Int      @id @default(autoincrement())
+  organizationId          Int      @unique @map("organization_id")
   /// Auto-split of a gross monthly salary; the remainder is `other_allowance`.
-  basicPercent      Decimal  @default(35) @map("basic_percent") @db.Decimal(5, 2)
-  hraPercent        Decimal  @default(30) @map("hra_percent") @db.Decimal(5, 2)
-  conveyancePercent Decimal  @default(20) @map("conveyance_percent") @db.Decimal(5, 2)
-  pfWageCeiling     Decimal  @default(15000) @map("pf_wage_ceiling") @db.Decimal(12, 2)
-  pfEmployeeRate    Decimal  @default(12) @map("pf_employee_rate") @db.Decimal(5, 2)
-  pfEmployerRate    Decimal  @default(12) @map("pf_employer_rate") @db.Decimal(5, 2)
-  esiWageThreshold  Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
-  esiEmployeeRate   Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
-  esiEmployerRate   Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
+  basicPercent            Decimal  @default(35) @map("basic_percent") @db.Decimal(5, 2)
+  hraPercent              Decimal  @default(30) @map("hra_percent") @db.Decimal(5, 2)
+  conveyancePercent       Decimal  @default(20) @map("conveyance_percent") @db.Decimal(5, 2)
+  pfWageCeiling           Decimal  @default(15000) @map("pf_wage_ceiling") @db.Decimal(12, 2)
+  pfEmployeeRate          Decimal  @default(12) @map("pf_employee_rate") @db.Decimal(5, 2)
+  pfEmployerRate          Decimal  @default(12) @map("pf_employer_rate") @db.Decimal(5, 2)
+  esiWageThreshold        Decimal  @default(21000) @map("esi_wage_threshold") @db.Decimal(12, 2)
+  esiEmployeeRate         Decimal  @default(0.75) @map("esi_employee_rate") @db.Decimal(5, 2)
+  esiEmployerRate         Decimal  @default(3.25) @map("esi_employer_rate") @db.Decimal(5, 2)
   /// Pay-days policy (Docs/PAYROLL_AND_COMPLIANCE.md §3.1): the per-day
   /// divisor. CALENDAR | FIXED_30 | FIXED_26 | WORKING_DAYS (CHECK).
-  payDaysMode       String   @default("CALENDAR") @map("pay_days_mode")
+  payDaysMode             String   @default("CALENDAR") @map("pay_days_mode")
   /// Read the employee's APPROVED attendance month lock (absences, half days,
   /// overtime); a run refuses employees whose month is not approved.
-  useAttendance     Boolean  @default(true) @map("use_attendance")
+  useAttendance           Boolean  @default(true) @map("use_attendance")
   /// A working day with no attendance at all counts as an absence (LOP).
-  unmarkedDaysAsAbsent Boolean @default(true) @map("unmarked_days_as_absent")
-  overtimeEnabled   Boolean  @default(false) @map("overtime_enabled")
+  unmarkedDaysAsAbsent    Boolean  @default(true) @map("unmarked_days_as_absent")
+  overtimeEnabled         Boolean  @default(false) @map("overtime_enabled")
   /// Fixed rupees per overtime hour; when null the rate is the hourly wage
   /// (gross ÷ divisor ÷ standard hours) × `overtime_multiplier`.
-  overtimeRatePerHour Decimal? @map("overtime_rate_per_hour") @db.Decimal(10, 2)
-  overtimeMultiplier Decimal @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
-  standardHoursPerDay Decimal @default(8) @map("standard_hours_per_day") @db.Decimal(4, 2)
+  overtimeRatePerHour     Decimal? @map("overtime_rate_per_hour") @db.Decimal(10, 2)
+  overtimeMultiplier      Decimal  @default(2) @map("overtime_multiplier") @db.Decimal(4, 2)
+  standardHoursPerDay     Decimal  @default(8) @map("standard_hours_per_day") @db.Decimal(4, 2)
   /// PF: when false, PF is on the full PF wage (voluntary higher wage).
-  pfCapAtCeiling    Boolean  @default(true) @map("pf_cap_at_ceiling")
-  epsRate           Decimal  @default(8.33) @map("eps_rate") @db.Decimal(5, 2)
-  epsWageCeiling    Decimal  @default(15000) @map("eps_wage_ceiling") @db.Decimal(12, 2)
-  epsAgeLimit       Int      @default(58) @map("eps_age_limit")
-  edliRate          Decimal  @default(0.5) @map("edli_rate") @db.Decimal(5, 2)
-  edliWageCeiling   Decimal  @default(15000) @map("edli_wage_ceiling") @db.Decimal(12, 2)
-  pfAdminRate       Decimal  @default(0.5) @map("pf_admin_rate") @db.Decimal(5, 2)
-  ptEnabled         Boolean  @default(false) @map("pt_enabled")
-  ptDefaultStateCode String? @map("pt_default_state_code")
-  tdsEnabled        Boolean  @default(false) @map("tds_enabled")
+  pfCapAtCeiling          Boolean  @default(true) @map("pf_cap_at_ceiling")
+  epsRate                 Decimal  @default(8.33) @map("eps_rate") @db.Decimal(5, 2)
+  epsWageCeiling          Decimal  @default(15000) @map("eps_wage_ceiling") @db.Decimal(12, 2)
+  epsAgeLimit             Int      @default(58) @map("eps_age_limit")
+  edliRate                Decimal  @default(0.5) @map("edli_rate") @db.Decimal(5, 2)
+  edliWageCeiling         Decimal  @default(15000) @map("edli_wage_ceiling") @db.Decimal(12, 2)
+  pfAdminRate             Decimal  @default(0.5) @map("pf_admin_rate") @db.Decimal(5, 2)
+  ptEnabled               Boolean  @default(false) @map("pt_enabled")
+  ptDefaultStateCode      String?  @map("pt_default_state_code")
+  tdsEnabled              Boolean  @default(false) @map("tds_enabled")
   /// OLD | NEW (CHECK): the regime of an employee with no declaration.
-  defaultTaxRegime  String   @default("NEW") @map("default_tax_regime")
-  bonusEligibilityLimit Decimal @default(21000) @map("bonus_eligibility_limit") @db.Decimal(12, 2)
-  bonusCalculationCeiling Decimal @default(7000) @map("bonus_calculation_ceiling") @db.Decimal(12, 2)
-  bonusPercent      Decimal  @default(8.33) @map("bonus_percent") @db.Decimal(5, 2)
-  gratuityCap       Decimal  @default(2000000) @map("gratuity_cap") @db.Decimal(12, 2)
-  gratuityMinYears  Int      @default(5) @map("gratuity_min_years")
-  loanMaxMultiple   Decimal  @default(3) @map("loan_max_multiple") @db.Decimal(5, 2)
-  loanMaxEmiPercent Decimal  @default(100) @map("loan_max_emi_percent") @db.Decimal(5, 2)
+  defaultTaxRegime        String   @default("NEW") @map("default_tax_regime")
+  bonusEligibilityLimit   Decimal  @default(21000) @map("bonus_eligibility_limit") @db.Decimal(12, 2)
+  bonusCalculationCeiling Decimal  @default(7000) @map("bonus_calculation_ceiling") @db.Decimal(12, 2)
+  bonusPercent            Decimal  @default(8.33) @map("bonus_percent") @db.Decimal(5, 2)
+  gratuityCap             Decimal  @default(2000000) @map("gratuity_cap") @db.Decimal(12, 2)
+  gratuityMinYears        Int      @default(5) @map("gratuity_min_years")
+  loanMaxMultiple         Decimal  @default(3) @map("loan_max_multiple") @db.Decimal(5, 2)
+  loanMaxEmiPercent       Decimal  @default(100) @map("loan_max_emi_percent") @db.Decimal(5, 2)
   /// Employer details printed on payslips, Form 16 and statutory files.
-  companyName       String?  @map("company_name")
-  companyAddress    String?  @map("company_address")
-  companyGstin      String?  @map("company_gstin")
-  companyPan        String?  @map("company_pan")
-  companyTan        String?  @map("company_tan")
-  pfEstablishmentCode String? @map("pf_establishment_code")
-  esiEmployerCode   String?  @map("esi_employer_code")
-  version           Int      @default(1)
-  createdBy         Int?     @map("created_by")
-  updatedBy         Int?     @map("updated_by")
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  companyName             String?  @map("company_name")
+  companyAddress          String?  @map("company_address")
+  companyGstin            String?  @map("company_gstin")
+  companyPan              String?  @map("company_pan")
+  companyTan              String?  @map("company_tan")
+  pfEstablishmentCode     String?  @map("pf_establishment_code")
+  esiEmployerCode         String?  @map("esi_employer_code")
+  version                 Int      @default(1)
+  createdBy               Int?     @map("created_by")
+  updatedBy               Int?     @map("updated_by")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -2082,17 +2199,17 @@ model PayrollPeriod {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  finalizedBy      User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
-  reopenedBy       User?             @relation("PayrollPeriodReopener", fields: [reopenedById], references: [id])
-  runs             PayrollRun[]
-  pfContributions  PfContribution[]
-  esiContributions EsiContribution[]
-  paymentBatches   PaymentBatch[]
-  loanSkipRequests LoanSkipRequest[]
-  payslips         Payslip[]
-  bonuses          EmployeeBonus[]
-  arrearsPaidSalaries EmployeeSalary[] @relation("SalaryArrearsPaidPeriod")
+  organization        Organization      @relation(fields: [organizationId], references: [id])
+  finalizedBy         User?             @relation("PayrollPeriodFinalizer", fields: [finalizedById], references: [id])
+  reopenedBy          User?             @relation("PayrollPeriodReopener", fields: [reopenedById], references: [id])
+  runs                PayrollRun[]
+  pfContributions     PfContribution[]
+  esiContributions    EsiContribution[]
+  paymentBatches      PaymentBatch[]
+  loanSkipRequests    LoanSkipRequest[]
+  payslips            Payslip[]
+  bonuses             EmployeeBonus[]
+  arrearsPaidSalaries EmployeeSalary[]  @relation("SalaryArrearsPaidPeriod")
 
   @@unique([organizationId, year, month])
   @@index([organizationId, status])
@@ -2247,40 +2364,40 @@ model PayrollDeduction {
 }
 
 model EmployeeSalary {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  employeeId       Int       @map("employee_id")
-  effectiveFrom    DateTime  @map("effective_from") @db.Date
-  effectiveTo      DateTime? @map("effective_to") @db.Date
-  grossMonthly     Decimal   @map("gross_monthly") @db.Decimal(12, 2)
-  basic            Decimal   @map("basic") @db.Decimal(12, 2)
-  hra              Decimal   @map("hra") @db.Decimal(12, 2)
-  conveyance       Decimal   @default(0) @map("conveyance") @db.Decimal(12, 2)
-  otherAllowance   Decimal   @default(0) @map("other_allowance") @db.Decimal(12, 2)
-  specialAllowance Decimal   @default(0) @map("special_allowance") @db.Decimal(12, 2)
-  arrearsSalary    Decimal   @default(0) @map("arrears_salary") @db.Decimal(12, 2)
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  employeeId          Int       @map("employee_id")
+  effectiveFrom       DateTime  @map("effective_from") @db.Date
+  effectiveTo         DateTime? @map("effective_to") @db.Date
+  grossMonthly        Decimal   @map("gross_monthly") @db.Decimal(12, 2)
+  basic               Decimal   @map("basic") @db.Decimal(12, 2)
+  hra                 Decimal   @map("hra") @db.Decimal(12, 2)
+  conveyance          Decimal   @default(0) @map("conveyance") @db.Decimal(12, 2)
+  otherAllowance      Decimal   @default(0) @map("other_allowance") @db.Decimal(12, 2)
+  specialAllowance    Decimal   @default(0) @map("special_allowance") @db.Decimal(12, 2)
+  arrearsSalary       Decimal   @default(0) @map("arrears_salary") @db.Decimal(12, 2)
   /// Arrears are a one-time payment: set when the period that paid them is
   /// finalized, cleared when `arrears_salary` is changed.
-  arrearsPaidPeriodId Int?  @map("arrears_paid_period_id")
+  arrearsPaidPeriodId Int?      @map("arrears_paid_period_id")
   /// The template the lines were built from, if any (a copy is stored in
   /// the lines; changing the template later does not change this salary).
-  salaryTemplateId Int?      @map("salary_template_id")
+  salaryTemplateId    Int?      @map("salary_template_id")
   /// The revision letter this structure implements, if any.
-  revisionLetterId Int?      @map("revision_letter_id")
-  customFields     Json      @default("{}") @map("custom_fields")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  revisionLetterId    Int?      @map("revision_letter_id")
+  customFields        Json      @default("{}") @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  employee     Employee     @relation(fields: [employeeId], references: [id])
-  arrearsPaidPeriod PayrollPeriod? @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
-  salaryTemplate   SalaryTemplate? @relation(fields: [salaryTemplateId], references: [id])
-  revisionLetter   RevisionLetter? @relation(fields: [revisionLetterId], references: [id])
-  components       EmployeeSalaryComponent[]
+  organization      Organization              @relation(fields: [organizationId], references: [id])
+  employee          Employee                  @relation(fields: [employeeId], references: [id])
+  arrearsPaidPeriod PayrollPeriod?            @relation("SalaryArrearsPaidPeriod", fields: [arrearsPaidPeriodId], references: [id])
+  salaryTemplate    SalaryTemplate?           @relation(fields: [salaryTemplateId], references: [id])
+  revisionLetter    RevisionLetter?           @relation(fields: [revisionLetterId], references: [id])
+  components        EmployeeSalaryComponent[]
 
   @@index([organizationId, employeeId, effectiveFrom])
   @@map("employee_salaries")
@@ -2313,33 +2430,33 @@ model EmployeePfProfile {
 }
 
 model PfContribution {
-  id                   Int       @id @default(autoincrement())
-  organizationId       Int       @map("organization_id")
-  payrollPeriodId      Int       @map("payroll_period_id")
-  payrollEntryId       Int       @map("payroll_entry_id")
-  employeeId           Int       @map("employee_id")
-  pfIncluded           Boolean   @default(true) @map("pf_included")
-  pfWage               Decimal   @map("pf_wage") @db.Decimal(12, 2)
-  employeeContribution Decimal   @map("employee_contribution") @db.Decimal(12, 2)
-  employerContribution Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
+  id                      Int       @id @default(autoincrement())
+  organizationId          Int       @map("organization_id")
+  payrollPeriodId         Int       @map("payroll_period_id")
+  payrollEntryId          Int       @map("payroll_entry_id")
+  employeeId              Int       @map("employee_id")
+  pfIncluded              Boolean   @default(true) @map("pf_included")
+  pfWage                  Decimal   @map("pf_wage") @db.Decimal(12, 2)
+  employeeContribution    Decimal   @map("employee_contribution") @db.Decimal(12, 2)
+  employerContribution    Decimal   @default(0) @map("employer_contribution") @db.Decimal(12, 2)
   /// Employer share split (ECR): EPS (pension) and the EPF difference.
-  epsWage              Decimal   @default(0) @map("eps_wage") @db.Decimal(12, 2)
-  epsContribution      Decimal   @default(0) @map("eps_contribution") @db.Decimal(12, 2)
-  epfEmployerContribution Decimal @default(0) @map("epf_employer_contribution") @db.Decimal(12, 2)
-  edliWage             Decimal   @default(0) @map("edli_wage") @db.Decimal(12, 2)
-  edliContribution     Decimal   @default(0) @map("edli_contribution") @db.Decimal(12, 2)
-  adminCharges         Decimal   @default(0) @map("admin_charges") @db.Decimal(12, 2)
-  grossWage            Decimal   @default(0) @map("gross_wage") @db.Decimal(12, 2)
-  ncpDays              Decimal   @default(0) @map("ncp_days") @db.Decimal(5, 2)
-  paymentStatus        String    @default("PENDING") @map("payment_status")
-  salaryCredited       Boolean   @default(false) @map("salary_credited")
-  customFields         Json      @default("{}") @map("custom_fields")
-  isActive             Boolean   @default(true) @map("is_active")
-  createdBy            Int?      @map("created_by")
-  updatedBy            Int?      @map("updated_by")
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+  epsWage                 Decimal   @default(0) @map("eps_wage") @db.Decimal(12, 2)
+  epsContribution         Decimal   @default(0) @map("eps_contribution") @db.Decimal(12, 2)
+  epfEmployerContribution Decimal   @default(0) @map("epf_employer_contribution") @db.Decimal(12, 2)
+  edliWage                Decimal   @default(0) @map("edli_wage") @db.Decimal(12, 2)
+  edliContribution        Decimal   @default(0) @map("edli_contribution") @db.Decimal(12, 2)
+  adminCharges            Decimal   @default(0) @map("admin_charges") @db.Decimal(12, 2)
+  grossWage               Decimal   @default(0) @map("gross_wage") @db.Decimal(12, 2)
+  ncpDays                 Decimal   @default(0) @map("ncp_days") @db.Decimal(5, 2)
+  paymentStatus           String    @default("PENDING") @map("payment_status")
+  salaryCredited          Boolean   @default(false) @map("salary_credited")
+  customFields            Json      @default("{}") @map("custom_fields")
+  isActive                Boolean   @default(true) @map("is_active")
+  createdBy               Int?      @map("created_by")
+  updatedBy               Int?      @map("updated_by")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization  Organization  @relation(fields: [organizationId], references: [id])
   payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
@@ -2555,33 +2672,33 @@ model EmployeeBonus {
 }
 
 model Payslip {
-  id              Int       @id @default(autoincrement())
-  organizationId  Int       @map("organization_id")
-  payrollPeriodId Int       @map("payroll_period_id")
-  payrollEntryId  Int       @unique @map("payroll_entry_id")
-  employeeId      Int       @map("employee_id")
-  payslipNumber   String    @map("payslip_number")
-  netPayable      Decimal   @map("net_payable") @db.Decimal(12, 2)
-  status          String    @default("GENERATED")
-  generatedAt     DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
-  pdfPath         String?   @map("pdf_path")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  payrollPeriodId    Int       @map("payroll_period_id")
+  payrollEntryId     Int       @unique @map("payroll_entry_id")
+  employeeId         Int       @map("employee_id")
+  payslipNumber      String    @map("payslip_number")
+  netPayable         Decimal   @map("net_payable") @db.Decimal(12, 2)
+  status             String    @default("GENERATED")
+  generatedAt        DateTime  @default(now()) @map("generated_at") @db.Timestamptz(6)
+  pdfPath            String?   @map("pdf_path")
   /// Frozen copy of everything the payslip shows, taken at generation, so a
   /// later change to the employee, bank or company never alters it.
-  snapshot        Json?
+  snapshot           Json?
   /// The PDF as first rendered; later downloads return these exact bytes.
-  pdfContent      Bytes?    @map("pdf_content")
-  pdfRenderedAt   DateTime? @map("pdf_rendered_at") @db.Timestamptz(6)
+  pdfContent         Bytes?    @map("pdf_content")
+  pdfRenderedAt      DateTime? @map("pdf_rendered_at") @db.Timestamptz(6)
   /// 1 at first generation, +1 per regeneration (reason mandatory).
-  version         Int       @default(1)
-  regeneratedAt   DateTime? @map("regenerated_at") @db.Timestamptz(6)
-  regenerationReason String? @map("regeneration_reason")
-  customFields    Json      @default("{}") @map("custom_fields")
-  isActive        Boolean   @default(true) @map("is_active")
-  createdBy       Int?      @map("created_by")
-  updatedBy       Int?      @map("updated_by")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  version            Int       @default(1)
+  regeneratedAt      DateTime? @map("regenerated_at") @db.Timestamptz(6)
+  regenerationReason String?   @map("regeneration_reason")
+  customFields       Json      @default("{}") @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization  Organization  @relation(fields: [organizationId], references: [id])
   payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id])
@@ -2988,6 +3105,39 @@ model Notification {
   @@schema("platform")
 }
 
+// ---------------------------------------------------------------------------
+// Sales Settings / Sales & Document Masters foundation
+// (apps/api/src/modules/sales-settings) — Docs/SALES_SETTINGS_FOUNDATION.md
+//
+// First models in the "sales" schema (Docs/PLATFORM_SCHEMA_SPLIT_PLAN.md §2:
+// a module gets its own schema only when its first model lands — this is
+// that landing for `sales`). Document numbering reuses the existing
+// `DocumentSequence` table (new `docType` values only, see the foundation
+// doc) rather than adding a new table here.
+// ---------------------------------------------------------------------------
+
+/// One row per organization (single-org app, but kept org-scoped for
+/// consistency with every other table — Docs/ARCHITECTURE.md §5.1).
+/// Company tab of Sales Settings.
+model CompanyDetail {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @unique @map("organization_id")
+  name           String
+  phone          String?
+  email          String?
+  website        String?
+  addressLine1   String?   @map("address_line1")
+  addressLine2   String?   @map("address_line2")
+  city           String?
+  state          String?
+  pincode        String?
+  country        String?
+  gstin          String?
+  pan            String?
+  /// Base64 data URI, same storage convention as `SealSignature.imageDataUri`.
+  logoDataUri    String?   @map("logo_data_uri") @db.Text
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
 /// CRM Accounts — minimal foundation (Phase 4B). Only the fields the legacy
 /// Contacts.tsx actually reads off an account (`id`, `name`) are modeled;
 /// the full Account-360 feature set (industry, owner, etc.) is explicitly
@@ -3077,6 +3227,8 @@ model Account {
   quotations   Quotation[]
   notes        CrmNote[]
   coldCallingEntries CrmColdCallingEntry[]
+
+  projects           Project[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3741,6 +3893,48 @@ model CrmFollowUp {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("company_details")
+  @@schema("sales")
+}
+
+/// List of org bank accounts. Bank & Signatory tab (bank half) of Sales
+/// Settings.
+model BankAccount {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  bankName          String    @map("bank_name")
+  accountHolderName String    @map("account_holder_name")
+  accountNumber     String    @map("account_number")
+  ifscCode          String    @map("ifsc_code")
+  branchName        String?   @map("branch_name")
+  isPrimary         Boolean   @default(false) @map("is_primary")
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("bank_accounts")
+  @@schema("sales")
+}
+
+/// One row per organization — the UI shows a single Name/Designation form,
+/// not a list (contrast `Salesperson`, which is a list). Bank & Signatory
+/// tab (signatory half) of Sales Settings.
+model AuthorizedSignatory {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @unique @map("organization_id")
+  name           String?
+  designation    String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   organization Organization              @relation(fields: [organizationId], references: [id])
   reschedules  CrmFollowUpReschedule[]
 
@@ -3828,6 +4022,22 @@ model CrmTask {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  @@map("authorized_signatories")
+  @@schema("sales")
+}
+
+/// Salespersons tab of Sales Settings — tracked for commission/assignment by
+/// future Sales documents (quotations/invoices reference this by id).
+model Salesperson {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  name              String
+  code              String?
+  email             String?
+  phone             String?
+  commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
   @@index([organizationId, relatedType, relatedId])
   @@index([organizationId, status])
   @@map("crm_tasks")
@@ -3968,6 +4178,27 @@ model CrmMiningRow {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
+  @@map("salespersons")
+  @@schema("sales")
+}
+
+/// Company Seal masterlist + Authorized Signature masterlist, unified behind
+/// one `kind` discriminator since both are "title + image data URI" cards
+/// with the same CRUD shape — see Docs/SALES_SETTINGS_FOUNDATION.md for the
+/// `SealSignatureKind` values. `signatoryName`/`designation` only apply to
+/// kind = 'signature'.
+model SealSignature {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  kind           String
+  title          String
+  signatoryName  String?   @map("signatory_name")
+  designation    String?
+  /// Base64 data URI (as uploaded from the UI — see screenshots in the
+  /// foundation doc), not a file path. No file-storage integration yet.
+  imageDataUri   String    @map("image_data_uri") @db.Text
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
   @@map("crm_mining_rows")
   @@schema("crm")
 }
@@ -4002,6 +4233,34 @@ model CrmQuota {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  @@index([organizationId, kind])
+  @@map("seal_signatures")
+  @@schema("sales")
+}
+
+/// Terms & Inventory tab — the 8 simple "add/delete chip" lookup lists
+/// (Payment Terms, Delivery Terms, Dispatch Modes, GST Rates, Item
+/// Categories, Item Types, Item Groups, Units) unified behind one `category`
+/// discriminator. Deliberately NOT modeled as 8 separate tables and NOT on
+/// the code+name `MasterDataService` base used by HR's master-data module:
+/// the UI treats every one of these as an unstructured, non-unique value
+/// list (duplicate values are allowed, e.g. two "9%" GST rates in the
+/// reference screenshots), so a single generic table is the accurate model,
+/// not a simplification. `numericValue` is used by GST Rates (the
+/// percentage) and left null for the others. See
+/// Docs/SALES_SETTINGS_FOUNDATION.md for the `SalesMasterListCategory`
+/// values and how a future Sales/SCM module should reference rows here by
+/// id (never copy the label).
+model SalesMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
   @@index([organizationId])
   @@index([organizationId, periodKey])
   @@map("crm_quotas")
@@ -4040,6 +4299,36 @@ model CrmNotification {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  @@index([organizationId, category])
+  @@map("sales_master_list_items")
+  @@schema("sales")
+}
+
+/// Finance Master — `category` picks which card on the Finance Master page a
+/// row belongs to (Expense Types, Payment Modes; see
+/// `FinanceMasterListCategory`). Same generic value-list shape as
+/// `SalesMasterListItem` (Docs/SALES_SETTINGS_FOUNDATION.md design decision
+/// #2) — a future Finance module (expenses, payments) should reference a row
+/// here by `id`, never copy `value`.
+model FinanceMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("finance_master_list_items")
+  @@schema("finance")
   @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
   @@index([organizationId, status])
   @@map("crm_notifications")
@@ -4181,6 +4470,18 @@ model ScmProduct {
   batchTracked   Boolean   @default(false) @map("batch_tracked")
   serialTracked  Boolean   @default(false) @map("serial_tracked")
   description    String?
+  /// Barcode value override; when null the barcode screens derive a Code128 value from productCode.
+  barcode        String?
+  /// When the product barcode was first generated (printed on the label).
+  barcodeCreatedAt DateTime? @map("barcode_created_at")
+  /// Warehouse picked for this SKU; its default bin must belong to it.
+  warehouseId    Int?      @map("warehouse_id")
+  /// Manually assigned default bin location for this SKU.
+  binLocationId  Int?      @map("bin_location_id")
+  /// Product-level expiry, only read when no batch expiry data exists.
+  expiryDate     DateTime? @map("expiry_date") @db.Date
+  /// Explicit "does not expire" flag, distinct from a never-set date.
+  expiryNotApplicable Boolean @default(false) @map("expiry_not_applicable")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
@@ -4189,6 +4490,8 @@ model ScmProduct {
   deletedAt      DateTime? @map("deleted_at")
 
   organization Organization          @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse?         @relation("ProductWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  binLocation  ScmWarehouseLocation? @relation("ProductBinLocation", fields: [binLocationId], references: [id], onDelete: SetNull)
   balances     ScmStockBalance[]
   ledger       ScmStockLedgerEntry[]
   batches      ScmStockBatch[]
@@ -4213,6 +4516,7 @@ model ScmProduct {
   movementItems      ScmWarehouseMovementItem[]
 
   @@unique([organizationId, productCode])
+  @@unique([organizationId, barcode])
   @@map("products")
   @@schema("scm")
 }
@@ -4246,6 +4550,7 @@ model ScmWarehouse {
 
   organization Organization           @relation(fields: [organizationId], references: [id])
   locations    ScmWarehouseLocation[]
+  products     ScmProduct[]           @relation("ProductWarehouse")
   balances     ScmStockBalance[]
   ledger       ScmStockLedgerEntry[]
   batches      ScmStockBatch[]
@@ -4301,6 +4606,7 @@ model ScmWarehouseLocation {
   warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
   parent       ScmWarehouseLocation?  @relation("LocationTree", fields: [parentLocationId], references: [id])
   children     ScmWarehouseLocation[] @relation("LocationTree")
+  products     ScmProduct[]           @relation("ProductBinLocation")
   locationStock ScmLocationStock[]
 
   @@unique([warehouseId, locationCode])
@@ -4553,6 +4859,7 @@ model ScmPurchaseRequisition {
   warehouse    ScmWarehouse                @relation(fields: [warehouseId], references: [id])
   items        ScmPurchaseRequisitionItem[]
   rfqs         ScmRfq[]
+  purchaseOrders ScmPurchaseOrder[]
   sourceSalesOrder ScmSalesOrder?  @relation(fields: [sourceSalesOrderId], references: [id])
   fulfillment      ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
 
@@ -4747,6 +5054,10 @@ model ScmPurchaseOrder {
   vendorGstinSnapshot String?   @map("vendor_gstin_snapshot")
   rfqId               Int?      @map("rfq_id")
   quotationId         Int?      @map("quotation_id")
+  /// Material Requisition this PO was raised from (PO form "Link Material Requisition").
+  /// `requisitionNumber` is a snapshot so the link still displays if the MR is deleted.
+  requisitionId       Int?      @map("requisition_id")
+  requisitionNumber   String?   @map("requisition_number")
   poDate              DateTime  @map("po_date") @db.Date
   expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
   warehouseId         Int       @map("warehouse_id")
@@ -4776,12 +5087,14 @@ model ScmPurchaseOrder {
   warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
   rfq          ScmRfq?                @relation(fields: [rfqId], references: [id])
   quotation    ScmSupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  requisition  ScmPurchaseRequisition? @relation(fields: [requisitionId], references: [id], onDelete: SetNull)
   items        ScmPurchaseOrderItem[]
   receipts     ScmGoodsReceipt[]
   bills        ScmSupplierBill[]
 
   @@unique([organizationId, poNumber])
   @@index([organizationId, status])
+  @@index([requisitionId])
   @@map("purchase_orders")
   @@schema("scm")
 }
@@ -5883,4 +6196,329 @@ model ScmSupplierDocument {
   @@index([organizationId, supplierId])
   @@map("supplier_documents")
   @@schema("scm")
+}
+
+// ---------------------------------------------------------------------------
+// Projects Module Schema — projects
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  active
+  on_hold
+  completed
+  cancelled
+
+  @@schema("projects")
+}
+
+enum MilestoneStatus {
+  not_started
+  in_progress
+  hold
+  completed
+
+  @@schema("projects")
+}
+
+enum TaskStatus {
+  not_started
+  in_progress
+  hold
+  completed
+
+  @@schema("projects")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+
+  @@schema("projects")
+}
+
+enum ProjectExpenseStatus {
+  unpaid
+  paid
+  cancelled
+
+  @@schema("projects")
+}
+
+model Project {
+  id                    Int           @id @default(autoincrement())
+  organizationId        Int           @map("organization_id")
+  projectCode           String        @map("project_code")
+  name                  String
+  description           String?
+  customerId            Int?          @map("customer_id")
+  customerName          String?       @map("customer_name")
+  projectType           String?       @map("project_type")
+  department            String?
+  expectedHours         Decimal       @default(0) @map("expected_hours") @db.Decimal(10, 2)
+  projectPrice          Decimal       @default(0) @map("project_price") @db.Decimal(14, 2)
+  actualCost            Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  status                ProjectStatus @default(active)
+  startDate             DateTime      @map("start_date") @db.Date
+  plannedEndDate        DateTime?     @map("planned_end_date") @db.Date
+  actualEndDate         DateTime?     @map("actual_end_date") @db.Date
+  clientHandlingPersonId Int?         @map("client_handling_person_id")
+  customFields          Json          @default("{}") @map("custom_fields")
+  createdBy             Int?          @map("created_by")
+  updatedBy             Int?          @map("updated_by")
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  organization         Organization        @relation(fields: [organizationId], references: [id])
+  customer             Account?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  clientHandlingPerson Employee?           @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
+  members              ProjectMember[]
+  milestones           ProjectMilestone[]
+  tasks                ProjectTask[]
+  expenses             ProjectExpense[]
+
+  @@unique([organizationId, projectCode])
+  @@index([organizationId, status])
+  @@index([organizationId, department])
+  @@map("projects")
+  @@schema("projects")
+}
+
+model ProjectMember {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  projectId      Int       @map("project_id")
+  employeeId     Int       @map("employee_id")
+  role           String    @default("Contributor")
+  estimatedHours Decimal   @default(0) @map("estimated_hours") @db.Decimal(10, 2)
+  loggedHours    Decimal   @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  hourlyRate     Decimal   @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@unique([projectId, employeeId])
+  @@index([organizationId, employeeId])
+  @@map("project_members")
+  @@schema("projects")
+}
+
+model ProjectMilestone {
+  id             Int             @id @default(autoincrement())
+  organizationId Int             @map("organization_id")
+  projectId      Int             @map("project_id")
+  title          String
+  targetDate     DateTime        @map("target_date") @db.Date
+  actualDate     DateTime?       @map("actual_date") @db.Date
+  status         MilestoneStatus @default(not_started)
+  order          Int             @default(1)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks        ProjectTask[]
+
+  @@index([projectId, order])
+  @@map("project_milestones")
+  @@schema("projects")
+}
+
+model ProjectTask {
+  id                 Int          @id @default(autoincrement())
+  organizationId     Int          @map("organization_id")
+  projectId          Int          @map("project_id")
+  taskCode           String       @map("task_code")
+  milestoneId        Int?         @map("milestone_id")
+  assignedToId       Int?         @map("assigned_to_id")
+  title              String
+  description        String?
+  department         String?
+  startDate          DateTime     @map("start_date") @db.Date
+  endDate            DateTime     @map("end_date") @db.Date
+  actualEndDate      DateTime?    @map("actual_end_date") @db.Date
+  hoursToComplete    Decimal      @default(0) @map("hours_to_complete") @db.Decimal(10, 2)
+  loggedHours        Decimal      @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  status             TaskStatus   @default(not_started)
+  completionPercent  Int          @default(0) @map("completion_percent")
+  priority           TaskPriority @default(medium)
+  dependencyTaskId   Int?         @map("dependency_task_id")
+  points             Int          @default(10)
+  customFields       Json         @default("{}") @map("custom_fields")
+  createdBy          Int?         @map("created_by")
+  updatedBy          Int?         @map("updated_by")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone      ProjectMilestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignedTo     Employee?            @relation(fields: [assignedToId], references: [id])
+  dependencyTask ProjectTask?         @relation("TaskDependencies", fields: [dependencyTaskId], references: [id])
+  dependentTasks ProjectTask[]        @relation("TaskDependencies")
+  timeEntries    ProjectTimeEntry[]
+  pointsLedger   ProjectPointsLedger[]
+
+  @@unique([organizationId, taskCode])
+  @@index([projectId, status])
+  @@index([organizationId, assignedToId])
+  @@map("project_tasks")
+  @@schema("projects")
+}
+
+model ProjectTimeEntry {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  taskId          Int       @map("task_id")
+  employeeId      Int       @map("employee_id")
+  startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationMinutes Int       @default(0) @map("duration_minutes")
+  entryDate       DateTime  @map("entry_date") @db.Date
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([organizationId, employeeId, entryDate])
+  @@index([taskId])
+  @@map("project_time_entries")
+  @@schema("projects")
+}
+
+model ProjectExpense {
+  id             Int                  @id @default(autoincrement())
+  organizationId Int                  @map("organization_id")
+  projectId      Int                  @map("project_id")
+  department     String?
+  amount         Decimal              @db.Decimal(14, 2)
+  expenseDate    DateTime             @map("expense_date") @db.Date
+  vendor         String?
+  referenceNo    String?              @map("reference_no")
+  status         ProjectExpenseStatus @default(unpaid)
+  notes          String?
+  createdBy      Int?                 @map("created_by")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, projectId])
+  @@map("project_expenses")
+  @@schema("projects")
+}
+
+model ProjectPointsLedger {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  employeeId     Int      @map("employee_id")
+  taskId         Int      @map("task_id")
+  taskTitle      String   @map("task_title")
+  points         Int
+  awardedAt      DateTime @default(now()) @map("awarded_at") @db.Timestamptz(6)
+  note           String?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, employeeId])
+  @@map("project_points_ledger")
+  @@schema("projects")
+}
+
+model ProjectPointsConfig {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @unique @map("organization_id")
+  low            Int      @default(5)
+  medium         Int      @default(10)
+  high           Int      @default(20)
+  urgent         Int      @default(30)
+  customRules    Json     @default("{}") @map("custom_rules")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("project_points_config")
+  @@schema("projects")
+}
+
+model OrganizationSetting {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @unique @map("organization_id")
+  theme                  String    @default("system")
+  density                String    @default("comfortable")
+  country                String    @default("IN")
+  locale                 String    @default("en-IN")
+  timezone               String    @default("Asia/Kolkata")
+  dateFormat             String    @default("DD/MM/YYYY") @map("date_format")
+  timeFormat             String    @default("12h") @map("time_format")
+  baseCurrency           String    @default("INR") @map("base_currency")
+  currencySymbolPosition String    @default("before") @map("currency_symbol_position")
+  numberFormat           String    @default("indian") @map("number_format")
+  fiscalYearStartMonth   Int       @default(4) @map("fiscal_year_start_month")
+  customFields           Json      @default("{}") @map("custom_fields")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("organization_settings")
+  @@schema("platform")
+}
+
+model UserPreference {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique @map("user_id")
+  organizationId  Int       @map("organization_id")
+  theme           String?
+  density         String?
+  locale          String?
+  timezone        String?
+  dateFormat      String?   @map("date_format")
+  timeFormat      String?   @map("time_format")
+  displayCurrency String?   @map("display_currency")
+  customFields    Json      @default("{}") @map("custom_fields")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("user_preferences")
+  @@schema("platform")
+}
+
+model ExchangeRate {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  fromCurrency   String    @map("from_currency") @db.VarChar(3)
+  toCurrency     String    @map("to_currency") @db.VarChar(3)
+  rate           Decimal   @db.Decimal(18, 6)
+  effectiveDate  DateTime  @map("effective_date") @db.Date
+  source         String    @default("manual") @db.VarChar(64)
+  isHistorical   Boolean   @default(false) @map("is_historical")
+  createdBy      Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, fromCurrency, toCurrency, effectiveDate])
+  @@index([organizationId, fromCurrency, toCurrency])
+  @@map("exchange_rates")
+  @@schema("platform")
 }

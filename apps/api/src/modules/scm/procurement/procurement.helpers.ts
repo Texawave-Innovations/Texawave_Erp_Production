@@ -96,6 +96,15 @@ export const SELECTABLE_QUOTATION_STATUSES = [
   "SHORTLISTED",
 ] as const;
 export const RECEIVABLE_PO_STATUSES = ["SENT", "PARTIALLY_RECEIVED"] as const;
+
+/** Requisition statuses that can still be linked to a PO (not yet CONVERTED,
+ * and not dead-ended as REJECTED/CANCELLED). Single source for both the
+ * suggestion list and the CONVERTED transition. */
+export const LINKABLE_REQUISITION_STATUSES = [
+  "DRAFT",
+  "SUBMITTED",
+  "APPROVED",
+] as const;
 export const OPEN_PO_STATUSES = [
   "APPROVED",
   "SENT",

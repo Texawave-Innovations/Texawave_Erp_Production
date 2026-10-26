@@ -9,10 +9,12 @@ import type {
   PutawaySource,
   RecordPutawayItemInput,
   ScmActivityRow,
+  StockWriteOffInput,
+  WarehouseStockViewRow,
   WarehouseMovement,
   WarehouseOpsDashboard,
 } from "@texawave-erp/api-types";
-import { scmGet, scmPost } from "../shared/scm-api";
+import { scmDelete, scmGet, scmPost } from "../shared/scm-api";
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 
 const W = "/scm/warehouse";
@@ -113,4 +115,24 @@ export const useMovementAction = () =>
       action: "submit" | "approve" | "complete" | "cancel";
       body?: object;
     }) => scmPost<WarehouseMovement>(`${W}/movements/${id}/${action}`, body),
+  );
+
+export const useDeletePutaway = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/warehouse/putaway/${id}`));
+
+export const useDeleteMovement = () =>
+  useScmMutation((id: number) => scmDelete(`/scm/warehouse/movements/${id}`));
+
+/** Stock by location incl. each warehouse's unassigned remainder. */
+export const useStockView = (q: {
+  warehouseId?: number | undefined;
+  q?: string | undefined;
+}) =>
+  useScmData<WarehouseStockViewRow[]>("warehouse-ops", ["stock-view", q], () =>
+    scmGet(`${W}/stock-view`, q),
+  );
+/** Writes stock off from a bin (a real ADJUSTMENT_OUT). */
+export const useStockWriteOff = () =>
+  useScmMutation((input: StockWriteOffInput) =>
+    scmPost<{ ledgerEntryId: number }>(`${W}/stock-write-off`, input),
   );

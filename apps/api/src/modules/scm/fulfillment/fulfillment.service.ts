@@ -202,4 +202,17 @@ export class FulfillmentService {
       ),
     );
   }
+
+  async removeFulfillment(id: number) {
+    const ok = await this.fulfillments.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Fulfillment", id);
+  }
+  async removePicking(id: number) {
+    const ok = await this.pickings.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Pick list", id);
+  }
+  async removePacking(id: number) {
+    const ok = await this.packings.remove(this.scope, id, this.actor);
+    if (!ok) throw new ResourceNotFoundException("Packing", id);
+  }
 }

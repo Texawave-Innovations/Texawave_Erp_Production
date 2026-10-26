@@ -73,6 +73,9 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      express:
+        specifier: 5.2.1
+        version: 5.2.1
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
@@ -279,6 +282,9 @@ importers:
       exceljs:
         specifier: 4.4.0
         version: 4.4.0
+      framer-motion:
+        specifier: ^14.2.0
+        version: 14.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       jspdf:
         specifier: 2.5.2
         version: 2.5.2
@@ -454,6 +460,9 @@ importers:
       react-dom:
         specifier: ^19
         version: 19.2.8(react@19.2.8)
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
     devDependencies:
       "@texawave-erp/config":
         specifier: workspace:*

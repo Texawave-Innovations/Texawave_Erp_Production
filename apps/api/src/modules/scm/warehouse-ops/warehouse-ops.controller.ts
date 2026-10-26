@@ -1,10 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { IsInt, IsNumber, Min } from "class-validator";
@@ -19,6 +22,8 @@ import {
   QueryPutawayDto,
   ReasonDto,
   RecordPutawayItemDto,
+  StockViewQueryDto,
+  StockWriteOffDto,
 } from "./dto/warehouse-ops.dto.js";
 import { WarehouseOpsService } from "./warehouse-ops.service.js";
 
@@ -54,6 +59,20 @@ export class WarehouseOpsController {
   @RequirePermission("scm.warehouse.read")
   locationStock(@Paginate(QueryLocationStockDto) query: QueryLocationStockDto) {
     return this.svc.listLocationStock(query);
+  }
+
+  /** Stock by location incl. the unassigned remainder (Warehouse Stock page). */
+  @Get("stock-view")
+  @RequirePermission("scm.warehouse.read")
+  stockView(@Query() query: StockViewQueryDto) {
+    return this.svc.stockView(query);
+  }
+
+  /** Writes stock off from one bin (a real ADJUSTMENT_OUT). */
+  @Post("stock-write-off")
+  @RequirePermission("scm.warehouse.write")
+  stockWriteOff(@Body() dto: StockWriteOffDto) {
+    return this.svc.stockWriteOff(dto);
   }
 }
 
@@ -117,6 +136,13 @@ export class PutawayController {
   cancel(@Param("id", ParseIntPipe) id: number, @Body() dto: ReasonDto) {
     return this.svc.cancelPutaway(id, dto.reason);
   }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.warehouse.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removePutaway(id);
+  }
 }
 
 /** Legacy `ScmWarehouseMovements`. */
@@ -165,5 +191,12 @@ export class MovementsController {
   @RequirePermission("scm.warehouse.write")
   cancel(@Param("id", ParseIntPipe) id: number, @Body() dto: ReasonDto) {
     return this.svc.cancelMovement(id, dto.reason);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermission("scm.warehouse.write")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.svc.removeMovement(id);
   }
 }
