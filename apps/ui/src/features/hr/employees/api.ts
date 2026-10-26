@@ -66,6 +66,11 @@ export async function updateEmployee(
   return data;
 }
 
+/** Permanent — only succeeds when nothing else references this employee. */
+export async function deleteEmployee(id: number): Promise<void> {
+  await withAuthRetry(() => apiClient.delete(`${BASE}/${id}`));
+}
+
 export interface StatusChangeBody {
   status: EmployeeStatus;
   effectiveDate: string;
@@ -148,16 +153,21 @@ export async function getEmployeeStats(): Promise<EmployeeStats> {
   return data;
 }
 
-/** Approve a submitted onboarding profile (PENDING_REVIEW, nothing missing). */
+/**
+ * Approve a submitted onboarding profile (PENDING_REVIEW, nothing missing).
+ * `force` is an HR override: approve even if the profile was never
+ * submitted or is still incomplete.
+ */
 export async function approveOnboarding(
   id: number,
   note?: string,
+  force?: boolean,
 ): Promise<EmployeeDetail> {
   const { data } = await withAuthRetry(() =>
-    apiClient.post<EmployeeDetail>(
-      `${BASE}/${id}/onboarding/approve`,
-      note ? { note } : {},
-    ),
+    apiClient.post<EmployeeDetail>(`${BASE}/${id}/onboarding/approve`, {
+      ...(note ? { note } : {}),
+      ...(force ? { force } : {}),
+    }),
   );
   return data;
 }
@@ -173,6 +183,96 @@ export async function sendBackOnboarding(
     }),
   );
   return data;
+}
+
+/**
+ * HR's edit of one employee's onboarding detail tables — the path the
+ * employee's own self-service wizard points to once their profile is
+ * PROFILE_LOCKED ("Ask HR to update it"), used by the onboarding progress
+ * view's per-section Edit action. Each getter returns `null` when nothing is
+ * saved yet, same as the self-service equivalents.
+ */
+export function getEmployeePersonal(
+  id: number,
+): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(
+      `${BASE}/${id}/personal-details`,
+    ),
+  ).then((res) => res.data);
+}
+
+export function putEmployeePersonal(id: number, input: object) {
+  return withAuthRetry(() =>
+    apiClient.put(`${BASE}/${id}/personal-details`, input),
+  );
+}
+
+export function getEmployeeAddress(
+  id: number,
+  type: "PERMANENT" | "PRESENT",
+): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(
+      `${BASE}/${id}/address/${type}`,
+    ),
+  ).then((res) => res.data);
+}
+
+export function putEmployeeAddress(
+  id: number,
+  type: "PERMANENT" | "PRESENT",
+  input: object,
+) {
+  return withAuthRetry(() =>
+    apiClient.put(`${BASE}/${id}/address/${type}`, input),
+  );
+}
+
+/** Masked account number only, same as the self-service read. */
+export function getEmployeeBank(
+  id: number,
+): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(`${BASE}/${id}/bank-details`),
+  ).then((res) => res.data);
+}
+
+export function putEmployeeBank(id: number, input: object) {
+  return withAuthRetry(() =>
+    apiClient.put(`${BASE}/${id}/bank-details`, input),
+  );
+}
+
+export function getEmployeeGovernmentIds(
+  id: number,
+): Promise<Record<string, unknown> | null> {
+  return withAuthRetry(() =>
+    apiClient.get<Record<string, unknown> | null>(
+      `${BASE}/${id}/government-ids`,
+    ),
+  ).then((res) => res.data);
+}
+
+export function putEmployeeGovernmentIds(id: number, input: object) {
+  return withAuthRetry(() =>
+    apiClient.put(`${BASE}/${id}/government-ids`, input),
+  );
+}
+
+export function uploadEmployeeDocument(
+  id: number,
+  documentType: string,
+  file: File,
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return withAuthRetry(() =>
+    apiClient.request(`${BASE}/${id}/documents/${documentType}/file`, {
+      method: "PUT",
+      formData,
+    }),
+  );
 }
 
 /** All rows or none; `dryRun` validates (including database checks) and saves nothing. */
