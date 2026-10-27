@@ -1,7 +1,14 @@
 "use client";
 
-import { Button, FormField, Input, Textarea } from "@texawave-erp/ui-kit";
+import {
+  Button,
+  FormField,
+  Input,
+  Select,
+  Textarea,
+} from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useDepartments } from "@/features/departments/hooks";
 import {
   createProposalTemplateSchema,
   type CreateProposalTemplateFormValues,
@@ -21,8 +28,12 @@ export function ProposalTemplateForm({
   submitLabel,
 }: ProposalTemplateFormProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
-  const [title, setTitle] = useState(initialValues?.title ?? "");
   const [code, setCode] = useState(initialValues?.code ?? "");
+  // New templates always start at V1 / Active (Docs/PROJECTS_MODULE_SPEC.md
+  // versioning model) — shown here for parity with old ERP's form but not
+  // part of CreateProposalTemplateDto, so never sent to the API.
+  const [version, setVersion] = useState("V1");
+  const [status, setStatus] = useState("active");
   const [department, setDepartment] = useState(initialValues?.department ?? "");
   const [description, setDescription] = useState(
     initialValues?.description ?? "",
@@ -30,12 +41,17 @@ export function ProposalTemplateForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const departmentsQuery = useDepartments();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!code.trim()) {
+      setErrors({ code: "Template code is required" });
+      return;
+    }
     const result = createProposalTemplateSchema.safeParse({
       name,
-      title,
+      title: name,
       code: code || undefined,
       department: department || undefined,
       description: description || undefined,
@@ -65,49 +81,71 @@ export function ProposalTemplateForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormField label="Template Name" required error={errors.name}>
+        {(fieldProps) => (
+          <Input
+            {...fieldProps}
+            invalid={fieldProps.invalid}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Mechanical Engineering Proposal"
+            disabled={submitting}
+          />
+        )}
+      </FormField>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Name" required error={errors.name}>
+        <FormField label="Template Code" required error={errors.code}>
           {(fieldProps) => (
             <Input
               {...fieldProps}
               invalid={fieldProps.invalid}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="e.g. MECH-PROP"
               disabled={submitting}
             />
           )}
         </FormField>
-        <FormField label="Title" required error={errors.title}>
+        <FormField label="Version" required>
           {(fieldProps) => (
             <Input
               {...fieldProps}
-              invalid={fieldProps.invalid}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
               disabled={submitting}
             />
           )}
         </FormField>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Code">
+        <FormField label="Department / Category">
           {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              disabled={submitting}
-            />
-          )}
-        </FormField>
-        <FormField label="Department">
-          {(fieldProps) => (
-            <Input
+            <Select
               {...fieldProps}
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
               disabled={submitting}
-            />
+            >
+              <option value="">Select Department / Category</option>
+              {(departmentsQuery.data?.data ?? []).map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+        <FormField label="Status">
+          {(fieldProps) => (
+            <Select
+              {...fieldProps}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              disabled={submitting}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
           )}
         </FormField>
       </div>

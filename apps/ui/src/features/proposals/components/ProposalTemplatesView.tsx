@@ -6,7 +6,6 @@ import {
   ActionMenu,
   type ActionMenuItem,
   Alert,
-  Button,
   Card,
   ConfirmDialog,
   DataTable,
@@ -24,6 +23,7 @@ import {
   ArrowLeft,
   Copy,
   GitBranch,
+  Layers,
   Pencil,
   Plus,
   Send,
@@ -250,10 +250,14 @@ export function ProposalTemplatesView() {
           </div>
         </div>
         {canManage ? (
-          <Button variant="secondary" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-md transition-all hover:bg-cyan-50 hover:shadow-lg active:scale-95 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-800"
+          >
+            <Plus className="h-4 w-4 stroke-[2.5]" />
             New Template
-          </Button>
+          </button>
         ) : null}
       </div>
 
@@ -400,7 +404,27 @@ export function ProposalTemplatesView() {
       <Dialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New Proposal Template"
+        title={
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-cyan-400">
+              <Layers className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2
+                id="dialog-title"
+                className="truncate text-theme-sm font-semibold tracking-tight text-gray-900 dark:text-white/90"
+              >
+                Create Proposal Template
+              </h2>
+              <p className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
+                Setup template metadata. You will configure sections and table
+                columns next.
+              </p>
+            </div>
+          </div>
+        }
+        size="5xl"
+        className="h-fit"
       >
         <ProposalTemplateForm
           onSubmit={handleCreate}
