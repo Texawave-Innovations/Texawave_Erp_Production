@@ -88,7 +88,10 @@ export function useDeleteJournalEntry() {
   );
 }
 
-export function useGeneralLedger(query: QueryGeneralLedgerInput = {}) {
+export function useGeneralLedger(
+  query: QueryGeneralLedgerInput = {},
+  options?: { enabled?: boolean },
+) {
   const organizationId = useAuthStore((s) => s.organizationId);
   return useQuery({
     queryKey: orgScopedKey(
@@ -97,6 +100,9 @@ export function useGeneralLedger(query: QueryGeneralLedgerInput = {}) {
       query,
     ),
     queryFn: () => getGeneralLedger(query),
-    enabled: Boolean(organizationId),
+    enabled:
+      Boolean(organizationId) &&
+      Boolean(query.accountId) &&
+      (options?.enabled ?? true),
   });
 }

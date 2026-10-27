@@ -53,10 +53,9 @@ describe("ReportsRepository", () => {
       expect(() => repository.getAccounts(null)).toThrow(
         /called without a valid OrgScope/,
       );
-      // @ts-expect-error Testing undefined runtime scope
       expect(() =>
         repository.getPostedJournalLinesInDateRange(
-          undefined,
+          undefined as never,
           new Date(),
           new Date(),
         ),

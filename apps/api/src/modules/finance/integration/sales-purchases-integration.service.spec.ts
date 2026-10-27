@@ -45,6 +45,14 @@ const MOCK_EXP_ACCOUNT = {
   currentBalance: 0,
 };
 
+const MOCK_ITC_ACCOUNT = {
+  id: 60,
+  accountCode: "1300",
+  accountName: "GST Input Tax Credit",
+  accountType: "ASSET",
+  currentBalance: 0,
+};
+
 interface AccountLookupArgs {
   where: {
     accountCode?: string;
@@ -55,6 +63,7 @@ interface AccountLookupArgs {
 interface JournalCreateCallData {
   data: {
     referenceNumber: string;
+    narration?: string;
     totalDebit: number;
     totalCredit: number;
     status: string;
@@ -77,10 +86,18 @@ interface GstCreateCallData {
     entryType: string;
     sourceType: string;
     gstin: string;
+    hsnSacCode?: string | null;
     taxableAmount: number;
+    cgstAmount?: number;
+    sgstAmount?: number;
+    cgstRate?: number;
+    sgstRate?: number;
+    igstAmount?: number;
+    igstRate?: number;
     totalTaxAmount: number;
     isProformaExcluded: boolean;
     status: string;
+    [key: string]: unknown;
   };
 }
 
@@ -95,7 +112,9 @@ function makeService() {
 
   const financeGstEntry = {
     findFirst: vi.fn().mockResolvedValue(null),
-    create: vi.fn().mockResolvedValue({ id: 601 }),
+    create: vi
+      .fn<(args: GstCreateCallData) => Promise<{ id: number }>>()
+      .mockResolvedValue({ id: 601 }),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   };
 
@@ -103,6 +122,7 @@ function makeService() {
     findFirst: vi.fn().mockImplementation((args: AccountLookupArgs) => {
       const code = args.where.accountCode;
       const type = args.where.accountType;
+      if (code === "1300") return Promise.resolve(MOCK_ITC_ACCOUNT);
       if (code === "1200" || type === "ASSET")
         return Promise.resolve(MOCK_AR_ACCOUNT);
       if (code === "4010" || type === "REVENUE")
@@ -271,6 +291,65 @@ describe("SalesPurchasesIntegrationService", () => {
       expect(gstCall.data.isProformaExcluded).toBe(true);
     });
 
+    it("creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided", async () => {
+      const { service, financeGstEntry } = makeService();
+
+      const result = await service.postSalesInvoice({
+        invoiceNumber: "TW/INV/26-27/0009",
+        invoiceDate: "2026-10-26",
+        customerName: "Multi-line Client",
+        customerGstin: "29AABCT1332L1ZV",
+        subtotal: 15000,
+        taxAmount: 2280,
+        total: 17280,
+        taxItems: [
+          {
+            hsnSacCode: "847130",
+            taxableAmount: 10000,
+            taxRate: 18,
+            cgstRate: 9,
+            cgstAmount: 900,
+            sgstRate: 9,
+            sgstAmount: 900,
+            igstRate: 0,
+            igstAmount: 0,
+            totalTaxAmount: 1800,
+          },
+          {
+            hsnSacCode: "998314",
+            taxableAmount: 5000,
+            taxRate: 12,
+            cgstRate: 6,
+            cgstAmount: 240,
+            sgstRate: 6,
+            sgstAmount: 240,
+            igstRate: 0,
+            igstAmount: 0,
+            totalTaxAmount: 480,
+          },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      expect(financeGstEntry.create).toHaveBeenCalledTimes(2);
+
+      const entry1 = financeGstEntry.create.mock.calls[0]![0].data;
+      expect(entry1.hsnSacCode).toBe("847130");
+      expect(entry1.taxableAmount).toBe(10000);
+      expect(entry1.cgstAmount).toBe(900);
+      expect(entry1.sgstAmount).toBe(900);
+      expect(entry1.cgstRate).toBe(9);
+      expect(entry1.sourceReference).toBe("TW/INV/26-27/0009");
+
+      const entry2 = financeGstEntry.create.mock.calls[1]![0].data;
+      expect(entry2.hsnSacCode).toBe("998314");
+      expect(entry2.taxableAmount).toBe(5000);
+      expect(entry2.cgstAmount).toBe(240);
+      expect(entry2.sgstAmount).toBe(240);
+      expect(entry2.cgstRate).toBe(6);
+      expect(entry2.sourceReference).toBe("TW/INV/26-27/0009");
+    });
+
     it("prevents duplicate posting and returns alreadyPosted on retries", async () => {
       const { service, financeJournalEntry, financeGstEntry } = makeService();
 
@@ -356,7 +435,7 @@ describe("SalesPurchasesIntegrationService", () => {
       expect(lines[0]?.debit).toBe(20000);
       expect(lines[0]?.credit).toBe(0);
 
-      expect(lines[1]?.accountId).toBe(MOCK_GST_ACCOUNT.id);
+      expect(lines[1]?.accountId).toBe(MOCK_ITC_ACCOUNT.id);
       expect(lines[1]?.debit).toBe(3600);
       expect(lines[1]?.credit).toBe(0);
 
@@ -375,6 +454,107 @@ describe("SalesPurchasesIntegrationService", () => {
       expect(gstCall.data.taxableAmount).toBe(20000);
       expect(gstCall.data.totalTaxAmount).toBe(3600);
       expect(gstCall.data.status).toBe("ACTIVE");
+    });
+
+    it("creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided for purchase bills", async () => {
+      const { service, financeGstEntry } = makeService();
+
+      const result = await service.postPurchaseBill({
+        billNumber: "TW/BILL/0002",
+        supplierBillNumber: "SUPP-INV-9902",
+        billDate: "2026-10-26",
+        supplierId: 2,
+        supplierName: "Zenith Components",
+        supplierGstin: "33AAMCT4293K1ZU",
+        subtotal: 15000,
+        taxAmount: 2280,
+        total: 17280,
+        taxItems: [
+          {
+            hsnSacCode: "847130",
+            taxableAmount: 10000,
+            taxRate: 18,
+            cgstRate: 9,
+            cgstAmount: 900,
+            sgstRate: 9,
+            sgstAmount: 900,
+            igstRate: 0,
+            igstAmount: 0,
+            totalTaxAmount: 1800,
+          },
+          {
+            hsnSacCode: "852351",
+            taxableAmount: 5000,
+            taxRate: 12,
+            cgstRate: 6,
+            cgstAmount: 240,
+            sgstRate: 6,
+            sgstAmount: 240,
+            igstRate: 0,
+            igstAmount: 0,
+            totalTaxAmount: 480,
+          },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      expect(financeGstEntry.create).toHaveBeenCalledTimes(2);
+
+      const entry1 = financeGstEntry.create.mock.calls[0]![0].data;
+      expect(entry1.entryType).toBe("INPUT_TAX_CREDIT");
+      expect(entry1.hsnSacCode).toBe("847130");
+      expect(entry1.taxableAmount).toBe(10000);
+      expect(entry1.cgstAmount).toBe(900);
+      expect(entry1.sgstAmount).toBe(900);
+      expect(entry1.sourceReference).toBe("SUPP-INV-9902");
+
+      const entry2 = financeGstEntry.create.mock.calls[1]![0].data;
+      expect(entry2.entryType).toBe("INPUT_TAX_CREDIT");
+      expect(entry2.hsnSacCode).toBe("852351");
+      expect(entry2.taxableAmount).toBe(5000);
+      expect(entry2.cgstAmount).toBe(240);
+      expect(entry2.sgstAmount).toBe(240);
+      expect(entry2.sourceReference).toBe("SUPP-INV-9902");
+    });
+
+    it("absorbs blocked tax into expense and creates no GST entry when ITC is ineligible", async () => {
+      const { service, financeJournalEntry, financeGstEntry } = makeService();
+
+      const result = await service.postPurchaseBill({
+        billNumber: "TW/BILL/0003",
+        supplierBillNumber: "SUPP-INV-9903",
+        billDate: "2026-10-26",
+        supplierId: 2,
+        supplierName: "Zenith Components",
+        supplierGstin: "33AAMCT4293K1ZU",
+        subtotal: 10000,
+        taxAmount: 1800,
+        total: 11800,
+        cgstAmount: 900,
+        sgstAmount: 900,
+        isItcEligible: false,
+      });
+
+      expect(result.success).toBe(true);
+      // Ineligible ITC should NOT create any GST entry
+      expect(financeGstEntry.create).not.toHaveBeenCalled();
+
+      const journalCall = financeJournalEntry.create.mock
+        .calls[0]?.[0] as JournalCreateCallData;
+      expect(journalCall.data.narration).toContain("Ineligible ITC");
+      expect(journalCall.data.totalDebit).toBe(11800);
+      expect(journalCall.data.totalCredit).toBe(11800);
+
+      const lines = journalCall.data.lines.create;
+      // Should only have 2 lines: Debit Expense (full 11800) and Credit AP (11800)
+      expect(lines).toHaveLength(2);
+      expect(lines[0]?.accountId).toBe(MOCK_EXP_ACCOUNT.id);
+      expect(lines[0]?.debit).toBe(11800);
+      expect(lines[0]?.credit).toBe(0);
+
+      expect(lines[1]?.accountId).toBe(MOCK_AP_ACCOUNT.id);
+      expect(lines[1]?.debit).toBe(0);
+      expect(lines[1]?.credit).toBe(11800);
     });
 
     it("prevents duplicate purchase bill posting on retries", async () => {
@@ -398,6 +578,69 @@ describe("SalesPurchasesIntegrationService", () => {
       expect(res.alreadyPosted).toBe(true);
       expect(res.journalEntryId).toBe(991);
       expect(financeJournalEntry.create).not.toHaveBeenCalled();
+    });
+
+    it("fails safely with MISSING_INPUT_TAX_ACCOUNT when recoverable ITC is claimed but no 1300 ASSET account exists (never falls back to 2020 LIABILITY)", async () => {
+      const { service, financeAccount } = makeService();
+
+      // Override mock: account 1300 or ASSET input tax does not exist, but 2020 LIABILITY exists
+      financeAccount.findFirst.mockImplementation((args: AccountLookupArgs) => {
+        const code = args.where.accountCode;
+        const type = args.where.accountType;
+        if (code === "1300") return Promise.resolve(null);
+        if (code === "2020") return Promise.resolve(MOCK_GST_ACCOUNT); // LIABILITY
+        if (code === "2010" || type === "LIABILITY")
+          return Promise.resolve(MOCK_AP_ACCOUNT);
+        if (code === "5010" || type === "EXPENSE")
+          return Promise.resolve(MOCK_EXP_ACCOUNT);
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.postPurchaseBill({
+          billNumber: "TW/BILL/0001",
+          supplierBillNumber: "SUPP-INV-9901",
+          billDate: "2026-10-15",
+          supplierId: 2,
+          supplierName: "Zenith Components",
+          supplierGstin: "33AAMCT4293K1ZU",
+          subtotal: 20000,
+          taxAmount: 3600,
+          total: 23600,
+          isItcEligible: true,
+        }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it("does not require 1300 ASSET account when isItcEligible is false or taxAmount is 0", async () => {
+      const { service, financeAccount, financeJournalEntry } = makeService();
+
+      // Override mock: account 1300 does not exist
+      financeAccount.findFirst.mockImplementation((args: AccountLookupArgs) => {
+        const code = args.where.accountCode;
+        const type = args.where.accountType;
+        if (code === "1300") return Promise.resolve(null);
+        if (code === "2010" || type === "LIABILITY")
+          return Promise.resolve(MOCK_AP_ACCOUNT);
+        if (code === "5010" || type === "EXPENSE")
+          return Promise.resolve(MOCK_EXP_ACCOUNT);
+        return Promise.resolve(null);
+      });
+
+      const res = await service.postPurchaseBill({
+        billNumber: "TW/BILL/0001",
+        supplierBillNumber: "SUPP-INV-9901",
+        billDate: "2026-10-15",
+        supplierId: 2,
+        supplierName: "Zenith Components",
+        subtotal: 20000,
+        taxAmount: 3600,
+        total: 23600,
+        isItcEligible: false, // Blocked ITC absorbed into expense
+      });
+
+      expect(res.success).toBe(true);
+      expect(financeJournalEntry.create).toHaveBeenCalled();
     });
   });
 

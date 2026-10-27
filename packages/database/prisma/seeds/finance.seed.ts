@@ -20,6 +20,12 @@ const DEFAULT_ACCOUNTS = [
     description: "Amounts owed by customers for goods/services",
   },
   {
+    accountCode: "1300",
+    accountName: "GST Input Tax Credit",
+    accountType: "ASSET",
+    description: "Input GST credit recoverable against output tax liability",
+  },
+  {
     accountCode: "2010",
     accountName: "Accounts Payable",
     accountType: "LIABILITY",

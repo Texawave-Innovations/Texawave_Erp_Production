@@ -40,6 +40,19 @@ export interface ExpenseReversalData {
   lines: ExpenseJournalLineData[];
 }
 
+export interface ExpenseGstEntryData {
+  entryType: "INPUT_TAX_CREDIT";
+  sourceType: "EXPENSE";
+  sourceReference: string;
+  gstin: string;
+  period: string; // YYYY-MM
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalTaxAmount: number;
+}
+
 const EXPENSE_INCLUDE_RELATIONS = {
   expenseType: {
     select: {
@@ -274,6 +287,7 @@ export class ExpensesRepository {
       glAccountId?: number | null;
     },
     updatedBy: number,
+    gstEntryData?: ExpenseGstEntryData | null,
   ) {
     return this.prisma.$transaction(async (tx) => {
       // 1. Create balanced POSTED journal voucher
@@ -320,7 +334,31 @@ export class ExpensesRepository {
         });
       }
 
-      // 3. Mark Expense as PAID and link to journal entry
+      // 3. Atomically record GST entry if recoverable ITC applies
+      if (gstEntryData && typeof tx.financeGstEntry?.create === "function") {
+        await tx.financeGstEntry.create({
+          data: {
+            organizationId: scope.organizationId,
+            entryType: gstEntryData.entryType,
+            sourceType: gstEntryData.sourceType,
+            sourceReference: gstEntryData.sourceReference,
+            sourceId: expenseId,
+            gstin: gstEntryData.gstin,
+            period: gstEntryData.period,
+            taxableAmount: gstEntryData.taxableAmount,
+            cgstAmount: gstEntryData.cgstAmount,
+            sgstAmount: gstEntryData.sgstAmount,
+            igstAmount: gstEntryData.igstAmount,
+            totalTaxAmount: gstEntryData.totalTaxAmount,
+            isProformaExcluded: false,
+            status: "ACTIVE",
+            createdBy: updatedBy,
+            updatedBy,
+          },
+        });
+      }
+
+      // 4. Mark Expense as PAID and link to journal entry
       const updateResult = await tx.financeExpense.updateMany({
         where: tenantWhere<Prisma.FinanceExpenseWhereInput>(scope, {
           id: expenseId,
@@ -444,6 +482,22 @@ export class ExpensesRepository {
 
       if (updateResult.count === 0) {
         throw new Error("COULD_NOT_CANCEL_EXPENSE");
+      }
+
+      // 3. Cancel any associated active GST entries for this expense
+      if (typeof tx.financeGstEntry?.updateMany === "function") {
+        await tx.financeGstEntry.updateMany({
+          where: {
+            organizationId: scope.organizationId,
+            sourceType: "EXPENSE",
+            sourceId: expenseId,
+            status: { not: "CANCELLED" },
+          },
+          data: {
+            status: "CANCELLED",
+            updatedBy,
+          },
+        });
       }
 
       return tx.financeExpense.findFirst({

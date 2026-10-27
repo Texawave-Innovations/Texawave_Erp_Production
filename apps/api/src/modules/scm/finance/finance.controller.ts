@@ -22,6 +22,7 @@ import { MAX_UPLOAD_BYTES } from "../../../shared/file-storage/file-storage.serv
 import {
   CreateBillDto,
   CreatePaymentDto,
+  PostBillToFinanceDto,
   QueryBillDto,
   QueryPaymentDto,
   ReasonDto,
@@ -65,6 +66,19 @@ export class SupplierBillsController {
   @RequirePermission("scm.finance.write")
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateBillDto) {
     return this.finance.updateBill(id, dto);
+  }
+
+  @Post(":id/post-to-finance")
+  @RequirePermission("scm.finance.write")
+  @ApiOperation({
+    summary:
+      "Explicitly post an approved supplier bill to Finance General Ledger and GST",
+  })
+  postToFinance(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto?: PostBillToFinanceDto,
+  ) {
+    return this.finance.postBillToFinance(id, dto);
   }
 
   @Post(":id/cancel")

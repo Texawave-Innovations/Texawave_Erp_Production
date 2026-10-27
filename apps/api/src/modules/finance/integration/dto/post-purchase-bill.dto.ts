@@ -1,5 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
+  IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsNotEmpty,
@@ -7,7 +10,81 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateNested,
 } from "class-validator";
+
+export class PostPurchaseBillTaxItemDto {
+  @ApiPropertyOptional({
+    example: "847130",
+    description: "HSN or SAC code for this line group",
+  })
+  @IsOptional()
+  @IsString()
+  hsnSacCode?: string | null | undefined;
+
+  @ApiProperty({
+    example: 10000.0,
+    description: "Taxable subtotal for this HSN/rate group in INR",
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  taxableAmount!: number;
+
+  @ApiPropertyOptional({
+    example: 18.0,
+    description: "GST tax rate percentage (e.g. 18 for 18%)",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({ example: 9.0, description: "CGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstRate?: number;
+
+  @ApiPropertyOptional({ example: 900.0, description: "CGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstAmount?: number;
+
+  @ApiPropertyOptional({ example: 9.0, description: "SGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstRate?: number;
+
+  @ApiPropertyOptional({ example: 900.0, description: "SGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstAmount?: number;
+
+  @ApiPropertyOptional({ example: 0.0, description: "IGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstRate?: number;
+
+  @ApiPropertyOptional({ example: 0.0, description: "IGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstAmount?: number;
+
+  @ApiProperty({
+    example: 1800.0,
+    description: "Total tax amount for this line item in INR",
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  totalTaxAmount!: number;
+}
 
 export class PostPurchaseBillDto {
   @ApiProperty({
@@ -24,7 +101,7 @@ export class PostPurchaseBillDto {
   })
   @IsOptional()
   @IsString()
-  supplierBillNumber?: string | null;
+  supplierBillNumber?: string | null | undefined;
 
   @ApiProperty({
     example: "2026-10-15",
@@ -40,7 +117,7 @@ export class PostPurchaseBillDto {
   })
   @IsOptional()
   @IsInt()
-  supplierId?: number | null;
+  supplierId?: number | null | undefined;
 
   @ApiProperty({
     example: "Zenith Components Pvt Ltd",
@@ -56,7 +133,7 @@ export class PostPurchaseBillDto {
   })
   @IsOptional()
   @IsString()
-  supplierGstin?: string | null;
+  supplierGstin?: string | null | undefined;
 
   @ApiProperty({
     example: 20000.0,
@@ -99,7 +176,16 @@ export class PostPurchaseBillDto {
   })
   @IsOptional()
   @IsString()
-  hsnSacCode?: string | null;
+  hsnSacCode?: string | null | undefined;
+
+  @ApiPropertyOptional({
+    example: 9.0,
+    description: "CGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstRate?: number;
 
   @ApiPropertyOptional({
     example: 1800.0,
@@ -109,6 +195,15 @@ export class PostPurchaseBillDto {
   @IsNumber()
   @Min(0)
   cgstAmount?: number;
+
+  @ApiPropertyOptional({
+    example: 9.0,
+    description: "SGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstRate?: number;
 
   @ApiPropertyOptional({
     example: 1800.0,
@@ -121,6 +216,15 @@ export class PostPurchaseBillDto {
 
   @ApiPropertyOptional({
     example: 0.0,
+    description: "IGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstRate?: number;
+
+  @ApiPropertyOptional({
+    example: 0.0,
     description: "IGST tax component in INR",
   })
   @IsOptional()
@@ -129,12 +233,31 @@ export class PostPurchaseBillDto {
   igstAmount?: number;
 
   @ApiPropertyOptional({
+    type: [PostPurchaseBillTaxItemDto],
+    description: "Multi-line tax breakdown grouped by HSN and tax rate",
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PostPurchaseBillTaxItemDto)
+  taxItems?: PostPurchaseBillTaxItemDto[];
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "Whether the purchase bill is eligible for Input Tax Credit (ITC). If false, tax is incorporated into expense cost.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isItcEligible?: boolean;
+
+  @ApiPropertyOptional({
     example: "Monthly hardware component delivery against PO-0412",
     description: "Bill narration or notes",
   })
   @IsOptional()
   @IsString()
-  notes?: string | null;
+  notes?: string | null | undefined;
 
   @ApiPropertyOptional({
     example: 8,
@@ -142,5 +265,5 @@ export class PostPurchaseBillDto {
   })
   @IsOptional()
   @IsInt()
-  purchaseOrderId?: number | null;
+  purchaseOrderId?: number | null | undefined;
 }

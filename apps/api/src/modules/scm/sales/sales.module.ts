@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { FinanceModule as FinanceCoreModule } from "../../finance/finance.module.js";
+import { ScmCommonModule } from "../common/scm-common.module.js";
 import { ScmProductsModule } from "../products/products.module.js";
 import { CustomersRepository } from "./customers.repository.js";
 import { CustomersService } from "./customers.service.js";
@@ -10,7 +12,7 @@ import {
 } from "./sales.controller.js";
 
 @Module({
-  imports: [ScmProductsModule],
+  imports: [ScmProductsModule, ScmCommonModule, FinanceCoreModule],
   controllers: [CustomersController, SalesOrdersController],
   providers: [
     CustomersRepository,

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "createBankAccountSchema",
+    "file": "apps/ui/src/features/finance/banking/schema.ts",
+    "snippet": "accountName: z .string() .trim() .min(1, \"Account name is required\") .max(100, \"Account name must be 100 characters or fewer\"), accountNumber: z .string() .trim() .min(1, \"Account number is required\") .max(12, \"Account number must be 12 characters or fewer\"), bankName: z .string() .trim() .min(1, \"Bank name is required\") .max(100, \"Bank name must be 100 characters or fewer\"), ifscCode: z .string() .trim() .regex( INDIAN_IFSC_REGEX, \"Enter a valid 11-character Indian IFSC code (e.g. HDFC0001234)\", ), branchName: z .string() .trim() .max(100, \"Branch name must be 100 characters or fewer\") .optional() .nullable(), accountType: z.enum(FINANCE_BANK_ACCOUNT_TYPES).default(\"CURRENT\"), currency: z.string().trim().max(10).default(\"INR\"), openingBalance: z .number() .min(0, \"Opening balance must be 0 or positive\") .default(0), glAccountId: z.number().int().positive().optional().nullable(), isActive: z.boolean().default(true),"
+  },
+  {
+    "name": "updateBankAccountSchema",
+    "file": "apps/ui/src/features/finance/banking/schema.ts",
+    "snippet": "accountName: z .string() .trim() .min(1, \"Account name is required\") .max(100, \"Account name must be 100 characters or fewer\") .optional(), bankName: z .string() .trim() .min(1, \"Bank name is required\") .max(100, \"Bank name must be 100 characters or fewer\") .optional(), ifscCode: z .string() .trim() .regex( INDIAN_IFSC_REGEX, \"Enter a valid 11-character Indian IFSC code (e.g. HDFC0001234)\", ) .optional(), branchName: z .string() .trim() .max(100, \"Branch name must be 100 characters or fewer\") .optional() .nullable(), accountType: z.enum(FINANCE_BANK_ACCOUNT_TYPES).optional(), glAccountId: z.number().int().positive().optional().nullable(), isActive: z.boolean().optional(),"
+  },
+  {
+    "name": "createFinanceAccountSchema",
+    "file": "apps/ui/src/features/finance/coa/schema.ts",
+    "snippet": "accountCode: z .string() .trim() .min(1, \"Account code is required\") .max(50, \"Account code must be 50 characters or fewer\") .regex( /^[A-Za-z0-9._-]+$/, \"Account code can only contain letters, numbers, hyphens, and periods\", ), accountName: z .string() .trim() .min(1, \"Account name is required\") .max(150, \"Account name must be 150 characters or fewer\"), accountType: z.enum(FINANCE_ACCOUNT_TYPES), parentAccountId: z.number().int().positive().nullable().optional(), currency: z .string() .trim() .length(3, \"Currency code must be exactly 3 uppercase letters\") .default(\"INR\"), description: z .string() .trim() .max(500, \"Description must be 500 characters or fewer\") .nullable() .optional(),"
+  },
+  {
+    "name": "updateFinanceAccountSchema",
+    "file": "apps/ui/src/features/finance/coa/schema.ts",
+    "snippet": "accountCode: z .string() .trim() .min(1, \"Account code is required\") .max(50, \"Account code must be 50 characters or fewer\") .regex( /^[A-Za-z0-9._-]+$/, \"Account code can only contain letters, numbers, hyphens, and periods\", ) .optional(), accountName: z .string() .trim() .min(1, \"Account name is required\") .max(150, \"Account name must be 150 characters or fewer\") .optional(), parentAccountId: z.number().int().positive().nullable().optional(), currency: z .string() .trim() .length(3, \"Currency code must be exactly 3 uppercase letters\") .optional(), description: z .string() .trim() .max(500, \"Description must be 500 characters or fewer\") .nullable() .optional(), isActive: z.boolean().optional(),"
+  },
+  {
+    "name": "createExpenseFromClaimSchema",
+    "file": "apps/ui/src/features/finance/expenses/schema.ts",
+    "snippet": "glAccountId: z.number().int().positive().optional().nullable(), paymentModeId: z.number().int().positive().optional().nullable(), bankAccountId: z.number().int().positive().optional().nullable(), notes: z .string() .trim() .max(1000, \"Notes must be 1000 characters or fewer\") .optional() .nullable(),"
+  },
+  {
+    "name": "createGstEntrySchema",
+    "file": "apps/ui/src/features/finance/gst/schema.ts",
+    "snippet": "gstin: z .string() .trim() .regex( INDIAN_GSTIN_REGEX, \"Enter a valid 15-character GSTIN (e.g. 29AABCT1332L1ZV)\", ), period: z .string() .trim() .regex(GST_PERIOD_REGEX, \"Period must be in YYYY-MM format (e.g. 2026-10)\"), entryType: z.enum(FINANCE_GST_ENTRY_TYPES), sourceType: z.enum(FINANCE_GST_SOURCE_TYPES).default(\"MANUAL\"), sourceReference: z .string() .trim() .min(1, \"Invoice or bill reference number is required\") .max(100, \"Reference must be 100 characters or fewer\"), hsnSacCode: z .string() .trim() .max(20, \"HSN/SAC code must be 20 characters or fewer\") .optional() .nullable(), taxableAmount: z .number() .positive(\"Taxable base amount must be greater than zero\") .min(0.01, \"Taxable amount must be at least 0.01\"), cgstRate: z.number().min(0).default(0), cgstAmount: z.number().min(0).default(0), sgstRate: z.number().min(0).default(0), sgstAmount: z.number().min(0).default(0), igstRate: z.number().min(0).default(0), igstAmount: z.number().min(0).default(0), totalTaxAmount: z.number().min(0).default(0), isProformaExcluded: z.boolean().default(false),"
+  },
+  {
+    "name": "reconcileGstSchema",
+    "file": "apps/ui/src/features/finance/gst/schema.ts",
+    "snippet": "period: z .string() .trim() .regex(GST_PERIOD_REGEX, \"Period must be in YYYY-MM format (e.g. 2026-10)\"), persistReconciliation: z.boolean().default(true), counterpartEntries: z .array(counterpartGstEntrySchema) .min(1, \"At least one counterpart GSTR-2B entry is required for reconciliation\"),"
+  },
+  {
+    "name": "createJournalLineSchema",
+    "file": "apps/ui/src/features/finance/journal/schema.ts",
+    "snippet": "accountId: z.number().int().positive(\"Please select an account\"), debit: z.number().min(0, \"Debit cannot be negative\").default(0), credit: z.number().min(0, \"Credit cannot be negative\").default(0), description: z .string() .trim() .max(255, \"Line memo must be 255 characters or fewer\") .nullable() .optional(),"
+  },
+  {
+    "name": "createPaymentAllocationSchema",
+    "file": "apps/ui/src/features/finance/payments-received/schema.ts",
+    "snippet": "invoiceReference: z .string() .trim() .min(1, \"Invoice reference is required\") .max(100, \"Invoice reference must be 100 characters or fewer\"), allocatedAmount: z .number() .positive(\"Allocated amount must be greater than zero\"), notes: z .string() .trim() .max(1000, \"Notes must be 1000 characters or fewer\") .optional() .nullable(),"
+  }
+]

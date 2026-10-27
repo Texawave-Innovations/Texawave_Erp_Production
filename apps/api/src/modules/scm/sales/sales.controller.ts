@@ -14,6 +14,7 @@ import { CustomersService } from "./customers.service.js";
 import {
   CreateCustomerDto,
   CreateSalesOrderDto,
+  IssueSalesInvoiceDto,
   QueryCustomerDto,
   QuerySalesOrderDto,
   UpdateCustomerDto,
@@ -88,6 +89,15 @@ export class SalesOrdersController {
   @RequirePermission("scm.sales.write")
   confirm(@Param("id", ParseIntPipe) id: number) {
     return this.orders.confirm(id);
+  }
+
+  @Post(":id/issue-invoice")
+  @RequirePermission("scm.sales.write")
+  issueInvoice(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: IssueSalesInvoiceDto,
+  ) {
+    return this.orders.issueInvoice(id, dto);
   }
 
   @Post(":id/cancel")

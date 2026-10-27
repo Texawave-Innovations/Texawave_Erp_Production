@@ -46,13 +46,11 @@ function makeService() {
       .fn()
       .mockResolvedValue({ ...DRAFT_EXPENSE, status: "PENDING_APPROVAL" }),
     softDelete: vi.fn().mockResolvedValue(true),
-    payAndPostExpense: vi
-      .fn()
-      .mockResolvedValue({
-        ...DRAFT_EXPENSE,
-        status: "PAID",
-        journalEntryId: 50,
-      }),
+    payAndPostExpense: vi.fn().mockResolvedValue({
+      ...DRAFT_EXPENSE,
+      status: "PAID",
+      journalEntryId: 50,
+    }),
     cancelAndReverseExpense: vi
       .fn()
       .mockResolvedValue({ ...DRAFT_EXPENSE, status: "CANCELLED" }),
@@ -69,32 +67,26 @@ function makeService() {
 
   const prisma = {
     financeMasterListItem: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 1,
-          value: "Office Supplies",
-          category: "expense_type",
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 1,
+        value: "Office Supplies",
+        category: "expense_type",
+      }),
     },
     financeBankAccount: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 1,
-          accountName: "Operating Account",
-          glAccountId: 200,
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 1,
+        accountName: "Operating Account",
+        glAccountId: 200,
+      }),
     },
     financeAccount: {
-      findFirst: vi
-        .fn()
-        .mockResolvedValue({
-          id: 100,
-          accountCode: "5020",
-          accountName: "Office Supplies",
-          accountType: "EXPENSE",
-        }),
+      findFirst: vi.fn().mockResolvedValue({
+        id: 100,
+        accountCode: "5020",
+        accountName: "Office Supplies",
+        accountType: "EXPENSE",
+      }),
     },
     financeJournalEntry: {
       findFirst: vi.fn().mockResolvedValue({
@@ -132,8 +124,7 @@ function makeService() {
         status: "APPROVED",
         employee: {
           id: 1,
-          firstName: "Alice",
-          lastName: "Smith",
+          fullName: "Alice Smith",
           employeeCode: "EMP001",
         },
       }),
@@ -472,7 +463,18 @@ describe("ExpensesService", () => {
         notes: "HR Reimbursement",
       });
 
-      expect(prisma.expenseClaim.findFirst).toHaveBeenCalled();
+      expect(prisma.expenseClaim.findFirst).toHaveBeenCalledWith({
+        where: { id: 88, organizationId: 1 },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              fullName: true,
+              employeeCode: true,
+            },
+          },
+        },
+      });
       expect(repository.create).toHaveBeenCalled();
       const [createScope, createData] = repository.create.mock.calls[0] as [
         unknown,
@@ -482,6 +484,7 @@ describe("ExpensesService", () => {
       expect(createData.hrExpenseClaimId).toBe(88);
       expect(createData.amount).toBe(3500);
       expect(createData.status).toBe("APPROVED");
+      expect(createData.vendorName).toBe("Reimbursement: Alice Smith (EMP001)");
       expect(result).toBeDefined();
     });
 

@@ -6101,8 +6101,19 @@ model FinanceExpense {
   netAmount         Decimal   @default(0) @map("net_amount") @db.Decimal(15, 2)
   paymentModeId     Int?      @map("payment_mode_id")
   bankAccountId     Int?      @map("bank_account_id")
-  vendorName        String?   @map("vendor_name")
-  notes             String?
+  vendorName          String?   @map("vendor_name")
+  vendorGstin         String?   @map("vendor_gstin")
+  vendorInvoiceNumber String?   @map("vendor_invoice_number")
+  vendorInvoiceDate   DateTime? @map("vendor_invoice_date") @db.Date
+  hsnSacCode          String?   @map("hsn_sac_code")
+  taxRate             Decimal?  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  cgstAmount          Decimal   @default(0) @map("cgst_amount") @db.Decimal(15, 2)
+  sgstAmount          Decimal   @default(0) @map("sgst_amount") @db.Decimal(15, 2)
+  igstAmount          Decimal   @default(0) @map("igst_amount") @db.Decimal(15, 2)
+  isItcEligible       Boolean   @default(true) @map("is_itc_eligible")
+  ineligibilityReason String?   @map("ineligibility_reason")
+  gstJurisdiction     String?   @map("gst_jurisdiction")
+  notes               String?
   receiptUrl        String?   @map("receipt_url")
   /// DRAFT | PENDING_APPROVAL | APPROVED | PAID | CANCELLED
   status            String    @default("PAID")
@@ -6125,6 +6136,7 @@ model FinanceExpense {
   @@unique([organizationId, expenseNumber])
   @@index([organizationId, expenseDate])
   @@index([organizationId, expenseTypeId])
+  @@index([organizationId, vendorGstin])
   @@map("expenses")
   @@schema("finance")
 }

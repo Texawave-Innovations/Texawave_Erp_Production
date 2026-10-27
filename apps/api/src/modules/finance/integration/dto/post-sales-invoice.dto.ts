@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
+  IsArray,
   IsDateString,
   IsInt,
   IsNotEmpty,
@@ -7,7 +9,81 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateNested,
 } from "class-validator";
+
+export class PostSalesInvoiceTaxItemDto {
+  @ApiPropertyOptional({
+    example: "847130",
+    description: "HSN or SAC code for this line group",
+  })
+  @IsOptional()
+  @IsString()
+  hsnSacCode?: string | null;
+
+  @ApiProperty({
+    example: 10000.0,
+    description: "Taxable subtotal for this HSN/rate group in INR",
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  taxableAmount!: number;
+
+  @ApiPropertyOptional({
+    example: 18.0,
+    description: "GST tax rate percentage (e.g. 18 for 18%)",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({ example: 9.0, description: "CGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstRate?: number;
+
+  @ApiPropertyOptional({ example: 900.0, description: "CGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstAmount?: number;
+
+  @ApiPropertyOptional({ example: 9.0, description: "SGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstRate?: number;
+
+  @ApiPropertyOptional({ example: 900.0, description: "SGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstAmount?: number;
+
+  @ApiPropertyOptional({ example: 0.0, description: "IGST rate percentage" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstRate?: number;
+
+  @ApiPropertyOptional({ example: 0.0, description: "IGST amount in INR" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstAmount?: number;
+
+  @ApiProperty({
+    example: 1800.0,
+    description: "Total tax amount for this line item in INR",
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  totalTaxAmount!: number;
+}
 
 export class PostSalesInvoiceDto {
   @ApiProperty({
@@ -94,6 +170,15 @@ export class PostSalesInvoiceDto {
   hsnSacCode?: string | null;
 
   @ApiPropertyOptional({
+    example: 9.0,
+    description: "CGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cgstRate?: number;
+
+  @ApiPropertyOptional({
     example: 900.0,
     description: "CGST tax component in INR",
   })
@@ -101,6 +186,15 @@ export class PostSalesInvoiceDto {
   @IsNumber()
   @Min(0)
   cgstAmount?: number;
+
+  @ApiPropertyOptional({
+    example: 9.0,
+    description: "SGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sgstRate?: number;
 
   @ApiPropertyOptional({
     example: 900.0,
@@ -113,12 +207,31 @@ export class PostSalesInvoiceDto {
 
   @ApiPropertyOptional({
     example: 0.0,
+    description: "IGST tax rate percentage",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igstRate?: number;
+
+  @ApiPropertyOptional({
+    example: 0.0,
     description: "IGST tax component in INR",
   })
   @IsOptional()
   @IsNumber()
   @Min(0)
   igstAmount?: number;
+
+  @ApiPropertyOptional({
+    type: [PostSalesInvoiceTaxItemDto],
+    description: "Multi-line tax breakdown grouped by HSN and tax rate",
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PostSalesInvoiceTaxItemDto)
+  taxItems?: PostSalesInvoiceTaxItemDto[];
 
   @ApiPropertyOptional({
     example: "Professional IT services rendered for October 2026",

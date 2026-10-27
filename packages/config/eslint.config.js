@@ -15,6 +15,8 @@ module.exports = tseslint.config(
       "**/node_modules/**",
       "**/coverage/**",
       "**/generated/**",
+      "**/scratch/**",
+      "scratch/**",
     ],
   },
   js.configs.recommended,

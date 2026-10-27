@@ -1,15 +1,19 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
   Length,
+  Matches,
   Min,
 } from "class-validator";
-import { Trim } from "../../../../common/dto/transforms.js";
+import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
+import { GSTIN_PATTERN } from "./create-expense.dto.js";
 
 export class UpdateExpenseDto {
   @ApiPropertyOptional({
@@ -83,6 +87,116 @@ export class UpdateExpenseDto {
   @IsString()
   @Length(1, 255)
   vendorName?: string;
+
+  @ApiPropertyOptional({
+    example: "33AAMCT4293K1ZU",
+    description: "15-character GSTIN of the vendor if registered under GST",
+  })
+  @IsOptional()
+  @UpperTrim()
+  @IsString()
+  @Matches(GSTIN_PATTERN, {
+    message:
+      "Invalid GSTIN format. Expected standard 15-character Indian GSTIN.",
+  })
+  vendorGstin?: string;
+
+  @ApiPropertyOptional({
+    example: "INV-2026-9081",
+    description: "Vendor's tax invoice or bill reference number",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 100)
+  vendorInvoiceNumber?: string;
+
+  @ApiPropertyOptional({
+    example: "2026-10-20",
+    description: "Vendor invoice date (ISO YYYY-MM-DD)",
+  })
+  @IsOptional()
+  @IsDateString()
+  vendorInvoiceDate?: string;
+
+  @ApiPropertyOptional({
+    example: "998311",
+    description: "HSN / SAC classification code for the supply",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(2, 20)
+  hsnSacCode?: string;
+
+  @ApiPropertyOptional({
+    example: 18,
+    default: 0,
+    description: "GST tax rate percentage (0, 5, 12, 18, 28)",
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({
+    example: 90.0,
+    default: 0,
+    description: "Central GST amount (for intra-state supplies)",
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cgstAmount?: number;
+
+  @ApiPropertyOptional({
+    example: 90.0,
+    default: 0,
+    description: "State / UT GST amount (for intra-state supplies)",
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  sgstAmount?: number;
+
+  @ApiPropertyOptional({
+    example: 0,
+    default: 0,
+    description: "Integrated GST amount (for inter-state supplies)",
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  igstAmount?: number;
+
+  @ApiPropertyOptional({
+    example: true,
+    default: true,
+    description:
+      "Whether the input tax is eligible for ITC. Set to false if credit is blocked under Section 17(5)",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isItcEligible?: boolean;
+
+  @ApiPropertyOptional({
+    example: "Motor vehicles / Personal consumption (Sec 17(5))",
+    description: "Mandatory justification if ITC is marked ineligible",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 255)
+  ineligibilityReason?: string;
+
+  @ApiPropertyOptional({
+    enum: ["INTRA_STATE", "INTER_STATE"],
+    description:
+      "GST tax jurisdiction override. If omitted, determined by vendor and company GSTIN state codes.",
+  })
+  @IsOptional()
+  @IsIn(["INTRA_STATE", "INTER_STATE"])
+  gstJurisdiction?: "INTRA_STATE" | "INTER_STATE";
 
   @ApiPropertyOptional({
     example: "Printer paper, toner cartridges, and desk accessories",

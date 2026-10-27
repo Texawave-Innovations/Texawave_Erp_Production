@@ -73,6 +73,20 @@ export class GstService {
       }
     }
 
+    // Idempotency check: prevent duplicate active GST entries for the same reference and counterparty
+    if (this.repository.findByReference) {
+      const existing = await this.repository.findByReference(
+        scope,
+        dto.period,
+        dto.sourceReference.trim(),
+        dto.gstin.trim().toUpperCase(),
+        dto.entryType,
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
     const created = await this.repository.create(scope, {
       gstin: dto.gstin.trim().toUpperCase(),
       period: dto.period,

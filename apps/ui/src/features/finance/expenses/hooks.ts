@@ -77,6 +77,7 @@ export function useCreateExpense() {
       "finance-journal-entries",
       "finance-accounts",
       "finance-bank-accounts",
+      "finance-gst",
     ],
     (input: CreateFinanceExpenseInput) => createExpense(input),
   );
@@ -115,6 +116,7 @@ export function usePayExpense() {
       "finance-journal-entries",
       "finance-accounts",
       "finance-bank-accounts",
+      "finance-gst",
     ],
     ({ id, input }: { id: number; input: RecordExpensePaymentInput }) =>
       payExpense(id, input),
@@ -128,6 +130,7 @@ export function useCancelExpense() {
       "finance-journal-entries",
       "finance-accounts",
       "finance-bank-accounts",
+      "finance-gst",
     ],
     (id: number) => cancelExpense(id),
   );

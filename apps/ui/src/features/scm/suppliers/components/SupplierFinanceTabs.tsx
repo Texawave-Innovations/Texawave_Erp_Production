@@ -26,6 +26,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { Download, Eye, Plus, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -47,6 +48,7 @@ import { ScmPanel } from "../../shared/ScmPanel";
 import { fetchSupplierDocument } from "../finance-api";
 import {
   useCancelSupplierBill,
+  usePostSupplierBillToFinance,
   useCreateSupplierBill,
   useCreateSupplierPayment,
   useRemoveSupplierDocument,
@@ -480,6 +482,171 @@ function BillForm({
   );
 }
 
+function PostBillDialog({
+  open,
+  bill,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  bill: SupplierBill | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [isItcEligible, setIsItcEligible] = useState(true);
+  const [jurisdiction, setJurisdiction] = useState<
+    "AUTO" | "INTRA_STATE" | "INTER_STATE"
+  >("AUTO");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const postMutation = usePostSupplierBillToFinance();
+  const queryClient = useQueryClient();
+
+  if (!bill) return null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bill) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const payload: {
+        isItcEligible: boolean;
+        jurisdiction?: "INTRA_STATE" | "INTER_STATE";
+        notes?: string;
+      } = {
+        isItcEligible,
+        ...(jurisdiction !== "AUTO" ? { jurisdiction } : {}),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      };
+      await postMutation.mutateAsync({ id: bill.id, input: payload });
+      void queryClient.invalidateQueries({ queryKey: ["gst"] });
+      void queryClient.invalidateQueries({ queryKey: ["journal-entries"] });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(errorText(err, "Failed to post bill to Finance"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`Post to Finance — ${bill.billNumber}`}
+      size="md"
+    >
+      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+        {error ? <Alert variant="error" title={error} /> : null}
+
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 p-3.5 space-y-2 text-theme-xs text-slate-700 dark:text-slate-300">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Supplier:</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {bill.supplier?.companyName}
+            </span>
+          </div>
+          {bill.supplierBillNumber ? (
+            <div className="flex justify-between">
+              <span className="text-slate-500">Vendor Invoice #:</span>
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {bill.supplierBillNumber}
+              </span>
+            </div>
+          ) : null}
+          <div className="flex justify-between">
+            <span className="text-slate-500">Taxable Subtotal:</span>
+            <span>{formatMoney(bill.subtotal, bill.currency)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Tax Amount:</span>
+            <span>{formatMoney(bill.taxAmount, bill.currency)}</span>
+          </div>
+          <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700 font-semibold text-slate-900 dark:text-slate-100">
+            <span>Total Payable:</span>
+            <span>{formatMoney(bill.total, bill.currency)}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-theme-xs font-medium text-slate-700 dark:text-slate-300">
+            GST Jurisdiction
+          </label>
+          <select
+            className="h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-theme-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={jurisdiction}
+            onChange={(e) =>
+              setJurisdiction(
+                e.target.value as "AUTO" | "INTRA_STATE" | "INTER_STATE",
+              )
+            }
+            disabled={busy}
+          >
+            <option value="AUTO">
+              Auto-detect from Supplier & Company GSTIN
+            </option>
+            <option value="INTRA_STATE">
+              Intra-State Supply (CGST + SGST)
+            </option>
+            <option value="INTER_STATE">Inter-State Supply (IGST)</option>
+          </select>
+        </div>
+
+        <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+          <input
+            type="checkbox"
+            id="itc-eligible-checkbox"
+            checked={isItcEligible}
+            onChange={(e) => setIsItcEligible(e.target.checked)}
+            disabled={busy}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          <div className="flex flex-col">
+            <label
+              htmlFor="itc-eligible-checkbox"
+              className="text-theme-sm font-medium text-slate-900 dark:text-slate-100 cursor-pointer"
+            >
+              Eligible for Input Tax Credit (ITC)
+            </label>
+            <span className="text-theme-xs text-slate-500 dark:text-slate-400">
+              Uncheck if credit is blocked under Section 17(5) (e.g. motor
+              vehicles, personal consumption). Ineligible tax is absorbed
+              directly into the expense cost.
+            </span>
+          </div>
+        </div>
+
+        <TextAreaField
+          label="Narration / Notes"
+          placeholder="Optional notes for GL journal entry..."
+          value={notes}
+          onChange={setNotes}
+
+          disabled={busy}
+        />
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" loading={busy}>
+            Post to Finance
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 export function SupplierBillsTab({
   supplierId,
   currency,
@@ -492,6 +659,7 @@ export function SupplierBillsTab({
   const [editing, setEditing] = useState<SupplierBill | null>(null);
   const [paying, setPaying] = useState<SupplierBill | null>(null);
   const [cancelling, setCancelling] = useState<SupplierBill | null>(null);
+  const [posting, setPosting] = useState<SupplierBill | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.finance.write");
   const query = useSupplierBills({ supplierId, page, limit: PAGE_SIZE });
@@ -584,7 +752,7 @@ export function SupplierBillsTab({
               header: "Bill #",
               cell: (b) => (
                 <div className="flex flex-col">
-                  <span className="font-mono text-theme-xs">
+                  <span className="font-medium text-theme-xs">
                     {b.billNumber}
                   </span>
                   {b.supplierBillNumber ? (
@@ -633,10 +801,21 @@ export function SupplierBillsTab({
             {
               header: "Status",
               cell: (b) => (
-                <StatusBadge
-                  label={statusLabel(b)}
-                  colorToken={statusToken(b)}
-                />
+                <div className="flex flex-col gap-1 items-start">
+                  <StatusBadge
+                    label={statusLabel(b)}
+                    colorToken={statusToken(b)}
+                  />
+                  {b.isPosted ? (
+                    <span className="inline-flex items-center text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      GL Posted
+                    </span>
+                  ) : b.status !== "CANCELLED" ? (
+                    <span className="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                      Unposted
+                    </span>
+                  ) : null}
+                </div>
               ),
             },
             {
@@ -647,6 +826,15 @@ export function SupplierBillsTab({
                 canWrite &&
                 (b.status === "OPEN" || b.status === "PARTIALLY_PAID") ? (
                   <div className="flex justify-end gap-1">
+                    {!b.isPosted ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPosting(b)}
+                      >
+                        Post
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -704,6 +892,19 @@ export function SupplierBillsTab({
         supplierId={supplierId}
         currency={currency}
         presetBill={paying}
+      />
+      <PostBillDialog
+        open={posting !== null}
+        bill={posting}
+        onClose={() => setPosting(null)}
+        onSuccess={() => {
+          if (posting) {
+            toast({
+              title: `${posting.billNumber} posted to Finance & GST`,
+              variant: "success",
+            });
+          }
+        }}
       />
       <ReasonDialog
         open={cancelling !== null}

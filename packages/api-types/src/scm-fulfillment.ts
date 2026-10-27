@@ -124,6 +124,9 @@ export interface SalesOrder {
   notes: string | null;
   status: ScmSalesOrderStatus;
   shippedStatus: string;
+  invoiceNumber?: string | null;
+  invoicedStatus?: string | null;
+  invoicedAt?: string | null;
   createdAt: string;
   items: SalesOrderItem[];
   customer?: { id: number; customerCode: string; name: string };

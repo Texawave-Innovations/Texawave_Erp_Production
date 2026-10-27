@@ -1,0 +1,78 @@
+erDiagram
+    %% =========================================================================
+    %% TexaWave ERP — Banking & Treasury Subsystem ER Diagram
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_BANK_ACCOUNT : "owns"
+    ORGANIZATION ||--o{ FINANCE_BANK_TRANSACTION : "scopes"
+
+    FINANCE_ACCOUNT ||--o{ FINANCE_BANK_ACCOUNT : "maps to GL Asset Account (1010/1020)"
+    FINANCE_BANK_ACCOUNT ||--|{ FINANCE_BANK_TRANSACTION : "contains statement lines (cascade delete)"
+
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_BANK_TRANSACTION : "matches & reconciles"
+    FINANCE_JOURNAL_ENTRY ||--|{ FINANCE_JOURNAL_LINE : "contains"
+    FINANCE_ACCOUNT ||--o{ FINANCE_JOURNAL_LINE : "posts movement"
+
+    FINANCE_BANK_ACCOUNT {
+        int id PK
+        int organization_id FK
+        string account_name
+        string account_number "UK per organization"
+        string bank_name
+        string branch_name
+        string ifsc_code "Validated Indian IFSC regex"
+        string account_type "SAVINGS, CURRENT, OVERDRAFT"
+        string currency "Default INR"
+        decimal opening_balance
+        date opening_date
+        decimal current_balance "Updated atomically via transactions"
+        int gl_account_id FK "References finance.accounts"
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at "Soft-delete"
+    }
+
+    FINANCE_BANK_TRANSACTION {
+        int id PK
+        int organization_id FK
+        int bank_account_id FK "References finance.bank_accounts"
+        date transaction_date
+        string transaction_type "DEPOSIT, WITHDRAWAL, TRANSFER"
+        decimal amount "Positive monetary decimal(15,2)"
+        string reference_number "Cheque / UTR / Reference"
+        string description "Narration"
+        string payee_or_payer
+        string status "UNCLEARED, CLEARED, RECONCILED, VOID"
+        boolean is_reconciled "Flag for reconciliation"
+        datetime reconciled_at
+        int reconciled_by_user_id
+        int matched_journal_entry_id FK "References finance.journal_entries"
+        datetime created_at
+        datetime updated_at
+    }
+
+    FINANCE_ACCOUNT {
+        int id PK
+        string code "e.g. 1020 (HDFC Bank Operational)"
+        string name "Bank Account GL Ledger"
+        string account_type "ASSET"
+        decimal current_balance
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK
+        string entry_number "JE-YYYYMMDD-XXXX"
+        date entry_date
+        string status "POSTED"
+        decimal total_debit
+        decimal total_credit
+    }
+
+    FINANCE_JOURNAL_LINE {
+        int id PK
+        int journal_entry_id FK
+        int account_id FK
+        string entry_type "DEBIT or CREDIT"
+        decimal amount
+    }

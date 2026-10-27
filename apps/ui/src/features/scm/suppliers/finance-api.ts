@@ -2,6 +2,7 @@ import type {
   CreateSupplierBillInput,
   CreateSupplierPaymentInput,
   PaginatedEnvelope,
+  PostSupplierBillToFinanceInput,
   QuerySupplierBillsInput,
   QuerySupplierPaymentsInput,
   SupplierBill,
@@ -39,6 +40,25 @@ export const updateSupplierBill = (
 
 export const cancelSupplierBill = (id: number, reason: string) =>
   scmPost<SupplierBill>(`/scm/finance/bills/${id}/cancel`, { reason });
+
+export interface PostSupplierBillToFinanceResult {
+  success: boolean;
+  alreadyPosted?: boolean;
+  documentReference: string;
+  journalEntryId: number;
+  journalEntryNumber?: string;
+  gstEntryId: number | null;
+  message: string;
+}
+
+export const postSupplierBillToFinance = (
+  id: number,
+  input?: PostSupplierBillToFinanceInput,
+) =>
+  scmPost<PostSupplierBillToFinanceResult>(
+    `/scm/finance/bills/${id}/post-to-finance`,
+    input ?? {},
+  );
 
 export const listSupplierPayments = (
   query: QuerySupplierPaymentsInput,

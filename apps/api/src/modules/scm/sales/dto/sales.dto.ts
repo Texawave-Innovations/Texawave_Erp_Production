@@ -210,3 +210,41 @@ export class QuerySalesOrderDto extends PaginationDto {
   @IsInt()
   customerId?: number;
 }
+
+export class IssueSalesInvoiceDto {
+  @ApiPropertyOptional({
+    example: "2026-10-26",
+    description: "Tax invoice date (YYYY-MM-DD)",
+  })
+  @IsOptional()
+  @IsDateString()
+  invoiceDate?: string;
+
+  @ApiPropertyOptional({
+    example: "TW/INV/26-27/0001",
+    description: "Custom invoice number override",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(1, 50)
+  customInvoiceNumber?: string;
+
+  @ApiPropertyOptional({
+    description: "Optional notes printed on invoice and journal narration",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 500)
+  notes?: string;
+
+  @ApiPropertyOptional({
+    enum: ["INTRA_STATE", "INTER_STATE"],
+    description:
+      "Explicit tax jurisdiction override: INTRA_STATE or INTER_STATE",
+  })
+  @IsOptional()
+  @IsIn(["INTRA_STATE", "INTER_STATE"])
+  jurisdiction?: "INTRA_STATE" | "INTER_STATE";
+}

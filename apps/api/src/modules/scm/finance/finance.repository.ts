@@ -33,13 +33,29 @@ const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const billInclude = {
-  supplier: { select: { id: true, supplierCode: true, companyName: true } },
+  supplier: {
+    select: {
+      id: true,
+      supplierCode: true,
+      companyName: true,
+      gstin: true,
+      state: true,
+    },
+  },
   purchaseOrder: { select: { id: true, poNumber: true } },
   goodsReceipt: { select: { id: true, grnNumber: true } },
 } satisfies Prisma.ScmSupplierBillInclude;
 
 const paymentInclude = {
-  supplier: { select: { id: true, supplierCode: true, companyName: true } },
+  supplier: {
+    select: {
+      id: true,
+      supplierCode: true,
+      companyName: true,
+      gstin: true,
+      state: true,
+    },
+  },
   bill: { select: { id: true, billNumber: true, supplierBillNumber: true } },
 } satisfies Prisma.ScmSupplierPaymentInclude;
 
@@ -136,6 +152,50 @@ export class FinanceRepository {
           overdue: isOverdue(row),
         }
       : null;
+  }
+
+  @OrgScoped()
+  async findBillForPosting(scope: OrgScope, id: number) {
+    return this.prisma.scmSupplierBill.findFirst({
+      where: tenantWhere(scope, { id }),
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            supplierCode: true,
+            companyName: true,
+            gstin: true,
+            state: true,
+          },
+        },
+        purchaseOrder: {
+          select: {
+            id: true,
+            poNumber: true,
+            items: {
+              select: {
+                id: true,
+                lineNo: true,
+                quantity: true,
+                unitPrice: true,
+                taxRate: true,
+                taxAmount: true,
+                total: true,
+                product: {
+                  select: {
+                    id: true,
+                    productCode: true,
+                    name: true,
+                    hsn: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        goodsReceipt: { select: { id: true, grnNumber: true } },
+      },
+    });
   }
 
   /** Per-supplier payables position for the Bills / Payments tab headers. */

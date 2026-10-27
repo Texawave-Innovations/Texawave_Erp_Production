@@ -199,47 +199,78 @@ export class SalesPurchasesIntegrationService {
         });
       }
 
-      // E. Record GST Output Ledger Entry
+      // E. Record GST Output Ledger Entry (Single or Multi-Line HSN/Rate Groups)
       let gstEntryId: number | null = null;
       if (taxAmount > 0) {
         const period = dto.invoiceDate.slice(0, 7);
-        const cgstAmount =
-          dto.cgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
-        const sgstAmount =
-          dto.sgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
-        const igstAmount =
-          dto.igstAmount ?? (cgstAmount + sgstAmount === 0 ? taxAmount : 0);
-
         const isProformaExcluded =
           ref.includes("/PI/") ||
           ref.includes("-PI-") ||
           ref.startsWith("PI-") ||
           ref.includes("PROFORMA");
 
-        const gstEntry = await tx.financeGstEntry.create({
-          data: {
-            organizationId: scope.organizationId,
-            gstin: dto.customerGstin?.trim().toUpperCase() || "URP",
-            period,
-            entryType: "OUTPUT_GST",
-            sourceType: "SALES_INVOICE",
-            sourceId: dto.salesOrderId ?? null,
-            sourceReference: ref,
-            hsnSacCode: dto.hsnSacCode?.trim() || null,
-            taxableAmount: subtotal,
-            cgstRate: 0,
-            cgstAmount,
-            sgstRate: 0,
-            sgstAmount,
-            igstRate: 0,
-            igstAmount,
-            totalTaxAmount: taxAmount,
-            isProformaExcluded,
-            status: "ACTIVE",
-            createdBy: userId ?? null,
-          },
-        });
-        gstEntryId = gstEntry.id;
+        if (dto.taxItems && dto.taxItems.length > 0) {
+          for (const item of dto.taxItems) {
+            const entry = await tx.financeGstEntry.create({
+              data: {
+                organizationId: scope.organizationId,
+                gstin: dto.customerGstin?.trim().toUpperCase() || "URP",
+                period,
+                entryType: "OUTPUT_GST",
+                sourceType: "SALES_INVOICE",
+                sourceId: dto.salesOrderId ?? null,
+                sourceReference: ref,
+                hsnSacCode: item.hsnSacCode?.trim() || null,
+                taxableAmount: item.taxableAmount,
+                cgstRate: item.cgstRate ?? 0,
+                cgstAmount: item.cgstAmount ?? 0,
+                sgstRate: item.sgstRate ?? 0,
+                sgstAmount: item.sgstAmount ?? 0,
+                igstRate: item.igstRate ?? 0,
+                igstAmount: item.igstAmount ?? 0,
+                totalTaxAmount: item.totalTaxAmount,
+                isProformaExcluded,
+                status: "ACTIVE",
+                createdBy: userId ?? null,
+              },
+            });
+            if (!gstEntryId) {
+              gstEntryId = entry.id;
+            }
+          }
+        } else {
+          const cgstAmount =
+            dto.cgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
+          const sgstAmount =
+            dto.sgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
+          const igstAmount =
+            dto.igstAmount ?? (cgstAmount + sgstAmount === 0 ? taxAmount : 0);
+
+          const gstEntry = await tx.financeGstEntry.create({
+            data: {
+              organizationId: scope.organizationId,
+              gstin: dto.customerGstin?.trim().toUpperCase() || "URP",
+              period,
+              entryType: "OUTPUT_GST",
+              sourceType: "SALES_INVOICE",
+              sourceId: dto.salesOrderId ?? null,
+              sourceReference: ref,
+              hsnSacCode: dto.hsnSacCode?.trim() || null,
+              taxableAmount: subtotal,
+              cgstRate: dto.cgstRate ?? 0,
+              cgstAmount,
+              sgstRate: dto.sgstRate ?? 0,
+              sgstAmount,
+              igstRate: dto.igstRate ?? 0,
+              igstAmount,
+              totalTaxAmount: taxAmount,
+              isProformaExcluded,
+              status: "ACTIVE",
+              createdBy: userId ?? null,
+            },
+          });
+          gstEntryId = gstEntry.id;
+        }
       }
 
       return {
@@ -328,12 +359,12 @@ export class SalesPurchasesIntegrationService {
       "EXPENSE",
       ["Cost of Goods", "Expense", "Purchase"],
     );
-    const gstInputAccount = await this.resolveAccount(
-      scope,
-      ["2020"],
-      "LIABILITY",
-      ["GST", "Tax", "Input"],
-    );
+
+    const isItcEligible = dto.isItcEligible !== false;
+    const gstInputAccount =
+      isItcEligible && taxAmount > 0
+        ? await this.resolveInputTaxAccount(scope)
+        : null;
 
     // 4. Atomic Execution: Journal Posting & GST Recording
     return this.prisma.$transaction(async (tx) => {
@@ -345,25 +376,36 @@ export class SalesPurchasesIntegrationService {
       const entryDate = new Date(dto.billDate);
 
       // B. Build balanced lines
-      const lines = [
-        {
+      const lines = [];
+
+      if (!isItcEligible) {
+        // Blocked / Ineligible ITC per Sec 17(5): Tax is absorbed directly into Expense / Cost
+        lines.push({
+          accountId: expenseAccount.id,
+          lineOrder: 0,
+          description: `COGS / Expense (including blocked tax of ${taxAmount}): ${ref} (${dto.supplierName})`,
+          debit: total,
+          credit: 0,
+        });
+      } else {
+        lines.push({
           accountId: expenseAccount.id,
           lineOrder: 0,
           description: `COGS / Expense: ${ref} (${dto.supplierName})`,
           debit: subtotal,
           credit: 0,
-        },
-      ];
-
-      if (taxAmount > 0) {
-        // Debiting GST Account reduces GST Liability (or creates ITC Asset)
-        lines.push({
-          accountId: gstInputAccount.id,
-          lineOrder: 1,
-          description: `GST Input Tax Credit: ${ref}`,
-          debit: taxAmount,
-          credit: 0,
         });
+
+        if (taxAmount > 0 && gstInputAccount) {
+          // Debiting GST Account: increases ITC Asset
+          lines.push({
+            accountId: gstInputAccount.id,
+            lineOrder: 1,
+            description: `GST Input Tax Credit: ${ref}`,
+            debit: taxAmount,
+            credit: 0,
+          });
+        }
       }
 
       lines.push({
@@ -375,13 +417,17 @@ export class SalesPurchasesIntegrationService {
       });
 
       // C. Persist Journal Entry and Lines
+      const narration = isItcEligible
+        ? `Purchase Bill ${ref} - ${dto.supplierName}${dto.notes ? ` (${dto.notes})` : ""}`
+        : `Purchase Bill ${ref} - ${dto.supplierName} (Ineligible ITC: INR ${taxAmount} incorporated into expense cost)${dto.notes ? ` (${dto.notes})` : ""}`;
+
       const createdJournal = await tx.financeJournalEntry.create({
         data: {
           organizationId: scope.organizationId,
           entryNumber,
           entryDate,
           entryType: "EXPENSE",
-          narration: `Purchase Bill ${ref} - ${dto.supplierName}${dto.notes ? ` (${dto.notes})` : ""}`,
+          narration,
           referenceNumber: ref,
           totalDebit: total,
           totalCredit: total,
@@ -410,7 +456,7 @@ export class SalesPurchasesIntegrationService {
             ? payableAccount.accountType
             : line.accountId === expenseAccount.id
               ? expenseAccount.accountType
-              : gstInputAccount.accountType,
+              : (gstInputAccount?.accountType ?? "ASSET"),
           line.debit,
           line.credit,
         );
@@ -421,41 +467,74 @@ export class SalesPurchasesIntegrationService {
         });
       }
 
-      // E. Record GST Input Tax Credit Ledger Entry
+      // E. Record GST Input Tax Credit Ledger Entry (Single or Multi-Line HSN/Rate Groups)
       let gstEntryId: number | null = null;
-      if (taxAmount > 0) {
+      if (taxAmount > 0 && isItcEligible) {
         const period = dto.billDate.slice(0, 7);
-        const cgstAmount =
-          dto.cgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
-        const sgstAmount =
-          dto.sgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
-        const igstAmount =
-          dto.igstAmount ?? (cgstAmount + sgstAmount === 0 ? taxAmount : 0);
 
-        const gstEntry = await tx.financeGstEntry.create({
-          data: {
-            organizationId: scope.organizationId,
-            gstin: dto.supplierGstin?.trim().toUpperCase() || "UNREGISTERED",
-            period,
-            entryType: "INPUT_TAX_CREDIT",
-            sourceType: "PURCHASE_BILL",
-            sourceId: dto.purchaseOrderId ?? null,
-            sourceReference: ref,
-            hsnSacCode: dto.hsnSacCode?.trim() || null,
-            taxableAmount: subtotal,
-            cgstRate: 0,
-            cgstAmount,
-            sgstRate: 0,
-            sgstAmount,
-            igstRate: 0,
-            igstAmount,
-            totalTaxAmount: taxAmount,
-            isProformaExcluded: false,
-            status: "ACTIVE",
-            createdBy: userId ?? null,
-          },
-        });
-        gstEntryId = gstEntry.id;
+        if (dto.taxItems && dto.taxItems.length > 0) {
+          for (const item of dto.taxItems) {
+            const entry = await tx.financeGstEntry.create({
+              data: {
+                organizationId: scope.organizationId,
+                gstin:
+                  dto.supplierGstin?.trim().toUpperCase() || "UNREGISTERED",
+                period,
+                entryType: "INPUT_TAX_CREDIT",
+                sourceType: "PURCHASE_BILL",
+                sourceId: dto.purchaseOrderId ?? null,
+                sourceReference: ref,
+                hsnSacCode: item.hsnSacCode?.trim() || null,
+                taxableAmount: item.taxableAmount,
+                cgstRate: item.cgstRate ?? 0,
+                cgstAmount: item.cgstAmount ?? 0,
+                sgstRate: item.sgstRate ?? 0,
+                sgstAmount: item.sgstAmount ?? 0,
+                igstRate: item.igstRate ?? 0,
+                igstAmount: item.igstAmount ?? 0,
+                totalTaxAmount: item.totalTaxAmount,
+                isProformaExcluded: false,
+                status: "ACTIVE",
+                createdBy: userId ?? null,
+              },
+            });
+            if (!gstEntryId) {
+              gstEntryId = entry.id;
+            }
+          }
+        } else {
+          const cgstAmount =
+            dto.cgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
+          const sgstAmount =
+            dto.sgstAmount ?? (dto.igstAmount ? 0 : round2(taxAmount / 2));
+          const igstAmount =
+            dto.igstAmount ?? (cgstAmount + sgstAmount === 0 ? taxAmount : 0);
+
+          const gstEntry = await tx.financeGstEntry.create({
+            data: {
+              organizationId: scope.organizationId,
+              gstin: dto.supplierGstin?.trim().toUpperCase() || "UNREGISTERED",
+              period,
+              entryType: "INPUT_TAX_CREDIT",
+              sourceType: "PURCHASE_BILL",
+              sourceId: dto.purchaseOrderId ?? null,
+              sourceReference: ref,
+              hsnSacCode: dto.hsnSacCode?.trim() || null,
+              taxableAmount: subtotal,
+              cgstRate: dto.cgstRate ?? 0,
+              cgstAmount,
+              sgstRate: dto.sgstRate ?? 0,
+              sgstAmount,
+              igstRate: dto.igstRate ?? 0,
+              igstAmount,
+              totalTaxAmount: taxAmount,
+              isProformaExcluded: false,
+              status: "ACTIVE",
+              createdBy: userId ?? null,
+            },
+          });
+          gstEntryId = gstEntry.id;
+        }
       }
 
       return {
@@ -682,7 +761,7 @@ export class SalesPurchasesIntegrationService {
   private async resolveAccount(
     scope: OrgScope,
     preferredCodes: string[],
-    accountType: FinanceAccountType,
+    accountType: FinanceAccountType | FinanceAccountType[],
     fallbackNameKeywords: string[],
   ) {
     for (const code of preferredCodes) {
@@ -697,12 +776,14 @@ export class SalesPurchasesIntegrationService {
       if (acc) return acc;
     }
 
+    const types = Array.isArray(accountType) ? accountType : [accountType];
+
     // Fallback: look up by type and name keywords
     for (const kw of fallbackNameKeywords) {
       const acc = await this.prisma.financeAccount.findFirst({
         where: {
           organizationId: scope.organizationId,
-          accountType,
+          accountType: { in: types },
           accountName: { contains: kw, mode: "insensitive" },
           isActive: true,
           deletedAt: null,
@@ -715,7 +796,7 @@ export class SalesPurchasesIntegrationService {
     const acc = await this.prisma.financeAccount.findFirst({
       where: {
         organizationId: scope.organizationId,
-        accountType,
+        accountType: { in: types },
         isActive: true,
         deletedAt: null,
       },
@@ -723,8 +804,47 @@ export class SalesPurchasesIntegrationService {
     if (acc) return acc;
 
     throw new ResourceNotFoundException(
-      `Chart of Accounts (${accountType})`,
+      `Chart of Accounts (${types.join("/")})`,
       preferredCodes.join(" / "),
+    );
+  }
+
+  /**
+   * Resolves the GST Input Tax Credit asset account.
+   * Eliminates any fallback to output-tax liability account 2020.
+   * If account 1300 or an active ASSET input tax account is missing, fails safely.
+   */
+  private async resolveInputTaxAccount(scope: OrgScope) {
+    // 1. Preferred: Account Code "1300" with accountType "ASSET"
+    const exact1300 = await this.prisma.financeAccount.findFirst({
+      where: {
+        organizationId: scope.organizationId,
+        accountCode: "1300",
+        accountType: "ASSET",
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+    if (exact1300) return exact1300;
+
+    // 2. Fallback: Search strictly within ASSET accounts for ITC keywords
+    for (const kw of ["GST Input", "Input Tax Credit", "ITC"]) {
+      const match = await this.prisma.financeAccount.findFirst({
+        where: {
+          organizationId: scope.organizationId,
+          accountType: "ASSET",
+          accountName: { contains: kw, mode: "insensitive" },
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+      if (match) return match;
+    }
+
+    // Fail safely with clear descriptive error - NEVER fallback to liability account 2020
+    throw new BusinessRuleViolationException(
+      "No active GST Input Tax Credit asset account (code 1300) found in the Chart of Accounts. Please configure account 1300 under Assets before claiming recoverable ITC.",
+      "MISSING_INPUT_TAX_ACCOUNT",
     );
   }
 }

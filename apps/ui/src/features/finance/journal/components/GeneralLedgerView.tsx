@@ -7,6 +7,7 @@ import type {
   GeneralLedgerTransactionItem,
 } from "@texawave-erp/api-types";
 import {
+  Button,
   DataTable,
   type DataTableColumn,
   EmptyState,
@@ -17,11 +18,13 @@ import {
   TableSkeleton,
 } from "@texawave-erp/ui-kit";
 import {
+  AlertCircle,
   ArrowDownLeft,
   ArrowUpRight,
   BookOpen,
   Calendar,
   CreditCard,
+  RefreshCw,
 } from "lucide-react";
 import { formatDate, formatMoney } from "../../shared/format";
 import { AccountBadge } from "../../../finance/coa/components/AccountBadge";
@@ -31,7 +34,13 @@ import { FINANCE_JOURNAL_READ } from "../permissions";
 import { usePermission } from "@/hooks/usePermission";
 import { JournalEntryTypeBadge } from "./JournalEntryTypeBadge";
 
-export function GeneralLedgerView() {
+export interface GeneralLedgerViewProps {
+  hideHeader?: boolean;
+}
+
+export function GeneralLedgerView({
+  hideHeader = false,
+}: GeneralLedgerViewProps = {}) {
   const canRead = usePermission(FINANCE_JOURNAL_READ);
   const searchParams = useSearchParams();
   const initialAccountId = searchParams.get("accountId");
@@ -74,7 +83,13 @@ export function GeneralLedgerView() {
     };
   }, [activeAccountId, startDate, endDate]);
 
-  const ledgerQuery = useGeneralLedger(queryParams);
+  const isInvalidDateRange = Boolean(
+    startDate && endDate && startDate > endDate,
+  );
+
+  const ledgerQuery = useGeneralLedger(queryParams, {
+    enabled: !isInvalidDateRange,
+  });
   const report = ledgerQuery.data;
 
   const transactions = useMemo(
@@ -159,20 +174,22 @@ export function GeneralLedgerView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <PageHeader
-        title="General Ledger"
-        description="Chronological audit records of all posted debits, credits, and sequential running balances per account."
-        badge={
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Account Statement</span>
-          </div>
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="General Ledger"
+          description="Chronological audit records of all posted debits, credits, and sequential running balances per account."
+          badge={
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Account Statement</span>
+            </div>
+          }
+        />
+      )}
 
       {/* Account & Date Filters Bar */}
-      <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-900">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 items-center">
+      <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-900 relative focus-within:z-30">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 items-end">
           <div className="flex flex-col gap-1.5">
             <label className="text-theme-xs font-semibold text-gray-600 dark:text-gray-300">
               Select Ledger Account
@@ -210,11 +227,43 @@ export function GeneralLedgerView() {
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void ledgerQuery.refetch()}
+              disabled={ledgerQuery.isFetching}
+              className="flex items-center justify-center gap-1.5 h-10 w-full"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  ledgerQuery.isFetching ? "animate-spin" : ""
+                }`}
+              />
+              <span>Refresh</span>
+            </Button>
+          </div>
         </div>
       </div>
 
+      {/* Invalid Date Range Warning */}
+      {isInvalidDateRange && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-theme-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div>
+            <p className="font-semibold">Invalid Date Range</p>
+            <p className="text-theme-xs text-amber-700 dark:text-amber-300">
+              Start date ({startDate}) cannot be after end date ({endDate}).
+              Please adjust the date filter.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Account Summary & Balances Banner */}
-      {report ? (
+      {report && !isInvalidDateRange ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
@@ -303,32 +352,34 @@ export function GeneralLedgerView() {
       ) : null}
 
       {/* Transactions Table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
-        {ledgerQuery.isPending ? (
-          <TableSkeleton columnsCount={7} rowsCount={6} />
-        ) : ledgerQuery.isError ? (
-          <div className="p-8">
-            <ErrorState
-              title="Failed to load General Ledger"
-              description="Unable to fetch ledger account transactions from the server."
-              onRetry={() => void ledgerQuery.refetch()}
+      {!isInvalidDateRange && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
+          {ledgerQuery.isPending ? (
+            <TableSkeleton columnsCount={7} rowsCount={6} />
+          ) : ledgerQuery.isError ? (
+            <div className="p-8">
+              <ErrorState
+                title="Failed to load General Ledger"
+                description="Unable to fetch ledger account transactions from the server."
+                onRetry={() => void ledgerQuery.refetch()}
+              />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                title="No transactions recorded"
+                description="No posted transactions found for this account within the selected date range."
+              />
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={transactions}
+              getRowKey={(row) => String(row.id)}
             />
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="p-8">
-            <EmptyState
-              title="No transactions recorded"
-              description="No posted transactions found for this account within the selected date range."
-            />
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={transactions}
-            getRowKey={(row) => String(row.id)}
-          />
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

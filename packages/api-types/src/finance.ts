@@ -190,6 +190,17 @@ export interface FinanceExpense {
   glAccountId: number | null;
   journalEntryId: number | null;
   hrExpenseClaimId: number | null;
+  vendorGstin?: string | null;
+  vendorInvoiceNumber?: string | null;
+  vendorInvoiceDate?: string | null;
+  hsnSacCode?: string | null;
+  taxRate?: string | number | null;
+  cgstAmount?: string | number;
+  sgstAmount?: string | number;
+  igstAmount?: string | number;
+  isItcEligible?: boolean;
+  ineligibilityReason?: string | null;
+  gstJurisdiction?: string | null;
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;
@@ -233,6 +244,17 @@ export interface CreateFinanceExpenseInput {
   bankAccountId?: number | null;
   glAccountId?: number | null;
   vendorName?: string | null;
+  vendorGstin?: string | null;
+  vendorInvoiceNumber?: string | null;
+  vendorInvoiceDate?: string | null;
+  hsnSacCode?: string | null;
+  taxRate?: number | null;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  isItcEligible?: boolean;
+  ineligibilityReason?: string | null;
+  gstJurisdiction?: string | null;
   notes?: string | null;
   receiptUrl?: string | null;
   status?: FinanceExpenseStatus;
@@ -247,6 +269,17 @@ export interface UpdateFinanceExpenseInput {
   bankAccountId?: number | null;
   glAccountId?: number | null;
   vendorName?: string | null;
+  vendorGstin?: string | null;
+  vendorInvoiceNumber?: string | null;
+  vendorInvoiceDate?: string | null;
+  hsnSacCode?: string | null;
+  taxRate?: number | null;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  isItcEligible?: boolean;
+  ineligibilityReason?: string | null;
+  gstJurisdiction?: string | null;
   notes?: string | null;
   receiptUrl?: string | null;
 }
@@ -702,6 +735,21 @@ export interface GeneralLedgerAccountReport {
   totalTransactions: number;
   page?: number | undefined;
   limit?: number | undefined;
+}
+
+export interface QueryBalanceSheetInput {
+  asOfDate?: string | undefined;
+}
+
+export interface QueryProfitAndLossInput {
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+}
+
+export interface QueryTrialBalanceInput {
+  asOfDate?: string | undefined;
+  startDate?: string | undefined;
+  endDate?: string | undefined;
 }
 
 export interface QueryGeneralLedgerInput {

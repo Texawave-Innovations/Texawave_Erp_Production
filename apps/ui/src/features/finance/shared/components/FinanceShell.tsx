@@ -82,9 +82,9 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
     id: "banking",
     label: "Banking",
     icon: Building2,
+    path: "/finance/banking",
     activePathPrefixes: ["/finance/banking"],
-    disabled: true,
-    upcomingMessage: "Treasury & Bank Accounts UI (Sub-Phase 4)",
+    disabled: false,
   },
   {
     id: "accounting",
@@ -95,6 +95,7 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
       "/finance/accounts",
       "/finance/journal-entries",
       "/finance/general-ledger",
+      "/finance/reports",
       "/finance/accounting",
     ],
     disabled: false,
@@ -103,9 +104,9 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
     id: "gst",
     label: "GST",
     icon: ShieldCheck,
+    path: "/finance/gst",
     activePathPrefixes: ["/finance/gst"],
-    disabled: true,
-    upcomingMessage: "GST Returns & Tax Ledger UI (Sub-Phase 5)",
+    disabled: false,
   },
 ];
 
@@ -136,37 +137,16 @@ const SUB_TABS_MAP: Record<FinanceSectionId, SubTabConfig[]> = {
       id: "reports",
       label: "Reports",
       icon: BarChart3,
-      disabled: true,
-      badge: "Upcoming",
+      path: "/finance/reports",
+      activePathPrefixes: ["/finance/reports"],
+      disabled: false,
     },
   ],
   expenses: [],
   "payments-received": [],
   "payments-made": [],
-  banking: [
-    {
-      id: "bank-accounts",
-      label: "Bank Accounts",
-      disabled: true,
-    },
-    {
-      id: "transactions",
-      label: "Transactions",
-      disabled: true,
-    },
-  ],
-  gst: [
-    {
-      id: "registry",
-      label: "GST Registry",
-      disabled: true,
-    },
-    {
-      id: "reconciliation",
-      label: "Reconciliation",
-      disabled: true,
-    },
-  ],
+  banking: [],
+  gst: [],
 };
 
 export interface FinanceShellProps {
@@ -193,6 +173,7 @@ export function FinanceShell({ children }: FinanceShellProps) {
     if (pathname.startsWith("/finance/payments-made")) return "payments-made";
     if (pathname.startsWith("/finance/banking")) return "banking";
     if (pathname.startsWith("/finance/gst")) return "gst";
+    if (pathname.startsWith("/finance/reports")) return "accounting";
     // Default to accounting for /finance/accounts, /finance/journal-entries, /finance/general-ledger, /finance
     return "accounting";
   }, [pathname]);

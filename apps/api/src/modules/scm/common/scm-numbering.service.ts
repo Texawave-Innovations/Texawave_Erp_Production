@@ -22,6 +22,7 @@ export const SCM_PREFIXES = {
   qualityInspection: "TW/QC",
   supplierBill: "TW/BILL",
   supplierPayment: "TW/PAY",
+  taxInvoice: "TW/INV",
 } as const;
 export type ScmPrefixKey = keyof typeof SCM_PREFIXES;
 

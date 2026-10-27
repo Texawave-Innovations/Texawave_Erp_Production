@@ -21,10 +21,12 @@ import type { UpdateExpenseDto } from "./dto/update-expense.dto.js";
 import {
   ExpensesRepository,
   type ExpenseBalanceDelta,
+  type ExpenseGstEntryData,
   type ExpenseJournalEntryData,
   type ExpenseJournalLineData,
   type ExpenseReversalData,
 } from "./expenses.repository.js";
+import { GSTIN_PATTERN } from "./dto/create-expense.dto.js";
 
 /**
  * Expenses Service — business logic, lifecycle transitions, HR claim integration,
@@ -136,10 +138,52 @@ export class ExpensesService {
       expenseNumber = await this.repository.generateNextExpenseNumber(scope);
     }
 
-    // 7. Calculate amounts
+    // 7. Calculate amounts and tax details
     const amount = Number(Number(dto.amount).toFixed(2));
     const taxAmount = Number(Number(dto.taxAmount ?? 0).toFixed(2));
     const netAmount = Number((amount + taxAmount).toFixed(2));
+
+    // Validate GSTIN format if provided
+    const vendorGstin = dto.vendorGstin?.trim().toUpperCase() || null;
+    if (vendorGstin && !GSTIN_PATTERN.test(vendorGstin)) {
+      throw new BusinessRuleViolationException(
+        "Invalid GSTIN format. Expected standard 15-character Indian GSTIN.",
+        "INVALID_GSTIN_FORMAT",
+      );
+    }
+
+    let jurisdiction: "INTRA_STATE" | "INTER_STATE" = "INTRA_STATE";
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+    if (taxAmount > 0) {
+      const resolved = await this.resolveTaxDetails(
+        scope.organizationId,
+        amount,
+        taxAmount,
+        vendorGstin,
+        dto.gstJurisdiction,
+        dto.cgstAmount,
+        dto.sgstAmount,
+        dto.igstAmount,
+      );
+      jurisdiction = resolved.jurisdiction;
+      cgstAmount = resolved.cgstAmount;
+      sgstAmount = resolved.sgstAmount;
+      igstAmount = resolved.igstAmount;
+    }
+
+    // Recoverable ITC requires taxAmount > 0, registered vendor GSTIN, and explicit or default opt-in
+    const isItcEligible =
+      taxAmount > 0 &&
+      Boolean(vendorGstin) &&
+      (dto.isItcEligible === undefined ? true : Boolean(dto.isItcEligible));
+
+    const ineligibilityReason =
+      !isItcEligible && taxAmount > 0 && dto.ineligibilityReason
+        ? dto.ineligibilityReason.trim()
+        : null;
 
     const initialStatus = dto.status ?? "DRAFT";
 
@@ -156,6 +200,22 @@ export class ExpensesService {
       bankAccountId: dto.bankAccountId ?? null,
       glAccountId: dto.glAccountId ?? null,
       vendorName: dto.vendorName ?? null,
+      vendorGstin,
+      vendorInvoiceNumber: dto.vendorInvoiceNumber?.trim() || null,
+      vendorInvoiceDate: dto.vendorInvoiceDate
+        ? new Date(dto.vendorInvoiceDate)
+        : null,
+      hsnSacCode: dto.hsnSacCode?.trim() || null,
+      taxRate:
+        dto.taxRate !== undefined && dto.taxRate !== null
+          ? Number(dto.taxRate)
+          : 0,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      isItcEligible,
+      ineligibilityReason,
+      gstJurisdiction: jurisdiction,
       notes: dto.notes ?? null,
       receiptUrl: dto.receiptUrl ?? null,
       status: initialStatus === "PAID" ? "DRAFT" : initialStatus,
@@ -266,6 +326,62 @@ export class ExpensesService {
         : Number(existing.taxAmount);
     const netAmount = Number((amount + taxAmount).toFixed(2));
 
+    const vendorGstin =
+      dto.vendorGstin !== undefined
+        ? dto.vendorGstin?.trim().toUpperCase() || null
+        : existing.vendorGstin;
+    if (dto.vendorGstin && vendorGstin && !GSTIN_PATTERN.test(vendorGstin)) {
+      throw new BusinessRuleViolationException(
+        "Invalid GSTIN format. Expected standard 15-character Indian GSTIN.",
+        "INVALID_GSTIN_FORMAT",
+      );
+    }
+
+    let jurisdiction: "INTRA_STATE" | "INTER_STATE" = "INTRA_STATE";
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+    if (taxAmount > 0) {
+      const resolved = await this.resolveTaxDetails(
+        scope.organizationId,
+        amount,
+        taxAmount,
+        vendorGstin,
+        dto.gstJurisdiction ??
+          (existing.gstJurisdiction as
+            "INTRA_STATE" | "INTER_STATE" | undefined),
+        dto.cgstAmount ??
+          (dto.taxAmount !== undefined
+            ? undefined
+            : Number(existing.cgstAmount)),
+        dto.sgstAmount ??
+          (dto.taxAmount !== undefined
+            ? undefined
+            : Number(existing.sgstAmount)),
+        dto.igstAmount ??
+          (dto.taxAmount !== undefined
+            ? undefined
+            : Number(existing.igstAmount)),
+      );
+      jurisdiction = resolved.jurisdiction;
+      cgstAmount = resolved.cgstAmount;
+      sgstAmount = resolved.sgstAmount;
+      igstAmount = resolved.igstAmount;
+    }
+
+    const isItcEligible =
+      taxAmount > 0 &&
+      Boolean(vendorGstin) &&
+      (dto.isItcEligible !== undefined
+        ? Boolean(dto.isItcEligible)
+        : existing.isItcEligible === true);
+
+    const ineligibilityReason =
+      !isItcEligible && taxAmount > 0
+        ? (dto.ineligibilityReason ?? existing.ineligibilityReason ?? null)
+        : null;
+
     const updated = await this.repository.update(scope, id, {
       ...(dto.expenseTypeId ? { expenseTypeId: dto.expenseTypeId } : {}),
       ...(dto.expenseDate ? { expenseDate: new Date(dto.expenseDate) } : {}),
@@ -284,6 +400,27 @@ export class ExpensesService {
         ? { glAccountId: dto.glAccountId }
         : {}),
       ...(dto.vendorName !== undefined ? { vendorName: dto.vendorName } : {}),
+      ...(dto.vendorGstin !== undefined ? { vendorGstin } : {}),
+      ...(dto.vendorInvoiceNumber !== undefined
+        ? { vendorInvoiceNumber: dto.vendorInvoiceNumber?.trim() || null }
+        : {}),
+      ...(dto.vendorInvoiceDate !== undefined
+        ? {
+            vendorInvoiceDate: dto.vendorInvoiceDate
+              ? new Date(dto.vendorInvoiceDate)
+              : null,
+          }
+        : {}),
+      ...(dto.hsnSacCode !== undefined
+        ? { hsnSacCode: dto.hsnSacCode?.trim() || null }
+        : {}),
+      ...(dto.taxRate !== undefined ? { taxRate: Number(dto.taxRate) } : {}),
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      isItcEligible,
+      ineligibilityReason,
+      gstJurisdiction: jurisdiction,
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
       ...(dto.receiptUrl !== undefined ? { receiptUrl: dto.receiptUrl } : {}),
       updatedBy: userId,
@@ -438,9 +575,14 @@ export class ExpensesService {
       paymentModeValue,
     );
 
-    const netAmount = Number(existing.netAmount);
+    const amount = Number(existing.amount);
+    const taxAmount = Number(existing.taxAmount || 0);
+    const netAmount = Number(existing.netAmount || amount + taxAmount);
+    const shouldClaimItc = Boolean(
+      taxAmount > 0 && existing.isItcEligible && existing.vendorGstin,
+    );
 
-    // 3. Prepare balanced journal lines
+    // 3. Prepare balanced journal lines & GST entry
     const entryDate = dto?.paymentDate
       ? new Date(dto.paymentDate)
       : new Date(existing.expenseDate);
@@ -449,47 +591,133 @@ export class ExpensesService {
       "JV",
     );
 
-    const lines: ExpenseJournalLineData[] = [
-      {
+    let gstInputAccount: {
+      id: number;
+      accountType: FinanceAccountType;
+    } | null = null;
+    let gstEntryData: ExpenseGstEntryData | null = null;
+
+    if (shouldClaimItc) {
+      gstInputAccount = await this.resolveInputTaxAccount(scope.organizationId);
+
+      const period = entryDate.toISOString().slice(0, 7);
+      gstEntryData = {
+        entryType: "INPUT_TAX_CREDIT",
+        sourceType: "EXPENSE",
+        sourceReference: existing.expenseNumber,
+        gstin: existing.vendorGstin!,
+        period,
+        taxableAmount: amount,
+        cgstAmount: Number(existing.cgstAmount || 0),
+        sgstAmount: Number(existing.sgstAmount || 0),
+        igstAmount: Number(existing.igstAmount || 0),
+        totalTaxAmount: taxAmount,
+      };
+    }
+
+    const lines: ExpenseJournalLineData[] = [];
+    const balanceDeltas: ExpenseBalanceDelta[] = [];
+
+    if (gstInputAccount && taxAmount > 0) {
+      // Line 0: Debit Expense GL Account for subtotal
+      lines.push({
         accountId: expenseGlAccount.id,
         lineOrder: 0,
         description: `Expense: ${existing.vendorName ?? existing.expenseNumber}`,
-        debit: netAmount,
+        debit: amount,
         credit: 0,
-      },
-      {
-        accountId: creditGlAccount.id,
-        lineOrder: 1,
-        description: `Payment for ${existing.expenseNumber}`,
-        debit: 0,
-        credit: netAmount,
-      },
-    ];
-
-    const balanceDeltas: ExpenseBalanceDelta[] = [
-      {
+      });
+      balanceDeltas.push({
         accountId: expenseGlAccount.id,
         delta: calculateAccountBalanceDelta(
           expenseGlAccount.accountType,
-          netAmount,
+          amount,
           0,
         ),
-      },
-      {
+      });
+
+      // Line 1: Debit GST Input Tax Credit (Asset 1300)
+      lines.push({
+        accountId: gstInputAccount.id,
+        lineOrder: 1,
+        description: `GST Input Tax Credit: ${existing.expenseNumber}`,
+        debit: taxAmount,
+        credit: 0,
+      });
+      balanceDeltas.push({
+        accountId: gstInputAccount.id,
+        delta: calculateAccountBalanceDelta(
+          gstInputAccount.accountType,
+          taxAmount,
+          0,
+        ),
+      });
+
+      // Line 2: Credit Cash / Bank / Payable
+      lines.push({
+        accountId: creditGlAccount.id,
+        lineOrder: 2,
+        description: `Payment for ${existing.expenseNumber}`,
+        debit: 0,
+        credit: netAmount,
+      });
+      balanceDeltas.push({
         accountId: creditGlAccount.id,
         delta: calculateAccountBalanceDelta(
           creditGlAccount.accountType,
           0,
           netAmount,
         ),
-      },
-    ];
+      });
+    } else {
+      // Ineligible ITC (Section 17(5)) or Zero Tax:
+      // Tax is absorbed directly into the Expense cost
+      lines.push({
+        accountId: expenseGlAccount.id,
+        lineOrder: 0,
+        description:
+          taxAmount > 0
+            ? `Expense (including blocked tax of ${taxAmount}): ${existing.vendorName ?? existing.expenseNumber}`
+            : `Expense: ${existing.vendorName ?? existing.expenseNumber}`,
+        debit: netAmount,
+        credit: 0,
+      });
+      balanceDeltas.push({
+        accountId: expenseGlAccount.id,
+        delta: calculateAccountBalanceDelta(
+          expenseGlAccount.accountType,
+          netAmount,
+          0,
+        ),
+      });
+
+      lines.push({
+        accountId: creditGlAccount.id,
+        lineOrder: 1,
+        description: `Payment for ${existing.expenseNumber}`,
+        debit: 0,
+        credit: netAmount,
+      });
+      balanceDeltas.push({
+        accountId: creditGlAccount.id,
+        delta: calculateAccountBalanceDelta(
+          creditGlAccount.accountType,
+          0,
+          netAmount,
+        ),
+      });
+    }
+
+    const narration =
+      !shouldClaimItc && taxAmount > 0
+        ? `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""} (Ineligible ITC: INR ${taxAmount} incorporated into expense cost per Sec 17(5))`
+        : `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""}`;
 
     const journalData: ExpenseJournalEntryData = {
       entryNumber,
       entryDate,
       entryType: "EXPENSE",
-      narration: `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""}`,
+      narration,
       referenceNumber: existing.expenseNumber,
       totalDebit: netAmount,
       totalCredit: netAmount,
@@ -507,6 +735,7 @@ export class ExpensesService {
         glAccountId: expenseGlAccount.id,
       },
       userId,
+      gstEntryData,
     );
   }
 
@@ -633,8 +862,7 @@ export class ExpensesService {
         employee: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            fullName: true,
             employeeCode: true,
           },
         },
@@ -693,8 +921,8 @@ export class ExpensesService {
       );
     }
 
-    const employeeName =
-      `${claim.employee.firstName} ${claim.employee.lastName}`.trim();
+    const employeeName = claim.employee?.fullName?.trim() || "Employee";
+    const employeeCode = claim.employee?.employeeCode || "";
     const expenseNumber =
       await this.repository.generateNextExpenseNumber(scope);
     const amount = Number(Number(claim.amount).toFixed(2));
@@ -710,7 +938,9 @@ export class ExpensesService {
       paymentModeId: dto.paymentModeId ?? null,
       bankAccountId: dto.bankAccountId ?? null,
       glAccountId: dto.glAccountId ?? null,
-      vendorName: `Reimbursement: ${employeeName} (${claim.employee.employeeCode})`,
+      vendorName: employeeCode
+        ? `Reimbursement: ${employeeName} (${employeeCode})`
+        : `Reimbursement: ${employeeName}`,
       notes: dto.notes ?? claim.description,
       receiptUrl: claim.receiptRef ?? null,
       status: "APPROVED", // Ready for payout
@@ -899,5 +1129,152 @@ export class ExpensesService {
       "No active Cash, Bank, or Accounts Payable account found in Chart of Accounts.",
       "MISSING_GL_PAYMENT_ACCOUNT",
     );
+  }
+
+  /**
+   * Resolves the GST Input Tax Credit asset account.
+   * Strictly enforces ASSET account type and targets account 1300.
+   * NEVER falls back to output tax liability 2020 or unrelated assets.
+   */
+  private async resolveInputTaxAccount(
+    organizationId: number,
+  ): Promise<{ id: number; accountType: FinanceAccountType }> {
+    // 1. Preferred: Account code "1300" with accountType "ASSET"
+    const exact1300 = await this.prisma.financeAccount.findFirst({
+      where: {
+        organizationId,
+        accountCode: "1300",
+        accountType: "ASSET",
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+    if (exact1300) {
+      return {
+        id: exact1300.id,
+        accountType: exact1300.accountType as FinanceAccountType,
+      };
+    }
+
+    // 2. Keyword fallback strictly within active ASSET accounts
+    for (const kw of ["GST Input", "Input Tax Credit", "ITC"]) {
+      const match = await this.prisma.financeAccount.findFirst({
+        where: {
+          organizationId,
+          accountType: "ASSET",
+          accountName: { contains: kw, mode: "insensitive" },
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+      if (match) {
+        return {
+          id: match.id,
+          accountType: match.accountType as FinanceAccountType,
+        };
+      }
+    }
+
+    // Fail safely with clear descriptive error - NEVER fallback to liability account 2020
+    throw new BusinessRuleViolationException(
+      "No active GST Input Tax Credit asset account (code 1300) found in the Chart of Accounts. Please configure account 1300 under Assets before claiming recoverable ITC.",
+      "MISSING_INPUT_TAX_ACCOUNT",
+    );
+  }
+
+  /**
+   * Resolves tax jurisdiction (INTRA_STATE vs INTER_STATE) and validates or computes
+   * tax component breakdowns (CGST, SGST, IGST).
+   */
+  private async resolveTaxDetails(
+    organizationId: number,
+    amount: number,
+    taxAmount: number,
+    vendorGstin?: string | null,
+    overrideJurisdiction?: "INTRA_STATE" | "INTER_STATE",
+    explicitCgst?: number,
+    explicitSgst?: number,
+    explicitIgst?: number,
+  ) {
+    if (taxAmount <= 0) {
+      return {
+        jurisdiction: "INTRA_STATE" as const,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
+      };
+    }
+
+    // Determine jurisdiction
+    let jurisdiction: "INTRA_STATE" | "INTER_STATE" = "INTRA_STATE";
+    if (overrideJurisdiction) {
+      jurisdiction = overrideJurisdiction;
+    } else {
+      const payroll =
+        typeof this.prisma.payrollSetting?.findFirst === "function"
+          ? await this.prisma.payrollSetting.findFirst({
+              where: { organizationId },
+              select: { companyGstin: true },
+            })
+          : null;
+      const companyGstin = payroll?.companyGstin?.trim().toUpperCase() ?? null;
+      const companyStateCode =
+        companyGstin && companyGstin.length >= 2
+          ? companyGstin.slice(0, 2)
+          : null;
+      const cleanVendorGstin = vendorGstin?.trim().toUpperCase() ?? null;
+      const vendorStateCode =
+        cleanVendorGstin && cleanVendorGstin.length >= 2
+          ? cleanVendorGstin.slice(0, 2)
+          : null;
+
+      if (
+        companyStateCode &&
+        vendorStateCode &&
+        companyStateCode.length === 2 &&
+        vendorStateCode.length === 2
+      ) {
+        jurisdiction =
+          companyStateCode === vendorStateCode ? "INTRA_STATE" : "INTER_STATE";
+      } else {
+        jurisdiction = "INTRA_STATE";
+      }
+    }
+
+    // Validate or compute components
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+    if (
+      explicitCgst !== undefined ||
+      explicitSgst !== undefined ||
+      explicitIgst !== undefined
+    ) {
+      cgstAmount = Number(explicitCgst ?? 0);
+      sgstAmount = Number(explicitSgst ?? 0);
+      igstAmount = Number(explicitIgst ?? 0);
+      const componentsSum = Number(
+        (cgstAmount + sgstAmount + igstAmount).toFixed(2),
+      );
+      if (Math.abs(componentsSum - taxAmount) > 0.02) {
+        throw new BusinessRuleViolationException(
+          `Tax components (CGST ₹${cgstAmount} + SGST ₹${sgstAmount} + IGST ₹${igstAmount} = ₹${componentsSum}) do not equal total tax amount (₹${taxAmount}).`,
+          "IMBALANCED_TAX_COMPONENTS",
+        );
+      }
+    } else {
+      if (jurisdiction === "INTER_STATE") {
+        igstAmount = taxAmount;
+        cgstAmount = 0;
+        sgstAmount = 0;
+      } else {
+        cgstAmount = Number((taxAmount / 2).toFixed(2));
+        sgstAmount = Number((taxAmount - cgstAmount).toFixed(2));
+        igstAmount = 0;
+      }
+    }
+
+    return { jurisdiction, cgstAmount, sgstAmount, igstAmount };
   }
 }

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -124,6 +125,33 @@ export class ReasonDto {
   @IsString()
   @Length(1, 1000)
   reason!: string;
+}
+
+export class PostBillToFinanceDto {
+  @ApiPropertyOptional({
+    enum: ["INTRA_STATE", "INTER_STATE"],
+    description:
+      "Tax jurisdiction override. If omitted, computed from supplier and company GSTIN state codes.",
+  })
+  @IsOptional()
+  @IsIn(["INTRA_STATE", "INTER_STATE"])
+  jurisdiction?: "INTRA_STATE" | "INTER_STATE";
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "Whether the bill is eligible for Input Tax Credit (ITC). If false, tax is incorporated into expense cost.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isItcEligible?: boolean;
+
+  @ApiPropertyOptional({ description: "Narration or posting notes" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 2000)
+  notes?: string;
 }
 
 export class QueryBillDto extends PaginationDto {

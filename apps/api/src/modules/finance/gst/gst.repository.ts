@@ -32,6 +32,27 @@ export class GstRepository {
   }
 
   @OrgScoped()
+  async findByReference(
+    scope: OrgScope,
+    period: string,
+    sourceReference: string,
+    gstin: string,
+    entryType?: FinanceGstEntryType,
+  ) {
+    const where: Prisma.FinanceGstEntryWhereInput = {
+      period,
+      sourceReference,
+      gstin,
+      ...(entryType ? { entryType } : {}),
+      status: { not: "CANCELLED" },
+    };
+
+    return this.prisma.financeGstEntry.findFirst({
+      where: tenantWhere<Prisma.FinanceGstEntryWhereInput>(scope, where),
+    });
+  }
+
+  @OrgScoped()
   async findMany(scope: OrgScope, query: QueryGstEntriesDto) {
     const where: Prisma.FinanceGstEntryWhereInput = {};
 

@@ -1,6 +1,9 @@
 import { FINANCE_EXPENSE_STATUSES } from "@texawave-erp/api-types";
 import { z } from "zod";
 
+export const GSTIN_REGEX =
+  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
 export const createExpenseSchema = z.object({
   expenseNumber: z
     .string()
@@ -24,6 +27,46 @@ export const createExpenseSchema = z.object({
     .min(0, "Tax amount cannot be negative")
     .default(0)
     .optional(),
+  vendorGstin: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(
+      (val) => !val || GSTIN_REGEX.test(val),
+      "Invalid GSTIN format (e.g. 33AAMCT4293K1ZU)",
+    )
+    .optional()
+    .nullable(),
+  vendorInvoiceNumber: z
+    .string()
+    .trim()
+    .max(100, "Vendor invoice number must be 100 characters or fewer")
+    .optional()
+    .nullable(),
+  vendorInvoiceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invoice date must be in YYYY-MM-DD format")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  hsnSacCode: z
+    .string()
+    .trim()
+    .max(20, "HSN/SAC must be 20 characters or fewer")
+    .optional()
+    .nullable(),
+  taxRate: z.number().min(0).default(0).optional().nullable(),
+  cgstAmount: z.number().min(0).default(0).optional(),
+  sgstAmount: z.number().min(0).default(0).optional(),
+  igstAmount: z.number().min(0).default(0).optional(),
+  isItcEligible: z.boolean().default(false),
+  ineligibilityReason: z
+    .string()
+    .trim()
+    .max(255, "Ineligibility reason must be 255 characters or fewer")
+    .optional()
+    .nullable(),
+  gstJurisdiction: z.enum(["INTRA_STATE", "INTER_STATE"]).optional().nullable(),
   paymentModeId: z.number().int().positive().optional().nullable(),
   bankAccountId: z.number().int().positive().optional().nullable(),
   glAccountId: z.number().int().positive().optional().nullable(),
@@ -70,6 +113,46 @@ export const updateExpenseSchema = z.object({
     .min(0.01, "Amount must be at least 0.01")
     .optional(),
   taxAmount: z.number().min(0, "Tax amount cannot be negative").optional(),
+  vendorGstin: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine(
+      (val) => !val || GSTIN_REGEX.test(val),
+      "Invalid GSTIN format (e.g. 33AAMCT4293K1ZU)",
+    )
+    .optional()
+    .nullable(),
+  vendorInvoiceNumber: z
+    .string()
+    .trim()
+    .max(100, "Vendor invoice number must be 100 characters or fewer")
+    .optional()
+    .nullable(),
+  vendorInvoiceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invoice date must be in YYYY-MM-DD format")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  hsnSacCode: z
+    .string()
+    .trim()
+    .max(20, "HSN/SAC must be 20 characters or fewer")
+    .optional()
+    .nullable(),
+  taxRate: z.number().min(0).optional().nullable(),
+  cgstAmount: z.number().min(0).optional(),
+  sgstAmount: z.number().min(0).optional(),
+  igstAmount: z.number().min(0).optional(),
+  isItcEligible: z.boolean().optional(),
+  ineligibilityReason: z
+    .string()
+    .trim()
+    .max(255, "Ineligibility reason must be 255 characters or fewer")
+    .optional()
+    .nullable(),
+  gstJurisdiction: z.enum(["INTRA_STATE", "INTER_STATE"]).optional().nullable(),
   paymentModeId: z.number().int().positive().optional().nullable(),
   bankAccountId: z.number().int().positive().optional().nullable(),
   glAccountId: z.number().int().positive().optional().nullable(),
