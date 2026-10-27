@@ -338,6 +338,14 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Change employment status (activate, deactivate, resign, terminate)",
   },
+  // Permanently remove an employee record — a bigger decision than any status
+  // change, so it is its own grant and (per default-roles.ts) given to no
+  // role by default, Super Admin only. Normal exits use
+  // hr.employee_status.write and keep the record.
+  {
+    code: "hr.employee.delete",
+    description: "Permanently delete an employee record",
+  },
   {
     code: "hr.employee_status.correct",
     description:

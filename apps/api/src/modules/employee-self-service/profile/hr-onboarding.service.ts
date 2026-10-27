@@ -29,19 +29,27 @@ export class HrOnboardingService {
     };
   }
 
-  /** A profile is approved only when nothing required is missing — HR may
-   * have removed a document or detail since the employee submitted. */
-  async approve(id: number, note?: string) {
+  /**
+   * A profile is approved only when nothing required is missing — HR may
+   * have removed a document or detail since the employee submitted.
+   * `force` is an explicit HR override (requested and confirmed by the
+   * user) that skips both this completeness check and the "must be
+   * submitted" rule in `employees.approveOnboarding` — it marks onboarding
+   * Approved regardless of how much of the profile is actually filled in.
+   */
+  async approve(id: number, note?: string, force = false) {
     // Visibility first, so an out-of-scope id is a 404 before anything else.
     await this.employees.findOne(id);
-    const missing = await this.progress.missingFor(id);
-    if (missing.length > 0) {
-      throw new BusinessRuleViolationException(
-        `The profile is incomplete: ${missing.join(", ")}`,
-        "ONBOARDING_INCOMPLETE",
-      );
+    if (!force) {
+      const missing = await this.progress.missingFor(id);
+      if (missing.length > 0) {
+        throw new BusinessRuleViolationException(
+          `The profile is incomplete: ${missing.join(", ")}`,
+          "ONBOARDING_INCOMPLETE",
+        );
+      }
     }
-    return this.employees.approveOnboarding(id, note);
+    return this.employees.approveOnboarding(id, note, force);
   }
 
   sendBack(id: number, note: string) {
