@@ -267,7 +267,7 @@ describe("projects master (e2e)", () => {
       .expect(200);
     expect(
       (response.body as { data: { companyPrefix: string } }).data,
-    ).toMatchObject({ companyPrefix: "TXW", moduleIdentifier: "PRJ" });
+    ).toMatchObject({ companyPrefix: "TW", moduleIdentifier: "PRJ" });
   });
 
   it("upserts and persists the project code format within the caller's org", async () => {
