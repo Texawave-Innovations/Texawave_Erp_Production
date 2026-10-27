@@ -188,7 +188,7 @@ test("shows the Masters tab bar with SCM Master active", async ({ page }) => {
   await expect(page.getByRole("link", { name: "SCM Master" })).toBeVisible();
 });
 
-test("renders all 10 SCM Master cards with their seeded chips", async ({
+test("renders all 12 SCM Master cards with their seeded chips", async ({
   page,
 }) => {
   await openScmMaster(page);

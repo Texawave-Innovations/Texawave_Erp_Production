@@ -6,12 +6,11 @@ import {
   Input,
   Select,
   Textarea,
-  type DialogSize,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { ProductSelect, WarehouseSelect } from "./masters";
 
-import { ScmPanel } from "./ScmPanel";
+import { ScmPanel, type ScmPanelSize } from "./ScmPanel";
 export interface ScmField {
   name: string;
   label: string;
@@ -49,7 +48,7 @@ export interface ScmFormDialogProps {
   onClose: () => void;
   title: string;
   description?: string;
-  size?: DialogSize;
+  size?: ScmPanelSize;
   fields: readonly ScmField[];
   initialValues?: Partial<ScmFormValues>;
   submitLabel: string;
