@@ -1678,6 +1678,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const categoryItemRefs = useRef<Map<string, HTMLElement>>(new Map());
   const submenuMenuRef = useRef<HTMLDivElement>(null);
   const [submenuTopOffset, setSubmenuTopOffset] = useState<number>(0);
+  const [submenuMaxHeight, setSubmenuMaxHeight] = useState<number>(480);
 
   const [indicatorStyle, setIndicatorStyle] = useState<{
     left: number;
@@ -1961,21 +1962,25 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       const parentRect = parentMenuEl.getBoundingClientRect();
       const catRect = catEl.getBoundingClientRect();
       const rawOffset = catRect.top - parentRect.top;
+      const viewportBottom = window.innerHeight - 16;
 
       // Keep submenu within viewport vertically
       const submenuEl = submenuMenuRef.current;
       const submenuHeight = submenuEl ? submenuEl.offsetHeight : 0;
+      let topOffset = Math.max(0, rawOffset);
       if (submenuHeight > 0) {
-        const viewportBottom = window.innerHeight - 16;
         const currentSubmenuBottom = catRect.top + submenuHeight;
         if (currentSubmenuBottom > viewportBottom) {
           const overflow = currentSubmenuBottom - viewportBottom;
-          setSubmenuTopOffset(Math.max(0, rawOffset - overflow));
-          return;
+          topOffset = Math.max(0, rawOffset - overflow);
         }
       }
-
-      setSubmenuTopOffset(Math.max(0, rawOffset));
+      setSubmenuTopOffset(topOffset);
+      // Clamp the panel's own height to whatever space remains below its
+      // final top position, so long categories (e.g. SCM Inventory) scroll
+      // internally instead of running off the bottom of the screen.
+      const availableHeight = viewportBottom - (parentRect.top + topOffset);
+      setSubmenuMaxHeight(Math.max(160, Math.floor(availableHeight)));
     } else {
       // Reliable fallback based on category index and row height
       if (activeCategoryIndex > 0) {
@@ -1983,6 +1988,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       } else {
         setSubmenuTopOffset(0);
       }
+      setSubmenuMaxHeight(Math.max(160, Math.floor(window.innerHeight - 96)));
     }
   }, [
     openModuleId,
@@ -2423,8 +2429,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                         role="menu"
                         aria-label={`${activeCategoryObj?.label} items`}
                         onMouseEnter={handleMouseEnterDropdown}
-                        style={{ top: `${submenuTopOffset}px` }}
-                        className={`absolute z-50 flex min-w-60 flex-col gap-1 rounded-[26px] glass-dropdown p-2.5 shadow-2xl animate-in fade-in-0 duration-150 ${
+                        style={{
+                          top: `${submenuTopOffset}px`,
+                          maxHeight: `${submenuMaxHeight}px`,
+                        }}
+                        className={`absolute z-50 flex min-w-60 flex-col gap-1 overflow-y-auto overscroll-contain scrollbar-none rounded-[26px] glass-dropdown p-2.5 shadow-2xl animate-in fade-in-0 duration-150 ${
                           submenuAlignLeft
                             ? "right-full mr-2.5 after:absolute after:-right-3.5 after:top-0 after:bottom-0 after:w-3.5"
                             : "left-full ml-2.5 before:absolute before:-left-3.5 before:top-0 before:bottom-0 before:w-3.5"
