@@ -61,6 +61,24 @@ async function main() {
     teams.set(team.code, row);
   }
 
+  // Departments with no Team yet (legacy ERP's Projects module "Departments
+  // (Multi-Select)" lists these alongside Software/Mechanical/Electrical —
+  // not team-scoped, just reference data for Projects dropdowns/filters).
+  const EXTRA_DEPARTMENTS = [
+    "E-commerce",
+    "Accounts",
+    "Sales",
+    "Internship",
+    "Digital Marketing",
+  ] as const;
+  for (const name of EXTRA_DEPARTMENTS) {
+    await prisma.department.upsert({
+      where: { organizationId_name: { organizationId: org.id, name } },
+      update: {},
+      create: { organizationId: org.id, name },
+    });
+  }
+
   // The permission catalogue lives in prisma/permissions/catalog.ts and is
   // what every environment (not just this local seed) is synced to via
   // `pnpm --filter @texawave-erp/database permissions:sync`.

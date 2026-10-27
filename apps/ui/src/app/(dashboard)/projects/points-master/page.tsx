@@ -26,6 +26,7 @@ import {
   useUpdatePointsConfig,
 } from "@/features/projects/hooks";
 import { errorMessage } from "@/features/projects/format";
+import { PageBanner } from "@/features/projects/components/PageBanner";
 import type { PointsConfig } from "@/features/projects/types";
 
 type PriorityKey = "low" | "medium" | "high" | "urgent";
@@ -332,36 +333,26 @@ export default function PointsMasterPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Header — legacy "Points Master Configuration" with Save Rules */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="rounded-2xl bg-amber-50 p-2.5 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
-            <Award className="h-5 w-5" />
-          </span>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Points Master Configuration
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Configure reward points awarded to team members upon completing
-              tasks by priority or type, and view the contributor leaderboard.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href="/projects/my-work"
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <ListTodo className="h-4 w-4" />
-            My Assigned Work
-          </Link>
-          <Button type="submit" form={FORM_ID} disabled={!configQuery.data}>
-            <Save className="h-4 w-4" />
-            Save Rules
-          </Button>
-        </div>
-      </div>
+      <PageBanner
+        icon={Award}
+        title="Points Master Configuration"
+        description="Configure reward points awarded to team members upon completing tasks by priority or type, and view the contributor leaderboard."
+        actions={
+          <>
+            <Link
+              href="/projects/my-work"
+              className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/25"
+            >
+              <ListTodo className="h-4 w-4" />
+              My Assigned Work
+            </Link>
+            <Button type="submit" form={FORM_ID} disabled={!configQuery.data}>
+              <Save className="h-4 w-4" />
+              Save Rules
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: Priority Rules Config */}

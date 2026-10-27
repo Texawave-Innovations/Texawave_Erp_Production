@@ -57,6 +57,7 @@ import {
 } from "@/features/projects/components/HealthBadge";
 import { TaskTimeLogsModal } from "@/features/projects/components/TaskTimeLogsModal";
 import { EmployeeTaskUpdateModal } from "@/features/projects/components/EmployeeTaskUpdateModal";
+import { PageBanner } from "@/features/projects/components/PageBanner";
 import {
   errorMessage,
   formatDate,
@@ -388,37 +389,29 @@ export default function MyWorkPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Header — legacy "My Work • Employee Workspace" */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="rounded-2xl bg-sky-50 p-2.5 text-brand-600 dark:bg-sky-950/40 dark:text-cyan-400">
-            <Briefcase className="h-5 w-5" />
-          </span>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {viewingOther && otherWork.data
-                ? `${otherWork.data.employee.fullName}'s Work`
-                : "My Work • Employee Workspace"}
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Live task execution timers, milestone deliverables &amp;
-              individual accomplishment points.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {canReview ? (
-            <EmployeeSwitcher
-              value={viewEmployeeId}
-              onChange={setViewEmployeeId}
-            />
-          ) : null}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-brand-700 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-cyan-300">
-            <ListTodo className="h-3.5 w-3.5" />
-            {tasks?.length || 0} Total Assigned
-          </span>
-        </div>
-      </div>
+      <PageBanner
+        icon={Briefcase}
+        title={
+          viewingOther && otherWork.data
+            ? `${otherWork.data.employee.fullName}'s Work`
+            : "My Work • Employee Workspace"
+        }
+        description="Live task execution timers, milestone deliverables & individual accomplishment points."
+        actions={
+          <>
+            {canReview ? (
+              <EmployeeSwitcher
+                value={viewEmployeeId}
+                onChange={setViewEmployeeId}
+              />
+            ) : null}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
+              <ListTodo className="h-3.5 w-3.5" />
+              {tasks?.length || 0} Total Assigned
+            </span>
+          </>
+        }
+      />
 
       {viewingOther && otherWork.data ? (
         <Alert variant="info" title="Read-only view">

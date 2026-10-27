@@ -66,10 +66,10 @@ export function ProjectForm({
     project?.status ?? "active",
   );
   const [expectedHours, setExpectedHours] = useState(
-    project ? String(Number(project.expectedHours) || 0) : "120",
+    project ? String(Number(project.expectedHours) || 0) : "",
   );
   const [projectPrice, setProjectPrice] = useState(
-    project ? String(Number(project.projectPrice) || 0) : "50000",
+    project ? String(Number(project.projectPrice) || 0) : "",
   );
   const [startDate, setStartDate] = useState(
     project ? toDateInput(project.startDate) : todayInput(),

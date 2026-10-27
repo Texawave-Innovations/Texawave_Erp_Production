@@ -35,6 +35,7 @@ import {
   StatusBadge,
 } from "@/features/projects/components/HealthBadge";
 import { formatDate } from "@/features/projects/format";
+import { PageBanner } from "@/features/projects/components/PageBanner";
 import type { ProjectTask, ResourceItem } from "@/features/projects/types";
 
 const RANK_BADGE: Record<number, string> = {
@@ -160,33 +161,29 @@ export default function ResourcesPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Header — legacy `ResourceTracking.tsx` title + My Work shortcut */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Resource Tracking &amp; Capacity
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Real-time team workload allocation, active task metrics, 160h
-            monthly capacity &amp; points leaderboard.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/projects/points-master"
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <Award className="h-4 w-4 text-amber-500" />
-            View Points Leaderboard
-          </Link>
-          <Link
-            href="/projects/my-work"
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:brightness-105"
-          >
-            <Clock className="h-4 w-4" />
-            Open My Work Workspace
-          </Link>
-        </div>
-      </div>
+      <PageBanner
+        icon={Users2}
+        title="Resource Tracking & Capacity"
+        description="Real-time team workload allocation, active task metrics, 160h monthly capacity & points leaderboard."
+        actions={
+          <>
+            <Link
+              href="/projects/points-master"
+              className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/25"
+            >
+              <Award className="h-4 w-4 text-amber-300" />
+              View Points Leaderboard
+            </Link>
+            <Link
+              href="/projects/my-work"
+              className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-md transition-colors hover:bg-cyan-50"
+            >
+              <Clock className="h-4 w-4" />
+              Open My Work Workspace
+            </Link>
+          </>
+        }
+      />
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
