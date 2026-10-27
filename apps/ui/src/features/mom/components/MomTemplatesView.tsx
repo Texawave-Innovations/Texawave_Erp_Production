@@ -6,7 +6,6 @@ import {
   ActionMenu,
   type ActionMenuItem,
   Alert,
-  Button,
   Card,
   ConfirmDialog,
   DataTable,
@@ -246,10 +245,14 @@ export function MomTemplatesView() {
           </div>
         </div>
         {canManage ? (
-          <Button variant="secondary" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-md transition-all hover:bg-cyan-50 hover:shadow-lg active:scale-95 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-800"
+          >
+            <Plus className="h-4 w-4 stroke-[2.5]" />
             New Template
-          </Button>
+          </button>
         ) : null}
       </div>
 

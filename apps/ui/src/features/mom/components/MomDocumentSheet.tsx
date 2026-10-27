@@ -20,17 +20,6 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
 
   return (
     <article className="relative mx-auto w-full max-w-4xl bg-white p-6 text-gray-900 sm:p-10">
-      {data.isDraft ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-        >
-          <span className="-rotate-30 select-none text-8xl font-black uppercase tracking-widest text-gray-200/70">
-            Draft
-          </span>
-        </div>
-      ) : null}
-
       <div className="relative flex flex-col gap-6">
         {data.sections.map((section) => {
           switch (section.type) {
