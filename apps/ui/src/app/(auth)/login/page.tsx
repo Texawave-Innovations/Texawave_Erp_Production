@@ -3,6 +3,7 @@
 import type { AuthTokens } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import { Alert, Button } from "@texawave-erp/ui-kit";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +14,8 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const clearAuth = useAuthStore((s) => s.clear);
   const setOrganization = useAuthStore((s) => s.setOrganization);
 
   const [organizationSlug, setOrganizationSlug] = useState(
@@ -35,6 +38,14 @@ export default function LoginPage() {
         email,
         password,
       });
+      // Org-aware cache separation (Docs/CODING_STANDARDS.md §13): logout
+      // clears the auth store + query cache before leaving a session: a
+      // fresh login must do the same before entering one, or a session
+      // reached via the browser back button (skipping sign-out) can still
+      // serve the previous user's cached queries for a few seconds under
+      // the same organizationId.
+      clearAuth();
+      queryClient.clear();
       setOrganization({ organizationId: 0, organizationSlug });
       applyAuthTokens(data);
       try {
