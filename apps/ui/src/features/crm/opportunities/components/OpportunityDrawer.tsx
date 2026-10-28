@@ -201,7 +201,10 @@ export function OpportunityDrawer({
   const activitiesQ = useActivities({ ...related, limit: 1 });
   const meetingsQ = useMeetings({ ...related, limit: 1 });
   const followUpsQ = useFollowUps({ ...related, limit: 1 });
-  const quotationsQ = useQuotations({ opportunityId: oppId ?? 0, limit: 1 });
+  const quotationsQ = useQuotations(
+    { opportunityId: oppId ?? 0, limit: 1 },
+    { enabled: oppId !== undefined },
+  );
   const linked = {
     activities: activitiesQ.data?.meta.total ?? 0,
     meetings: meetingsQ.data?.meta.total ?? 0,
