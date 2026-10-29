@@ -7,6 +7,7 @@ import {
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { CarriersRepository } from "./carriers.repository.js";
 import type {
   AssignCarrierDto,
@@ -27,6 +28,7 @@ export class LogisticsService {
     private readonly carriers: CarriersRepository,
     private readonly shipments: ShipmentsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -63,6 +65,14 @@ export class LogisticsService {
         `Carrier code "${dto.carrierCode}" already exists.`,
       );
     }
+    for (const serviceType of dto.serviceTypes ?? []) {
+      await this.masterListGuard.assertValid(
+        this.scope,
+        "shipment_service_type",
+        serviceType,
+        "Service type",
+      );
+    }
     try {
       return await this.carriers.create(this.scope, dto, this.actor);
     } catch (error) {
@@ -75,6 +85,14 @@ export class LogisticsService {
     }
   }
   async updateCarrier(id: number, dto: UpdateCarrierDto) {
+    for (const serviceType of dto.serviceTypes ?? []) {
+      await this.masterListGuard.assertValid(
+        this.scope,
+        "shipment_service_type",
+        serviceType,
+        "Service type",
+      );
+    }
     return this.nf(
       "Carrier",
       id,
@@ -114,6 +132,12 @@ export class LogisticsService {
     return this.shipments.create(this.scope, dto, this.actor);
   }
   async assignCarrier(id: number, dto: AssignCarrierDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "shipment_service_type",
+      dto.serviceType,
+      "Service type",
+    );
     return this.nf(
       "Shipment",
       id,
@@ -160,6 +184,12 @@ export class LogisticsService {
     );
   }
   async recordException(id: number, dto: RecordExceptionDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "shipment_exception_reason",
+      dto.exceptionCode,
+      "Exception reason",
+    );
     return this.nf(
       "Shipment",
       id,

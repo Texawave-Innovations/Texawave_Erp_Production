@@ -51,7 +51,6 @@ export class SealSignaturesRepository {
     scope: OrgScope,
     kind: SealSignatureKind,
     dto: CreateSealSignatureDto,
-    createdBy: number,
   ) {
     return this.prisma.sealSignature.create({
       data: {
@@ -59,8 +58,6 @@ export class SealSignaturesRepository {
         kind,
         customFields: (dto.customFields ?? {}) as Prisma.InputJsonValue,
         organizationId: scope.organizationId,
-        createdBy,
-        updatedBy: createdBy,
       },
     });
   }
@@ -71,7 +68,6 @@ export class SealSignaturesRepository {
     kind: SealSignatureKind,
     id: number,
     dto: UpdateSealSignatureDto,
-    updatedBy: number,
   ) {
     const { customFields, ...rest } = dto;
     const result = await this.prisma.sealSignature.updateMany({
@@ -81,7 +77,6 @@ export class SealSignaturesRepository {
         ...(customFields !== undefined
           ? { customFields: customFields as Prisma.InputJsonValue }
           : {}),
-        updatedBy,
       },
     });
     if (result.count === 0) return null;
@@ -89,15 +84,10 @@ export class SealSignaturesRepository {
   }
 
   @OrgScoped()
-  async softDelete(
-    scope: OrgScope,
-    kind: SealSignatureKind,
-    id: number,
-    deletedBy: number,
-  ) {
+  async softDelete(scope: OrgScope, kind: SealSignatureKind, id: number) {
     const result = await this.prisma.sealSignature.updateMany({
       where: tenantWhere(scope, { id, kind, deletedAt: null }),
-      data: { deletedAt: new Date(), updatedBy: deletedBy },
+      data: { deletedAt: new Date() },
     });
     return result.count > 0;
   }

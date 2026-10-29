@@ -5,7 +5,6 @@ import type {
   PurchaseOrder,
   SupplierBill,
   SupplierDocument,
-  SupplierDocumentType,
   SupplierPayment,
   SupplierPaymentMode,
 } from "@texawave-erp/api-types";
@@ -27,6 +26,7 @@ import {
 import { Download, Eye, Plus, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import {
   formatDate,
   formatDateTime,
@@ -79,19 +79,7 @@ const PAYMENT_MODES: ReadonlyArray<{
 const modeLabel = (m: string) =>
   PAYMENT_MODES.find((o) => o.value === m)?.label ?? formatStatusLabel(m);
 
-const DOCUMENT_TYPES: ReadonlyArray<{
-  value: SupplierDocumentType;
-  label: string;
-}> = [
-  { value: "GST_CERTIFICATE", label: "GST certificate" },
-  { value: "PAN", label: "PAN" },
-  { value: "BANK_DETAILS", label: "Bank details" },
-  { value: "CONTRACT", label: "Contract" },
-  { value: "COMPLIANCE", label: "Compliance" },
-  { value: "OTHER", label: "Other" },
-];
-const typeLabel = (t: string | null) =>
-  DOCUMENT_TYPES.find((o) => o.value === t)?.label ?? "—";
+const typeLabel = (t: string | null) => (t ? formatStatusLabel(t) : "—");
 
 const statusLabel = (b: Pick<SupplierBill, "status" | "overdue">) =>
   b.overdue ? "Overdue" : formatStatusLabel(b.status);
@@ -1097,6 +1085,15 @@ function UploadDialog({
 }) {
   const { toast } = useToast();
   const upload = useUploadSupplierDocument();
+  const documentTypes = useMasterListItems({
+    category: "supplier_document_type",
+    page: 1,
+    limit: 100,
+  });
+  const documentTypeOptions = (documentTypes.data?.data ?? []).map((t) => ({
+    value: t.value,
+    label: formatStatusLabel(t.value),
+  }));
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -1127,7 +1124,7 @@ function UploadDialog({
         supplierId,
         file,
         ...(name.trim() ? { name: name.trim() } : {}),
-        ...(type ? { documentType: type as SupplierDocumentType } : {}),
+        ...(type ? { documentType: type } : {}),
       });
       toast({ title: "Document uploaded", variant: "success" });
       setFile(null);
@@ -1176,7 +1173,7 @@ function UploadDialog({
             label="Type"
             value={type}
             onChange={setType}
-            options={DOCUMENT_TYPES}
+            options={documentTypeOptions}
             placeholder="Select a type (optional)"
             disabled={busy}
           />

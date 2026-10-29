@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import type {
   CompleteReturnInspectionDto,
   CreateCustomerReturnDto,
@@ -19,6 +20,7 @@ export class ReturnsService {
   constructor(
     private readonly returns: ReturnsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -52,10 +54,22 @@ export class ReturnsService {
   vendorSources() {
     return this.returns.vendorSources(this.scope);
   }
-  createCustomer(dto: CreateCustomerReturnDto) {
+  async createCustomer(dto: CreateCustomerReturnDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "return_reason",
+      dto.reasonCode,
+      "Return reason",
+    );
     return this.returns.createCustomer(this.scope, dto, this.actor);
   }
-  createVendor(dto: CreateVendorReturnDto) {
+  async createVendor(dto: CreateVendorReturnDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "return_reason",
+      dto.reasonCode,
+      "Return reason",
+    );
     return this.returns.createVendor(this.scope, dto, this.actor);
   }
 

@@ -46,13 +46,13 @@ describe("CompanyDetailService", () => {
   });
 
   describe("upsert()", () => {
-    it("upserts within the caller's org, recording the caller as updatedBy", async () => {
+    it("upserts within the caller's org", async () => {
       const { service, repository } = makeService();
       repository.upsert.mockResolvedValue(DETAIL);
       const dto: UpsertCompanyDetailDto = { name: "Texawave" };
 
       await expect(service.upsert(dto)).resolves.toBe(DETAIL);
-      expect(repository.upsert).toHaveBeenCalledWith(SCOPE, dto, USER_ID);
+      expect(repository.upsert).toHaveBeenCalledWith(SCOPE, dto);
     });
   });
 });

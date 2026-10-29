@@ -193,6 +193,49 @@ describe("scm returns and quality (e2e)", () => {
     orgB = await prisma.organization.create({
       data: { name: `Org B ${suffix}`, slug: `scm-rq-b-${suffix}` },
     });
+    // The return/defect tests below submit return_reason and
+    // quality_defect_category values — the MasterListValueGuard requires
+    // each to already be an active SCM Master value for the org.
+    await prisma.scmMasterListItem.createMany({
+      data: [
+        {
+          organizationId: orgA.id,
+          category: "return_reason",
+          value: "DEFECTIVE",
+        },
+        { organizationId: orgA.id, category: "return_reason", value: "OTHER" },
+        {
+          organizationId: orgA.id,
+          category: "return_reason",
+          value: "QUALITY_ISSUE",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_category",
+          value: "PHYSICAL_DAMAGE",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_category",
+          value: "OTHER",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_severity",
+          value: "CRITICAL",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_defect_severity",
+          value: "LOW",
+        },
+        {
+          organizationId: orgA.id,
+          category: "quality_inspection_priority",
+          value: "HIGH",
+        },
+      ],
+    });
     const codes = [
       "scm.supplier.read",
       "scm.supplier.write",
@@ -594,6 +637,13 @@ describe("scm returns and quality (e2e)", () => {
       category: "OTHER",
       severity: "LOW",
     }).expect(409);
+    // the quality_defect_severity MasterListValueGuard rejects an unknown value
+    await post(tokenAll, `${Q}/defects`, {
+      defectCode: "BAD-SEV",
+      name: "Bad severity",
+      category: "OTHER",
+      severity: "NOT_A_REAL_SEVERITY",
+    }).expect(400);
     const tpl = data<{ id: number; checkpoints: { checkpointId: string }[] }>(
       await post(tokenAll, `${Q}/templates`, {
         templateCode: `INV-${randomUUID().slice(0, 5)}`,
@@ -618,6 +668,14 @@ describe("scm returns and quality (e2e)", () => {
       warehouseId: wh.id,
       quantity: 4,
     }).expect(403);
+    // the quality_inspection_priority MasterListValueGuard rejects an unknown value
+    await post(tokenAll, `${Q}/inspections`, {
+      inspectionType: "INVENTORY",
+      productId: p.id,
+      warehouseId: wh.id,
+      quantity: 4,
+      priority: "NOT_A_REAL_PRIORITY",
+    }).expect(400);
     const insp = data<Doc & { inspectionNumber: string; items: Id[] }>(
       await post(tokenAll, `${Q}/inspections`, {
         inspectionType: "INVENTORY",
@@ -625,6 +683,7 @@ describe("scm returns and quality (e2e)", () => {
         warehouseId: wh.id,
         quantity: 4,
         templateId: tpl.id,
+        priority: "HIGH",
       }).expect(201),
     );
     expect(insp.inspectionNumber).toMatch(/^TW\/QC\//);

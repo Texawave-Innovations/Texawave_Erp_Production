@@ -1,7 +1,6 @@
 "use client";
 
 import type { CreateCustomerReturnInput } from "@texawave-erp/api-types";
-import { RETURN_REASON_CODES } from "@texawave-erp/api-types";
 import {
   Button,
   Checkbox,
@@ -10,6 +9,7 @@ import {
   Textarea,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { formatQty, formatStatusLabel } from "../../shared/format";
 import { errorText } from "../../shared/use-list-controls";
 import { useCustomerReturnSources } from "../hooks";
@@ -45,10 +45,14 @@ function Body({
   onSubmit: (input: CreateCustomerReturnInput) => Promise<void>;
 }) {
   const sources = useCustomerReturnSources();
+  const reasons = useMasterListItems({
+    category: "return_reason",
+    page: 1,
+    limit: 100,
+  });
+  const reasonOptions = reasons.data?.data ?? [];
   const [fulfillmentId, setFulfillmentId] = useState("");
-  const [reasonCode, setReasonCode] = useState<
-    (typeof RETURN_REASON_CODES)[number]
-  >(RETURN_REASON_CODES[0]);
+  const [reasonCode, setReasonCode] = useState("");
   const [reasonDescription, setReasonDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [qty, setQty] = useState<Record<number, string>>({});
@@ -80,6 +84,7 @@ function Body({
     event.preventDefault();
     if (!fulfillmentId)
       return setError("Select a fulfillment to return against");
+    if (!reasonCode) return setError("Select a reason");
     const items = eligible
       .filter((l) => checked.has(l.productId))
       .map((l) => ({
@@ -137,15 +142,12 @@ function Body({
         <Select
           aria-label="Reason"
           value={reasonCode}
-          onChange={(e) =>
-            setReasonCode(
-              e.target.value as (typeof RETURN_REASON_CODES)[number],
-            )
-          }
+          onChange={(e) => setReasonCode(e.target.value)}
         >
-          {RETURN_REASON_CODES.map((r) => (
-            <option key={r} value={r}>
-              {formatStatusLabel(r)}
+          <option value="">Select a reason</option>
+          {reasonOptions.map((r) => (
+            <option key={r.id} value={r.value}>
+              {formatStatusLabel(r.value)}
             </option>
           ))}
         </Select>

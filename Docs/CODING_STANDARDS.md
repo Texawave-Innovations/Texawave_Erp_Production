@@ -409,6 +409,7 @@ Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-buildin
 
 - Their service first resolves the team scope and requires `.all` (`requireOrgWideScope`); a `.team` grant gets `403`.
 - Organization configuration such as payroll settings, salary components, templates and tax or PT masters is not employee data. It is `@OrgScoped()` + an exact `@RequirePermission()`, like IAM data.
+- Same rule for the shared reference lists under `modules/master-data/` — designations, employment types, shifts and work locations. These are org-wide pick-lists every team selects from, not per-employee or per-team records, so they are `@OrgScoped()` + an exact `@RequirePermission()` (e.g. `master.designation.read`/`.write`), not `@TeamScoped()`.
 - Reviewers check that every such service method calls `requireOrgWideScope` before the repository (Docs/PAYROLL_AND_COMPLIANCE.md §1).
 
 **PR checklist addition specific to HR/Team work:** any new `hr.*`/`employee_self_service.*` permission string needs all three scope variants seeded (`.own`, `.team`, `.all`) even if only one is used today — adding `.team` later, after roles already reference `.all`, is a data migration on `role_permissions`; seeding all three up front is free.

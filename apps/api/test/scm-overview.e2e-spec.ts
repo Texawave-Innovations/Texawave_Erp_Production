@@ -217,6 +217,6 @@ describe("scm overview, master data, barcode, advanced and assistant (e2e)", () 
         question: "what's the weather",
       }).expect(201),
     );
-    expect(unknown.answer).toMatch(/I can answer/);
+    expect(unknown.answer).toMatch(/I can help with/);
   });
 });

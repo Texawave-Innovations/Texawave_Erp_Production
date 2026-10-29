@@ -15,7 +15,7 @@ export class CompanyDetailRepository {
   @OrgScoped()
   findOne(scope: OrgScope) {
     return this.prisma.companyDetail.findFirst({
-      where: tenantWhere(scope, { deletedAt: null }),
+      where: tenantWhere(scope, {}),
     });
   }
 
@@ -23,7 +23,7 @@ export class CompanyDetailRepository {
    * list UI), so a save always upserts rather than requiring the caller to
    * know whether the row exists yet. */
   @OrgScoped()
-  async upsert(scope: OrgScope, dto: UpsertCompanyDetailDto, actorId: number) {
+  async upsert(scope: OrgScope, dto: UpsertCompanyDetailDto) {
     const existing = await this.findOne(scope);
     const data = {
       ...dto,
@@ -31,17 +31,12 @@ export class CompanyDetailRepository {
     };
     if (!existing) {
       return this.prisma.companyDetail.create({
-        data: {
-          ...data,
-          organizationId: scope.organizationId,
-          createdBy: actorId,
-          updatedBy: actorId,
-        },
+        data: { ...data, organizationId: scope.organizationId },
       });
     }
     return this.prisma.companyDetail.update({
       where: { id: existing.id },
-      data: { ...data, updatedBy: actorId },
+      data,
     });
   }
 }

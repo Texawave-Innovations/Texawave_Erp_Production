@@ -5,9 +5,9 @@ import type {
   RequisitionPayload,
   RequisitionPriority,
 } from "@texawave-erp/api-types";
-import { REQUISITION_PRIORITIES } from "@texawave-erp/api-types";
 import { Button } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import {
   FormGrid,
   SelectField,
@@ -100,11 +100,17 @@ function Body({
 }) {
   const warehouses = useWarehouseOptions();
   const defaultWarehouseId = useDefaultWarehouseId();
+  const priorities = useMasterListItems({
+    category: "requisition_priority",
+    page: 1,
+    limit: 100,
+  });
+  const priorityOptions = priorities.data?.data ?? [];
   const [form, setForm] = useState({
     department: requisition?.department ?? "",
     requestDate: requisition?.requestDate.slice(0, 10) ?? today(),
     requiredDate: requisition?.requiredDate?.slice(0, 10) ?? "",
-    priority: (requisition?.priority ?? "Normal") as RequisitionPriority,
+    priority: (requisition?.priority ?? "") as RequisitionPriority,
     warehouseId: requisition ? String(requisition.warehouseId) : "",
     purpose: requisition?.purpose ?? "",
     notes: requisition?.notes ?? "",
@@ -133,6 +139,7 @@ function Body({
     const found: Record<string, string> = {};
     if (!effectiveWarehouseId) found.warehouseId = "Select a warehouse";
     if (!form.requestDate) found.requestDate = "Request date is required";
+    if (!form.priority) found.priority = "Select a priority";
     if (filled.length === 0)
       found.items = "Add at least one item with a quantity greater than zero";
     if (new Set(filled.map((l) => l.productId)).size !== filled.length) {
@@ -194,9 +201,15 @@ function Body({
         />
         <SelectField
           label="Priority"
+          required
           value={form.priority}
+          error={errors.priority}
           onChange={(v) => set("priority", v)}
-          options={REQUISITION_PRIORITIES.map((p) => ({ value: p, label: p }))}
+          placeholder="Select priority"
+          options={priorityOptions.map((p) => ({
+            value: p.value,
+            label: p.value,
+          }))}
         />
         <TextField
           label="Request Date"

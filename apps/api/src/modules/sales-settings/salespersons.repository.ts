@@ -54,25 +54,18 @@ export class SalespersonsRepository {
   }
 
   @OrgScoped()
-  create(scope: OrgScope, dto: CreateSalespersonDto, createdBy: number) {
+  create(scope: OrgScope, dto: CreateSalespersonDto) {
     return this.prisma.salesperson.create({
       data: {
         ...dto,
         customFields: (dto.customFields ?? {}) as Prisma.InputJsonValue,
         organizationId: scope.organizationId,
-        createdBy,
-        updatedBy: createdBy,
       },
     });
   }
 
   @OrgScoped()
-  async update(
-    scope: OrgScope,
-    id: number,
-    dto: UpdateSalespersonDto,
-    updatedBy: number,
-  ) {
+  async update(scope: OrgScope, id: number, dto: UpdateSalespersonDto) {
     const { customFields, ...rest } = dto;
     const result = await this.prisma.salesperson.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
@@ -81,7 +74,6 @@ export class SalespersonsRepository {
         ...(customFields !== undefined
           ? { customFields: customFields as Prisma.InputJsonValue }
           : {}),
-        updatedBy,
       },
     });
     if (result.count === 0) return null;
@@ -89,10 +81,10 @@ export class SalespersonsRepository {
   }
 
   @OrgScoped()
-  async softDelete(scope: OrgScope, id: number, deletedBy: number) {
+  async softDelete(scope: OrgScope, id: number) {
     const result = await this.prisma.salesperson.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
-      data: { deletedAt: new Date(), updatedBy: deletedBy },
+      data: { deletedAt: new Date() },
     });
     return result.count > 0;
   }

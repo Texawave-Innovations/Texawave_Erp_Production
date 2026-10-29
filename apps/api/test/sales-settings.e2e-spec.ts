@@ -429,10 +429,12 @@ describe("sales settings (e2e)", () => {
         .set("Authorization", `Bearer ${tokenA}`)
         .send({ commissionPercent: 5 })
         .expect(200);
+      // Prisma Decimal fields serialize as strings over JSON (same behavior
+      // as scm-master-list-items.e2e-spec.ts's numericValue field).
       expect(
-        (updateResponse.body as { data: { commissionPercent: number } }).data
+        (updateResponse.body as { data: { commissionPercent: string } }).data
           .commissionPercent,
-      ).toBe(5);
+      ).toBe("5");
 
       await request(app.getHttpServer())
         .delete(`/sales-settings/salespersons/${created.id}`)
@@ -588,9 +590,11 @@ describe("sales settings (e2e)", () => {
         .set("Authorization", `Bearer ${tokenA}`)
         .send({ category: "gst_rate", value: "9%", numericValue: 9 })
         .expect(201);
+      // Prisma Decimal fields serialize as strings over JSON (same behavior
+      // as scm-master-list-items.e2e-spec.ts's numericValue field).
       expect(
-        (first.body as { data: { numericValue: number } }).data.numericValue,
-      ).toBe(9);
+        (first.body as { data: { numericValue: string } }).data.numericValue,
+      ).toBe("9");
 
       // Duplicate value allowed — this is an unstructured value list, not a
       // unique code+name lookup (Docs/SALES_SETTINGS_FOUNDATION.md #2).

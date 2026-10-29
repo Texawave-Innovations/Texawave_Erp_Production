@@ -22,14 +22,6 @@ import {
 } from "../../../../common/dto/transforms.js";
 import { LEDGER_TRANSACTION_TYPES } from "../stock-posting.service.js";
 
-export const ADJUSTMENT_REASONS = [
-  "Physical Count Difference",
-  "Damage",
-  "Loss",
-  "Found Stock",
-  "Opening Correction",
-  "Other Approved Reason",
-] as const;
 export const ADJUSTMENT_DIRECTIONS = ["IN", "OUT"] as const;
 export const TRANSFER_STATUSES = [
   "DRAFT",
@@ -190,9 +182,14 @@ export class CreateAdjustmentDto extends PositiveQty {
   @IsIn(ADJUSTMENT_DIRECTIONS)
   direction!: (typeof ADJUSTMENT_DIRECTIONS)[number];
 
-  @ApiProperty({ enum: ADJUSTMENT_REASONS })
-  @IsIn(ADJUSTMENT_REASONS)
-  reason!: (typeof ADJUSTMENT_REASONS)[number];
+  @ApiProperty({
+    description:
+      "Must be an active scm.master_list_item value in the stock_adjustment_reason category",
+  })
+  @Trim()
+  @IsString()
+  @Length(1, 200)
+  reason!: string;
 
   @ApiPropertyOptional()
   @IsOptional()

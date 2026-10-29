@@ -19,12 +19,6 @@ import {
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
 
-export const REQUISITION_PRIORITIES = [
-  "Low",
-  "Normal",
-  "High",
-  "Urgent",
-] as const;
 export const REQUISITION_STATUSES = [
   "DRAFT",
   "SUBMITTED",
@@ -114,10 +108,11 @@ export class RequisitionPayloadDto {
   @IsDateString()
   requiredDate?: string;
 
-  @ApiPropertyOptional({ enum: REQUISITION_PRIORITIES, default: "Normal" })
+  @ApiPropertyOptional({ default: "Normal" })
   @IsOptional()
-  @IsIn(REQUISITION_PRIORITIES)
-  priority?: (typeof REQUISITION_PRIORITIES)[number];
+  @Trim()
+  @IsString()
+  priority?: string;
 
   @ApiProperty()
   @Type(() => Number)

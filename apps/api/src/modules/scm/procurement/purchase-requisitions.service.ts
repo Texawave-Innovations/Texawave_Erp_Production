@@ -5,6 +5,7 @@ import {
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { ScmProductsService } from "../products/products.service.js";
 import { WarehousesService } from "../warehouses/warehouses.service.js";
 import type {
@@ -25,6 +26,7 @@ export class PurchaseRequisitionsService {
     private readonly products: ScmProductsService,
     private readonly warehouses: WarehousesService,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -52,6 +54,12 @@ export class PurchaseRequisitionsService {
   /** Looks up products and computes every amount server-side. */
   private async prepare(dto: RequisitionPayloadDto): Promise<RequisitionData> {
     await this.warehouses.findOne(dto.warehouseId);
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "requisition_priority",
+      dto.priority,
+      "Priority",
+    );
     const lines = await Promise.all(
       dto.items.map(async (it) => {
         const product = await this.products.findOne(it.productId);

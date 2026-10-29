@@ -99,6 +99,35 @@ describe("scm sales -> fulfillment -> shipment (e2e)", () => {
     orgB = await prisma.organization.create({
       data: { name: `Org B ${suffix}`, slug: `scm-ful-b-${suffix}` },
     });
+
+    // The packing test below submits packageType: "Box" — the
+    // package_type MasterListValueGuard requires it to already be an
+    // active SCM Master value for the org.
+    await prisma.scmMasterListItem.create({
+      data: { organizationId: orgA.id, category: "package_type", value: "Box" },
+    });
+    // The carrier/shipment tests below submit shipment_service_type and
+    // shipment_exception_reason values — same MasterListValueGuard.
+    await prisma.scmMasterListItem.createMany({
+      data: [
+        {
+          organizationId: orgA.id,
+          category: "shipment_service_type",
+          value: "STANDARD",
+        },
+        {
+          organizationId: orgA.id,
+          category: "shipment_service_type",
+          value: "EXPRESS",
+        },
+        {
+          organizationId: orgA.id,
+          category: "shipment_exception_reason",
+          value: "CUSTOMER_UNAVAILABLE",
+        },
+      ],
+    });
+
     const codes = [
       "scm.product.read",
       "scm.product.write",
@@ -447,6 +476,11 @@ describe("scm sales -> fulfillment -> shipment (e2e)", () => {
     const S = `/scm/shipments/${shipment.id}`;
     await post(tokenAll, `${S}/dispatch`).expect(422); // no carrier/label yet
     await post(tokenAll, `${S}/label`, { trackingNumber: "TRK1" }).expect(422);
+    // the shipment_service_type MasterListValueGuard rejects an unknown value
+    await post(tokenAll, `${S}/carrier`, {
+      carrierId: carrier.id,
+      serviceType: "NOT_A_REAL_SERVICE_TYPE",
+    }).expect(400);
     await post(tokenAll, `${S}/carrier`, {
       carrierId: carrier.id,
       serviceType: "EXPRESS",

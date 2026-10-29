@@ -19,7 +19,6 @@ import {
   ALL_RETURN_STATUSES,
   RETURN_CONDITIONS,
   RETURN_DISPOSITIONS,
-  RETURN_REASON_CODES,
   RETURN_TYPES,
 } from "../returns.helpers.js";
 
@@ -67,9 +66,10 @@ export class CreateCustomerReturnDto {
   @Min(1)
   shipmentId?: number;
 
-  @ApiProperty({ enum: RETURN_REASON_CODES })
-  @IsIn(RETURN_REASON_CODES)
-  reasonCode!: (typeof RETURN_REASON_CODES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  reasonCode!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -130,9 +130,10 @@ export class CreateVendorReturnDto {
   @Min(1)
   grnId!: number;
 
-  @ApiProperty({ enum: RETURN_REASON_CODES })
-  @IsIn(RETURN_REASON_CODES)
-  reasonCode!: (typeof RETURN_REASON_CODES)[number];
+  @ApiProperty()
+  @Trim()
+  @IsString()
+  reasonCode!: string;
 
   @ApiPropertyOptional()
   @IsOptional()

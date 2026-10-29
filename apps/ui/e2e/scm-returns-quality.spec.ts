@@ -1,10 +1,6 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
-import { signInAsAdmin, uniqueName } from "./helpers/auth";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { openScmCategory, signInAsAdmin, uniqueName } from "./helpers/auth";
+import { selectCombobox } from "./helpers/combobox";
 
 /**
  * Real-browser walk through a customer return (create -> submit -> approve
@@ -41,13 +37,23 @@ async function create<T>(
   return ((await res.json()) as { data: T }).data;
 }
 
-async function open(page: Page, category: string, link: string) {
-  await page.getByRole("button", { name: "SCM", exact: true }).click();
-  await page
-    .getByRole("menu", { name: "SCM categories" })
-    .getByRole("button", { name: category })
-    .click();
-  await page.getByRole("link", { name: link, exact: true }).first().click();
+/** The scm_master_list_items table is org-configurable — a specific value
+ * isn't guaranteed to exist, so this test seeds it itself instead of
+ * assuming it's there (same guard every SCM consumer form now goes through —
+ * see MasterListValueGuard). */
+async function ensureMasterListValue(
+  request: APIRequestContext,
+  token: string,
+  category: string,
+  value: string,
+) {
+  const res = await request.get(
+    `${API}/scm/master-list-items?category=${category}&limit=100`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const existing = ((await res.json()) as { data: { value: string }[] }).data;
+  if (existing.some((i) => i.value === value)) return;
+  await create(request, token, "/scm/master-list-items", { category, value });
 }
 
 test("processes a customer return to completion via the Returns screens", async ({
@@ -124,18 +130,24 @@ test("processes a customer return to completion via the Returns screens", async 
     ],
   });
   await create(request, token, `/scm/fulfillments/${f.id}/finalize`, {});
+  await ensureMasterListValue(request, token, "return_reason", "DEFECTIVE");
 
   await signInAsAdmin(page);
 
   // 1. Create the customer return
-  await open(page, "Returns", "Customer Returns");
+  await openScmCategory(page, "Returns", "Customer Returns");
   await page.getByRole("button", { name: "Customer Return" }).click();
   const createDialog = page.getByRole("dialog");
-  await createDialog.getByLabel(/^Fulfillment/).selectOption({
-    label: `${f.fulfillmentNumber} — ${so.soNumber} — ${customerName}`,
-  });
+  await selectCombobox(
+    createDialog,
+    /^Fulfillment/,
+    `${f.fulfillmentNumber} — ${so.soNumber} — ${customerName}`,
+  );
   await createDialog.getByLabel(`Return ${productName}`).check();
   await createDialog.getByLabel(`Quantity for ${productName}`).fill("2");
+  // CustomerReturnForm renders reason options via formatStatusLabel, so the
+  // seeded "DEFECTIVE" value displays as "Defective".
+  await selectCombobox(createDialog, "Reason", "Defective");
   await createDialog.getByRole("button", { name: "Create Return" }).click();
   await expect(page.getByText(/TW\/CR\/.* created/).first()).toBeVisible();
 
@@ -181,18 +193,23 @@ test("processes a customer return to completion via the Returns screens", async 
   // 4. Disposition: restock the accepted unit, quarantine the rejected one
   await detail.getByRole("button", { name: "Disposition a Line" }).click();
   const dispDialog1 = page.getByRole("dialog").last();
-  await dispDialog1
-    .getByLabel("Line")
-    .selectOption({ label: `${productName} (${sku}) — remaining 2` });
-  await dispDialog1.getByLabel("Disposition").selectOption("RESTOCK");
+  await selectCombobox(
+    dispDialog1,
+    "Line",
+    `${productName} (${sku}) — remaining 2`,
+  );
+  // Disposition options render via formatStatusLabel: "RESTOCK" -> "Restock".
+  await selectCombobox(dispDialog1, "Disposition", "Restock");
   await dispDialog1.getByLabel("Quantity").fill("1");
   await dispDialog1.getByRole("button", { name: "Save Disposition" }).click();
   await detail.getByRole("button", { name: "Disposition a Line" }).click();
   const dispDialog2 = page.getByRole("dialog").last();
-  await dispDialog2
-    .getByLabel("Line")
-    .selectOption({ label: `${productName} (${sku}) — remaining 1` });
-  await dispDialog2.getByLabel("Disposition").selectOption("QUARANTINE");
+  await selectCombobox(
+    dispDialog2,
+    "Line",
+    `${productName} (${sku}) — remaining 1`,
+  );
+  await selectCombobox(dispDialog2, "Disposition", "Quarantine");
   await dispDialog2.getByLabel("Quantity").fill("1");
   await dispDialog2.getByRole("button", { name: "Save Disposition" }).click();
 
@@ -202,7 +219,7 @@ test("processes a customer return to completion via the Returns screens", async 
   await detail.getByRole("button", { name: "Close", exact: true }).click();
 
   // 6. The quarantined unit shows up and can be released
-  await open(page, "Quality", "Quarantine");
+  await openScmCategory(page, "Quality", "Quarantine");
   const qRow = page.getByRole("row").filter({ hasText: productName });
   await qRow.getByRole("button", { name: "Review" }).click();
   await expect(page.getByText("Marked under review").first()).toBeVisible();
@@ -239,18 +256,24 @@ test("runs an inventory QC inspection through completion", async ({
     warehouseId: wh.id,
     quantity: 8,
   });
+  await ensureMasterListValue(
+    request,
+    token,
+    "quality_inspection_priority",
+    "MEDIUM",
+  );
 
   await signInAsAdmin(page);
 
-  await open(page, "Quality", "Inspections");
+  await openScmCategory(page, "Quality", "Inspections");
   await page.getByRole("button", { name: "New Inspection" }).click();
   const form = page.getByRole("dialog");
-  await form.getByLabel(/^Inspection type/).selectOption("INVENTORY");
-  await form.getByLabel(/^Warehouse/).selectOption({ label: whName });
-  await form
-    .getByLabel("Product")
-    .selectOption({ label: `${productName} (${sku})` });
+  // INSPECTION_TYPE_LABEL maps "INVENTORY" -> "Inventory".
+  await selectCombobox(form, /^Inspection type/, "Inventory");
+  await selectCombobox(form, /^Warehouse/, whName);
+  await selectCombobox(form, "Product", `${productName} (${sku})`);
   await form.getByLabel("Quantity to inspect").fill("3");
+  await selectCombobox(form, "Priority", "MEDIUM");
   await form.getByRole("button", { name: "Create Inspection" }).click();
   await expect(page.getByText(/TW\/QC\/.* created/).first()).toBeVisible();
 

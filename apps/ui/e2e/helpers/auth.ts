@@ -19,6 +19,46 @@ export async function signInAsAdmin(page: Page): Promise<void> {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
 }
 
+/** The SCM shell (features/scm/shell/ScmOnboardingTour.tsx) shows a one-time
+ * product tour on first visit, tracked in localStorage per user id — every
+ * Playwright run gets a fresh browser context, so it appears every time and
+ * its modal intercepts clicks on the page behind it. It only ever auto-opens
+ * once per `Page` instance (a React ref guards it), so this only needs to
+ * check once per page — a WeakSet tracks that, letting the one real check use
+ * a safely generous timeout without every later navigation paying for it
+ * (the SCM nav flyout underneath auto-closes if left idle too long). */
+const tourChecked = new WeakSet<Page>();
+async function dismissScmTourIfOpen(page: Page): Promise<void> {
+  if (tourChecked.has(page)) return;
+  tourChecked.add(page);
+  await page
+    .getByRole("button", { name: "Close tour" })
+    .click({ timeout: 2_000 })
+    .catch(() => {});
+}
+
+/** Opens an SCM category's screen from the top nav — shared by every live
+ * SCM spec. Clicking "SCM" navigates to /scm/overview, which auto-opens the
+ * one-time product tour on a fresh browser context; the wait to check for
+ * and dismiss it is enough idle time for the category flyout underneath to
+ * auto-close, so this re-opens it if that happened rather than assuming it's
+ * still there. */
+export async function openScmCategory(
+  page: Page,
+  category: string,
+  link: string,
+): Promise<void> {
+  const scmButton = page.getByRole("button", { name: "SCM", exact: true });
+  const menu = page.getByRole("menu", { name: "SCM categories" });
+  await scmButton.click();
+  await dismissScmTourIfOpen(page);
+  if (!(await menu.isVisible().catch(() => false))) {
+    await scmButton.click();
+  }
+  await menu.getByRole("button", { name: category }).click();
+  await page.getByRole("link", { name: link, exact: true }).first().click();
+}
+
 /** A name unique per run, so reruns against the same dev DB never collide. */
 export function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now()}`;

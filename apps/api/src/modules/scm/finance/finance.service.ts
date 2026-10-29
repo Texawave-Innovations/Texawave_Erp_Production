@@ -9,6 +9,7 @@ import {
   FileStorageService,
   MAX_UPLOAD_BYTES,
 } from "../../../shared/file-storage/file-storage.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { SuppliersService } from "../suppliers/suppliers.service.js";
 import type {
   CreateBillDto,
@@ -45,6 +46,7 @@ export class FinanceService {
     private readonly suppliers: SuppliersService,
     private readonly tenantContext: TenantContextService,
     private readonly files: FileStorageService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -138,6 +140,12 @@ export class FinanceService {
     file: UploadedSupplierFile | undefined,
   ) {
     if (!file) throw new BadRequestException("Choose a file to upload.");
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "supplier_document_type",
+      dto.documentType,
+      "Document type",
+    );
     if (file.size > MAX_UPLOAD_BYTES) {
       throw new BadRequestException("File must be 5 MB or smaller.");
     }

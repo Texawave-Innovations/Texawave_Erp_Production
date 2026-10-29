@@ -17,15 +17,6 @@ export const PAYMENT_MODES = [
 
 export const PAYMENT_STATUSES = ["POSTED", "VOIDED"] as const;
 
-export const DOCUMENT_TYPES = [
-  "GST_CERTIFICATE",
-  "PAN",
-  "BANK_DETAILS",
-  "CONTRACT",
-  "COMPLIANCE",
-  "OTHER",
-] as const;
-
 const cents = (n: number) => Math.round(n * 100);
 
 /** Status a bill takes from what has been paid against it. CANCELLED is a

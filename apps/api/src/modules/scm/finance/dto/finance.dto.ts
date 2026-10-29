@@ -14,7 +14,6 @@ import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim } from "../../../../common/dto/transforms.js";
 import {
   BILL_STATUSES,
-  DOCUMENT_TYPES,
   PAYMENT_MODES,
   PAYMENT_STATUSES,
 } from "../finance.helpers.js";
@@ -236,8 +235,9 @@ export class UploadSupplierDocumentDto {
   @Length(0, 150)
   name?: string;
 
-  @ApiPropertyOptional({ enum: DOCUMENT_TYPES })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(DOCUMENT_TYPES)
-  documentType?: (typeof DOCUMENT_TYPES)[number];
+  @Trim()
+  @IsString()
+  documentType?: string;
 }

@@ -5,7 +5,6 @@ import type {
   ShippableFulfillment,
   ShipmentTrackingEvent,
 } from "@texawave-erp/api-types";
-import { SHIPMENT_SERVICE_TYPES } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import {
   formatDateTime,
   formatStatusLabel,
@@ -288,6 +288,12 @@ export function CarriersView() {
   const [deletingRow, setDeletingRow] = useState<Carrier | null>(null);
   const save = useSaveCarrier();
   const query = useCarriers({ page: c.page, limit: c.pageSize, q: c.q });
+  const serviceTypes = useMasterListItems({
+    category: "shipment_service_type",
+    page: 1,
+    limit: 100,
+  });
+  const serviceTypeOptions = serviceTypes.data?.data ?? [];
 
   return (
     <ScmListView<Carrier>
@@ -433,8 +439,8 @@ export function CarriersView() {
             name: "services",
             label: "Service types",
             type: "text",
-            placeholder: SHIPMENT_SERVICE_TYPES.join(", "),
-            hint: "Comma separated",
+            placeholder: serviceTypeOptions.map((x) => x.value).join(", "),
+            hint: "Comma separated. Add new service types under Settings → Masters → SCM Master.",
             span: 2,
           },
           { name: "contact", label: "Contact", type: "text" },
@@ -463,7 +469,7 @@ export function CarriersView() {
           const { services, ...rest } = v;
           const serviceTypes = String(services ?? "")
             .split(",")
-            .map((s) => s.trim().toUpperCase())
+            .map((s) => s.trim())
             .filter(Boolean);
           const input = { ...rest, serviceTypes };
           try {

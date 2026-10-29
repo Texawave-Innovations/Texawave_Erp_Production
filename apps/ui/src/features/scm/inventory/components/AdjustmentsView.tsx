@@ -1,7 +1,6 @@
 "use client";
 
 import type { ScmAdjustment } from "@texawave-erp/api-types";
-import { ADJUSTMENT_REASONS } from "@texawave-erp/api-types";
 import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
@@ -12,6 +11,7 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -37,6 +37,14 @@ export function AdjustmentsView() {
   const remove = useDeleteAdjustment();
   const [deleting, setDeleting] = useState<ScmAdjustment | null>(null);
   const decide = useAdjustmentDecision();
+  const adjustmentReasons = useMasterListItems({
+    category: "stock_adjustment_reason",
+    page: 1,
+    limit: 100,
+  });
+  const adjustmentReasonOptions = (adjustmentReasons.data?.data ?? []).map(
+    (i) => ({ value: i.value, label: i.value }),
+  );
 
   const query = useAdjustments({
     page: c.page,
@@ -239,7 +247,7 @@ export function AdjustmentsView() {
             label: "Reason",
             type: "select",
             required: true,
-            options: ADJUSTMENT_REASONS.map((r) => ({ value: r, label: r })),
+            options: adjustmentReasonOptions,
           },
           {
             name: "notes",
@@ -249,7 +257,10 @@ export function AdjustmentsView() {
             placeholder: "Optional",
           },
         ]}
-        initialValues={{ direction: "IN", reason: ADJUSTMENT_REASONS[0] }}
+        initialValues={{
+          direction: "IN",
+          reason: adjustmentReasonOptions[0]?.value,
+        }}
         onSubmit={async (v) => {
           try {
             await create.mutateAsync({

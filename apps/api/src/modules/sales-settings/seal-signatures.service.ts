@@ -41,23 +41,12 @@ export class SealSignaturesService {
 
   create(dto: CreateSealSignatureDto) {
     const scope = this.tenantContext.getOrgScope();
-    return this.repository.create(
-      scope,
-      this.kind,
-      dto,
-      this.tenantContext.getUserId(),
-    );
+    return this.repository.create(scope, this.kind, dto);
   }
 
   async update(id: number, dto: UpdateSealSignatureDto) {
     const scope = this.tenantContext.getOrgScope();
-    const updated = await this.repository.update(
-      scope,
-      this.kind,
-      id,
-      dto,
-      this.tenantContext.getUserId(),
-    );
+    const updated = await this.repository.update(scope, this.kind, id, dto);
     if (!updated) {
       throw new ResourceNotFoundException(this.noun, id);
     }
@@ -66,12 +55,7 @@ export class SealSignaturesService {
 
   async remove(id: number): Promise<void> {
     const scope = this.tenantContext.getOrgScope();
-    const deleted = await this.repository.softDelete(
-      scope,
-      this.kind,
-      id,
-      this.tenantContext.getUserId(),
-    );
+    const deleted = await this.repository.softDelete(scope, this.kind, id);
     if (!deleted) {
       throw new ResourceNotFoundException(this.noun, id);
     }

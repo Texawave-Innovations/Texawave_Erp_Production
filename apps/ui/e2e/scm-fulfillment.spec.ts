@@ -1,10 +1,6 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
-import { signInAsAdmin, uniqueName } from "./helpers/auth";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { openScmCategory, signInAsAdmin, uniqueName } from "./helpers/auth";
+import { selectCombobox } from "./helpers/combobox";
 
 /**
  * Real-browser walk through order fulfillment and logistics: fulfillment ->
@@ -40,13 +36,23 @@ async function create<T>(
   return ((await res.json()) as { data: T }).data;
 }
 
-async function open(page: Page, category: string, link: string) {
-  await page.getByRole("button", { name: "SCM", exact: true }).click();
-  await page
-    .getByRole("menu", { name: "SCM categories" })
-    .getByRole("button", { name: category })
-    .click();
-  await page.getByRole("link", { name: link, exact: true }).first().click();
+/** The scm_master_list_items table is org-configurable — a fixed value like
+ * "STANDARD" isn't guaranteed to exist, so this test seeds it itself instead
+ * of assuming it's there (same guard every SCM consumer form now goes
+ * through — see MasterListValueGuard). */
+async function ensureMasterListValue(
+  request: APIRequestContext,
+  token: string,
+  category: string,
+  value: string,
+) {
+  const res = await request.get(
+    `${API}/scm/master-list-items?category=${category}&limit=100`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const existing = ((await res.json()) as { data: { value: string }[] }).data;
+  if (existing.some((i) => i.value === value)) return;
+  await create(request, token, "/scm/master-list-items", { category, value });
 }
 
 test("fulfils a sales order and ships it to delivery", async ({
@@ -85,6 +91,12 @@ test("fulfils a sales order and ships it to delivery", async ({
     warehouseId: wh.id,
     quantity: 20,
   });
+  await ensureMasterListValue(
+    request,
+    token,
+    "shipment_service_type",
+    "STANDARD",
+  );
   await create(request, token, "/scm/carriers", {
     carrierCode: `C${stamp % 1000000}`,
     carrierName,
@@ -105,15 +117,15 @@ test("fulfils a sales order and ships it to delivery", async ({
   await signInAsAdmin(page);
 
   // 1. Fulfillment: create, reserve, pick list
-  await open(page, "Orders & Fulfillment", "Fulfillment");
+  await openScmCategory(page, "Orders", "Fulfillment");
   await page.getByRole("button", { name: "New Fulfillment" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog
-    .getByLabel(/^Sales order/)
-    .selectOption({ label: `${so.soNumber} — ${customerName}` });
-  await dialog
-    .getByLabel(/^Fulfilling warehouse/)
-    .selectOption({ label: whName });
+  await selectCombobox(
+    dialog,
+    /^Sales order/,
+    `${so.soNumber} — ${customerName}`,
+  );
+  await selectCombobox(dialog, /^Fulfilling warehouse/, whName);
   await dialog.getByRole("button", { name: "Create Fulfillment" }).click();
   await expect(page.getByText(/TW\/FUL\/.* created/).first()).toBeVisible();
 
@@ -124,7 +136,7 @@ test("fulfils a sales order and ships it to delivery", async ({
   await expect(page.getByText("Pick list created").first()).toBeVisible();
 
   // 2. Picking: start, record the full quantity
-  await open(page, "Orders & Fulfillment", "Picking");
+  await openScmCategory(page, "Inventory", "Picking");
   await row().getByRole("button", { name: "Start" }).click();
   await expect(page.getByText("Picking started").first()).toBeVisible();
   await row().getByRole("button", { name: "Record Pick" }).click();
@@ -135,7 +147,7 @@ test("fulfils a sales order and ships it to delivery", async ({
   await expect(row()).toContainText("Completed");
 
   // 3. Packing
-  await open(page, "Orders & Fulfillment", "Packing");
+  await openScmCategory(page, "Inventory", "Packing");
   await page
     .getByRole("button", { name: /^TW\/PICK\// })
     .first()
@@ -145,7 +157,7 @@ test("fulfils a sales order and ships it to delivery", async ({
   await expect(row()).toContainText("Packed");
 
   // 4. Issue stock
-  await open(page, "Orders & Fulfillment", "Fulfillment");
+  await openScmCategory(page, "Orders", "Fulfillment");
   await row().getByRole("button", { name: "Issue Stock" }).click();
   await expect(
     page.getByText("Stock issued — fulfilled").first(),
@@ -153,7 +165,7 @@ test("fulfils a sales order and ships it to delivery", async ({
   await expect(row()).toContainText("Fulfilled");
 
   // 5. Logistics: shipment from the Deliveries page
-  await open(page, "Logistics", "Deliveries");
+  await openScmCategory(page, "Logistics", "Deliveries");
   await page
     .getByRole("row")
     .filter({ hasText: so.soNumber })
@@ -161,13 +173,15 @@ test("fulfils a sales order and ships it to delivery", async ({
     .click();
   await expect(page.getByText(/TW\/SHIP\/.* created/).first()).toBeVisible();
 
-  await open(page, "Logistics", "Shipments");
+  await openScmCategory(page, "Logistics", "Shipments");
   await row().click();
   const ship = page.getByRole("dialog");
   await ship.getByRole("button", { name: "Assign Carrier" }).click();
   const assign = page.getByRole("dialog").last();
-  await assign.getByLabel(/^Carrier/).selectOption({ label: carrierName });
-  await assign.getByLabel(/^Service type/).selectOption("STANDARD");
+  await selectCombobox(assign, /^Carrier/, carrierName);
+  // ShipmentsView renders service-type options via formatStatusLabel, so the
+  // seeded "STANDARD" value displays as "Standard".
+  await selectCombobox(assign, /^Service type/, "Standard");
   await assign.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
     page.getByText("Carrier assigned", { exact: true }).first(),

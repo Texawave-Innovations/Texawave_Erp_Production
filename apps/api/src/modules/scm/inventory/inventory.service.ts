@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type {
   CreateAdjustmentDto,
@@ -22,6 +23,7 @@ export class InventoryService {
   constructor(
     private readonly repository: InventoryRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -157,7 +159,13 @@ export class InventoryService {
     return new PaginatedResponseDto(items, total, query.page, query.limit);
   }
 
-  createAdjustment(dto: CreateAdjustmentDto) {
+  async createAdjustment(dto: CreateAdjustmentDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "stock_adjustment_reason",
+      dto.reason,
+      "Adjustment reason",
+    );
     return this.repository.createAdjustment(this.scope, dto, this.actor);
   }
 
@@ -260,7 +268,13 @@ export class InventoryService {
   }
 
   /** Create + approve in one step (product page stock edits). */
-  applyAdjustment(dto: CreateAdjustmentDto) {
+  async applyAdjustment(dto: CreateAdjustmentDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "stock_adjustment_reason",
+      dto.reason,
+      "Adjustment reason",
+    );
     return this.repository.applyAdjustment(this.scope, dto, this.actor);
   }
 }

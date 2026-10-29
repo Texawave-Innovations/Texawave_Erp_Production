@@ -65,6 +65,24 @@ describe("scm products, warehouses and inventory (e2e)", () => {
       data: { name: `Org B ${suffix}`, slug: `scm-inv-b-${suffix}` },
     });
 
+    // The adjustment tests below submit reason: "Damage" / "Loss" — the
+    // stock_adjustment_reason MasterListValueGuard requires these to
+    // already be active SCM Master values for the org.
+    await prisma.scmMasterListItem.createMany({
+      data: [
+        {
+          organizationId: orgA.id,
+          category: "stock_adjustment_reason",
+          value: "Damage",
+        },
+        {
+          organizationId: orgA.id,
+          category: "stock_adjustment_reason",
+          value: "Loss",
+        },
+      ],
+    });
+
     const perm = (code: string) =>
       prisma.permission.upsert({
         where: { code },
