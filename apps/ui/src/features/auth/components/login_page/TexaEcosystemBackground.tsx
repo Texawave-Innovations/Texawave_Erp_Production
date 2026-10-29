@@ -400,8 +400,8 @@ export const TexaEcosystemBackground = React.memo(
           Layer 3: Ethereal Ambient Aura Behind Frosted Glass Card
           Allows the background ecosystem and conduits to show through the glass card.
           ========================================================================= */}
-        <div className="hidden lg:block absolute right-16 top-1/4 w-130 h-130 rounded-full bg-linear-to-tr from-cyan-400/20 via-sky-400/25 to-blue-400/15 blur-3xl pointer-events-none z-10" />
-        <div className="hidden lg:block absolute right-32 bottom-1/4 w-90 h-90 rounded-full bg-cyan-300/15 blur-2xl pointer-events-none z-10" />
+        <div className="hidden lg:block absolute right-0 top-1/4 w-130 h-130 rounded-full bg-linear-to-tr from-cyan-400/20 via-sky-400/25 to-blue-400/15 blur-3xl pointer-events-none z-10" />
+        <div className="hidden lg:block absolute right-4 bottom-1/4 w-90 h-90 rounded-full bg-cyan-300/15 blur-2xl pointer-events-none z-10" />
         <div className="lg:hidden absolute inset-0 bg-slate-50/70 backdrop-blur-[2px] pointer-events-none z-10" />
       </div>
     );

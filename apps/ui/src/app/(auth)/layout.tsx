@@ -13,8 +13,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {/* Left Spacer: Focus on ERP ecosystem illustration */}
         <div className="hidden lg:flex flex-1 min-w-0" aria-hidden="true" />
 
-        {/* Right Column: Dedicated container that never squishes the card */}
-        <div className="flex flex-col items-center justify-center p-4 sm:p-6 lg:py-6 lg:pl-6 lg:pr-16 xl:pr-24 pointer-events-none shrink-0 w-full lg:w-auto">
+        {/* Right Column: Dedicated container positioned with ~5mm right gap for clear card boundary */}
+        <div className="flex flex-col items-center justify-center p-4 sm:p-6 lg:py-6 lg:pl-0 lg:pr-[5mm] xl:pr-[5mm] pointer-events-none shrink-0 w-full lg:w-auto">
           {children}
         </div>
       </div>
