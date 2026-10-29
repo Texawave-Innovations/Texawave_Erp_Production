@@ -3,6 +3,7 @@
 import type { AuthTokens } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import { Alert, Button } from "@texawave-erp/ui-kit";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +14,7 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setOrganization = useAuthStore((s) => s.setOrganization);
 
   const [organizationSlug, setOrganizationSlug] = useState(
@@ -35,6 +37,12 @@ export default function LoginPage() {
         email,
         password,
       });
+      // A previous session's cached queries (e.g. "am I an employee?") are
+      // org-scoped, not user-scoped — without this, signing in as a second
+      // user in the same organization can be served the first user's stale
+      // cache entries before their own requests land. Mirrors
+      // handleSignOut()'s queryClient.clear() in (employee-portal)/layout.tsx.
+      queryClient.clear();
       setOrganization({ organizationId: 0, organizationSlug });
       applyAuthTokens(data);
       try {
