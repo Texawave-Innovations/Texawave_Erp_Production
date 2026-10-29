@@ -32,7 +32,6 @@ generator client {
 // when that module gets its first model (plan §2) — never pre-created empty.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
   schemas = ["platform", "hr", "sales", "finance", "projects", "crm", "scm"]
 }
 
