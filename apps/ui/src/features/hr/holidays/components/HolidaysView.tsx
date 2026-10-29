@@ -20,7 +20,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -86,17 +86,13 @@ function formatMonthLabel(monthStr: string): string {
 }
 
 function formatHolidayDate(dateStr: string) {
-  if (!dateStr) return { formatted: "", weekday: "", dayNumber: "", monthName: "" };
+  if (!dateStr)
+    return { formatted: "", weekday: "", dayNumber: "", monthName: "" };
   const date = new Date(`${dateStr}T12:00:00Z`);
   if (isNaN(date.getTime())) {
     return { formatted: dateStr, weekday: "", dayNumber: "", monthName: "" };
   }
-  const formatted = date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const formatted = formatDate(date) || dateStr;
   const weekday = date.toLocaleDateString("en-US", {
     weekday: "long",
     timeZone: "UTC",
@@ -122,7 +118,9 @@ export function HolidaysView() {
   const [periodMode, setPeriodMode] = useState<"year" | "month">("month");
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr());
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DEACTIVATED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "ACTIVE" | "DEACTIVATED"
+  >("ALL");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -569,7 +567,8 @@ export function HolidaysView() {
       {allYearQuery.isPending ? (
         <TableSkeleton rowsCount={5} columnsCount={6} />
       ) : allYearQuery.isError ? (
-        allYearQuery.error instanceof ApiError && allYearQuery.error.isPermissionError ? (
+        allYearQuery.error instanceof ApiError &&
+        allYearQuery.error.isPermissionError ? (
           <Alert variant="warning" title="You don't have access to holidays">
             Your access to this list has changed. Contact an administrator.
           </Alert>
@@ -801,7 +800,9 @@ export function HolidaysView() {
                     {/* Location Badge */}
                     <div className="mt-3.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                       <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{h.workLocation?.name ?? "Whole organization"}</span>
+                      <span>
+                        {h.workLocation?.name ?? "Whole organization"}
+                      </span>
                     </div>
                   </div>
 
@@ -868,7 +869,11 @@ export function HolidaysView() {
               Sundays & Weekly Offs are Auto-Applied
             </h4>
             <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              All recurring Sundays (and employee shift weekly offs) are automatically recognized as non-working days in employee attendance and payroll calculations. You do not need to manually add recurring weekly offs here; only add national, festival, or regional public holidays.
+              All recurring Sundays (and employee shift weekly offs) are
+              automatically recognized as non-working days in employee
+              attendance and payroll calculations. You do not need to manually
+              add recurring weekly offs here; only add national, festival, or
+              regional public holidays.
             </p>
           </div>
         </div>

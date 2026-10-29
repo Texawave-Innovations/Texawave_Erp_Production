@@ -9,7 +9,7 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatCurrency } from "@texawave-erp/core";
 import { useState } from "react";
 import {
   type EmployeeOption,
@@ -186,7 +186,7 @@ export function IssueLoanDialog({
             error={errors.emiAmount}
             hint={
               suggestion
-                ? `Suggested: ₹${suggestion.toLocaleString("en-IN")}`
+                ? `Suggested: ${formatCurrency(suggestion)}`
                 : undefined
             }
           >

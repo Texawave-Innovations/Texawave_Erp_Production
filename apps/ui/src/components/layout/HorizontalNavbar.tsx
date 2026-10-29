@@ -7,6 +7,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -64,7 +65,6 @@ import {
   Table2,
   Database,
   Factory,
-  ClipboardList,
   Scale,
   Truck,
   Undo2,
@@ -79,7 +79,11 @@ import {
   PackagePlus,
   ArrowLeftRight,
   Search,
-  CheckCheck,
+  Globe,
+  Sliders,
+  Monitor,
+  Sun,
+  Moon,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -105,6 +109,15 @@ import {
   useMarkAllNotificationsRead,
 } from "@/features/notifications/hooks";
 import type { AppNotification } from "@/features/notifications/types";
+import {
+  useRegionalFormatter,
+  useUserPreferences,
+  useUpdateUserPreferences,
+} from "@/features/settings/preferences/hooks";
+import {
+  applyThemeToDom,
+  resolveIsDark,
+} from "@/features/settings/preferences/theme-manager";
 import type { MenuTreeNode } from "@texawave-erp/api-types";
 
 export interface NavLeafItem {
@@ -381,6 +394,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
     label: "Access Control",
     icon: Shield,
     icon3d: "access-control",
+    iconColor: "text-emerald-600",
     children: [
       {
         id: "users",
@@ -388,6 +402,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         path: "/admin/users",
         icon: Users,
         icon3d: "users",
+        iconColor: "text-blue-600",
         menuCode: "admin-users",
       },
       {
@@ -396,15 +411,33 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         path: "/admin/roles",
         icon: Shield,
         icon3d: "roles",
+        iconColor: "text-emerald-600",
         menuCode: "admin-roles",
       },
     ],
+  },
+  {
+    id: "preferences",
+    label: "Preferences",
+    icon: Sliders,
+    iconColor: "text-blue-600",
+    path: "/settings/preferences",
+    menuCode: "admin-preferences",
+  },
+  {
+    id: "regional-formats",
+    label: "Regional Formats",
+    icon: Globe,
+    iconColor: "text-cyan-600",
+    path: "/settings/regional",
+    menuCode: "admin-regional",
   },
   {
     id: "system-config",
     label: "Configuration",
     icon: Settings,
     icon3d: "settings",
+    iconColor: "text-slate-600",
     children: [
       {
         id: "menu",
@@ -412,6 +445,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         path: "/admin/menu",
         icon: MenuIcon,
         icon3d: "menu",
+        iconColor: "text-slate-600",
         menuCode: "admin-menu",
       },
       {
@@ -420,6 +454,7 @@ const SETTINGS_CATEGORIES: NavCategory[] = [
         path: "/reference/tags",
         icon: Tag,
         icon3d: "tags",
+        iconColor: "text-cyan-600",
         menuCode: "reference-tags",
       },
     ],
@@ -1654,16 +1689,19 @@ export function collectMenuCodes(
   return into;
 }
 
-function _formatAgo(iso: string): string {
-  const diffMinutes = Math.round(
-    (Date.now() - new Date(iso).getTime()) / 60_000,
-  );
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return new Intl.DateTimeFormat("en-IN", { dateStyle: "short" }).format(
-    new Date(iso),
+function LiveClock() {
+  const { formatTime } = useRegionalFormatter();
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const update = () => setTime(formatTime(new Date()));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [formatTime]);
+  return (
+    <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-300 tabular-nums">
+      {time}
+    </span>
   );
 }
 
@@ -1730,14 +1768,46 @@ function findRouteNavigationState(pathname: string) {
   if (pathname.startsWith("/settings/sales-settings")) {
     return { moduleId: "master-list", categoryId: null, leafId: null };
   }
-  if (
-    pathname.startsWith("/admin/users") ||
-    pathname.startsWith("/admin/roles") ||
-    pathname.startsWith("/admin/menu") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/reference")
-  ) {
-    return { moduleId: "settings", categoryId: "access-control", leafId: null };
+  if (pathname.startsWith("/admin/users")) {
+    return {
+      moduleId: "settings",
+      categoryId: "access-control",
+      leafId: "users",
+    };
+  }
+  if (pathname.startsWith("/admin/roles") || pathname === "/settings/roles") {
+    return {
+      moduleId: "settings",
+      categoryId: "access-control",
+      leafId: "roles",
+    };
+  }
+  if (pathname.startsWith("/settings/preferences")) {
+    return { moduleId: "settings", categoryId: "preferences", leafId: null };
+  }
+  if (pathname.startsWith("/settings/regional")) {
+    return {
+      moduleId: "settings",
+      categoryId: "regional-formats",
+      leafId: null,
+    };
+  }
+  if (pathname.startsWith("/admin/menu")) {
+    return {
+      moduleId: "settings",
+      categoryId: "system-config",
+      leafId: "menu",
+    };
+  }
+  if (pathname.startsWith("/reference")) {
+    return {
+      moduleId: "settings",
+      categoryId: "system-config",
+      leafId: "reference-tags",
+    };
+  }
+  if (pathname.startsWith("/settings")) {
+    return { moduleId: "settings", categoryId: "preferences", leafId: null };
   }
   if (pathname.startsWith("/crm")) {
     return {
@@ -1763,6 +1833,19 @@ function findRouteNavigationState(pathname: string) {
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function subscribeHash(callback: () => void) {
+  window.addEventListener("hashchange", callback);
+  return () => window.removeEventListener("hashchange", callback);
+}
+
+function getHashSnapshot() {
+  return typeof window !== "undefined" ? window.location.hash : "";
+}
+
+function getHashServerSnapshot() {
+  return "";
+}
 
 export interface HorizontalNavbarProps {
   onSignOut: () => void;
@@ -1802,6 +1885,13 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     height: number;
     opacity: number;
   }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
+  const [searchFocused, setSearchFocused] = useState(false);
+  const currentHash = useSyncExternalStore(
+    subscribeHash,
+    getHashSnapshot,
+    getHashServerSnapshot,
+  );
+  const [searchQuery, setSearchQuery] = useState("");
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const navContainerRef = useRef<HTMLElement>(null);
@@ -2215,9 +2305,15 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       closeAllMenus();
       router.push(cat.path);
     } else if (cat.children && cat.children.length > 0) {
-      // Pin category submenu open
-      setPinnedCategoryId(cat.id);
-      setHoveredCategoryId(cat.id);
+      if (pinnedCategoryId === cat.id) {
+        // Toggle closed
+        setPinnedCategoryId(null);
+        setHoveredCategoryId(null);
+      } else {
+        // Pin category submenu open
+        setPinnedCategoryId(cat.id);
+        setHoveredCategoryId(cat.id);
+      }
     }
   };
 
@@ -2252,6 +2348,18 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const { data: prefData } = useUserPreferences();
+  const updatePrefMutation = useUpdateUserPreferences();
+  const currentTheme = prefData?.effective?.theme ?? "system";
+  const isDark = resolveIsDark(currentTheme);
+
+  const handleThemeSelect = (newTheme: "light" | "dark" | "system") => {
+    applyThemeToDom(newTheme);
+    updatePrefMutation.mutate({
+      theme: newTheme,
+    });
+  };
 
   return (
     <header
@@ -2580,6 +2688,9 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                         }`}
                       >
                         {activeSubmenuItems.map((item, _i, items) => {
+                          const itemHash = item.path.includes("#")
+                            ? "#" + item.path.split("#")[1]
+                            : "";
                           // Only the deepest matching page is highlighted, so a
                           // section dashboard is not lit up with its sub-pages.
                           const deepest = Math.max(
@@ -2588,9 +2699,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                               .filter((o) => underPath(pathname, o.path))
                               .map((o) => o.path.length),
                           );
-                          const isLeafActive =
-                            underPath(pathname, item.path) &&
-                            item.path.length === deepest;
+                          const isLeafActive = itemHash
+                            ? pathname === item.path.split("#")[0] &&
+                              currentHash === itemHash
+                            : underPath(pathname, item.path) &&
+                              item.path.length === deepest;
 
                           return (
                             <Link
@@ -2637,10 +2750,52 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           })}
         </nav>
 
-        {/* Right Section: Date & Time Calendar + Notifications + Profile */}
+        {/* Right Section: Search + Live Clock + Date & Time Calendar + Notifications + Profile */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 xl:gap-2 2xl:gap-2.5">
+          {/* Universal Search Input */}
+          <div
+            className={`relative hidden transition-all duration-200 sm:block ${
+              searchFocused ? "w-60" : "w-36 lg:w-48"
+            }`}
+          >
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/90 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-[#F8FAFC] dark:placeholder:text-gray-500 transition-all"
+            />
+          </div>
+
+          {/* Live IST Clock */}
+          <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2.5 py-1 dark:border-[#1C2029] dark:bg-[#121622] lg:flex">
+            <Clock className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-400" />
+            <LiveClock />
+          </div>
+
           {/* Interactive Date, Time & Calendar Dropdown */}
           <NavbarDateTimeCalendar />
+
+          {/* Quick Theme Toggle Button */}
+          <button
+            type="button"
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={() => handleThemeSelect(isDark ? "light" : "dark")}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-600 hover:bg-white hover:text-slate-900 shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-slate-300 dark:hover:bg-gray-800 dark:hover:text-[#F1F5FC] transition-colors cursor-pointer"
+          >
+            {isDark ? (
+              <Sun className="h-4.5 w-4.5 text-amber-400" />
+            ) : (
+              <Moon className="h-4.5 w-4.5 text-slate-600" />
+            )}
+          </button>
 
           {/* Unified Rich Notifications Dropdown */}
           <NotificationBell />
@@ -2657,6 +2812,54 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                   <p className="truncate text-[11px] text-gray-400 dark:text-gray-500">
                     {user?.email || "admin@texawave.com"}
                   </p>
+                </div>
+              }
+              footerSlot={
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Theme
+                  </span>
+                  <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-[#161B26]">
+                    <button
+                      type="button"
+                      title="Light Mode"
+                      aria-label="Light Mode"
+                      onClick={() => handleThemeSelect("light")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "light"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Sun className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Dark Mode"
+                      aria-label="Dark Mode"
+                      onClick={() => handleThemeSelect("dark")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "dark"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Moon className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="System Mode"
+                      aria-label="System Mode"
+                      onClick={() => handleThemeSelect("system")}
+                      className={`rounded-md p-1 transition-colors cursor-pointer ${
+                        currentTheme === "system"
+                          ? "bg-white font-semibold text-brand-600 shadow-xs dark:bg-[#1C2029] dark:text-cyan-300"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Monitor className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               }
               options={[

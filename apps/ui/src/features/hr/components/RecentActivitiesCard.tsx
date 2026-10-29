@@ -49,11 +49,11 @@ const DEFAULT_ACTIVITIES: ActivityItem[] = [
 ];
 
 const TONE_BADGE: Record<string, string> = {
-  blue: "bg-blue-100/80 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+  blue: "bg-blue-100/80 text-blue-600 dark:bg-blue-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   emerald:
-    "bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
+    "bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
   amber: "bg-amber-100/80 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
-  cyan: "bg-cyan-100/80 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400",
+  cyan: "bg-cyan-100/80 text-cyan-600 dark:bg-blue-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
 };
 
 export interface RecentActivitiesCardProps {
@@ -67,7 +67,7 @@ export function RecentActivitiesCard({
 }: RecentActivitiesCardProps) {
   return (
     <div
-      className={`overflow-hidden rounded-2xl border border-sky-200/80 bg-white card-light-shadow hover:border-sky-300 dark:border-sky-900/60 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-slate-100/90 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
       {/* Light Sky & Cloud Tinted Header Bar */}
       <div className="flex items-center justify-between border-b border-sky-200/70 bg-linear-to-r from-sky-50/90 via-[#f0f8ff] to-sky-50/60 px-5 py-3.5 dark:border-sky-900/60 dark:from-sky-950/40 dark:via-gray-900 dark:to-sky-950/20">
@@ -77,7 +77,7 @@ export function RecentActivitiesCard({
 
         <Link
           href="/hr/employees"
-          className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline dark:text-cyan-400"
+          className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
         >
           View All
         </Link>
@@ -95,7 +95,7 @@ export function RecentActivitiesCard({
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-gray-800/80">
+          <div className="divide-y divide-slate-100 dark:divide-[#1C2029]">
             {activities.map((item) => {
               const Icon = item.icon;
               const badgeClass = TONE_BADGE[item.tone] || TONE_BADGE.blue;

@@ -43,23 +43,9 @@ import {
   useMyPersonal,
 } from "@/features/onboarding/hooks";
 import { downloadMyDocument } from "@/features/onboarding/api";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 
 type TabKey = "overview" | "statutory" | "family_experience" | "documents";
-
-function formatDate(val: unknown): string {
-  if (!val) return "—";
-  try {
-    const d = new Date(String(val));
-    if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return String(val);
-  }
-}
 
 function safeString(val: unknown): string {
   if (val === null || val === undefined || val === "") return "—";
@@ -83,6 +69,7 @@ export function MyProfileView() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
 
   const employee = useMyEmployee();
   const personal = useMyPersonal();
@@ -344,7 +331,9 @@ export function MyProfileView() {
             ) : (
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DetailField label="Date of Birth" icon={Calendar}>
-                  {formatDate(persData.dateOfBirth)}
+                  {persData.dateOfBirth
+                    ? formatDate(String(persData.dateOfBirth))
+                    : "—"}
                 </DetailField>
                 <DetailField label="Gender" icon={User}>
                   {persData.gender ? titleCase(String(persData.gender)) : "—"}

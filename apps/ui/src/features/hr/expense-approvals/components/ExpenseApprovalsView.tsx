@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatCurrency, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -89,12 +89,7 @@ type DecisionState = {
 
 function formatIndianCurrency(amount: number): string {
   try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrency(amount);
   } catch {
     return `₹ ${amount.toFixed(2)}`;
   }
@@ -103,15 +98,8 @@ function formatIndianCurrency(amount: number): string {
 function formatExpenseDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(
-      dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00Z`,
-    );
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+    const formatted = formatDate(dateStr);
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }
@@ -210,14 +198,14 @@ export function ExpenseApprovalsView() {
 
   // Load employees for code lookup
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
-  const employeeOptions = employeesQuery.data?.data ?? [];
   const employeeCodeMap = useMemo(() => {
     const map = new Map<number, string>();
-    for (const emp of employeeOptions) {
+    const options = employeesQuery.data?.data ?? [];
+    for (const emp of options) {
       map.set(emp.id, emp.employeeCode);
     }
     return map;
-  }, [employeeOptions]);
+  }, [employeesQuery.data?.data]);
 
   // Overview queries for accurate metric card calculation
   const myOverview = useMyExpenseClaims({ page: 1, limit: 100 });

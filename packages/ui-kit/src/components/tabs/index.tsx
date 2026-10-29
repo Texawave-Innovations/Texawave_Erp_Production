@@ -158,9 +158,9 @@ export function Tabs<T extends string>({
               onKeyDown={(e) => onKeyDown(e, index)}
               className={cn(
                 "relative z-1 flex-1 rounded-lg px-4 py-2 text-theme-sm transition-all sm:flex-none",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40",
+                "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-cyan-500/30",
                 selected
-                  ? "font-bold text-white shadow-2xs"
+                  ? "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 text-white shadow-theme-xs dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500 dark:text-white dark:shadow-[0_0_12px_rgba(6,182,212,0.25)] font-semibold"
                   : "font-medium text-slate-600 hover:text-[#0a3271] hover:bg-white hover:shadow-2xs dark:text-gray-300 dark:hover:text-white dark:hover:bg-slate-700/60",
               )}
             >

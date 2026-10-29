@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
-  Search,
   X,
   SlidersHorizontal,
   ChevronDown,
@@ -27,7 +26,6 @@ import {
   EmptyState,
   ErrorState,
   FilterChips,
-  Input,
   Pagination,
   SearchInput,
   Select,
@@ -38,6 +36,7 @@ import {
   type FilterChipItem,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
 import {
   useChangeEmployeeStatus,
@@ -129,6 +128,7 @@ export function EmployeesView() {
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [updatingEmployeeId, setUpdatingEmployeeId] = useState<number | null>(
@@ -593,7 +593,8 @@ export function EmployeesView() {
                   Advanced Filters
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Filter workforce by status, department, designation, employment type, or dates
+                  Filter workforce by status, department, designation,
+                  employment type, or dates
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -869,8 +870,8 @@ export function EmployeesView() {
                   className: "w-[95px] text-center whitespace-nowrap",
                   headerClassName: "w-[95px] text-center whitespace-nowrap",
                   cell: (e) => (
-                    <span className="text-[12px] text-gray-500 dark:text-gray-400">
-                      {e.dateOfJoining}
+                    <span className="font-mono text-[12px] text-gray-500 dark:text-gray-400">
+                      {formatDate(e.dateOfJoining)}
                     </span>
                   ),
                 },

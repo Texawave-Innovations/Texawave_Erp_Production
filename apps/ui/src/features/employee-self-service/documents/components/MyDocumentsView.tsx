@@ -29,6 +29,7 @@ import {
   type DocumentRecord,
 } from "@/features/onboarding/api";
 import { useMyDocuments } from "@/features/onboarding/hooks";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 
 const DOC_LABELS: Record<string, string> = {
   PROFILE_PHOTO: "Profile Photo",
@@ -60,19 +61,6 @@ function getCategory(type: string): DocCategory {
   return "";
 }
 
-function formatDate(dateStr: string) {
-  if (!dateStr) return "—";
-  try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
 /**
  * The documents an employee uploaded during onboarding (photo, Aadhaar, PAN,
  * bank statement, certificates), with instant download.
@@ -80,6 +68,7 @@ function formatDate(dateStr: string) {
 export function MyDocumentsView() {
   const query = useMyDocuments();
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocCategory>("");
   const [searchQuery, setSearchQuery] = useState("");

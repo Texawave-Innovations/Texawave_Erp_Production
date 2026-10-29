@@ -241,7 +241,7 @@ export function DataTable<T>({
                   aria-label={selectAllAriaLabel}
                   checked={allSelected}
                   onChange={handleSelectAllChange}
-                  className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-800 transition-colors"
+                  className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-[#161B26] transition-colors"
                 />
               </th>
             )}
@@ -340,8 +340,8 @@ export function DataTable<T>({
                   className={cn(
                     "transition-colors",
                     isRowSelected
-                      ? "bg-blue-50/50 dark:bg-blue-950/20"
-                      : "hover:bg-sky-50/30 dark:hover:bg-gray-800/40",
+                      ? "bg-blue-50/50 dark:bg-blue-950/30"
+                      : "hover:bg-sky-50/30 dark:hover:bg-[#161B26]",
                     onRowClick && "cursor-pointer",
                   )}
                 >
@@ -362,7 +362,7 @@ export function DataTable<T>({
                         onChange={(e) =>
                           onSelectRow?.(rowKey, e.target.checked, row)
                         }
-                        className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-800 transition-colors"
+                        className="h-4 w-4 rounded border-gray-400 text-brand-600 focus:ring-brand-500 focus:ring-2 dark:border-gray-600 dark:bg-[#161B26] transition-colors"
                       />
                     </td>
                   )}

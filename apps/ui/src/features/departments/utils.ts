@@ -1,3 +1,4 @@
+import { formatDate } from "@texawave-erp/core";
 import type { LucideIcon } from "lucide-react";
 import {
   Banknote,
@@ -259,9 +260,9 @@ export function getDepartmentVisual(name: string): DepartmentVisual {
   ) {
     return {
       icon: Scale,
-      bgColor: "bg-blue-50 dark:bg-blue-950/40",
-      textColor: "-brand-500 dark:text-blue-400",
-      borderColor: "border-blue-200/60 dark:border-blue-800/40",
+      bgColor: "bg-sky-50 dark:bg-sky-950/40",
+      textColor: "text-sky-600 dark:text-sky-400",
+      borderColor: "border-sky-200/60 dark:border-sky-800/40",
     };
   }
 
@@ -333,13 +334,8 @@ export function formatDepartmentDate(
 ): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const formatted = formatDate(dateStr, "DD/MM/YYYY");
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }

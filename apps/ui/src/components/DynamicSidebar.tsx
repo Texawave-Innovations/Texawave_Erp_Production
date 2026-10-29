@@ -50,6 +50,8 @@ import {
   User,
   Folder,
   DoorOpen,
+  Sliders,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { useMyEmployee } from "@/features/onboarding/hooks";
@@ -293,6 +295,13 @@ export const HR_NAV_GROUPS: NavGroup[] = [
 
 export const SETTINGS_NAV_ITEMS: GatedNavItem[] = [
   {
+    id: "users",
+    menuCode: "admin-users",
+    label: "Users",
+    path: "/admin/users",
+    icon: Users,
+  },
+  {
     id: "roles",
     menuCode: "admin-roles",
     label: "Roles",
@@ -300,11 +309,18 @@ export const SETTINGS_NAV_ITEMS: GatedNavItem[] = [
     icon: Shield,
   },
   {
-    id: "users",
-    menuCode: "admin-users",
-    label: "Users",
-    path: "/admin/users",
-    icon: Users,
+    id: "preferences",
+    menuCode: "admin-preferences",
+    label: "Preferences",
+    path: "/settings/preferences",
+    icon: Sliders,
+  },
+  {
+    id: "regional",
+    menuCode: "admin-regional",
+    label: "Regional Formats",
+    path: "/settings/regional",
+    icon: Globe,
   },
   {
     id: "menu",
@@ -607,14 +623,14 @@ export function NavigationItem({
         isCollapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-1.5"
       } rounded-xl text-theme-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-brand-500 focus-visible:outline-offset-1 ${
         isActive
-          ? "bg-linear-to-r from-[#1769F5] via-[#207cef] to-[#298dee] text-white font-semibold shadow-theme-xs"
-          : "text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-white"
+          ? "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 text-white font-semibold shadow-theme-xs dark:bg-linear-135 dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500 dark:text-white dark:shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+          : "text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#161B26] dark:hover:text-white"
       }`}
     >
       <item.icon
         className={`h-4 w-4 shrink-0 transition-colors ${
           isActive
-            ? "text-white"
+            ? "text-white dark:text-white"
             : "text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"
         }`}
         aria-hidden="true"
@@ -897,9 +913,15 @@ export function DynamicSidebar({
   // Collapsible ERP modules drawer within sidebar
   const [showAllModules, setShowAllModules] = useState(false);
 
-  // Accordion state: which HR group is currently expanded
-  // null means all groups with items are initially expanded until user toggles or navigates
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  // Accordion state: which group is currently expanded.
+  // Defaults to the single group containing the current active route (or overview),
+  // ensuring only ONE dropdown group is open at a time.
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(() => {
+    const activeGroup = HR_NAV_GROUPS.find((group) =>
+      group.items.some((item) => checkIsActive(item, pathname)),
+    );
+    return activeGroup ? activeGroup.id : "overview";
+  });
   const [prevPathname, setPrevPathname] = useState(pathname);
 
   // Detect whether user is in HR, Settings/Admin, or other modules
@@ -925,7 +947,7 @@ export function DynamicSidebar({
   // When pathname changes, automatically sync active category
   if (prevPathname !== pathname) {
     setPrevPathname(pathname);
-    if (!onlyRootCode && !isSettingsContext && expandedGroupId !== null) {
+    if (!onlyRootCode && !isSettingsContext) {
       const activeGroup = HR_NAV_GROUPS.find((group) =>
         group.items.some((item) => checkIsActive(item, pathname)),
       );
@@ -940,10 +962,7 @@ export function DynamicSidebar({
   }
 
   function isGroupCollapsed(group: NavGroup): boolean {
-    if (expandedGroupId !== null) {
-      return expandedGroupId !== group.id;
-    }
-    return false;
+    return expandedGroupId !== group.id;
   }
 
   const onAsideClick = (e: React.MouseEvent<HTMLElement>) => {
@@ -964,13 +983,13 @@ export function DynamicSidebar({
     <aside
       id="app-sidebar"
       onClick={onAsideClick}
-      className={`h-full shrink-0 flex-col border-r border-sky-100 bg-white dark:border-gray-800 dark:bg-gray-900 transition-all duration-200 ${
-        isCollapsed ? "w-16" : "w-60"
+      className={`h-full shrink-0 flex-col border-r border-gray-200 bg-white dark:border-[#1C2029] dark:bg-[#08090D] transition-all duration-200 ${
+        isCollapsed ? "w-20" : "w-64"
       } ${mobileVisibilityClass}`}
     >
       {/* Brand Header / Sub-header */}
       {!onlyRootCode ? (
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 px-4 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 px-4 dark:border-[#1C2029] bg-white dark:bg-[#08090D]">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {!isCollapsed ? (
               <TexaLogo

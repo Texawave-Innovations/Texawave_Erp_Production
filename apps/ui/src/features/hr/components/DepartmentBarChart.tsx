@@ -97,7 +97,7 @@ export function DepartmentBarChart({
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border border-sky-200/80 bg-white card-light-shadow hover:border-sky-300 dark:border-sky-900/60 dark:bg-gray-900 ${className}`}
+      className={`rounded-2xl border border-slate-100/90 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.03)] dark:border-[#1C2029] dark:bg-[#0D1117] ${className}`}
     >
       {/* Light Sky & Cloud Tinted Header Bar */}
       <div className="flex items-center justify-between border-b border-sky-200/70 bg-linear-to-r from-sky-50/90 via-[#f0f8ff] to-sky-50/60 px-5 py-3.5 dark:border-sky-900/60 dark:from-sky-950/40 dark:via-gray-900 dark:to-sky-950/20">
@@ -112,7 +112,7 @@ export function DepartmentBarChart({
             aria-haspopup="listbox"
             aria-expanded={dropdownOpen}
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-1.5 rounded-lg border border-sky-200/80 bg-white/90 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-white shadow-2xs transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-[#1C2029] dark:bg-[#161B26] dark:text-gray-300"
           >
             <span>{period}</span>
             <ChevronDown

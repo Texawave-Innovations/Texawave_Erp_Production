@@ -1,7 +1,12 @@
 "use client";
 
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime as coreFormatDateTime,
+} from "@texawave-erp/core";
 import { Button, Dialog } from "@texawave-erp/ui-kit";
-import { Calendar, Check, FileText, Receipt, Tag, User, X } from "lucide-react";
+import { Calendar, Check, Receipt, Tag, X } from "lucide-react";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import type { ExpenseClaimItem } from "../types";
 import { ExpenseClaimStatusBadge } from "./ExpenseClaimStatusBadge";
@@ -21,12 +26,7 @@ export interface ExpenseClaimDetailsDialogProps {
 
 function formatIndianCurrency(amount: number): string {
   try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrency(amount);
   } catch {
     return `₹ ${amount.toFixed(2)}`;
   }
@@ -35,15 +35,8 @@ function formatIndianCurrency(amount: number): string {
 function formatExpenseDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(
-      dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00Z`,
-    );
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+    const formatted = formatDate(dateStr);
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }
@@ -52,14 +45,8 @@ function formatExpenseDate(dateStr: string | null | undefined): string {
 function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formatted = coreFormatDateTime(dateStr, { separator: ", " });
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }

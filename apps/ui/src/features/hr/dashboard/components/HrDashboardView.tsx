@@ -16,6 +16,7 @@ import {
 import { Button, SpringGlideSegmentedControl } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import {
   READ_ANY_SCOPE as EMPLOYEE_READ,
   WRITE_TEAM_OR_ALL,
@@ -83,10 +84,6 @@ function greeting(date: Date): string {
   return "Good evening";
 }
 
-function pct(part: number, whole: number): number {
-  return whole > 0 ? Math.round((part / whole) * 100) : 0;
-}
-
 function formatTimeAgo(dateStr: string | number): string {
   const ts = typeof dateStr === "number" ? dateStr : Date.parse(dateStr);
   if (isNaN(ts)) return "recently";
@@ -146,13 +143,16 @@ export function HrDashboardView() {
   const deptMetrics = useDepartmentMetrics(canEmployees);
   const attendance = useDailyAttendance(today, canAttendance);
   const lookback = useAbsenceLookback(today, canAttendance);
-  const approvals = useApprovalsPending(canApprovals);
-  const openTickets = useTicketCounts(canTickets);
-  const pendingExpenses = usePendingExpenseCount(canExpenses);
+  const _approvals = useApprovalsPending(canApprovals);
+  const _openTickets = useTicketCounts(canTickets);
+  const _pendingExpenses = usePendingExpenseCount(canExpenses);
   const pipeline = usePipelineCounts(canPipeline);
   const leaves = useLeaveBreakdown(leaveMode, today, canLeaves);
   const activity = useActivityFeed(canActivity);
   const glance = useGlanceSupport(today, canGlance);
+
+  // Regional formatting hook
+  const { formatDate, formatCurrency, formatNumber } = useRegionalFormatter();
 
   // Derived metric values
   const totalEmployees = headcount.data?.total ?? 0;
@@ -243,7 +243,7 @@ export function HrDashboardView() {
         items.push({
           id: `expense-${e.id}`,
           title: `Expense: ${e.expenseType.replace(/_/g, " ").toLowerCase()}`,
-          description: `${e.employee?.fullName || "Employee"} · ₹${Number(e.amount).toLocaleString("en-IN")} (${e.status.toLowerCase()})`,
+          description: `${e.employee?.fullName || "Employee"} · ${formatCurrency(e.amount)} (${e.status.toLowerCase()})`,
           timeAgo: formatTimeAgo(e.createdAt),
           timestamp: Date.parse(e.createdAt) || 0,
           icon: Receipt,
@@ -257,7 +257,7 @@ export function HrDashboardView() {
         items.push({
           id: `leave-${l.id}`,
           title: `Leave request ${l.status.toLowerCase()}`,
-          description: `${l.employee?.fullName || "Employee"} · ${l.leaveType?.name || "Leave"} (${l.startDate})`,
+          description: `${l.employee?.fullName || "Employee"} · ${l.leaveType?.name || "Leave"} (${formatDate(l.startDate)})`,
           timeAgo: formatTimeAgo(l.startDate),
           timestamp: Date.parse(l.startDate) || 0,
           icon: Calendar,
@@ -286,7 +286,7 @@ export function HrDashboardView() {
     }
 
     return items.sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
-  }, [activity.data, leaves.data, glance.data]);
+  }, [activity.data, leaves.data, glance.data, formatCurrency, formatDate]);
 
   const pipelineStages = pipeline.data
     ? [
@@ -342,6 +342,12 @@ export function HrDashboardView() {
           timeZone: "Asia/Kolkata",
         })} · Attendance, leave, recruitment and workforce figures`}
         icon3d="cheer-hands"
+        badge={
+          <span className="hidden items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-xs px-2.5 py-0.5 text-[11px] font-semibold text-white sm:inline-flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            Live Telemetry
+          </span>
+        }
         action={
           (canCreateEmployee || canEmployees) && (
             <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -388,11 +394,11 @@ export function HrDashboardView() {
           <StatCard
             headingId="kpi-total"
             label="TOTAL EMPLOYEES"
-            value={totalEmployees}
+            value={formatNumber(totalEmployees, { decimals: 0 })}
             note={
               newJoinersThisMonth > 0
                 ? `+${newJoinersThisMonth} new this month`
-                : `${activeWorkforce} active in workforce`
+                : `${formatNumber(activeWorkforce, { decimals: 0 })} active in workforce`
             }
             tone="blue"
             variant="kpi"
@@ -418,7 +424,7 @@ export function HrDashboardView() {
           <StatCard
             headingId="kpi-present"
             label="PRESENT TODAY"
-            value={presentToday}
+            value={formatNumber(presentToday, { decimals: 0 })}
             note={
               scopedHeadcount > 0
                 ? `${Math.round((presentToday / scopedHeadcount) * 100)}% attendance rate`
@@ -438,7 +444,7 @@ export function HrDashboardView() {
           <StatCard
             headingId="kpi-on-leave"
             label="ON LEAVE"
-            value={onLeaveToday}
+            value={formatNumber(onLeaveToday, { decimals: 0 })}
             note={
               totalEmployees > 0
                 ? `${((onLeaveToday / totalEmployees) * 100).toFixed(1)}% of total employees`
@@ -458,7 +464,7 @@ export function HrDashboardView() {
           <StatCard
             headingId="kpi-new-joiners"
             label="NEW JOINERS"
-            value={newJoinersThisMonth}
+            value={formatNumber(newJoinersThisMonth, { decimals: 0 })}
             note="Joined this month"
             tone="amber"
             variant="kpi"
@@ -582,8 +588,8 @@ export function HrDashboardView() {
           icon={Briefcase}
           className="stagger-3 animate-reveal"
           aside={
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800 dark:border-brand-500/30 dark:bg-brand-950 dark:text-brand-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800 dark:border-cyan-500/30 dark:bg-blue-950/40 dark:text-cyan-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500 dark:bg-cyan-400" />
               {pipelineActive} active in pipeline
             </span>
           }

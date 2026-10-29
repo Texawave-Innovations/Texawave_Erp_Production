@@ -626,6 +626,22 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "master.designation.write",
   },
   {
+    code: "admin-preferences",
+    label: "Preferences",
+    path: "/settings/preferences",
+    order: 6,
+    parentCode: "admin",
+    permission: null,
+  },
+  {
+    code: "admin-regional",
+    label: "Regional Formats",
+    path: "/settings/regional",
+    order: 7,
+    parentCode: "admin",
+    permission: "settings.general.read",
+  },
+  {
     code: "scm",
     label: "Inventory-SCM",
     path: null,

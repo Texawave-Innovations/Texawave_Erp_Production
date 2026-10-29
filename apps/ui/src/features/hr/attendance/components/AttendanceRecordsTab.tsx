@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   CalendarCheck,
   Clock,
@@ -24,6 +24,7 @@ import {
   Select,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import {
   FilterChips,
@@ -33,7 +34,7 @@ import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useAttendanceList } from "../hooks";
 import { WRITE_ANY_SCOPE } from "../permissions";
-import { formatMinutes, formatTime, STATUS_LABELS } from "../status";
+import { formatMinutes, STATUS_LABELS } from "../status";
 import {
   STORED_STATUSES,
   type AttendanceDayView,
@@ -72,6 +73,7 @@ interface Filters {
  */
 export function AttendanceRecordsTab() {
   const canWrite = usePermission(WRITE_ANY_SCOPE);
+  const { formatDate, formatTime: regionalFormatTime } = useRegionalFormatter();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>({
     from: startOfMonth(),
@@ -102,47 +104,54 @@ export function AttendanceRecordsTab() {
     return map;
   }, [employeesQuery.data]);
 
-  function update<K extends keyof Filters>(key: K, value: Filters[K]) {
-    const next = { ...filters, [key]: value };
-    setFilters(next);
-    setPage(1);
-    if (next.from && next.to) {
-      const days =
-        Math.round(
-          (new Date(next.to).getTime() - new Date(next.from).getTime()) /
-            86_400_000,
-        ) + 1;
-      setRangeError(
-        next.from > next.to
-          ? "`From` must not be after `to`."
-          : days > MAX_RANGE_DAYS
-            ? `The date range may not exceed ${MAX_RANGE_DAYS} days.`
-            : null,
-      );
-    }
-  }
+  const update = useCallback(
+    <K extends keyof Filters>(key: K, value: Filters[K]) => {
+      setFilters((prev) => {
+        const next = { ...prev, [key]: value };
+        if (next.from && next.to) {
+          const days =
+            Math.round(
+              (new Date(next.to).getTime() - new Date(next.from).getTime()) /
+                86_400_000,
+            ) + 1;
+          setRangeError(
+            next.from > next.to
+              ? "`From` must not be after `to`."
+              : days > MAX_RANGE_DAYS
+                ? `The date range may not exceed ${MAX_RANGE_DAYS} days.`
+                : null,
+          );
+        }
+        return next;
+      });
+      setPage(1);
+    },
+    [],
+  );
 
-  function updateRange(from: string, to: string) {
-    const next = { ...filters, from, to };
-    setFilters(next);
+  const updateRange = useCallback((from: string, to: string) => {
+    setFilters((prev) => {
+      const next = { ...prev, from, to };
+      if (next.from && next.to) {
+        const days =
+          Math.round(
+            (new Date(next.to).getTime() - new Date(next.from).getTime()) /
+              86_400_000,
+          ) + 1;
+        setRangeError(
+          next.from > next.to
+            ? "`From` must not be after `to`."
+            : days > MAX_RANGE_DAYS
+              ? `The date range may not exceed ${MAX_RANGE_DAYS} days.`
+              : null,
+        );
+      } else {
+        setRangeError(null);
+      }
+      return next;
+    });
     setPage(1);
-    if (next.from && next.to) {
-      const days =
-        Math.round(
-          (new Date(next.to).getTime() - new Date(next.from).getTime()) /
-            86_400_000,
-        ) + 1;
-      setRangeError(
-        next.from > next.to
-          ? "`From` must not be after `to`."
-          : days > MAX_RANGE_DAYS
-            ? `The date range may not exceed ${MAX_RANGE_DAYS} days.`
-            : null,
-      );
-    } else {
-      setRangeError(null);
-    }
-  }
+  }, []);
 
   const employeeIdNum = Number(filters.employeeId);
   const query = {
@@ -210,7 +219,7 @@ export function AttendanceRecordsTab() {
       });
     }
     return chips;
-  }, [filters, employeeMap]);
+  }, [filters, employeeMap, update, updateRange]);
 
   function handleResetFilters() {
     setFilters({
@@ -449,7 +458,7 @@ export function AttendanceRecordsTab() {
                 header: "Date",
                 cell: (r) => (
                   <span className="font-medium text-gray-800 dark:text-gray-200 text-theme-xs">
-                    {r.attendanceDate}
+                    {formatDate(r.attendanceDate)}
                   </span>
                 ),
               },
@@ -458,8 +467,10 @@ export function AttendanceRecordsTab() {
                 cell: (r) => {
                   const firstSession = r.sessions[0];
                   return (
-                    <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
-                      {firstSession ? formatTime(firstSession.checkInAt) : "—"}
+                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                      {firstSession
+                        ? regionalFormatTime(firstSession.checkInAt)
+                        : "—"}
                     </span>
                   );
                 },
@@ -471,7 +482,7 @@ export function AttendanceRecordsTab() {
                   return (
                     <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                       {lastSession?.checkOutAt ? (
-                        formatTime(lastSession.checkOutAt)
+                        regionalFormatTime(lastSession.checkOutAt)
                       ) : r.hasOpenSession ? (
                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                           Open
@@ -495,7 +506,7 @@ export function AttendanceRecordsTab() {
                 header: "Overtime",
                 cell: (r) =>
                   r.overtimeMinutes > 0 ? (
-                    <span className="font-semibold text-brand-700 dark:text-brand-400 text-theme-xs">
+                    <span className="font-semibold text-cyan-700 dark:text-cyan-400 text-theme-xs">
                       +{formatMinutes(r.overtimeMinutes)}
                     </span>
                   ) : (

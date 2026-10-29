@@ -30,24 +30,18 @@ import {
 import { downloadProfilePdf } from "../api";
 import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useEmployee, useEmployeeStatusHistory } from "../hooks";
-import {
-  STATUS_LABELS,
-  isExitStatus,
-} from "../status";
-import {
-  READ_ANY_SCOPE,
-  WRITE_TEAM_OR_ALL,
-} from "../permissions";
+import { STATUS_LABELS, isExitStatus } from "../status";
+import { READ_ANY_SCOPE, WRITE_TEAM_OR_ALL } from "../permissions";
 import type { EmployeeDetail } from "../types";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 
 const HISTORY_PAGE_SIZE = 10;
 
 const dash = (v: string | null | undefined) => (v && v.length > 0 ? v : "—");
-const dateOnly = (v: string | null) => (v ? v.slice(0, 10) : "—");
 
 function DetailField({
   label,
@@ -84,6 +78,8 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const history = useEmployeeStatusHistory(id, historyPage, HISTORY_PAGE_SIZE);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { toast } = useToast();
+  const { formatDate } = useRegionalFormatter();
+  const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
 
   if (!canRead) {
     return (
@@ -167,9 +163,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
       </div>
 
       {/* Main Employee Identity Hero Banner Card */}
-      <div
-        className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60"
-      >
+      <div className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
             <EmployeeIdentity
@@ -298,7 +292,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 <DetailField label="Employment type">
                   {e.employmentType.name}
                 </DetailField>
-                <DetailField label="Designation">{e.designation.name}</DetailField>
+                <DetailField label="Designation">
+                  {e.designation.name}
+                </DetailField>
                 <DetailField label="Team">{e.team.name}</DetailField>
                 <DetailField label="Department">
                   {dash(e.department?.name)}
@@ -327,8 +323,12 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 <DetailField label="Confirmation date" icon={Calendar}>
                   {dateOnly(e.confirmationDate)}
                 </DetailField>
-                <DetailField label="Work domain">{dash(e.workDomain)}</DetailField>
-                <DetailField label="Referred by">{dash(e.referredBy)}</DetailField>
+                <DetailField label="Work domain">
+                  {dash(e.workDomain)}
+                </DetailField>
+                <DetailField label="Referred by">
+                  {dash(e.referredBy)}
+                </DetailField>
                 {exit ? (
                   <>
                     <DetailField label="Exit date" icon={Calendar}>

@@ -73,20 +73,25 @@ const TONE_EDGE_CLASS: Record<StatCardTone, string> = {
 };
 
 const TONE_ICON_BG: Record<StatCardTone, string> = {
-  neutral: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  brand: "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300",
-  info: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
+  neutral:
+    "bg-gray-100 text-gray-600 dark:bg-[#161B26] dark:text-gray-300 dark:border dark:border-[#1C2029]",
+  brand:
+    "bg-brand-50 text-brand-700 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  info: "bg-blue-50 text-chart-1 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   warning:
-    "bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-300",
-  error: "bg-error-50 text-error-700 dark:bg-error-950 dark:text-error-300",
+    "bg-warning-50 text-warning-700 dark:bg-amber-950/60 dark:text-amber-300 dark:border dark:border-amber-800/40",
+  error:
+    "bg-error-50 text-error-700 dark:bg-rose-950/60 dark:text-rose-300 dark:border dark:border-rose-800/40",
   success:
-    "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
-  cyan: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
-  purple: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300",
+    "bg-success-50 text-success-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
+  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  cyan: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  purple:
+    "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
   emerald:
-    "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
-  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+    "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border dark:border-emerald-800/40",
+  amber:
+    "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300 dark:border dark:border-amber-800/40",
 };
 
 const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
@@ -104,22 +109,20 @@ const TONE_BORDER_CLASS: Record<StatCardTone, string> = {
 };
 
 const TONE_GRADIENT_CLASS: Record<StatCardTone, string> = {
-  blue: "stat-card-gradient-blue border-blue-200/90 dark:border-blue-900/60",
-  cyan: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
-  purple: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
+  blue: "stat-card-gradient-blue border-blue-100/70 dark:border-[#1C2029]",
+  cyan: "stat-card-gradient-cyan border-cyan-100/70 dark:border-[#1C2029]",
+  purple: "stat-card-gradient-cyan border-cyan-100/70 dark:border-[#1C2029]",
   emerald:
-    "stat-card-gradient-emerald border-emerald-200/90 dark:border-emerald-900/60",
-  amber:
-    "stat-card-gradient-amber border-amber-200/90 dark:border-amber-900/60",
-  brand: "stat-card-gradient-blue border-sky-200/90 dark:border-sky-900/60",
-  info: "stat-card-gradient-cyan border-cyan-200/90 dark:border-cyan-900/60",
-  warning:
-    "stat-card-gradient-amber border-amber-200/90 dark:border-amber-900/60",
-  error: "stat-card-gradient-rose border-rose-200/90 dark:border-rose-900/60",
+    "stat-card-gradient-emerald border-emerald-100/70 dark:border-[#1C2029]",
+  amber: "stat-card-gradient-amber border-amber-100/70 dark:border-[#1C2029]",
+  brand: "stat-card-gradient-blue border-sky-100/70 dark:border-[#1C2029]",
+  info: "stat-card-gradient-blue border-cyan-100/70 dark:border-[#1C2029]",
+  warning: "stat-card-gradient-amber border-amber-100/70 dark:border-[#1C2029]",
+  error: "stat-card-gradient-rose border-rose-100/70 dark:border-[#1C2029]",
   success:
-    "stat-card-gradient-emerald border-emerald-200/90 dark:border-emerald-900/60",
+    "stat-card-gradient-emerald border-emerald-100/70 dark:border-[#1C2029]",
   neutral:
-    "stat-card-gradient-neutral border-slate-200/90 dark:border-gray-800",
+    "stat-card-gradient-neutral border-slate-100/80 dark:border-[#1C2029]",
 };
 
 const KPI_ICON_GRADIENTS: Record<
@@ -132,12 +135,12 @@ const KPI_ICON_GRADIENTS: Record<
     aura: "bg-sky-400/25",
   },
   cyan: {
-    bg: "bg-linear-135 from-cyan-600 via-sky-500 to-blue-400 text-white",
+    bg: "bg-linear-135 from-blue-600 via-sky-500 to-cyan-400 text-white",
     shadow: "shadow-md shadow-cyan-500/25",
     aura: "bg-cyan-400/25",
   },
   purple: {
-    bg: "bg-linear-135 from-cyan-600 via-sky-500 to-blue-400 text-white",
+    bg: "bg-linear-135 from-blue-600 via-sky-500 to-cyan-400 text-white",
     shadow: "shadow-md shadow-cyan-500/25",
     aura: "bg-cyan-400/25",
   },
@@ -344,7 +347,7 @@ export function StatCard({
       </p>
 
       {/* Secondary note and optional trend badge */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-[#1C2029]">
         <p className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
           {note}
         </p>

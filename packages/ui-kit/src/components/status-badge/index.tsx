@@ -11,13 +11,15 @@ export interface StatusBadgeProps {
 
 // Complete literal map — see Docs/DESIGN_SYSTEM.md "Tailwind class literals".
 const COLOR_CLASSES: Record<StatusColorToken, string> = {
-  brand: "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-300",
-  gray: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  brand:
+    "bg-brand-50 text-brand-800 dark:bg-blue-950/50 dark:text-cyan-300 dark:border dark:border-cyan-800/40",
+  gray: "bg-gray-100 text-gray-700 dark:bg-[#161B26] dark:text-gray-300 dark:border dark:border-[#1C2029]",
   success:
-    "bg-success-50 text-success-700 dark:bg-success-950 dark:text-success-300",
+    "bg-success-50 text-success-700 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border dark:border-emerald-700/40",
   warning:
-    "bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-300",
-  error: "bg-error-50 text-error-700 dark:bg-error-950 dark:text-error-300",
+    "bg-warning-50 text-warning-700 dark:bg-amber-950/50 dark:text-amber-300 dark:border dark:border-amber-700/40",
+  error:
+    "bg-error-50 text-error-700 dark:bg-rose-950/50 dark:text-rose-300 dark:border dark:border-rose-700/40",
 };
 
 /**
@@ -28,11 +30,11 @@ const COLOR_CLASSES: Record<StatusColorToken, string> = {
  * color swatch — see Docs/DESIGN_SYSTEM.md "never rely on color alone".
  */
 const DOT_CLASSES: Record<StatusColorToken, string> = {
-  brand: "bg-brand-500",
-  gray: "bg-gray-400",
-  success: "bg-success-500",
-  warning: "bg-warning-500",
-  error: "bg-error-500",
+  brand: "bg-brand-500 dark:bg-cyan-400",
+  gray: "bg-gray-400 dark:bg-gray-400",
+  success: "bg-success-500 dark:bg-emerald-400",
+  warning: "bg-warning-500 dark:bg-amber-400",
+  error: "bg-error-500 dark:bg-rose-400",
 };
 
 export function StatusBadge({

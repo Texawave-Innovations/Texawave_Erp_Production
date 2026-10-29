@@ -49,7 +49,6 @@ import {
   INTERVIEW_STATUSES,
   INTERVIEW_STATUS_LABELS,
   type CreateInterviewInput,
-  type InterviewMode,
   type InterviewStatus,
   type InterviewView,
 } from "../types";
@@ -211,7 +210,8 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
   }, [summaryQuery.data, query.data]);
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const isTodayActive = dateRange.from === todayStr && dateRange.to === todayStr;
+  const isTodayActive =
+    dateRange.from === todayStr && dateRange.to === todayStr;
   const isScheduledActive = statusFilter === "SCHEDULED" && !isTodayActive;
   const isCompletedActive = statusFilter === "COMPLETED" && !isTodayActive;
   const isSelectedActive = statusFilter === "SELECTED" && !isTodayActive;
@@ -262,7 +262,8 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
               Schedule New Interview
             </h2>
             <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              Set up candidate evaluation, timings, interviewer panel and meeting location.
+              Set up candidate evaluation, timings, interviewer panel and
+              meeting location.
             </p>
           </div>
         </div>
@@ -554,8 +555,12 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
                   const colorClass = getAvatarColor(item.candidateName);
 
                   // Extract email & phone if packed into notes
-                  const emailMatch = /Email:\s*([^\s|]+)/.exec(item.notes ?? "");
-                  const phoneMatch = /Phone:\s*([^\s|]+)/.exec(item.notes ?? "");
+                  const emailMatch = /Email:\s*([^\s|]+)/.exec(
+                    item.notes ?? "",
+                  );
+                  const phoneMatch = /Phone:\s*([^\s|]+)/.exec(
+                    item.notes ?? "",
+                  );
                   const email = emailMatch ? emailMatch[1] : null;
                   const phone = phoneMatch ? phoneMatch[1] : null;
 
@@ -782,7 +787,10 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
                   label: "Schedule",
                   value: `${formatDate(detail.data.interviewDate)} at ${detail.data.interviewTime}`,
                 },
-                { label: "Mode", value: INTERVIEW_MODE_LABELS[detail.data.mode] },
+                {
+                  label: "Mode",
+                  value: INTERVIEW_MODE_LABELS[detail.data.mode],
+                },
                 {
                   label: "Status",
                   value: INTERVIEW_STATUS_LABELS[detail.data.status],

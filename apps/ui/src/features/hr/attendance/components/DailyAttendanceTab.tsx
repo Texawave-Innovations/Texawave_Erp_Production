@@ -26,11 +26,12 @@ import {
   SearchInput,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useDailyReport } from "../hooks";
 import { WRITE_ANY_SCOPE } from "../permissions";
-import { formatMinutes, formatTime, STATUS_LABELS } from "../status";
+import { formatMinutes, STATUS_LABELS } from "../status";
 import type { DailyAttendanceRow, EffectiveStatus } from "../types";
 import { AttendanceDetailDialog } from "./AttendanceDetailDialog";
 import { AttendanceStatusBadge } from "./AttendanceStatusBadge";
@@ -84,6 +85,7 @@ export function DailyAttendanceTab() {
   const urlEmpId = searchParams.get("employeeId");
 
   const canWrite = usePermission(WRITE_ANY_SCOPE);
+  const { formatTime: regionalFormatTime } = useRegionalFormatter();
   const [date, setDate] = useState(() => urlDate || todayIst());
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -384,7 +386,7 @@ export function DailyAttendanceTab() {
                   cell: (r) => (
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       {r.sessions[0]
-                        ? formatTime(r.sessions[0].checkInAt)
+                        ? regionalFormatTime(r.sessions[0].checkInAt)
                         : "—"}
                     </span>
                   ),
@@ -400,7 +402,7 @@ export function DailyAttendanceTab() {
                             Working
                           </span>
                         ) : last?.checkOutAt ? (
-                          formatTime(last.checkOutAt)
+                          regionalFormatTime(last.checkOutAt)
                         ) : (
                           "—"
                         )}

@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut, Sun, Moon } from "lucide-react";
 import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
@@ -21,6 +21,14 @@ import { useMyDocuments, useMyEmployee } from "@/features/onboarding/hooks";
 import { useMe } from "@/hooks/usePermission";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
+
+import { useUserPreferences } from "@/features/settings/preferences/hooks";
+import {
+  applyDensityToDom,
+  applyPortalThemeToDom,
+  getStoredDensity,
+  getStoredPortalTheme,
+} from "@/features/settings/preferences/theme-manager";
 
 /**
  * Employee-portal route guard (Docs/ARCHITECTURE.md §7). Routes by the user's
@@ -58,6 +66,53 @@ export default function EmployeePortalLayout({
 
   const queryClient = useQueryClient();
   const clear = useAuthStore((s) => s.clear);
+
+  const userId = me.data?.userId;
+
+  // Manage independent theme for employee self-service portal
+  const [portalTheme, setPortalTheme] = useState<"light" | "dark">(() => {
+    return getStoredPortalTheme(userId) ?? "light";
+  });
+  const [prevUserId, setPrevUserId] = useState(userId);
+
+  if (prevUserId !== userId) {
+    setPrevUserId(userId);
+    setPortalTheme(getStoredPortalTheme(userId) ?? "light");
+  }
+
+  useEffect(() => {
+    applyPortalThemeToDom(portalTheme, userId);
+  }, [portalTheme, userId]);
+
+  const handleTogglePortalTheme = () => {
+    const nextTheme: "light" | "dark" =
+      portalTheme === "dark" ? "light" : "dark";
+    setPortalTheme(nextTheme);
+    applyPortalThemeToDom(nextTheme, userId);
+  };
+
+  // Synchronize UI density with DOM in the portal shell (isolated from theme)
+  const prefQuery = useUserPreferences();
+
+  useEffect(() => {
+    if (prefQuery.data?.effective) {
+      const { density } = prefQuery.data.effective;
+      const userDensityPref = prefQuery.data.preferences?.density;
+
+      if (userDensityPref) {
+        applyDensityToDom(
+          userDensityPref as "compact" | "comfortable" | "spacious",
+        );
+      } else {
+        const storedDensity = getStoredDensity();
+        if (storedDensity) {
+          applyDensityToDom(storedDensity);
+        } else if (density) {
+          applyDensityToDom(density as "compact" | "comfortable" | "spacious");
+        }
+      }
+    }
+  }, [prefQuery.data?.effective, prefQuery.data?.preferences]);
 
   function handleSignOut() {
     void apiClient.post("/auth/logout").catch(() => undefined);
@@ -157,6 +212,27 @@ export default function EmployeePortalLayout({
                 </span>
               </div>
             )}
+            <button
+              type="button"
+              onClick={handleTogglePortalTheme}
+              aria-label={
+                portalTheme === "dark"
+                  ? "Switch to light theme"
+                  : "Switch to dark theme"
+              }
+              title={
+                portalTheme === "dark"
+                  ? "Switch to light theme"
+                  : "Switch to dark theme"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200/80 bg-white/70 text-slate-600 transition-colors hover:border-sky-300 hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-cyan-500/40 dark:hover:bg-slate-800 dark:hover:text-cyan-300 cursor-pointer"
+            >
+              {portalTheme === "dark" ? (
+                <Sun className="h-4 w-4 text-amber-400 transition-transform hover:rotate-45" />
+              ) : (
+                <Moon className="h-4 w-4 text-slate-600 transition-transform hover:-rotate-12" />
+              )}
+            </button>
             <Button
               variant="secondary"
               size="sm"
@@ -228,6 +304,28 @@ export default function EmployeePortalLayout({
         {/* Right Section: Interactive Calendar + Clock + Notifications + User Avatar Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3">
           <NavbarDateTimeCalendar />
+          {/* Employee Portal Independent Theme Toggle */}
+          <button
+            type="button"
+            onClick={handleTogglePortalTheme}
+            aria-label={
+              portalTheme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            title={
+              portalTheme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200/80 bg-white/70 text-slate-600 transition-colors hover:border-sky-300 hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-cyan-500/40 dark:hover:bg-slate-800 dark:hover:text-cyan-300 cursor-pointer"
+          >
+            {portalTheme === "dark" ? (
+              <Sun className="h-4 w-4 text-amber-400 transition-transform hover:rotate-45" />
+            ) : (
+              <Moon className="h-4 w-4 text-slate-600 transition-transform hover:-rotate-12" />
+            )}
+          </button>
           <NotificationBell />
 
           {/* User Profile Avatar Dropdown Menu */}

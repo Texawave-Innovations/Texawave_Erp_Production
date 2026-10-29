@@ -21,6 +21,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
+import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
 import {
   useCreateMenuItem,
   useDeleteMenuItem,
@@ -30,6 +31,12 @@ import {
 import { MenuItemForm } from "./MenuItemForm";
 
 const PAGE_SIZE = 20;
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { value: "all", label: "All status" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 /**
  * Enterprise Navigation Menu Management View.
@@ -55,28 +62,55 @@ export function MenuView() {
     order: "asc",
     ...(searchTerm ? { search: searchTerm } : {}),
   });
+  const allItemsQuery = useMenuItems({
+    limit: 100,
+    order: "asc",
+  });
   const createMutation = useCreateMenuItem();
   const updateMutation = useUpdateMenuItem();
   const deleteMutation = useDeleteMenuItem();
 
   const rawItems = useMemo(() => query.data?.items ?? [], [query.data?.items]);
+  const allItems = useMemo(
+    () => allItemsQuery.data?.items ?? [],
+    [allItemsQuery.data?.items],
+  );
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const itemMap = useMemo(
-    () => new Map(rawItems.map((i) => [i.id, i.label])),
-    [rawItems],
-  );
+  const itemMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const item of allItems) {
+      map.set(item.id, item.label);
+    }
+    for (const item of rawItems) {
+      map.set(item.id, item.label);
+    }
+    return map;
+  }, [allItems, rawItems]);
 
   // Available parent options for filtering
   const availableParents = useMemo(() => {
+    const sourceItems = allItems.length > 0 ? allItems : rawItems;
     const parentIds = new Set(
-      rawItems.map((i) => i.parentId).filter((id): id is number => id !== null),
+      sourceItems
+        .map((i) => i.parentId)
+        .filter((id): id is number => id !== null),
     );
     return Array.from(parentIds)
       .map((id) => ({ id, label: itemMap.get(id) ?? `#${id}` }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [rawItems, itemMap]);
+  }, [allItems, rawItems, itemMap]);
+
+  const parentOptions: FilterOption[] = useMemo(() => {
+    return [
+      { value: "all", label: "All items" },
+      ...availableParents.map((p) => ({
+        value: String(p.id),
+        label: p.label,
+      })),
+    ];
+  }, [availableParents]);
 
   // Client-side filtering
   const filteredItems = useMemo(() => {
@@ -173,9 +207,9 @@ export function MenuView() {
     <div className="flex flex-col gap-6">
       {/* 1. Shared Page Header */}
       <PageHeader
-        breadcrumbs={["HR", "People", "Navigation Menu"]}
+        breadcrumbs={["Settings", "Configuration", "Navigation Menu"]}
         title="Navigation Menu"
-        description="Manage the navigation structure and page visibility for HR module."
+        description="Manage the application navigation tree, hierarchical routing, and page visibility."
         action={
           <Button
             type="button"
@@ -200,39 +234,26 @@ export function MenuView() {
         filters={
           <div className="flex flex-wrap items-center gap-2">
             {/* Parent Filter */}
-            <label htmlFor="menu-parent-filter" className="sr-only">
-              Filter by parent
-            </label>
-            <select
+            <FilterSelect
               id="menu-parent-filter"
+              label="Filter by parent"
+              prefix="Parent"
               value={parentFilter}
-              onChange={(e) => setParentFilter(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-theme-xs text-gray-700 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-300"
-            >
-              <option value="all">Parent: All items</option>
-              {availableParents.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+              onChange={setParentFilter}
+              options={parentOptions}
+            />
 
             {/* Status Filter */}
-            <label htmlFor="menu-status-filter" className="sr-only">
-              Filter by status
-            </label>
-            <select
+            <FilterSelect
               id="menu-status-filter"
+              label="Filter by status"
+              prefix="Status"
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as "all" | "active" | "inactive")
+              onChange={(val) =>
+                setStatusFilter(val as "all" | "active" | "inactive")
               }
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-theme-xs text-gray-700 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-300"
-            >
-              <option value="all">Status: All status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+              options={STATUS_OPTIONS}
+            />
           </div>
         }
       />
@@ -383,7 +404,7 @@ export function MenuView() {
         title="New menu item"
       >
         <MenuItemForm
-          existingItems={rawItems}
+          existingItems={allItems.length > 0 ? allItems : rawItems}
           onSubmit={handleCreate}
           onCancel={() => setCreateOpen(false)}
           submitLabel="Create item"
@@ -399,7 +420,7 @@ export function MenuView() {
         {editingItem && (
           <MenuItemForm
             currentItemId={editingItem.id}
-            existingItems={rawItems}
+            existingItems={allItems.length > 0 ? allItems : rawItems}
             initialValues={{
               code: editingItem.code,
               label: editingItem.label,

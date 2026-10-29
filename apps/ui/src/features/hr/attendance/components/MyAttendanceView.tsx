@@ -207,10 +207,10 @@ export function MyAttendanceView() {
 
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 text-amber-500" />
+                  <TrendingUp className="h-3 w-3 text-cyan-600 dark:text-cyan-400" />
                   Overtime
                 </span>
-                <span className="text-theme-sm font-bold text-amber-700 dark:text-amber-400">
+                <span className="text-theme-sm font-bold text-cyan-700 dark:text-cyan-400">
                   {formatMinutes(todayRow.overtimeMinutes)}
                 </span>
               </div>
@@ -380,7 +380,7 @@ export function MyAttendanceView() {
                 header: "Overtime",
                 cell: (r) =>
                   r.overtimeMinutes > 0 ? (
-                    <span className="font-semibold text-brand-700 dark:text-brand-400 text-theme-xs">
+                    <span className="font-semibold text-cyan-700 dark:text-cyan-400 text-theme-xs">
                       +{formatMinutes(r.overtimeMinutes)}
                     </span>
                   ) : (

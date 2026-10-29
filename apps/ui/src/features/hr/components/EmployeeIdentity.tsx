@@ -38,12 +38,12 @@ export function getResolvedAvatarUrl(
 
 /** Deterministic background color generator based on name initials */
 const AVATAR_PALETTES = [
-  "bg-sky-100 text-[#0a3271] dark:bg-sky-950/80 dark:text-sky-200 border-sky-200/90 dark:border-sky-800",
-  "bg-blue-100 text-[#1769F5] dark:bg-blue-950/80 dark:text-blue-200 border-blue-200/90 dark:border-blue-800",
-  "bg-cyan-100 text-[#0369a1] dark:bg-cyan-950/80 dark:text-cyan-200 border-cyan-200/90 dark:border-cyan-800",
-  "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-200/90 dark:border-slate-700",
-  "bg-[#e0f2fe] text-[#0284c7] dark:bg-sky-900/60 dark:text-sky-100 border-sky-300/80 dark:border-sky-700",
-  "bg-[#eaf1fb] text-[#1e40af] dark:bg-blue-900/60 dark:text-blue-100 border-blue-300/80 dark:border-blue-700",
+  "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+  "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+  "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800",
+  "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+  "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+  "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-200 dark:border-sky-800",
 ];
 
 export function getInitials(name: string): string {

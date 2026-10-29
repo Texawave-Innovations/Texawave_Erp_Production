@@ -25,6 +25,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { Plus, Pencil, Shield, Users as UsersIcon, Trash2 } from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import {
   useCreateUser,
   useDeleteUser,
@@ -87,6 +88,31 @@ export function UsersView() {
     rawUsers.forEach((u) => u.teams?.forEach((t) => set.add(t.name)));
     return Array.from(set).sort();
   }, [rawUsers]);
+
+  const roleOptions = useMemo(
+    () => [
+      { value: "all", label: "All roles" },
+      ...availableRoles.map((r) => ({ value: r, label: r })),
+    ],
+    [availableRoles],
+  );
+
+  const teamOptions = useMemo(
+    () => [
+      { value: "all", label: "All teams" },
+      ...availableTeams.map((t) => ({ value: t, label: t })),
+    ],
+    [availableTeams],
+  );
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: "All status" },
+      { value: "active", label: "Active" },
+      { value: "inactive", label: "Inactive" },
+    ],
+    [],
+  );
 
   // Apply client-side filters
   const filteredUsers = useMemo(() => {
@@ -209,7 +235,7 @@ export function UsersView() {
     <div className="flex flex-col gap-6">
       {/* 1. Shared Page Header */}
       <PageHeader
-        breadcrumbs={["HR", "People", "Users"]}
+        breadcrumbs={["Settings", "Access Control", "Users"]}
         title="Users"
         description="Manage user accounts, roles and team access."
         action={
@@ -217,9 +243,9 @@ export function UsersView() {
             type="button"
             variant="primary"
             onClick={() => setCreateOpen(true)}
-            className="gap-2 shadow-theme-xs whitespace-nowrap"
+            className="group gap-2 whitespace-nowrap transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-theme-md active:translate-y-0 active:scale-[0.98] active:shadow-theme-xs motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90 group-hover:scale-110 motion-reduce:group-hover:rotate-0 motion-reduce:group-hover:scale-100" />
             <span>New user</span>
           </Button>
         }
@@ -236,57 +262,36 @@ export function UsersView() {
         filters={
           <div className="flex flex-wrap items-center gap-2">
             {/* Role Filter */}
-            <label htmlFor="user-role-filter" className="sr-only">
-              Filter by role
-            </label>
-            <select
+            <FilterSelect
               id="user-role-filter"
+              label="Filter by role"
+              prefix="Role"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-theme-xs text-gray-700 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-300"
-            >
-              <option value="all">Role: All roles</option>
-              {availableRoles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              onChange={setRoleFilter}
+              options={roleOptions}
+            />
 
             {/* Team Filter */}
-            <label htmlFor="user-team-filter" className="sr-only">
-              Filter by team
-            </label>
-            <select
+            <FilterSelect
               id="user-team-filter"
+              label="Filter by team"
+              prefix="Team"
               value={teamFilter}
-              onChange={(e) => setTeamFilter(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-theme-xs text-gray-700 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-300"
-            >
-              <option value="all">Team: All teams</option>
-              {availableTeams.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              onChange={setTeamFilter}
+              options={teamOptions}
+            />
 
             {/* Status Filter */}
-            <label htmlFor="user-status-filter" className="sr-only">
-              Filter by status
-            </label>
-            <select
+            <FilterSelect
               id="user-status-filter"
+              label="Filter by status"
+              prefix="Status"
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as "all" | "active" | "inactive")
+              onChange={(val) =>
+                setStatusFilter(val as "all" | "active" | "inactive")
               }
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-theme-xs text-gray-700 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-300"
-            >
-              <option value="all">Status: All status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+              options={statusOptions}
+            />
           </div>
         }
       />
@@ -302,8 +307,10 @@ export function UsersView() {
                 variant="primary"
                 size="sm"
                 onClick={() => setCreateOpen(true)}
+                className="group gap-1.5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-theme-sm active:translate-y-0 active:scale-[0.98] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100"
               >
-                + New user
+                <Plus className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:rotate-90 motion-reduce:group-hover:rotate-0" />
+                <span>New user</span>
               </Button>
             }
           />
@@ -343,7 +350,7 @@ export function UsersView() {
                 header: "Name",
                 cell: (u) => (
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 font-semibold text-indigo-700 text-xs dark:bg-indigo-950 dark:text-indigo-300">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 font-semibold text-cyan-700 text-xs dark:bg-blue-950/70 dark:text-cyan-300">
                       {u.fullName.slice(0, 2).toUpperCase()}
                     </div>
                     <span className="font-semibold text-gray-900 dark:text-white/90">

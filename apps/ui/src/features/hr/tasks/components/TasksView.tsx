@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -100,15 +100,8 @@ function describeStatusError(error: unknown): string {
 function formatTaskDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   try {
-    const d = new Date(
-      dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00Z`,
-    );
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+    const formatted = formatDate(dateStr);
+    return formatted || dateStr;
   } catch {
     return dateStr;
   }

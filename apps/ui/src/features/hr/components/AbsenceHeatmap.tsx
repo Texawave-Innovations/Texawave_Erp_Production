@@ -12,9 +12,9 @@ export interface AbsenceHeatmapProps {
 }
 
 const HEATMAP_TONE = {
-  none: "bg-gray-100 text-gray-500 border border-transparent dark:bg-white/[0.04] dark:text-gray-400",
-  low: "bg-brand-50 text-brand-700 border border-brand-200/60 dark:bg-brand-500/15 dark:text-brand-400 dark:border-brand-500/30",
-  mid: "bg-warning-50 text-warning-700 border border-warning-200/60 dark:bg-warning-500/15 dark:text-warning-400 dark:border-warning-500/30",
+  none: "bg-gray-100 text-gray-500 border border-transparent dark:bg-[#121620] dark:text-gray-400 dark:border-[#1C2029]",
+  low: "bg-blue-50 text-blue-700 border border-blue-200/60 dark:bg-blue-950/40 dark:text-cyan-300 dark:border-cyan-800/40",
+  mid: "bg-warning-50 text-warning-700 border border-warning-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700/40",
   high: "bg-error-500 text-white shadow-theme-xs dark:bg-error-500",
 } as const;
 
@@ -62,7 +62,7 @@ export function AbsenceHeatmap({ days }: AbsenceHeatmapProps) {
         })}
       </ul>
 
-      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+      <p className="border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-[#1C2029] dark:text-gray-400">
         Last 3 working weeks, including today (today is partial until attendance
         is complete).
       </p>

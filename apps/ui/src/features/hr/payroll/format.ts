@@ -1,4 +1,9 @@
-import { ApiError } from "@texawave-erp/core";
+import {
+  ApiError,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+} from "@texawave-erp/core";
 
 const MONTHS = [
   "January",
@@ -25,13 +30,10 @@ export function periodLabel(p: { year: number; month: number }): string {
   return `${MONTHS[p.month - 1] ?? p.month} ${p.year}`;
 }
 
-/** Decimal string → "₹ 1,23,456.00". */
+/** Decimal string → formatted currency e.g. "₹ 1,23,456.00". */
 export function money(value: string | number | null | undefined): string {
   const n = Number(value ?? 0);
-  return `₹ ${(Number.isFinite(n) ? n : 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrency(Number.isFinite(n) ? n : 0);
 }
 
 /** Decimal day count → "21.5" (no trailing zeros). */
@@ -40,18 +42,17 @@ export function days(value: string | number | null | undefined): string {
   return Number.isFinite(n) ? String(n) : "0";
 }
 
-/** ISO timestamp/date → "2026-05-31". */
+/** Formatted calendar date e.g. "31/05/2026" or "2026-05-31". */
 export function isoDate(value: string | null | undefined): string {
-  return value ? value.slice(0, 10) : "—";
+  return value ? formatDate(value) : "—";
 }
 
-/** ISO timestamp → "8 Oct 2026, 14:05" in the viewer's locale/timezone. */
+/** ISO timestamp → formatted date and time in the viewer's locale/timezone. */
 export function timestamp(value: string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  if (Number.isNaN(d.getTime())) return "—";
+  return formatDateTime(d);
 }
 
 /** Business-rule codes the payroll API returns, in words an HR user acts on.

@@ -8,6 +8,8 @@ import {
   Menu,
   ChevronDown,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
@@ -20,33 +22,56 @@ export interface GlobalHeaderProps {
   navOpen?: boolean;
 }
 
+import {
+  useRegionalFormatter,
+  useUserPreferences,
+  useUpdateUserPreferences,
+} from "@/features/settings/preferences/hooks";
+import {
+  applyThemeToDom,
+  resolveIsDark,
+} from "@/features/settings/preferences/theme-manager";
+
+function ThemeToggle() {
+  const { data: prefData } = useUserPreferences();
+  const updatePrefMutation = useUpdateUserPreferences();
+  const currentTheme = prefData?.effective?.theme ?? "system";
+  const isDark = resolveIsDark(currentTheme);
+
+  const toggleTheme = () => {
+    const nextTheme = isDark ? "light" : "dark";
+    applyThemeToDom(nextTheme);
+    updatePrefMutation.mutate({ theme: nextTheme });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white/80 text-gray-600 hover:bg-white hover:text-gray-900 shadow-xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-[#263650] dark:bg-[#1B2940] dark:text-[#9BAEC9] dark:hover:bg-[#263650] dark:hover:text-[#F1F5FC] transition-colors cursor-pointer"
+    >
+      {isDark ? (
+        <Sun className="h-4 w-4 text-amber-400" />
+      ) : (
+        <Moon className="h-4 w-4 text-slate-600" />
+      )}
+    </button>
+  );
+}
+
 function LiveClockBadge() {
-  const [currentTime, setCurrentTime] = useState<string>("");
-  const [currentDate, setCurrentDate] = useState<string>("");
+  const { formatDate, formatTime } = useRegionalFormatter();
+  const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
-    function updateClock() {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-      const timeStr = now.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      });
-      setCurrentDate(dateStr);
-      setCurrentTime(timeStr);
-    }
-
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
+    const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const currentDate = formatDate(now);
+  const currentTime = formatTime(now);
 
   return (
     <>
@@ -114,7 +139,7 @@ export function GlobalHeader({
     .toUpperCase();
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-100/50 via-cyan-50/60 to-emerald-50/40 px-4 lg:px-6 dark:border-gray-800 dark:bg-gray-dark dark:bg-none">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-sky-100/80 bg-linear-to-r from-blue-100/50 via-cyan-50/60 to-emerald-50/40 px-4 lg:px-6 dark:border-[#1C2029] dark:bg-[#08090D] dark:bg-none">
       {/* Left: Mobile Nav Toggle + Global Search Input */}
       <div className="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl">
         {onToggleNav && (
@@ -149,6 +174,9 @@ export function GlobalHeader({
 
         {/* Notification Bell (the caller's in-app inbox) */}
         <NotificationBell />
+
+        {/* Theme Toggle (Light / Dark Mode) */}
+        <ThemeToggle />
 
         {/* User Profile Dropdown */}
         <div ref={profileRef} className="relative">

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { Nunito_Sans, Merriweather } from "next/font/google";
+import { Nunito_Sans, JetBrains_Mono, Merriweather } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const nunitoSans = Nunito_Sans({
   variable: "--font-nunito-sans",
+  subsets: ["latin"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -23,14 +28,50 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${nunitoSans.variable} ${merriweather.variable} font-sans h-full antialiased`}
-      style={
-        {
-          "--font-jetbrains-mono": "var(--font-nunito-sans)",
-          "--font-mono": "var(--font-nunito-sans)",
-        } as React.CSSProperties
-      }
+      className={`${nunitoSans.variable} ${jetbrainsMono.variable} ${merriweather.variable} font-sans h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function() {
+  try {
+    var path = window.location.pathname || '';
+    var isPortal = path.indexOf('/portal') === 0 || path.indexOf('/onboarding') === 0 || path.indexOf('/self-service') === 0;
+    var isDark = false;
+    if (isPortal) {
+      var portalTheme = localStorage.getItem('texawave_portal_theme');
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('texawave_portal_theme_') === 0) {
+          var val = localStorage.getItem(key);
+          if (val === 'dark' || val === 'light') {
+            portalTheme = val;
+            break;
+          }
+        }
+      }
+      isDark = portalTheme === 'dark';
+    } else {
+      var theme = localStorage.getItem('texawave_theme') || localStorage.getItem('theme');
+      isDark = theme === 'dark' || (theme !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    var density = localStorage.getItem('texawave_density');
+    if (density) {
+      document.documentElement.setAttribute('data-density', density);
+    }
+  } catch (e) {}
+})();
+`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         <Providers>{children}</Providers>
       </body>

@@ -53,6 +53,16 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "settings.role.write",
     description: "Create/rename roles and assign/revoke their permissions",
   },
+  {
+    code: "settings.general.read",
+    description:
+      "View organization general settings, preferences, and regional configuration",
+  },
+  {
+    code: "settings.general.update",
+    description:
+      "Update organization general settings, regional formats, and exchange rates",
+  },
 
   // IAM data (departments, users, menu) — org-scoped, no team dimension.
   // apps/api/src/modules/departments
@@ -717,6 +727,8 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   {
     code: "projects_master.task_running_number_master.write",
     description: "Update the Task Running Number Master format",
+  },
+
   // apps/api/src/modules/crm/accounts — minimal CRM Account foundation
   // (Phase 4B). Organization-wide reference data (any contact's required
   // parent), no team dimension — same shape as master-data/* above.

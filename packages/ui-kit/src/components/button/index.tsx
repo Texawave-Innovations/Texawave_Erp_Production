@@ -23,17 +23,17 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // literals": never interpolate a variant into a class name string.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-[#469ff6] via-[#2a80e8] to-[#2067d2] text-white font-semibold border border-transparent shadow-[0_2px_8px_rgba(32,103,210,0.18),0_1px_2px_rgba(15,23,42,0.05)] hover:from-[#3a93eb] hover:via-[#2274db] hover:to-[#1a5bc2] hover:shadow-[0_4px_12px_rgba(32,103,210,0.25)] active:from-[#2a80e8] active:via-[#1c6ecd] active:to-[#154fa9] active:shadow-[0_1px_3px_rgba(21,79,169,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2a80e8] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 [&>svg]:text-white [&>svg]:shrink-0 transition-all duration-200",
+    "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 hover:from-blue-700 hover:via-brand-600 hover:to-cyan-600 active:from-blue-800 active:via-brand-700 active:to-cyan-700 text-white shadow-theme-xs hover:shadow-theme-sm focus-visible:outline-brand-500 dark:bg-linear-135 dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500 dark:hover:from-blue-500 dark:hover:via-brand-400 dark:hover:to-cyan-400 dark:active:from-blue-700 dark:active:via-brand-600 dark:active:to-cyan-600 dark:text-white dark:shadow-[0_0_14px_rgba(6,182,212,0.25)] transition-all duration-200",
   secondary:
-    "bg-sky-50 text-[#0284c7] font-bold border border-sky-200/90 hover:bg-sky-100 hover:text-[#0369a1] hover:border-sky-300 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/80 dark:hover:bg-sky-900/60 transition-all duration-200",
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-[#121620] dark:text-white/90 dark:border-[#1C2029] dark:hover:bg-[#161B26]",
   glass:
     "glass-button bg-white/80 backdrop-blur-md text-[#0284c7] font-bold border border-white/95 shadow-[0_4px_14px_-2px_rgba(14,165,233,0.15),0_1px_3px_0_rgba(15,23,42,0.04),inset_0_1px_1px_0_rgba(255,255,255,1)] hover:bg-white/95 hover:text-[#0369a1] hover:border-sky-200 hover:shadow-[0_6px_20px_-2px_rgba(14,165,233,0.22)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60 dark:hover:bg-sky-900/50 transition-all duration-200",
   outline:
-    "bg-slate-50/90 text-slate-700 font-semibold border border-slate-200/90 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-gray-dark dark:text-white/90 dark:border-gray-700 dark:hover:bg-gray-800 transition-all duration-200",
+    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-brand-500 dark:bg-[#121620] dark:text-white/90 dark:border-[#1C2029] dark:hover:bg-[#161B26]",
   ghost:
-    "bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-white/90 dark:hover:bg-gray-800",
+    "bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:outline-brand-500 dark:text-white/90 dark:hover:bg-[#161B26]",
   destructive:
-    "bg-error-500 text-white hover:bg-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500 focus-visible:ring-offset-2 dark:bg-error-400 dark:hover:bg-error-300",
+    "bg-error-500 text-white hover:bg-error-600 focus-visible:outline-error-500 dark:bg-rose-600 dark:hover:bg-rose-500",
   success:
     "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:hover:bg-emerald-600",
   link: "bg-transparent text-brand-600 hover:underline hover:bg-transparent p-0 h-auto shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-brand-400",

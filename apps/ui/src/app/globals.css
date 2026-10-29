@@ -29,7 +29,135 @@
 }
 
 body {
-  @apply bg-[#f1f5fa] font-sans font-normal tracking-[-0.01em] text-gray-900 dark:bg-[#0b1324] dark:text-white/90;
+  @apply bg-white font-sans font-normal tracking-[-0.01em] text-gray-900 dark:bg-[#08090D] dark:text-[#F8FAFC];
+}
+
+/* UI Density System */
+html[data-density="compact"] {
+  --erp-density-py: 0.375rem;
+  --erp-density-px: 0.75rem;
+  --erp-density-text: 0.75rem;
+  --erp-density-card-p: 0.875rem;
+  --erp-density-input-py: 0.375rem;
+  --erp-density-gap: 0.5rem;
+}
+
+html[data-density="comfortable"],
+html:not([data-density]) {
+  --erp-density-py: 0.625rem;
+  --erp-density-px: 1rem;
+  --erp-density-text: 0.8125rem;
+  --erp-density-card-p: 1.25rem;
+  --erp-density-input-py: 0.5rem;
+  --erp-density-gap: 1rem;
+}
+
+html[data-density="spacious"] {
+  --erp-density-py: 0.875rem;
+  --erp-density-px: 1.25rem;
+  --erp-density-text: 0.875rem;
+  --erp-density-card-p: 1.5rem;
+  --erp-density-input-py: 0.625rem;
+  --erp-density-gap: 1.5rem;
+}
+
+/* Global data-table density scaling */
+html[data-density="compact"] table tbody tr td,
+html[data-density="compact"] table thead tr th {
+  padding-top: var(--erp-density-py) !important;
+  padding-bottom: var(--erp-density-py) !important;
+  padding-left: var(--erp-density-px) !important;
+  padding-right: var(--erp-density-px) !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+html[data-density="comfortable"] table tbody tr td,
+html[data-density="comfortable"] table thead tr th {
+  padding-top: var(--erp-density-py) !important;
+  padding-bottom: var(--erp-density-py) !important;
+  padding-left: var(--erp-density-px) !important;
+  padding-right: var(--erp-density-px) !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+html[data-density="spacious"] table tbody tr td,
+html[data-density="spacious"] table thead tr th {
+  padding-top: var(--erp-density-py) !important;
+  padding-bottom: var(--erp-density-py) !important;
+  padding-left: var(--erp-density-px) !important;
+  padding-right: var(--erp-density-px) !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+/* Global Card & Container Density */
+html[data-density="compact"] .gradient-card-border,
+html[data-density="compact"] [class*="gradient-card-border"],
+html[data-density="compact"] [class*="rounded-2xl"][class*="p-5"],
+html[data-density="compact"] [data-density-card] {
+  padding: var(--erp-density-card-p) !important;
+}
+
+html[data-density="spacious"] .gradient-card-border,
+html[data-density="spacious"] [class*="gradient-card-border"],
+html[data-density="spacious"] [class*="rounded-2xl"][class*="p-5"],
+html[data-density="spacious"] [data-density-card] {
+  padding: var(--erp-density-card-p) !important;
+}
+
+/* Global Form Controls & Inputs Density */
+html[data-density="compact"] select,
+html[data-density="compact"] textarea,
+html[data-density="compact"]
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="hidden"]
+  ) {
+  padding-top: var(--erp-density-input-py) !important;
+  padding-bottom: var(--erp-density-input-py) !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+html[data-density="spacious"] select,
+html[data-density="spacious"] textarea,
+html[data-density="spacious"]
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="hidden"]
+  ) {
+  padding-top: var(--erp-density-input-py) !important;
+  padding-bottom: var(--erp-density-input-py) !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+/* Global Button Density Scaling */
+html[data-density="compact"] button.h-10,
+html[data-density="compact"] a.h-10 {
+  height: 2rem !important;
+  padding-left: 0.625rem !important;
+  padding-right: 0.625rem !important;
+  font-size: var(--erp-density-text) !important;
+}
+
+html[data-density="compact"] button.h-8,
+html[data-density="compact"] a.h-8 {
+  height: 1.75rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  font-size: 0.6875rem !important;
+}
+
+html[data-density="spacious"] button.h-10,
+html[data-density="spacious"] a.h-10 {
+  height: 2.75rem !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+  font-size: 0.875rem !important;
+}
+
+html[data-density="spacious"] button.h-8,
+html[data-density="spacious"] a.h-8 {
+  height: 2.25rem !important;
+  padding-left: 0.875rem !important;
+  padding-right: 0.875rem !important;
+  font-size: 0.8125rem !important;
 }
 
 /* Reusable Enterprise Animation Primitives */

@@ -69,6 +69,9 @@ import { RolesModule } from "./modules/settings/roles/roles.module.js";
 import { SalesSettingsModule } from "./modules/sales-settings/sales-settings.module.js";
 import { FinanceSettingsModule } from "./modules/finance-settings/finance-settings.module.js";
 import { ProjectsMasterModule } from "./modules/projects-master/projects-master.module.js";
+import { PreferencesModule } from "./modules/settings/preferences/preferences.module.js";
+import { OrganizationSettingsModule } from "./modules/settings/organization/organization-settings.module.js";
+import { ExchangeRatesModule } from "./modules/settings/exchange-rates/exchange-rates.module.js";
 import { AuditModule } from "./platform/audit/audit.module.js";
 import { AuthModule } from "./platform/auth/auth.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
@@ -110,6 +113,9 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     NotificationsModule,
     TagsModule,
     RolesModule,
+    PreferencesModule,
+    OrganizationSettingsModule,
+    ExchangeRatesModule,
     DesignationsModule,
     EmploymentTypesModule,
     WorkLocationsModule,

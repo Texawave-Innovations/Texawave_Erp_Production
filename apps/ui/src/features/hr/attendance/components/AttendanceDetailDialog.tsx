@@ -159,10 +159,10 @@ export function AttendanceDetailDialog({
 
               <div className="p-3 rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 flex flex-col gap-1">
                 <span className="flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                  <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+                  <TrendingUp className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                   Overtime
                 </span>
-                <span className="font-semibold text-theme-sm text-amber-700 dark:text-amber-400">
+                <span className="font-semibold text-theme-sm text-cyan-700 dark:text-cyan-400">
                   {formatMinutes(record.data.overtimeMinutes)}
                 </span>
               </div>

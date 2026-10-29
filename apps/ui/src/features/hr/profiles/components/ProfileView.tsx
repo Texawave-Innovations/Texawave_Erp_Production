@@ -15,7 +15,7 @@ import {
   Phone,
   ShieldAlert,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, formatDate } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -147,15 +147,25 @@ function AddressCard({
       {value ? (
         <address className="wrap-break-word not-italic text-sm font-semibold leading-relaxed text-[#0a3271] dark:text-white">
           <span className="block font-bold">{value.address}</span>
-          {value.area ? <span className="text-slate-600 dark:text-slate-300">{value.area}, </span> : null}
-          {value.district ? <span className="text-slate-600 dark:text-slate-300">{value.district}</span> : null}
+          {value.area ? (
+            <span className="text-slate-600 dark:text-slate-300">
+              {value.area},{" "}
+            </span>
+          ) : null}
+          {value.district ? (
+            <span className="text-slate-600 dark:text-slate-300">
+              {value.district}
+            </span>
+          ) : null}
           <div className="mt-1 text-xs font-semibold text-[#2f6396] dark:text-sky-300">
             {value.city}, {value.state} {value.pincode}
             {value.country ? ` · ${value.country}` : ""}
           </div>
         </address>
       ) : (
-        <p className="text-sm font-medium text-slate-400 dark:text-slate-500">—</p>
+        <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
+          —
+        </p>
       )}
     </div>
   );
@@ -362,7 +372,9 @@ function ProfileBody({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePhotoSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -394,7 +406,8 @@ function ProfileBody({
       await queryClient.invalidateQueries({ queryKey: ["hr-profiles", id] });
       toast({
         title: "Profile photo updated",
-        description: "The employee profile photo has been updated successfully.",
+        description:
+          "The employee profile photo has been updated successfully.",
         variant: "success",
       });
     } catch {
@@ -434,9 +447,7 @@ function ProfileBody({
       />
 
       {/* Profile Header Hero Card */}
-      <div
-        className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60"
-      >
+      <div className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="relative group shrink-0">
@@ -476,15 +487,7 @@ function ProfileBody({
               <p className="text-xs font-semibold text-[#2f6396] dark:text-sky-300/80 sm:text-sm">
                 <span>{e.employeeCode}</span>
                 {p.updatedAt ? (
-                  <>
-                    {" "}
-                    · Last profile update{" "}
-                    {new Date(p.updatedAt).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </>
+                  <> · Last profile update {formatDate(p.updatedAt)}</>
                 ) : null}
               </p>
             </div>
@@ -504,7 +507,11 @@ function ProfileBody({
                 ) : (
                   <Camera className="h-3.5 w-3.5 mr-1.5 text-brand-500" />
                 )}
-                {isUploadingPhoto ? "Uploading..." : e.avatarUrl ? "Change photo" : "Upload photo"}
+                {isUploadingPhoto
+                  ? "Uploading..."
+                  : e.avatarUrl
+                    ? "Change photo"
+                    : "Upload photo"}
               </Button>
             ) : null}
             {canWrite ? (
@@ -517,7 +524,11 @@ function ProfileBody({
               </Link>
             ) : null}
             <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] ring-2 ring-white/70 dark:border-slate-700 dark:bg-slate-800">
-              <Semantic3DIcon name="profiles" size={32} alt="Employee profile" />
+              <Semantic3DIcon
+                name="profiles"
+                size={32}
+                alt="Employee profile"
+              />
             </div>
           </div>
         </div>
@@ -552,7 +563,9 @@ function ProfileBody({
               <DetailField label="Marital status">
                 {dash(codeLabel(MARITAL_OPTIONS, p.maritalStatus))}
               </DetailField>
-              <DetailField label="Blood group">{dash(p.bloodGroup)}</DetailField>
+              <DetailField label="Blood group">
+                {dash(p.bloodGroup)}
+              </DetailField>
               <DetailField label="Languages spoken">
                 {p.languages.length > 0 ? p.languages.join(", ") : "—"}
               </DetailField>
@@ -572,7 +585,9 @@ function ProfileBody({
               <DetailField label="Mother's name">
                 {dash(p.motherName)}
               </DetailField>
-              <DetailField label="Spouse name">{dash(p.spouseName)}</DetailField>
+              <DetailField label="Spouse name">
+                {dash(p.spouseName)}
+              </DetailField>
             </dl>
           </ProfileSection>
 
@@ -584,7 +599,10 @@ function ProfileBody({
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <AddressCard label="Current Address" value={p.presentAddress} />
-              <AddressCard label="Permanent Address" value={p.permanentAddress} />
+              <AddressCard
+                label="Permanent Address"
+                value={p.permanentAddress}
+              />
             </div>
           </ProfileSection>
         </div>
@@ -648,7 +666,9 @@ function ProfileBody({
                 {p.isFresher ? "Yes" : "No"}
               </DetailField>
               <DetailField label="Total experience">
-                {p.experienceYears !== null ? `${p.experienceYears} years` : "—"}
+                {p.experienceYears !== null
+                  ? `${p.experienceYears} years`
+                  : "—"}
               </DetailField>
               <DetailField label="Previous company">
                 {dash(p.previousCompany)}
