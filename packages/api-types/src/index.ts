@@ -47,3 +47,5 @@ export * from "./scm-overview";
 export * from "./scm-finance";
 export * from "./scm-master-list-items";
 export * from "./finance";
+export * from "./proposals";
+export * from "./mom";

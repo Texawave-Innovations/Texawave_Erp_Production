@@ -78,7 +78,11 @@ Registered in `apps/api/src/app.module.ts` as `ProjectsMasterModule`.
    number for a real project/task. That's each caller's job when the future
    Projects module creates real records — same scope limit as
    `DocumentNumbering` in `sales-settings` (see
-   `Docs/SALES_SETTINGS_FOUNDATION.md`).
+   `Docs/SALES_SETTINGS_FOUNDATION.md`). As of 2026-10-24 the Projects module
+   is that caller: `ProjectsMasterModule` exports `ProjectCodeMasterService`
+   and `TaskRunningNumberMasterService` (read-only `findOne()`), and
+   `apps/api/src/modules/projects/sequences/project-sequences.ts` allocates
+   the numbers (see Docs/PROJECTS_MODULE_SPEC.md §4).
 
 ## Prisma models (migration `20261021072240_restructure_project_master`,
 

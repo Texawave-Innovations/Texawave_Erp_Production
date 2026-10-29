@@ -4,6 +4,7 @@ import { OrgScoped } from "../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../common/tenancy/tenant-where.js";
+import { ResourceConflictException } from "../../common/exceptions/business.exception.js";
 import { PrismaService } from "../../shared/prisma/prisma.service.js";
 import { AuditWriter } from "../audit/audit-writer.js";
 import { withRoleAdminGuard } from "../roles-permissions/role-admin-guard.js";
@@ -226,31 +227,48 @@ export class UsersRepository {
     },
     createdBy?: number,
   ) {
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          organizationId: scope.organizationId,
-          email: data.email,
-          fullName: data.fullName,
-          passwordHash: data.passwordHash,
-          mustChangePassword: data.mustChangePassword ?? false,
-          createdBy: createdBy ?? null,
-          updatedBy: createdBy ?? null,
-        },
-        select: USER_SELECT,
+    let user;
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            organizationId: scope.organizationId,
+            email: data.email,
+            fullName: data.fullName,
+            passwordHash: data.passwordHash,
+            mustChangePassword: data.mustChangePassword ?? false,
+            createdBy: createdBy ?? null,
+            updatedBy: createdBy ?? null,
+          },
+          select: USER_SELECT,
+        });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: created.id,
+          action: "create",
+          after: {
+            email: created.email,
+            fullName: created.fullName,
+            isActive: created.isActive,
+          },
+        });
+        return created;
       });
-      await this.audit.write(tx, {
-        entityType: ENTITY_TYPE,
-        entityId: created.id,
-        action: "create",
-        after: {
-          email: created.email,
-          fullName: created.fullName,
-          isActive: created.isActive,
-        },
-      });
-      return created;
-    });
+    } catch (error) {
+      // The caller's own findByEmail check (deletedAt: null) misses a
+      // soft-deleted row at the same (organizationId, email) — there is no
+      // partial unique index excluding deleted rows — so that race still
+      // needs to be caught here and turned into a clean 409.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ResourceConflictException(
+          `A user with email "${data.email}" already exists`,
+        );
+      }
+      throw error;
+    }
 
     return {
       ...user,

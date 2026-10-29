@@ -26,4 +26,18 @@ export {
   type ProjectExpense,
   type ProjectPointsLedger,
   type ProjectPointsConfig,
+  // Proposals enums & types
+  ProposalTemplateStatus,
+  ProposalStatus,
+  type ProposalTemplate,
+  type ProposalDocument,
+  type ProposalActivity,
+  type ProposalSettings,
+  // MoM enums & types
+  MomTemplateStatus,
+  MomStatus,
+  type MomTemplate,
+  type MomDocument,
+  type MomRevision,
+  type MomHistoryEvent,
 } from "../generated/prisma/client.js";

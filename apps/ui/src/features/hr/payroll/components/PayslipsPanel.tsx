@@ -71,7 +71,7 @@ const PAGE_SIZE = 12;
  * Fetches the PDF with the caller's token and saves it. The API renders it
  * with a headless browser, so it can take a moment — the button shows that.
  */
-function DownloadPdfButton({
+export function DownloadPdfButton({
   payslip,
   selfService,
   size = "sm",

@@ -1494,7 +1494,7 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
       {
         id: "projects-proposals",
         label: "Proposal Documents",
-        path: "#",
+        path: "/projects/proposals",
         icon: FileText,
         icon3d: "documents",
         menuCode: "projects-proposals",
@@ -1502,7 +1502,7 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
       {
         id: "projects-mom",
         label: "Minutes of Meeting",
-        path: "#",
+        path: "/projects/mom",
         icon: ClipboardList,
         icon3d: "tasks",
         menuCode: "projects-mom",
@@ -1790,6 +1790,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     id: "master-list",
     label: "Master List",
     icon: ClipboardList,
+    icon3d: "master-list",
     path: "/settings/sales-settings",
     available: true,
   },

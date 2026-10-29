@@ -28,6 +28,35 @@ export class TimeEntriesController {
     return this.service.getActiveTimer();
   }
 
+  @Get("attendance/me")
+  @RequirePermission("projects.timer.write")
+  @ApiOperation({
+    summary:
+      "Today's attendance status for the stopwatch gate (checked in / out)",
+  })
+  getMyAttendanceStatus() {
+    return this.service.getMyAttendanceStatus();
+  }
+
+  @Get("time-summary/me")
+  @RequirePermission("projects.project.read")
+  @ApiOperation({
+    summary: "Logged-today / this-week minutes for the authenticated employee",
+  })
+  getMyTimeSummary() {
+    return this.service.getMyTimeSummary();
+  }
+
+  @Get("work/:employeeId")
+  @RequirePermission("projects.work.review")
+  @ApiOperation({
+    summary:
+      "Another employee's My Work view (tasks, running timer, logged time) — managers",
+  })
+  getEmployeeWork(@Param("employeeId", ParseIntPipe) employeeId: number) {
+    return this.service.getEmployeeWork(employeeId);
+  }
+
   @Post(":taskId/timer/start")
   @RequirePermission("projects.timer.write")
   @ApiOperation({ summary: "Start live stopwatch timer for a task" })

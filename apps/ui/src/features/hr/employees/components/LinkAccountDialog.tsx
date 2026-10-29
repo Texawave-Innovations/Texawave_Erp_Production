@@ -9,7 +9,14 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { useLinkEmployeeUser, useUnlinkEmployeeUser } from "../hooks";
+import { usePermission } from "@/hooks/usePermission";
+import { useUsers } from "@/features/users/hooks";
+import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import {
+  useEmployee,
+  useLinkEmployeeUser,
+  useUnlinkEmployeeUser,
+} from "../hooks";
 import {
   linkAccountSchema,
   unlinkAccountSchema,
@@ -22,7 +29,10 @@ import { describeSaveError } from "./EmployeeForm";
 export interface LinkAccountDialogProps {
   open: boolean;
   onClose: () => void;
-  employee: Pick<EmployeeDetail, "id" | "fullName">;
+  employee: Pick<EmployeeDetail, "id" | "fullName" | "employeeCode"> & {
+    workEmail?: string | null;
+    avatarUrl?: string | null;
+  };
   /** "link" attaches an existing platform user; "unlink" detaches the current one. */
   mode: "link" | "unlink";
 }
@@ -30,10 +40,15 @@ export interface LinkAccountDialogProps {
 type FieldErrors = Partial<Record<"userId" | "reason", string>>;
 
 /**
- * The API only accepts a numeric user id (dto/lifecycle.dto.ts) — there is no
- * user-search endpoint this role can reach from here (`/users` requires
- * `users.user.read`, which is not granted to HR Manager by default), so the
- * id is typed in directly, same as the Team ID field in EmployeeForm.
+ * The API only accepts a numeric user id (dto/lifecycle.dto.ts). Rather than
+ * have HR type or search for it, we look up the platform user whose e-mail
+ * matches this employee's own work e-mail — in practice the login account is
+ * always created with that same address — and link it automatically. The
+ * caller's `employee` prop may come from a list row that omits work e-mail
+ * (EmployeeListItem), so this always re-fetches the full detail record to
+ * get a reliable e-mail regardless of entry point. Falls back to a plain
+ * numeric field when there is no work e-mail on file, or when the caller
+ * can't read /users (`users.user.read`) to resolve it.
  */
 export function LinkAccountDialog({
   open,
@@ -48,6 +63,26 @@ export function LinkAccountDialog({
   const unlinkMutation = useUnlinkEmployeeUser();
   const { toast } = useToast();
 
+  const employeeDetail = useEmployee(mode === "link" ? employee.id : 0);
+  const canSearchUsers = usePermission("users.user.read");
+  const workEmail =
+    (employeeDetail.data?.workEmail ?? employee.workEmail)?.trim() ?? "";
+  const canAutoMatch = canSearchUsers && mode === "link" && workEmail !== "";
+  const resolvingEmail = mode === "link" && employeeDetail.isPending;
+  const userMatches = useUsers(
+    { page: 1, limit: 5, search: workEmail },
+    canAutoMatch,
+  );
+
+  const matchedUser = (userMatches.data?.data ?? []).find(
+    (u) => u.email.toLowerCase() === workEmail.toLowerCase(),
+  );
+  const effectiveUserId = canAutoMatch
+    ? matchedUser
+      ? String(matchedUser.id)
+      : ""
+    : values.userId;
+
   const mutation = mode === "link" ? linkMutation : unlinkMutation;
   const submitting = mutation.isPending;
 
@@ -55,7 +90,7 @@ export function LinkAccountDialog({
     event.preventDefault();
     const result =
       mode === "link"
-        ? linkAccountSchema.safeParse(values)
+        ? linkAccountSchema.safeParse({ ...values, userId: effectiveUserId })
         : unlinkAccountSchema.safeParse(values);
     if (!result.success) {
       const next: FieldErrors = {};
@@ -102,17 +137,62 @@ export function LinkAccountDialog({
       title={mode === "link" ? "Link login account" : "Unlink login account"}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <div className="rounded-lg border border-sky-100 bg-sky-50/50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/40">
+          <EmployeeIdentity
+            name={employee.fullName}
+            code={employee.employeeCode}
+            avatarUrl={employee.avatarUrl}
+          />
+        </div>
         <p className="text-theme-sm text-gray-600 dark:text-gray-400">
           {mode === "link"
-            ? `Attach an existing platform user to ${employee.fullName}. The user must be in this organization, active, and not already linked to another employee.`
-            : `Remove ${employee.fullName}'s linked login. They will no longer be able to sign in as this employee.`}
+            ? "Attach an existing platform user to this employee. The user must be in this organization, active, and not already linked to another employee."
+            : "Remove this employee's linked login. They will no longer be able to sign in as this employee."}
         </p>
-        {mode === "link" ? (
+        {mode === "link" && resolvingEmail ? (
+          <FormField label="Platform user" error={errors.userId}>
+            {() => (
+              <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+                Loading employee details…
+              </p>
+            )}
+          </FormField>
+        ) : null}
+        {mode === "link" && !resolvingEmail && canAutoMatch ? (
+          <FormField label="Platform user" error={errors.userId}>
+            {() =>
+              userMatches.isPending ? (
+                <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+                  Looking up {workEmail}…
+                </p>
+              ) : matchedUser ? (
+                <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2 text-theme-sm dark:border-slate-700 dark:bg-slate-800/60">
+                  <span className="font-semibold text-[#0a3271] dark:text-sky-100">
+                    {matchedUser.fullName}
+                  </span>{" "}
+                  <span className="text-gray-500 dark:text-gray-400">
+                    ({matchedUser.email})
+                  </span>
+                </div>
+              ) : (
+                <p className="text-theme-xs text-error-600 dark:text-error-400">
+                  No platform account found for {workEmail}. Create one in
+                  Settings → Users first, using this same e-mail.
+                </p>
+              )
+            }
+          </FormField>
+        ) : null}
+        {mode === "link" && !resolvingEmail && !canAutoMatch ? (
           <FormField
             label="User ID"
             required
             error={errors.userId}
-            hint="Numeric platform user ID — look it up in Settings → Users first."
+            hint={
+              workEmail === ""
+                ? "This employee has no work e-mail on file, so the account can't be auto-matched — look up the numeric platform user ID in Settings → Users."
+                : "Numeric platform user ID — look it up in Settings → Users first."
+            }
           >
             {(f) => (
               <Input
@@ -167,6 +247,11 @@ export function LinkAccountDialog({
             type="submit"
             variant={mode === "unlink" ? "destructive" : "primary"}
             loading={submitting}
+            disabled={
+              mode === "link" &&
+              (resolvingEmail ||
+                (canAutoMatch && (userMatches.isPending || !matchedUser)))
+            }
           >
             {mode === "link" ? "Link account" : "Unlink account"}
           </Button>

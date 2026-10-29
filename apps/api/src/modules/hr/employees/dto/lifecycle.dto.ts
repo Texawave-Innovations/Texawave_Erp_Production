@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -68,6 +69,15 @@ export class ApproveOnboardingDto {
   @IsString()
   @Length(1, 1000)
   note?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "HR override: approve even if the profile was never submitted or is " +
+      "still incomplete. Requires the same approve permission.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
 }
 
 /** Send a submitted profile back to the employee, reopening the wizard. */

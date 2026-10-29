@@ -1,11 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   StreamableFile,
   UploadedFile,
@@ -15,25 +19,40 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
+import { MAX_UPLOAD_BYTES } from "../../../shared/file-storage/file-storage.service.js";
+import { AddressDto } from "../../employee-self-service/profile/dto/address.dto.js";
+import { BankDetailsDto } from "../../employee-self-service/profile/dto/bank-details.dto.js";
+import { GovernmentIdsDto } from "../../employee-self-service/profile/dto/government-ids.dto.js";
+import { PersonalDetailsDto } from "../../employee-self-service/profile/dto/personal-details.dto.js";
 import {
   ImportEmployeesQueryDto,
   MAX_IMPORT_BYTES,
 } from "./dto/import-employees.dto.js";
-import { RequireScopedPermission } from "../../../common/decorators/require-permission.decorator.js";
+import {
+  RequirePermission,
+  RequireScopedPermission,
+} from "../../../common/decorators/require-permission.decorator.js";
 import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { CreateEmployeeDto } from "./dto/create-employee.dto.js";
 import { QueryEmployeeDto } from "./dto/query-employee.dto.js";
 import { UpdateEmployeeDto } from "./dto/update-employee.dto.js";
+import { EmployeePersonalDataService } from "./employee-personal-data.service.js";
 import { EmployeesService } from "./employees.service.js";
 
 /** Team-scoped: `hr.employee.read/write` are seeded as `.own/.team/.all`.
  * The guard admits any holder; the service narrows the rows to the caller's
- * scope (own → themselves, team → their teams, all → everyone). There is no
- * DELETE — people leave through the status lifecycle and are never removed. */
+ * scope (own → themselves, team → their teams, all → everyone). Normally
+ * people leave through the status lifecycle and are never removed; DELETE
+ * exists as an organization-wide, separately-permissioned escape hatch for a
+ * record that should never have existed, and only succeeds when nothing else
+ * in the system still references it. */
 @ApiTags("hr-employees")
 @Controller("hr/employees")
 export class EmployeesController {
-  constructor(private readonly employees: EmployeesService) {}
+  constructor(
+    private readonly employees: EmployeesService,
+    private readonly personalData: EmployeePersonalDataService,
+  ) {}
 
   @Get()
   @RequireScopedPermission("hr.employee.read")
@@ -123,5 +142,108 @@ export class EmployeesController {
     @Body() dto: UpdateEmployeeDto,
   ) {
     return this.employees.update(id, dto);
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission("hr.employee.delete")
+  @ApiOperation({
+    summary:
+      "Permanently delete an employee record. Only succeeds when nothing " +
+      "else references it (attendance, payroll, tasks, etc.) — otherwise use " +
+      "the status lifecycle to deactivate them instead.",
+  })
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.employees.remove(id);
+  }
+
+  // HR's edit of an employee's onboarding detail tables — the path
+  // ProfileService.editableIdentity() points to once a profile is
+  // PROFILE_LOCKED ("Ask HR to update it"), and what the onboarding
+  // progress view's per-section Edit action calls.
+
+  @Get(":id/personal-details")
+  @RequireScopedPermission("hr.employee.read")
+  getPersonalDetails(@Param("id", ParseIntPipe) id: number) {
+    return this.personalData.getPersonal(id);
+  }
+
+  @Put(":id/personal-details")
+  @RequireScopedPermission("hr.employee.write")
+  putPersonalDetails(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: PersonalDetailsDto,
+  ) {
+    return this.personalData.updatePersonal(id, dto);
+  }
+
+  @Get(":id/address/:type")
+  @RequireScopedPermission("hr.employee.read")
+  @ApiOperation({ summary: "type is PERMANENT or PRESENT" })
+  getAddress(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("type") type: string,
+  ) {
+    return this.personalData.getAddress(id, type);
+  }
+
+  @Put(":id/address/:type")
+  @RequireScopedPermission("hr.employee.write")
+  putAddress(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("type") type: string,
+    @Body() dto: AddressDto,
+  ) {
+    return this.personalData.updateAddress(id, type, dto);
+  }
+
+  @Get(":id/bank-details")
+  @RequireScopedPermission("hr.employee.read")
+  @ApiOperation({ summary: "Masked account number only" })
+  getBankDetails(@Param("id", ParseIntPipe) id: number) {
+    return this.personalData.getBank(id);
+  }
+
+  @Put(":id/bank-details")
+  @RequireScopedPermission("hr.employee.write")
+  putBankDetails(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: BankDetailsDto,
+  ) {
+    return this.personalData.updateBank(id, dto);
+  }
+
+  @Get(":id/government-ids")
+  @RequireScopedPermission("hr.employee.read")
+  getGovernmentIds(@Param("id", ParseIntPipe) id: number) {
+    return this.personalData.getGovernmentIds(id);
+  }
+
+  @Put(":id/government-ids")
+  @RequireScopedPermission("hr.employee.write")
+  putGovernmentIds(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: GovernmentIdsDto,
+  ) {
+    return this.personalData.updateGovernmentIds(id, dto);
+  }
+
+  @Put(":id/documents/:documentType/file")
+  @RequireScopedPermission("hr.employee.write")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }),
+  )
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary:
+      "Upload (or replace) one onboarding document on the employee's behalf. Field name: file.",
+  })
+  uploadDocumentFor(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("documentType") documentType: string,
+    @UploadedFile()
+    file: { buffer: Buffer; size: number; originalname: string } | undefined,
+  ) {
+    return this.personalData.uploadDocument(id, documentType, file);
   }
 }

@@ -12,8 +12,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronDown, LogOut, Sun, Moon } from "lucide-react";
-import { DynamicSidebar } from "@/components/DynamicSidebar";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
+import { PortalSidebar } from "@/features/employee-self-service/portal/components/PortalSidebar";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { NavbarDateTimeCalendar } from "@/components/layout/NavbarDateTimeCalendar";
 import { getResolvedAvatarUrl } from "@/features/hr/components/EmployeeIdentity";
@@ -251,9 +251,9 @@ export default function EmployeePortalLayout({
     );
   }
 
-  const empName = employee.data?.fullName || "Employee";
+  const fullName = employee.data?.fullName || "Employee";
   const empCode = employee.data?.employeeCode || "";
-  const initials = empName
+  const initials = fullName
     .split(" ")
     .map((p) => p[0])
     .join("")
@@ -335,7 +335,7 @@ export default function EmployeePortalLayout({
               headerSlot={
                 <div>
                   <p className="text-xs font-bold text-gray-900 dark:text-white/90">
-                    {empName}
+                    {fullName}
                   </p>
                   <p className="truncate text-[11px] text-gray-400 dark:text-gray-500">
                     {empCode ? `ID: ${empCode}` : "Self-Service"}
@@ -353,7 +353,7 @@ export default function EmployeePortalLayout({
             >
               <button
                 type="button"
-                aria-label={`Profile menu for ${empName}`}
+                aria-label={`Profile menu for ${fullName}`}
                 className="flex shrink-0 items-center gap-2 rounded-xl border border-white/60 bg-white/70 backdrop-blur-md p-1 sm:px-2.5 sm:py-1.5 text-left hover:bg-white shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:hover:bg-gray-800 transition-all cursor-pointer"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sky-200/90 bg-linear-to-br from-[#1769F5] to-cyan-500 text-xs font-bold text-white shadow-xs">
@@ -361,7 +361,7 @@ export default function EmployeePortalLayout({
                     <img
                       key={resolvedAvatarUrl}
                       src={resolvedAvatarUrl!}
-                      alt={empName}
+                      alt={fullName}
                       className="h-full w-full object-cover"
                       onError={() => setFailedAvatarUrl(resolvedAvatarUrl)}
                     />
@@ -371,7 +371,7 @@ export default function EmployeePortalLayout({
                 </div>
                 <div className="hidden sm:flex flex-col">
                   <span className="text-xs font-bold leading-tight text-slate-900 dark:text-white/90 max-w-36 truncate">
-                    {empName}
+                    {fullName}
                   </span>
                   <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400 max-w-36 truncate">
                     {empCode}
@@ -394,13 +394,14 @@ export default function EmployeePortalLayout({
             className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
           />
         )}
-        <DynamicSidebar
+        <PortalSidebar
           open={navOpen}
           onNavigate={() => setNavOpen(false)}
-          onlyRootCode="portal"
+          name={fullName}
+          initials={initials}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/60 dark:bg-gray-900/40">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
         </main>
       </div>
     </div>

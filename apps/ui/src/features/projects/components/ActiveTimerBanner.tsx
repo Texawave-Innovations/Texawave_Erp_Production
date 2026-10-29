@@ -25,7 +25,7 @@ function TimerElapsedDisplay({ startedAt }: { startedAt: string }) {
   }, [startedAt]);
 
   return (
-    <div className="rounded-xl bg-black/25 px-4 py-2 font-mono text-xl font-bold tracking-wider text-cyan-100 backdrop-blur-sm">
+    <div className="rounded-xl bg-black/25 px-4 py-2 text-xl font-bold tracking-wider text-cyan-100 backdrop-blur-sm">
       {elapsed}
     </div>
   );
@@ -50,7 +50,7 @@ export function ActiveTimerBanner() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 p-4 text-white shadow-lg shadow-blue-500/20 dark:border-blue-900/50">
+    <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-500 p-4 text-white shadow-lg shadow-blue-500/20 dark:border-blue-900/50">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
@@ -76,7 +76,7 @@ export function ActiveTimerBanner() {
             </div>
             <p className="text-sm font-semibold text-white">
               {activeTimer.task?.taskCode && (
-                <span className="font-mono text-cyan-200">
+                <span className="text-cyan-200">
                   [{activeTimer.task.taskCode}]
                 </span>
               )}{" "}

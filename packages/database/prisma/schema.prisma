@@ -33,7 +33,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas = ["platform", "hr", "sales", "finance", "projects", "crm", "scm"]
+  schemas  = ["platform", "hr", "sales", "finance", "projects", "crm", "scm"]
 }
 
 /// The tenant root. Single-organization, internal-only app — one row,
@@ -81,7 +81,7 @@ model Organization {
   auditLogs                  AuditLog[]
   designations               Designation[]
   employmentTypes            EmploymentType[]
-  workLocations               WorkLocation[]
+  workLocations              WorkLocation[]
   locationPrivileges         EmployeeLocationPrivilege[]
   officeNetworkAddresses     OfficeNetworkAddress[]
   employees                  Employee[]
@@ -91,7 +91,7 @@ model Organization {
   shiftAssignments           ShiftAssignment[]
   holidays                   Holiday[]
   leaveTypes                 LeaveType[]
-  leaveRequests               LeaveRequest[]
+  leaveRequests              LeaveRequest[]
   leaveEntitlements          LeaveEntitlement[]
   leaveDelegations           LeaveApprovalDelegation[]
   expenseClaims              ExpenseClaim[]
@@ -127,6 +127,7 @@ model Organization {
   payrollEarnings                   PayrollEarning[]
   payrollDeductions                 PayrollDeduction[]
   projects                          Project[]
+  projectCategoryMasters            ProjectCategoryMaster[]
   projectCodeMaster                 ProjectCodeMaster?
   taskRunningNumberMaster           TaskRunningNumberMaster?
   employeeSalaries                  EmployeeSalary[]
@@ -194,8 +195,6 @@ model Organization {
   scmPutaways                        ScmPutaway[]
   scmWarehouseMovements              ScmWarehouseMovement[]
 
-
-  projectRecords          ProjectRecord[]
   projectMembers          ProjectMember[]
   projectMilestones       ProjectMilestone[]
   projectTasks            ProjectTask[]
@@ -203,6 +202,14 @@ model Organization {
   projectExpenses         ProjectExpense[]
   projectPointsLedger     ProjectPointsLedger[]
   projectPointsConfig     ProjectPointsConfig?
+  proposalTemplates       ProposalTemplate[]
+  proposalDocuments       ProposalDocument[]
+  proposalActivities      ProposalActivity[]
+  proposalSettings        ProposalSettings?
+  momTemplates            MomTemplate[]
+  momDocuments            MomDocument[]
+  momRevisions            MomRevision[]
+  momHistoryEvents        MomHistoryEvent[]
   organizationSetting     OrganizationSetting?
   userPreferences         UserPreference[]
   exchangeRates           ExchangeRate[]
@@ -261,23 +268,23 @@ model User {
   attendanceMonthLocksSubmitted  AttendanceMonthLock[]     @relation("AttendanceMonthLockSubmitter")
   attendanceMonthLocksDecided    AttendanceMonthLock[]     @relation("AttendanceMonthLockDecider")
   notifications                  Notification[]
-  passwordResetTokens PasswordResetToken[]
-  approvalsRequested  Approval[]              @relation("ApprovalRequester")
-  approvalsDecided    Approval[]              @relation("ApprovalDecider")
-  payrollPeriodsFinalized   PayrollPeriod[]         @relation("PayrollPeriodFinalizer")
-  payrollRunsCreated        PayrollRun[]            @relation("PayrollRunCreator")
-  payrollRunsApproved       PayrollRun[]            @relation("PayrollRunApprover")
-  loanSkipRequestsRequested LoanSkipRequest[]       @relation("LoanSkipRequester")
-  loanSkipRequestsApproved  LoanSkipRequest[]       @relation("LoanSkipApprover")
-  bonusesApproved           EmployeeBonus[]         @relation("BonusApprover")
-  paymentBatchesGenerated   PaymentBatch[]          @relation("PaymentBatchGenerator")
-  payrollPeriodsReopened    PayrollPeriod[]         @relation("PayrollPeriodReopener")
-  loansApproved             EmployeeLoan[]          @relation("LoanApprover")
-  loansHrReviewed           EmployeeLoan[]          @relation("LoanHrReviewer")
-  loanPrepaymentsRequested  LoanPrepayment[]        @relation("LoanPrepaymentRequester")
-  loanPrepaymentsDecided    LoanPrepayment[]        @relation("LoanPrepaymentDecider")
-  taxDeclarationsVerified   EmployeeTaxDeclaration[] @relation("TaxDeclarationVerifier")
-  preference                UserPreference?
+  passwordResetTokens            PasswordResetToken[]
+  approvalsRequested             Approval[]                @relation("ApprovalRequester")
+  approvalsDecided               Approval[]                @relation("ApprovalDecider")
+  payrollPeriodsFinalized        PayrollPeriod[]           @relation("PayrollPeriodFinalizer")
+  payrollRunsCreated             PayrollRun[]              @relation("PayrollRunCreator")
+  payrollRunsApproved            PayrollRun[]              @relation("PayrollRunApprover")
+  loanSkipRequestsRequested      LoanSkipRequest[]         @relation("LoanSkipRequester")
+  loanSkipRequestsApproved       LoanSkipRequest[]         @relation("LoanSkipApprover")
+  bonusesApproved                EmployeeBonus[]           @relation("BonusApprover")
+  paymentBatchesGenerated        PaymentBatch[]            @relation("PaymentBatchGenerator")
+  payrollPeriodsReopened         PayrollPeriod[]           @relation("PayrollPeriodReopener")
+  loansApproved                  EmployeeLoan[]            @relation("LoanApprover")
+  loansHrReviewed                EmployeeLoan[]            @relation("LoanHrReviewer")
+  loanPrepaymentsRequested       LoanPrepayment[]          @relation("LoanPrepaymentRequester")
+  loanPrepaymentsDecided         LoanPrepayment[]          @relation("LoanPrepaymentDecider")
+  taxDeclarationsVerified        EmployeeTaxDeclaration[]  @relation("TaxDeclarationVerifier")
+  preference                     UserPreference?
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -410,9 +417,9 @@ model Department {
 /// description — e.g. ME, SW, EC), (2) the project code format generator
 /// (prefix/category/year/sequence), (3) the task running-number format
 /// generator. This mirrors the legacy ERP's "Projects Master Lists" screen
-/// (3 tabs). Full project records (department/manager/status/dates) are a
-/// separate, not-yet-built module — see Docs/PROJECTS_MASTER.md.
-model Project {
+/// (3 tabs). The full project registry (department/manager/status/dates)
+/// is the separate `Project` model below — see Docs/PROJECTS_MODULE_SPEC.md.
+model ProjectCategoryMaster {
   id             Int       @id @default(autoincrement())
   organizationId Int       @map("organization_id")
   code           String    @map("code")
@@ -427,7 +434,7 @@ model Project {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, code])
-  @@map("projects")
+  @@map("project_category_masters")
   @@schema("projects")
 }
 
@@ -506,14 +513,14 @@ model Team {
   weeklyOffRules        WeeklyOffRule[]
   employeeAddresses     EmployeeAddress[]
   employeeGovernmentIds EmployeeGovernmentId[]
+  crmAccounts           Account[]
+  crmContacts           Contact[]
+  crmLeads              Lead[]
+  crmOpportunities      Opportunity[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([departmentId])
-    crmAccounts   Account[]
-  crmContacts   Contact[]
-  crmLeads      Lead[]
-  crmOpportunities Opportunity[]
   @@map("teams")
   @@schema("platform")
 }
@@ -948,11 +955,11 @@ model Employee {
   esiContributions      EsiContribution[]
   taxDeclarations       EmployeeTaxDeclaration[]
 
-  handledProjects         ProjectRecord[]            @relation("ProjectClientHandler")
-  projectMemberships      ProjectMember[]
-  assignedProjectTasks    ProjectTask[]
-  projectTimeEntries      ProjectTimeEntry[]
-  projectPointsLedger     ProjectPointsLedger[]
+  handledProjects      Project[]             @relation("ProjectClientHandler")
+  projectMemberships   ProjectMember[]
+  assignedProjectTasks ProjectTask[]
+  projectTimeEntries   ProjectTimeEntry[]
+  projectPointsLedger  ProjectPointsLedger[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -3218,6 +3225,11 @@ model CompanyDetail {
   logoDataUri    String?   @map("logo_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -3246,10 +3258,10 @@ model CompanyDetail {
 /// from the other side (`Lead.linkedAccountId`, see `leads` below) — no
 /// separate `sourceLeadId` column needed.
 model Account {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  teamId         Int?      @map("team_id")
-  name           String
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  teamId             Int?      @map("team_id")
+  name               String
   /// Prospect|Customer|Partner|Vendor|Reseller — free string, same
   /// no-DB-enum convention as every other status/type field in this schema.
   accountType        String?   @map("account_type")
@@ -3298,25 +3310,25 @@ model Account {
   statusInfoType     String?   @map("status_info_type")
   statusUpdatedBy    Int?      @map("status_updated_by")
   statusUpdatedAt    DateTime? @map("status_updated_at") @db.Timestamptz(6)
-  customFields   Json?     @map("custom_fields")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  customFields       Json?     @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  team         Team?        @relation(fields: [teamId], references: [id])
-  contacts     Contact[]
-  leads        Lead[]
-  opportunities Opportunity[]
-  quotations   Quotation[]
-  notes        CrmNote[]
+  organization       Organization          @relation(fields: [organizationId], references: [id])
+  team               Team?                 @relation(fields: [teamId], references: [id])
+  contacts           Contact[]
+  leads              Lead[]
+  opportunities      Opportunity[]
+  quotations         Quotation[]
+  notes              CrmNote[]
   coldCallingEntries CrmColdCallingEntry[]
   financePaymentsReceived FinancePaymentReceived[]
 
-  projectRecords     ProjectRecord[]
+  projects Project[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3351,12 +3363,12 @@ model Contact {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  team         Team?        @relation(fields: [teamId], references: [id])
-  account      Account      @relation(fields: [accountId], references: [id])
-  leads        Lead[]
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  team          Team?         @relation(fields: [teamId], references: [id])
+  account       Account       @relation(fields: [accountId], references: [id])
+  leads         Lead[]
   opportunities Opportunity[]
-  quotations   Quotation[]
+  quotations    Quotation[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3380,67 +3392,67 @@ model Contact {
 /// `meetingDate` (both describe the same meeting date); `emailOptOut` is
 /// typed as a real `Boolean` here instead of legacy's free-text "Yes"/"No".
 model Lead {
-  id                 Int       @id @default(autoincrement())
-  organizationId     Int       @map("organization_id")
-  teamId             Int?      @map("team_id")
-  companyName        String    @map("company_name")
-  domain             String?
-  hq                 String?
-  industry           String?
-  annualRevenue      String?   @map("annual_revenue")
-  numberOfEmployees  String?   @map("number_of_employees")
-  prospectName       String    @map("prospect_name")
-  title              String?
-  contactNumber      String?   @map("contact_number")
-  mobile             String?
-  email              String?
-  fax                String?
-  skypeId            String?   @map("skype_id")
-  meetingStatus      String?   @map("meeting_status")
-  meetingScheduled   String?   @map("meeting_scheduled")
-  meetingDate        DateTime? @map("meeting_date")
-  leadStatus         String    @default("NEW") @map("lead_status")
-  priority           String?
-  assignedTo         String?   @map("assigned_to")
-  leadSource         String?   @map("lead_source")
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  teamId              Int?      @map("team_id")
+  companyName         String    @map("company_name")
+  domain              String?
+  hq                  String?
+  industry            String?
+  annualRevenue       String?   @map("annual_revenue")
+  numberOfEmployees   String?   @map("number_of_employees")
+  prospectName        String    @map("prospect_name")
+  title               String?
+  contactNumber       String?   @map("contact_number")
+  mobile              String?
+  email               String?
+  fax                 String?
+  skypeId             String?   @map("skype_id")
+  meetingStatus       String?   @map("meeting_status")
+  meetingScheduled    String?   @map("meeting_scheduled")
+  meetingDate         DateTime? @map("meeting_date")
+  leadStatus          String    @default("NEW") @map("lead_status")
+  priority            String?
+  assignedTo          String?   @map("assigned_to")
+  leadSource          String?   @map("lead_source")
   /// Hot|Warm|Cold (legacy lead temperature).
-  rating             String?
+  rating              String?
   /// Free-text "Month" field (legacy lead row `month`).
-  month              String?
-  emailOptOut        Boolean   @default(false) @map("email_opt_out")
-  dataProcessingBasis String?  @map("data_processing_basis")
-  addressStreet      String?   @map("address_street")
-  city               String?
-  state              String?
-  postalCode         String?   @map("postal_code")
-  country            String?
-  tags               String?
-  areaOfInterest     String?   @map("area_of_interest")
-  comments           String?
-  linkedAccountId    Int?      @map("linked_account_id")
-  linkedContactId    Int?      @map("linked_contact_id")
+  month               String?
+  emailOptOut         Boolean   @default(false) @map("email_opt_out")
+  dataProcessingBasis String?   @map("data_processing_basis")
+  addressStreet       String?   @map("address_street")
+  city                String?
+  state               String?
+  postalCode          String?   @map("postal_code")
+  country             String?
+  tags                String?
+  areaOfInterest      String?   @map("area_of_interest")
+  comments            String?
+  linkedAccountId     Int?      @map("linked_account_id")
+  linkedContactId     Int?      @map("linked_contact_id")
   /// Set once Convert's "Create a Deal" step creates an Opportunity — see
   /// `Opportunity.leadId` for the inverse (the Opportunity's own record of
   /// which Lead it was sourced from). Both sides are written together, in
   /// the same transaction, by `LeadsRepository.convert()` — never two
   /// independent writers, so they cannot drift apart the way legacy's two
   /// Firebase paths theoretically could.
-  linkedOpportunityId Int?     @map("linked_opportunity_id")
-  customFields       Json?     @map("custom_fields")
-  isActive           Boolean   @default(true) @map("is_active")
-  createdBy          Int?      @map("created_by")
-  updatedBy          Int?      @map("updated_by")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  deletedAt          DateTime? @map("deleted_at")
+  linkedOpportunityId Int?      @map("linked_opportunity_id")
+  customFields        Json?     @map("custom_fields")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
 
-  organization      Organization @relation(fields: [organizationId], references: [id])
-  team               Team?        @relation(fields: [teamId], references: [id])
-  linkedAccount       Account?     @relation(fields: [linkedAccountId], references: [id])
-  linkedContact       Contact?     @relation(fields: [linkedContactId], references: [id])
-  linkedOpportunity   Opportunity? @relation("LeadLinkedOpportunity", fields: [linkedOpportunityId], references: [id])
+  organization         Organization  @relation(fields: [organizationId], references: [id])
+  team                 Team?         @relation(fields: [teamId], references: [id])
+  linkedAccount        Account?      @relation(fields: [linkedAccountId], references: [id])
+  linkedContact        Contact?      @relation(fields: [linkedContactId], references: [id])
+  linkedOpportunity    Opportunity?  @relation("LeadLinkedOpportunity", fields: [linkedOpportunityId], references: [id])
   sourcedOpportunities Opportunity[] @relation("OpportunitySourceLead")
-  leadNotes           CrmLeadNote[]
+  leadNotes            CrmLeadNote[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3488,8 +3500,8 @@ model PipelineStage {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  opportunities Opportunity[]
+  organization     Organization              @relation(fields: [organizationId], references: [id])
+  opportunities    Opportunity[]
   stageHistoryFrom OpportunityStageHistory[] @relation("StageHistoryFrom")
   stageHistoryTo   OpportunityStageHistory[] @relation("StageHistoryTo")
 
@@ -3537,7 +3549,7 @@ model Opportunity {
   ownerName          String    @map("owner_name")
   stageId            Int       @map("stage_id")
   stageEnteredAt     DateTime  @default(now()) @map("stage_entered_at")
-  estimatedValue     Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_value")
+  estimatedValue     Decimal   @default(0) @map("estimated_value") @db.Decimal(14, 2)
   currency           String?   @default("INR")
   expectedCloseDate  DateTime? @map("expected_close_date")
   probability        Int?
@@ -3562,7 +3574,7 @@ model Opportunity {
   stuckReasonOther   String?   @map("stuck_reason_other")
   contactRole        String?   @map("contact_role")
   campaignSource     String?   @map("campaign_source")
-  closingAmount      Decimal?  @db.Decimal(14, 2) @map("closing_amount")
+  closingAmount      Decimal?  @map("closing_amount") @db.Decimal(14, 2)
   closingDate        DateTime? @map("closing_date")
   wonAt              DateTime? @map("won_at")
   customFields       Json?     @map("custom_fields")
@@ -3573,16 +3585,16 @@ model Opportunity {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  team         Team?         @relation(fields: [teamId], references: [id])
-  account      Account       @relation(fields: [accountId], references: [id])
-  contact      Contact?      @relation(fields: [contactId], references: [id])
-  lead         Lead?         @relation("OpportunitySourceLead", fields: [leadId], references: [id])
-  stage        PipelineStage @relation(fields: [stageId], references: [id])
-  convertedFromLeads Lead[]  @relation("LeadLinkedOpportunity")
-  stageHistory OpportunityStageHistory[]
-  lineItems    OpportunityProduct[]
-  quotations   Quotation[]
+  organization       Organization              @relation(fields: [organizationId], references: [id])
+  team               Team?                     @relation(fields: [teamId], references: [id])
+  account            Account                   @relation(fields: [accountId], references: [id])
+  contact            Contact?                  @relation(fields: [contactId], references: [id])
+  lead               Lead?                     @relation("OpportunitySourceLead", fields: [leadId], references: [id])
+  stage              PipelineStage             @relation(fields: [stageId], references: [id])
+  convertedFromLeads Lead[]                    @relation("LeadLinkedOpportunity")
+  stageHistory       OpportunityStageHistory[]
+  lineItems          OpportunityProduct[]
+  quotations         Quotation[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3612,8 +3624,8 @@ model OpportunityStageHistory {
   changedAt      DateTime @default(now()) @map("changed_at")
   remarks        String?
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  opportunity  Opportunity   @relation(fields: [opportunityId], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  opportunity  Opportunity    @relation(fields: [opportunityId], references: [id])
   fromStage    PipelineStage? @relation("StageHistoryFrom", fields: [fromStageId], references: [id])
   toStage      PipelineStage  @relation("StageHistoryTo", fields: [toStageId], references: [id])
 
@@ -3651,10 +3663,10 @@ model Product {
   /// an intentional business-integrity safeguard, not a legacy behavior:
   /// legacy's own form has no server-side floor at all (only an HTML
   /// `min={0}` that doesn't stop a typed negative number).
-  unitPrice      Decimal   @default(0) @db.Decimal(14, 2) @map("unit_price")
+  unitPrice      Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
   /// No upper bound — legacy has none either (approved decision D2
   /// explicitly declines to add one without further approval).
-  taxPercent     Decimal?  @db.Decimal(5, 2) @map("tax_percent")
+  taxPercent     Decimal?  @map("tax_percent") @db.Decimal(5, 2)
   description    String?
   isActive       Boolean   @default(true) @map("is_active")
   customFields   Json?     @map("custom_fields")
@@ -3664,8 +3676,8 @@ model Product {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization         @relation(fields: [organizationId], references: [id])
-  lineItems    OpportunityProduct[]
+  organization       Organization         @relation(fields: [organizationId], references: [id])
+  lineItems          OpportunityProduct[]
   quotationLineItems QuotationLineItem[]
 
   @@index([organizationId])
@@ -3699,9 +3711,9 @@ model OpportunityProduct {
   productId       Int       @map("product_id")
   productName     String    @map("product_name")
   quantity        Decimal   @db.Decimal(14, 2)
-  unitPrice       Decimal   @db.Decimal(14, 2) @map("unit_price")
-  discountPercent Decimal?  @db.Decimal(5, 2) @map("discount_percent")
-  taxPercent      Decimal?  @db.Decimal(5, 2) @map("tax_percent")
+  unitPrice       Decimal   @map("unit_price") @db.Decimal(14, 2)
+  discountPercent Decimal?  @map("discount_percent") @db.Decimal(5, 2)
+  taxPercent      Decimal?  @map("tax_percent") @db.Decimal(5, 2)
   total           Decimal   @db.Decimal(14, 2)
   isActive        Boolean   @default(true) @map("is_active")
   createdBy       Int?      @map("created_by")
@@ -3793,10 +3805,10 @@ model Quotation {
   deliveryTerms      String?   @map("delivery_terms")
   notes              String?
   subtotal           Decimal   @default(0) @db.Decimal(14, 2)
-  totalDiscount      Decimal   @default(0) @db.Decimal(14, 2) @map("total_discount")
-  totalTax           Decimal   @default(0) @db.Decimal(14, 2) @map("total_tax")
+  totalDiscount      Decimal   @default(0) @map("total_discount") @db.Decimal(14, 2)
+  totalTax           Decimal   @default(0) @map("total_tax") @db.Decimal(14, 2)
   adjustment         Decimal   @default(0) @db.Decimal(14, 2)
-  grandTotal         Decimal   @default(0) @db.Decimal(14, 2) @map("grand_total")
+  grandTotal         Decimal   @default(0) @map("grand_total") @db.Decimal(14, 2)
   isActive           Boolean   @default(true) @map("is_active")
   createdBy          Int?      @map("created_by")
   updatedBy          Int?      @map("updated_by")
@@ -3847,12 +3859,12 @@ model QuotationLineItem {
   description     String
   uom             String?
   quantity        Decimal  @db.Decimal(14, 2)
-  listPrice       Decimal  @db.Decimal(14, 2) @map("list_price")
-  unitPrice       Decimal  @db.Decimal(14, 2) @map("unit_price")
-  discountPercent Decimal? @db.Decimal(5, 2) @map("discount_percent")
-  discountAmount  Decimal? @db.Decimal(14, 2) @map("discount_amount")
-  taxPercent      Decimal? @db.Decimal(5, 2) @map("tax_percent")
-  taxAmount       Decimal? @db.Decimal(14, 2) @map("tax_amount")
+  listPrice       Decimal  @map("list_price") @db.Decimal(14, 2)
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(14, 2)
+  discountPercent Decimal? @map("discount_percent") @db.Decimal(5, 2)
+  discountAmount  Decimal? @map("discount_amount") @db.Decimal(14, 2)
+  taxPercent      Decimal? @map("tax_percent") @db.Decimal(5, 2)
+  taxAmount       Decimal? @map("tax_amount") @db.Decimal(14, 2)
   amount          Decimal  @db.Decimal(14, 2)
   /// Preserves the submitted array order across a replace-all save —
   /// legacy's own array index serves this role in Firebase.
@@ -3926,7 +3938,7 @@ model CrmMeeting {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization            @relation(fields: [organizationId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
   reschedules  CrmMeetingReschedule[]
 
   @@index([organizationId, relatedType, relatedId])
@@ -3981,7 +3993,7 @@ model CrmFollowUp {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization              @relation(fields: [organizationId], references: [id])
+  organization Organization            @relation(fields: [organizationId], references: [id])
   reschedules  CrmFollowUpReschedule[]
 
   @@index([organizationId, relatedType, relatedId])
@@ -4026,6 +4038,11 @@ model AuthorizedSignatory {
   designation    String?
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -4129,6 +4146,8 @@ model Salesperson {
   commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
   customFields      Json      @default("{}") @map("custom_fields")
   isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -4273,6 +4292,7 @@ model CrmMiningRow {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  @@index([organizationId])
   @@map("crm_mining_rows")
   @@schema("crm")
 }
@@ -4294,6 +4314,8 @@ model SealSignature {
   imageDataUri   String    @map("image_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -4448,15 +4470,15 @@ model FinanceMasterListItem {
 /// An unrecognised Excel header auto-creates one of these (idempotent on
 /// normalised label); values live in each row's `customFields` JSON.
 model CrmCustomFieldDef {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
   /// leads|accountsMining|accounts|meetings|coldCalling
   module         String
   key            String
   label          String
-  sourceHeader   String?   @map("source_header")
-  createdBy      Int?      @map("created_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  sourceHeader   String?  @map("source_header")
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -4521,14 +4543,17 @@ model Supplier {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  rfqSuppliers   ScmRfqSupplier[]
-  quotations     ScmSupplierQuotation[]
-  purchaseOrders ScmPurchaseOrder[]
-  goodsReceipts  ScmGoodsReceipt[]
-  bills          ScmSupplierBill[]
-  payments       ScmSupplierPayment[]
-  documents      ScmSupplierDocument[]
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  rfqSuppliers    ScmRfqSupplier[]
+  quotations      ScmSupplierQuotation[]
+  purchaseOrders  ScmPurchaseOrder[]
+  goodsReceipts   ScmGoodsReceipt[]
+  bills           ScmSupplierBill[]
+  payments        ScmSupplierPayment[]
+  documents       ScmSupplierDocument[]
+  /// Back-relation only (no column on suppliers) — Projects expenses that
+  /// reference this supplier.
+  projectExpenses ProjectExpense[]
 
   @@unique([organizationId, supplierCode])
   @@index([organizationId, status])
@@ -4590,65 +4615,65 @@ model ScmNumberSequence {
 /// cost, batch/serial tracking). Replaces the legacy reconciliation of the
 /// Sales module's dual-shape product records.
 model ScmProduct {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  productCode    String    @map("product_code")
-  name           String
-  category       String?
-  uom            String    @default("PCS")
-  hsn            String?
-  unitPrice      Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
-  costPrice      Decimal   @default(0) @map("cost_price") @db.Decimal(14, 2)
-  reorderLevel   Decimal?  @map("reorder_level") @db.Decimal(14, 3)
-  minimumStock   Decimal?  @map("minimum_stock") @db.Decimal(14, 3)
-  maximumStock   Decimal?  @map("maximum_stock") @db.Decimal(14, 3)
-  batchTracked   Boolean   @default(false) @map("batch_tracked")
-  serialTracked  Boolean   @default(false) @map("serial_tracked")
-  description    String?
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  productCode         String    @map("product_code")
+  name                String
+  category            String?
+  uom                 String    @default("PCS")
+  hsn                 String?
+  unitPrice           Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
+  costPrice           Decimal   @default(0) @map("cost_price") @db.Decimal(14, 2)
+  reorderLevel        Decimal?  @map("reorder_level") @db.Decimal(14, 3)
+  minimumStock        Decimal?  @map("minimum_stock") @db.Decimal(14, 3)
+  maximumStock        Decimal?  @map("maximum_stock") @db.Decimal(14, 3)
+  batchTracked        Boolean   @default(false) @map("batch_tracked")
+  serialTracked       Boolean   @default(false) @map("serial_tracked")
+  description         String?
   /// Barcode value override; when null the barcode screens derive a Code128 value from productCode.
-  barcode        String?
+  barcode             String?
   /// When the product barcode was first generated (printed on the label).
-  barcodeCreatedAt DateTime? @map("barcode_created_at")
+  barcodeCreatedAt    DateTime? @map("barcode_created_at")
   /// Warehouse picked for this SKU; its default bin must belong to it.
-  warehouseId    Int?      @map("warehouse_id")
+  warehouseId         Int?      @map("warehouse_id")
   /// Manually assigned default bin location for this SKU.
-  binLocationId  Int?      @map("bin_location_id")
+  binLocationId       Int?      @map("bin_location_id")
   /// Product-level expiry, only read when no batch expiry data exists.
-  expiryDate     DateTime? @map("expiry_date") @db.Date
+  expiryDate          DateTime? @map("expiry_date") @db.Date
   /// Explicit "does not expire" flag, distinct from a never-set date.
-  expiryNotApplicable Boolean @default(false) @map("expiry_not_applicable")
-  isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  expiryNotApplicable Boolean   @default(false) @map("expiry_not_applicable")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
 
-  organization Organization          @relation(fields: [organizationId], references: [id])
-  warehouse    ScmWarehouse?         @relation("ProductWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
-  binLocation  ScmWarehouseLocation? @relation("ProductBinLocation", fields: [binLocationId], references: [id], onDelete: SetNull)
-  balances     ScmStockBalance[]
-  ledger       ScmStockLedgerEntry[]
-  batches      ScmStockBatch[]
-  serials      ScmSerialNumber[]
-  reservations ScmStockReservation[]
-  transfers    ScmStockTransfer[]
-  adjustments  ScmStockAdjustment[]
-  requisitionItems ScmPurchaseRequisitionItem[]
-  rfqItems         ScmRfqItem[]
-  quotationItems   ScmSupplierQuotationItem[]
-  purchaseOrderItems ScmPurchaseOrderItem[]
-  goodsReceiptItems  ScmGoodsReceiptItem[]
-  salesOrderItems    ScmSalesOrderItem[]
-  fulfillmentItems   ScmFulfillmentItem[]
-  pickingItems       ScmPickingItem[]
-  packingPackageItems ScmPackingPackageItem[]
-  returnItems              ScmReturnItem[]
-  qualityInspectionItems   ScmQualityInspectionItem[]
-  quarantineRecords        ScmQuarantineRecord[]
-  locationStock      ScmLocationStock[]
-  putawayItems       ScmPutawayItem[]
-  movementItems      ScmWarehouseMovementItem[]
+  organization           Organization                 @relation(fields: [organizationId], references: [id])
+  warehouse              ScmWarehouse?                @relation("ProductWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  binLocation            ScmWarehouseLocation?        @relation("ProductBinLocation", fields: [binLocationId], references: [id], onDelete: SetNull)
+  balances               ScmStockBalance[]
+  ledger                 ScmStockLedgerEntry[]
+  batches                ScmStockBatch[]
+  serials                ScmSerialNumber[]
+  reservations           ScmStockReservation[]
+  transfers              ScmStockTransfer[]
+  adjustments            ScmStockAdjustment[]
+  requisitionItems       ScmPurchaseRequisitionItem[]
+  rfqItems               ScmRfqItem[]
+  quotationItems         ScmSupplierQuotationItem[]
+  purchaseOrderItems     ScmPurchaseOrderItem[]
+  goodsReceiptItems      ScmGoodsReceiptItem[]
+  salesOrderItems        ScmSalesOrderItem[]
+  fulfillmentItems       ScmFulfillmentItem[]
+  pickingItems           ScmPickingItem[]
+  packingPackageItems    ScmPackingPackageItem[]
+  returnItems            ScmReturnItem[]
+  qualityInspectionItems ScmQualityInspectionItem[]
+  quarantineRecords      ScmQuarantineRecord[]
+  locationStock          ScmLocationStock[]
+  putawayItems           ScmPutawayItem[]
+  movementItems          ScmWarehouseMovementItem[]
 
   @@unique([organizationId, productCode])
   @@unique([organizationId, barcode])
@@ -4683,30 +4708,30 @@ model ScmWarehouse {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  organization Organization           @relation(fields: [organizationId], references: [id])
-  locations    ScmWarehouseLocation[]
-  products     ScmProduct[]           @relation("ProductWarehouse")
-  balances     ScmStockBalance[]
-  ledger       ScmStockLedgerEntry[]
-  batches      ScmStockBatch[]
-  serials      ScmSerialNumber[]
-  reservations ScmStockReservation[]
-  adjustments  ScmStockAdjustment[]
-  transfersOut ScmStockTransfer[]     @relation("TransferSource")
-  transfersIn  ScmStockTransfer[]     @relation("TransferDestination")
-  requisitions   ScmPurchaseRequisition[]
-  rfqs           ScmRfq[]
-  purchaseOrders ScmPurchaseOrder[]
-  goodsReceipts  ScmGoodsReceipt[]
-  fulfillments   ScmFulfillment[]
-  pickings       ScmPicking[]
-  packings       ScmPacking[]
-  shipments      ScmShipment[]
-  returns            ScmReturn[]
-  quarantineRecords  ScmQuarantineRecord[]
-  locationStock   ScmLocationStock[]
-  putaways        ScmPutaway[]
-  movements       ScmWarehouseMovement[]
+  organization      Organization             @relation(fields: [organizationId], references: [id])
+  locations         ScmWarehouseLocation[]
+  products          ScmProduct[]             @relation("ProductWarehouse")
+  balances          ScmStockBalance[]
+  ledger            ScmStockLedgerEntry[]
+  batches           ScmStockBatch[]
+  serials           ScmSerialNumber[]
+  reservations      ScmStockReservation[]
+  adjustments       ScmStockAdjustment[]
+  transfersOut      ScmStockTransfer[]       @relation("TransferSource")
+  transfersIn       ScmStockTransfer[]       @relation("TransferDestination")
+  requisitions      ScmPurchaseRequisition[]
+  rfqs              ScmRfq[]
+  purchaseOrders    ScmPurchaseOrder[]
+  goodsReceipts     ScmGoodsReceipt[]
+  fulfillments      ScmFulfillment[]
+  pickings          ScmPicking[]
+  packings          ScmPacking[]
+  shipments         ScmShipment[]
+  returns           ScmReturn[]
+  quarantineRecords ScmQuarantineRecord[]
+  locationStock     ScmLocationStock[]
+  putaways          ScmPutaway[]
+  movements         ScmWarehouseMovement[]
 
   @@unique([organizationId, code])
   @@map("warehouses")
@@ -4737,11 +4762,11 @@ model ScmWarehouseLocation {
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  organization Organization           @relation(fields: [organizationId], references: [id])
-  warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
-  parent       ScmWarehouseLocation?  @relation("LocationTree", fields: [parentLocationId], references: [id])
-  children     ScmWarehouseLocation[] @relation("LocationTree")
-  products     ScmProduct[]           @relation("ProductBinLocation")
+  organization  Organization           @relation(fields: [organizationId], references: [id])
+  warehouse     ScmWarehouse           @relation(fields: [warehouseId], references: [id])
+  parent        ScmWarehouseLocation?  @relation("LocationTree", fields: [parentLocationId], references: [id])
+  children      ScmWarehouseLocation[] @relation("LocationTree")
+  products      ScmProduct[]           @relation("ProductBinLocation")
   locationStock ScmLocationStock[]
 
   @@unique([warehouseId, locationCode])
@@ -4877,11 +4902,11 @@ model ScmStockReservation {
   releasedAt       DateTime? @map("released_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  product      ScmProduct   @relation(fields: [productId], references: [id])
-  warehouse    ScmWarehouse @relation(fields: [warehouseId], references: [id])
-  salesOrder  ScmSalesOrder?  @relation(fields: [salesOrderId], references: [id])
-  fulfillment ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  product      ScmProduct      @relation(fields: [productId], references: [id])
+  warehouse    ScmWarehouse    @relation(fields: [warehouseId], references: [id])
+  salesOrder   ScmSalesOrder?  @relation(fields: [salesOrderId], references: [id])
+  fulfillment  ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
 
   @@index([organizationId, status])
   @@map("stock_reservations")
@@ -4959,44 +4984,44 @@ model ScmStockAdjustment {
 // ---------------------------------------------------------------------------
 
 model ScmPurchaseRequisition {
-  id                      Int       @id @default(autoincrement())
-  organizationId          Int       @map("organization_id")
-  requisitionNumber       String    @map("requisition_number")
-  requestedBy             Int?      @map("requested_by")
-  requestedByName         String    @map("requested_by_name")
-  department              String?
-  requestDate             DateTime  @map("request_date") @db.Date
-  requiredDate            DateTime? @map("required_date") @db.Date
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  requisitionNumber      String    @map("requisition_number")
+  requestedBy            Int?      @map("requested_by")
+  requestedByName        String    @map("requested_by_name")
+  department             String?
+  requestDate            DateTime  @map("request_date") @db.Date
+  requiredDate           DateTime? @map("required_date") @db.Date
   /// Low | Normal | High | Urgent
-  priority                String    @default("Normal")
-  warehouseId             Int       @map("warehouse_id")
-  locationId              Int?      @map("location_id")
-  purpose                 String?
-  notes                   String?
-  subtotal                Decimal   @default(0) @db.Decimal(14, 2)
-  tax                     Decimal   @default(0) @db.Decimal(14, 2)
-  total                   Decimal   @default(0) @db.Decimal(14, 2)
+  priority               String    @default("Normal")
+  warehouseId            Int       @map("warehouse_id")
+  locationId             Int?      @map("location_id")
+  purpose                String?
+  notes                  String?
+  subtotal               Decimal   @default(0) @db.Decimal(14, 2)
+  tax                    Decimal   @default(0) @db.Decimal(14, 2)
+  total                  Decimal   @default(0) @db.Decimal(14, 2)
   /// DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED | CONVERTED
-  status                  String    @default("DRAFT")
-  approvedBy              Int?      @map("approved_by")
-  approvedByName          String?   @map("approved_by_name")
-  approvedAt              DateTime? @map("approved_at")
-  rejectionReason         String?   @map("rejection_reason")
-  sourceSalesOrderId      Int?      @map("source_sales_order_id")
-  sourceSalesOrderNumber  String?   @map("source_sales_order_number")
-  fulfillmentId           Int?      @map("fulfillment_id")
-  createdBy               Int?      @map("created_by")
-  updatedBy               Int?      @map("updated_by")
-  createdAt               DateTime  @default(now()) @map("created_at")
-  updatedAt               DateTime  @updatedAt @map("updated_at")
+  status                 String    @default("DRAFT")
+  approvedBy             Int?      @map("approved_by")
+  approvedByName         String?   @map("approved_by_name")
+  approvedAt             DateTime? @map("approved_at")
+  rejectionReason        String?   @map("rejection_reason")
+  sourceSalesOrderId     Int?      @map("source_sales_order_id")
+  sourceSalesOrderNumber String?   @map("source_sales_order_number")
+  fulfillmentId          Int?      @map("fulfillment_id")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  organization Organization                @relation(fields: [organizationId], references: [id])
-  warehouse    ScmWarehouse                @relation(fields: [warehouseId], references: [id])
-  items        ScmPurchaseRequisitionItem[]
-  rfqs         ScmRfq[]
-  purchaseOrders ScmPurchaseOrder[]
-  sourceSalesOrder ScmSalesOrder?  @relation(fields: [sourceSalesOrderId], references: [id])
-  fulfillment      ScmFulfillment? @relation(fields: [fulfillmentId], references: [id])
+  organization     Organization                 @relation(fields: [organizationId], references: [id])
+  warehouse        ScmWarehouse                 @relation(fields: [warehouseId], references: [id])
+  items            ScmPurchaseRequisitionItem[]
+  rfqs             ScmRfq[]
+  purchaseOrders   ScmPurchaseOrder[]
+  sourceSalesOrder ScmSalesOrder?               @relation(fields: [sourceSalesOrderId], references: [id])
+  fulfillment      ScmFulfillment?              @relation(fields: [fulfillmentId], references: [id])
 
   @@unique([organizationId, requisitionNumber])
   @@index([organizationId, status])
@@ -5005,17 +5030,17 @@ model ScmPurchaseRequisition {
 }
 
 model ScmPurchaseRequisitionItem {
-  id                 Int       @id @default(autoincrement())
-  requisitionId      Int       @map("requisition_id")
-  lineNo             Int       @map("line_no")
-  productId          Int       @map("product_id")
-  productNameSnapshot String   @map("product_name_snapshot")
-  uom                String
-  quantity           Decimal   @db.Decimal(14, 3)
-  estimatedUnitCost  Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_unit_cost")
-  estimatedTotal     Decimal   @default(0) @db.Decimal(14, 2) @map("estimated_total")
-  requiredDate       DateTime? @map("required_date") @db.Date
-  notes              String?
+  id                  Int       @id @default(autoincrement())
+  requisitionId       Int       @map("requisition_id")
+  lineNo              Int       @map("line_no")
+  productId           Int       @map("product_id")
+  productNameSnapshot String    @map("product_name_snapshot")
+  uom                 String
+  quantity            Decimal   @db.Decimal(14, 3)
+  estimatedUnitCost   Decimal   @default(0) @map("estimated_unit_cost") @db.Decimal(14, 2)
+  estimatedTotal      Decimal   @default(0) @map("estimated_total") @db.Decimal(14, 2)
+  requiredDate        DateTime? @map("required_date") @db.Date
+  notes               String?
 
   requisition ScmPurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
   product     ScmProduct             @relation(fields: [productId], references: [id])
@@ -5045,13 +5070,13 @@ model ScmRfq {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  organization Organization            @relation(fields: [organizationId], references: [id])
-  warehouse    ScmWarehouse            @relation(fields: [warehouseId], references: [id])
-  requisition  ScmPurchaseRequisition? @relation(fields: [requisitionId], references: [id])
-  items        ScmRfqItem[]
-  suppliers    ScmRfqSupplier[]
-  quotations   ScmSupplierQuotation[]
-  comparisons  ScmQuotationComparison[]
+  organization   Organization             @relation(fields: [organizationId], references: [id])
+  warehouse      ScmWarehouse             @relation(fields: [warehouseId], references: [id])
+  requisition    ScmPurchaseRequisition?  @relation(fields: [requisitionId], references: [id])
+  items          ScmRfqItem[]
+  suppliers      ScmRfqSupplier[]
+  quotations     ScmSupplierQuotation[]
+  comparisons    ScmQuotationComparison[]
   purchaseOrders ScmPurchaseOrder[]
 
   @@unique([organizationId, rfqNumber])
@@ -5120,9 +5145,9 @@ model ScmSupplierQuotation {
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
-  organization   Organization              @relation(fields: [organizationId], references: [id])
-  rfq            ScmRfq                    @relation(fields: [rfqId], references: [id])
-  supplier       Supplier                  @relation(fields: [supplierId], references: [id])
+  organization   Organization               @relation(fields: [organizationId], references: [id])
+  rfq            ScmRfq                     @relation(fields: [rfqId], references: [id])
+  supplier       Supplier                   @relation(fields: [supplierId], references: [id])
   items          ScmSupplierQuotationItem[]
   purchaseOrders ScmPurchaseOrder[]
 
@@ -5140,10 +5165,10 @@ model ScmSupplierQuotationItem {
   productNameSnapshot  String    @map("product_name_snapshot")
   uom                  String
   quantity             Decimal   @db.Decimal(14, 3)
-  unitPrice            Decimal   @default(0) @db.Decimal(14, 2) @map("unit_price")
+  unitPrice            Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
   discount             Decimal   @default(0) @db.Decimal(14, 2)
-  taxRate              Decimal   @default(0) @db.Decimal(5, 2) @map("tax_rate")
-  taxAmount            Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  taxRate              Decimal   @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount            Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
   total                Decimal   @default(0) @db.Decimal(14, 2)
   promisedDeliveryDate DateTime? @map("promised_delivery_date") @db.Date
   notes                String?
@@ -5181,47 +5206,47 @@ model ScmQuotationComparison {
 }
 
 model ScmPurchaseOrder {
-  id                  Int       @id @default(autoincrement())
-  organizationId      Int       @map("organization_id")
-  poNumber            String    @map("po_number")
-  supplierId          Int       @map("supplier_id")
-  vendorNameSnapshot  String    @map("vendor_name_snapshot")
-  vendorGstinSnapshot String?   @map("vendor_gstin_snapshot")
-  rfqId               Int?      @map("rfq_id")
-  quotationId         Int?      @map("quotation_id")
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  poNumber             String    @map("po_number")
+  supplierId           Int       @map("supplier_id")
+  vendorNameSnapshot   String    @map("vendor_name_snapshot")
+  vendorGstinSnapshot  String?   @map("vendor_gstin_snapshot")
+  rfqId                Int?      @map("rfq_id")
+  quotationId          Int?      @map("quotation_id")
   /// Material Requisition this PO was raised from (PO form "Link Material Requisition").
   /// `requisitionNumber` is a snapshot so the link still displays if the MR is deleted.
-  requisitionId       Int?      @map("requisition_id")
-  requisitionNumber   String?   @map("requisition_number")
-  poDate              DateTime  @map("po_date") @db.Date
+  requisitionId        Int?      @map("requisition_id")
+  requisitionNumber    String?   @map("requisition_number")
+  poDate               DateTime  @map("po_date") @db.Date
   expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
-  warehouseId         Int       @map("warehouse_id")
-  deliveryLocation    String?   @map("delivery_location")
-  paymentTerms        String?   @map("payment_terms")
-  currency            String    @default("INR")
-  freight             Decimal   @default(0) @db.Decimal(14, 2)
-  discount            Decimal   @default(0) @db.Decimal(14, 2)
-  subtotal            Decimal   @default(0) @db.Decimal(14, 2)
-  taxAmount           Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
-  total               Decimal   @default(0) @db.Decimal(14, 2)
-  notes               String?
+  warehouseId          Int       @map("warehouse_id")
+  deliveryLocation     String?   @map("delivery_location")
+  paymentTerms         String?   @map("payment_terms")
+  currency             String    @default("INR")
+  freight              Decimal   @default(0) @db.Decimal(14, 2)
+  discount             Decimal   @default(0) @db.Decimal(14, 2)
+  subtotal             Decimal   @default(0) @db.Decimal(14, 2)
+  taxAmount            Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  total                Decimal   @default(0) @db.Decimal(14, 2)
+  notes                String?
   /// DRAFT | PENDING_APPROVAL | APPROVED | SENT | PARTIALLY_RECEIVED | RECEIVED | CANCELLED | CLOSED
-  status              String    @default("DRAFT")
-  approvedBy          Int?      @map("approved_by")
-  approvedByName      String?   @map("approved_by_name")
-  approvedAt          DateTime? @map("approved_at")
+  status               String    @default("DRAFT")
+  approvedBy           Int?      @map("approved_by")
+  approvedByName       String?   @map("approved_by_name")
+  approvedAt           DateTime? @map("approved_at")
   /// True once StockBalance.incoming was raised for this PO's unreceived qty.
-  incomingApplied     Boolean   @default(false) @map("incoming_applied")
-  createdBy           Int?      @map("created_by")
-  updatedBy           Int?      @map("updated_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  incomingApplied      Boolean   @default(false) @map("incoming_applied")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  organization Organization           @relation(fields: [organizationId], references: [id])
-  supplier     Supplier               @relation(fields: [supplierId], references: [id])
-  warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
-  rfq          ScmRfq?                @relation(fields: [rfqId], references: [id])
-  quotation    ScmSupplierQuotation?  @relation(fields: [quotationId], references: [id])
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  supplier     Supplier                @relation(fields: [supplierId], references: [id])
+  warehouse    ScmWarehouse            @relation(fields: [warehouseId], references: [id])
+  rfq          ScmRfq?                 @relation(fields: [rfqId], references: [id])
+  quotation    ScmSupplierQuotation?   @relation(fields: [quotationId], references: [id])
   requisition  ScmPurchaseRequisition? @relation(fields: [requisitionId], references: [id], onDelete: SetNull)
   items        ScmPurchaseOrderItem[]
   receipts     ScmGoodsReceipt[]
@@ -5242,15 +5267,15 @@ model ScmPurchaseOrderItem {
   productNameSnapshot String  @map("product_name_snapshot")
   uom                 String
   quantity            Decimal @db.Decimal(14, 3)
-  receivedQuantity    Decimal @default(0) @db.Decimal(14, 3) @map("received_quantity")
-  unitPrice           Decimal @default(0) @db.Decimal(14, 2) @map("unit_price")
+  receivedQuantity    Decimal @default(0) @map("received_quantity") @db.Decimal(14, 3)
+  unitPrice           Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
   discount            Decimal @default(0) @db.Decimal(14, 2)
-  taxRate             Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate")
-  taxAmount           Decimal @default(0) @db.Decimal(14, 2) @map("tax_amount")
+  taxRate             Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount           Decimal @default(0) @map("tax_amount") @db.Decimal(14, 2)
   total               Decimal @default(0) @db.Decimal(14, 2)
 
-  purchaseOrder ScmPurchaseOrder    @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       ScmProduct          @relation(fields: [productId], references: [id])
+  purchaseOrder ScmPurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       ScmProduct            @relation(fields: [productId], references: [id])
   receiptItems  ScmGoodsReceiptItem[]
 
   @@index([purchaseOrderId])
@@ -5262,28 +5287,28 @@ model ScmPurchaseOrderItem {
 /// COMPLETED (or later CANCELLED); legacy's DRAFT-then-"Retry posting" state
 /// existed only to survive Firebase's lack of transactions.
 model ScmGoodsReceipt {
-  id                  Int       @id @default(autoincrement())
-  organizationId      Int       @map("organization_id")
-  grnNumber           String    @map("grn_number")
-  purchaseOrderId     Int       @map("purchase_order_id")
-  supplierId          Int       @map("supplier_id")
-  vendorNameSnapshot  String    @map("vendor_name_snapshot")
-  receiptDate         DateTime  @map("receipt_date") @db.Date
-  warehouseId         Int       @map("warehouse_id")
-  locationId          Int?      @map("location_id")
-  receivedBy          Int?      @map("received_by")
-  receivedByName      String    @map("received_by_name")
-  notes               String?
+  id                 Int      @id @default(autoincrement())
+  organizationId     Int      @map("organization_id")
+  grnNumber          String   @map("grn_number")
+  purchaseOrderId    Int      @map("purchase_order_id")
+  supplierId         Int      @map("supplier_id")
+  vendorNameSnapshot String   @map("vendor_name_snapshot")
+  receiptDate        DateTime @map("receipt_date") @db.Date
+  warehouseId        Int      @map("warehouse_id")
+  locationId         Int?     @map("location_id")
+  receivedBy         Int?     @map("received_by")
+  receivedByName     String   @map("received_by_name")
+  notes              String?
   /// COMPLETED | CANCELLED
-  status              String    @default("COMPLETED")
-  createdBy           Int?      @map("created_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  status             String   @default("COMPLETED")
+  createdBy          Int?     @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  organization  Organization         @relation(fields: [organizationId], references: [id])
-  purchaseOrder ScmPurchaseOrder     @relation(fields: [purchaseOrderId], references: [id])
-  supplier      Supplier             @relation(fields: [supplierId], references: [id])
-  warehouse     ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  organization  Organization          @relation(fields: [organizationId], references: [id])
+  purchaseOrder ScmPurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  supplier      Supplier              @relation(fields: [supplierId], references: [id])
+  warehouse     ScmWarehouse          @relation(fields: [warehouseId], references: [id])
   items         ScmGoodsReceiptItem[]
   bills         ScmSupplierBill[]
 
@@ -5300,20 +5325,20 @@ model ScmGoodsReceiptItem {
   productId                  Int      @map("product_id")
   productNameSnapshot        String   @map("product_name_snapshot")
   uom                        String
-  orderedQuantity            Decimal  @db.Decimal(14, 3) @map("ordered_quantity")
-  previouslyReceivedQuantity Decimal  @db.Decimal(14, 3) @map("previously_received_quantity")
-  receivingQuantity          Decimal  @db.Decimal(14, 3) @map("receiving_quantity")
-  rejectedQuantity           Decimal  @default(0) @db.Decimal(14, 3) @map("rejected_quantity")
-  acceptedQuantity           Decimal  @db.Decimal(14, 3) @map("accepted_quantity")
+  orderedQuantity            Decimal  @map("ordered_quantity") @db.Decimal(14, 3)
+  previouslyReceivedQuantity Decimal  @map("previously_received_quantity") @db.Decimal(14, 3)
+  receivingQuantity          Decimal  @map("receiving_quantity") @db.Decimal(14, 3)
+  rejectedQuantity           Decimal  @default(0) @map("rejected_quantity") @db.Decimal(14, 3)
+  acceptedQuantity           Decimal  @map("accepted_quantity") @db.Decimal(14, 3)
   batchNumber                String?  @map("batch_number")
   serialNumbers              String[] @map("serial_numbers")
-  unitCost                   Decimal  @default(0) @db.Decimal(14, 2) @map("unit_cost")
-  totalCost                  Decimal  @default(0) @db.Decimal(14, 2) @map("total_cost")
+  unitCost                   Decimal  @default(0) @map("unit_cost") @db.Decimal(14, 2)
+  totalCost                  Decimal  @default(0) @map("total_cost") @db.Decimal(14, 2)
   notes                      String?
 
-  goodsReceipt  ScmGoodsReceipt     @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  goodsReceipt      ScmGoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
   purchaseOrderItem ScmPurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
-  product       ScmProduct          @relation(fields: [productId], references: [id])
+  product           ScmProduct           @relation(fields: [productId], references: [id])
 
   @@index([goodsReceiptId])
   @@map("goods_receipt_items")
@@ -5347,7 +5372,7 @@ model ScmCustomer {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  organization Organization    @relation(fields: [organizationId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
   salesOrders  ScmSalesOrder[]
   fulfillments ScmFulfillment[]
   shipments    ScmShipment[]
@@ -5358,31 +5383,31 @@ model ScmCustomer {
 }
 
 model ScmSalesOrder {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  soNumber         String    @map("so_number")
-  customerId       Int       @map("customer_id")
-  customerName     String    @map("customer_name")
-  orderDate        DateTime  @map("order_date") @db.Date
-  expectedDate     DateTime? @map("expected_date") @db.Date
-  shipToAddress    String?   @map("ship_to_address")
-  billToAddress    String?   @map("bill_to_address")
-  currency         String    @default("INR")
-  subtotal         Decimal   @default(0) @db.Decimal(14, 2)
-  taxAmount        Decimal   @default(0) @db.Decimal(14, 2) @map("tax_amount")
-  total            Decimal   @default(0) @db.Decimal(14, 2)
-  notes            String?
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  soNumber       String    @map("so_number")
+  customerId     Int       @map("customer_id")
+  customerName   String    @map("customer_name")
+  orderDate      DateTime  @map("order_date") @db.Date
+  expectedDate   DateTime? @map("expected_date") @db.Date
+  shipToAddress  String?   @map("ship_to_address")
+  billToAddress  String?   @map("bill_to_address")
+  currency       String    @default("INR")
+  subtotal       Decimal   @default(0) @db.Decimal(14, 2)
+  taxAmount      Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  total          Decimal   @default(0) @db.Decimal(14, 2)
+  notes          String?
   /// DRAFT | CONFIRMED | CANCELLED | CLOSED (CONFIRMED orders may be fulfilled)
-  status           String    @default("DRAFT")
+  status         String    @default("DRAFT")
   /// Not Shipped | Partially Shipped | Shipped (rolled up from dispatched shipments)
-  shippedStatus    String    @default("Not Shipped") @map("shipped_status")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  shippedStatus  String    @default("Not Shipped") @map("shipped_status")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  customer     ScmCustomer        @relation(fields: [customerId], references: [id])
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  customer     ScmCustomer              @relation(fields: [customerId], references: [id])
   items        ScmSalesOrderItem[]
   fulfillments ScmFulfillment[]
   pickings     ScmPicking[]
@@ -5397,17 +5422,17 @@ model ScmSalesOrder {
 }
 
 model ScmSalesOrderItem {
-  id                  Int     @id @default(autoincrement())
-  salesOrderId        Int     @map("sales_order_id")
-  lineNo              Int     @map("line_no")
-  productId           Int     @map("product_id")
-  itemCode            String  @map("item_code")
-  itemDescription     String  @map("item_description")
-  uom                 String
-  salesQty            Decimal @db.Decimal(14, 3) @map("sales_qty")
-  unitPrice           Decimal @default(0) @db.Decimal(14, 2) @map("unit_price")
-  taxRate             Decimal @default(0) @db.Decimal(5, 2) @map("tax_rate")
-  total               Decimal @default(0) @db.Decimal(14, 2)
+  id              Int     @id @default(autoincrement())
+  salesOrderId    Int     @map("sales_order_id")
+  lineNo          Int     @map("line_no")
+  productId       Int     @map("product_id")
+  itemCode        String  @map("item_code")
+  itemDescription String  @map("item_description")
+  uom             String
+  salesQty        Decimal @map("sales_qty") @db.Decimal(14, 3)
+  unitPrice       Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
+  taxRate         Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  total           Decimal @default(0) @db.Decimal(14, 2)
 
   salesOrder       ScmSalesOrder        @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product          ScmProduct           @relation(fields: [productId], references: [id])
@@ -5419,32 +5444,32 @@ model ScmSalesOrderItem {
 }
 
 model ScmFulfillment {
-  id                    Int       @id @default(autoincrement())
-  organizationId        Int       @map("organization_id")
-  fulfillmentNumber     String    @map("fulfillment_number")
-  salesOrderId          Int       @map("sales_order_id")
-  salesOrderNumber      String    @map("sales_order_number")
-  customerId            Int       @map("customer_id")
-  customerName          String    @map("customer_name")
-  warehouseId           Int       @map("warehouse_id")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  fulfillmentNumber  String    @map("fulfillment_number")
+  salesOrderId       Int       @map("sales_order_id")
+  salesOrderNumber   String    @map("sales_order_number")
+  customerId         Int       @map("customer_id")
+  customerName       String    @map("customer_name")
+  warehouseId        Int       @map("warehouse_id")
   /// PENDING | PARTIALLY_AVAILABLE | AVAILABLE | RESERVED | PICKING | PACKING | READY_TO_SHIP | FULFILLED | CANCELLED | ON_HOLD
-  status                String    @default("AVAILABLE")
+  status             String    @default("AVAILABLE")
   /// NOT_DELIVERED | PARTIALLY_DELIVERED | DELIVERED
-  deliveryStatus        String    @default("NOT_DELIVERED") @map("delivery_status")
-  deliveredAt           DateTime? @map("delivered_at")
-  cancelledBy           Int?      @map("cancelled_by")
-  cancelledAt           DateTime? @map("cancelled_at")
-  cancellationReason    String?   @map("cancellation_reason")
-  notes                 String?
-  createdBy             Int?      @map("created_by")
-  updatedBy             Int?      @map("updated_by")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deliveryStatus     String    @default("NOT_DELIVERED") @map("delivery_status")
+  deliveredAt        DateTime? @map("delivered_at")
+  cancelledBy        Int?      @map("cancelled_by")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
+  notes              String?
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  organization Organization         @relation(fields: [organizationId], references: [id])
-  salesOrder   ScmSalesOrder        @relation(fields: [salesOrderId], references: [id])
-  customer     ScmCustomer          @relation(fields: [customerId], references: [id])
-  warehouse    ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  salesOrder   ScmSalesOrder            @relation(fields: [salesOrderId], references: [id])
+  customer     ScmCustomer              @relation(fields: [customerId], references: [id])
+  warehouse    ScmWarehouse             @relation(fields: [warehouseId], references: [id])
   items        ScmFulfillmentItem[]
   pickings     ScmPicking[]
   packings     ScmPacking[]
@@ -5460,18 +5485,18 @@ model ScmFulfillment {
 }
 
 model ScmFulfillmentItem {
-  id                  Int     @id @default(autoincrement())
-  fulfillmentId       Int     @map("fulfillment_id")
-  lineNo              Int     @map("line_no")
+  id               Int     @id @default(autoincrement())
+  fulfillmentId    Int     @map("fulfillment_id")
+  lineNo           Int     @map("line_no")
   /// The sales-order line this slice covers (a SO may repeat a product).
-  salesOrderItemId    Int     @map("sales_order_item_id")
-  productId           Int     @map("product_id")
-  itemCode            String  @map("item_code")
-  itemDescription     String  @map("item_description")
-  uom                 String
-  orderedQty          Decimal @db.Decimal(14, 3) @map("ordered_qty")
-  reservedQty         Decimal @default(0) @db.Decimal(14, 3) @map("reserved_qty")
-  issuedQty           Decimal @default(0) @db.Decimal(14, 3) @map("issued_qty")
+  salesOrderItemId Int     @map("sales_order_item_id")
+  productId        Int     @map("product_id")
+  itemCode         String  @map("item_code")
+  itemDescription  String  @map("item_description")
+  uom              String
+  orderedQty       Decimal @map("ordered_qty") @db.Decimal(14, 3)
+  reservedQty      Decimal @default(0) @map("reserved_qty") @db.Decimal(14, 3)
+  issuedQty        Decimal @default(0) @map("issued_qty") @db.Decimal(14, 3)
 
   fulfillment    ScmFulfillment    @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
   salesOrderItem ScmSalesOrderItem @relation(fields: [salesOrderItemId], references: [id])
@@ -5506,10 +5531,10 @@ model ScmPicking {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  organization Organization    @relation(fields: [organizationId], references: [id])
-  salesOrder   ScmSalesOrder   @relation(fields: [salesOrderId], references: [id])
-  fulfillment  ScmFulfillment  @relation(fields: [fulfillmentId], references: [id])
-  warehouse    ScmWarehouse    @relation(fields: [warehouseId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  salesOrder   ScmSalesOrder    @relation(fields: [salesOrderId], references: [id])
+  fulfillment  ScmFulfillment   @relation(fields: [fulfillmentId], references: [id])
+  warehouse    ScmWarehouse     @relation(fields: [warehouseId], references: [id])
   items        ScmPickingItem[]
   packings     ScmPacking[]
 
@@ -5521,17 +5546,17 @@ model ScmPicking {
 }
 
 model ScmPickingItem {
-  id                  Int      @id @default(autoincrement())
-  pickingId           Int      @map("picking_id")
-  productId           Int      @map("product_id")
-  productCode         String   @map("product_code")
-  productName         String   @map("product_name")
-  requestedQuantity   Decimal  @db.Decimal(14, 3) @map("requested_quantity")
-  pickedQuantity      Decimal  @default(0) @db.Decimal(14, 3) @map("picked_quantity")
-  sourceLocationId    Int?     @map("source_location_id")
-  batchId             Int?     @map("batch_id")
-  serialNumbers       String[] @map("serial_numbers")
-  notes               String?
+  id                Int      @id @default(autoincrement())
+  pickingId         Int      @map("picking_id")
+  productId         Int      @map("product_id")
+  productCode       String   @map("product_code")
+  productName       String   @map("product_name")
+  requestedQuantity Decimal  @map("requested_quantity") @db.Decimal(14, 3)
+  pickedQuantity    Decimal  @default(0) @map("picked_quantity") @db.Decimal(14, 3)
+  sourceLocationId  Int?     @map("source_location_id")
+  batchId           Int?     @map("batch_id")
+  serialNumbers     String[] @map("serial_numbers")
+  notes             String?
 
   picking ScmPicking @relation(fields: [pickingId], references: [id], onDelete: Cascade)
   product ScmProduct @relation(fields: [productId], references: [id])
@@ -5561,11 +5586,11 @@ model ScmPacking {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  picking      ScmPicking         @relation(fields: [pickingId], references: [id])
-  fulfillment  ScmFulfillment     @relation(fields: [fulfillmentId], references: [id])
-  warehouse    ScmWarehouse       @relation(fields: [warehouseId], references: [id])
-  packages     ScmPackingPackage[]
+  organization  Organization         @relation(fields: [organizationId], references: [id])
+  picking       ScmPicking           @relation(fields: [pickingId], references: [id])
+  fulfillment   ScmFulfillment       @relation(fields: [fulfillmentId], references: [id])
+  warehouse     ScmWarehouse         @relation(fields: [warehouseId], references: [id])
+  packages      ScmPackingPackage[]
   shipmentLinks ScmShipmentPacking[]
 
   @@unique([organizationId, packNumber])
@@ -5586,7 +5611,7 @@ model ScmPackingPackage {
   height        Decimal? @db.Decimal(14, 3)
   notes         String?
 
-  packing ScmPacking            @relation(fields: [packingId], references: [id], onDelete: Cascade)
+  packing ScmPacking              @relation(fields: [packingId], references: [id], onDelete: Cascade)
   items   ScmPackingPackageItem[]
 
   @@index([packingId])
@@ -5611,24 +5636,24 @@ model ScmPackingPackageItem {
 }
 
 model ScmCarrier {
-  id                  Int       @id @default(autoincrement())
-  organizationId      Int       @map("organization_id")
-  carrierCode         String    @map("carrier_code")
-  carrierName         String    @map("carrier_name")
-  serviceTypes        String[]  @map("service_types")
+  id                  Int      @id @default(autoincrement())
+  organizationId      Int      @map("organization_id")
+  carrierCode         String   @map("carrier_code")
+  carrierName         String   @map("carrier_name")
+  serviceTypes        String[] @map("service_types")
   contact             String?
   phone               String?
   email               String?
   website             String?
   /// e.g. https://track.example.com/{trackingNumber}
-  trackingUrlTemplate String?   @map("tracking_url_template")
+  trackingUrlTemplate String?  @map("tracking_url_template")
   /// ACTIVE | INACTIVE
-  status              String    @default("ACTIVE")
+  status              String   @default("ACTIVE")
   notes               String?
-  createdBy           Int?      @map("created_by")
-  updatedBy           Int?      @map("updated_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdBy           Int?     @map("created_by")
+  updatedBy           Int?     @map("updated_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   organization Organization  @relation(fields: [organizationId], references: [id])
   shipments    ScmShipment[]
@@ -5639,58 +5664,58 @@ model ScmCarrier {
 }
 
 model ScmShipment {
-  id                  Int       @id @default(autoincrement())
-  organizationId      Int       @map("organization_id")
-  shipmentNumber      String    @map("shipment_number")
-  fulfillmentId       Int       @map("fulfillment_id")
-  salesOrderId        Int       @map("sales_order_id")
-  salesOrderNumber    String    @map("sales_order_number")
-  customerId          Int       @map("customer_id")
-  customerName        String    @map("customer_name")
-  warehouseId         Int       @map("warehouse_id")
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  shipmentNumber       String    @map("shipment_number")
+  fulfillmentId        Int       @map("fulfillment_id")
+  salesOrderId         Int       @map("sales_order_id")
+  salesOrderNumber     String    @map("sales_order_number")
+  customerId           Int       @map("customer_id")
+  customerName         String    @map("customer_name")
+  warehouseId          Int       @map("warehouse_id")
   /// Point-in-time package/line snapshot taken from the packed packings.
-  packages            Json
-  totalPackages       Int       @map("total_packages")
-  totalWeight         Decimal   @default(0) @db.Decimal(14, 3) @map("total_weight")
-  shippingAddress     String    @map("shipping_address")
-  billingAddress      String?   @map("billing_address")
-  carrierId           Int?      @map("carrier_id")
-  carrierName         String?   @map("carrier_name")
+  packages             Json
+  totalPackages        Int       @map("total_packages")
+  totalWeight          Decimal   @default(0) @map("total_weight") @db.Decimal(14, 3)
+  shippingAddress      String    @map("shipping_address")
+  billingAddress       String?   @map("billing_address")
+  carrierId            Int?      @map("carrier_id")
+  carrierName          String?   @map("carrier_name")
   /// STANDARD | EXPRESS | SAME_DAY | ECONOMY | OTHER
-  serviceType         String?   @map("service_type")
-  trackingNumber      String?   @map("tracking_number")
-  trackingUrl         String?   @map("tracking_url")
-  shippingCost        Decimal?  @db.Decimal(14, 2) @map("shipping_cost")
-  currency            String    @default("INR")
+  serviceType          String?   @map("service_type")
+  trackingNumber       String?   @map("tracking_number")
+  trackingUrl          String?   @map("tracking_url")
+  shippingCost         Decimal?  @map("shipping_cost") @db.Decimal(14, 2)
+  currency             String    @default("INR")
   /// READY_TO_SHIP | CARRIER_ASSIGNED | LABEL_CREATED | DISPATCHED | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | DELIVERY_EXCEPTION | FAILED_DELIVERY | CANCELLED
-  status              String    @default("READY_TO_SHIP")
-  shipmentDate        DateTime? @map("shipment_date") @db.Date
+  status               String    @default("READY_TO_SHIP")
+  shipmentDate         DateTime? @map("shipment_date") @db.Date
   expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Date
-  actualDeliveryDate  DateTime? @map("actual_delivery_date") @db.Date
-  recipientName       String?   @map("recipient_name")
-  deliveryNotes       String?   @map("delivery_notes")
-  proofOfDeliveryUrl  String?   @map("proof_of_delivery_url")
-  carrierAssignedBy   Int?      @map("carrier_assigned_by")
-  carrierAssignedAt   DateTime? @map("carrier_assigned_at")
-  dispatchedBy        Int?      @map("dispatched_by")
-  dispatchedAt        DateTime? @map("dispatched_at")
-  deliveredBy         Int?      @map("delivered_by")
-  deliveredAt         DateTime? @map("delivered_at")
-  cancelledBy         Int?      @map("cancelled_by")
-  cancelledAt         DateTime? @map("cancelled_at")
-  cancellationReason  String?   @map("cancellation_reason")
-  notes               String?
-  createdBy           Int?      @map("created_by")
-  updatedBy           Int?      @map("updated_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  actualDeliveryDate   DateTime? @map("actual_delivery_date") @db.Date
+  recipientName        String?   @map("recipient_name")
+  deliveryNotes        String?   @map("delivery_notes")
+  proofOfDeliveryUrl   String?   @map("proof_of_delivery_url")
+  carrierAssignedBy    Int?      @map("carrier_assigned_by")
+  carrierAssignedAt    DateTime? @map("carrier_assigned_at")
+  dispatchedBy         Int?      @map("dispatched_by")
+  dispatchedAt         DateTime? @map("dispatched_at")
+  deliveredBy          Int?      @map("delivered_by")
+  deliveredAt          DateTime? @map("delivered_at")
+  cancelledBy          Int?      @map("cancelled_by")
+  cancelledAt          DateTime? @map("cancelled_at")
+  cancellationReason   String?   @map("cancellation_reason")
+  notes                String?
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  organization Organization            @relation(fields: [organizationId], references: [id])
-  fulfillment  ScmFulfillment          @relation(fields: [fulfillmentId], references: [id])
-  salesOrder   ScmSalesOrder           @relation(fields: [salesOrderId], references: [id])
-  customer     ScmCustomer             @relation(fields: [customerId], references: [id])
-  warehouse    ScmWarehouse            @relation(fields: [warehouseId], references: [id])
-  carrier      ScmCarrier?             @relation(fields: [carrierId], references: [id])
+  organization Organization               @relation(fields: [organizationId], references: [id])
+  fulfillment  ScmFulfillment             @relation(fields: [fulfillmentId], references: [id])
+  salesOrder   ScmSalesOrder              @relation(fields: [salesOrderId], references: [id])
+  customer     ScmCustomer                @relation(fields: [customerId], references: [id])
+  warehouse    ScmWarehouse               @relation(fields: [warehouseId], references: [id])
+  carrier      ScmCarrier?                @relation(fields: [carrierId], references: [id])
   packingLinks ScmShipmentPacking[]
   events       ScmShipmentTrackingEvent[]
   exceptions   ScmShipmentException[]
@@ -5769,60 +5794,60 @@ model ScmShipmentException {
 // ---------------------------------------------------------------------------
 
 model ScmReturn {
-  id                Int       @id @default(autoincrement())
-  organizationId    Int       @map("organization_id")
-  returnNumber      String    @map("return_number")
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  returnNumber        String    @map("return_number")
   /// CUSTOMER_RETURN | VENDOR_RETURN
-  returnType        String    @map("return_type")
-  salesOrderId      Int?      @map("sales_order_id")
-  salesOrderNumber  String?   @map("sales_order_number")
-  fulfillmentId     Int?      @map("fulfillment_id")
-  fulfillmentNumber String?   @map("fulfillment_number")
-  shipmentId        Int?      @map("shipment_id")
-  shipmentNumber    String?   @map("shipment_number")
-  customerId        Int?      @map("customer_id")
-  customerName      String?   @map("customer_name")
-  purchaseOrderId   Int?      @map("purchase_order_id")
-  purchaseOrderNumber String? @map("purchase_order_number")
-  grnId             Int?      @map("grn_id")
-  grnNumber         String?   @map("grn_number")
-  supplierId        Int?      @map("supplier_id")
-  supplierName      String?   @map("supplier_name")
-  warehouseId       Int       @map("warehouse_id")
-  reasonCode        String    @map("reason_code")
-  reasonDescription String?   @map("reason_description")
+  returnType          String    @map("return_type")
+  salesOrderId        Int?      @map("sales_order_id")
+  salesOrderNumber    String?   @map("sales_order_number")
+  fulfillmentId       Int?      @map("fulfillment_id")
+  fulfillmentNumber   String?   @map("fulfillment_number")
+  shipmentId          Int?      @map("shipment_id")
+  shipmentNumber      String?   @map("shipment_number")
+  customerId          Int?      @map("customer_id")
+  customerName        String?   @map("customer_name")
+  purchaseOrderId     Int?      @map("purchase_order_id")
+  purchaseOrderNumber String?   @map("purchase_order_number")
+  grnId               Int?      @map("grn_id")
+  grnNumber           String?   @map("grn_number")
+  supplierId          Int?      @map("supplier_id")
+  supplierName        String?   @map("supplier_name")
+  warehouseId         Int       @map("warehouse_id")
+  reasonCode          String    @map("reason_code")
+  reasonDescription   String?   @map("reason_description")
   /// Customer: REQUESTED PENDING_APPROVAL APPROVED REJECTED IN_TRANSIT RECEIVED
   /// INSPECTION_PENDING INSPECTED DISPOSITION_PENDING COMPLETED CANCELLED.
   /// Vendor: REQUESTED PENDING_APPROVAL APPROVED REJECTED READY_TO_SHIP SHIPPED
   /// VENDOR_RECEIVED COMPLETED CANCELLED.
-  status            String    @default("REQUESTED")
-  requestedDate     DateTime  @default(now()) @map("requested_date")
-  approvedBy        Int?      @map("approved_by")
-  approvedAt        DateTime? @map("approved_at")
-  rejectionReason   String?   @map("rejection_reason")
-  receivedBy        Int?      @map("received_by")
-  receivedAt        DateTime? @map("received_at")
-  inspectedBy       Int?      @map("inspected_by")
-  inspectedAt       DateTime? @map("inspected_at")
-  shippedBy         Int?      @map("shipped_by")
-  shippedAt         DateTime? @map("shipped_at")
-  vendorReceivedAt  DateTime? @map("vendor_received_at")
-  completedBy       Int?      @map("completed_by")
-  completedAt       DateTime? @map("completed_at")
-  cancelledBy       Int?      @map("cancelled_by")
-  cancelledAt       DateTime? @map("cancelled_at")
-  cancellationReason String?  @map("cancellation_reason")
+  status              String    @default("REQUESTED")
+  requestedDate       DateTime  @default(now()) @map("requested_date")
+  approvedBy          Int?      @map("approved_by")
+  approvedAt          DateTime? @map("approved_at")
+  rejectionReason     String?   @map("rejection_reason")
+  receivedBy          Int?      @map("received_by")
+  receivedAt          DateTime? @map("received_at")
+  inspectedBy         Int?      @map("inspected_by")
+  inspectedAt         DateTime? @map("inspected_at")
+  shippedBy           Int?      @map("shipped_by")
+  shippedAt           DateTime? @map("shipped_at")
+  vendorReceivedAt    DateTime? @map("vendor_received_at")
+  completedBy         Int?      @map("completed_by")
+  completedAt         DateTime? @map("completed_at")
+  cancelledBy         Int?      @map("cancelled_by")
+  cancelledAt         DateTime? @map("cancelled_at")
+  cancellationReason  String?   @map("cancellation_reason")
   /// Manual reverse-leg tracking: { carrier, trackingNumber, shippedDate, receivedDate, notes }
-  returnShipment    Json?     @map("return_shipment")
-  qualityInspectionId Int?    @map("quality_inspection_id")
-  notes             String?
-  createdBy         Int?      @map("created_by")
-  updatedBy         Int?      @map("updated_by")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  returnShipment      Json?     @map("return_shipment")
+  qualityInspectionId Int?      @map("quality_inspection_id")
+  notes               String?
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  organization Organization          @relation(fields: [organizationId], references: [id])
-  warehouse    ScmWarehouse          @relation(fields: [warehouseId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  warehouse    ScmWarehouse           @relation(fields: [warehouseId], references: [id])
   items        ScmReturnItem[]
   inspections  ScmReturnInspection[]
   dispositions ScmReturnDisposition[]
@@ -5836,32 +5861,32 @@ model ScmReturn {
 }
 
 model ScmReturnItem {
-  id                Int      @id @default(autoincrement())
-  returnId          Int      @map("return_id")
-  lineNo            Int      @map("line_no")
-  productId         Int      @map("product_id")
-  productCode       String   @map("product_code")
-  productName       String   @map("product_name")
-  uom               String   @default("PCS")
-  orderedQty        Decimal? @map("ordered_qty") @db.Decimal(14, 3)
+  id                    Int      @id @default(autoincrement())
+  returnId              Int      @map("return_id")
+  lineNo                Int      @map("line_no")
+  productId             Int      @map("product_id")
+  productCode           String   @map("product_code")
+  productName           String   @map("product_name")
+  uom                   String   @default("PCS")
+  orderedQty            Decimal? @map("ordered_qty") @db.Decimal(14, 3)
   /// Customer: units issued on the fulfillment; vendor: units accepted on the GRN line.
-  sourceQty         Decimal  @map("source_qty") @db.Decimal(14, 3)
-  previouslyReturnedQty Decimal @default(0) @map("previously_returned_qty") @db.Decimal(14, 3)
-  requestedQty      Decimal  @map("requested_qty") @db.Decimal(14, 3)
-  receivedReturnQty Decimal? @map("received_return_qty") @db.Decimal(14, 3)
-  acceptedQty       Decimal? @map("accepted_qty") @db.Decimal(14, 3)
-  rejectedQty       Decimal? @map("rejected_qty") @db.Decimal(14, 3)
-  condition         String?
-  grnItemId         Int?     @map("grn_item_id")
-  batchId           Int?     @map("batch_id")
-  batchNumber       String?  @map("batch_number")
-  serialNumbers     String[] @map("serial_numbers")
-  warehouseId       Int      @map("warehouse_id")
-  locationId        Int?     @map("location_id")
+  sourceQty             Decimal  @map("source_qty") @db.Decimal(14, 3)
+  previouslyReturnedQty Decimal  @default(0) @map("previously_returned_qty") @db.Decimal(14, 3)
+  requestedQty          Decimal  @map("requested_qty") @db.Decimal(14, 3)
+  receivedReturnQty     Decimal? @map("received_return_qty") @db.Decimal(14, 3)
+  acceptedQty           Decimal? @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty           Decimal? @map("rejected_qty") @db.Decimal(14, 3)
+  condition             String?
+  grnItemId             Int?     @map("grn_item_id")
+  batchId               Int?     @map("batch_id")
+  batchNumber           String?  @map("batch_number")
+  serialNumbers         String[] @map("serial_numbers")
+  warehouseId           Int      @map("warehouse_id")
+  locationId            Int?     @map("location_id")
   /// Vendor return: PURCHASE_RETURN ledger entry posted at ship time.
-  postedLedgerEntryId Int?   @map("posted_ledger_entry_id")
-  unitCost          Decimal? @map("unit_cost") @db.Decimal(14, 4)
-  notes             String?
+  postedLedgerEntryId   Int?     @map("posted_ledger_entry_id")
+  unitCost              Decimal? @map("unit_cost") @db.Decimal(14, 4)
+  notes                 String?
 
   return       ScmReturn              @relation(fields: [returnId], references: [id], onDelete: Cascade)
   product      ScmProduct             @relation(fields: [productId], references: [id])
@@ -5874,19 +5899,19 @@ model ScmReturnItem {
 }
 
 model ScmReturnInspection {
-  id           Int      @id @default(autoincrement())
-  organizationId Int    @map("organization_id")
-  returnId     Int      @map("return_id")
-  inspectorId  Int      @map("inspector_id")
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  returnId       Int      @map("return_id")
+  inspectorId    Int      @map("inspector_id")
   inspectionDate DateTime @default(now()) @map("inspection_date")
-  condition    String
-  acceptedQty  Decimal  @map("accepted_qty") @db.Decimal(14, 3)
-  rejectedQty  Decimal  @map("rejected_qty") @db.Decimal(14, 3)
+  condition      String
+  acceptedQty    Decimal  @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty    Decimal  @map("rejected_qty") @db.Decimal(14, 3)
   /// ACCEPTED | PARTIALLY_ACCEPTED | REJECTED
-  result       String
-  items        Json
-  notes        String?
-  createdAt    DateTime @default(now()) @map("created_at")
+  result         String
+  items          Json
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
 
   return ScmReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
@@ -5899,21 +5924,21 @@ model ScmReturnInspection {
 /// across several). Append-only; RESTOCK draws on accepted units, REJECT on
 /// rejected units.
 model ScmReturnDisposition {
-  id             Int      @id @default(autoincrement())
-  organizationId Int      @map("organization_id")
-  returnId       Int      @map("return_id")
-  returnItemId   Int      @map("return_item_id")
-  productId      Int      @map("product_id")
+  id                 Int      @id @default(autoincrement())
+  organizationId     Int      @map("organization_id")
+  returnId           Int      @map("return_id")
+  returnItemId       Int      @map("return_item_id")
+  productId          Int      @map("product_id")
   /// RESTOCK | QUARANTINE | DAMAGED | SCRAP | REJECT
-  disposition    String
-  quantity       Decimal  @db.Decimal(14, 3)
-  warehouseId    Int      @map("warehouse_id")
-  locationId     Int?     @map("location_id")
-  notes          String?
-  ledgerEntryIds Int[]    @map("ledger_entry_ids")
-  quarantineRecordId Int? @map("quarantine_record_id")
-  createdBy      Int?     @map("created_by")
-  createdAt      DateTime @default(now()) @map("created_at")
+  disposition        String
+  quantity           Decimal  @db.Decimal(14, 3)
+  warehouseId        Int      @map("warehouse_id")
+  locationId         Int?     @map("location_id")
+  notes              String?
+  ledgerEntryIds     Int[]    @map("ledger_entry_ids")
+  quarantineRecordId Int?     @map("quarantine_record_id")
+  createdBy          Int?     @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   return     ScmReturn     @relation(fields: [returnId], references: [id], onDelete: Cascade)
   returnItem ScmReturnItem @relation(fields: [returnItemId], references: [id], onDelete: Cascade)
@@ -5967,43 +5992,43 @@ model ScmQualityTemplate {
 }
 
 model ScmQualityInspection {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  inspectionNumber String    @map("inspection_number")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  inspectionNumber   String    @map("inspection_number")
   /// INCOMING | CUSTOMER_RETURN | INVENTORY | PRE_DISPATCH
-  inspectionType   String    @map("inspection_type")
+  inspectionType     String    @map("inspection_type")
   /// GRN | RETURN | INVENTORY | FULFILLMENT
-  sourceType       String    @map("source_type")
-  sourceId         Int       @map("source_id")
-  sourceNumber     String?   @map("source_number")
-  templateId       Int?      @map("template_id")
-  templateName     String?   @map("template_name")
-  supplierId       Int?      @map("supplier_id")
-  supplierName     String?   @map("supplier_name")
-  customerId       Int?      @map("customer_id")
-  customerName     String?   @map("customer_name")
-  warehouseId      Int?      @map("warehouse_id")
-  locationId       Int?      @map("location_id")
+  sourceType         String    @map("source_type")
+  sourceId           Int       @map("source_id")
+  sourceNumber       String?   @map("source_number")
+  templateId         Int?      @map("template_id")
+  templateName       String?   @map("template_name")
+  supplierId         Int?      @map("supplier_id")
+  supplierName       String?   @map("supplier_name")
+  customerId         Int?      @map("customer_id")
+  customerName       String?   @map("customer_name")
+  warehouseId        Int?      @map("warehouse_id")
+  locationId         Int?      @map("location_id")
   /// DRAFT | PENDING_INSPECTION | IN_PROGRESS | COMPLETED | CANCELLED
-  status           String    @default("PENDING_INSPECTION")
+  status             String    @default("PENDING_INSPECTION")
   /// PASSED | PARTIALLY_PASSED | FAILED | ON_HOLD (set on completion)
-  result           String?
+  result             String?
   /// LOW | MEDIUM | HIGH | CRITICAL
-  priority         String    @default("MEDIUM")
-  inspectionDate   DateTime  @default(now()) @map("inspection_date")
-  startedAt        DateTime? @map("started_at")
-  completedAt      DateTime? @map("completed_at")
-  inspectorId      Int?      @map("inspector_id")
-  inspectorName    String?   @map("inspector_name")
-  notes            String?
-  cancelledBy      Int?      @map("cancelled_by")
-  cancelledAt      DateTime? @map("cancelled_at")
-  cancellationReason String? @map("cancellation_reason")
-  createdBy        Int?      @map("created_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  priority           String    @default("MEDIUM")
+  inspectionDate     DateTime  @default(now()) @map("inspection_date")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  inspectorId        Int?      @map("inspector_id")
+  inspectorName      String?   @map("inspector_name")
+  notes              String?
+  cancelledBy        Int?      @map("cancelled_by")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
+  createdBy          Int?      @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  organization Organization           @relation(fields: [organizationId], references: [id])
+  organization Organization               @relation(fields: [organizationId], references: [id])
   items        ScmQualityInspectionItem[]
 
   @@unique([organizationId, inspectionNumber])
@@ -6014,36 +6039,36 @@ model ScmQualityInspection {
 }
 
 model ScmQualityInspectionItem {
-  id               Int      @id @default(autoincrement())
-  inspectionId     Int      @map("inspection_id")
-  lineNo           Int      @map("line_no")
-  productId        Int      @map("product_id")
-  productCode      String   @map("product_code")
-  productName      String   @map("product_name")
-  sourceLineId     Int?     @map("source_line_id")
-  batchId          Int?     @map("batch_id")
-  batchNumber      String?  @map("batch_number")
-  serialNumbers    String[] @map("serial_numbers")
-  orderedQty       Decimal? @map("ordered_qty") @db.Decimal(14, 3)
-  sourceQty        Decimal  @map("source_qty") @db.Decimal(14, 3)
-  inspectedQty     Decimal  @default(0) @map("inspected_qty") @db.Decimal(14, 3)
-  acceptedQty      Decimal  @default(0) @map("accepted_qty") @db.Decimal(14, 3)
-  rejectedQty      Decimal  @default(0) @map("rejected_qty") @db.Decimal(14, 3)
+  id                 Int      @id @default(autoincrement())
+  inspectionId       Int      @map("inspection_id")
+  lineNo             Int      @map("line_no")
+  productId          Int      @map("product_id")
+  productCode        String   @map("product_code")
+  productName        String   @map("product_name")
+  sourceLineId       Int?     @map("source_line_id")
+  batchId            Int?     @map("batch_id")
+  batchNumber        String?  @map("batch_number")
+  serialNumbers      String[] @map("serial_numbers")
+  orderedQty         Decimal? @map("ordered_qty") @db.Decimal(14, 3)
+  sourceQty          Decimal  @map("source_qty") @db.Decimal(14, 3)
+  inspectedQty       Decimal  @default(0) @map("inspected_qty") @db.Decimal(14, 3)
+  acceptedQty        Decimal  @default(0) @map("accepted_qty") @db.Decimal(14, 3)
+  rejectedQty        Decimal  @default(0) @map("rejected_qty") @db.Decimal(14, 3)
   /// PASS | PARTIAL_PASS | FAIL | HOLD
-  inspectionResult String?  @map("inspection_result")
-  condition        String?
-  defectCode       String?  @map("defect_code")
-  defectDescription String? @map("defect_description")
+  inspectionResult   String?  @map("inspection_result")
+  condition          String?
+  defectCode         String?  @map("defect_code")
+  defectDescription  String?  @map("defect_description")
   /// ACCEPT | RELEASE | QUARANTINE | REWORK | DAMAGED | SCRAP | REJECT
-  disposition      String?
-  notes            String?
-  warehouseId      Int?     @map("warehouse_id")
-  locationId       Int?     @map("location_id")
-  unitCost         Decimal? @map("unit_cost") @db.Decimal(14, 4)
+  disposition        String?
+  notes              String?
+  warehouseId        Int?     @map("warehouse_id")
+  locationId         Int?     @map("location_id")
+  unitCost           Decimal? @map("unit_cost") @db.Decimal(14, 4)
   /// [{ checkpointId, name, required, result, observedValue?, notes?, defectCode? }]
-  checkpointResults Json    @default("[]") @map("checkpoint_results")
-  ledgerEntryId    Int?     @map("ledger_entry_id")
-  quarantineRecordId Int?   @map("quarantine_record_id")
+  checkpointResults  Json     @default("[]") @map("checkpoint_results")
+  ledgerEntryId      Int?     @map("ledger_entry_id")
+  quarantineRecordId Int?     @map("quarantine_record_id")
 
   inspection ScmQualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   product    ScmProduct           @relation(fields: [productId], references: [id])
@@ -6055,40 +6080,40 @@ model ScmQualityInspectionItem {
 }
 
 model ScmQuarantineRecord {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  productId        Int       @map("product_id")
-  productCode      String    @map("product_code")
-  productName      String    @map("product_name")
-  batchId          Int?      @map("batch_id")
-  batchNumber      String?   @map("batch_number")
-  serialNumbers    String[]  @map("serial_numbers")
-  warehouseId      Int       @map("warehouse_id")
-  locationId       Int?      @map("location_id")
-  quantity         Decimal   @db.Decimal(14, 3)
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  productId            Int       @map("product_id")
+  productCode          String    @map("product_code")
+  productName          String    @map("product_name")
+  batchId              Int?      @map("batch_id")
+  batchNumber          String?   @map("batch_number")
+  serialNumbers        String[]  @map("serial_numbers")
+  warehouseId          Int       @map("warehouse_id")
+  locationId           Int?      @map("location_id")
+  quantity             Decimal   @db.Decimal(14, 3)
   /// GRN | RETURN | INVENTORY | FULFILLMENT
-  sourceType       String    @map("source_type")
-  sourceId         Int?      @map("source_id")
-  sourceNumber     String?   @map("source_number")
-  inspectionId     Int?      @map("inspection_id")
-  inspectionNumber String?   @map("inspection_number")
-  defectCode       String?   @map("defect_code")
-  reason           String?
+  sourceType           String    @map("source_type")
+  sourceId             Int?      @map("source_id")
+  sourceNumber         String?   @map("source_number")
+  inspectionId         Int?      @map("inspection_id")
+  inspectionNumber     String?   @map("inspection_number")
+  defectCode           String?   @map("defect_code")
+  reason               String?
   /// QUARANTINED | UNDER_REVIEW | RELEASED | REJECTED
-  status           String    @default("QUARANTINED")
-  quarantineDate   DateTime  @default(now()) @map("quarantine_date")
-  reviewedBy       Int?      @map("reviewed_by")
-  reviewedAt       DateTime? @map("reviewed_at")
-  releasedBy       Int?      @map("released_by")
-  releasedAt       DateTime? @map("released_at")
-  releaseLedgerEntryId Int?  @map("release_ledger_entry_id")
-  rejectedBy       Int?      @map("rejected_by")
-  rejectedAt       DateTime? @map("rejected_at")
-  rejectLedgerEntryId Int?   @map("reject_ledger_entry_id")
-  notes            String?
-  createdBy        Int?      @map("created_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  status               String    @default("QUARANTINED")
+  quarantineDate       DateTime  @default(now()) @map("quarantine_date")
+  reviewedBy           Int?      @map("reviewed_by")
+  reviewedAt           DateTime? @map("reviewed_at")
+  releasedBy           Int?      @map("released_by")
+  releasedAt           DateTime? @map("released_at")
+  releaseLedgerEntryId Int?      @map("release_ledger_entry_id")
+  rejectedBy           Int?      @map("rejected_by")
+  rejectedAt           DateTime? @map("rejected_at")
+  rejectLedgerEntryId  Int?      @map("reject_ledger_entry_id")
+  notes                String?
+  createdBy            Int?      @map("created_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id])
   product      ScmProduct   @relation(fields: [productId], references: [id])
@@ -6130,21 +6155,21 @@ model ScmLocationStock {
 }
 
 model ScmPutaway {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  putawayNumber  String    @map("putaway_number")
-  warehouseId    Int       @map("warehouse_id")
-  grnId          Int?      @map("grn_id")
-  grnNumber      String?   @map("grn_number")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  putawayNumber      String    @map("putaway_number")
+  warehouseId        Int       @map("warehouse_id")
+  grnId              Int?      @map("grn_id")
+  grnNumber          String?   @map("grn_number")
   /// PENDING | IN_PROGRESS | COMPLETED | CANCELLED
-  status         String    @default("PENDING")
-  notes          String?
-  createdBy      Int?      @map("created_by")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  startedAt      DateTime? @map("started_at")
-  completedAt    DateTime? @map("completed_at")
-  cancelledAt    DateTime? @map("cancelled_at")
-  cancellationReason String? @map("cancellation_reason")
+  status             String    @default("PENDING")
+  notes              String?
+  createdBy          Int?      @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
 
   organization Organization     @relation(fields: [organizationId], references: [id])
   warehouse    ScmWarehouse     @relation(fields: [warehouseId], references: [id])
@@ -6165,14 +6190,14 @@ model ScmPutawayItem {
   productName           String   @map("product_name")
   quantity              Decimal  @db.Decimal(14, 3)
   destinationLocationId Int?     @map("destination_location_id")
-  putAwayQuantity        Decimal  @default(0) @map("put_away_quantity") @db.Decimal(14, 3)
+  putAwayQuantity       Decimal  @default(0) @map("put_away_quantity") @db.Decimal(14, 3)
   batchId               Int?     @map("batch_id")
   batchNumber           String?  @map("batch_number")
   serialNumbers         String[] @map("serial_numbers")
   notes                 String?
 
-  putaway  ScmPutaway @relation(fields: [putawayId], references: [id], onDelete: Cascade)
-  product  ScmProduct @relation(fields: [productId], references: [id])
+  putaway ScmPutaway @relation(fields: [putawayId], references: [id], onDelete: Cascade)
+  product ScmProduct @relation(fields: [productId], references: [id])
 
   @@index([putawayId])
   @@map("putaway_items")
@@ -6180,21 +6205,21 @@ model ScmPutawayItem {
 }
 
 model ScmWarehouseMovement {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  movementNumber String    @map("movement_number")
-  warehouseId    Int       @map("warehouse_id")
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  movementNumber     String    @map("movement_number")
+  warehouseId        Int       @map("warehouse_id")
   /// DRAFT | REQUESTED | APPROVED | IN_PROGRESS | COMPLETED | CANCELLED
-  status         String    @default("DRAFT")
-  requestedBy    Int?      @map("requested_by")
-  approvedBy     Int?      @map("approved_by")
-  approvedAt     DateTime? @map("approved_at")
-  notes          String?
-  createdBy      Int?      @map("created_by")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  completedAt    DateTime? @map("completed_at")
-  cancelledAt    DateTime? @map("cancelled_at")
-  cancellationReason String? @map("cancellation_reason")
+  status             String    @default("DRAFT")
+  requestedBy        Int?      @map("requested_by")
+  approvedBy         Int?      @map("approved_by")
+  approvedAt         DateTime? @map("approved_at")
+  notes              String?
+  createdBy          Int?      @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  completedAt        DateTime? @map("completed_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
 
   organization Organization               @relation(fields: [organizationId], references: [id])
   warehouse    ScmWarehouse               @relation(fields: [warehouseId], references: [id])
@@ -6298,8 +6323,8 @@ model ScmSupplierPayment {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  organization Organization    @relation(fields: [organizationId], references: [id])
-  supplier     Supplier        @relation(fields: [supplierId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  supplier     Supplier         @relation(fields: [supplierId], references: [id])
   bill         ScmSupplierBill? @relation(fields: [billId], references: [id])
   financePaymentMade FinancePaymentMade?
 
@@ -6382,60 +6407,69 @@ enum ProjectExpenseStatus {
   @@schema("projects")
 }
 
-model ProjectRecord {
-  id                    Int           @id @default(autoincrement())
-  organizationId        Int           @map("organization_id")
-  projectCode           String        @map("project_code")
-  name                  String
-  description           String?
-  customerId            Int?          @map("customer_id")
-  customerName          String?       @map("customer_name")
-  projectType           String?       @map("project_type")
-  department            String?
-  expectedHours         Decimal       @default(0) @map("expected_hours") @db.Decimal(10, 2)
-  projectPrice          Decimal       @default(0) @map("project_price") @db.Decimal(14, 2)
-  actualCost            Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
-  status                ProjectStatus @default(active)
-  startDate             DateTime      @map("start_date") @db.Date
-  plannedEndDate        DateTime?     @map("planned_end_date") @db.Date
-  actualEndDate         DateTime?     @map("actual_end_date") @db.Date
-  clientHandlingPersonId Int?         @map("client_handling_person_id")
-  customFields          Json          @default("{}") @map("custom_fields")
-  createdBy             Int?          @map("created_by")
-  updatedBy             Int?          @map("updated_by")
-  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt             DateTime?     @map("deleted_at") @db.Timestamptz(6)
+model Project {
+  id                     Int           @id @default(autoincrement())
+  organizationId         Int           @map("organization_id")
+  projectCode            String        @map("project_code")
+  name                   String
+  description            String?
+  customerId             Int?          @map("customer_id")
+  customerName           String?       @map("customer_name")
+  projectType            String?       @map("project_type")
+  /// Multi-department selection (legacy `ProjectForm.tsx` chip-toggle UX) —
+  /// a project can span more than one department, unlike the single-string
+  /// `department` field other modules use for employee home department.
+  departments            String[]      @default([])
+  /// Name-based resource assignment, matching legacy exactly (array of
+  /// employee display names, not IDs). `ProjectMember` rows (below) are
+  /// still written for referential integrity/hours-tracking; this is the
+  /// denormalized display/search array the old UI reads and edits directly.
+  resourceNames          String[]      @default([]) @map("resource_names")
+  expectedHours          Decimal       @default(0) @map("expected_hours") @db.Decimal(10, 2)
+  projectPrice           Decimal       @default(0) @map("project_price") @db.Decimal(14, 2)
+  actualCost             Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  status                 ProjectStatus @default(active)
+  startDate              DateTime      @map("start_date") @db.Date
+  plannedEndDate         DateTime?     @map("planned_end_date") @db.Date
+  actualEndDate          DateTime?     @map("actual_end_date") @db.Date
+  clientHandlingPersonId Int?          @map("client_handling_person_id")
+  customFields           Json          @default("{}") @map("custom_fields")
+  createdBy              Int?          @map("created_by")
+  updatedBy              Int?          @map("updated_by")
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
-  organization         Organization        @relation(fields: [organizationId], references: [id])
-  customer             Account?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  clientHandlingPerson Employee?           @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
+  organization         Organization       @relation(fields: [organizationId], references: [id])
+  customer             Account?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  clientHandlingPerson Employee?          @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
   members              ProjectMember[]
   milestones           ProjectMilestone[]
   tasks                ProjectTask[]
   expenses             ProjectExpense[]
+  proposalDocuments    ProposalDocument[]
+  momDocuments         MomDocument[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
-  @@index([organizationId, department])
-  @@map("project_records")
+  @@map("projects")
   @@schema("projects")
 }
 
 model ProjectMember {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  projectId      Int       @map("project_id")
-  employeeId     Int       @map("employee_id")
-  role           String    @default("Contributor")
-  estimatedHours Decimal   @default(0) @map("estimated_hours") @db.Decimal(10, 2)
-  loggedHours    Decimal   @default(0) @map("logged_hours") @db.Decimal(10, 2)
-  hourlyRate     Decimal   @default(0) @map("hourly_rate") @db.Decimal(10, 2)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  projectId      Int      @map("project_id")
+  employeeId     Int      @map("employee_id")
+  role           String   @default("Contributor")
+  estimatedHours Decimal  @default(0) @map("estimated_hours") @db.Decimal(10, 2)
+  loggedHours    Decimal  @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  hourlyRate     Decimal  @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization   @relation(fields: [organizationId], references: [id])
-  project      ProjectRecord  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   employee     Employee       @relation(fields: [employeeId], references: [id])
 
   @@unique([projectId, employeeId])
@@ -6458,7 +6492,7 @@ model ProjectMilestone {
   deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization    @relation(fields: [organizationId], references: [id])
-  project      ProjectRecord   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks        ProjectTask[]
 
   @@index([projectId, order])
@@ -6467,38 +6501,53 @@ model ProjectMilestone {
 }
 
 model ProjectTask {
-  id                 Int          @id @default(autoincrement())
-  organizationId     Int          @map("organization_id")
-  projectId          Int          @map("project_id")
-  taskCode           String       @map("task_code")
-  milestoneId        Int?         @map("milestone_id")
-  assignedToId       Int?         @map("assigned_to_id")
-  title              String
-  description        String?
-  department         String?
-  startDate          DateTime     @map("start_date") @db.Date
-  endDate            DateTime     @map("end_date") @db.Date
-  actualEndDate      DateTime?    @map("actual_end_date") @db.Date
-  hoursToComplete    Decimal      @default(0) @map("hours_to_complete") @db.Decimal(10, 2)
-  loggedHours        Decimal      @default(0) @map("logged_hours") @db.Decimal(10, 2)
-  status             TaskStatus   @default(not_started)
-  completionPercent  Int          @default(0) @map("completion_percent")
-  priority           TaskPriority @default(medium)
-  dependencyTaskId   Int?         @map("dependency_task_id")
-  points             Int          @default(10)
-  customFields       Json         @default("{}") @map("custom_fields")
-  createdBy          Int?         @map("created_by")
-  updatedBy          Int?         @map("updated_by")
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  id                    Int          @id @default(autoincrement())
+  organizationId        Int          @map("organization_id")
+  projectId             Int          @map("project_id")
+  taskCode              String       @map("task_code")
+  milestoneId           Int?         @map("milestone_id")
+  assignedToId          Int?         @map("assigned_to_id")
+  title                 String
+  description           String?
+  department            String?
+  startDate             DateTime     @map("start_date") @db.Date
+  endDate               DateTime     @map("end_date") @db.Date
+  actualEndDate         DateTime?    @map("actual_end_date") @db.Date
+  hoursToComplete       Decimal      @default(0) @map("hours_to_complete") @db.Decimal(10, 2)
+  loggedHours           Decimal      @default(0) @map("logged_hours") @db.Decimal(10, 2)
+  status                TaskStatus   @default(not_started)
+  completionPercent     Int          @default(0) @map("completion_percent")
+  priority              TaskPriority @default(medium)
+  dependencyTaskId      Int?         @map("dependency_task_id")
+  /// Legacy `types.ts` richer dependency metadata, kept alongside
+  /// `dependencyTaskId` (which stays the authoritative FK used for DFS
+  /// cycle-detection) purely for the old UI's descriptive display —
+  /// finish_to_start|start_to_start|finish_to_finish etc.
+  dependencyType        String?      @map("dependency_type")
+  /// must_complete|should_complete|informational — matches legacy's
+  /// `dependencyRequirement`.
+  dependencyRequirement String?      @map("dependency_requirement")
+  /// Legacy also allowed a "soft" dependency target that isn't necessarily
+  /// another ProjectTask row (e.g. an external/employee milestone) —
+  /// `dependencyTargetId`/`dependencyTargetName` reproduce that free-form
+  /// display pair; `dependencyTaskId` above remains the only one enforced
+  /// as a real FK.
+  dependencyTargetId    Int?         @map("dependency_target_id")
+  dependencyTargetName  String?      @map("dependency_target_name")
+  points                Int          @default(10)
+  customFields          Json         @default("{}") @map("custom_fields")
+  createdBy             Int?         @map("created_by")
+  updatedBy             Int?         @map("updated_by")
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
-  organization   Organization         @relation(fields: [organizationId], references: [id])
-  project        ProjectRecord        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestone      ProjectMilestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  assignedTo     Employee?            @relation(fields: [assignedToId], references: [id])
-  dependencyTask ProjectTask?         @relation("TaskDependencies", fields: [dependencyTaskId], references: [id])
-  dependentTasks ProjectTask[]        @relation("TaskDependencies")
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone      ProjectMilestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignedTo     Employee?             @relation(fields: [assignedToId], references: [id])
+  dependencyTask ProjectTask?          @relation("TaskDependencies", fields: [dependencyTaskId], references: [id])
+  dependentTasks ProjectTask[]         @relation("TaskDependencies")
   timeEntries    ProjectTimeEntry[]
   pointsLedger   ProjectPointsLedger[]
 
@@ -6538,7 +6587,13 @@ model ProjectExpense {
   department     String?
   amount         Decimal              @db.Decimal(14, 2)
   expenseDate    DateTime             @map("expense_date") @db.Date
+  /// Display name of the vendor. When `supplierId` is set this is a copy of
+  /// the SCM supplier's company name at the time of saving; otherwise it is a
+  /// free-text vendor not (yet) in the supplier master.
   vendor         String?
+  /// Optional link to the SCM supplier master (`scm.suppliers`) — reuses the
+  /// existing vendor register instead of a Projects-only vendor table.
+  supplierId     Int?                 @map("supplier_id")
   referenceNo    String?              @map("reference_no")
   status         ProjectExpenseStatus @default(unpaid)
   notes          String?
@@ -6546,10 +6601,12 @@ model ProjectExpense {
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization   @relation(fields: [organizationId], references: [id])
-  project      ProjectRecord  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier     Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, projectId])
+  @@index([organizationId, supplierId])
   @@map("project_expenses")
   @@schema("projects")
 }
@@ -6623,6 +6680,329 @@ model FinanceAccount {
   @@schema("finance")
 }
 
+// ---------------------------------------------------------------------------
+// Proposal Documents — legacy `src/modules/projects/proposals/` +
+// `proposalTypes.ts`. Full port (not a stub): templates with versioned,
+// dynamic JSON-driven section schemas, issued documents that snapshot their
+// template at issue time, and a workflow/audit trail (one `ProposalActivity`
+// row per status transition). Proposal numbers are allocated via
+// `platform.document_sequences` (Docs/PROJECTS_MODULE_SPEC.md pattern),
+// replacing legacy's ad-hoc `ProposalSettings.nextSequence` counter.
+// ---------------------------------------------------------------------------
+
+enum ProposalTemplateStatus {
+  draft
+  active
+  archived
+
+  @@schema("projects")
+}
+
+enum ProposalStatus {
+  draft
+  under_review
+  changes_requested
+  approved
+  sent
+  accepted
+  rejected
+  archived
+
+  @@schema("projects")
+}
+
+model ProposalTemplate {
+  id              Int                    @id @default(autoincrement())
+  organizationId  Int                    @map("organization_id")
+  code            String?
+  name            String
+  title           String
+  description     String?
+  department      String?
+  category        String?
+  version         Int                    @default(1)
+  parentVersionId Int?                   @map("parent_version_id")
+  isCurrent       Boolean                @default(true) @map("is_current")
+  status          ProposalTemplateStatus @default(draft)
+  isDefault       Boolean                @default(false) @map("is_default")
+  /// Dynamic section schema — `ProposalSectionConfig[]` shape from legacy
+  /// `proposalTypes.ts` (nested section_group support, per-section content
+  /// type, table/key-value/signature field configs, etc.)
+  schemaJson      Json                   @default("[]") @map("schema_json")
+  createdBy       Int?                   @map("created_by")
+  createdByName   String?                @map("created_by_name")
+  publishedAt     DateTime?              @map("published_at") @db.Timestamptz(6)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?              @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization       @relation(fields: [organizationId], references: [id])
+  parentVersion ProposalTemplate?  @relation("ProposalTemplateVersions", fields: [parentVersionId], references: [id])
+  childVersions ProposalTemplate[] @relation("ProposalTemplateVersions")
+  documents     ProposalDocument[]
+
+  @@index([organizationId, status])
+  @@map("proposal_templates")
+  @@schema("projects")
+}
+
+model ProposalDocument {
+  id                     Int            @id @default(autoincrement())
+  organizationId         Int            @map("organization_id")
+  proposalNumber         String         @map("proposal_number")
+  title                  String
+  projectId              Int?           @map("project_id")
+  projectCode            String?        @map("project_code")
+  projectName            String?        @map("project_name")
+  clientId               Int?           @map("client_id")
+  clientName             String?        @map("client_name")
+  templateId             Int?           @map("template_id")
+  templateTitle          String?        @map("template_title")
+  templateCode           String?        @map("template_code")
+  templateVersion        Int?           @map("template_version")
+  /// Full clone of the template's `schemaJson` at issue time — protects
+  /// already-issued documents from later template edits (legacy
+  /// `template_snapshot`).
+  templateSnapshot       Json?          @map("template_snapshot")
+  /// Section values keyed by section id (legacy `proposal_data`).
+  sectionValues          Json           @default("{}") @map("section_values")
+  status                 ProposalStatus @default(draft)
+  preparedBy             Int?           @map("prepared_by")
+  proposalDate           DateTime?      @map("proposal_date") @db.Date
+  dueDate                DateTime?      @map("due_date") @db.Date
+  followUpNotes          String?        @map("follow_up_notes")
+  followUpExtensionCount Int            @default(0) @map("follow_up_extension_count")
+  createdBy              Int?           @map("created_by")
+  updatedBy              Int?           @map("updated_by")
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  project      Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  template     ProposalTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  activities   ProposalActivity[]
+
+  @@unique([organizationId, proposalNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([organizationId, dueDate])
+  @@map("proposal_documents")
+  @@schema("projects")
+}
+
+/// One row per workflow-status transition — legacy `ProposalActivity`
+/// (audit trail shown on the Hub's "Workflow & Audit History" tab).
+model ProposalActivity {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  proposalId     Int      @map("proposal_id")
+  userId         Int?     @map("user_id")
+  userName       String?  @map("user_name")
+  userRole       String?  @map("user_role")
+  action         String
+  previousStatus String?  @map("previous_status")
+  newStatus      String?  @map("new_status")
+  comments       String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  proposal     ProposalDocument @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, createdAt])
+  @@map("proposal_activities")
+  @@schema("projects")
+}
+
+/// One row per organization — company branding + numbering config, legacy
+/// `ProposalSettings`. `nextSequence`/`sampleGeneratedNumber` stay here only
+/// as display/preview fields; actual allocation uses
+/// `platform.document_sequences` (see proposals module's sequence helper).
+model ProposalSettings {
+  id                    Int      @id @default(autoincrement())
+  organizationId        Int      @unique @map("organization_id")
+  companyName           String?  @map("company_name")
+  logoUrl               String?  @map("logo_url")
+  email                 String?
+  phone                 String?
+  website               String?
+  address               String?
+  showHeader            Boolean  @default(true) @map("show_header")
+  showFooter            Boolean  @default(true) @map("show_footer")
+  /// Granular header/footer toggles (legacy `ProposalSettingsPage`). The
+  /// `showHeader`/`showFooter` flags above remain the master switches.
+  showHeaderLogo        Boolean  @default(true) @map("show_header_logo")
+  showHeaderCompanyName Boolean  @default(true) @map("show_header_company_name")
+  showHeaderDocTitle    Boolean  @default(true) @map("show_header_doc_title")
+  showFooterEmail       Boolean  @default(true) @map("show_footer_email")
+  showFooterPhone       Boolean  @default(true) @map("show_footer_phone")
+  showFooterWebsite     Boolean  @default(true) @map("show_footer_website")
+  showFooterAddress     Boolean  @default(true) @map("show_footer_address")
+  showFooterPageNumber  Boolean  @default(true) @map("show_footer_page_number")
+  prefix                String   @default("PROP")
+  yearFormat            String   @default("YYYY") @map("year_format")
+  sequenceDigits        Int      @default(4) @map("sequence_digits")
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("proposal_settings")
+  @@schema("projects")
+}
+
+// ---------------------------------------------------------------------------
+// Minutes of Meeting (MoM) — legacy `src/modules/projects/mom/`. Full port:
+// documents with draft/finalized/archived lifecycle, revision tracking when
+// a finalized MoM is edited again (`workingRevision`/`workingRevisionReason`
+// -> a new `MomRevision` row + `MomHistoryEvent` entries), and a template
+// library mirroring the Proposals template pattern. Reference numbers
+// (`MOM-YYYY-NNNN`) are allocated via `platform.document_sequences`,
+// replacing legacy's `mom_counters/{year}` RTDB path.
+// ---------------------------------------------------------------------------
+
+enum MomTemplateStatus {
+  draft
+  active
+  archived
+
+  @@schema("projects")
+}
+
+enum MomStatus {
+  draft
+  finalized
+  archived
+
+  @@schema("projects")
+}
+
+model MomTemplate {
+  id                     Int               @id @default(autoincrement())
+  organizationId         Int               @map("organization_id")
+  code                   String?
+  name                   String
+  description            String?
+  category               String?
+  version                Int               @default(1)
+  parentVersionId        Int?              @map("parent_version_id")
+  status                 MomTemplateStatus @default(draft)
+  isDefault              Boolean           @default(false) @map("is_default")
+  /// `MomSectionConfig[]` — section_type/title/order/visible/required.
+  sectionsJson           Json              @default("[]") @map("sections_json")
+  defaultAgendaJson      Json              @default("[]") @map("default_agenda_json")
+  defaultNoteRowsJson    Json              @default("[]") @map("default_note_rows_json")
+  additionalSectionsJson Json              @default("[]") @map("additional_sections_json")
+  createdBy              Int?              @map("created_by")
+  publishedAt            DateTime?         @map("published_at") @db.Timestamptz(6)
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  parentVersion MomTemplate?  @relation("MomTemplateVersions", fields: [parentVersionId], references: [id])
+  childVersions MomTemplate[] @relation("MomTemplateVersions")
+  documents     MomDocument[]
+
+  @@index([organizationId, status])
+  @@map("mom_templates")
+  @@schema("projects")
+}
+
+model MomDocument {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  reference              String
+  projectId              Int?      @map("project_id")
+  projectCode            String?   @map("project_code")
+  projectName            String?   @map("project_name")
+  clientName             String?   @map("client_name")
+  meetingTitle           String    @map("meeting_title")
+  meetingDate            DateTime  @map("meeting_date") @db.Date
+  startTime              String?   @map("start_time")
+  endTime                String?   @map("end_time")
+  timezone               String?
+  location               String?
+  attendeesJson          Json      @default("[]") @map("attendees_json")
+  absenteesJson          Json      @default("[]") @map("absentees_json")
+  agendaJson             Json      @default("[]") @map("agenda_json")
+  meetingNotesJson       Json      @default("[]") @map("meeting_notes_json")
+  additionalSectionsJson Json      @default("[]") @map("additional_sections_json")
+  freeTextContent        String?   @map("free_text_content")
+  status                 MomStatus @default(draft)
+  previousStatus         String?   @map("previous_status")
+  templateId             Int?      @map("template_id")
+  templateTitle          String?   @map("template_title")
+  templateVersion        Int?      @map("template_version")
+  templateSnapshot       Json?     @map("template_snapshot")
+  currentRevision        Int       @default(1) @map("current_revision")
+  /// Non-null while a finalized MoM is being re-edited (legacy
+  /// `workingRevision`/`workingRevisionReason`) — cleared once re-finalized,
+  /// at which point a `MomRevision` row captures the prior snapshot.
+  workingRevision        Int?      @map("working_revision")
+  workingRevisionReason  String?   @map("working_revision_reason")
+  /// Optimistic-concurrency token (legacy `versionToken`), bumped on every
+  /// save so concurrent editors get a conflict instead of a silent overwrite.
+  versionToken           String?   @map("version_token")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  project      Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  template     MomTemplate?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  revisions    MomRevision[]
+  history      MomHistoryEvent[]
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@map("mom_documents")
+  @@schema("projects")
+}
+
+/// Full meeting-state snapshot captured whenever a finalized MoM is revised
+/// — legacy `MomRevision`.
+model MomRevision {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  momId          Int      @map("mom_id")
+  revisionNumber Int      @map("revision_number")
+  userId         Int?     @map("user_id")
+  userName       String?  @map("user_name")
+  changeSummary  String?  @map("change_summary")
+  snapshotJson   Json     @map("snapshot_json")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  mom          MomDocument  @relation(fields: [momId], references: [id], onDelete: Cascade)
+
+  @@unique([momId, revisionNumber])
+  @@map("mom_revisions")
+  @@schema("projects")
+}
+
+/// Lifecycle audit log — legacy `MomHistoryEvent`
+/// (created/saved_draft/finalized/revision_started/
+/// revised_version_finalized/archived/restored).
+model MomHistoryEvent {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  momId          Int      @map("mom_id")
+  userId         Int?     @map("user_id")
+  userName       String?  @map("user_name")
+  action         String
+  details        String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  mom          MomDocument  @relation(fields: [momId], references: [id], onDelete: Cascade)
+
+  @@index([momId, createdAt])
+  @@map("mom_history_events")
+  @@schema("projects")
+}
 /// Journal Entries — general ledger vouchers.
 model FinanceJournalEntry {
   id              Int       @id @default(autoincrement())

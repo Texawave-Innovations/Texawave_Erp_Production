@@ -111,6 +111,7 @@ export function Pattern(regex: RegExp, message: string) {
 }
 
 export const MOBILE = { regex: FORMAT.mobile, message: MSG.mobile };
+export const NAME = { regex: FORMAT.name, message: MSG.name };
 export const PINCODE = { regex: FORMAT.pincode, message: MSG.pincode };
 export const ACCOUNT_NUMBER = {
   regex: FORMAT.accountNumber,

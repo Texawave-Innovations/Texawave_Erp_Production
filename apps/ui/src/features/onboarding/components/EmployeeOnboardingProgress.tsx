@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,22 +9,34 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Pencil,
   UserCheck,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
+  ConfirmDialog,
   ErrorState,
   Semantic3DIcon,
   type Icon3DName,
   Skeleton,
+  useToast,
 } from "@texawave-erp/ui-kit";
 import { useQuery } from "@tanstack/react-query";
-import { useEmployee } from "@/features/hr/employees/hooks";
+import {
+  useEmployee,
+  useReviewOnboarding,
+} from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { OnboardingReviewPanel } from "@/features/hr/employees/components/OnboardingReviewPanel";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  ONBOARDING_APPROVE_TEAM_OR_ALL,
+  WRITE_TEAM_OR_ALL,
+} from "@/features/hr/employees/permissions";
 import { getEmployeeOnboarding } from "../api";
 import { MISSING_LABELS } from "./OnboardingWizard";
+import { SectionEditDialog, type EditableSectionId } from "./SectionEditDialog";
 
 /** Canonical sections mapping to the backend's required onboarding checklist */
 interface SectionDefinition {
@@ -112,17 +125,67 @@ const ONBOARDING_SECTIONS: SectionDefinition[] = [
 
 const TOTAL_TRACKED_ITEMS = 25; // 4 + 3 + 5 + 4 + 2 + 7
 
-/** HR's read-only view of one employee's onboarding progress. */
+/** Also opened for documents (no auto-calculated status of its own, but
+ * missing certificates still block completion the same way). */
+const EDITABLE_SECTION_IDS = new Set<string>([
+  "personal",
+  "emergency",
+  "address",
+  "bank",
+  "statutory",
+  "documents",
+]);
+
+/** HR's read-only view of one employee's onboarding progress, with a
+ * per-section Edit action (gated the same as any other HR employee-record
+ * write) that fills in the missing fields on the employee's behalf. */
 export function EmployeeOnboardingProgress({
   employeeId,
 }: {
   employeeId: number;
 }) {
+  const canEdit = usePermission(WRITE_TEAM_OR_ALL);
+  const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
+  const [editingSection, setEditingSection] =
+    useState<EditableSectionId | null>(null);
+  const [forceApproveOpen, setForceApproveOpen] = useState(false);
+  const { toast } = useToast();
+  const reviewMutation = useReviewOnboarding();
   const empQuery = useEmployee(employeeId);
   const onboardingQuery = useQuery({
     queryKey: ["onboarding", "hr-progress", employeeId],
     queryFn: () => getEmployeeOnboarding(employeeId),
   });
+
+  const handleForceApprove = async () => {
+    try {
+      await reviewMutation.mutateAsync({
+        id: employeeId,
+        decision: "approve",
+        note: "Force-approved by HR before onboarding was submitted/complete",
+        force: true,
+      });
+      toast({
+        title: "Onboarding approved",
+        description:
+          "This was approved even though it isn't fully submitted — an explicit HR override.",
+        variant: "success",
+      });
+      setForceApproveOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to approve onboarding";
+      toast({
+        title: "Approve failed",
+        description: message,
+        variant: "error",
+      });
+    }
+  };
 
   if (onboardingQuery.isPending || empQuery.isPending) {
     return (
@@ -208,9 +271,7 @@ export function EmployeeOnboardingProgress({
 
       {/* Employee Identity Header */}
       {emp ? (
-        <div
-          className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60"
-        >
+        <div className="relative overflow-visible rounded-2xl border border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] p-6 shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
               <EmployeeIdentity
@@ -247,7 +308,8 @@ export function EmployeeOnboardingProgress({
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#2f6396] dark:text-sky-300/80">
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200/80 bg-white/80 px-2 py-0.5 text-[11px] shadow-2xs dark:border-slate-700 dark:bg-slate-800">
                     <Calendar className="h-3.5 w-3.5 text-brand-500" />
-                    Joined {emp.dateOfJoining ? emp.dateOfJoining.slice(0, 10) : "—"}
+                    Joined{" "}
+                    {emp.dateOfJoining ? emp.dateOfJoining.slice(0, 10) : "—"}
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200/80 bg-white/80 px-2 py-0.5 text-[11px] shadow-2xs dark:border-slate-700 dark:bg-slate-800">
                     <Building2 className="h-3.5 w-3.5 text-brand-500" />
@@ -266,7 +328,11 @@ export function EmployeeOnboardingProgress({
                 View full profile
               </Link>
               <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] ring-2 ring-white/70 dark:border-slate-700 dark:bg-slate-800">
-                <Semantic3DIcon name="recruitment" size={32} alt="Employee onboarding" />
+                <Semantic3DIcon
+                  name="recruitment"
+                  size={32}
+                  alt="Employee onboarding"
+                />
               </div>
             </div>
           </div>
@@ -300,7 +366,8 @@ export function EmployeeOnboardingProgress({
             <div className="flex flex-wrap items-center gap-2 sm:text-right">
               <span className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-[#edf6ff]/80 px-3 py-1.5 text-xs font-bold text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200">
                 <CheckCircle2 className="h-3.5 w-3.5 text-brand-500" />
-                {completedSectionsCount} of {ONBOARDING_SECTIONS.length} sections complete
+                {completedSectionsCount} of {ONBOARDING_SECTIONS.length}{" "}
+                sections complete
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-[#2f6396] shadow-2xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">
                 {completedItemCount} of {TOTAL_TRACKED_ITEMS} requirements met
@@ -317,7 +384,9 @@ export function EmployeeOnboardingProgress({
                     ? "bg-linear-to-r from-emerald-500 to-teal-400"
                     : "bg-linear-to-r from-[#1769F5] via-[#0284c7] to-[#38bdf8]"
                 }`}
-                style={{ width: `${Math.max(completionPercentage, completionPercentage > 0 ? 8 : 0)}%` }}
+                style={{
+                  width: `${Math.max(completionPercentage, completionPercentage > 0 ? 8 : 0)}%`,
+                }}
                 role="progressbar"
                 aria-valuenow={completionPercentage}
                 aria-valuemin={0}
@@ -356,7 +425,8 @@ export function EmployeeOnboardingProgress({
               <span className="font-bold text-[#0a3271] dark:text-sky-100">
                 {missingList.length} required field(s)
               </span>{" "}
-              pending. The employee must sign in and finish these sections via their self-service onboarding wizard at{" "}
+              pending. The employee must sign in and finish these sections via
+              their self-service onboarding wizard at{" "}
               <code className="rounded-md border border-sky-200/90 bg-white/90 px-1.5 py-0.5 font-semibold text-brand-500 dark:border-slate-700 dark:bg-slate-800">
                 /onboarding
               </code>
@@ -374,7 +444,8 @@ export function EmployeeOnboardingProgress({
               Onboarding Complete
             </h3>
             <p className="mt-0.5 font-medium text-emerald-700 dark:text-emerald-300">
-              All mandatory onboarding checklist items have been fulfilled, verified, and saved to the employee record.
+              All mandatory onboarding checklist items have been fulfilled,
+              verified, and saved to the employee record.
             </p>
           </div>
         </div>
@@ -389,10 +460,35 @@ export function EmployeeOnboardingProgress({
               Onboarding Sections Checklist
             </h3>
           </div>
-          <span className="rounded-full border border-sky-200/90 bg-[#edf6ff] px-2.5 py-0.5 text-xs font-bold text-brand-500 shadow-2xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">
-            {isDone ? "All verified" : "Pending completion"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-sky-200/90 bg-[#edf6ff] px-2.5 py-0.5 text-xs font-bold text-brand-500 shadow-2xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">
+              {isDone ? "All verified" : "Pending completion"}
+            </span>
+            {!isDone && canApprove ? (
+              <button
+                type="button"
+                onClick={() => setForceApproveOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-1 text-xs font-bold text-white shadow-sm transition-colors hover:brightness-105"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Approve
+              </button>
+            ) : null}
+          </div>
         </div>
+
+        {forceApproveOpen ? (
+          <ConfirmDialog
+            open
+            onClose={() => setForceApproveOpen(false)}
+            onConfirm={handleForceApprove}
+            title="Approve incomplete onboarding?"
+            description="This employee's onboarding was never submitted and still has required fields missing. Approving now overrides that — it marks onboarding Approved anyway. This is an explicit override, not the normal review flow."
+            confirmText="Approve anyway"
+            variant="destructive"
+            loading={reviewMutation.isPending}
+          />
+        ) : null}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {sectionSummaries.map((sec) => {
@@ -420,32 +516,46 @@ export function EmployeeOnboardingProgress({
                     </div>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-2xs ${
-                      complete
-                        ? "border border-sky-300 bg-sky-100 text-[#0a3271] dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200"
-                        : inProgress
-                          ? "border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                          : "border border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                    }`}
-                  >
-                    {complete ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-brand-500" />
-                        Complete
-                      </>
-                    ) : inProgress ? (
-                      <>
-                        <Clock className="h-3.5 w-3.5 text-amber-600" />
-                        In progress
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-3.5 w-3.5 text-slate-400" />
-                        Pending
-                      </>
-                    )}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canEdit && EDITABLE_SECTION_IDS.has(sec.id) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingSection(sec.id as EditableSectionId)
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200/90 bg-white px-2.5 py-0.5 text-[11px] font-bold text-brand-500 shadow-2xs transition-colors hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                    ) : null}
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-2xs ${
+                        complete
+                          ? "border border-sky-300 bg-sky-100 text-[#0a3271] dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200"
+                          : inProgress
+                            ? "border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                            : "border border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      }`}
+                    >
+                      {complete ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-brand-500" />
+                          Complete
+                        </>
+                      ) : inProgress ? (
+                        <>
+                          <Clock className="h-3.5 w-3.5 text-amber-600" />
+                          In progress
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3.5 w-3.5 text-slate-400" />
+                          Pending
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="p-6">
@@ -485,6 +595,18 @@ export function EmployeeOnboardingProgress({
           })}
         </div>
       </div>
+
+      {editingSection ? (
+        <SectionEditDialog
+          employeeId={employeeId}
+          sectionId={editingSection}
+          onClose={() => setEditingSection(null)}
+          onSaved={() => {
+            void onboardingQuery.refetch();
+            void empQuery.refetch();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Type } from "class-transformer";
 import {
   IsDateString,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -30,6 +31,16 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsString()
   vendor?: string;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description:
+      "SCM supplier (scm.suppliers) this expense was paid to. When set, `vendor` is filled from the supplier's company name.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  supplierId?: number;
 
   @ApiPropertyOptional({ example: "INV-MC-902" })
   @IsOptional()

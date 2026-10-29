@@ -8,6 +8,7 @@ import {
   Edit,
   ExternalLink,
   FileDown,
+  KeyRound,
   Mail,
   MapPin,
   Phone,
@@ -28,14 +29,23 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { downloadProfilePdf } from "../api";
+import { LinkAccountDialog } from "./LinkAccountDialog";
 import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
 import { usePermission } from "@/hooks/usePermission";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
-import { useEmployee, useEmployeeStatusHistory } from "../hooks";
+import {
+  useEmployee,
+  useEmployeeStatusHistory,
+  useUnlinkEmployeeUser,
+} from "../hooks";
 import { STATUS_LABELS, isExitStatus } from "../status";
-import { READ_ANY_SCOPE, WRITE_TEAM_OR_ALL } from "../permissions";
+import {
+  ACCOUNT_WRITE,
+  READ_ANY_SCOPE,
+  WRITE_TEAM_OR_ALL,
+} from "../permissions";
 import type { EmployeeDetail } from "../types";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 
@@ -72,11 +82,14 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const canRead = usePermission(READ_ANY_SCOPE);
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const canReadProfile = usePermission(PROFILE_READ_ANY_SCOPE);
+  const canAccount = usePermission(ACCOUNT_WRITE);
 
   const query = useEmployee(id);
   const [historyPage, setHistoryPage] = useState(1);
   const history = useEmployeeStatusHistory(id, historyPage, HISTORY_PAGE_SIZE);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const unlinkMutation = useUnlinkEmployeeUser();
   const { toast } = useToast();
   const { formatDate } = useRegionalFormatter();
   const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
@@ -127,6 +140,44 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   const e: EmployeeDetail = query.data;
   const exit = isExitStatus(e.status);
+
+  async function handleAccountAction() {
+    if (!canAccount && !canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You do not have permission to manage employee accounts.",
+        variant: "error",
+      });
+      return;
+    }
+    if (e.hasLogin) {
+      try {
+        await unlinkMutation.mutateAsync({
+          id: e.id,
+          body: { reason: "Unlinked via employee detail quick action" },
+        });
+        toast({
+          title: "Account unlinked",
+          description: `${e.fullName}'s login has been detached.`,
+          variant: "success",
+        });
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to unlink employee account";
+        toast({
+          title: "Unlink failed",
+          description: message,
+          variant: "error",
+        });
+      }
+    } else {
+      setLinkDialogOpen(true);
+    }
+  }
 
   async function handleDownloadPdf() {
     setDownloadingPdf(true);
@@ -389,6 +440,31 @@ export function EmployeeDetailView({ id }: { id: number }) {
                     "—"
                   )}
                 </DetailField>
+                <DetailField label="Login password" icon={KeyRound}>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        e.hasLogin
+                          ? "text-brand-500 dark:text-cyan-400"
+                          : "text-slate-500 dark:text-slate-400"
+                      }
+                    >
+                      {e.hasLogin ? "Created" : "Not created"}
+                    </span>
+                    {canAccount || canWrite ? (
+                      <Button
+                        type="button"
+                        variant={e.hasLogin ? "secondary" : "primary"}
+                        size="sm"
+                        loading={unlinkMutation.isPending}
+                        onClick={() => void handleAccountAction()}
+                        className="h-7 px-2.5 text-[11px]"
+                      >
+                        {e.hasLogin ? "Unlink" : "Create / Link"}
+                      </Button>
+                    ) : null}
+                  </div>
+                </DetailField>
               </dl>
             </div>
 
@@ -516,6 +592,15 @@ export function EmployeeDetailView({ id }: { id: number }) {
           )}
         </div>
       </div>
+
+      {linkDialogOpen ? (
+        <LinkAccountDialog
+          open={linkDialogOpen}
+          onClose={() => setLinkDialogOpen(false)}
+          employee={e}
+          mode="link"
+        />
+      ) : null}
     </div>
   );
 }

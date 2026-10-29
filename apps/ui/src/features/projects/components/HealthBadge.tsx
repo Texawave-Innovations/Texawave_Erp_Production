@@ -1,24 +1,45 @@
 import type { HealthStatus } from "../types";
 
+export type NormalizedHealth = "ON_TRACK" | "DELAYED" | "COMPLETED";
+
+/** The API sends lower-case `on_track`/`delayed`/`completed`; older UI code
+ * used upper-case — normalize both so filters and badges agree. Legacy only
+ * has a two-state health model (On Track / Delayed), plus Completed. */
+export function normalizeHealth(
+  health: HealthStatus | string | null | undefined,
+): NormalizedHealth | null {
+  switch ((health ?? "").toLowerCase()) {
+    case "on_track":
+      return "ON_TRACK";
+    case "delayed":
+      return "DELAYED";
+    case "completed":
+      return "COMPLETED";
+    default:
+      return null;
+  }
+}
+
 export function HealthBadge({
-  health,
+  health: rawHealth,
 }: {
   health?: HealthStatus | null | undefined;
 }) {
+  const health = normalizeHealth(rawHealth);
+  if (health === "COMPLETED") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-500/30">
+        <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+        Delivered
+      </span>
+    );
+  }
+
   if (health === "ON_TRACK") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/30">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
         On Track
-      </span>
-    );
-  }
-
-  if (health === "AT_RISK") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-500/30">
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-        At Risk
       </span>
     );
   }
@@ -50,7 +71,7 @@ export function StatusBadge({
     active:
       "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-400 dark:ring-blue-500/30",
     in_progress:
-      "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-950/40 dark:text-indigo-400 dark:ring-indigo-500/30",
+      "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-500/30",
     completed:
       "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/30",
     on_hold:

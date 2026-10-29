@@ -1,9 +1,15 @@
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 
+/** Mirrors apps/api .../exit-requests.repository.ts ExitRequestView. */
 export interface MyExitRequest {
   id: number;
   reason: string;
   preferredLastWorkingDate: string;
+  noticePeriodDays: number;
+  additionalNotes: string | null;
+  confirmedLastWorkingDate: string | null;
+  settlementStatus: string | null;
+  hrNote: string | null;
   status: string;
   createdAt: string;
 }
