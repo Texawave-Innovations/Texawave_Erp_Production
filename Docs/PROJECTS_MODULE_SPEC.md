@@ -101,17 +101,15 @@ flowchart TD
 
 ---
 
-### 1.4 Scope Verification: Proposal Documents & Minutes of Meeting (MoM)
+### 1.4 Scope Verification: Proposal Documents & Minutes of Meeting (MoM) — CORRECTED
 
-1. **Analysis of Legacy Source Code (`TexaWave_ERP.zip`):**
-   - Inspection of `src/modules/projects/` reveals that neither Proposal Documents nor Minutes of Meeting (MoM) were part of the legacy projects module source files (`ProjectsDashboard.tsx`, `ProjectList.tsx`, `ProjectForm.tsx`, `ProjectDetail.tsx`, `MyWork.tsx`, `ProjectExpenses.tsx`, `ResourceTracking.tsx`, `BudgetUtilization.tsx`, `ProjectAnalytics.tsx`, `PointsMaster.tsx`, `types.ts`, `projectCalculations.ts`).
-   - In `src/App.tsx`, the `/projects` routing tree strictly defined the 11 subroutes above.
-   - Proposals in the legacy system originated as sales/CRM quotations (`Docs/CRM_QUOTES_LEGACY_PARITY.md`), while MoM represents a cross-functional governance register.
+**Correction (supersedes the earlier "placeholder/out-of-scope" conclusion below):** Proposal Documents and Minutes of Meeting (MoM) ARE first-class legacy features, living directly under `src/modules/projects/proposals/` (`ProposalsHub.tsx`, `CreateProposal.tsx`, `ProposalEditor.tsx`, `ProposalPreviewModal.tsx`, `ProposalSettingsPage.tsx`, `ProposalTemplates.tsx`, `TemplateBuilder.tsx`, `TemplateLivePreview.tsx`, `CreateTemplateModal.tsx`, `ExtendFollowupModal.tsx`, `SectionConfigDrawer.tsx`) and `src/modules/projects/mom/` (`pages/MomRegisterPage.tsx`, `pages/MomEditorPage.tsx`, `pages/MomTemplatesPage.tsx`, `pages/MomTemplateBuilderPage.tsx`, plus `components/`, `services/`, `types/`, `utils/`), and are listed in `ProjectsLayout.tsx`'s `PROJECTS` nav group as `Proposal Documents` (`/projects/proposals`) and `Minutes of Meeting` (`/projects/mom`) — real CRUD workflows (templates, drafts, approval/follow-up workflow, revision history), not placeholders or cross-module stubs. The new ERP implements full parity for both under `apps/ui/src/features/proposals/`, `apps/ui/src/features/mom/`, `apps/api/src/modules/projects/proposals/`, and `apps/api/src/modules/projects/mom/`.
+
+The original (incorrect) analysis is kept below for history only and should not be treated as current guidance:
+
+1. **Analysis of Legacy Source Code (`TexaWave_ERP.zip`):** ~~Inspection of `src/modules/projects/` reveals that neither Proposal Documents nor Minutes of Meeting (MoM) were part of the legacy projects module source files~~ — INCORRECT: both exist under `src/modules/projects/proposals/` and `src/modules/projects/mom/`.
 2. **Analysis of Uploaded Screenshots (Images 4 & 5):**
-   - In Images 2, 3, 4, and 5, the sidebar contains navigation links for `Proposal Documents` (URL: `/proposals`) and `Minutes of Meeting` (URL: `/mom`).
-   - **Architectural Scope Decision:** In accordance with the modular production architecture:
-     - The core Projects module scope comprises the 10 functional modules and 11 routes defined in `project_arch(1).md` and `PROJECTS_MODULE_SPEC.md`.
-     - In the Next.js UI navigation sidebar, `Proposal Documents` (`/proposals`) and `Minutes of Meeting` (`/mom`) will be represented in the navigation hierarchy as cross-module links. The UI provides dedicated placeholder / stub views adhering to the TexaOne design system, while keeping domain data decoupled from core project tables to prevent duplicate document-management engines or circular CRM dependencies.
+   - The sidebar contains navigation links for `Proposal Documents` (URL: `/proposals`) and `Minutes of Meeting` (URL: `/mom`), matching the real legacy source, not cross-module placeholders.
 
 ---
 
@@ -495,9 +493,12 @@ $$\text{HoursToComplete} = \text{BusinessDays}(S, E) \times 8$$
 
 A project's health is evaluated on the fly based on milestone completion dates:
 
-- **Delayed:** If at least one milestone has $\text{targetDate} < \text{currentDate}$ and $\text{status} \neq \text{'completed'}$ while project status is not completed.
 - **Completed:** If project status is `'completed'` or all milestones are `'completed'`.
-- **On Track:** If neither delayed nor completed.
+- **Delayed:** If at least one milestone has $\text{targetDate} < \text{currentDate}$ and $\text{status} \neq \text{'completed'}$ while project status is not completed.
+- **At Risk** (`at_risk`, added 2026-10-24): not delayed, but an incomplete milestone is due within the next 7 days (`AT_RISK_MILESTONE_WINDOW_DAYS`, legacy `DEFAULT_UPCOMING_MILESTONE_DAYS` / the old dashboard's "at-risk" link), **or** an incomplete task is already past its `endDate`.
+- **On Track:** None of the above.
+
+Implemented in `calculations/project-calculations.ts` (`calculateProjectHealth(milestones, isCompleted, today, tasks)`), covered by `project-calculations.spec.ts`. `GET /projects?health=on_track|at_risk|delayed|completed|upcoming` filters on this computed value across **all** projects server-side, then paginates.
 
 ### 3.3 Earned Value & Monetary Progress (EVM)
 
@@ -524,22 +525,12 @@ Before assigning `task.dependencyTaskId = candidateDependencyId`, a Depth-First 
 Per the mandatory constraint:
 
 1. **No Rebuilding of Master Lists:** Projects module consumes master-data from `platform` and `hr` (`organizations`, `users`, `employees`, `teams`, `departments`, `crm.accounts`).
-2. **Project Code Generation (`PRJ-000001`):**
-   - Doc Type: `"project"`
-   - Default Prefix: `"PRJ-"`
-   - Default Padding: `6`
-   - Implemented via PostgreSQL row-lock on `platform.document_sequences`:
-     ```sql
-     UPDATE platform.document_sequences
-        SET next_number = next_number + 1, updated_at = now()
-      WHERE organization_id = $1 AND doc_type = 'project'
-      RETURNING prefix, padding, next_number - 1 AS issued;
-     ```
-3. **Task Code Generation (`TSK-000001`):**
-   - Doc Type: `"project_task"`
-   - Default Prefix: `"TSK-"`
-   - Default Padding: `6`
-   - Implemented using the same concurrency-safe atomic sequence issue method.
+2. **Project Code Generation (legacy format, since 2026-10-24):** `[Company Prefix]/[Module Id]/[Project Type]/[FY]/[Seq]`, e.g. `TXW/PRJ/ME/26-27/002`.
+   - Format settings come from the existing **Project Code Master** (`projects.project_code_masters`, Docs/PROJECTS_MASTER.md tab 2): `companyPrefix`, `moduleIdentifier`, `defaultProjectCode` (used when a project has no type), `financialYear` (when blank, the Indian FY of the project's `startDate`, April–March), `sequenceDigits`.
+   - `[Project Type]` is the project's `projectType` (a Project Category Master code); omitted when neither it nor `defaultProjectCode` is set.
+   - One continuous counter per organization (doc type `"project_code"` in `platform.document_sequences`, row-locked), seeded from the org's existing project count — the year/type are labels, not counter resets (legacy "global continuous sequence").
+   - Codes already issued in the old `PRJ-000001` format are left as they are.
+3. **Task Code Generation:** `[Project Code][Separator][Task Prefix][Seq]`, e.g. `TXW/PRJ/ME/26-27/002-T01`, from the **Task Running Number Master** (Docs/PROJECTS_MASTER.md tab 3). The counter runs per project (doc type `"project_task:<projectId>"`). Pure formatters + tests: `sequences/project-sequences.ts` / `.spec.ts`.
 
 ---
 
@@ -604,16 +595,25 @@ The API is exposed under `/api/v1/projects` (or `/projects` in NestJS controller
 - `GET /projects/expenses` — Filterable list of all project expenses.
 - `POST /projects/:id/expenses` — Add project expense.
 - `PATCH /projects/expenses/:expenseId` — Update expense status/notes.
+- `GET /projects/expenses/vendors?q=` — Active vendors from the **SCM supplier master** (`scm.suppliers`, read via `SuppliersService`). An expense may carry `supplierId` (FK, `ON DELETE SET NULL`); `vendor` stays as the display name (copied from the supplier, or free text for one-off vendors not in the master).
 - `GET /projects/:id/budget-utilization` — Real-time budget variance, actual spend, and EVM earned revenue.
 
 ### 6.6 Analytics, Dashboard & Gamification (`/projects/analytics`)
 
-- `GET /projects/dashboard/metrics` — Executive KPIs: total active projects, delayed count, hours velocity, budget health.
-- `GET /projects/analytics/resources` — Resource capacity tracking (active tasks per employee, monthly capacity % utilization).
+- `GET /projects/dashboard/metrics` (alias `GET /projects/analytics/dashboard`) — Executive KPIs over **every** live project (non-paginated aggregate read, no 100/1000-row cap): counts incl. `atRiskProjects`, `overHoursProjects`, `overBudgetProjects`, `milestoneHealth`, financials, hours.
+- `GET /projects/analytics/resources` — Resource capacity tracking over every live project, per employee incl. HR `department`/`designation` and assigned `projects[]`; plus the distinct `departments` list for filtering.
 - `GET /projects/analytics/department-breakdown` — Projects and hours segmented by department.
 - `GET /projects/points/config` — Get gamification points configuration.
 - `PATCH /projects/points/config` — Update points assigned to low/medium/high/urgent priorities.
 - `GET /projects/points/leaderboard` — Lifetime points awarded to team members with recent ledger transactions.
+
+### 6.7 My Work, stopwatch & attendance (`/projects/tasks`)
+
+- `GET /projects/tasks/attendance/me` — today's check-in state from HR Attendance (via `AttendanceService.findMine`).
+- `POST /projects/tasks/:taskId/timer/start` — refused with `ATTENDANCE_CHECK_IN_REQUIRED` (422) unless the employee has an open attendance session today (legacy My Work gate).
+- `GET /projects/tasks/timer/active` — a running timer is closed at the employee's check-out time once they have checked out (legacy auto-pause, done server-side).
+- `GET /projects/tasks/time-summary/me` — logged-today / this-week minutes (IST business day).
+- `GET /projects/tasks/work/:employeeId` — another employee's tasks, running timer and logged time; requires `projects.work.review`.
 
 ---
 

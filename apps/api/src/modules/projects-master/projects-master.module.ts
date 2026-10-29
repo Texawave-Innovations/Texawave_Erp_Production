@@ -23,5 +23,8 @@ import { TaskRunningNumberMasterService } from "./task-running-number-master.ser
     TaskRunningNumberMasterRepository,
     TaskRunningNumberMasterService,
   ],
+  // Read-only format lookups for the Projects module's code generator
+  // (Docs/CODING_STANDARDS.md §11 — synchronous read via public service).
+  exports: [ProjectCodeMasterService, TaskRunningNumberMasterService],
 })
 export class ProjectsMasterModule {}

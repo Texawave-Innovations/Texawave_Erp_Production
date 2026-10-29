@@ -6,26 +6,42 @@ import {
 } from "../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import {
+  DEFAULT_UPCOMING_MILESTONE_DAYS,
   calculateBudgetUtilization,
   calculateEarnedAmount,
   calculateProjectHealth,
 } from "./calculations/project-calculations.js";
 import type { AddProjectMemberDto } from "./dto/add-project-member.dto.js";
 import type { CreateProjectDto } from "./dto/create-project.dto.js";
-import type { QueryProjectDto } from "./dto/query-project.dto.js";
+import type {
+  ProjectHealthFilter,
+  QueryProjectDto,
+} from "./dto/query-project.dto.js";
 import type { UpdateProjectDto } from "./dto/update-project.dto.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { ProjectCodeMasterService } from "../projects-master/project-code-master.service.js";
+import { financialYearLabel } from "./sequences/project-sequences.js";
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly repository: ProjectsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly codeMaster: ProjectCodeMasterService,
   ) {}
 
   async findAll(query: QueryProjectDto) {
     const scope = this.tenantContext.getOrgScope();
-    const { items, total } = await this.repository.findMany(scope, query);
+    // Health is computed, not stored: resolve the matching ids over the
+    // whole organization first, then page through them normally.
+    const healthIds = query.health
+      ? await this.projectIdsByHealth(query.health)
+      : undefined;
+    const { items, total } = await this.repository.findMany(
+      scope,
+      query,
+      healthIds,
+    );
 
     const enrichedItems = items.map((p) => {
       const health = calculateProjectHealth(
@@ -34,6 +50,7 @@ export class ProjectsService {
           status: m.status,
         })),
         p.status === "completed",
+        new Date(),
       );
       const totalLogged = p.members.reduce(
         (sum, m) => sum + Number(m.loggedHours),
@@ -75,6 +92,39 @@ export class ProjectsService {
     );
   }
 
+  private async projectIdsByHealth(
+    health: ProjectHealthFilter,
+  ): Promise<number[]> {
+    const scope = this.tenantContext.getOrgScope();
+    const projects = await this.repository.findAllForAnalytics(scope);
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
+    const windowEnd = new Date(todayIso + "T00:00:00.000Z");
+    windowEnd.setUTCDate(
+      windowEnd.getUTCDate() + DEFAULT_UPCOMING_MILESTONE_DAYS,
+    );
+    const windowEndIso = windowEnd.toISOString().slice(0, 10);
+    return projects
+      .filter((p) => {
+        if (health === "upcoming") {
+          return p.milestones.some((m) => {
+            const d = m.targetDate.toISOString().slice(0, 10);
+            return (
+              m.status !== "completed" && d >= todayIso && d <= windowEndIso
+            );
+          });
+        }
+        return (
+          calculateProjectHealth(
+            p.milestones,
+            p.status === "completed",
+            today,
+          ) === health
+        );
+      })
+      .map((p) => p.id);
+  }
+
   async findOne(id: number) {
     const scope = this.tenantContext.getOrgScope();
     const project = await this.repository.findOne(scope, id);
@@ -88,6 +138,7 @@ export class ProjectsService {
         status: m.status,
       })),
       project.status === "completed",
+      new Date(),
     );
     const totalLogged = project.members.reduce(
       (sum, m) => sum + Number(m.loggedHours),
@@ -134,7 +185,18 @@ export class ProjectsService {
 
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
-    const project = await this.repository.create(scope, dto, userId);
+    // Legacy format `TXW/PRJ/<type>/<FY>/<seq>` from the Project Code Master;
+    // the FY label follows the project's start date unless the master pins one.
+    const cfg = await this.codeMaster.findOne();
+    const project = await this.repository.create(scope, dto, userId, {
+      companyPrefix: cfg.companyPrefix,
+      moduleIdentifier: cfg.moduleIdentifier,
+      typeCode: dto.projectType?.trim() || cfg.defaultProjectCode || null,
+      financialYear:
+        cfg.financialYear?.trim() ||
+        financialYearLabel(new Date(dto.startDate)),
+      sequenceDigits: cfg.sequenceDigits,
+    });
     return this.findOne(project.id);
   }
 

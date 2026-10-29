@@ -27,6 +27,8 @@ import type { UpdateTaskDto } from "./dto/update-task.dto.js";
 import {
   issueProjectCode,
   issueTaskCode,
+  type ProjectCodeFormat,
+  type TaskCodeFormat,
 } from "./sequences/project-sequences.js";
 
 @Injectable()
@@ -38,11 +40,16 @@ export class ProjectsRepository {
   // ---------------------------------------------------------------------------
 
   @OrgScoped()
-  async findMany(scope: OrgScope, query: QueryProjectDto) {
-    const where: Prisma.ProjectRecordWhereInput = tenantWhere(scope, {
+  async findMany(
+    scope: OrgScope,
+    query: QueryProjectDto,
+    restrictToIds?: number[],
+  ) {
+    const where: Prisma.ProjectWhereInput = tenantWhere(scope, {
       deletedAt: null,
+      ...(restrictToIds ? { id: { in: restrictToIds } } : {}),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.department ? { department: query.department } : {}),
+      ...(query.department ? { departments: { has: query.department } } : {}),
       ...(query.customerId ? { customerId: query.customerId } : {}),
       ...(query.search
         ? {
@@ -56,7 +63,7 @@ export class ProjectsRepository {
     });
 
     const [items, total] = await Promise.all([
-      this.prisma.projectRecord.findMany({
+      this.prisma.project.findMany({
         where,
         skip: query.skip,
         take: query.limit,
@@ -86,22 +93,84 @@ export class ProjectsRepository {
           },
           tasks: {
             where: { deletedAt: null },
-            select: { id: true, status: true },
+            select: {
+              id: true,
+              status: true,
+              assignedToId: true,
+              endDate: true,
+            },
           },
           _count: {
             select: { tasks: true, expenses: true },
           },
         },
       }),
-      this.prisma.projectRecord.count({ where }),
+      this.prisma.project.count({ where }),
     ]);
 
     return { items, total };
   }
 
+  /** Every live project with just the fields the dashboard / resources /
+   * analytics aggregates need — deliberately NOT paginated, so org-wide KPIs
+   * cover all projects rather than the first page (Docs: legacy dashboards
+   * summed the full project list). Selects are narrow to keep it cheap. */
+  @OrgScoped()
+  findAllForAnalytics(scope: OrgScope) {
+    return this.prisma.project.findMany({
+      where: tenantWhere(scope, { deletedAt: null }),
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        projectCode: true,
+        name: true,
+        status: true,
+        departments: true,
+        projectPrice: true,
+        actualCost: true,
+        expectedHours: true,
+        members: {
+          select: {
+            employeeId: true,
+            loggedHours: true,
+            estimatedHours: true,
+            employee: {
+              select: {
+                fullName: true,
+                employeeCode: true,
+                department: { select: { name: true } },
+                designation: { select: { name: true } },
+              },
+            },
+          },
+        },
+        milestones: {
+          where: { deletedAt: null },
+          select: { targetDate: true, actualDate: true, status: true },
+        },
+        tasks: {
+          where: { deletedAt: null },
+          select: { status: true, assignedToId: true, endDate: true },
+        },
+      },
+    });
+  }
+
+  /** Total points per employee across the whole ledger (the leaderboard
+   * endpoint only returns the top 20). */
+  @OrgScoped()
+  async sumPointsByEmployee(scope: OrgScope) {
+    const rows = await this.prisma.projectPointsLedger.groupBy({
+      by: ["employeeId"],
+      where: { organizationId: scope.organizationId },
+      _sum: { points: true },
+    });
+    return new Map(rows.map((r) => [r.employeeId, r._sum.points ?? 0]));
+  }
+
   @OrgScoped()
   findOne(scope: OrgScope, id: number) {
-    return this.prisma.projectRecord.findFirst({
+    return this.prisma.project.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
       include: {
         clientHandlingPerson: {
@@ -149,17 +218,26 @@ export class ProjectsRepository {
 
   @OrgScoped()
   findByCode(scope: OrgScope, projectCode: string) {
-    return this.prisma.projectRecord.findFirst({
+    return this.prisma.project.findFirst({
       where: tenantWhere(scope, { projectCode, deletedAt: null }),
     });
   }
 
   @OrgScoped()
-  async create(scope: OrgScope, dto: CreateProjectDto, createdBy: number) {
+  async create(
+    scope: OrgScope,
+    dto: CreateProjectDto,
+    createdBy: number,
+    codeFormat: ProjectCodeFormat,
+  ) {
     return this.prisma.$transaction(async (tx) => {
-      const projectCode = await issueProjectCode(tx, scope.organizationId);
+      const projectCode = await issueProjectCode(
+        tx,
+        scope.organizationId,
+        codeFormat,
+      );
 
-      const project = await tx.projectRecord.create({
+      const project = await tx.project.create({
         data: {
           organizationId: scope.organizationId,
           projectCode,
@@ -168,7 +246,8 @@ export class ProjectsRepository {
           customerId: dto.customerId ?? null,
           customerName: dto.customerName ?? null,
           projectType: dto.projectType ?? null,
-          department: dto.department ?? null,
+          departments: dto.departments ?? [],
+          resourceNames: dto.resourceNames ?? [],
           expectedHours: dto.expectedHours
             ? new Prisma.Decimal(dto.expectedHours)
             : new Prisma.Decimal(0),
@@ -179,6 +258,8 @@ export class ProjectsRepository {
           plannedEndDate: dto.plannedEndDate
             ? new Date(dto.plannedEndDate)
             : null,
+          actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
+          ...(dto.status ? { status: dto.status } : {}),
           clientHandlingPersonId: dto.clientHandlingPersonId ?? null,
           customFields: (dto.customFields ?? {}) as Prisma.InputJsonValue,
           createdBy,
@@ -225,11 +306,12 @@ export class ProjectsRepository {
       customerId,
       customerName,
       projectType,
-      department,
+      departments,
+      resourceNames,
       clientHandlingPersonId,
     } = dto;
 
-    const data: Prisma.ProjectRecordUpdateInput = {
+    const data: Prisma.ProjectUpdateInput = {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(description !== undefined
@@ -242,7 +324,8 @@ export class ProjectsRepository {
       ...(projectType !== undefined
         ? { projectType: projectType ?? null }
         : {}),
-      ...(department !== undefined ? { department: department ?? null } : {}),
+      ...(departments !== undefined ? { departments } : {}),
+      ...(resourceNames !== undefined ? { resourceNames } : {}),
       ...(clientHandlingPersonId !== undefined
         ? { clientHandlingPersonId: clientHandlingPersonId ?? null }
         : {}),
@@ -265,7 +348,7 @@ export class ProjectsRepository {
       updatedBy,
     };
 
-    const result = await this.prisma.projectRecord.updateMany({
+    const result = await this.prisma.project.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data,
     });
@@ -276,7 +359,7 @@ export class ProjectsRepository {
 
   @OrgScoped()
   async softDelete(scope: OrgScope, id: number, deletedBy: number) {
-    const result = await this.prisma.projectRecord.updateMany({
+    const result = await this.prisma.project.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: {
         deletedAt: new Date(),
@@ -527,7 +610,7 @@ export class ProjectsRepository {
           select: { id: true, projectCode: true, name: true, status: true },
         },
         milestone: {
-          select: { id: true, title: true },
+          select: { id: true, title: true, targetDate: true, status: true },
         },
       },
       orderBy: { endDate: "asc" },
@@ -542,9 +625,16 @@ export class ProjectsRepository {
     hoursToComplete: number,
     points: number,
     createdBy: number,
+    project: { id: number; projectCode: string },
+    codeFormat: TaskCodeFormat,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const taskCode = await issueTaskCode(tx, scope.organizationId);
+      const taskCode = await issueTaskCode(
+        tx,
+        scope.organizationId,
+        project,
+        codeFormat,
+      );
 
       return tx.projectTask.create({
         data: {
@@ -560,6 +650,10 @@ export class ProjectsRepository {
           endDate: new Date(dto.endDate),
           priority: dto.priority ?? TaskPriority.medium,
           dependencyTaskId: dto.dependencyTaskId ?? null,
+          dependencyType: dto.dependencyType ?? null,
+          dependencyRequirement: dto.dependencyRequirement ?? null,
+          dependencyTargetId: dto.dependencyTargetId ?? null,
+          dependencyTargetName: dto.dependencyTargetName ?? null,
           hoursToComplete: new Prisma.Decimal(hoursToComplete),
           points,
           customFields: (dto.customFields ?? {}) as Prisma.InputJsonValue,
@@ -596,6 +690,10 @@ export class ProjectsRepository {
       status,
       priority,
       dependencyTaskId,
+      dependencyType,
+      dependencyRequirement,
+      dependencyTargetId,
+      dependencyTargetName,
       points,
       completionPercent,
     } = dto;
@@ -618,6 +716,18 @@ export class ProjectsRepository {
       ...(department !== undefined ? { department: department ?? null } : {}),
       ...(dependencyTaskId !== undefined
         ? { dependencyTaskId: dependencyTaskId ?? null }
+        : {}),
+      ...(dependencyType !== undefined
+        ? { dependencyType: dependencyType ?? null }
+        : {}),
+      ...(dependencyRequirement !== undefined
+        ? { dependencyRequirement: dependencyRequirement ?? null }
+        : {}),
+      ...(dependencyTargetId !== undefined
+        ? { dependencyTargetId: dependencyTargetId ?? null }
+        : {}),
+      ...(dependencyTargetName !== undefined
+        ? { dependencyTargetName: dependencyTargetName ?? null }
         : {}),
       ...(startDate ? { startDate: new Date(startDate) } : {}),
       ...(endDate ? { endDate: new Date(endDate) } : {}),
@@ -661,6 +771,50 @@ export class ProjectsRepository {
   // ---------------------------------------------------------------------------
   // Time Tracking & Stopwatch
   // ---------------------------------------------------------------------------
+
+  /** Closed time logged by an employee on/after `fromDate` (YYYY-MM-DD,
+   * by entry date) — My Work "Logged Today" / "This Week" cards. */
+  @OrgScoped()
+  async sumLoggedMinutes(
+    scope: OrgScope,
+    employeeId: number,
+    fromDate: string,
+  ) {
+    const result = await this.prisma.projectTimeEntry.aggregate({
+      where: {
+        organizationId: scope.organizationId,
+        employeeId,
+        endedAt: { not: null },
+        entryDate: { gte: new Date(fromDate) },
+      },
+      _sum: { durationMinutes: true },
+      _count: { id: true },
+    });
+    return {
+      minutes: result._sum.durationMinutes ?? 0,
+      entries: result._count.id,
+    };
+  }
+
+  /** Display identity of one employee in the org, for the My Work
+   * "viewing <name>" header (no HR details beyond name/code/department). */
+  @OrgScoped()
+  findEmployeeBrief(scope: OrgScope, employeeId: number) {
+    return this.prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        employeeCode: true,
+        department: { select: { name: true } },
+        designation: { select: { name: true } },
+      },
+    });
+  }
 
   @OrgScoped()
   findActiveTimer(scope: OrgScope, employeeId: number) {
@@ -719,12 +873,12 @@ export class ProjectsRepository {
     entryId: number,
     durationMinutes: number,
     notes?: string,
+    endedAt: Date = new Date(),
   ) {
-    const now = new Date();
     return this.prisma.projectTimeEntry.update({
       where: { id: entryId },
       data: {
-        endedAt: now,
+        endedAt,
         durationMinutes,
         ...(notes !== undefined ? { notes } : {}),
       },
@@ -805,8 +959,19 @@ export class ProjectsRepository {
         project: {
           select: { id: true, projectCode: true, name: true },
         },
+        supplier: {
+          select: { id: true, supplierCode: true, companyName: true },
+        },
       },
       orderBy: { expenseDate: "desc" },
+    });
+  }
+
+  @OrgScoped()
+  async unlinkExpenseSupplier(scope: OrgScope, expenseId: number) {
+    await this.prisma.projectExpense.updateMany({
+      where: { id: expenseId, organizationId: scope.organizationId },
+      data: { supplierId: null },
     });
   }
 
@@ -833,6 +998,7 @@ export class ProjectsRepository {
           expenseDate: new Date(dto.expenseDate),
           department: dto.department ?? null,
           vendor: dto.vendor ?? null,
+          supplierId: dto.supplierId ?? null,
           referenceNo: dto.referenceNo ?? null,
           status: dto.status ?? ProjectExpenseStatus.unpaid,
           notes: dto.notes ?? null,
@@ -841,7 +1007,7 @@ export class ProjectsRepository {
       });
 
       // Update actualCost on project
-      await tx.projectRecord.update({
+      await tx.project.update({
         where: { id: projectId },
         data: { actualCost: { increment: new Prisma.Decimal(dto.amount) } },
       });
@@ -864,6 +1030,7 @@ export class ProjectsRepository {
       expenseDate,
       department,
       vendor,
+      supplierId,
       referenceNo,
       notes,
       status,
@@ -882,6 +1049,9 @@ export class ProjectsRepository {
             ? { department: department ?? null }
             : {}),
           ...(vendor !== undefined ? { vendor: vendor ?? null } : {}),
+          ...(supplierId !== undefined
+            ? { supplierId: supplierId ?? null }
+            : {}),
           ...(referenceNo !== undefined
             ? { referenceNo: referenceNo ?? null }
             : {}),
@@ -894,7 +1064,7 @@ export class ProjectsRepository {
       });
 
       if (amountDiff && !amountDiff.isZero()) {
-        await tx.projectRecord.update({
+        await tx.project.update({
           where: { id: existing.projectId },
           data: { actualCost: { increment: amountDiff } },
         });
@@ -902,6 +1072,21 @@ export class ProjectsRepository {
 
       return updated;
     });
+  }
+
+  @OrgScoped()
+  async deleteExpense(scope: OrgScope, expenseId: number) {
+    const existing = await this.findExpenseById(scope, expenseId);
+    if (!existing) return false;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectExpense.delete({ where: { id: expenseId } });
+      await tx.project.update({
+        where: { id: existing.projectId },
+        data: { actualCost: { decrement: existing.amount } },
+      });
+    });
+    return true;
   }
 
   // ---------------------------------------------------------------------------

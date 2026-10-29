@@ -7,10 +7,10 @@ export class UpdateProjectDto extends PartialType(CreateProjectDto) {
   @ApiPropertyOptional({ enum: ProjectStatus, default: ProjectStatus.active })
   @IsOptional()
   @IsEnum(ProjectStatus)
-  status?: ProjectStatus;
+  override status?: ProjectStatus;
 
   @ApiPropertyOptional({ example: "2026-11-25" })
   @IsOptional()
   @IsDateString()
-  actualEndDate?: string;
+  override actualEndDate?: string;
 }

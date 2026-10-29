@@ -151,6 +151,24 @@ export class EmployeesService {
     return toDetail(row);
   }
 
+  /**
+   * True hard delete. Organization-wide only, gated at the controller by its
+   * own exact permission (`hr.employee.delete`) — not team-scoped, because
+   * removing a record outright is a bigger decision than editing one.
+   * Succeeds only for an employee with no linked records anywhere else in the
+   * system; otherwise the repository throws a conflict instead of this
+   * silently cascading data loss. Everyone else leaves through the status
+   * lifecycle (`hr.employee_status.write`), which is reversible and keeps
+   * their history.
+   */
+  async remove(id: number): Promise<void> {
+    const removed = await this.repository.delete(
+      this.tenantContext.getOrgScope(),
+      id,
+    );
+    if (!removed) throw new ResourceNotFoundException("Employee", id);
+  }
+
   /** Counts for the directory's stats cards, within the caller's read scope. */
   async stats() {
     const scope = await this.teamContext.resolveScope(READ);
@@ -268,8 +286,15 @@ export class EmployeesService {
     };
   }
 
-  approveOnboarding(id: number, note?: string) {
-    return this.decide(id, "approve", note ?? null);
+  /**
+   * `force: true` approves even a profile that was never submitted (0%
+   * complete) — an explicit HR override of the normal "only a submitted
+   * profile can be reviewed" rule, requested and confirmed by the user. Use
+   * sparingly: it marks onboarding Approved while required fields may still
+   * be empty.
+   */
+  approveOnboarding(id: number, note?: string, force = false) {
+    return this.decide(id, "approve", note ?? null, force);
   }
 
   sendBackOnboarding(id: number, note: string) {
@@ -282,6 +307,7 @@ export class EmployeesService {
     id: number,
     decision: ReviewDecision,
     note: string | null,
+    force = false,
   ) {
     const scope = await this.teamContext.resolveScope(APPROVE_ONBOARDING);
     if (scope.level === "own") {
@@ -293,6 +319,7 @@ export class EmployeesService {
       decision,
       note,
       this.tenantContext.getUserId(),
+      force,
     );
     if (!row) throw new ResourceNotFoundException("Employee", id);
     return toDetail(row);

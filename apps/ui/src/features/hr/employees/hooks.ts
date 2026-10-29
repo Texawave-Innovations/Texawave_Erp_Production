@@ -10,6 +10,7 @@ import {
   approveOnboarding,
   changeEmployeeStatus,
   createEmployee,
+  deleteEmployee,
   getEmployee,
   getEmployeeStats,
   importEmployeesCsv,
@@ -102,6 +103,10 @@ export function useUpdateEmployee() {
   );
 }
 
+export function useDeleteEmployee() {
+  return useOrgScopedMutation([KEY], (id: number) => deleteEmployee(id));
+}
+
 export function useChangeEmployeeStatus() {
   return useOrgScopedMutation(
     [KEY],
@@ -155,13 +160,15 @@ export function useReviewOnboarding() {
       id,
       decision,
       note,
+      force,
     }: {
       id: number;
       decision: "approve" | "send_back";
       note: string;
+      force?: boolean;
     }) =>
       decision === "approve"
-        ? approveOnboarding(id, note || undefined)
+        ? approveOnboarding(id, note || undefined, force)
         : sendBackOnboarding(id, note),
     onSuccess: (_data, { id }) => {
       void queryClient.invalidateQueries({

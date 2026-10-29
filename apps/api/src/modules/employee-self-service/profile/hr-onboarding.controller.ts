@@ -47,7 +47,7 @@ export class HrOnboardingController {
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: ApproveOnboardingDto,
   ) {
-    return this.onboarding.approve(id, dto.note);
+    return this.onboarding.approve(id, dto.note, dto.force ?? false);
   }
 
   @Post(":id/onboarding/send-back")

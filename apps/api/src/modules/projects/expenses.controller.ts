@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
@@ -26,6 +28,17 @@ export class ExpensesController {
   })
   findAllExpenses() {
     return this.service.findExpenses();
+  }
+
+  // Declared before `expenses/:expenseId` so "vendors" isn't parsed as an id.
+  @Get("expenses/vendors")
+  @RequirePermission("projects.expenses.read")
+  @ApiOperation({
+    summary:
+      "Active vendors from the SCM supplier master, for the expense vendor picker",
+  })
+  findVendors(@Query("q") q?: string) {
+    return this.service.findVendors(q);
   }
 
   @Get(":id/expenses")
@@ -62,5 +75,12 @@ export class ExpensesController {
     @Body() dto: UpdateExpenseDto,
   ) {
     return this.service.updateExpense(expenseId, dto);
+  }
+
+  @Delete("expenses/:expenseId")
+  @RequirePermission("projects.expenses.write")
+  @ApiOperation({ summary: "Delete a project expense and reverse actualCost" })
+  deleteExpense(@Param("expenseId", ParseIntPipe) expenseId: number) {
+    return this.service.deleteExpense(expenseId);
   }
 }

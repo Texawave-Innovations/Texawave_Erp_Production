@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Link2,
   Unlink,
+  Trash2,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -21,6 +22,7 @@ import {
   Alert,
   Button,
   Card,
+  ConfirmDialog,
   DataTable,
   DateRangePicker,
   EmptyState,
@@ -41,6 +43,7 @@ import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
 import {
   useChangeEmployeeStatus,
   useDebouncedValue,
+  useDeleteEmployee,
   useEmployees,
   useEmployeeStats,
   useLookup,
@@ -48,6 +51,7 @@ import {
 } from "../hooks";
 import {
   ACCOUNT_WRITE,
+  DELETE_EMPLOYEE,
   EXPORT_ANY_SCOPE,
   ONBOARDING_APPROVE_TEAM_OR_ALL,
   READ_ANY_SCOPE,
@@ -127,6 +131,7 @@ export function EmployeesView() {
   const canAccount = usePermission(ACCOUNT_WRITE);
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
+  const canDelete = usePermission(DELETE_EMPLOYEE);
   const { toast } = useToast();
   const { formatDate } = useRegionalFormatter();
   const [importOpen, setImportOpen] = useState(false);
@@ -140,8 +145,12 @@ export function EmployeesView() {
   const [linkDialogOpen, setLinkDialogOpen] = useState<EmployeeListItem | null>(
     null,
   );
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeListItem | null>(
+    null,
+  );
   const changeStatusMutation = useChangeEmployeeStatus();
   const unlinkMutation = useUnlinkEmployeeUser();
+  const deleteMutation = useDeleteEmployee();
   const stats = useEmployeeStats(canRead);
   const pendingReviewCount = stats.data?.onboarding.pendingReview ?? 0;
 
@@ -244,6 +253,27 @@ export function EmployeesView() {
       });
     } finally {
       setUpdatingEmployeeId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      toast({
+        title: "Employee deleted",
+        description: `${deleteTarget.fullName}'s record has been permanently removed.`,
+        variant: "success",
+      });
+      setDeleteTarget(null);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to delete employee";
+      toast({ title: "Delete failed", description: message, variant: "error" });
     }
   };
 
@@ -1070,6 +1100,16 @@ export function EmployeesView() {
                             onClick: () =>
                               router.push(`/hr/employees/${e.id}/onboarding`),
                           },
+                          ...(canDelete
+                            ? [
+                                {
+                                  label: "Delete employee",
+                                  icon: <Trash2 className="h-3.5 w-3.5" />,
+                                  variant: "destructive" as const,
+                                  onClick: () => setDeleteTarget(e),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </div>
@@ -1078,6 +1118,18 @@ export function EmployeesView() {
               ]}
             />
           </div>
+
+          {deleteTarget ? (
+            <ConfirmDialog
+              open
+              onClose={() => setDeleteTarget(null)}
+              onConfirm={handleDelete}
+              title="Delete employee?"
+              description="This permanently removes the employee record. It only succeeds if they have no linked attendance, payroll, task, or similar records — if they do, deactivate them instead from the Status column."
+              itemName={deleteTarget.fullName}
+              loading={deleteMutation.isPending}
+            />
+          ) : null}
 
           <Pagination
             page={list.data.meta.page}

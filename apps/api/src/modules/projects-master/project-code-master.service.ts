@@ -3,10 +3,12 @@ import { TenantContextService } from "../../platform/tenancy/tenant-context.serv
 import type { UpdateProjectCodeMasterDto } from "./dto/update-project-code-master.dto.js";
 import { ProjectCodeMasterRepository } from "./project-code-master.repository.js";
 
+// Legacy `ProjectsMaster.tsx` defaults: prefix "TW", identifier "PRJ",
+// default project "ME", sequenceDigits 3 (-> "TW/PRJ/ME/26-27/001").
 const DEFAULTS = {
-  companyPrefix: "TXW",
+  companyPrefix: "TW",
   moduleIdentifier: "PRJ",
-  defaultProjectCode: "",
+  defaultProjectCode: "ME",
   financialYear: "",
   sequenceDigits: 3,
 };

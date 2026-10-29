@@ -37,6 +37,7 @@ import type { ExperienceDto } from "./dto/experience.dto.js";
 import type { FamilyMemberDto } from "./dto/family-member.dto.js";
 import type { GovernmentIdsDto } from "./dto/government-ids.dto.js";
 import type { PersonalDetailsDto } from "./dto/personal-details.dto.js";
+import type { SelfProfileUpdateDto } from "./dto/self-profile-update.dto.js";
 import { asGovernmentIdConflict } from "./government-id-conflict.js";
 import { OnboardingProgressService } from "./onboarding-progress.service.js";
 import { ProfileRepository, type AddressType } from "./profile.repository.js";
@@ -83,11 +84,13 @@ export class ProfileService {
     };
   }
 
-  /** Who am I, for a WRITE: the profile is editable only while the
-   * onboarding wizard is open — before the first submit, or after HR sends it
-   * back (which reopens it, onboarding-review.policy.ts). Once onboarding is
-   * COMPLETE the employee can no longer change their own data; HR edits it
-   * through hr/profiles until profile change requests exist. */
+  /** Who am I, for an ONBOARDING-WIZARD write: these routes are open only
+   * while the wizard is — before the first submit, or after HR sends it back
+   * (which reopens it, onboarding-review.policy.ts). Once onboarding is
+   * COMPLETE the wizard routes answer PROFILE_LOCKED; the employee then edits
+   * the self-editable subset through updateMyProfile() (PATCH
+   * employee/profile), and everything else (work e-mail, bank, government
+   * IDs, family, experience, documents, employment fields) stays with HR. */
   private async editableIdentity() {
     const employee = await this.employees.getCurrentEmployee();
     if (employee.onboardingStatus === "COMPLETE") {
@@ -101,6 +104,32 @@ export class ProfileService {
       teamId: employee.team.id,
       employeeId: employee.id,
     };
+  }
+
+  /**
+   * The employee's own profile edit, any time (including after onboarding) —
+   * legacy MyProfile.tsx's "Edit Profile". Only the fields in
+   * SelfProfileUpdateDto can change (full name, phone, referred-by, personal
+   * details, addresses); the DTO whitelist rejects anything else. Audited as an
+   * `employee_profile` `self_update` with the changed field names. Returns
+   * the refreshed own employee record (same shape as GET employee/profile).
+   */
+  async updateMyProfile(dto: SelfProfileUpdateDto) {
+    const changedFields = Object.entries(dto)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key)
+      .sort();
+    if (changedFields.length === 0) {
+      throw new BadRequestException("Nothing to update.");
+    }
+    const identity = await this.currentIdentity();
+    await this.repository.selfUpdate(
+      identity,
+      dto,
+      this.tenantContext.getUserId(),
+      changedFields,
+    );
+    return this.employees.getCurrentEmployee();
   }
 
   async getPersonal() {

@@ -5,7 +5,7 @@ CREATE SCHEMA IF NOT EXISTS "projects";
 CREATE TYPE "projects"."ProjectMasterStatus" AS ENUM ('ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED');
 
 -- CreateTable
-CREATE TABLE "projects"."projects" (
+CREATE TABLE "projects"."project_category_masters" (
     "id" SERIAL NOT NULL,
     "organization_id" INTEGER NOT NULL,
     "code" TEXT NOT NULL,
@@ -22,20 +22,20 @@ CREATE TABLE "projects"."projects" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
 
-    CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "project_category_masters_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX "projects_organization_id_status_idx" ON "projects"."projects"("organization_id", "status");
+CREATE INDEX "project_category_masters_organization_id_status_idx" ON "projects"."project_category_masters"("organization_id", "status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "projects_organization_id_code_key" ON "projects"."projects"("organization_id", "code");
+CREATE UNIQUE INDEX "project_category_masters_organization_id_code_key" ON "projects"."project_category_masters"("organization_id", "code");
 
 -- AddForeignKey
-ALTER TABLE "projects"."projects" ADD CONSTRAINT "projects_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "projects"."project_category_masters" ADD CONSTRAINT "project_category_masters_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "platform"."organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "projects"."projects" ADD CONSTRAINT "projects_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "platform"."departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "projects"."project_category_masters" ADD CONSTRAINT "project_category_masters_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "platform"."departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "projects"."projects" ADD CONSTRAINT "projects_project_manager_id_fkey" FOREIGN KEY ("project_manager_id") REFERENCES "hr"."employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "projects"."project_category_masters" ADD CONSTRAINT "project_category_masters_project_manager_id_fkey" FOREIGN KEY ("project_manager_id") REFERENCES "hr"."employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;

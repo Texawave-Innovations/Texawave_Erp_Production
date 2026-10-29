@@ -130,7 +130,9 @@ test("a team lead lands in the portal and sees only their granted tabs", async (
   // hr.* team reads alone no longer send anyone to the HR workspace.
   await expect(page).toHaveURL(/\/portal$/);
   const nav = page.getByRole("navigation", { name: "My Portal Navigation" });
-  for (const label of ["My Profile", "Task Assignment", "Team Attendance"]) {
+  // Sidebar labels follow the legacy portal ("Assign Tasks" for the
+  // portal-task-assignment menu row) — features/employee-self-service/portal/nav.ts.
+  for (const label of ["My Profile", "Assign Tasks", "Team Attendance"]) {
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   }
   // A tab the role was not granted is not there.

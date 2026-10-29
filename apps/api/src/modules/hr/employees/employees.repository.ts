@@ -485,8 +485,11 @@ export class EmployeesRepository {
 
   /**
    * HR decision on a submitted profile. Returns `null` when the employee is
-   * not visible in `scope`. Refuses a decision on one's own profile and on a
-   * profile that is not waiting for review.
+   * not visible in `scope`. Refuses a decision on one's own profile and —
+   * unless `force` — a profile that is not waiting for review. `force` is an
+   * explicit HR override (requested and confirmed by the user) that skips
+   * that check, so an approve can go through on a profile that was never
+   * submitted; it changes nothing else about the decision.
    */
   @TeamScoped()
   async decideOnboarding(
@@ -495,6 +498,7 @@ export class EmployeesRepository {
     decision: ReviewDecision,
     note: string | null,
     actorId: number,
+    force = false,
   ): Promise<EmployeeRow | null> {
     return this.prisma.$transaction(async (tx) => {
       if (!(await lockEmployee(tx, scope.organizationId, id))) return null;
@@ -509,7 +513,7 @@ export class EmployeesRepository {
           "SELF_REVIEW_FORBIDDEN",
         );
       }
-      assertReviewable(before.onboardingReviewStatus);
+      if (!force) assertReviewable(before.onboardingReviewStatus);
 
       const outcome = reviewOutcome(decision);
       const after = await tx.employee.update({
@@ -838,5 +842,123 @@ export class EmployeesRepository {
       );
     }
     return error;
+  }
+
+  /**
+   * True hard delete — permanently removes the row and, so the action always
+   * succeeds from the UI rather than failing with a foreign-key conflict,
+   * cascades through everything that points at this employee first:
+   *
+   * - The employee's own record/profile (status history, onboarding detail,
+   *   documents, etc.) is deleted outright — it exists only to describe this
+   *   one employee.
+   * - Real business records that belong to this employee alone (leave,
+   *   attendance, payroll, tasks assigned to them, tickets they raised, their
+   *   project membership and time entries, letters, loans, …) are deleted
+   *   outright too — there is no other employee to reassign them to.
+   * - Anything that is merely *associated* with this employee but is really
+   *   someone else's record, or isn't about one specific person, is detached
+   *   (set to NULL) instead of deleted: a subordinate's `reportsToId`, a task
+   *   or ticket comment this employee merely authored on someone else's
+   *   behalf, a project's client-handling contact.
+   *
+   * Deliberately irreversible and broad — this is what "the delete button
+   * must always work" means. Deactivating via the status lifecycle remains
+   * the safe, reversible way to remove someone from active use.
+   */
+  async delete(scope: OrgScope, id: number): Promise<boolean> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const before = await tx.employee.findFirst({
+          where: tenantWhere(scope, { id, deletedAt: null }),
+          include: EMPLOYEE_INCLUDE,
+        });
+        if (!before) return false;
+        const where = { employeeId: id };
+
+        // Detach — these are someone else's record or a shared one; this
+        // employee's relation to it is incidental, not its reason to exist.
+        await tx.employee.updateMany({
+          where: { reportsToId: id },
+          data: { reportsToId: null },
+        });
+        await tx.task.updateMany({
+          where: { createdByEmployeeId: id },
+          data: { createdByEmployeeId: null },
+        });
+        await tx.ticketComment.updateMany({
+          where: { authorEmployeeId: id },
+          data: { authorEmployeeId: null },
+        });
+        await tx.project.updateMany({
+          where: { clientHandlingPersonId: id },
+          data: { clientHandlingPersonId: null },
+        });
+
+        // Delete — this employee's own record, or a record that exists only
+        // because of them (no one else to reassign it to).
+        await tx.employeeStatusHistory.deleteMany({ where });
+        await tx.employeeLocationPrivilege.deleteMany({ where });
+        await tx.employeeProfile.deleteMany({ where });
+        await tx.employeeSensitiveInfo.deleteMany({ where });
+        await tx.employeePersonalDetail.deleteMany({ where });
+        await tx.employeeBankDetail.deleteMany({ where });
+        await tx.employeeFamilyMember.deleteMany({ where });
+        await tx.employeeExperience.deleteMany({ where });
+        await tx.employeeDocument.deleteMany({ where });
+        await tx.employeeAddress.deleteMany({ where });
+        await tx.employeeGovernmentId.deleteMany({ where });
+        await tx.shiftAssignment.deleteMany({ where });
+        await tx.leaveRequest.deleteMany({ where });
+        await tx.leaveEntitlement.deleteMany({ where });
+        await tx.expenseClaim.deleteMany({ where });
+        await tx.exitRequest.deleteMany({ where });
+        await tx.attendanceRecord.deleteMany({ where });
+        await tx.attendanceCorrection.deleteMany({ where });
+        await tx.attendanceMonthLock.deleteMany({ where });
+        // Comments on a ticket this employee raised block deleting the
+        // ticket itself (ticket_comments.ticket_id is ON DELETE RESTRICT).
+        await tx.ticketComment.deleteMany({
+          where: { ticket: { employeeId: id } },
+        });
+        await tx.ticket.deleteMany({ where });
+        await tx.revisionLetter.deleteMany({ where });
+        await tx.promotionLetter.deleteMany({ where });
+        // employee_salary_components cascades from employee_salary (schema).
+        await tx.employeeSalary.deleteMany({ where });
+        await tx.employeePfProfile.deleteMany({ where });
+        await tx.employeeEsiProfile.deleteMany({ where });
+        await tx.employeeLoan.deleteMany({ where });
+        await tx.employeeBonus.deleteMany({ where });
+        await tx.payrollEntry.deleteMany({ where });
+        await tx.payslip.deleteMany({ where });
+        await tx.payrollPayment.deleteMany({ where });
+        await tx.pfContribution.deleteMany({ where });
+        await tx.esiContribution.deleteMany({ where });
+        await tx.employeeTaxDeclaration.deleteMany({ where });
+        await tx.projectMember.deleteMany({ where });
+        await tx.projectTimeEntry.deleteMany({ where });
+        await tx.projectPointsLedger.deleteMany({ where });
+        await tx.task.deleteMany({ where: { assigneeId: id } });
+        await tx.projectTask.deleteMany({ where: { assignedToId: id } });
+        await tx.employee.delete({ where: { id } });
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: id,
+          action: "delete",
+          before: auditSnapshot(before),
+          after: null,
+        });
+        return true;
+      });
+    } catch (error) {
+      const violation = classifyDbError(error);
+      if (violation?.kind === "foreign_key") {
+        throw new ResourceConflictException(
+          "This employee cannot be deleted because they still have linked records (attendance, payroll, tasks, or similar). Deactivate them instead, or remove those records first.",
+        );
+      }
+      throw this.asConflict(error);
+    }
   }
 }

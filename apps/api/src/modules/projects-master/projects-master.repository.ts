@@ -25,7 +25,7 @@ export class ProjectsMasterRepository {
     filter: ProjectFilter,
     pagination: PaginationDto,
   ) {
-    const where = tenantWhere<Prisma.ProjectWhereInput>(scope, {
+    const where = tenantWhere<Prisma.ProjectCategoryMasterWhereInput>(scope, {
       deletedAt: null,
       ...(filter.search
         ? {
@@ -38,13 +38,13 @@ export class ProjectsMasterRepository {
     });
 
     const [items, total] = await Promise.all([
-      this.prisma.project.findMany({
+      this.prisma.projectCategoryMaster.findMany({
         where,
         skip: pagination.skip,
         take: pagination.limit,
         orderBy: { createdAt: pagination.order ?? "desc" },
       }),
-      this.prisma.project.count({ where }),
+      this.prisma.projectCategoryMaster.count({ where }),
     ]);
 
     return { items, total };
@@ -52,21 +52,21 @@ export class ProjectsMasterRepository {
 
   @OrgScoped()
   findOne(scope: OrgScope, id: number) {
-    return this.prisma.project.findFirst({
+    return this.prisma.projectCategoryMaster.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
     });
   }
 
   @OrgScoped()
   findByCode(scope: OrgScope, code: string) {
-    return this.prisma.project.findFirst({
+    return this.prisma.projectCategoryMaster.findFirst({
       where: tenantWhere(scope, { code, deletedAt: null }),
     });
   }
 
   @OrgScoped()
   create(scope: OrgScope, dto: CreateProjectsMasterDto, createdBy: number) {
-    return this.prisma.project.create({
+    return this.prisma.projectCategoryMaster.create({
       data: {
         code: dto.code,
         name: dto.name,
@@ -85,7 +85,7 @@ export class ProjectsMasterRepository {
     dto: UpdateProjectsMasterDto,
     updatedBy: number,
   ) {
-    const result = await this.prisma.project.updateMany({
+    const result = await this.prisma.projectCategoryMaster.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: {
         ...dto,
@@ -100,7 +100,7 @@ export class ProjectsMasterRepository {
 
   @OrgScoped()
   async softDelete(scope: OrgScope, id: number, deletedBy: number) {
-    const result = await this.prisma.project.updateMany({
+    const result = await this.prisma.projectCategoryMaster.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: { deletedAt: new Date(), updatedBy: deletedBy },
     });

@@ -41,5 +41,9 @@ export const ONBOARDING_APPROVE_TEAM_OR_ALL = [
 export const STATUS_WRITE = "hr.employee_status.write";
 export const STATUS_CORRECT = "hr.employee_status.correct";
 
+/** Permanently remove an employee record. Granted to no default role — Super
+ * Admin only. Normal exits use STATUS_WRITE and keep the record. */
+export const DELETE_EMPLOYEE = "hr.employee.delete";
+
 /** Link/unlink an employee's platform login (employee-lifecycle.controller.ts). Never a credential. */
 export const ACCOUNT_WRITE = "hr.employee_account.write";

@@ -117,7 +117,11 @@ export function Dialog({
         "[&:not([open])]:hidden",
         "fixed inset-0 m-auto flex flex-col",
         "w-[calc(100%-2rem)] sm:w-full",
-        "h-auto max-h-[calc(100dvh-2.5rem)] min-h-0",
+        // `h-fit`, not `h-auto`: with `inset-0` (top AND bottom set) on a
+        // fixed-position box, `height: auto` resolves per spec to fill the
+        // whole viewport between them, not to the content's own height.
+        // `fit-content` sidesteps that rule entirely.
+        "h-fit max-h-[calc(100dvh-2.5rem)] min-h-0",
         "rounded-2xl border border-brand-500/35 bg-white p-0 shadow-dialog-glow backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm",
         "dark:border-brand-400/40 dark:bg-gray-dark",
         resolvedSizeClass,

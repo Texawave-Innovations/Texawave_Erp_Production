@@ -76,41 +76,30 @@ export class PipelineStagesRepository {
       });
       const order = dto.order ?? count + 1;
       const baseCode = slugify(dto.label);
-      let code = baseCode;
-      let created;
-      try {
-        created = await tx.pipelineStage.create({
-          data: {
-            organizationId: scope.organizationId,
-            code,
-            label: dto.label,
-            order,
-            probability: dto.probability ?? null,
-            slaDays: dto.slaDays ?? 7,
-            createdBy: actorId,
-            updatedBy: actorId,
-          },
-        });
-      } catch (error) {
-        if (classifyDbError(error)?.kind !== "unique") throw error;
-        // Same collision-retry as legacy's runTransaction-on-the-slug
-        // fallback: the slug is already taken (e.g. a seeded stage like
-        // "follow_up", or a race with another create), so suffix it with
-        // a timestamp instead of failing the request.
-        code = `${baseCode}_${Date.now()}`;
-        created = await tx.pipelineStage.create({
-          data: {
-            organizationId: scope.organizationId,
-            code,
-            label: dto.label,
-            order,
-            probability: dto.probability ?? null,
-            slaDays: dto.slaDays ?? 7,
-            createdBy: actorId,
-            updatedBy: actorId,
-          },
-        });
-      }
+      // Checked up front rather than caught after a failed insert: a Postgres
+      // transaction is aborted by its first error, so retrying the create on
+      // the same `tx` after a unique-constraint catch would itself fail with
+      // an unrelated "transaction aborted" error instead of succeeding.
+      const collision = await tx.pipelineStage.findFirst({
+        where: { organizationId: scope.organizationId, code: baseCode },
+        select: { id: true },
+      });
+      // Same collision fallback as legacy's runTransaction-on-the-slug: the
+      // slug is already taken (e.g. a seeded stage like "follow_up"), so
+      // suffix it with a timestamp instead of failing the request.
+      const code = collision ? `${baseCode}_${Date.now()}` : baseCode;
+      const created = await tx.pipelineStage.create({
+        data: {
+          organizationId: scope.organizationId,
+          code,
+          label: dto.label,
+          order,
+          probability: dto.probability ?? null,
+          slaDays: dto.slaDays ?? 7,
+          createdBy: actorId,
+          updatedBy: actorId,
+        },
+      });
       await this.audit.write(tx, {
         entityType: ENTITY_TYPE,
         entityId: created.id,

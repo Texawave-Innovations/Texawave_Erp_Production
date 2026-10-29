@@ -25,12 +25,12 @@ function usersKey(organizationId: number, query: QueryUsersInput = {}) {
   return orgScopedKey(organizationId, "users", query);
 }
 
-export function useUsers(query: QueryUsersInput = {}) {
+export function useUsers(query: QueryUsersInput = {}, enabled = true) {
   const organizationId = useAuthStore((s) => s.organizationId);
   return useQuery({
     queryKey: usersKey(organizationId ?? 0, query),
     queryFn: () => listUsers(query),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && enabled,
   });
 }
 

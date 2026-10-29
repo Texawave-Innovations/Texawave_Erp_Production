@@ -12,6 +12,7 @@ import {
 } from "./calculations/project-calculations.js";
 import type { CreateTaskDto, UpdateTaskDto } from "./dto/create-task.dto.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { TaskRunningNumberMasterService } from "../projects-master/task-running-number-master.service.js";
 
 @Injectable()
 export class TasksService {
@@ -19,6 +20,7 @@ export class TasksService {
     private readonly repository: ProjectsRepository,
     private readonly tenantContext: TenantContextService,
     private readonly employeeQuery: EmployeeQueryService,
+    private readonly taskNumberMaster: TaskRunningNumberMasterService,
   ) {}
 
   async findTasks(projectId: number) {
@@ -96,6 +98,9 @@ export class TasksService {
     }
 
     const userId = this.tenantContext.getUserId();
+    // Legacy `<projectCode>-T01` running number from the Task Running
+    // Number Master.
+    const taskFormat = await this.taskNumberMaster.findOne();
     return this.repository.createTask(
       scope,
       projectId,
@@ -103,6 +108,12 @@ export class TasksService {
       hoursToComplete,
       points ?? 10,
       userId,
+      { id: project.id, projectCode: project.projectCode },
+      {
+        taskPrefix: taskFormat.taskPrefix,
+        separator: taskFormat.separator,
+        sequenceDigits: taskFormat.sequenceDigits,
+      },
     );
   }
 

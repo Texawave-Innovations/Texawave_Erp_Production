@@ -15,11 +15,21 @@ function makeService() {
     getOrgScope: vi.fn().mockReturnValue({ organizationId: 1 }),
     getUserId: vi.fn().mockReturnValue(10),
   };
+  const codeMaster = {
+    findOne: vi.fn().mockResolvedValue({
+      companyPrefix: "TXW",
+      moduleIdentifier: "PRJ",
+      defaultProjectCode: "",
+      financialYear: "",
+      sequenceDigits: 3,
+    }),
+  };
   const service = new ProjectsService(
     repository as never,
     tenantContext as never,
+    codeMaster as never,
   );
-  return { service, repository, tenantContext };
+  return { service, repository, tenantContext, codeMaster };
 }
 
 describe("ProjectsService", () => {
@@ -44,6 +54,7 @@ describe("ProjectsService", () => {
 
     const dto = {
       name: "ERP Overhaul",
+      projectType: "ME",
       startDate: "2026-10-01",
       plannedEndDate: "2026-12-31",
       expectedHours: 120,
@@ -53,10 +64,18 @@ describe("ProjectsService", () => {
     const result = await service.create(dto);
     expect(result).toBeDefined();
     expect(result.projectCode).toBe("PRJ-000001");
+    // Code format comes from the Project Code Master; FY follows startDate.
     expect(repository.create).toHaveBeenCalledWith(
       { organizationId: 1 },
       dto,
       10,
+      {
+        companyPrefix: "TXW",
+        moduleIdentifier: "PRJ",
+        typeCode: "ME",
+        financialYear: "26-27",
+        sequenceDigits: 3,
+      },
     );
   });
 

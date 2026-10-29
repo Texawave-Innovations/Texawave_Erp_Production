@@ -47,7 +47,6 @@ export function toPayrollBankView<E extends WithBankSource>(
 ): Omit<E, "bankDetail" | "employeeGovernmentId"> & {
   bankDetails: PayrollBankView | null;
 } {
-  if (!employee) return employee as never;
   const { bankDetail, employeeGovernmentId, ...rest } = employee;
   const bank = bankDetail && !bankDetail.deletedAt ? bankDetail : null;
   const govId =
