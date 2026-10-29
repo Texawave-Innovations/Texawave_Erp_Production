@@ -17,16 +17,6 @@ import {
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
 
-export const WAREHOUSE_TYPES = [
-  "Main",
-  "Regional",
-  "Transit",
-  "Virtual",
-  "Other",
-  "Distribution",
-  "Fulfillment",
-  "Returns",
-] as const;
 export const ACTIVE_STATUSES = ["Active", "Inactive"] as const;
 export const LOCATION_TYPES = ["ZONE", "RACK", "SHELF", "BIN"] as const;
 export type LocationType = (typeof LOCATION_TYPES)[number];
@@ -70,10 +60,16 @@ export class CreateWarehouseDto {
   @Length(1, 150)
   name!: string;
 
-  @ApiPropertyOptional({ enum: WAREHOUSE_TYPES, default: "Main" })
+  @ApiPropertyOptional({
+    default: "Main",
+    description:
+      "Must be an active scm.master_list_item value in the warehouse_type category",
+  })
   @IsOptional()
-  @IsIn(WAREHOUSE_TYPES)
-  type?: (typeof WAREHOUSE_TYPES)[number];
+  @Trim()
+  @IsString()
+  @Length(1, 100)
+  type?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

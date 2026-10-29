@@ -2,13 +2,12 @@
 
 import type {
   AdjustmentDirection,
-  AdjustmentReason,
   ScmWarehouse,
 } from "@texawave-erp/api-types";
-import { ADJUSTMENT_REASONS } from "@texawave-erp/api-types";
 import { Button, Dialog, useToast } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import { SelectField, TextAreaField, TextField } from "../../shared/form-bits";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { errorText } from "../../shared/use-list-controls";
 import { useApplyAdjustment, useCreateReservation } from "../hooks";
 
@@ -58,9 +57,21 @@ function AdjustBody({
   const [direction, setDirection] =
     useState<AdjustmentDirection>(initialDirection);
   const [quantity, setQuantity] = useState("");
-  const [reason, setReason] = useState<AdjustmentReason>(
-    initialDirection === "OUT" ? "Damage" : ADJUSTMENT_REASONS[0]!,
+  const adjustmentReasons = useMasterListItems({
+    category: "stock_adjustment_reason",
+    page: 1,
+    limit: 100,
+  });
+  const adjustmentReasonOptions = (adjustmentReasons.data?.data ?? []).map(
+    (i) => ({ value: i.value, label: i.value }),
   );
+  const [reason, setReason] = useState("");
+  const defaultReason =
+    initialDirection === "OUT"
+      ? (adjustmentReasonOptions.find((o) => o.value === "Damage")?.value ??
+        adjustmentReasonOptions[0]?.value)
+      : adjustmentReasonOptions[0]?.value;
+  const effectiveReason = reason || defaultReason || "";
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +87,7 @@ function AdjustBody({
         warehouseId: Number(warehouseId),
         quantity: qty,
         direction,
-        reason,
+        reason: effectiveReason,
         notes: notes.trim() || undefined,
       });
       toast({ title: "Stock updated", variant: "success" });
@@ -119,9 +130,9 @@ function AdjustBody({
       />
       <SelectField
         label="Reason"
-        value={reason}
-        onChange={(v) => setReason(v as AdjustmentReason)}
-        options={ADJUSTMENT_REASONS.map((r) => ({ value: r, label: r }))}
+        value={effectiveReason}
+        onChange={setReason}
+        options={adjustmentReasonOptions}
       />
       <TextAreaField
         label="Notes (optional)"

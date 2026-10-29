@@ -26,17 +26,6 @@ export const QUALITY_CONDITIONS = [
   "CONTAMINATED",
   "UNKNOWN",
 ] as const;
-export const DEFECT_CATEGORIES = [
-  "PRODUCT",
-  "PACKAGING",
-  "QUANTITY",
-  "DOCUMENTATION",
-  "FUNCTIONAL",
-  "PHYSICAL_DAMAGE",
-  "WRONG_ITEM",
-  "OTHER",
-] as const;
-export const DEFECT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const CHECKPOINT_RESULTS = ["PASS", "FAIL", "NA"] as const;
 export const INSPECTION_STATUSES = [
   "DRAFT",
@@ -44,12 +33,6 @@ export const INSPECTION_STATUSES = [
   "IN_PROGRESS",
   "COMPLETED",
   "CANCELLED",
-] as const;
-export const QUALITY_PRIORITIES = [
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "CRITICAL",
 ] as const;
 export const QUARANTINE_STATUSES = [
   "QUARANTINED",
@@ -187,11 +170,4 @@ export function computeOverallResult(
   if (items.every((i) => i.inspectionResult === "PASS")) return "PASSED";
   if (items.every((i) => i.inspectionResult === "FAIL")) return "FAILED";
   return "PARTIALLY_PASSED";
-}
-
-export function priorityForSeverity(severity?: string): string {
-  if (severity === "CRITICAL") return "CRITICAL";
-  if (severity === "HIGH") return "HIGH";
-  if (severity === "MEDIUM") return "MEDIUM";
-  return "LOW";
 }

@@ -6,6 +6,7 @@ import {
 } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { ScmActivityService } from "../common/scm-activity.service.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import type {
   CreateDefectDto,
   CreateInspectionDto,
@@ -38,6 +39,7 @@ export class QualityService {
     private readonly quarantine: QuarantineRepository,
     private readonly activity: ScmActivityService,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   private get scope() {
@@ -67,9 +69,33 @@ export class QualityService {
         `Defect code ${dto.defectCode} already exists.`,
       );
     }
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_category",
+      dto.category,
+      "Defect category",
+    );
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_severity",
+      dto.severity,
+      "Severity",
+    );
     return this.masters.createDefect(this.scope, dto, this.actor);
   }
   async updateDefect(id: number, dto: UpdateDefectDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_category",
+      dto.category,
+      "Defect category",
+    );
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_defect_severity",
+      dto.severity,
+      "Severity",
+    );
     return this.nf(
       "Defect",
       id,
@@ -133,7 +159,13 @@ export class QualityService {
   dashboard() {
     return this.inspections.dashboard(this.scope);
   }
-  createInspection(dto: CreateInspectionDto) {
+  async createInspection(dto: CreateInspectionDto) {
+    await this.masterListGuard.assertValid(
+      this.scope,
+      "quality_inspection_priority",
+      dto.priority,
+      "Priority",
+    );
     return this.inspections.create(this.scope, dto, this.actor);
   }
   async startInspection(id: number, inspectorName?: string) {

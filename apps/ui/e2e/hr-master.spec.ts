@@ -177,7 +177,7 @@ async function openHrMaster(page: Page, extraPermissions: string[] = []) {
   return session;
 }
 
-test("shows the Masters tab bar with HR Master active and the paused tabs disabled", async ({
+test("shows the Masters tab bar with HR Master active and the other master tabs enabled", async ({
   page,
 }) => {
   await openHrMaster(page);
@@ -185,11 +185,17 @@ test("shows the Masters tab bar with HR Master active and the paused tabs disabl
   const hrTab = page.getByRole("link", { name: "HR Master" });
   await expect(hrTab).toBeVisible();
 
-  for (const label of ["Stores Master", "Projects Master"]) {
-    await expect(page.getByRole("link", { name: label })).toHaveCount(0);
-    await expect(page.getByText(label)).toHaveAttribute(
-      "aria-disabled",
-      "true",
+  // Finance Master, Projects Master and SCM Master have since shipped their
+  // own master-list foundations — the tab bar no longer renders any of them
+  // as a disabled "coming soon" placeholder.
+  for (const [label, path] of [
+    ["Finance Master", "/settings/masters/finance"],
+    ["Projects Master", "/settings/masters/projects"],
+    ["SCM Master", "/settings/masters/scm"],
+  ] as const) {
+    await expect(page.getByRole("link", { name: label })).toHaveAttribute(
+      "href",
+      path,
     );
   }
 
@@ -223,11 +229,13 @@ test("adds and deletes a department chip, showing success toasts", async ({
 }) => {
   await openHrMaster(page, WRITE);
 
-  await page.getByLabel("New Departments value").fill("Finance");
+  // "Marketing", not "Finance" — the Masters tab bar now has a "Finance
+  // Master" link, which a plain getByText("Finance") also matches.
+  await page.getByLabel("New Departments value").fill("Marketing");
   await page.getByLabel("New Departments value").press("Enter");
 
   await expect(page.getByText("Department added")).toBeVisible();
-  await expect(page.getByText("Finance")).toBeVisible();
+  await expect(page.getByText("Marketing")).toBeVisible();
 
   await page.getByRole("button", { name: "Remove Engineering" }).click();
   await expect(page.getByText("Department removed")).toBeVisible();

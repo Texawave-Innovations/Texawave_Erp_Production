@@ -32,7 +32,7 @@ export async function issueProjectCode(
       ${PROJECT_CODE_PADDING},
       COALESCE(
         (SELECT MAX(SUBSTRING(project_code FROM '[0-9]+')::integer) + 1
-           FROM projects.projects
+           FROM projects.project_records
           WHERE organization_id = ${organizationId}
             AND project_code LIKE ${PROJECT_CODE_PREFIX + "%"}),
         1
@@ -46,7 +46,7 @@ export async function issueProjectCode(
          next_number,
          COALESCE(
            (SELECT MAX(SUBSTRING(project_code FROM '[0-9]+')::integer) + 1
-              FROM projects.projects
+              FROM projects.project_records
              WHERE organization_id = ${organizationId}
                AND project_code LIKE ${PROJECT_CODE_PREFIX + "%"}),
            1

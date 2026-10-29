@@ -6,6 +6,7 @@ import {
   ResourceConflictException,
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import {
   ALLOWED_PARENT_TYPES,
@@ -23,6 +24,7 @@ export class WarehousesService {
   constructor(
     private readonly repository: WarehousesRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   async findAll(query: QueryWarehouseDto) {
@@ -50,6 +52,12 @@ export class WarehousesService {
   async create(dto: CreateWarehouseDto) {
     const scope = this.tenantContext.getOrgScope();
     await this.assertCodeFree(dto.code);
+    await this.masterListGuard.assertValid(
+      scope,
+      "warehouse_type",
+      dto.type,
+      "Warehouse type",
+    );
     try {
       return await this.repository.create(
         scope,
@@ -67,6 +75,12 @@ export class WarehousesService {
     if (dto.code && dto.code.toLowerCase() !== current.code.toLowerCase()) {
       await this.assertCodeFree(dto.code, id);
     }
+    await this.masterListGuard.assertValid(
+      scope,
+      "warehouse_type",
+      dto.type,
+      "Warehouse type",
+    );
     if (dto.status === "Inactive" && current.status !== "Inactive") {
       const open = await this.repository.countOpenPurchaseOrders(scope, id);
       if (open > 0) {

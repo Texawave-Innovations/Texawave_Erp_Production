@@ -50,21 +50,6 @@ export const SHIPMENT_STATUSES = [
   "FAILED_DELIVERY",
   "CANCELLED",
 ] as const;
-export const SHIPMENT_SERVICE_TYPES = [
-  "STANDARD",
-  "EXPRESS",
-  "SAME_DAY",
-  "ECONOMY",
-  "OTHER",
-] as const;
-export const SHIPMENT_EXCEPTION_CODES = [
-  "CUSTOMER_UNAVAILABLE",
-  "ADDRESS_ISSUE",
-  "WEATHER_DELAY",
-  "DAMAGED_PACKAGE",
-  "CARRIER_DELAY",
-  "OTHER",
-] as const;
 export type FulfillmentView =
   "allocation" | "reserved" | "backorders" | "active";
 

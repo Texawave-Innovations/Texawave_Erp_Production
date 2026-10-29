@@ -53,6 +53,17 @@ describe("scm suppliers (e2e)", () => {
       data: { name: `Org B ${suffix}`, slug: `scm-supplier-org-b-${suffix}` },
     });
 
+    // The "filters by ... type" test below submits type: "Distributor" —
+    // the supplier_type MasterListValueGuard requires it to already be an
+    // active SCM Master value for the org.
+    await prisma.scmMasterListItem.create({
+      data: {
+        organizationId: orgA.id,
+        category: "supplier_type",
+        value: "Distributor",
+      },
+    });
+
     async function permission(code: string) {
       return prisma.permission.upsert({
         where: { code },

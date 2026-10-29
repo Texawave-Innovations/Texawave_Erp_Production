@@ -1,7 +1,6 @@
 "use client";
 
-import type { ScmWarehouse, WarehouseType } from "@texawave-erp/api-types";
-import { WAREHOUSE_TYPES } from "@texawave-erp/api-types";
+import type { ScmWarehouse } from "@texawave-erp/api-types";
 import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { Building2, Pencil, Plus, Power, Tag } from "lucide-react";
 import { useState } from "react";
@@ -10,6 +9,7 @@ import { buildQrPayload } from "../../barcode/codes";
 import { LabelDialog } from "../../barcode/LabelDialog";
 import type { BarcodeLabelProps } from "../../barcode/BarcodeLabel";
 import { formatQty } from "../../shared/format";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { ScmFormDialog, type ScmFormValues } from "../../shared/ScmFormDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -56,6 +56,15 @@ export function WarehousesView() {
   const create = useCreateWarehouse();
   const update = useUpdateWarehouse();
   const [label, setLabel] = useState<BarcodeLabelProps | null>(null);
+  const warehouseTypes = useMasterListItems({
+    category: "warehouse_type",
+    page: 1,
+    limit: 100,
+  });
+  const warehouseTypeOptions = (warehouseTypes.data?.data ?? []).map((i) => ({
+    value: i.value,
+    label: i.value,
+  }));
 
   function showQrLabel(w: Pick<ScmWarehouse, "id" | "code" | "name">) {
     setLabel({
@@ -268,7 +277,7 @@ export function WarehousesView() {
             label: "Type",
             type: "select",
             required: true,
-            options: WAREHOUSE_TYPES.map((t) => ({ value: t, label: t })),
+            options: warehouseTypeOptions,
           },
           {
             name: "status",
@@ -309,7 +318,7 @@ export function WarehousesView() {
           const input = {
             code: str("code"),
             name: str("name"),
-            type: v.type as WarehouseType,
+            type: v.type as string,
             status: v.status as "Active" | "Inactive",
             address: str("address"),
             city: str("city"),

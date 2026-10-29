@@ -1,10 +1,16 @@
 "use client";
 
-import { Briefcase, Landmark, ShoppingCart, Users } from "lucide-react";
+import {
+  Briefcase,
+  Landmark,
+  Package,
+  ShoppingCart,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { cn } from "@texawave-erp/ui-kit";
 
-type MasterTabId = "sales-document" | "hr" | "finance" | "projects";
+type MasterTabId = "sales-document" | "hr" | "finance" | "projects" | "scm";
 
 interface MasterTab {
   id: MasterTabId;
@@ -33,6 +39,12 @@ const TABS: MasterTab[] = [
     icon: Briefcase,
     path: "/settings/masters/projects",
   },
+  {
+    id: "scm",
+    label: "SCM Master",
+    icon: Package,
+    path: "/settings/masters/scm",
+  },
 ];
 
 export interface MastersTabBarProps {
@@ -43,11 +55,13 @@ export interface MastersTabBarProps {
 }
 
 /** Secondary nav shown above the Sales & Document Masters, HR Master,
- * Finance Master, and Projects Master screens, letting a user jump between
- * master-data areas. Finance Master is just the master-list foundation
- * (Expense Types/Payment Modes) ahead of the rest of that module; Projects
- * Master is the project-code configuration screen (project type registry +
- * code/task numbering formats), not the full project registry — see
+ * Finance Master, Projects Master, and SCM Master screens, letting a user
+ * jump between master-data areas. Finance Master is just the master-list
+ * foundation (Expense Types/Payment Modes) ahead of the rest of that
+ * module; SCM Master is the same foundation for SCM (Supplier Types/Package
+ * Types/Warehouse Types/Stock Adjustment Reasons); Projects Master is the
+ * project-code configuration screen (project type registry + code/task
+ * numbering formats), not the full project registry — see
  * Docs/PROJECTS_MASTER.md. Everything beyond these master lists stays
  * "paused, not removed" per CLAUDE.md. This is a secondary nav specific to
  * the Masters area, distinct from the main app's HorizontalNavbar. */

@@ -1,7 +1,6 @@
 "use client";
 
 import type { CreateVendorReturnInput } from "@texawave-erp/api-types";
-import { RETURN_REASON_CODES } from "@texawave-erp/api-types";
 import {
   Button,
   Checkbox,
@@ -10,6 +9,7 @@ import {
   Textarea,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { formatQty, formatStatusLabel } from "../../shared/format";
 import { errorText } from "../../shared/use-list-controls";
 import { useVendorReturnSources } from "../hooks";
@@ -45,10 +45,14 @@ function Body({
   onSubmit: (input: CreateVendorReturnInput) => Promise<void>;
 }) {
   const sources = useVendorReturnSources();
+  const reasons = useMasterListItems({
+    category: "return_reason",
+    page: 1,
+    limit: 100,
+  });
+  const reasonOptions = reasons.data?.data ?? [];
   const [grnId, setGrnId] = useState("");
-  const [reasonCode, setReasonCode] = useState<
-    (typeof RETURN_REASON_CODES)[number]
-  >(RETURN_REASON_CODES[0]);
+  const [reasonCode, setReasonCode] = useState("");
   const [reasonDescription, setReasonDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [qty, setQty] = useState<Record<number, string>>({});
@@ -77,6 +81,7 @@ function Body({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!grnId) return setError("Select a goods receipt to return against");
+    if (!reasonCode) return setError("Select a reason");
     const items = eligible
       .filter((l) => checked.has(l.grnItemId))
       .map((l) => ({
@@ -137,15 +142,12 @@ function Body({
         <Select
           aria-label="Reason"
           value={reasonCode}
-          onChange={(e) =>
-            setReasonCode(
-              e.target.value as (typeof RETURN_REASON_CODES)[number],
-            )
-          }
+          onChange={(e) => setReasonCode(e.target.value)}
         >
-          {RETURN_REASON_CODES.map((r) => (
-            <option key={r} value={r}>
-              {formatStatusLabel(r)}
+          <option value="">Select a reason</option>
+          {reasonOptions.map((r) => (
+            <option key={r.id} value={r.value}>
+              {formatStatusLabel(r.value)}
             </option>
           ))}
         </Select>

@@ -1654,14 +1654,6 @@ const ERP_MODULES: ErpModuleConfig[] = [
   },
   {
     id: "master-list",
-    label: "Master list",
-    icon: BarChart3,
-    icon3d: "master-list",
-    path: "#",
-    available: false,
-  },
-  {
-    id: "master-list",
     label: "Master List",
     icon: ClipboardList,
     path: "/settings/sales-settings",

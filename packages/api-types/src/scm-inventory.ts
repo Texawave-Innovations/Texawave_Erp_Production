@@ -64,24 +64,14 @@ export interface QueryScmProductsInput {
   isActive?: boolean | undefined;
 }
 
-export const WAREHOUSE_TYPES = [
-  "Main",
-  "Regional",
-  "Transit",
-  "Virtual",
-  "Other",
-  "Distribution",
-  "Fulfillment",
-  "Returns",
-] as const;
-export type WarehouseType = (typeof WAREHOUSE_TYPES)[number];
-
 export interface ScmWarehouse {
   id: number;
   organizationId: number;
   code: string;
   name: string;
-  type: WarehouseType;
+  /** One of the org's active `warehouse_type` SCM Master values
+   * (scm/master-list-items), not a fixed union. */
+  type: string;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -103,7 +93,7 @@ export interface ScmWarehouse {
 export interface CreateWarehouseInput {
   code: string;
   name: string;
-  type?: WarehouseType | undefined;
+  type?: string | undefined;
   address?: string | undefined;
   city?: string | undefined;
   state?: string | undefined;
@@ -393,15 +383,6 @@ export interface ScmTransfer {
   destinationWarehouse?: { id: number; name: string };
 }
 
-export const ADJUSTMENT_REASONS = [
-  "Physical Count Difference",
-  "Damage",
-  "Loss",
-  "Found Stock",
-  "Opening Correction",
-  "Other Approved Reason",
-] as const;
-export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
 export type AdjustmentDirection = "IN" | "OUT";
 export interface ScmAdjustment {
   id: number;
@@ -410,7 +391,9 @@ export interface ScmAdjustment {
   warehouseId: number;
   quantity: string;
   direction: "IN" | "OUT";
-  reason: AdjustmentReason;
+  /** One of the org's active `stock_adjustment_reason` SCM Master values
+   * (scm/master-list-items), not a fixed union. */
+  reason: string;
   notes: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
@@ -463,7 +446,7 @@ export interface CreateAdjustmentInput {
   warehouseId: number;
   quantity: number;
   direction: "IN" | "OUT";
-  reason: AdjustmentReason;
+  reason: string;
   notes?: string | undefined;
 }
 export interface CreateBatchInput {

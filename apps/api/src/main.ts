@@ -15,8 +15,11 @@ async function bootstrap() {
   // Express's default json() limit (100kb) is too small for the base64
   // data-URI image uploads used by seal/signature masterlists and similar
   // features — raised so those requests reach controller validation
-  // instead of failing with a generic 413 before it.
-  app.use(json({ limit: "5mb" }));
+  // instead of failing with a generic 413 before it. Must exceed the
+  // MAX_UPLOAD_BYTES (5MB) image cap by more than base64's 4/3 encoding
+  // overhead (~6.7MB) plus the surrounding JSON envelope, or a
+  // maximum-size image still 413s before validation ever runs.
+  app.use(json({ limit: "8mb" }));
 
   const config = app.get(ConfigService);
 

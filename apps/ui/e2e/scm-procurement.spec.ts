@@ -1,10 +1,6 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
-import { signInAsAdmin, uniqueName } from "./helpers/auth";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { openScmCategory, signInAsAdmin, uniqueName } from "./helpers/auth";
+import { selectCombobox } from "./helpers/combobox";
 
 /**
  * Real-browser walk through the whole procurement pipeline: requisition ->
@@ -42,13 +38,23 @@ async function create<T>(
   return ((await res.json()) as { data: T }).data;
 }
 
-async function open(page: Page, category: string, link: string) {
-  await page.getByRole("button", { name: "SCM", exact: true }).click();
-  await page
-    .getByRole("menu", { name: "SCM categories" })
-    .getByRole("button", { name: category })
-    .click();
-  await page.getByRole("link", { name: link, exact: true }).first().click();
+/** The scm_master_list_items table is org-configurable — a specific value
+ * isn't guaranteed to exist, so this test seeds it itself instead of
+ * assuming it's there (same guard every SCM consumer form now goes through —
+ * see MasterListValueGuard). */
+async function ensureMasterListValue(
+  request: APIRequestContext,
+  token: string,
+  category: string,
+  value: string,
+) {
+  const res = await request.get(
+    `${API}/scm/master-list-items?category=${category}&limit=100`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const existing = ((await res.json()) as { data: { value: string }[] }).data;
+  if (existing.some((i) => i.value === value)) return;
+  await create(request, token, "/scm/master-list-items", { category, value });
 }
 
 test("runs a purchase from requisition to goods receipt", async ({
@@ -74,19 +80,18 @@ test("runs a purchase from requisition to goods receipt", async ({
     code: `W${stamp % 100000}`,
     name: whName,
   });
+  await ensureMasterListValue(request, token, "requisition_priority", "High");
 
   await signInAsAdmin(page);
 
   // 1. Requisition: create, submit, approve
-  await open(page, "Procurement", "Material Requisitions");
+  await openScmCategory(page, "Procurement", "Material Requisitions");
   await page.getByRole("button", { name: "New Requisition" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/^Warehouse/).selectOption({ label: whName });
-  await dialog
-    .getByLabel("Product for line 1")
-    .selectOption({ label: `${productName} (${sku})` });
+  await selectCombobox(dialog, /^Warehouse/, whName);
+  await selectCombobox(dialog, "Product for line 1", `${productName} (${sku})`);
   await dialog.getByLabel("Qty for line 1").fill("10");
-  await dialog.getByLabel("Est. Unit Cost for line 1").fill("25");
+  await selectCombobox(dialog, "Priority", "High");
   await dialog.getByRole("button", { name: "Save as Draft" }).click();
   await expect(
     page.getByText("Requisition saved as draft").first(),
@@ -132,9 +137,8 @@ test("runs a purchase from requisition to goods receipt", async ({
     .getByRole("button", { name: "Record Quotation" })
     .click();
   const qDialog = page.getByRole("dialog");
-  await qDialog
-    .getByRole("combobox", { name: /^Supplier/ })
-    .selectOption({ label: supplierName });
+  // Plain "Supplier" would also match the "Supplier's Quote #" field below it.
+  await selectCombobox(qDialog, "Supplier*", supplierName);
   await qDialog.getByLabel("Unit Price for line 1").fill("20");
   await qDialog.getByLabel("Tax % for line 1").fill("18");
   await qDialog.getByRole("button", { name: "Record Quotation" }).click();
@@ -150,10 +154,7 @@ test("runs a purchase from requisition to goods receipt", async ({
   await page.getByRole("button", { name: "Select quotation & save" }).click();
   await expect(page.getByText("Comparison saved").first()).toBeVisible();
   await page.getByRole("button", { name: "Create PO from selected" }).click();
-  await page
-    .getByRole("dialog")
-    .getByLabel(/^Warehouse/)
-    .selectOption({ label: whName });
+  await selectCombobox(page.getByRole("dialog"), /^Warehouse/, whName);
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Save as Draft" })
@@ -204,7 +205,7 @@ test("runs a purchase from requisition to goods receipt", async ({
   await expect(page.getByText(/posted — stock updated/).first()).toBeVisible();
 
   // 7. Stock overview now shows the received quantity
-  await open(page, "Inventory", "Stock Overview");
+  await openScmCategory(page, "Inventory", "Stock Overview");
   await page.getByRole("searchbox", { name: "Search stock rows" }).fill(sku);
   const row = page
     .getByRole("row")

@@ -81,25 +81,25 @@ describe("SalespersonsService", () => {
   });
 
   describe("create()", () => {
-    it("creates within the caller's org with the caller as createdBy", async () => {
+    it("creates within the caller's org", async () => {
       const { service, repository } = makeService();
       repository.create.mockResolvedValue(SALESPERSON);
       const dto = { name: "Rahul Sharma" } as CreateSalespersonDto;
 
       await expect(service.create(dto)).resolves.toBe(SALESPERSON);
-      expect(repository.create).toHaveBeenCalledWith(SCOPE, dto, USER_ID);
+      expect(repository.create).toHaveBeenCalledWith(SCOPE, dto);
     });
   });
 
   describe("update()", () => {
-    it("updates within the caller's org, recording the caller as updatedBy", async () => {
+    it("updates within the caller's org", async () => {
       const { service, repository } = makeService();
       const updated = { ...SALESPERSON, name: "Rahul S." };
       repository.update.mockResolvedValue(updated);
       const dto: UpdateSalespersonDto = { name: "Rahul S." };
 
       await expect(service.update(7, dto)).resolves.toBe(updated);
-      expect(repository.update).toHaveBeenCalledWith(SCOPE, 7, dto, USER_ID);
+      expect(repository.update).toHaveBeenCalledWith(SCOPE, 7, dto);
     });
 
     it("throws ResourceNotFoundException when nothing was updated", async () => {
@@ -113,12 +113,12 @@ describe("SalespersonsService", () => {
   });
 
   describe("remove()", () => {
-    it("soft-deletes within the caller's org, recording the caller", async () => {
+    it("soft-deletes within the caller's org", async () => {
       const { service, repository } = makeService();
       repository.softDelete.mockResolvedValue(true);
 
       await expect(service.remove(7)).resolves.toBeUndefined();
-      expect(repository.softDelete).toHaveBeenCalledWith(SCOPE, 7, USER_ID);
+      expect(repository.softDelete).toHaveBeenCalledWith(SCOPE, 7);
     });
 
     it("throws ResourceNotFoundException when already gone", async () => {

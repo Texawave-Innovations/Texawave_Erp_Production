@@ -18,6 +18,7 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -286,7 +287,7 @@ function PackBody({
   const [packages, setPackages] = useState<PackageDraft[]>([
     {
       packageNumber: "PKG-1",
-      packageType: "Box",
+      packageType: "",
       weight: "",
       qty: Object.fromEntries(
         picking.items.map((i) => [
@@ -298,6 +299,12 @@ function PackBody({
   ]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const packageTypes = useMasterListItems({
+    category: "package_type",
+    page: 1,
+    limit: 100,
+  });
+  const packageTypeOptions = packageTypes.data?.data ?? [];
 
   const patch = (idx: number, next: Partial<PackageDraft>) =>
     setPackages((p) => p.map((x, i) => (i === idx ? { ...x, ...next } : x)));
@@ -367,12 +374,18 @@ function PackBody({
               value={p.packageNumber}
               onChange={(e) => patch(idx, { packageNumber: e.target.value })}
             />
-            <Input
+            <Select
               aria-label={`Package ${idx + 1} type`}
-              placeholder="Type (Box, Pallet...)"
               value={p.packageType}
               onChange={(e) => patch(idx, { packageType: e.target.value })}
-            />
+            >
+              <option value="">Select a type</option>
+              {packageTypeOptions.map((t) => (
+                <option key={t.id} value={t.value}>
+                  {t.value}
+                </option>
+              ))}
+            </Select>
             <Input
               aria-label={`Package ${idx + 1} weight`}
               type="number"
@@ -431,7 +444,7 @@ function PackBody({
               ...x,
               {
                 packageNumber: `PKG-${x.length + 1}`,
-                packageType: "Box",
+                packageType: "",
                 weight: "",
                 qty: {},
               },

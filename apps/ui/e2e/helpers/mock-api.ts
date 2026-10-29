@@ -191,7 +191,8 @@ export async function navigateToMasterTab(
     | "Sales & Document Masters"
     | "HR Master"
     | "Finance Master"
-    | "Projects Master",
+    | "Projects Master"
+    | "SCM Master",
 ): Promise<void> {
   await page.getByRole("button", { name: "Master List" }).click();
   await expect(page).toHaveURL(/\/settings\/sales-settings/);

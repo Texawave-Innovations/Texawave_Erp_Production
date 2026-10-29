@@ -88,36 +88,25 @@ describe("SealSignaturesService", () => {
   });
 
   describe("create()", () => {
-    it("creates with the fixed kind, within the caller's org, as createdBy", async () => {
+    it("creates with the fixed kind, within the caller's org", async () => {
       const { service, repository } = makeService();
       repository.create.mockResolvedValue(ROW);
       const dto = { title: "Official Round Seal" } as CreateSealSignatureDto;
 
       await expect(service.create(dto)).resolves.toBe(ROW);
-      expect(repository.create).toHaveBeenCalledWith(
-        SCOPE,
-        "seal",
-        dto,
-        USER_ID,
-      );
+      expect(repository.create).toHaveBeenCalledWith(SCOPE, "seal", dto);
     });
   });
 
   describe("update()", () => {
-    it("updates with the fixed kind, recording the caller as updatedBy", async () => {
+    it("updates with the fixed kind", async () => {
       const { service, repository } = makeService();
       const updated = { ...ROW, title: "New Seal" };
       repository.update.mockResolvedValue(updated);
       const dto: UpdateSealSignatureDto = { title: "New Seal" };
 
       await expect(service.update(3, dto)).resolves.toBe(updated);
-      expect(repository.update).toHaveBeenCalledWith(
-        SCOPE,
-        "seal",
-        3,
-        dto,
-        USER_ID,
-      );
+      expect(repository.update).toHaveBeenCalledWith(SCOPE, "seal", 3, dto);
     });
 
     it("throws ResourceNotFoundException(noun) when nothing was updated", async () => {
@@ -131,17 +120,12 @@ describe("SealSignaturesService", () => {
   });
 
   describe("remove()", () => {
-    it("soft-deletes with the fixed kind, recording the caller", async () => {
+    it("soft-deletes with the fixed kind", async () => {
       const { service, repository } = makeService();
       repository.softDelete.mockResolvedValue(true);
 
       await expect(service.remove(3)).resolves.toBeUndefined();
-      expect(repository.softDelete).toHaveBeenCalledWith(
-        SCOPE,
-        "seal",
-        3,
-        USER_ID,
-      );
+      expect(repository.softDelete).toHaveBeenCalledWith(SCOPE, "seal", 3);
     });
 
     it("throws ResourceNotFoundException(noun) when already gone", async () => {

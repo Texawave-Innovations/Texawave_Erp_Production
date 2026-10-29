@@ -123,6 +123,7 @@ model Organization {
   sealSignatures                   SealSignature[]
   salesMasterListItems              SalesMasterListItem[]
   financeMasterListItems            FinanceMasterListItem[]
+  scmMasterListItems                 ScmMasterListItem[]
   payrollEarnings                   PayrollEarning[]
   payrollDeductions                 PayrollDeduction[]
   projects                          Project[]
@@ -194,7 +195,7 @@ model Organization {
   scmWarehouseMovements              ScmWarehouseMovement[]
 
 
-  projects                Project[]
+  projectRecords          ProjectRecord[]
   projectMembers          ProjectMember[]
   projectMilestones       ProjectMilestone[]
   projectTasks            ProjectTask[]
@@ -937,7 +938,7 @@ model Employee {
   esiContributions      EsiContribution[]
   taxDeclarations       EmployeeTaxDeclaration[]
 
-  handledProjects         Project[]                  @relation("ProjectClientHandler")
+  handledProjects         ProjectRecord[]            @relation("ProjectClientHandler")
   projectMemberships      ProjectMember[]
   assignedProjectTasks    ProjectTask[]
   projectTimeEntries      ProjectTimeEntry[]
@@ -3207,6 +3208,13 @@ model CompanyDetail {
   logoDataUri    String?   @map("logo_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("company_details")
+  @@schema("sales")
+}
+
 /// CRM Accounts — minimal foundation (Phase 4B). Only the fields the legacy
 /// Contacts.tsx actually reads off an account (`id`, `name`) are modeled;
 /// the full Account-360 feature set (industry, owner, etc.) is explicitly
@@ -3297,7 +3305,7 @@ model Account {
   notes        CrmNote[]
   coldCallingEntries CrmColdCallingEntry[]
 
-  projects           Project[]
+  projectRecords     ProjectRecord[]
 
   @@index([organizationId])
   @@index([organizationId, teamId])
@@ -3962,10 +3970,13 @@ model CrmFollowUp {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  reschedules  CrmFollowUpReschedule[]
 
-  @@map("company_details")
-  @@schema("sales")
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, status])
+  @@map("crm_follow_ups")
+  @@schema("crm")
 }
 
 /// List of org bank accounts. Bank & Signatory tab (bank half) of Sales
@@ -4004,13 +4015,11 @@ model AuthorizedSignatory {
   designation    String?
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  organization Organization              @relation(fields: [organizationId], references: [id])
-  reschedules  CrmFollowUpReschedule[]
 
-  @@index([organizationId, relatedType, relatedId])
-  @@index([organizationId, status])
-  @@map("crm_follow_ups")
-  @@schema("crm")
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("authorized_signatories")
+  @@schema("sales")
 }
 
 model CrmFollowUpReschedule {
@@ -4091,8 +4100,10 @@ model CrmTask {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@map("authorized_signatories")
-  @@schema("sales")
+  @@index([organizationId, relatedType, relatedId])
+  @@index([organizationId, status])
+  @@map("crm_tasks")
+  @@schema("crm")
 }
 
 /// Salespersons tab of Sales Settings — tracked for commission/assignment by
@@ -4107,10 +4118,15 @@ model Salesperson {
   commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
   customFields      Json      @default("{}") @map("custom_fields")
   isActive          Boolean   @default(true) @map("is_active")
-  @@index([organizationId, relatedType, relatedId])
-  @@index([organizationId, status])
-  @@map("crm_tasks")
-  @@schema("crm")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("salespersons")
+  @@schema("sales")
 }
 
 /// Legacy `domain/documentsService.ts` + `CrmDocument` type — confirmed
@@ -4246,9 +4262,8 @@ model CrmMiningRow {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@index([organizationId])
-  @@map("salespersons")
-  @@schema("sales")
+  @@map("crm_mining_rows")
+  @@schema("crm")
 }
 
 /// Company Seal masterlist + Authorized Signature masterlist, unified behind
@@ -4268,8 +4283,15 @@ model SealSignature {
   imageDataUri   String    @map("image_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  @@map("crm_mining_rows")
-  @@schema("crm")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, kind])
+  @@map("seal_signatures")
+  @@schema("sales")
 }
 
 /// Legacy `domain/quotasService.ts` (`crm/quotas`). `repName` is free text
@@ -4302,9 +4324,10 @@ model CrmQuota {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@index([organizationId, kind])
-  @@map("seal_signatures")
-  @@schema("sales")
+  @@index([organizationId])
+  @@index([organizationId, periodKey])
+  @@map("crm_quotas")
+  @@schema("crm")
 }
 
 /// Terms & Inventory tab — the 8 simple "add/delete chip" lookup lists
@@ -4330,10 +4353,15 @@ model SalesMasterListItem {
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      Int?      @map("created_by")
   updatedBy      Int?      @map("updated_by")
-  @@index([organizationId])
-  @@index([organizationId, periodKey])
-  @@map("crm_quotas")
-  @@schema("crm")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("sales_master_list_items")
+  @@schema("sales")
 }
 
 /// Legacy `notifications/types.ts` `CrmNotification` (`crm/notifications/feed`).
@@ -4368,9 +4396,10 @@ model CrmNotification {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@index([organizationId, category])
-  @@map("sales_master_list_items")
-  @@schema("sales")
+  @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
+  @@index([organizationId, status])
+  @@map("crm_notifications")
+  @@schema("crm")
 }
 
 /// Finance Master — `category` picks which card on the Finance Master page a
@@ -4398,10 +4427,6 @@ model FinanceMasterListItem {
   @@index([organizationId, category])
   @@map("finance_master_list_items")
   @@schema("finance")
-  @@unique([organizationId, sourceType, sourceId, type, dueDate], map: "crm_notifications_dedupe_key")
-  @@index([organizationId, status])
-  @@map("crm_notifications")
-  @@schema("crm")
 }
 
 /// Legacy `bulkImport/crmCustomFieldsService.ts` (`crm/customFieldDefs`).
@@ -4493,6 +4518,32 @@ model Supplier {
   @@unique([organizationId, supplierCode])
   @@index([organizationId, status])
   @@map("suppliers")
+  @@schema("scm")
+}
+
+/// SCM Masterlist — generic category/value admin rows (supplier_type,
+/// package_type, warehouse_type, stock_adjustment_reason). Same generic
+/// shape as SalesMasterListItem/FinanceMasterListItem
+/// (Docs/SALES_SETTINGS_FOUNDATION.md design decision #2) — a future
+/// consumer should reference a row here by `id`, never copy `value`.
+model ScmMasterListItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  category       String
+  value          String
+  numericValue   Decimal?  @map("numeric_value") @db.Decimal(10, 4)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("scm_master_list_items")
   @@schema("scm")
 }
 
@@ -6315,7 +6366,7 @@ enum ProjectExpenseStatus {
   @@schema("projects")
 }
 
-model Project {
+model ProjectRecord {
   id                    Int           @id @default(autoincrement())
   organizationId        Int           @map("organization_id")
   projectCode           String        @map("project_code")
@@ -6351,7 +6402,7 @@ model Project {
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
   @@index([organizationId, department])
-  @@map("projects")
+  @@map("project_records")
   @@schema("projects")
 }
 
@@ -6367,9 +6418,9 @@ model ProjectMember {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  project      ProjectRecord  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee     Employee       @relation(fields: [employeeId], references: [id])
 
   @@unique([projectId, employeeId])
   @@index([organizationId, employeeId])
@@ -6390,8 +6441,8 @@ model ProjectMilestone {
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  project      ProjectRecord   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks        ProjectTask[]
 
   @@index([projectId, order])
@@ -6427,7 +6478,7 @@ model ProjectTask {
   deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
   organization   Organization         @relation(fields: [organizationId], references: [id])
-  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        ProjectRecord        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestone      ProjectMilestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignedTo     Employee?            @relation(fields: [assignedToId], references: [id])
   dependencyTask ProjectTask?         @relation("TaskDependencies", fields: [dependencyTaskId], references: [id])
@@ -6479,8 +6530,8 @@ model ProjectExpense {
   createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  project      ProjectRecord  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, projectId])
   @@map("project_expenses")

@@ -7,10 +7,10 @@ import type {
 import {
   INSPECTION_TYPES,
   INSPECTION_TYPE_LABEL,
-  QUALITY_PRIORITIES,
 } from "@texawave-erp/api-types";
 import { Button, Input, Select } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useMasterListItems } from "../../master-list-items/hooks";
 import { ProductSelect, WarehouseSelect } from "../../shared/masters";
 import { errorText } from "../../shared/use-list-controls";
 import { useInspectionSources, useTemplates } from "../hooks";
@@ -47,11 +47,16 @@ function Body({
   const [warehouseId, setWarehouseId] = useState<number | "">("");
   const [quantity, setQuantity] = useState("");
   const [templateId, setTemplateId] = useState("");
-  const [priority, setPriority] =
-    useState<(typeof QUALITY_PRIORITIES)[number]>("MEDIUM");
+  const [priority, setPriority] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const priorities = useMasterListItems({
+    category: "quality_inspection_priority",
+    page: 1,
+    limit: 100,
+  });
+  const priorityOptions = priorities.data?.data ?? [];
   const sources = useInspectionSources(
     inspectionType === "INVENTORY" ? null : inspectionType,
   );
@@ -64,6 +69,7 @@ function Body({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!priority) return setError("Select a priority");
     const input: CreateInspectionInput = {
       inspectionType,
       priority,
@@ -162,13 +168,12 @@ function Body({
         <Select
           aria-label="Priority"
           value={priority}
-          onChange={(e) =>
-            setPriority(e.target.value as (typeof QUALITY_PRIORITIES)[number])
-          }
+          onChange={(e) => setPriority(e.target.value)}
         >
-          {QUALITY_PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p}
+          <option value="">Select a priority</option>
+          {priorityOptions.map((p) => (
+            <option key={p.id} value={p.value}>
+              {p.value}
             </option>
           ))}
         </Select>

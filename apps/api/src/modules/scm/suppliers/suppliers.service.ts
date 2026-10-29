@@ -5,6 +5,7 @@ import {
   ResourceConflictException,
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
+import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type {
   CreateSupplierDto,
@@ -20,6 +21,7 @@ export class SuppliersService {
   constructor(
     private readonly repository: SuppliersRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly masterListGuard: MasterListValueGuard,
   ) {}
 
   async findAll(query: QuerySupplierDto) {
@@ -68,6 +70,12 @@ export class SuppliersService {
     const scope = this.tenantContext.getOrgScope();
     const actorId = this.tenantContext.getUserId();
     await this.assertGstinFree(dto.gstin);
+    await this.masterListGuard.assertValid(
+      scope,
+      "supplier_type",
+      dto.type,
+      "Supplier type",
+    );
 
     if (dto.supplierCode) {
       await this.assertCodeFree(dto.supplierCode);
@@ -110,6 +118,12 @@ export class SuppliersService {
       await this.assertCodeFree(dto.supplierCode, id);
     }
     if (dto.gstin) await this.assertGstinFree(dto.gstin, id);
+    await this.masterListGuard.assertValid(
+      scope,
+      "supplier_type",
+      dto.type,
+      "Supplier type",
+    );
 
     try {
       const row = await this.repository.update(

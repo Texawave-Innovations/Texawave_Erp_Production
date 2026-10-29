@@ -22,11 +22,13 @@ function makeService() {
     getOrgScope: vi.fn().mockReturnValue(SCOPE),
     getUserId: vi.fn().mockReturnValue(42),
   };
+  const masterListGuard = { assertValid: vi.fn().mockResolvedValue(undefined) };
   const service = new SuppliersService(
     repository as never,
     tenantContext as never,
+    masterListGuard as never,
   );
-  return { service, repository };
+  return { service, repository, masterListGuard };
 }
 
 const dto = { companyName: "ABC Pvt Ltd", contactPerson: "Ravi" };
