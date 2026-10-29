@@ -380,37 +380,18 @@ export function ExpensesView() {
     {
       header: "VENDOR / PAYEE",
       cell: (row) => (
-        <div className="flex flex-col">
-          <span className="font-semibold text-theme-sm text-gray-900 dark:text-white">
-            {row.vendorName || "—"}
-          </span>
-          {row.vendorGstin && (
-            <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-              {row.vendorGstin}
-            </span>
-          )}
-        </div>
+        <span className="font-semibold text-theme-sm text-gray-900 dark:text-white">
+          {row.vendorName || "—"}
+        </span>
       ),
     },
     {
-      header: "NET AMOUNT (₹)",
+      header: "AMOUNT (₹)",
       sortable: true,
       cell: (row) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-theme-sm text-gray-900 dark:text-white">
-            {formatMoney(row.netAmount || row.amount)}
-          </span>
-          {Number(row.taxAmount || 0) > 0 && (
-            <span className="text-theme-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <span>Tax: {formatMoney(row.taxAmount)}</span>
-              {row.isItcEligible === false && (
-                <span className="text-amber-600 dark:text-amber-400 font-medium">
-                  (Blocked ITC)
-                </span>
-              )}
-            </span>
-          )}
-        </div>
+        <span className="font-bold text-theme-sm text-gray-900 dark:text-white">
+          {formatMoney(row.netAmount || row.amount)}
+        </span>
       ),
     },
     {

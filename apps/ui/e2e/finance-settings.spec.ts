@@ -50,6 +50,24 @@ const PAYMENT_MODES = [
 function handler(req: MockRequest): MockAnswer | undefined {
   const { method, pathname, search, body } = req;
 
+  // Session restore on page reload
+  if (pathname === "/auth/refresh" && method === "POST") {
+    const token = `${Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ organizationId: 1, sub: 1 })).toString("base64url")}.sig`;
+    return {
+      body: {
+        data: {
+          accessToken: token,
+          refreshToken: "r",
+        },
+      },
+    };
+  }
+
+  // Global unread notifications count query from Navbar
+  if (pathname === "/notifications/unread-count" && method === "GET") {
+    return { body: { data: { count: 0 } } };
+  }
+
   if (pathname === "/finance-settings/master-list-items" && method === "GET") {
     const category = search.get("category");
     if (category === "expense_type") return { body: page1(expenseTypes) };

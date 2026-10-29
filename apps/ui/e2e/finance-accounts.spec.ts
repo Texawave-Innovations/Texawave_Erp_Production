@@ -158,11 +158,40 @@ const mockTree = [
 function handler(req: MockRequest): MockAnswer | undefined {
   const { method, pathname, search, body } = req;
 
+  // Session restore on page reload
+  if (pathname === "/auth/refresh" && method === "POST") {
+    const token = `${Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ organizationId: 1, sub: 1 })).toString("base64url")}.sig`;
+    return {
+      body: {
+        data: {
+          accessToken: token,
+          refreshToken: "r",
+        },
+      },
+    };
+  }
+
+  // Global unread notifications count query from Navbar
+  if (pathname === "/notifications/unread-count" && method === "GET") {
+    return { body: { data: { count: 0 } } };
+  }
+
   if (pathname === "/finance/accounts/tree" && method === "GET") {
     return { body: { data: mockTree } };
   }
 
   if (pathname === "/finance/accounts" && method === "GET") {
+    const limitParam = search.get("limit");
+    if (limitParam && Number(limitParam) > 100) {
+      return {
+        status: 400,
+        body: {
+          statusCode: 400,
+          message: ["limit must not be greater than 100"],
+          error: "Bad Request",
+        },
+      };
+    }
     const searchVal = search.get("search")?.toLowerCase();
     const typeVal = search.get("accountType");
 
@@ -269,10 +298,14 @@ test.describe("Chart of Accounts UI", () => {
     await expect(
       page.getByRole("heading", { name: "Chart of Accounts" }),
     ).toBeVisible();
-    await expect(page.getByText("Current Assets")).toBeVisible();
-    await expect(page.getByText("1000")).toBeVisible();
+    await expect(
+      page.getByText("Current Assets", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("1000", { exact: true })).toBeVisible();
     await expect(page.getByText("Cash on Hand")).toBeVisible();
-    await expect(page.getByText("Sales Revenue")).toBeVisible();
+    await expect(
+      page.getByText("Sales Revenue", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Add Account" }),
     ).toBeVisible();
@@ -285,8 +318,10 @@ test.describe("Chart of Accounts UI", () => {
     await treeButton.click();
 
     await expect(page.getByText("Account Hierarchy & Balances")).toBeVisible();
-    await expect(page.getByText("1000")).toBeVisible();
-    await expect(page.getByText("Current Assets")).toBeVisible();
+    await expect(page.getByText("1000", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Current Assets", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Expand All")).toBeVisible();
     await expect(page.getByText("Collapse All")).toBeVisible();
   });
@@ -300,13 +335,15 @@ test.describe("Chart of Accounts UI", () => {
     await expect(
       page.getByRole("heading", { name: "Chart of Accounts" }),
     ).toBeVisible();
-    await expect(page.getByText("Current Assets")).toBeVisible();
+    await expect(
+      page.getByText("Current Assets", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Add Account" }),
     ).not.toBeVisible();
   });
 
-  test("renders unified Finance Hub shell with 6 primary tabs and accounting sub-tabs", async ({
+  test("renders unified Finance Hub shell with 6 primary tabs and unified dashboard sections", async ({
     page,
   }) => {
     await openFinanceAccounts(page, WRITE);

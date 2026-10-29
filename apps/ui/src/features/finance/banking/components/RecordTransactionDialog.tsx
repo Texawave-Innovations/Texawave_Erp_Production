@@ -57,7 +57,7 @@ export function RecordTransactionDialog({
   // Query Chart of Accounts for optional double-entry GL offset
   const accountsQuery = useAccounts({
     isActive: true,
-    limit: 150,
+    limit: 100,
   });
 
   const coaAccounts = useMemo(() => {

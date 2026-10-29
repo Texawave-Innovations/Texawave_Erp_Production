@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleViolationException,
@@ -20,13 +20,31 @@ import type {
   GstReconciliationDiscrepancyItem,
   Gstr1RateBucket,
   HsnSummaryItem,
+  GstNetPositionReport,
 } from "./gst.types.js";
+import {
+  MASTER_LIST_SOURCE,
+  type IMasterListSource,
+  PURCHASES_TRANSACTION_SOURCE,
+  type IPurchasesTransactionSource,
+  SALES_TRANSACTION_SOURCE,
+  type ISalesTransactionSource,
+} from "../integration/contracts/index.js";
 
 @Injectable()
 export class GstService {
   constructor(
     private readonly repository: GstRepository,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(MASTER_LIST_SOURCE)
+    private readonly masterListSource?: IMasterListSource,
+    @Optional()
+    @Inject(SALES_TRANSACTION_SOURCE)
+    private readonly salesSource?: ISalesTransactionSource,
+    @Optional()
+    @Inject(PURCHASES_TRANSACTION_SOURCE)
+    private readonly purchasesSource?: IPurchasesTransactionSource,
   ) {}
 
   /**
@@ -214,6 +232,32 @@ export class GstService {
     const items = Array.from(hsnMap.values()).sort((a, b) =>
       a.hsnSacCode.localeCompare(b.hsnSacCode),
     );
+
+    // Enrich HSN items with descriptions and UOM from Master List if available
+    if (this.masterListSource) {
+      await Promise.all(
+        items.map(async (item) => {
+          if (!item.description || !item.uom) {
+            try {
+              const master = await this.masterListSource!.lookupHsnSac(
+                scope,
+                item.hsnSacCode,
+              );
+              if (master) {
+                if (!item.description && master.description) {
+                  item.description = master.description;
+                }
+                if (!item.uom && master.uom) {
+                  item.uom = master.uom;
+                }
+              }
+            } catch {
+              // Master list lookup error should not fail report generation
+            }
+          }
+        }),
+      );
+    }
 
     return {
       ...(query.period !== undefined ? { period: query.period } : {}),
@@ -637,6 +681,221 @@ export class GstService {
         active.length > 0
           ? Number(((reconciled.length / active.length) * 100).toFixed(1))
           : 100,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * GST Net Position Report.
+   * Compares Outward Tax Liability against Inward Recorded Tax and Eligible Input Tax Credit (ITC).
+   *
+   * Statutory Rule: Purchase Orders alone do NOT constitute eligible ITC.
+   * Only completed supplier bills and paid qualifying business expenses with valid vendor GSTIN
+   * are eligible for ITC.
+   */
+  async getNetTaxPosition(
+    query: QueryHsnSummaryDto,
+  ): Promise<GstNetPositionReport> {
+    const scope = this.tenantContext.getOrgScope();
+
+    const outwardLiability = {
+      taxableAmount: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalTaxAmount: 0,
+      transactionCount: 0,
+    };
+
+    const inwardRecorded = {
+      taxableAmount: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalTaxAmount: 0,
+      transactionCount: 0,
+    };
+
+    const eligibleItc = {
+      taxableAmount: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalTaxAmount: 0,
+      transactionCount: 0,
+    };
+
+    if (this.salesSource && this.purchasesSource) {
+      const taxQuery: Record<string, string> = {};
+      if (query.period) taxQuery["period"] = query.period;
+      if (query.startDate) taxQuery["startDate"] = query.startDate;
+      if (query.endDate) taxQuery["endDate"] = query.endDate;
+
+      const [salesTx, purchaseTx] = await Promise.all([
+        this.salesSource.getPostedSalesTransactions(scope, taxQuery),
+        this.purchasesSource.getInwardTaxTransactions(scope, taxQuery),
+      ]);
+
+      for (const s of salesTx) {
+        if (s.status === "CANCELLED" || s.isProformaExcluded) continue;
+        outwardLiability.taxableAmount += s.subtotal;
+        outwardLiability.totalTaxAmount += s.taxAmount;
+        outwardLiability.transactionCount += 1;
+
+        for (const line of s.lines) {
+          outwardLiability.cgstAmount += line.cgstAmount;
+          outwardLiability.sgstAmount += line.sgstAmount;
+          outwardLiability.igstAmount += line.igstAmount;
+        }
+      }
+
+      for (const p of purchaseTx) {
+        if (p.status === "CANCELLED") continue;
+        inwardRecorded.taxableAmount += p.subtotal;
+        inwardRecorded.totalTaxAmount += p.taxAmount;
+        inwardRecorded.transactionCount += 1;
+
+        for (const line of p.lines) {
+          inwardRecorded.cgstAmount += line.cgstAmount;
+          inwardRecorded.sgstAmount += line.sgstAmount;
+          inwardRecorded.igstAmount += line.igstAmount;
+        }
+
+        if (p.isItcEligible) {
+          eligibleItc.taxableAmount += p.subtotal;
+          eligibleItc.totalTaxAmount += p.taxAmount;
+          eligibleItc.transactionCount += 1;
+
+          for (const line of p.lines) {
+            eligibleItc.cgstAmount += line.cgstAmount;
+            eligibleItc.sgstAmount += line.sgstAmount;
+            eligibleItc.igstAmount += line.igstAmount;
+          }
+        }
+      }
+    } else {
+      // Fallback directly to GST ledger
+      let entries;
+      if (query.period) {
+        entries = await this.repository.getPeriodEntries(scope, query.period);
+      } else if (query.startDate && query.endDate) {
+        entries = await this.repository.getEntriesByDateRange(
+          scope,
+          new Date(`${query.startDate}T00:00:00.000Z`),
+          new Date(`${query.endDate}T23:59:59.999Z`),
+        );
+      } else {
+        const defaultPeriod = new Date().toISOString().slice(0, 7);
+        entries = await this.repository.getPeriodEntries(scope, defaultPeriod);
+      }
+
+      for (const e of entries) {
+        if (e.status === "CANCELLED" || e.isProformaExcluded) continue;
+
+        const taxable = Number(e.taxableAmount);
+        const cgst = Number(e.cgstAmount);
+        const sgst = Number(e.sgstAmount);
+        const igst = Number(e.igstAmount);
+        const tax = Number(e.totalTaxAmount);
+
+        if (e.entryType === "OUTPUT_GST") {
+          outwardLiability.taxableAmount += taxable;
+          outwardLiability.cgstAmount += cgst;
+          outwardLiability.sgstAmount += sgst;
+          outwardLiability.igstAmount += igst;
+          outwardLiability.totalTaxAmount += tax;
+          outwardLiability.transactionCount += 1;
+        } else if (e.entryType === "INPUT_TAX_CREDIT") {
+          inwardRecorded.taxableAmount += taxable;
+          inwardRecorded.cgstAmount += cgst;
+          inwardRecorded.sgstAmount += sgst;
+          inwardRecorded.igstAmount += igst;
+          inwardRecorded.totalTaxAmount += tax;
+          inwardRecorded.transactionCount += 1;
+
+          eligibleItc.taxableAmount += taxable;
+          eligibleItc.cgstAmount += cgst;
+          eligibleItc.sgstAmount += sgst;
+          eligibleItc.igstAmount += igst;
+          eligibleItc.totalTaxAmount += tax;
+          eligibleItc.transactionCount += 1;
+        }
+      }
+    }
+
+    const netCgst = Math.max(
+      0,
+      Number((outwardLiability.cgstAmount - eligibleItc.cgstAmount).toFixed(2)),
+    );
+    const netSgst = Math.max(
+      0,
+      Number((outwardLiability.sgstAmount - eligibleItc.sgstAmount).toFixed(2)),
+    );
+    const netIgst = Math.max(
+      0,
+      Number((outwardLiability.igstAmount - eligibleItc.igstAmount).toFixed(2)),
+    );
+    const netTotal = Math.max(
+      0,
+      Number(
+        (outwardLiability.totalTaxAmount - eligibleItc.totalTaxAmount).toFixed(
+          2,
+        ),
+      ),
+    );
+
+    return {
+      ...(query.period !== undefined ? { period: query.period } : {}),
+      ...(query.startDate !== undefined ? { startDate: query.startDate } : {}),
+      ...(query.endDate !== undefined ? { endDate: query.endDate } : {}),
+      outwardTaxLiability: {
+        taxableAmount: Number(outwardLiability.taxableAmount.toFixed(2)),
+        cgstAmount: Number(outwardLiability.cgstAmount.toFixed(2)),
+        sgstAmount: Number(outwardLiability.sgstAmount.toFixed(2)),
+        igstAmount: Number(outwardLiability.igstAmount.toFixed(2)),
+        totalTaxAmount: Number(outwardLiability.totalTaxAmount.toFixed(2)),
+        transactionCount: outwardLiability.transactionCount,
+      },
+      inwardRecordedTax: {
+        taxableAmount: Number(inwardRecorded.taxableAmount.toFixed(2)),
+        cgstAmount: Number(inwardRecorded.cgstAmount.toFixed(2)),
+        sgstAmount: Number(inwardRecorded.sgstAmount.toFixed(2)),
+        igstAmount: Number(inwardRecorded.igstAmount.toFixed(2)),
+        totalTaxAmount: Number(inwardRecorded.totalTaxAmount.toFixed(2)),
+        transactionCount: inwardRecorded.transactionCount,
+      },
+      eligibleItc: {
+        taxableAmount: Number(eligibleItc.taxableAmount.toFixed(2)),
+        cgstAmount: Number(eligibleItc.cgstAmount.toFixed(2)),
+        sgstAmount: Number(eligibleItc.sgstAmount.toFixed(2)),
+        igstAmount: Number(eligibleItc.igstAmount.toFixed(2)),
+        totalTaxAmount: Number(eligibleItc.totalTaxAmount.toFixed(2)),
+        transactionCount: eligibleItc.transactionCount,
+      },
+      ineligibleItc: {
+        taxableAmount: Number(
+          Math.max(
+            0,
+            inwardRecorded.taxableAmount - eligibleItc.taxableAmount,
+          ).toFixed(2),
+        ),
+        totalTaxAmount: Number(
+          Math.max(
+            0,
+            inwardRecorded.totalTaxAmount - eligibleItc.totalTaxAmount,
+          ).toFixed(2),
+        ),
+        transactionCount: Math.max(
+          0,
+          inwardRecorded.transactionCount - eligibleItc.transactionCount,
+        ),
+      },
+      netTaxPayable: {
+        cgstAmount: netCgst,
+        sgstAmount: netSgst,
+        igstAmount: netIgst,
+        totalTaxAmount: netTotal,
+      },
       generatedAt: new Date().toISOString(),
     };
   }

@@ -21,7 +21,6 @@ import type { UpdateExpenseDto } from "./dto/update-expense.dto.js";
 import {
   ExpensesRepository,
   type ExpenseBalanceDelta,
-  type ExpenseGstEntryData,
   type ExpenseJournalEntryData,
   type ExpenseJournalLineData,
   type ExpenseReversalData,
@@ -578,11 +577,9 @@ export class ExpensesService {
     const amount = Number(existing.amount);
     const taxAmount = Number(existing.taxAmount || 0);
     const netAmount = Number(existing.netAmount || amount + taxAmount);
-    const shouldClaimItc = Boolean(
-      taxAmount > 0 && existing.isItcEligible && existing.vendorGstin,
-    );
+    const disbursementAmount = netAmount > 0 ? netAmount : amount;
 
-    // 3. Prepare balanced journal lines & GST entry
+    // 3. Prepare balanced journal lines (Standard 2-line double entry: Debit Expense, Credit Cash/Bank)
     const entryDate = dto?.paymentDate
       ? new Date(dto.paymentDate)
       : new Date(existing.expenseDate);
@@ -591,127 +588,43 @@ export class ExpensesService {
       "JV",
     );
 
-    let gstInputAccount: {
-      id: number;
-      accountType: FinanceAccountType;
-    } | null = null;
-    let gstEntryData: ExpenseGstEntryData | null = null;
-
-    if (shouldClaimItc) {
-      gstInputAccount = await this.resolveInputTaxAccount(scope.organizationId);
-
-      const period = entryDate.toISOString().slice(0, 7);
-      gstEntryData = {
-        entryType: "INPUT_TAX_CREDIT",
-        sourceType: "EXPENSE",
-        sourceReference: existing.expenseNumber,
-        gstin: existing.vendorGstin!,
-        period,
-        taxableAmount: amount,
-        cgstAmount: Number(existing.cgstAmount || 0),
-        sgstAmount: Number(existing.sgstAmount || 0),
-        igstAmount: Number(existing.igstAmount || 0),
-        totalTaxAmount: taxAmount,
-      };
-    }
-
-    const lines: ExpenseJournalLineData[] = [];
-    const balanceDeltas: ExpenseBalanceDelta[] = [];
-
-    if (gstInputAccount && taxAmount > 0) {
-      // Line 0: Debit Expense GL Account for subtotal
-      lines.push({
+    const lines: ExpenseJournalLineData[] = [
+      {
         accountId: expenseGlAccount.id,
         lineOrder: 0,
         description: `Expense: ${existing.vendorName ?? existing.expenseNumber}`,
-        debit: amount,
+        debit: disbursementAmount,
         credit: 0,
-      });
-      balanceDeltas.push({
-        accountId: expenseGlAccount.id,
-        delta: calculateAccountBalanceDelta(
-          expenseGlAccount.accountType,
-          amount,
-          0,
-        ),
-      });
-
-      // Line 1: Debit GST Input Tax Credit (Asset 1300)
-      lines.push({
-        accountId: gstInputAccount.id,
-        lineOrder: 1,
-        description: `GST Input Tax Credit: ${existing.expenseNumber}`,
-        debit: taxAmount,
-        credit: 0,
-      });
-      balanceDeltas.push({
-        accountId: gstInputAccount.id,
-        delta: calculateAccountBalanceDelta(
-          gstInputAccount.accountType,
-          taxAmount,
-          0,
-        ),
-      });
-
-      // Line 2: Credit Cash / Bank / Payable
-      lines.push({
-        accountId: creditGlAccount.id,
-        lineOrder: 2,
-        description: `Payment for ${existing.expenseNumber}`,
-        debit: 0,
-        credit: netAmount,
-      });
-      balanceDeltas.push({
-        accountId: creditGlAccount.id,
-        delta: calculateAccountBalanceDelta(
-          creditGlAccount.accountType,
-          0,
-          netAmount,
-        ),
-      });
-    } else {
-      // Ineligible ITC (Section 17(5)) or Zero Tax:
-      // Tax is absorbed directly into the Expense cost
-      lines.push({
-        accountId: expenseGlAccount.id,
-        lineOrder: 0,
-        description:
-          taxAmount > 0
-            ? `Expense (including blocked tax of ${taxAmount}): ${existing.vendorName ?? existing.expenseNumber}`
-            : `Expense: ${existing.vendorName ?? existing.expenseNumber}`,
-        debit: netAmount,
-        credit: 0,
-      });
-      balanceDeltas.push({
-        accountId: expenseGlAccount.id,
-        delta: calculateAccountBalanceDelta(
-          expenseGlAccount.accountType,
-          netAmount,
-          0,
-        ),
-      });
-
-      lines.push({
+      },
+      {
         accountId: creditGlAccount.id,
         lineOrder: 1,
         description: `Payment for ${existing.expenseNumber}`,
         debit: 0,
-        credit: netAmount,
-      });
-      balanceDeltas.push({
+        credit: disbursementAmount,
+      },
+    ];
+
+    const balanceDeltas: ExpenseBalanceDelta[] = [
+      {
+        accountId: expenseGlAccount.id,
+        delta: calculateAccountBalanceDelta(
+          expenseGlAccount.accountType,
+          disbursementAmount,
+          0,
+        ),
+      },
+      {
         accountId: creditGlAccount.id,
         delta: calculateAccountBalanceDelta(
           creditGlAccount.accountType,
           0,
-          netAmount,
+          disbursementAmount,
         ),
-      });
-    }
+      },
+    ];
 
-    const narration =
-      !shouldClaimItc && taxAmount > 0
-        ? `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""} (Ineligible ITC: INR ${taxAmount} incorporated into expense cost per Sec 17(5))`
-        : `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""}`;
+    const narration = `Payment for expense ${existing.expenseNumber}${existing.vendorName ? ` (${existing.vendorName})` : ""}`;
 
     const journalData: ExpenseJournalEntryData = {
       entryNumber,
@@ -719,10 +632,19 @@ export class ExpensesService {
       entryType: "EXPENSE",
       narration,
       referenceNumber: existing.expenseNumber,
-      totalDebit: netAmount,
-      totalCredit: netAmount,
+      totalDebit: disbursementAmount,
+      totalCredit: disbursementAmount,
       lines,
     };
+
+    const bankAccountDelta = effectiveBankAccountId
+      ? {
+          id: effectiveBankAccountId,
+          delta: -disbursementAmount,
+          expenseNumber: existing.expenseNumber,
+          vendorName: existing.vendorName ?? "Payee",
+        }
+      : null;
 
     return this.repository.payAndPostExpense(
       scope,
@@ -735,7 +657,8 @@ export class ExpensesService {
         glAccountId: expenseGlAccount.id,
       },
       userId,
-      gstEntryData,
+      null, // Ordinary operating expenses decouple from GST ITC
+      bankAccountDelta,
     );
   }
 
@@ -808,12 +731,22 @@ export class ExpensesService {
         lines,
       };
 
+      const bankAccountDelta = existing.bankAccountId
+        ? {
+            id: existing.bankAccountId,
+            delta: Number(originalJournal.totalDebit),
+            expenseNumber: existing.expenseNumber,
+            vendorName: existing.vendorName ?? "Payee",
+          }
+        : null;
+
       return this.repository.cancelAndReverseExpense(
         scope,
         id,
         reversalData,
         balanceDeltas,
         userId,
+        bankAccountDelta,
       );
     }
 

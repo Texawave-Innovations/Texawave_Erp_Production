@@ -27,6 +27,16 @@ import { GstRepository } from "./gst/gst.repository.js";
 import { GstService } from "./gst/gst.service.js";
 import { SalesPurchasesIntegrationController } from "./integration/sales-purchases-integration.controller.js";
 import { SalesPurchasesIntegrationService } from "./integration/sales-purchases-integration.service.js";
+import {
+  SalesSourceAdapter,
+  PurchasesSourceAdapter,
+  MasterListSourceAdapter,
+} from "./integration/adapters/index.js";
+import {
+  SALES_TRANSACTION_SOURCE,
+  PURCHASES_TRANSACTION_SOURCE,
+  MASTER_LIST_SOURCE,
+} from "./integration/contracts/index.js";
 
 /**
  * Finance Core Module.
@@ -66,6 +76,21 @@ import { SalesPurchasesIntegrationService } from "./integration/sales-purchases-
     GstRepository,
     GstService,
     SalesPurchasesIntegrationService,
+    SalesSourceAdapter,
+    {
+      provide: SALES_TRANSACTION_SOURCE,
+      useClass: SalesSourceAdapter,
+    },
+    PurchasesSourceAdapter,
+    {
+      provide: PURCHASES_TRANSACTION_SOURCE,
+      useClass: PurchasesSourceAdapter,
+    },
+    MasterListSourceAdapter,
+    {
+      provide: MASTER_LIST_SOURCE,
+      useClass: MasterListSourceAdapter,
+    },
   ],
   exports: [
     AccountsRepository,
@@ -86,6 +111,12 @@ import { SalesPurchasesIntegrationService } from "./integration/sales-purchases-
     GstRepository,
     GstService,
     SalesPurchasesIntegrationService,
+    SalesSourceAdapter,
+    SALES_TRANSACTION_SOURCE,
+    PurchasesSourceAdapter,
+    PURCHASES_TRANSACTION_SOURCE,
+    MasterListSourceAdapter,
+    MASTER_LIST_SOURCE,
   ],
 })
 export class FinanceModule {}

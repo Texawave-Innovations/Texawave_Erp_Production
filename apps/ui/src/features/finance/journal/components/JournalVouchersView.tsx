@@ -53,7 +53,13 @@ import { ReverseJournalDialog } from "./ReverseJournalDialog";
 
 const PAGE_SIZE = 15;
 
-export function JournalVouchersView() {
+export interface JournalVouchersViewProps {
+  hideHeader?: boolean;
+}
+
+export function JournalVouchersView({
+  hideHeader = false,
+}: JournalVouchersViewProps = {}) {
   const canRead = usePermission(FINANCE_JOURNAL_READ);
   const canWrite = usePermission(FINANCE_JOURNAL_WRITE);
   const canPost = usePermission(FINANCE_JOURNAL_POST);
@@ -327,24 +333,30 @@ export function JournalVouchersView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <PageHeader
-        title="Journal Entries"
-        description="General ledger journal vouchers, double-entry audit trails, posting workflows, and adjustments."
-        badge={
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
-            <Scale className="h-3.5 w-3.5" />
-            <span>Double-Entry Vouchers</span>
-          </div>
-        }
-        action={
-          canWrite ? (
-            <Button onClick={() => setCreateOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Create Voucher</span>
-            </Button>
-          ) : undefined
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="Journal Entries"
+          description="Sequential double-entry vouchers, audit trails, and posting workflows."
+          badge={
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
+              <Scale className="h-3.5 w-3.5" />
+              <span>Double-Entry Vouchers</span>
+            </div>
+          }
+          action={
+            canWrite ? (
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="gap-2"
+                aria-label="New Journal Voucher"
+              >
+                <Plus className="h-4 w-4" />
+                <span>New Journal Voucher</span>
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
 
       {/* Toolbar & Filters */}
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-900">

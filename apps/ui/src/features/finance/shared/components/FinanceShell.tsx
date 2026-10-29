@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpen,
   Building2,
+  Calculator,
   FolderTree,
   Landmark,
   Receipt,
@@ -23,7 +24,8 @@ export type FinanceSectionId =
   | "payments-made"
   | "banking"
   | "accounting"
-  | "gst";
+  | "gst"
+  | "tax-calculator";
 
 interface PrimaryTabConfig {
   id: FinanceSectionId;
@@ -90,11 +92,11 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
     id: "accounting",
     label: "Accounting",
     icon: BookOpen,
-    path: "/finance/accounts",
+    path: "/finance/general-ledger",
     activePathPrefixes: [
+      "/finance/general-ledger",
       "/finance/accounts",
       "/finance/journal-entries",
-      "/finance/general-ledger",
       "/finance/reports",
       "/finance/accounting",
     ],
@@ -108,10 +110,25 @@ const PRIMARY_TABS: PrimaryTabConfig[] = [
     activePathPrefixes: ["/finance/gst"],
     disabled: false,
   },
+  {
+    id: "tax-calculator",
+    label: "Tax Calculator",
+    icon: Calculator,
+    path: "/finance/tax-calculator",
+    activePathPrefixes: ["/finance/tax-calculator"],
+    disabled: false,
+  },
 ];
 
 const SUB_TABS_MAP: Record<FinanceSectionId, SubTabConfig[]> = {
   accounting: [
+    {
+      id: "general-ledger",
+      label: "General Ledger",
+      icon: BookOpen,
+      path: "/finance/general-ledger",
+      activePathPrefixes: ["/finance/general-ledger"],
+    },
     {
       id: "accounts",
       label: "Chart of Accounts",
@@ -127,15 +144,8 @@ const SUB_TABS_MAP: Record<FinanceSectionId, SubTabConfig[]> = {
       activePathPrefixes: ["/finance/journal-entries"],
     },
     {
-      id: "general-ledger",
-      label: "General Ledger",
-      icon: BookOpen,
-      path: "/finance/general-ledger",
-      activePathPrefixes: ["/finance/general-ledger"],
-    },
-    {
       id: "reports",
-      label: "Reports",
+      label: "Financial Reports",
       icon: BarChart3,
       path: "/finance/reports",
       activePathPrefixes: ["/finance/reports"],
@@ -147,6 +157,7 @@ const SUB_TABS_MAP: Record<FinanceSectionId, SubTabConfig[]> = {
   "payments-made": [],
   banking: [],
   gst: [],
+  "tax-calculator": [],
 };
 
 export interface FinanceShellProps {
@@ -173,6 +184,7 @@ export function FinanceShell({ children }: FinanceShellProps) {
     if (pathname.startsWith("/finance/payments-made")) return "payments-made";
     if (pathname.startsWith("/finance/banking")) return "banking";
     if (pathname.startsWith("/finance/gst")) return "gst";
+    if (pathname.startsWith("/finance/tax-calculator")) return "tax-calculator";
     if (pathname.startsWith("/finance/reports")) return "accounting";
     // Default to accounting for /finance/accounts, /finance/journal-entries, /finance/general-ledger, /finance
     return "accounting";

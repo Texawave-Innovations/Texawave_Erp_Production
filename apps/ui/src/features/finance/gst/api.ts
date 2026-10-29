@@ -91,6 +91,8 @@ export async function getGstr3bSummary(
 /** Fetch HSN/SAC summary aggregation report for outward or inward supplies. */
 export async function getHsnSummary(query: {
   period?: string;
+  startDate?: string;
+  endDate?: string;
   entryType?: FinanceGstEntryType;
 }): Promise<FinanceHsnSummaryReport> {
   const { data } = await withAuthRetry(() =>

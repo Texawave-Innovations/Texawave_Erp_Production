@@ -52,7 +52,7 @@ export function GeneralLedgerView({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const accountsQuery = useAccounts({ limit: 200, isActive: true });
+  const accountsQuery = useAccounts({ limit: 100, isActive: true });
   const accountsList: FinanceAccount[] = useMemo(
     () => accountsQuery.data?.data ?? [],
     [accountsQuery.data?.data],
@@ -196,13 +196,20 @@ export function GeneralLedgerView({
             </label>
             <Select
               value={activeAccountId ? String(activeAccountId) : ""}
-              onChange={(e) => setUserSelectedAccountId(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setUserSelectedAccountId(val ? Number(val) : undefined);
+              }}
             >
-              {accountsList.map((acc) => (
-                <option key={acc.id} value={String(acc.id)}>
-                  {acc.accountCode} — {acc.accountName} ({acc.accountType})
-                </option>
-              ))}
+              {accountsList.length === 0 ? (
+                <option value="">No accounts available</option>
+              ) : (
+                accountsList.map((acc) => (
+                  <option key={acc.id} value={String(acc.id)}>
+                    {acc.accountCode} — {acc.accountName} ({acc.accountType})
+                  </option>
+                ))
+              )}
             </Select>
           </div>
 
@@ -351,10 +358,34 @@ export function GeneralLedgerView({
         </div>
       ) : null}
 
-      {/* Transactions Table */}
+      {/* Transactions Table Container */}
       {!isInvalidDateRange && (
-        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
-          {ledgerQuery.isPending ? (
+        <div className="rounded-2xl border border-gray-200/80 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900 relative focus-within:z-30">
+          {accountsQuery.isLoading ? (
+            <TableSkeleton columnsCount={7} rowsCount={6} />
+          ) : accountsQuery.isError ? (
+            <div className="p-8">
+              <ErrorState
+                title="Failed to load Accounts"
+                description="Unable to fetch chart of accounts list from the server."
+                onRetry={() => void accountsQuery.refetch()}
+              />
+            </div>
+          ) : accountsList.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                title="No accounts found"
+                description="No active chart of accounts available. Please create an account in Chart of Accounts first."
+              />
+            </div>
+          ) : !activeAccountId ? (
+            <div className="p-8">
+              <EmptyState
+                title="No account selected"
+                description="Please select a ledger account from the dropdown above to view its statement."
+              />
+            </div>
+          ) : ledgerQuery.isPending && Boolean(activeAccountId) ? (
             <TableSkeleton columnsCount={7} rowsCount={6} />
           ) : ledgerQuery.isError ? (
             <div className="p-8">

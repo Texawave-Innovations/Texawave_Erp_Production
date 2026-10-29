@@ -36,9 +36,7 @@ export function ExpenseDetailDialog({
 }: ExpenseDetailDialogProps) {
   if (!open || !expense) return null;
 
-  const grossAmount = Number(expense.amount || 0);
-  const taxAmount = Number(expense.taxAmount || 0);
-  const netAmount = Number(expense.netAmount || grossAmount + taxAmount);
+  const expenseAmount = Number(expense.netAmount || expense.amount || 0);
 
   const isDraftOrPending =
     expense.status === "DRAFT" || expense.status === "PENDING_APPROVAL";
@@ -75,17 +73,11 @@ export function ExpenseDetailDialog({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-linear-to-r from-blue-50/70 via-sky-50/40 to-slate-50/60 p-4 border border-blue-100/70 dark:bg-gray-800/50 dark:border-gray-700/60 shadow-xs">
           <div>
             <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-              Total Net Amount
+              Disbursement Amount
             </span>
             <div className="text-xl font-extrabold text-blue-700 dark:text-sky-300">
-              {formatMoney(netAmount)}
+              {formatMoney(expenseAmount)}
             </div>
-            {taxAmount > 0 && (
-              <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                (Gross: {formatMoney(grossAmount)} + Tax:{" "}
-                {formatMoney(taxAmount)})
-              </span>
-            )}
           </div>
           <div>
             <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
@@ -212,105 +204,6 @@ export function ExpenseDetailDialog({
             </div>
           </div>
         </div>
-
-        {/* GST & Tax Compliance Card (Shown when tax was entered or vendor GSTIN exists) */}
-        {(taxAmount > 0 || expense.vendorGstin) && (
-          <div className="rounded-xl border border-blue-200/80 bg-blue-50/20 p-4 dark:border-blue-900/40 dark:bg-blue-950/10 space-y-3">
-            <div className="flex items-center justify-between border-b border-blue-100/80 pb-2 dark:border-blue-900/30">
-              <h4 className="text-theme-xs font-bold uppercase tracking-wider text-blue-900 dark:text-sky-300">
-                GST & Tax Invoice Record
-              </h4>
-              {expense.status === "PAID" &&
-                expense.isItcEligible &&
-                taxAmount > 0 &&
-                expense.vendorGstin && (
-                  <Link
-                    href="/finance/gst"
-                    className="inline-flex items-center gap-1 text-theme-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-sky-400 dark:hover:text-sky-300 hover:underline"
-                  >
-                    View in GST Registry
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-theme-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-1 border-b border-blue-100/60 dark:border-blue-900/30">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Vendor GSTIN
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {expense.vendorGstin || "Unregistered / Not Provided"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-blue-100/60 dark:border-blue-900/30">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Vendor Invoice No.
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {expense.vendorInvoiceNumber || "—"}
-                    {expense.vendorInvoiceDate && (
-                      <span className="text-gray-500 text-theme-xs ml-1.5">
-                        ({formatDate(expense.vendorInvoiceDate)})
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    HSN / SAC Code
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {expense.hsnSacCode || "—"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-1 border-b border-blue-100/60 dark:border-blue-900/30">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Tax Breakdown ({expense.taxRate ?? 0}%)
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">
-                    {Number(expense.igstAmount || 0) > 0 ? (
-                      <span>
-                        IGST: {formatMoney(Number(expense.igstAmount))}
-                      </span>
-                    ) : (
-                      <span>
-                        CGST: {formatMoney(Number(expense.cgstAmount || 0))} |
-                        SGST: {formatMoney(Number(expense.sgstAmount || 0))}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-blue-100/60 dark:border-blue-900/30">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    ITC Status
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-theme-xs font-semibold ${
-                      expense.isItcEligible && expense.vendorGstin
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60"
-                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200"
-                    }`}
-                  >
-                    {expense.isItcEligible && expense.vendorGstin
-                      ? "Claimed as Recoverable ITC"
-                      : "Absorbed into Expense (No ITC)"}
-                  </span>
-                </div>
-                {!expense.isItcEligible && expense.ineligibilityReason && (
-                  <div className="py-1 text-theme-xs text-amber-800 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/40">
-                    <span className="font-semibold">Reason: </span>
-                    {expense.ineligibilityReason}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Receipt URL & Notes */}
         {(expense.receiptUrl || expense.notes) && (

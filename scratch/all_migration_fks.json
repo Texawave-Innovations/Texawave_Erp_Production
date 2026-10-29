@@ -1,0 +1,200 @@
+[
+  {
+    "migration": "20261022170500",
+    "table": "finance_master_list_items",
+    "constraint": "finance_master_list_items_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "accounts",
+    "constraint": "accounts_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "journal_entries",
+    "constraint": "journal_entries_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "journal_lines",
+    "constraint": "journal_lines_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "journal_lines",
+    "constraint": "journal_lines_journal_entry_id_fkey",
+    "column": "journal_entry_id",
+    "refSchema": "finance",
+    "refTable": "journal_entries",
+    "refColumn": "id",
+    "onDelete": "CASCADE",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "journal_lines",
+    "constraint": "journal_lines_account_id_fkey",
+    "column": "account_id",
+    "refSchema": "finance",
+    "refTable": "accounts",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "bank_accounts",
+    "constraint": "bank_accounts_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "bank_transactions",
+    "constraint": "bank_transactions_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "bank_transactions",
+    "constraint": "bank_transactions_bank_account_id_fkey",
+    "column": "bank_account_id",
+    "refSchema": "finance",
+    "refTable": "bank_accounts",
+    "refColumn": "id",
+    "onDelete": "CASCADE",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "expenses",
+    "constraint": "expenses_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "expenses",
+    "constraint": "expenses_expense_type_id_fkey",
+    "column": "expense_type_id",
+    "refSchema": "finance",
+    "refTable": "finance_master_list_items",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payments_received",
+    "constraint": "payments_received_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payments_received",
+    "constraint": "payments_received_payment_mode_id_fkey",
+    "column": "payment_mode_id",
+    "refSchema": "finance",
+    "refTable": "finance_master_list_items",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payment_received_allocations",
+    "constraint": "payment_received_allocations_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payment_received_allocations",
+    "constraint": "payment_received_allocations_payment_received_id_fkey",
+    "column": "payment_received_id",
+    "refSchema": "finance",
+    "refTable": "payments_received",
+    "refColumn": "id",
+    "onDelete": "CASCADE",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payments_made",
+    "constraint": "payments_made_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "payments_made",
+    "constraint": "payments_made_payment_mode_id_fkey",
+    "column": "payment_mode_id",
+    "refSchema": "finance",
+    "refTable": "finance_master_list_items",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  },
+  {
+    "migration": "20261022174500",
+    "table": "gst_entries",
+    "constraint": "gst_entries_organization_id_fkey",
+    "column": "organization_id",
+    "refSchema": "platform",
+    "refTable": "organizations",
+    "refColumn": "id",
+    "onDelete": "RESTRICT",
+    "onUpdate": "CASCADE"
+  }
+]

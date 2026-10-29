@@ -85,6 +85,16 @@ export class GstController {
     return this.gstService.getGstr3bSummary(query);
   }
 
+  @Get("reports/net-position")
+  @RequirePermission("finance.gst.read")
+  @ApiOperation({
+    summary:
+      "GST Net Position Report (Outward liability vs Recorded Inward Tax vs Eligible ITC and Net Payable)",
+  })
+  getNetPosition(@Query() query: QueryHsnSummaryDto) {
+    return this.gstService.getNetTaxPosition(query);
+  }
+
   @Post("reconciliation")
   @RequirePermission("finance.gst.write")
   @HttpCode(HttpStatus.OK)

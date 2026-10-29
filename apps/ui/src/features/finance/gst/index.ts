@@ -6,6 +6,7 @@ export * from "./components/GstSummaryCards";
 export * from "./components/Gstr1ReportView";
 export * from "./components/Gstr3bReportView";
 export * from "./components/HsnSummaryView";
+export * from "./components/GstReconciliationView";
 export * from "./components/AddGstEntryDialog";
 export * from "./components/GstEntryDetailDialog";
 export * from "./components/ReconcileGstModal";

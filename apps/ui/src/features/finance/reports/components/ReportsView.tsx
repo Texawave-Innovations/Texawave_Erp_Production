@@ -3,22 +3,15 @@
 import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ErrorState, PageHeader } from "@texawave-erp/ui-kit";
-import {
-  BarChart3,
-  BookOpen,
-  FileCheck2,
-  LineChart,
-  Scale,
-} from "lucide-react";
+import { BarChart3, FileCheck2, LineChart, Scale } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
-import { GeneralLedgerView } from "@/features/finance/journal/components/GeneralLedgerView";
 import { FINANCE_REPORTS_READ } from "../permissions";
 import { BalanceSheetView } from "./BalanceSheetView";
 import { ProfitAndLossView } from "./ProfitAndLossView";
 import { TrialBalanceView } from "./TrialBalanceView";
 
 export type FinancialReportSubTab =
-  "balance-sheet" | "profit-and-loss" | "trial-balance" | "general-ledger";
+  "balance-sheet" | "profit-and-loss" | "trial-balance";
 
 interface SubTabItem {
   id: FinancialReportSubTab;
@@ -46,15 +39,13 @@ const REPORT_TABS: SubTabItem[] = [
     description: "Ledger Debit & Credit Balancing Verification",
     icon: FileCheck2,
   },
-  {
-    id: "general-ledger",
-    label: "General Ledger",
-    description: "Account Transaction Statements & Running Balances",
-    icon: BookOpen,
-  },
 ];
 
-export function ReportsView() {
+export interface ReportsViewProps {
+  hideHeader?: boolean;
+}
+
+export function ReportsView({ hideHeader = false }: ReportsViewProps = {}) {
   const canRead = usePermission(FINANCE_REPORTS_READ);
   const router = useRouter();
   const pathname = usePathname();
@@ -86,16 +77,18 @@ export function ReportsView() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader
-        title="Financial Statements & Reports"
-        description="Comprehensive statutory financial statements derived directly from double-entry general ledger records."
-        badge={
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[#1769F5] dark:bg-blue-950/60 dark:text-sky-300 text-theme-xs font-semibold">
-            <BarChart3 className="h-3.5 w-3.5" />
-            <span>Statutory Reports</span>
-          </div>
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="Financial Statements & Reports"
+          description="Comprehensive statutory financial statements derived directly from double-entry general ledger records."
+          badge={
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[#1769F5] dark:bg-blue-950/60 dark:text-sky-300 text-theme-xs font-semibold">
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>Statutory Reports</span>
+            </div>
+          }
+        />
+      )}
 
       {/* Subtab Navigation Bar */}
       <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 dark:border-gray-800">
@@ -125,9 +118,6 @@ export function ReportsView() {
         {activeTab === "balance-sheet" && <BalanceSheetView />}
         {activeTab === "profit-and-loss" && <ProfitAndLossView />}
         {activeTab === "trial-balance" && <TrialBalanceView />}
-        {activeTab === "general-ledger" && (
-          <GeneralLedgerView hideHeader={true} />
-        )}
       </div>
     </div>
   );

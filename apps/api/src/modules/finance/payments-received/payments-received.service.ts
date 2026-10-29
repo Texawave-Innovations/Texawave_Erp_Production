@@ -361,12 +361,22 @@ export class PaymentsReceivedService {
       lines,
     };
 
+    const bankAccountDelta = existing.bankAccountId
+      ? {
+          id: existing.bankAccountId,
+          delta: amount,
+          paymentNumber: existing.paymentNumber,
+          customerName: existing.customerName,
+        }
+      : null;
+
     return this.repository.postAndConfirmReceipt(
       scope,
       id,
       journalData,
       balanceDeltas,
       userId,
+      bankAccountDelta,
     );
   }
 
@@ -442,12 +452,22 @@ export class PaymentsReceivedService {
         lines,
       };
 
+      const bankAccountDelta = existing.bankAccountId
+        ? {
+            id: existing.bankAccountId,
+            delta: -Number(originalJournal.totalDebit),
+            paymentNumber: existing.paymentNumber,
+            customerName: existing.customerName,
+          }
+        : null;
+
       return this.repository.voidAndReverseReceipt(
         scope,
         id,
         reversalData,
         balanceDeltas,
         userId,
+        bankAccountDelta,
       );
     }
 

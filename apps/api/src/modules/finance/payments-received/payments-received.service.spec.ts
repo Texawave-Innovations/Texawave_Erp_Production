@@ -418,6 +418,10 @@ describe("PaymentsReceivedService", () => {
         }),
         expect.any(Array),
         USER_ID,
+        expect.objectContaining({
+          id: 2,
+          delta: 5000,
+        }),
       );
     });
   });
@@ -545,6 +549,10 @@ describe("PaymentsReceivedService", () => {
           { accountId: 30, delta: -5000 },
         ]),
         USER_ID,
+        expect.objectContaining({
+          id: 2,
+          delta: 5000,
+        }),
       );
     });
 
@@ -643,6 +651,10 @@ describe("PaymentsReceivedService", () => {
           { accountId: 30, delta: 5000 },
         ]),
         USER_ID,
+        expect.objectContaining({
+          id: 2,
+          delta: -5000,
+        }),
       );
     });
   });

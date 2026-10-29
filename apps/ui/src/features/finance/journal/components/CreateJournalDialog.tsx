@@ -16,8 +16,16 @@ import {
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
-import { CheckCircle2, Plus, Scale, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Plus,
+  Scale,
+  Trash2,
+} from "lucide-react";
 import { formatMoney } from "../../shared/format";
+import { AccountBadge } from "../../../finance/coa/components/AccountBadge";
 import { createJournalEntrySchema } from "../schema";
 
 export interface CreateJournalDialogProps {
@@ -74,7 +82,16 @@ function CreateJournalForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Double-entry totals calculation
+  // Account lookup dictionary for fast classification resolution
+  const accountMap = useMemo(() => {
+    const map = new Map<number, FinanceAccount>();
+    for (const acc of accounts) {
+      map.set(acc.id, acc);
+    }
+    return map;
+  }, [accounts]);
+
+  // Real-time double-entry totals calculation
   const { totalDebit, totalCredit, difference, isBalanced } = useMemo(() => {
     let d = 0;
     let c = 0;
@@ -104,12 +121,12 @@ function CreateJournalForm({
 
         if (field === "debit") {
           const num = Math.max(0, Number(value || 0));
-          // If debit has value, clear credit
+          // If debit has value, clear credit to enforce single-column line entry
           return { ...line, debit: num, credit: num > 0 ? 0 : line.credit };
         }
         if (field === "credit") {
           const num = Math.max(0, Number(value || 0));
-          // If credit has value, clear debit
+          // If credit has value, clear debit to enforce single-column line entry
           return { ...line, credit: num, debit: num > 0 ? 0 : line.debit };
         }
         return { ...line, [field]: value };
@@ -189,6 +206,24 @@ function CreateJournalForm({
         </Alert>
       ) : null}
 
+      {/* Double-Entry Guidance Card */}
+      <div className="rounded-xl border border-blue-200/80 bg-blue-50/60 p-3.5 dark:border-blue-900/50 dark:bg-blue-950/30 text-theme-xs">
+        <div className="flex items-start gap-2.5">
+          <Scale className="h-4 w-4 shrink-0 text-blue-600 dark:text-sky-400 mt-0.5" />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold text-blue-950 dark:text-blue-100">
+              Double-Entry Rule Invariant
+            </span>
+            <p className="text-blue-900/80 dark:text-blue-200/80 leading-relaxed">
+              Every journal voucher requires at least two lines where Total
+              Debits equal Total Credits (sum of debits = sum of credits). For
+              each row, select an account and specify either a debit or credit
+              amount.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 relative focus-within:z-30">
         <FormField
           label="Posting Date"
@@ -267,7 +302,7 @@ function CreateJournalForm({
         )}
       </FormField>
 
-      {/* Double-Entry Lines Table */}
+      {/* Double-Entry Lines Section */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -277,7 +312,7 @@ function CreateJournalForm({
             </span>
           </div>
           <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-            Minimum 2 lines required
+            Minimum 2 lines required (Debits = Credits)
           </span>
         </div>
 
@@ -289,94 +324,121 @@ function CreateJournalForm({
 
         <div className="rounded-xl border border-gray-200/90 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 p-3 flex flex-col gap-2.5">
           <div className="grid grid-cols-12 gap-2 text-theme-xs font-semibold text-gray-600 dark:text-gray-400 px-1">
-            <span className="col-span-5">Account</span>
+            <span className="col-span-5">Account & Classification</span>
             <span className="col-span-3">Description / Line Memo</span>
             <span className="col-span-2 text-right">Debit</span>
             <span className="col-span-2 text-right">Credit</span>
           </div>
 
-          {lines.map((line, idx) => (
-            <div
-              key={line.tempId}
-              className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-gray-900 p-2 rounded-lg border border-gray-200/80 dark:border-gray-800 relative focus-within:z-30"
-            >
-              <div className="col-span-5">
-                <Select
-                  value={String(line.accountId)}
-                  onChange={(e) =>
-                    handleLineChange(
-                      line.tempId,
-                      "accountId",
-                      Number(e.target.value),
-                    )
-                  }
-                  disabled={submitting}
-                >
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={String(acc.id)}>
-                      {acc.accountCode} — {acc.accountName} ({acc.accountType})
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              <div className="col-span-3">
-                <Input
-                  placeholder="Line memo..."
-                  value={line.description}
-                  onChange={(e) =>
-                    handleLineChange(line.tempId, "description", e.target.value)
-                  }
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="text-right font-medium"
-                  value={line.debit === 0 ? "" : line.debit}
-                  onChange={(e) =>
-                    handleLineChange(line.tempId, "debit", e.target.value)
-                  }
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="col-span-2 flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="text-right font-medium flex-1"
-                  value={line.credit === 0 ? "" : line.credit}
-                  onChange={(e) =>
-                    handleLineChange(line.tempId, "credit", e.target.value)
-                  }
-                  disabled={submitting}
-                />
-
-                {lines.length > 2 ? (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveLine(line.tempId)}
+          {lines.map((line, idx) => {
+            const selectedAccount = accountMap.get(line.accountId);
+            return (
+              <div
+                key={line.tempId}
+                className="grid grid-cols-12 gap-2 items-start bg-white dark:bg-gray-900 p-2.5 rounded-lg border border-gray-200/80 dark:border-gray-800 relative focus-within:z-30"
+              >
+                <div className="col-span-5 flex flex-col gap-1">
+                  <Select
+                    value={String(line.accountId)}
+                    onChange={(e) =>
+                      handleLineChange(
+                        line.tempId,
+                        "accountId",
+                        Number(e.target.value),
+                      )
+                    }
                     disabled={submitting}
-                    className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                    title="Remove line"
-                    aria-label={`Remove line ${idx + 1}`}
+                    aria-label={`Account for line ${idx + 1}`}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <span className="w-7" />
-                )}
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={String(acc.id)}>
+                        [{acc.accountCode}] {acc.accountName} ({acc.accountType}
+                        )
+                      </option>
+                    ))}
+                  </Select>
+                  {selectedAccount ? (
+                    <div className="flex items-center gap-1.5 px-0.5">
+                      <AccountBadge
+                        type={selectedAccount.accountType}
+                        className="text-[10px] py-0.5 px-1.5"
+                      />
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                        Normal:{" "}
+                        {selectedAccount.accountType === "ASSET" ||
+                        selectedAccount.accountType === "EXPENSE"
+                          ? "Debit"
+                          : "Credit"}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="col-span-3">
+                  <Input
+                    placeholder="Line memo (optional)..."
+                    value={line.description}
+                    onChange={(e) =>
+                      handleLineChange(
+                        line.tempId,
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    disabled={submitting}
+                    aria-label={`Description for line ${idx + 1}`}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="text-right font-medium"
+                    value={line.debit === 0 ? "" : line.debit}
+                    onChange={(e) =>
+                      handleLineChange(line.tempId, "debit", e.target.value)
+                    }
+                    disabled={submitting}
+                    aria-label={`Debit amount for line ${idx + 1}`}
+                  />
+                </div>
+
+                <div className="col-span-2 flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="text-right font-medium flex-1"
+                    value={line.credit === 0 ? "" : line.credit}
+                    onChange={(e) =>
+                      handleLineChange(line.tempId, "credit", e.target.value)
+                    }
+                    disabled={submitting}
+                    aria-label={`Credit amount for line ${idx + 1}`}
+                  />
+
+                  {lines.length > 2 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLine(line.tempId)}
+                      disabled={submitting}
+                      className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      title="Remove line"
+                      aria-label={`Remove line ${idx + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <span className="w-7 shrink-0" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <Button
             type="button"
@@ -384,42 +446,73 @@ function CreateJournalForm({
             size="sm"
             onClick={handleAddLine}
             disabled={submitting}
-            className="self-start gap-1.5 mt-1"
+            className="self-start gap-2 border-dashed border-blue-300 dark:border-blue-700 hover:border-blue-500 text-blue-700 dark:text-sky-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 mt-1"
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Line</span>
+            <Plus className="h-4 w-4" />
+            <span>Add Journal Line</span>
           </Button>
 
-          {/* Balanced Totals Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 mt-2 border-t border-gray-200 dark:border-gray-800">
+          {/* Balanced Totals Summary Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3.5 mt-2 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-2">
               {isBalanced ? (
-                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-theme-xs font-semibold">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 text-theme-xs font-semibold border border-emerald-200/80 dark:border-emerald-900/50">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <span>Voucher is Balanced (Debits equal Credits)</span>
                 </div>
+              ) : difference > 0 ? (
+                <div className="flex flex-col gap-0.5 rounded-lg bg-amber-50 px-3 py-1.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-theme-xs font-semibold border border-amber-200/80 dark:border-amber-900/50">
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>Out of balance by {formatMoney(difference)}</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-amber-700 dark:text-amber-300 pl-5.5">
+                    {totalDebit > totalCredit
+                      ? `Add ${formatMoney(difference)} to Credit to balance`
+                      : `Add ${formatMoney(difference)} to Debit to balance`}
+                  </span>
+                </div>
               ) : (
-                <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 text-theme-xs font-semibold">
-                  <span>Out of balance by {formatMoney(difference)}</span>
+                <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-theme-xs">
+                  <Info className="h-4 w-4 shrink-0 text-blue-500" />
+                  <span>
+                    Enter debit and credit amounts for at least two accounts
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-6 text-theme-sm font-semibold">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 dark:text-gray-400 text-theme-xs">
-                  Total Debit:
+            <div className="flex items-center gap-5 text-theme-sm font-semibold">
+              <div className="flex flex-col items-end">
+                <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium">
+                  Total Debit
                 </span>
                 <span className="text-gray-900 dark:text-white">
                   {formatMoney(totalDebit)}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 dark:text-gray-400 text-theme-xs">
-                  Total Credit:
+              <div className="flex flex-col items-end">
+                <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium">
+                  Total Credit
                 </span>
                 <span className="text-gray-900 dark:text-white">
                   {formatMoney(totalCredit)}
+                </span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium">
+                  Difference
+                </span>
+                <span
+                  className={
+                    difference === 0 && totalDebit > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : difference > 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-gray-500 dark:text-gray-400"
+                  }
+                >
+                  {formatMoney(difference)}
                 </span>
               </div>
             </div>
@@ -427,22 +520,46 @@ function CreateJournalForm({
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onClose}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={!isBalanced || submitting}
-          loading={submitting}
-        >
-          Create Journal Voucher
-        </Button>
+      {/* Form Action Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="text-theme-xs font-medium w-full sm:w-auto">
+          {!isBalanced ? (
+            <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {difference > 0
+                ? `Voucher cannot be created: Debits (${formatMoney(totalDebit)}) do not equal Credits (${formatMoney(totalCredit)}). Out of balance by ${formatMoney(difference)}.`
+                : "Voucher cannot be created: Enter at least 2 balanced lines."}
+            </span>
+          ) : (
+            <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              Balanced voucher is ready to be recorded.
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={!isBalanced || submitting}
+            loading={submitting}
+            title={
+              !isBalanced
+                ? `Voucher is out of balance by ${formatMoney(difference)}. Debits must equal Credits.`
+                : "Create Journal Voucher"
+            }
+          >
+            Create Journal Voucher
+          </Button>
+        </div>
       </div>
     </form>
   );

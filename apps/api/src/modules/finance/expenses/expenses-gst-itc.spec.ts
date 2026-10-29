@@ -383,7 +383,7 @@ describe("Expenses GST & Input Tax Credit (ITC) Integration — Phase 3", () => 
   });
 
   describe("Disbursement (`pay()`) & General Ledger Double-Entry", () => {
-    it("eligible ITC: debits Expense for taxable subtotal, debits 1300 for tax, and credits Bank for net amount", async () => {
+    it("operating expense disbursement: debits Expense for full amount and credits Bank for net amount without creating GST ITC entry", async () => {
       const { service, getPaidJournalData, getPaidGstData } = makeTestSetup();
 
       await service.pay(10);
@@ -392,43 +392,40 @@ describe("Expenses GST & Input Tax Credit (ITC) Integration — Phase 3", () => 
       expect(journal).not.toBeNull();
       expect(journal?.totalDebit).toBe(1180);
       expect(journal?.totalCredit).toBe(1180);
-      expect(journal?.lines).toHaveLength(3);
+      expect(journal?.lines).toHaveLength(2);
 
-      // Line 0: Debit Expense (1000)
+      // Line 0: Debit Expense (1180)
       expect(journal?.lines[0]?.accountId).toBe(MOCK_EXPENSE_ACCOUNT.id);
-      expect(journal?.lines[0]?.debit).toBe(1000);
+      expect(journal?.lines[0]?.debit).toBe(1180);
       expect(journal?.lines[0]?.credit).toBe(0);
 
-      // Line 1: Debit GST Input Tax Credit Asset (180)
-      expect(journal?.lines[1]?.accountId).toBe(MOCK_ITC_ACCOUNT.id);
-      expect(journal?.lines[1]?.debit).toBe(180);
-      expect(journal?.lines[1]?.credit).toBe(0);
+      // Line 1: Credit Bank Account (1180)
+      expect(journal?.lines[1]?.accountId).toBe(MOCK_BANK_ACCOUNT_GL.id);
+      expect(journal?.lines[1]?.debit).toBe(0);
+      expect(journal?.lines[1]?.credit).toBe(1180);
 
-      // Line 2: Credit Bank Account (1180)
-      expect(journal?.lines[2]?.accountId).toBe(MOCK_BANK_ACCOUNT_GL.id);
-      expect(journal?.lines[2]?.debit).toBe(0);
-      expect(journal?.lines[2]?.credit).toBe(1180);
-
-      // Generates recoverable GST entry
+      // Crucial: No GST entry created for ordinary operating expenses
       const gst = getPaidGstData();
-      expect(gst).not.toBeNull();
-      expect(gst?.entryType).toBe("INPUT_TAX_CREDIT");
-      expect(gst?.sourceType).toBe("EXPENSE");
-      expect(gst?.sourceReference).toBe("EXP-202610-0001");
-      expect(gst?.taxableAmount).toBe(1000);
-      expect(gst?.totalTaxAmount).toBe(180);
-      expect(gst?.cgstAmount).toBe(90);
-      expect(gst?.sgstAmount).toBe(90);
+      expect(gst).toBeNull();
     });
 
-    it("ineligible ITC (Section 17(5)): absorbs tax into expense (debits full 1180), does NOT debit 1300, and does NOT create GST entry", async () => {
-      const { service, currentExpense, getPaidJournalData, getPaidGstData } =
-        makeTestSetup();
+    it("succeeds cleanly even when account 1300 (Input Tax Credit) is absent from Chart of Accounts", async () => {
+      const { service, prisma, getPaidJournalData } = makeTestSetup();
 
-      // Set expense as ineligible ITC
-      currentExpense.isItcEligible = false;
-      currentExpense.ineligibilityReason =
-        "Motor vehicle maintenance (Sec 17(5))";
+      // Account 1300 does not exist (as in Org 1)
+      prisma.financeAccount.findFirst.mockImplementation(
+        (args: AccountLookupArgs) => {
+          const code = args.where.accountCode;
+          if (code === "1300") return Promise.resolve(null);
+          if (code === "2020")
+            return Promise.resolve(MOCK_OUTPUT_GST_LIABILITY);
+          if (args.where.id === 100 || code === "5020")
+            return Promise.resolve(MOCK_EXPENSE_ACCOUNT);
+          if (args.where.id === 200 || code === "1020")
+            return Promise.resolve(MOCK_BANK_ACCOUNT_GL);
+          return Promise.resolve(null);
+        },
+      );
 
       await service.pay(10);
 
@@ -436,79 +433,10 @@ describe("Expenses GST & Input Tax Credit (ITC) Integration — Phase 3", () => 
       expect(journal).not.toBeNull();
       expect(journal?.totalDebit).toBe(1180);
       expect(journal?.totalCredit).toBe(1180);
-      // Balanced 2-line voucher: full gross 1180 to expense, 1180 to bank
       expect(journal?.lines).toHaveLength(2);
-
-      // Line 0: Debit Expense (full 1180)
-      expect(journal?.lines[0]?.accountId).toBe(MOCK_EXPENSE_ACCOUNT.id);
-      expect(journal?.lines[0]?.debit).toBe(1180);
-      expect(journal?.lines[0]?.credit).toBe(0);
-
-      // Line 1: Credit Bank (1180)
-      expect(journal?.lines[1]?.accountId).toBe(MOCK_BANK_ACCOUNT_GL.id);
-      expect(journal?.lines[1]?.debit).toBe(0);
-      expect(journal?.lines[1]?.credit).toBe(1180);
-
-      expect(journal?.narration).toContain("Ineligible ITC");
-
-      // Crucial: No GST entry created to prevent inflating GSTR-3B ITC claims
-      const gst = getPaidGstData();
-      expect(gst).toBeNull();
     });
 
-    it("fails safely with MISSING_INPUT_TAX_ACCOUNT when eligible ITC is claimed but 1300 ASSET is missing", async () => {
-      const { service, prisma } = makeTestSetup();
-
-      // Account 1300 does not exist
-      prisma.financeAccount.findFirst.mockImplementation(
-        (args: AccountLookupArgs) => {
-          const code = args.where.accountCode;
-          if (code === "1300") return Promise.resolve(null);
-          if (code === "2020")
-            return Promise.resolve(MOCK_OUTPUT_GST_LIABILITY);
-          if (args.where.id === 100 || code === "5020")
-            return Promise.resolve(MOCK_EXPENSE_ACCOUNT);
-          if (args.where.id === 200 || code === "1020")
-            return Promise.resolve(MOCK_BANK_ACCOUNT_GL);
-          return Promise.resolve(null);
-        },
-      );
-
-      await expect(service.pay(10)).rejects.toThrow(
-        BusinessRuleViolationException,
-      );
-    });
-
-    it("never resolves 2020 (LIABILITY) as an input tax account", async () => {
-      const { service, prisma } = makeTestSetup();
-
-      // 1300 is absent, but 2020 (LIABILITY) exists
-      prisma.financeAccount.findFirst.mockImplementation(
-        (args: AccountLookupArgs) => {
-          const code = args.where.accountCode;
-          if (code === "1300") return Promise.resolve(null);
-          if (code === "2020")
-            return Promise.resolve(MOCK_OUTPUT_GST_LIABILITY);
-          if (args.where.id === 100 || code === "5020")
-            return Promise.resolve(MOCK_EXPENSE_ACCOUNT);
-          if (args.where.id === 200 || code === "1020")
-            return Promise.resolve(MOCK_BANK_ACCOUNT_GL);
-          return Promise.resolve(null);
-        },
-      );
-
-      try {
-        await service.pay(10);
-        expect.unreachable("Should have thrown MISSING_INPUT_TAX_ACCOUNT");
-      } catch (err: unknown) {
-        expect(err).toBeInstanceOf(BusinessRuleViolationException);
-        if (err instanceof BusinessRuleViolationException) {
-          expect(err.errorCode).toBe("MISSING_INPUT_TAX_ACCOUNT");
-        }
-      }
-    });
-
-    it("atomic PAID creation: creating with status PAID immediately executes GL and GST recording", async () => {
+    it("atomic PAID creation: creating with status PAID immediately executes GL disbursement without creating GST entries", async () => {
       const { service, getPaidJournalData, getPaidGstData } = makeTestSetup();
 
       await service.create({
@@ -525,8 +453,7 @@ describe("Expenses GST & Input Tax Credit (ITC) Integration — Phase 3", () => 
       expect(journal?.totalDebit).toBe(1180);
 
       const gst = getPaidGstData();
-      expect(gst).not.toBeNull();
-      expect(gst?.entryType).toBe("INPUT_TAX_CREDIT");
+      expect(gst).toBeNull();
     });
 
     it("idempotency: paying an already PAID expense throws EXPENSE_ALREADY_PAID", async () => {

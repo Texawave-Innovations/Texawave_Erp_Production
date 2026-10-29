@@ -55,7 +55,11 @@ import type {
 
 const PAGE_SIZE = 15;
 
-export function AccountsView() {
+export interface AccountsViewProps {
+  hideHeader?: boolean;
+}
+
+export function AccountsView({ hideHeader = false }: AccountsViewProps = {}) {
   const router = useRouter();
   const canRead = usePermission(FINANCE_COA_READ);
   const canWrite = usePermission(FINANCE_COA_WRITE);
@@ -324,30 +328,32 @@ export function AccountsView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
-      <PageHeader
-        title="Chart of Accounts"
-        description="Master ledger classifications, account numbering, hierarchical structures, and live balances."
-        badge={
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
-            <Landmark className="h-3.5 w-3.5" />
-            <span>General Ledger</span>
-          </div>
-        }
-        action={
-          canWrite ? (
-            <Button
-              onClick={() => {
-                setPresetParent(null);
-                setCreateOpen(true);
-              }}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Account</span>
-            </Button>
-          ) : undefined
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="Chart of Accounts"
+          description="Master ledger classifications, account numbering, hierarchical structures, and live balances."
+          badge={
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
+              <Landmark className="h-3.5 w-3.5" />
+              <span>General Ledger</span>
+            </div>
+          }
+          action={
+            canWrite ? (
+              <Button
+                onClick={() => {
+                  setPresetParent(null);
+                  setCreateOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Account</span>
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs dark:border-gray-800 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">

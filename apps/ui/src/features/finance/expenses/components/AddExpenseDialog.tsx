@@ -11,17 +11,9 @@ import {
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  FileText,
-  Receipt,
-} from "lucide-react";
+import { Check, Clock, Receipt } from "lucide-react";
 import { useAccounts } from "@/features/finance/coa/hooks";
 import { useMasterListItems } from "@/features/finance-settings/hooks";
-import { formatMoney } from "../../shared/format";
 import { useActiveBankAccounts } from "../hooks";
 import { createExpenseSchema } from "../schema";
 
@@ -40,7 +32,7 @@ function AddExpenseForm({
 }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Form State: Core Expense Details
+  // Form State: Operating Expense Details
   const [expenseDate, setExpenseDate] = useState(today);
   const [expenseTypeId, setExpenseTypeId] = useState<number | "">("");
   const [vendorName, setVendorName] = useState("");
@@ -51,25 +43,11 @@ function AddExpenseForm({
   const [notes, setNotes] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
 
-  // Optional GST / Tax Details (Collapsed by default for ordinary expenses)
-  const [hasGstDetails, setHasGstDetails] = useState(false);
-  const [vendorGstin, setVendorGstin] = useState("");
-  const [vendorInvoiceNumber, setVendorInvoiceNumber] = useState("");
-  const [vendorInvoiceDate, setVendorInvoiceDate] = useState("");
-  const [hsnSacCode, setHsnSacCode] = useState("");
-  const [taxRate, setTaxRate] = useState<number | "">(0);
-  const [taxAmount, setTaxAmount] = useState<number | "">(0);
-  const [isItcEligible, setIsItcEligible] = useState(false);
-  const [ineligibilityReason, setIneligibilityReason] = useState("");
-  const [gstJurisdiction, setGstJurisdiction] = useState<
-    "INTRA_STATE" | "INTER_STATE" | ""
-  >("");
-
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // External queries
+  // External master data queries
   const expenseTypesQuery = useMasterListItems({
     category: "expense_type",
     limit: 100,
@@ -105,52 +83,18 @@ function AddExpenseForm({
     expenseTypeId || (expenseTypes.length > 0 ? expenseTypes[0]!.id : "");
 
   const numAmount = typeof amount === "number" ? amount : 0;
-  const numTax =
-    hasGstDetails && typeof taxAmount === "number" && taxAmount > 0
-      ? taxAmount
-      : 0;
-  const netTotal = numAmount + numTax;
 
   const handleSubmit = async (targetStatus: "PAID" | "DRAFT") => {
     setSubmitError(null);
     setErrors({});
 
-    // Client-side guard: If user explicitly claims ITC, vendor GSTIN is required
-    if (hasGstDetails && isItcEligible && numTax > 0 && !vendorGstin.trim()) {
-      setErrors({
-        vendorGstin:
-          "A valid 15-character Vendor GSTIN is required to claim Input Tax Credit.",
-      });
-      return;
-    }
-
     const rawInput = {
       expenseTypeId: Number(effectiveExpenseTypeId),
       expenseDate,
       amount: numAmount,
-      taxAmount: hasGstDetails ? numTax : 0,
+      taxAmount: 0,
+      isItcEligible: false,
       vendorName: vendorName.trim() || undefined,
-      vendorGstin:
-        hasGstDetails && vendorGstin.trim()
-          ? vendorGstin.trim().toUpperCase()
-          : undefined,
-      vendorInvoiceNumber:
-        hasGstDetails && vendorInvoiceNumber.trim()
-          ? vendorInvoiceNumber.trim()
-          : undefined,
-      vendorInvoiceDate:
-        hasGstDetails && vendorInvoiceDate ? vendorInvoiceDate : undefined,
-      hsnSacCode:
-        hasGstDetails && hsnSacCode.trim() ? hsnSacCode.trim() : undefined,
-      taxRate:
-        hasGstDetails && typeof taxRate === "number" ? taxRate : undefined,
-      isItcEligible: hasGstDetails && numTax > 0 ? isItcEligible : false,
-      ineligibilityReason:
-        hasGstDetails && !isItcEligible && numTax > 0
-          ? ineligibilityReason.trim() || undefined
-          : undefined,
-      gstJurisdiction:
-        hasGstDetails && gstJurisdiction ? gstJurisdiction : undefined,
       paymentModeId: paymentModeId ? Number(paymentModeId) : undefined,
       bankAccountId: bankAccountId ? Number(bankAccountId) : undefined,
       glAccountId: glAccountId ? Number(glAccountId) : undefined,
@@ -176,30 +120,9 @@ function AddExpenseForm({
       expenseTypeId: parsed.data.expenseTypeId,
       expenseDate: parsed.data.expenseDate,
       amount: parsed.data.amount,
-      ...(parsed.data.taxAmount !== undefined
-        ? { taxAmount: parsed.data.taxAmount }
-        : {}),
+      taxAmount: 0,
+      isItcEligible: false,
       ...(parsed.data.vendorName ? { vendorName: parsed.data.vendorName } : {}),
-      ...(parsed.data.vendorGstin
-        ? { vendorGstin: parsed.data.vendorGstin }
-        : {}),
-      ...(parsed.data.vendorInvoiceNumber
-        ? { vendorInvoiceNumber: parsed.data.vendorInvoiceNumber }
-        : {}),
-      ...(parsed.data.vendorInvoiceDate
-        ? { vendorInvoiceDate: parsed.data.vendorInvoiceDate }
-        : {}),
-      ...(parsed.data.hsnSacCode ? { hsnSacCode: parsed.data.hsnSacCode } : {}),
-      ...(parsed.data.taxRate !== undefined && parsed.data.taxRate !== null
-        ? { taxRate: parsed.data.taxRate }
-        : {}),
-      isItcEligible: parsed.data.isItcEligible,
-      ...(parsed.data.ineligibilityReason
-        ? { ineligibilityReason: parsed.data.ineligibilityReason }
-        : {}),
-      ...(parsed.data.gstJurisdiction
-        ? { gstJurisdiction: parsed.data.gstJurisdiction }
-        : {}),
       ...(parsed.data.paymentModeId
         ? { paymentModeId: parsed.data.paymentModeId }
         : {}),
@@ -318,17 +241,13 @@ function AddExpenseForm({
         </FormField>
       </div>
 
-      {/* Row 3: Expense Amount & Disbursement */}
+      {/* Row 3: Expense Amount, Payment Mode, & Bank Account */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FormField
           label="Expense Amount (₹)"
           required
           error={errors.amount}
-          hint={
-            hasGstDetails
-              ? "Base amount before tax"
-              : "Total expense amount paid or incurred"
-          }
+          hint="Total expense amount paid or incurred"
         >
           {(fieldProps) => (
             <Input
@@ -341,14 +260,6 @@ function AddExpenseForm({
               onChange={(e) => {
                 const val = e.target.value === "" ? "" : Number(e.target.value);
                 setAmount(val);
-                if (
-                  hasGstDetails &&
-                  typeof val === "number" &&
-                  typeof taxRate === "number" &&
-                  taxRate > 0
-                ) {
-                  setTaxAmount(Number(((val * taxRate) / 100).toFixed(2)));
-                }
               }}
             />
           )}
@@ -379,7 +290,7 @@ function AddExpenseForm({
         <FormField
           label="Paid Through Bank Account"
           error={errors.bankAccountId}
-          hint="Company account debited"
+          hint="Company account debited for bank payments"
         >
           {() => (
             <Select
@@ -397,301 +308,6 @@ function AddExpenseForm({
             </Select>
           )}
         </FormField>
-      </div>
-
-      {/* Net Total Summary (Shown when tax applies) */}
-      {hasGstDetails && numTax > 0 && (
-        <div className="flex items-center justify-between rounded-xl bg-blue-50/70 p-3 border border-blue-100/70 dark:bg-blue-950/20 dark:border-blue-900/30">
-          <div className="flex items-center gap-4 text-theme-xs text-blue-900 dark:text-sky-300">
-            <span>
-              Subtotal: <strong>{formatMoney(numAmount)}</strong>
-            </span>
-            <span>
-              Tax / GST: <strong>{formatMoney(numTax)}</strong>
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-theme-xs font-semibold text-blue-900 dark:text-sky-300">
-              Total Disbursement:
-            </span>
-            <span className="text-theme-base font-bold text-blue-700 dark:text-sky-400">
-              {formatMoney(netTotal)}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Optional GST & Tax Invoice Collapsible Section */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-900/30 transition-all">
-        <div className="flex items-center justify-between p-3.5">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="toggle-gst"
-              checked={hasGstDetails}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setHasGstDetails(checked);
-                if (!checked) {
-                  setTaxAmount(0);
-                  setTaxRate(0);
-                  setIsItcEligible(false);
-                  setVendorGstin("");
-                  setVendorInvoiceNumber("");
-                  setVendorInvoiceDate("");
-                  setHsnSacCode("");
-                }
-              }}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-            <div>
-              <label
-                htmlFor="toggle-gst"
-                className="text-theme-sm font-semibold text-gray-900 dark:text-gray-100 cursor-pointer flex items-center gap-1.5"
-              >
-                <FileText className="h-4 w-4 text-gray-500" />
-                Include GST & Tax Invoice Details
-              </label>
-              <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-                Optional vendor GSTIN, tax breakdown, and recoverable Input Tax
-                Credit (ITC)
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const next = !hasGstDetails;
-              setHasGstDetails(next);
-              if (!next) {
-                setTaxAmount(0);
-                setTaxRate(0);
-                setIsItcEligible(false);
-              }
-            }}
-            className="text-blue-600 dark:text-sky-400 flex items-center gap-1 text-theme-xs"
-          >
-            {hasGstDetails ? (
-              <>
-                Hide Details <ChevronDown className="h-3.5 w-3.5" />
-              </>
-            ) : (
-              <>
-                Add Tax Details <ChevronRight className="h-3.5 w-3.5" />
-              </>
-            )}
-          </Button>
-        </div>
-
-        {hasGstDetails && (
-          <div className="p-4 pt-3 border-t border-gray-200/80 dark:border-gray-800 space-y-3 relative focus-within:z-30">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FormField
-                label="Vendor GSTIN"
-                error={errors.vendorGstin}
-                hint="15-character GSTIN (Required for ITC)"
-              >
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    value={vendorGstin}
-                    maxLength={15}
-                    placeholder="e.g. 33AAMCT4293K1ZU"
-                    onChange={(e) =>
-                      setVendorGstin(e.target.value.toUpperCase())
-                    }
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="Vendor Invoice No."
-                error={errors.vendorInvoiceNumber}
-                hint="Tax invoice reference"
-              >
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    value={vendorInvoiceNumber}
-                    placeholder="e.g. INV-2026-9081"
-                    onChange={(e) => setVendorInvoiceNumber(e.target.value)}
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="Vendor Invoice Date"
-                error={errors.vendorInvoiceDate}
-                hint="Date on bill"
-              >
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    type="date"
-                    value={vendorInvoiceDate}
-                    max={today}
-                    onChange={(e) => setVendorInvoiceDate(e.target.value)}
-                  />
-                )}
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <FormField
-                label="GST Rate (%)"
-                error={errors.taxRate}
-                hint="Standard rates"
-              >
-                {() => (
-                  <Select
-                    value={taxRate !== "" ? String(taxRate) : "0"}
-                    onChange={(e) => {
-                      const rate = Number(e.target.value);
-                      setTaxRate(rate);
-                      if (typeof amount === "number") {
-                        setTaxAmount(
-                          Number(((amount * rate) / 100).toFixed(2)),
-                        );
-                      }
-                    }}
-                  >
-                    <option value="0">0% (Nil / Exempt)</option>
-                    <option value="5">5%</option>
-                    <option value="12">12%</option>
-                    <option value="18">18%</option>
-                    <option value="28">28%</option>
-                  </Select>
-                )}
-              </FormField>
-
-              <FormField
-                label="Tax Amount (₹)"
-                error={errors.taxAmount}
-                hint="GST amount"
-              >
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={taxAmount}
-                    placeholder="0.00"
-                    onChange={(e) =>
-                      setTaxAmount(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="HSN / SAC Code"
-                error={errors.hsnSacCode}
-                hint="Classification code"
-              >
-                {(fieldProps) => (
-                  <Input
-                    {...fieldProps}
-                    value={hsnSacCode}
-                    placeholder="e.g. 998311"
-                    onChange={(e) => setHsnSacCode(e.target.value)}
-                  />
-                )}
-              </FormField>
-
-              <FormField
-                label="Tax Jurisdiction"
-                error={errors.gstJurisdiction}
-                hint="Default auto-detects"
-              >
-                {() => (
-                  <Select
-                    value={gstJurisdiction}
-                    onChange={(e) =>
-                      setGstJurisdiction(
-                        e.target.value as "INTRA_STATE" | "INTER_STATE" | "",
-                      )
-                    }
-                  >
-                    <option value="">Auto (Compare States)</option>
-                    <option value="INTRA_STATE">Intra-State (CGST+SGST)</option>
-                    <option value="INTER_STATE">Inter-State (IGST)</option>
-                  </Select>
-                )}
-              </FormField>
-            </div>
-
-            {/* ITC Recovery Checkbox */}
-            <div className="pt-2 border-t border-gray-200/80 dark:border-gray-800 space-y-2">
-              <div className="flex items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  id="itc-claim-checkbox"
-                  checked={isItcEligible}
-                  onChange={(e) => setIsItcEligible(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <div className="flex flex-col">
-                  <label
-                    htmlFor="itc-claim-checkbox"
-                    className="text-theme-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer"
-                  >
-                    Claim Input Tax Credit (ITC) for this expense
-                  </label>
-                  <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                    Only check if you possess a valid vendor tax invoice and
-                    credit is not blocked under Section 17(5). If unchecked, tax
-                    is absorbed directly into the expense cost.
-                  </span>
-                </div>
-              </div>
-
-              {!isItcEligible &&
-                typeof taxAmount === "number" &&
-                taxAmount > 0 && (
-                  <div className="pl-6 pt-1">
-                    <FormField
-                      label="Section 17(5) Ineligibility Reason (Optional)"
-                      error={errors.ineligibilityReason}
-                      hint="Optional compliance note"
-                    >
-                      {() => (
-                        <Select
-                          value={ineligibilityReason}
-                          onChange={(e) =>
-                            setIneligibilityReason(e.target.value)
-                          }
-                        >
-                          <option value="">
-                            Standard Expense (Tax Absorbed)
-                          </option>
-                          <option value="Food, beverages, outdoor catering (Sec 17(5)(b))">
-                            Food & beverages / catering (Sec 17(5)(b))
-                          </option>
-                          <option value="Travel benefits extended to employees (Sec 17(5)(b)(iii))">
-                            Travel benefits to employees (Sec 17(5)(b)(iii))
-                          </option>
-                          <option value="Motor vehicles and conveyances (Sec 17(5)(a))">
-                            Motor vehicles and conveyances (Sec 17(5)(a))
-                          </option>
-                          <option value="Personal consumption (Sec 17(5)(g))">
-                            Personal consumption (Sec 17(5)(g))
-                          </option>
-                          <option value="Other ineligible / blocked credit under Section 17(5)">
-                            Other Section 17(5) blocked credit
-                          </option>
-                        </Select>
-                      )}
-                    </FormField>
-                  </div>
-                )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Row 4: Receipt Document URL & Notes */}

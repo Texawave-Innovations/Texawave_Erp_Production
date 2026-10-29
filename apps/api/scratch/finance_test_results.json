@@ -1,0 +1,4201 @@
+{
+  "numTotalTestSuites": 163,
+  "numPassedTestSuites": 163,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 339,
+  "numPassedTests": 339,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1793095282690,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Double-Entry Ledger Balancing (Sum Debit = Sum Credit)"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Double-Entry Ledger Balancing (Sum Debit = Sum Credit) accepts a perfectly balanced journal voucher",
+          "status": "passed",
+          "title": "accepts a perfectly balanced journal voucher",
+          "duration": 3.065499999999929,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Double-Entry Ledger Balancing (Sum Debit = Sum Credit)"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Double-Entry Ledger Balancing (Sum Debit = Sum Credit) rejects an unbalanced journal voucher",
+          "status": "passed",
+          "title": "rejects an unbalanced journal voucher",
+          "duration": 0.696700000000078,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Double-Entry Ledger Balancing (Sum Debit = Sum Credit)"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Double-Entry Ledger Balancing (Sum Debit = Sum Credit) validates that journal lines must be exclusively debit or credit",
+          "status": "passed",
+          "title": "validates that journal lines must be exclusively debit or credit",
+          "duration": 0.5063999999999851,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Monetary Precision & Float Safety (Decimal.js)"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Monetary Precision & Float Safety (Decimal.js) avoids standard IEEE-754 floating point drift during tax summation",
+          "status": "passed",
+          "title": "avoids standard IEEE-754 floating point drift during tax summation",
+          "duration": 0.7071999999999434,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Monetary Precision & Float Safety (Decimal.js)"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Monetary Precision & Float Safety (Decimal.js) calculates 18% GST splits with banker's rounding to 2 decimal places",
+          "status": "passed",
+          "title": "calculates 18% GST splits with banker's rounding to 2 decimal places",
+          "duration": 0.8125999999999749,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Journal Reversal Workflow"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Journal Reversal Workflow generates an exact mirror reversal voucher with swapped debit and credit lines",
+          "status": "passed",
+          "title": "generates an exact mirror reversal voucher with swapped debit and credit lines",
+          "duration": 0.5165999999999258,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Customer Payment Allocations"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Customer Payment Allocations allocates customer payment across multiple invoices and tracks unallocated balance",
+          "status": "passed",
+          "title": "allocates customer payment across multiple invoices and tracks unallocated balance",
+          "duration": 0.5576999999999543,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Customer Payment Allocations"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Customer Payment Allocations rejects over-allocation where allocated amount exceeds payment receipt total",
+          "status": "passed",
+          "title": "rejects over-allocation where allocated amount exceeds payment receipt total",
+          "duration": 0.6188999999999396,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Master List Compatibility & Category Enforcement"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Master List Compatibility & Category Enforcement accepts valid category pairings for expenses and payments",
+          "status": "passed",
+          "title": "accepts valid category pairings for expenses and payments",
+          "duration": 0.48320000000001073,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Finance Core Data Model & Mathematical Invariants",
+            "Proforma Invoice Exclusion from GST Ledger"
+          ],
+          "fullName": "Finance Core Data Model & Mathematical Invariants Proforma Invoice Exclusion from GST Ledger flags and excludes proforma invoices from Output GST sum",
+          "status": "passed",
+          "title": "flags and excludes proforma invoices from Output GST sum",
+          "duration": 0.5031999999999925,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095292803,
+      "endTime": 1793095292812.5032,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/test/finance-core-model-rules.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["MasterListItemsService", "findAll()"],
+          "fullName": "MasterListItemsService findAll() passes the tenant scope and query (including category) straight through",
+          "status": "passed",
+          "title": "passes the tenant scope and query (including category) straight through",
+          "duration": 4.814499999999953,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "findAll()"],
+          "fullName": "MasterListItemsService findAll() wraps the result in a PaginatedResponseDto",
+          "status": "passed",
+          "title": "wraps the result in a PaginatedResponseDto",
+          "duration": 1.0524999999997817,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "findOne()"],
+          "fullName": "MasterListItemsService findOne() returns the item found within the caller's org",
+          "status": "passed",
+          "title": "returns the item found within the caller's org",
+          "duration": 1.5954000000001543,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "findOne()"],
+          "fullName": "MasterListItemsService findOne() throws ResourceNotFoundException when missing or foreign",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when missing or foreign",
+          "duration": 1.3279999999999745,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "create()"],
+          "fullName": "MasterListItemsService create() creates within the caller's org with the caller as createdBy",
+          "status": "passed",
+          "title": "creates within the caller's org with the caller as createdBy",
+          "duration": 0.7447999999999411,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "update()"],
+          "fullName": "MasterListItemsService update() updates within the caller's org, recording the caller as updatedBy",
+          "status": "passed",
+          "title": "updates within the caller's org, recording the caller as updatedBy",
+          "duration": 0.5837000000001353,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "update()"],
+          "fullName": "MasterListItemsService update() throws ResourceNotFoundException when nothing was updated",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when nothing was updated",
+          "duration": 0.3789000000001579,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "remove()"],
+          "fullName": "MasterListItemsService remove() soft-deletes within the caller's org, recording the caller",
+          "status": "passed",
+          "title": "soft-deletes within the caller's org, recording the caller",
+          "duration": 0.5135999999997694,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["MasterListItemsService", "remove()"],
+          "fullName": "MasterListItemsService remove() throws ResourceNotFoundException when already gone",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when already gone",
+          "duration": 0.4032000000001972,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095286575,
+      "endTime": 1793095286587.5137,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance-settings/master-list-items.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["AccountsRepository", "@OrgScoped() validation"],
+          "fullName": "AccountsRepository @OrgScoped() validation throws synchronously if called without a valid OrgScope",
+          "status": "passed",
+          "title": "throws synchronously if called without a valid OrgScope",
+          "duration": 4.857499999999845,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries findMany() enforces organizationId from scope and applies query filters",
+          "status": "passed",
+          "title": "findMany() enforces organizationId from scope and applies query filters",
+          "duration": 4.480800000000045,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries findAllRaw() enforces organizationId from scope",
+          "status": "passed",
+          "title": "findAllRaw() enforces organizationId from scope",
+          "duration": 0.8121999999998479,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries findById() isolates lookup to scope.organizationId",
+          "status": "passed",
+          "title": "findById() isolates lookup to scope.organizationId",
+          "duration": 0.6641999999999371,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries findByCode() isolates lookup to scope.organizationId",
+          "status": "passed",
+          "title": "findByCode() isolates lookup to scope.organizationId",
+          "duration": 1.1145999999998821,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries create() persists with scope.organizationId and createdBy/updatedBy audit fields",
+          "status": "passed",
+          "title": "create() persists with scope.organizationId and createdBy/updatedBy audit fields",
+          "duration": 0.7956000000001495,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries update() restricts mutation to scope.organizationId",
+          "status": "passed",
+          "title": "update() restricts mutation to scope.organizationId",
+          "duration": 0.690599999999904,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries softDelete() marks deletedAt and deactivates only within scope.organizationId",
+          "status": "passed",
+          "title": "softDelete() marks deletedAt and deactivates only within scope.organizationId",
+          "duration": 0.6265999999998257,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries countSubAccounts() isolates count to parentAccountId within scope.organizationId",
+          "status": "passed",
+          "title": "countSubAccounts() isolates count to parentAccountId within scope.organizationId",
+          "duration": 0.6994999999999436,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "AccountsRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "AccountsRepository tenant isolation in queries countJournalLines() isolates count to accountId within scope.organizationId",
+          "status": "passed",
+          "title": "countJournalLines() isolates count to accountId within scope.organizationId",
+          "duration": 0.7737999999999374,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095289006,
+      "endTime": 1793095289022.7737,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/coa/accounts.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["AccountsService", "findAll()"],
+          "fullName": "AccountsService findAll() delegates to repository with tenant scope and wraps in PaginatedResponseDto",
+          "status": "passed",
+          "title": "delegates to repository with tenant scope and wraps in PaginatedResponseDto",
+          "duration": 10.214300000000094,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "findOne()"],
+          "fullName": "AccountsService findOne() returns account when found",
+          "status": "passed",
+          "title": "returns account when found",
+          "duration": 0.9542000000001281,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "findOne()"],
+          "fullName": "AccountsService findOne() throws ResourceNotFoundException when account does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when account does not exist",
+          "duration": 1.8370999999997366,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "getTree()"],
+          "fullName": "AccountsService getTree() builds a hierarchical tree from flat accounts list",
+          "status": "passed",
+          "title": "builds a hierarchical tree from flat accounts list",
+          "duration": 3.773699999999735,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "create()"],
+          "fullName": "AccountsService create() creates a root account successfully",
+          "status": "passed",
+          "title": "creates a root account successfully",
+          "duration": 1.1714999999999236,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "create()"],
+          "fullName": "AccountsService create() creates a child account when parent exists and type matches",
+          "status": "passed",
+          "title": "creates a child account when parent exists and type matches",
+          "duration": 0.9413999999997031,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "create()"],
+          "fullName": "AccountsService create() rejects duplicate accountCode with ResourceConflictException",
+          "status": "passed",
+          "title": "rejects duplicate accountCode with ResourceConflictException",
+          "duration": 1.1538000000000466,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "create()"],
+          "fullName": "AccountsService create() throws ResourceNotFoundException if parentAccountId does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException if parentAccountId does not exist",
+          "duration": 0.774000000000342,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "create()"],
+          "fullName": "AccountsService create() throws BusinessRuleViolationException (ACCOUNT_TYPE_MISMATCH) if child type differs from parent",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_TYPE_MISMATCH) if child type differs from parent",
+          "duration": 0.8215000000000146,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() updates account fields successfully",
+          "status": "passed",
+          "title": "updates account fields successfully",
+          "duration": 0.8930000000000291,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() throws ResourceNotFoundException when updating non-existent account",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when updating non-existent account",
+          "duration": 0.6545999999998457,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() throws ResourceConflictException when changing to an existing accountCode",
+          "status": "passed",
+          "title": "throws ResourceConflictException when changing to an existing accountCode",
+          "duration": 0.45200000000022555,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() throws BusinessRuleViolationException (SELF_PARENTING_NOT_ALLOWED) when parentAccountId is self",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (SELF_PARENTING_NOT_ALLOWED) when parentAccountId is self",
+          "duration": 0.38259999999991123,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() throws BusinessRuleViolationException (ACCOUNT_TYPE_MISMATCH) if new parent has different accountType",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_TYPE_MISMATCH) if new parent has different accountType",
+          "duration": 0.5716999999999643,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "update()"],
+          "fullName": "AccountsService update() throws BusinessRuleViolationException (CIRCULAR_HIERARCHY) when cycle is detected",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (CIRCULAR_HIERARCHY) when cycle is detected",
+          "duration": 0.6096999999999753,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() soft deletes account when no constraints are violated",
+          "status": "passed",
+          "title": "soft deletes account when no constraints are violated",
+          "duration": 0.8242000000000189,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() throws ResourceNotFoundException if account does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException if account does not exist",
+          "duration": 0.8921999999997752,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() throws BusinessRuleViolationException (ACCOUNT_HAS_CHILDREN) if sub-accounts exist",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_HAS_CHILDREN) if sub-accounts exist",
+          "duration": 0.939600000000155,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() throws BusinessRuleViolationException (ACCOUNT_HAS_POSTINGS) if journal lines exist",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_HAS_POSTINGS) if journal lines exist",
+          "duration": 0.7309999999997672,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() throws BusinessRuleViolationException (ACCOUNT_IN_USE) if linked to bank accounts",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_IN_USE) if linked to bank accounts",
+          "duration": 0.9149999999999636,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["AccountsService", "remove()"],
+          "fullName": "AccountsService remove() throws BusinessRuleViolationException (ACCOUNT_IN_USE) if linked to expenses",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_IN_USE) if linked to expenses",
+          "duration": 0.6460000000001855,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095286574,
+      "endTime": 1793095286605.646,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/coa/accounts.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository enforces tenant organization scoping on findMany",
+          "status": "passed",
+          "title": "enforces tenant organization scoping on findMany",
+          "duration": 2.5317999999997483,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository applies search filters across accountName, bankName, and accountNumber",
+          "status": "passed",
+          "title": "applies search filters across accountName, bankName, and accountNumber",
+          "duration": 0.4141000000004169,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository scopes findById to the organization",
+          "status": "passed",
+          "title": "scopes findById to the organization",
+          "duration": 0.2523000000001048,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository scopes findByAccountNumber to the organization",
+          "status": "passed",
+          "title": "scopes findByAccountNumber to the organization",
+          "duration": 0.20089999999981956,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository injects organizationId on create",
+          "status": "passed",
+          "title": "injects organizationId on create",
+          "duration": 0.20839999999998327,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository scopes update to tenant organization",
+          "status": "passed",
+          "title": "scopes update to tenant organization",
+          "duration": 0.20420000000012806,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankAccountsRepository"],
+          "fullName": "BankAccountsRepository soft deletes bank account with timestamp and userId",
+          "status": "passed",
+          "title": "soft deletes bank account with timestamp and userId",
+          "duration": 0.36120000000028085,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095295856,
+      "endTime": 1793095295860.361,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/banking/bank-accounts.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository scopes findMany to tenant organization",
+          "status": "passed",
+          "title": "scopes findMany to tenant organization",
+          "duration": 2.744000000000142,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository filters transactions by bankAccountId, transactionType, and reconciliation status",
+          "status": "passed",
+          "title": "filters transactions by bankAccountId, transactionType, and reconciliation status",
+          "duration": 0.40570000000025175,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository atomically records CREDIT transaction, increments bank balance, and posts GL journal",
+          "status": "passed",
+          "title": "atomically records CREDIT transaction, increments bank balance, and posts GL journal",
+          "duration": 0.9180999999998676,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository atomically records DEBIT transaction and decrements bank balance",
+          "status": "passed",
+          "title": "atomically records DEBIT transaction and decrements bank balance",
+          "duration": 0.4600999999997839,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository reconciles transaction and marks timestamp",
+          "status": "passed",
+          "title": "reconciles transaction and marks timestamp",
+          "duration": 0.4236999999998261,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankTransactionsRepository"],
+          "fullName": "BankTransactionsRepository unreconciles transaction and clears reconciledAt",
+          "status": "passed",
+          "title": "unreconciles transaction and clears reconciledAt",
+          "duration": 0.2977000000000771,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095295635,
+      "endTime": 1793095295640.4236,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/banking/bank-transactions.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankAccountDto accepts valid bank account payload",
+          "status": "passed",
+          "title": "accepts valid bank account payload",
+          "duration": 3.9788999999991574,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankAccountDto rejects negative opening balance",
+          "status": "passed",
+          "title": "rejects negative opening balance",
+          "duration": 0.8767000000007101,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankAccountDto rejects invalid accountType enum",
+          "status": "passed",
+          "title": "rejects invalid accountType enum",
+          "duration": 0.4584000000013475,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankAccountDto rejects missing required fields",
+          "status": "passed",
+          "title": "rejects missing required fields",
+          "duration": 1.111800000000585,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankTransactionDto accepts valid bank transaction payload",
+          "status": "passed",
+          "title": "accepts valid bank transaction payload",
+          "duration": 0.7378000000007887,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankTransactionDto rejects zero amount",
+          "status": "passed",
+          "title": "rejects zero amount",
+          "duration": 0.5156999999999243,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankTransactionDto rejects negative amount",
+          "status": "passed",
+          "title": "rejects negative amount",
+          "duration": 0.23650000000088767,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankTransactionDto rejects invalid transactionType",
+          "status": "passed",
+          "title": "rejects invalid transactionType",
+          "duration": 0.20830000000023574,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "CreateBankTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation CreateBankTransactionDto rejects invalid date string",
+          "status": "passed",
+          "title": "rejects invalid date string",
+          "duration": 0.24319999999897846,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "ReconcileTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation ReconcileTransactionDto accepts empty object (reconcile against statement without GL link)",
+          "status": "passed",
+          "title": "accepts empty object (reconcile against statement without GL link)",
+          "duration": 0.2703000000001339,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "ReconcileTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation ReconcileTransactionDto accepts integer matchedJournalEntryId",
+          "status": "passed",
+          "title": "accepts integer matchedJournalEntryId",
+          "duration": 0.24179999999978463,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "ReconcileTransactionDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation ReconcileTransactionDto rejects non-integer matchedJournalEntryId",
+          "status": "passed",
+          "title": "rejects non-integer matchedJournalEntryId",
+          "duration": 0.2591999999986001,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "UpdateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation UpdateBankAccountDto accepts partial updates",
+          "status": "passed",
+          "title": "accepts partial updates",
+          "duration": 0.2769000000007509,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Banking DTO and Business Rule Validation",
+            "UpdateBankAccountDto"
+          ],
+          "fullName": "Banking DTO and Business Rule Validation UpdateBankAccountDto rejects invalid accountType on update",
+          "status": "passed",
+          "title": "rejects invalid accountType on update",
+          "duration": 0.3202999999994063,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095294876,
+      "endTime": 1793095294886.3203,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/banking/banking-validation.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts returns paginated bank accounts",
+          "status": "passed",
+          "title": "returns paginated bank accounts",
+          "duration": 4.411599999999453,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts throws ResourceNotFoundException when bank account does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when bank account does not exist",
+          "duration": 1.8090999999994892,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts creates bank account with ASSET glAccountId",
+          "status": "passed",
+          "title": "creates bank account with ASSET glAccountId",
+          "duration": 1.0967000000000553,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts rejects duplicate account number in the same tenant",
+          "status": "passed",
+          "title": "rejects duplicate account number in the same tenant",
+          "duration": 0.7087000000001353,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts rejects non-ASSET glAccountId",
+          "status": "passed",
+          "title": "rejects non-ASSET glAccountId",
+          "duration": 0.6327000000001135,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Accounts"],
+          "fullName": "BankingService Bank Accounts soft deletes bank account",
+          "status": "passed",
+          "title": "soft deletes bank account",
+          "duration": 1.8100000000004002,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions returns paginated bank transactions",
+          "status": "passed",
+          "title": "returns paginated bank transactions",
+          "duration": 0.9395000000004075,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions throws ResourceNotFoundException when transaction does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when transaction does not exist",
+          "duration": 0.7529999999997017,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions rejects negative transaction amount",
+          "status": "passed",
+          "title": "rejects negative transaction amount",
+          "duration": 1.230199999999968,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions rejects future transaction date",
+          "status": "passed",
+          "title": "rejects future transaction date",
+          "duration": 0.697400000000016,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions records CREDIT transaction and generates balanced GL entry when counter GL provided",
+          "status": "passed",
+          "title": "records CREDIT transaction and generates balanced GL entry when counter GL provided",
+          "duration": 0.9993999999996959,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions records DEBIT transaction and generates balanced GL entry when counter GL provided",
+          "status": "passed",
+          "title": "records DEBIT transaction and generates balanced GL entry when counter GL provided",
+          "duration": 0.6374000000005253,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions reconciles transaction when matched journal entry exists",
+          "status": "passed",
+          "title": "reconciles transaction when matched journal entry exists",
+          "duration": 0.5983999999998559,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["BankingService", "Bank Transactions"],
+          "fullName": "BankingService Bank Transactions unreconciles transaction",
+          "status": "passed",
+          "title": "unreconciles transaction",
+          "duration": 0.5149000000001251,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291799,
+      "endTime": 1793095291817.515,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/banking/banking.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation validates GSTIN format and rejects malformed vendor GSTIN",
+          "status": "passed",
+          "title": "validates GSTIN format and rejects malformed vendor GSTIN",
+          "duration": 4.876899999999296,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation accepts valid 15-character Indian GSTIN and normalises to uppercase",
+          "status": "passed",
+          "title": "accepts valid 15-character Indian GSTIN and normalises to uppercase",
+          "duration": 1.3157000000010157,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation rejects when explicit tax components do not equal total tax amount",
+          "status": "passed",
+          "title": "rejects when explicit tax components do not equal total tax amount",
+          "duration": 0.7123000000010506,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation automatically calculates INTRA_STATE (CGST + SGST) when state codes match",
+          "status": "passed",
+          "title": "automatically calculates INTRA_STATE (CGST + SGST) when state codes match",
+          "duration": 0.6954999999998108,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation automatically calculates INTER_STATE (IGST) when state codes differ",
+          "status": "passed",
+          "title": "automatically calculates INTER_STATE (IGST) when state codes differ",
+          "duration": 0.7039000000004307,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Tax Schema & Validation"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Tax Schema & Validation respects explicit gstJurisdiction override",
+          "status": "passed",
+          "title": "respects explicit gstJurisdiction override",
+          "duration": 0.7098000000005413,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry eligible ITC: debits Expense for taxable subtotal, debits 1300 for tax, and credits Bank for net amount",
+          "status": "passed",
+          "title": "eligible ITC: debits Expense for taxable subtotal, debits 1300 for tax, and credits Bank for net amount",
+          "duration": 3.027799999999843,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry ineligible ITC (Section 17(5)): absorbs tax into expense (debits full 1180), does NOT debit 1300, and does NOT create GST entry",
+          "status": "passed",
+          "title": "ineligible ITC (Section 17(5)): absorbs tax into expense (debits full 1180), does NOT debit 1300, and does NOT create GST entry",
+          "duration": 1.2056000000011409,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry fails safely with MISSING_INPUT_TAX_ACCOUNT when eligible ITC is claimed but 1300 ASSET is missing",
+          "status": "passed",
+          "title": "fails safely with MISSING_INPUT_TAX_ACCOUNT when eligible ITC is claimed but 1300 ASSET is missing",
+          "duration": 0.8607999999985623,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry never resolves 2020 (LIABILITY) as an input tax account",
+          "status": "passed",
+          "title": "never resolves 2020 (LIABILITY) as an input tax account",
+          "duration": 1.0442999999995664,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry atomic PAID creation: creating with status PAID immediately executes GL and GST recording",
+          "status": "passed",
+          "title": "atomic PAID creation: creating with status PAID immediately executes GL and GST recording",
+          "duration": 0.7422000000005937,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Disbursement (`pay()`) & General Ledger Double-Entry"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Disbursement (`pay()`) & General Ledger Double-Entry idempotency: paying an already PAID expense throws EXPENSE_ALREADY_PAID",
+          "status": "passed",
+          "title": "idempotency: paying an already PAID expense throws EXPENSE_ALREADY_PAID",
+          "duration": 0.6707999999998719,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Cancellation & Reversal Workflow"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Cancellation & Reversal Workflow cancelling a paid expense creates reversal voucher and cancels active GST entry",
+          "status": "passed",
+          "title": "cancelling a paid expense creates reversal voucher and cancels active GST entry",
+          "duration": 1.0169999999998254,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Cancellation & Reversal Workflow"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Cancellation & Reversal Workflow cancelling an ineligible-ITC expense reverses journal without error",
+          "status": "passed",
+          "title": "cancelling an ineligible-ITC expense reverses journal without error",
+          "duration": 0.5275000000001455,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Cancellation & Reversal Workflow"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Cancellation & Reversal Workflow creating a draft expense does NOT post to GL and does NOT create GST entry",
+          "status": "passed",
+          "title": "creating a draft expense does NOT post to GL and does NOT create GST entry",
+          "duration": 0.5398999999997613,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Simplified Business Expenses (Zero Tax & Non-Recoverable Tax)"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Simplified Business Expenses (Zero Tax & Non-Recoverable Tax) ordinary expense without GST fields creates cleanly and pays without account 1300 in COA",
+          "status": "passed",
+          "title": "ordinary expense without GST fields creates cleanly and pays without account 1300 in COA",
+          "duration": 1.024200000001656,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Simplified Business Expenses (Zero Tax & Non-Recoverable Tax)"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Simplified Business Expenses (Zero Tax & Non-Recoverable Tax) expense with receipt tax from unregistered vendor absorbs tax into expense without account 1300",
+          "status": "passed",
+          "title": "expense with receipt tax from unregistered vendor absorbs tax into expense without account 1300",
+          "duration": 0.985899999999674,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3",
+            "Simplified Business Expenses (Zero Tax & Non-Recoverable Tax)"
+          ],
+          "fullName": "Expenses GST & Input Tax Credit (ITC) Integration — Phase 3 Simplified Business Expenses (Zero Tax & Non-Recoverable Tax) expense with vendor GSTIN but isItcEligible=false absorbs tax into expense without account 1300",
+          "status": "passed",
+          "title": "expense with vendor GSTIN but isItcEligible=false absorbs tax into expense without account 1300",
+          "duration": 1.1453999999994267,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291839,
+      "endTime": 1793095291862.1455,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/expenses/expenses-gst-itc.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "ExpensesRepository Tenant Isolation & Querying findMany() applies tenant filter and pagination",
+          "status": "passed",
+          "title": "findMany() applies tenant filter and pagination",
+          "duration": 3.9215000000003783,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "ExpensesRepository Tenant Isolation & Querying findById() restricts query to scope.organizationId",
+          "status": "passed",
+          "title": "findById() restricts query to scope.organizationId",
+          "duration": 0.7771000000002459,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "ExpensesRepository Tenant Isolation & Querying findByExpenseNumber() restricts to scope.organizationId",
+          "status": "passed",
+          "title": "findByExpenseNumber() restricts to scope.organizationId",
+          "duration": 0.6058000000002721,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "ExpensesRepository Tenant Isolation & Querying findByHrExpenseClaimId() restricts to scope.organizationId",
+          "status": "passed",
+          "title": "findByHrExpenseClaimId() restricts to scope.organizationId",
+          "duration": 0.48569999999972424,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "ExpensesRepository Tenant Isolation & Querying generateNextExpenseNumber() formats sequence scoped to organizationId",
+          "status": "passed",
+          "title": "generateNextExpenseNumber() formats sequence scoped to organizationId",
+          "duration": 0.6236000000003514,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesRepository", "Mutations"],
+          "fullName": "ExpensesRepository Mutations create() persists expense under scope.organizationId",
+          "status": "passed",
+          "title": "create() persists expense under scope.organizationId",
+          "duration": 0.5163000000002285,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesRepository", "Mutations"],
+          "fullName": "ExpensesRepository Mutations update() restricts modification to scope.organizationId",
+          "status": "passed",
+          "title": "update() restricts modification to scope.organizationId",
+          "duration": 0.5904000000000451,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesRepository", "Mutations"],
+          "fullName": "ExpensesRepository Mutations updateStatus() updates status only when matching fromStatuses and org",
+          "status": "passed",
+          "title": "updateStatus() updates status only when matching fromStatuses and org",
+          "duration": 1.3512000000000626,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesRepository", "Mutations"],
+          "fullName": "ExpensesRepository Mutations softDelete() marks deletedAt only for DRAFT or CANCELLED within scope",
+          "status": "passed",
+          "title": "softDelete() marks deletedAt only for DRAFT or CANCELLED within scope",
+          "duration": 0.7835000000000036,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "GL Accounting Atomic Operations"
+          ],
+          "fullName": "ExpensesRepository GL Accounting Atomic Operations payAndPostExpense() creates journal voucher, updates GL balances and marks expense PAID",
+          "status": "passed",
+          "title": "payAndPostExpense() creates journal voucher, updates GL balances and marks expense PAID",
+          "duration": 1.5842999999999847,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ExpensesRepository",
+            "GL Accounting Atomic Operations"
+          ],
+          "fullName": "ExpensesRepository GL Accounting Atomic Operations cancelAndReverseExpense() creates reversal journal and inverts GL balances",
+          "status": "passed",
+          "title": "cancelAndReverseExpense() creates reversal journal and inverts GL balances",
+          "duration": 1.0313999999998487,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095293188,
+      "endTime": 1793095293201.0315,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/expenses/expenses.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["ExpensesService", "findAll() and findOne()"],
+          "fullName": "ExpensesService findAll() and findOne() findAll() returns paginated response",
+          "status": "passed",
+          "title": "findAll() returns paginated response",
+          "duration": 5.679599999999482,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "findAll() and findOne()"],
+          "fullName": "ExpensesService findAll() and findOne() findOne() returns expense when found",
+          "status": "passed",
+          "title": "findOne() returns expense when found",
+          "duration": 0.9009999999998399,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "findAll() and findOne()"],
+          "fullName": "ExpensesService findAll() and findOne() findOne() throws ResourceNotFoundException when missing",
+          "status": "passed",
+          "title": "findOne() throws ResourceNotFoundException when missing",
+          "duration": 2.0702000000001135,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "create() validation"],
+          "fullName": "ExpensesService create() validation creates draft expense when inputs are valid",
+          "status": "passed",
+          "title": "creates draft expense when inputs are valid",
+          "duration": 2.907600000000457,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "create() validation"],
+          "fullName": "ExpensesService create() validation throws BusinessRuleViolationException when expenseDate is in future",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when expenseDate is in future",
+          "duration": 0.8908000000010361,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "create() validation"],
+          "fullName": "ExpensesService create() validation throws ResourceNotFoundException when expenseTypeId is invalid",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when expenseTypeId is invalid",
+          "duration": 0.7903000000005704,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "create() validation"],
+          "fullName": "ExpensesService create() validation throws ResourceConflictException when expenseNumber is already used",
+          "status": "passed",
+          "title": "throws ResourceConflictException when expenseNumber is already used",
+          "duration": 0.9367000000002008,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "create() validation"],
+          "fullName": "ExpensesService create() validation throws BusinessRuleViolationException when glAccount is not EXPENSE or ASSET",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when glAccount is not EXPENSE or ASSET",
+          "duration": 0.7727000000013504,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "update() lifecycle rules"],
+          "fullName": "ExpensesService update() lifecycle rules updates editable draft expense",
+          "status": "passed",
+          "title": "updates editable draft expense",
+          "duration": 1.301900000000387,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "update() lifecycle rules"],
+          "fullName": "ExpensesService update() lifecycle rules throws BusinessRuleViolationException when editing PAID expense",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when editing PAID expense",
+          "duration": 1.5702000000001135,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "update() lifecycle rules"],
+          "fullName": "ExpensesService update() lifecycle rules throws BusinessRuleViolationException when editing CANCELLED expense",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when editing CANCELLED expense",
+          "duration": 0.8737999999993917,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "Approval workflow"],
+          "fullName": "ExpensesService Approval workflow submit() moves DRAFT to PENDING_APPROVAL",
+          "status": "passed",
+          "title": "submit() moves DRAFT to PENDING_APPROVAL",
+          "duration": 1.3032000000002881,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "Approval workflow"],
+          "fullName": "ExpensesService Approval workflow submit() throws InvalidStateTransitionException if not DRAFT",
+          "status": "passed",
+          "title": "submit() throws InvalidStateTransitionException if not DRAFT",
+          "duration": 0.9312999999983731,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "Approval workflow"],
+          "fullName": "ExpensesService Approval workflow approve() moves PENDING_APPROVAL to APPROVED",
+          "status": "passed",
+          "title": "approve() moves PENDING_APPROVAL to APPROVED",
+          "duration": 1.0478999999995722,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "Approval workflow"],
+          "fullName": "ExpensesService Approval workflow reject() moves PENDING_APPROVAL back to DRAFT",
+          "status": "passed",
+          "title": "reject() moves PENDING_APPROVAL back to DRAFT",
+          "duration": 0.7811999999994441,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "GL Accounting & Payment"],
+          "fullName": "ExpensesService GL Accounting & Payment pay() generates balanced journal voucher and posts to GL",
+          "status": "passed",
+          "title": "pay() generates balanced journal voucher and posts to GL",
+          "duration": 1.444999999999709,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "GL Accounting & Payment"],
+          "fullName": "ExpensesService GL Accounting & Payment pay() throws BusinessRuleViolationException if already PAID",
+          "status": "passed",
+          "title": "pay() throws BusinessRuleViolationException if already PAID",
+          "duration": 0.643500000000131,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "GL Accounting & Payment"],
+          "fullName": "ExpensesService GL Accounting & Payment cancel() generates reversal journal entry when expense was PAID",
+          "status": "passed",
+          "title": "cancel() generates reversal journal entry when expense was PAID",
+          "duration": 1.0212999999985186,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "GL Accounting & Payment"],
+          "fullName": "ExpensesService GL Accounting & Payment cancel() marks CANCELLED directly when expense was DRAFT",
+          "status": "passed",
+          "title": "cancel() marks CANCELLED directly when expense was DRAFT",
+          "duration": 0.7075000000004366,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "delete() restrictions"],
+          "fullName": "ExpensesService delete() restrictions soft deletes DRAFT expense",
+          "status": "passed",
+          "title": "soft deletes DRAFT expense",
+          "duration": 0.6319999999996071,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "delete() restrictions"],
+          "fullName": "ExpensesService delete() restrictions throws BusinessRuleViolationException when deleting PAID expense",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when deleting PAID expense",
+          "duration": 0.7038999999986117,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "createFromClaim()"],
+          "fullName": "ExpensesService createFromClaim() creates approved finance expense from approved HR claim",
+          "status": "passed",
+          "title": "creates approved finance expense from approved HR claim",
+          "duration": 1.5349999999998545,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "createFromClaim()"],
+          "fullName": "ExpensesService createFromClaim() throws BusinessRuleViolationException if claim is not APPROVED",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException if claim is not APPROVED",
+          "duration": 0.6019999999989523,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ExpensesService", "createFromClaim()"],
+          "fullName": "ExpensesService createFromClaim() throws ResourceConflictException if claim is already converted",
+          "status": "passed",
+          "title": "throws ResourceConflictException if claim is already converted",
+          "duration": 0.5300000000006548,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291848,
+      "endTime": 1793095291879.602,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/expenses/expenses.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "1. Manual GST entries remain independent by default (Registry Only)"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 1. Manual GST entries remain independent by default (Registry Only) creates an active statutory GST record without creating or touching General Ledger journals",
+          "status": "passed",
+          "title": "creates an active statutory GST record without creating or touching General Ledger journals",
+          "duration": 5.390400000000227,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "1. Manual GST entries remain independent by default (Registry Only)"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 1. Manual GST entries remain independent by default (Registry Only) does not invent missing GL accounts, synthetic vouchers, or cross-schema side-effects",
+          "status": "passed",
+          "title": "does not invent missing GL accounts, synthetic vouchers, or cross-schema side-effects",
+          "duration": 0.7277999999996609,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "2. Statutory Returns Aggregation with Manual & System Entries"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 2. Statutory Returns Aggregation with Manual & System Entries aggregates manual entries alongside system sales invoices in GSTR-1 outward return",
+          "status": "passed",
+          "title": "aggregates manual entries alongside system sales invoices in GSTR-1 outward return",
+          "duration": 1.1365000000000691,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "2. Statutory Returns Aggregation with Manual & System Entries"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 2. Statutory Returns Aggregation with Manual & System Entries aggregates manual ITC entries alongside operational expenses in GSTR-3B return",
+          "status": "passed",
+          "title": "aggregates manual ITC entries alongside operational expenses in GSTR-3B return",
+          "duration": 0.9331999999999425,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "3. Idempotency & Duplicate Prevention"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 3. Idempotency & Duplicate Prevention returns existing entry on repeated creation with identical reference, gstin, and period",
+          "status": "passed",
+          "title": "returns existing entry on repeated creation with identical reference, gstin, and period",
+          "duration": 1.132799999999861,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "Phase 4: Manual GST Entry Synchronization & Lifecycle",
+            "4. Strict Tenant Boundary Isolation"
+          ],
+          "fullName": "Phase 4: Manual GST Entry Synchronization & Lifecycle 4. Strict Tenant Boundary Isolation isolates manual entries by organizationId, preventing cross-tenant leakage",
+          "status": "passed",
+          "title": "isolates manual entries by organizationId, preventing cross-tenant leakage",
+          "duration": 0.7829000000001543,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095294168,
+      "endTime": 1793095294178.783,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/gst/gst-manual-sync.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto accepts a valid GST tax ledger entry payload",
+          "status": "passed",
+          "title": "accepts a valid GST tax ledger entry payload",
+          "duration": 5.249599999999191,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto rejects invalid GSTIN formats",
+          "status": "passed",
+          "title": "rejects invalid GSTIN formats",
+          "duration": 2.271099999999933,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto rejects invalid filing periods",
+          "status": "passed",
+          "title": "rejects invalid filing periods",
+          "duration": 0.6993000000002212,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto rejects zero or negative taxable base amount",
+          "status": "passed",
+          "title": "rejects zero or negative taxable base amount",
+          "duration": 0.5943000000006577,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto rejects negative tax component amounts",
+          "status": "passed",
+          "title": "rejects negative tax component amounts",
+          "duration": 0.4165999999986525,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "CreateGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation CreateGstEntryDto rejects missing required fields",
+          "status": "passed",
+          "title": "rejects missing required fields",
+          "duration": 1.719600000000355,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "ReconcileGstDto and CounterpartGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation ReconcileGstDto and CounterpartGstEntryDto accepts valid reconciliation payload",
+          "status": "passed",
+          "title": "accepts valid reconciliation payload",
+          "duration": 2.038800000000265,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "ReconcileGstDto and CounterpartGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation ReconcileGstDto and CounterpartGstEntryDto rejects invalid period in reconciliation",
+          "status": "passed",
+          "title": "rejects invalid period in reconciliation",
+          "duration": 1.3233999999993102,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "ReconcileGstDto and CounterpartGstEntryDto"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation ReconcileGstDto and CounterpartGstEntryDto rejects negative total tax amount in counterpart entry",
+          "status": "passed",
+          "title": "rejects negative total tax amount in counterpart entry",
+          "duration": 0.5167999999994208,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "Query DTOs"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation Query DTOs validates QueryGstr1Dto period regex",
+          "status": "passed",
+          "title": "validates QueryGstr1Dto period regex",
+          "duration": 0.5114999999987049,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "Query DTOs"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation Query DTOs validates QueryGstr3bDto period regex",
+          "status": "passed",
+          "title": "validates QueryGstr3bDto period regex",
+          "duration": 0.7592000000004191,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "Query DTOs"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation Query DTOs validates QueryHsnSummaryDto entryType enum",
+          "status": "passed",
+          "title": "validates QueryHsnSummaryDto entryType enum",
+          "duration": 0.5357000000003609,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "Query DTOs"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation Query DTOs validates QueryGstEntriesDto status enum",
+          "status": "passed",
+          "title": "validates QueryGstEntriesDto status enum",
+          "duration": 0.557199999999284,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "GstService Business Rules & Proforma Auto-Detection"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation GstService Business Rules & Proforma Auto-Detection auto-detects proforma exclusion when reference contains 'PI-'",
+          "status": "passed",
+          "title": "auto-detects proforma exclusion when reference contains 'PI-'",
+          "duration": 1.8876000000000204,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "GstService Business Rules & Proforma Auto-Detection"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation GstService Business Rules & Proforma Auto-Detection auto-detects proforma exclusion when reference contains '/PI/'",
+          "status": "passed",
+          "title": "auto-detects proforma exclusion when reference contains '/PI/'",
+          "duration": 0.2659000000003289,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GST DTO, Business Rule & Reconciliation Validation",
+            "GstService Business Rules & Proforma Auto-Detection"
+          ],
+          "fullName": "GST DTO, Business Rule & Reconciliation Validation GstService Business Rules & Proforma Auto-Detection throws BusinessRuleViolationException when tax component sum does not match totalTaxAmount",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when tax component sum does not match totalTaxAmount",
+          "duration": 0.9727999999995518,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095295057,
+      "endTime": 1793095295078.973,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/gst/gst-validation.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GstRepository", "@OrgScoped() validation"],
+          "fullName": "GstRepository @OrgScoped() validation throws synchronously if called without a valid OrgScope",
+          "status": "passed",
+          "title": "throws synchronously if called without a valid OrgScope",
+          "duration": 3.9863000000000284,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "create"],
+          "fullName": "GstRepository create injects scope.organizationId into the created record",
+          "status": "passed",
+          "title": "injects scope.organizationId into the created record",
+          "duration": 3.353599999999915,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "findById"],
+          "fullName": "GstRepository findById scopes lookup to organizationId",
+          "status": "passed",
+          "title": "scopes lookup to organizationId",
+          "duration": 1.4219000000000506,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "findMany"],
+          "fullName": "GstRepository findMany applies query filters and pagination within tenant boundary",
+          "status": "passed",
+          "title": "applies query filters and pagination within tenant boundary",
+          "duration": 1.0364999999999327,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "getPeriodEntries"],
+          "fullName": "GstRepository getPeriodEntries retrieves entries for the period, excluding CANCELLED",
+          "status": "passed",
+          "title": "retrieves entries for the period, excluding CANCELLED",
+          "duration": 0.9631000000001677,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "markReconciled"],
+          "fullName": "GstRepository markReconciled updates matching ids to RECONCILED under tenant scope",
+          "status": "passed",
+          "title": "updates matching ids to RECONCILED under tenant scope",
+          "duration": 1.0873000000001412,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstRepository", "markReconciled"],
+          "fullName": "GstRepository markReconciled returns 0 early if ids array is empty without touching database",
+          "status": "passed",
+          "title": "returns 0 early if ids array is empty without touching database",
+          "duration": 0.4538000000000011,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095288316,
+      "endTime": 1793095288328.4539,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/gst/gst.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GstService", "createEntry"],
+          "fullName": "GstService createEntry throws BusinessRuleViolationException when tax components do not sum to totalTaxAmount",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when tax components do not sum to totalTaxAmount",
+          "duration": 4.771400000000085,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "createEntry"],
+          "fullName": "GstService createEntry auto-detects proforma invoice references and sets isProformaExcluded to true",
+          "status": "passed",
+          "title": "auto-detects proforma invoice references and sets isProformaExcluded to true",
+          "duration": 3.4867000000003827,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "createEntry"],
+          "fullName": "GstService createEntry creates standard tax invoice entry with isProformaExcluded false",
+          "status": "passed",
+          "title": "creates standard tax invoice entry with isProformaExcluded false",
+          "duration": 1.2564000000002125,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getEntryById"],
+          "fullName": "GstService getEntryById throws ResourceNotFoundException if entry does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException if entry does not exist",
+          "duration": 0.963799999999992,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getEntryById"],
+          "fullName": "GstService getEntryById returns entry when found",
+          "status": "passed",
+          "title": "returns entry when found",
+          "duration": 0.4954999999999927,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getHsnSummary"],
+          "fullName": "GstService getHsnSummary groups eligible items by HSN/SAC code and excludes proforma and cancelled entries",
+          "status": "passed",
+          "title": "groups eligible items by HSN/SAC code and excludes proforma and cancelled entries",
+          "duration": 2.750799999999799,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getGstr1Summary"],
+          "fullName": "GstService getGstr1Summary categorizes B2B vs B2C, calculates rate slabs, and excludes proforma vouchers",
+          "status": "passed",
+          "title": "categorizes B2B vs B2C, calculates rate slabs, and excludes proforma vouchers",
+          "duration": 1.307800000000043,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getGstr3bSummary"],
+          "fullName": "GstService getGstr3bSummary aggregates outward liabilities and eligible ITC to compute net tax payable",
+          "status": "passed",
+          "title": "aggregates outward liabilities and eligible ITC to compute net tax payable",
+          "duration": 0.8036000000001877,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "GstService",
+            "reconcile (GST Reconciliation Engine)"
+          ],
+          "fullName": "GstService reconcile (GST Reconciliation Engine) accurately classifies MATCHED, TAX_MISMATCH, MISSING_IN_PORTAL, and MISSING_IN_BOOKS",
+          "status": "passed",
+          "title": "accurately classifies MATCHED, TAX_MISMATCH, MISSING_IN_PORTAL, and MISSING_IN_BOOKS",
+          "duration": 1.6408000000001266,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GstService", "getReconciliationSummary"],
+          "fullName": "GstService getReconciliationSummary returns reconciliation stats and progress percentage",
+          "status": "passed",
+          "title": "returns reconciliation stats and progress percentage",
+          "duration": 0.811200000000099,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095286572,
+      "endTime": 1793095286591.8113,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/gst/gst.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice rejects an invoice where total <= 0",
+          "status": "passed",
+          "title": "rejects an invoice where total <= 0",
+          "duration": 3.9648000000001957,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice rejects an invoice where subtotal + tax != total",
+          "status": "passed",
+          "title": "rejects an invoice where subtotal + tax != total",
+          "duration": 0.7232000000003609,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice creates a balanced double-entry journal entry and OUTPUT_GST entry",
+          "status": "passed",
+          "title": "creates a balanced double-entry journal entry and OUTPUT_GST entry",
+          "duration": 3.076599999999871,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice auto-excludes proforma invoices (/PI/) from GST reporting while still recording accounting",
+          "status": "passed",
+          "title": "auto-excludes proforma invoices (/PI/) from GST reporting while still recording accounting",
+          "duration": 0.8324000000002343,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided",
+          "status": "passed",
+          "title": "creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided",
+          "duration": 0.9429000000000087,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postSalesInvoice"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postSalesInvoice prevents duplicate posting and returns alreadyPosted on retries",
+          "status": "passed",
+          "title": "prevents duplicate posting and returns alreadyPosted on retries",
+          "duration": 0.8198999999999614,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill rejects an imbalanced purchase bill",
+          "status": "passed",
+          "title": "rejects an imbalanced purchase bill",
+          "duration": 0.7137000000002445,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill creates a balanced double-entry voucher (Debit COGS & GST Input, Credit AP) and INPUT_TAX_CREDIT entry",
+          "status": "passed",
+          "title": "creates a balanced double-entry voucher (Debit COGS & GST Input, Credit AP) and INPUT_TAX_CREDIT entry",
+          "duration": 1.4822999999996682,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided for purchase bills",
+          "status": "passed",
+          "title": "creates multiple GST entries when multi-line taxItems with distinct HSN/rates are provided for purchase bills",
+          "duration": 0.7968999999998232,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill absorbs blocked tax into expense and creates no GST entry when ITC is ineligible",
+          "status": "passed",
+          "title": "absorbs blocked tax into expense and creates no GST entry when ITC is ineligible",
+          "duration": 1.0441999999998188,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill prevents duplicate purchase bill posting on retries",
+          "status": "passed",
+          "title": "prevents duplicate purchase bill posting on retries",
+          "duration": 0.698399999999765,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill fails safely with MISSING_INPUT_TAX_ACCOUNT when recoverable ITC is claimed but no 1300 ASSET account exists (never falls back to 2020 LIABILITY)",
+          "status": "passed",
+          "title": "fails safely with MISSING_INPUT_TAX_ACCOUNT when recoverable ITC is claimed but no 1300 ASSET account exists (never falls back to 2020 LIABILITY)",
+          "duration": 0.7044999999998254,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "postPurchaseBill"
+          ],
+          "fullName": "SalesPurchasesIntegrationService postPurchaseBill does not require 1300 ASSET account when isItcEligible is false or taxAmount is 0",
+          "status": "passed",
+          "title": "does not require 1300 ASSET account when isItcEligible is false or taxAmount is 0",
+          "duration": 0.5673999999999069,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "cancellation & reversal workflows"
+          ],
+          "fullName": "SalesPurchasesIntegrationService cancellation & reversal workflows generates a reversal journal voucher and cancels GST entry upon cancellation",
+          "status": "passed",
+          "title": "generates a reversal journal voucher and cancels GST entry upon cancellation",
+          "duration": 3.9122000000002117,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "cancellation & reversal workflows"
+          ],
+          "fullName": "SalesPurchasesIntegrationService cancellation & reversal workflows returns alreadyCancelled safely if document is not found or already reversed",
+          "status": "passed",
+          "title": "returns alreadyCancelled safely if document is not found or already reversed",
+          "duration": 0.3851999999997133,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "SalesPurchasesIntegrationService",
+            "getIntegrationStatus"
+          ],
+          "fullName": "SalesPurchasesIntegrationService getIntegrationStatus reports integration status for a document reference",
+          "status": "passed",
+          "title": "reports integration status for a document reference",
+          "duration": 1.0109000000002197,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095294260,
+      "endTime": 1793095294283.011,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/integration/sales-purchases-integration.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "@OrgScoped() validation"
+          ],
+          "fullName": "JournalEntriesRepository @OrgScoped() validation throws synchronously if called without a valid OrgScope",
+          "status": "passed",
+          "title": "throws synchronously if called without a valid OrgScope",
+          "duration": 4.838400000000092,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries findMany() enforces organizationId from scope and applies filters",
+          "status": "passed",
+          "title": "findMany() enforces organizationId from scope and applies filters",
+          "duration": 3.9278999999999087,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries findById() enforces organizationId from scope",
+          "status": "passed",
+          "title": "findById() enforces organizationId from scope",
+          "duration": 1.0067000000001372,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries findByEntryNumber() enforces organizationId from scope",
+          "status": "passed",
+          "title": "findByEntryNumber() enforces organizationId from scope",
+          "duration": 1.2182000000000244,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries generateNextEntryNumber() counts strictly within scope.organizationId",
+          "status": "passed",
+          "title": "generateNextEntryNumber() counts strictly within scope.organizationId",
+          "duration": 0.777599999999893,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries postEntry() atomically updates entry and adjusts account balances within scope.organizationId",
+          "status": "passed",
+          "title": "postEntry() atomically updates entry and adjusts account balances within scope.organizationId",
+          "duration": 1.3618999999998778,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesRepository",
+            "tenant isolation in queries"
+          ],
+          "fullName": "JournalEntriesRepository tenant isolation in queries deleteDraft() deletes only DRAFT entries within scope.organizationId",
+          "status": "passed",
+          "title": "deleteDraft() deletes only DRAFT entries within scope.organizationId",
+          "duration": 1.0380999999999858,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095293579,
+      "endTime": 1793095293593.038,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/journal/journal-entries.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["JournalEntriesService", "findAll() & findOne()"],
+          "fullName": "JournalEntriesService findAll() & findOne() delegates to repository with tenant scope and wraps in PaginatedResponseDto",
+          "status": "passed",
+          "title": "delegates to repository with tenant scope and wraps in PaginatedResponseDto",
+          "duration": 3.276100000000042,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "findAll() & findOne()"],
+          "fullName": "JournalEntriesService findAll() & findOne() returns entry when found",
+          "status": "passed",
+          "title": "returns entry when found",
+          "duration": 0.45250000000010004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "findAll() & findOne()"],
+          "fullName": "JournalEntriesService findAll() & findOne() throws ResourceNotFoundException when entry is missing",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when entry is missing",
+          "duration": 1.111599999999953,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting creates a draft voucher when debits equal credits",
+          "status": "passed",
+          "title": "creates a draft voucher when debits equal credits",
+          "duration": 0.7528999999999542,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws BusinessRuleViolationException (UNBALANCED_JOURNAL) when debit != credit",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (UNBALANCED_JOURNAL) when debit != credit",
+          "duration": 0.36570000000006075,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws BusinessRuleViolationException (INSUFFICIENT_JOURNAL_LINES) when fewer than 2 lines",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (INSUFFICIENT_JOURNAL_LINES) when fewer than 2 lines",
+          "duration": 0.25720000000001164,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws BusinessRuleViolationException (INVALID_LINE_AMOUNTS) when line has both debit and credit",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (INVALID_LINE_AMOUNTS) when line has both debit and credit",
+          "duration": 0.3228999999998905,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws BusinessRuleViolationException (INVALID_LINE_AMOUNTS) when line has neither debit nor credit",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (INVALID_LINE_AMOUNTS) when line has neither debit nor credit",
+          "duration": 0.29909999999995307,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws ResourceNotFoundException when referencing non-existent or foreign account",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when referencing non-existent or foreign account",
+          "duration": 0.38020000000005894,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws BusinessRuleViolationException (ACCOUNT_INACTIVE) when referencing inactive account",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (ACCOUNT_INACTIVE) when referencing inactive account",
+          "duration": 0.5440000000000964,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "create() validation & drafting"
+          ],
+          "fullName": "JournalEntriesService create() validation & drafting throws ResourceConflictException when client provides an existing entryNumber",
+          "status": "passed",
+          "title": "throws ResourceConflictException when client provides an existing entryNumber",
+          "duration": 0.4796000000001186,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "update() rules"],
+          "fullName": "JournalEntriesService update() rules updates draft voucher successfully",
+          "status": "passed",
+          "title": "updates draft voucher successfully",
+          "duration": 1.4876000000001568,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "update() rules"],
+          "fullName": "JournalEntriesService update() rules throws BusinessRuleViolationException (IMMUTABLE_POSTED_JOURNAL) when editing POSTED voucher",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (IMMUTABLE_POSTED_JOURNAL) when editing POSTED voucher",
+          "duration": 0.3473999999998796,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "post() and General Ledger synchronizations"
+          ],
+          "fullName": "JournalEntriesService post() and General Ledger synchronizations posts draft and computes correct balance deltas for Asset and Expense",
+          "status": "passed",
+          "title": "posts draft and computes correct balance deltas for Asset and Expense",
+          "duration": 0.8362000000001899,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "post() and General Ledger synchronizations"
+          ],
+          "fullName": "JournalEntriesService post() and General Ledger synchronizations computes correct balance deltas for Revenue and Asset (Credit increases Revenue)",
+          "status": "passed",
+          "title": "computes correct balance deltas for Revenue and Asset (Credit increases Revenue)",
+          "duration": 0.3248999999998432,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "post() and General Ledger synchronizations"
+          ],
+          "fullName": "JournalEntriesService post() and General Ledger synchronizations throws BusinessRuleViolationException (JOURNAL_ALREADY_POSTED) if already posted",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (JOURNAL_ALREADY_POSTED) if already posted",
+          "duration": 0.2133000000001175,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "post() and General Ledger synchronizations"
+          ],
+          "fullName": "JournalEntriesService post() and General Ledger synchronizations throws InvalidStateTransitionException if status is REVERSED or VOID",
+          "status": "passed",
+          "title": "throws InvalidStateTransitionException if status is REVERSED or VOID",
+          "duration": 0.21209999999996398,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "reverse() rules and ledger reversal"
+          ],
+          "fullName": "JournalEntriesService reverse() rules and ledger reversal reverses a posted voucher, creates linked reversal voucher, and inverts balance deltas",
+          "status": "passed",
+          "title": "reverses a posted voucher, creates linked reversal voucher, and inverts balance deltas",
+          "duration": 0.4634000000000924,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "reverse() rules and ledger reversal"
+          ],
+          "fullName": "JournalEntriesService reverse() rules and ledger reversal throws BusinessRuleViolationException (INVALID_STATE_TRANSITION) if voucher is DRAFT",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (INVALID_STATE_TRANSITION) if voucher is DRAFT",
+          "duration": 0.169399999999996,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "reverse() rules and ledger reversal"
+          ],
+          "fullName": "JournalEntriesService reverse() rules and ledger reversal throws BusinessRuleViolationException (JOURNAL_ALREADY_REVERSED) if already reversed",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (JOURNAL_ALREADY_REVERSED) if already reversed",
+          "duration": 0.1714999999999236,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "JournalEntriesService",
+            "reverse() rules and ledger reversal"
+          ],
+          "fullName": "JournalEntriesService reverse() rules and ledger reversal throws BusinessRuleViolationException (CANNOT_REVERSE_REVERSAL) when attempting to reverse a reversal voucher",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (CANNOT_REVERSE_REVERSAL) when attempting to reverse a reversal voucher",
+          "duration": 0.17020000000002256,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "remove() rules"],
+          "fullName": "JournalEntriesService remove() rules deletes draft voucher",
+          "status": "passed",
+          "title": "deletes draft voucher",
+          "duration": 0.21020000000021355,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["JournalEntriesService", "remove() rules"],
+          "fullName": "JournalEntriesService remove() rules throws BusinessRuleViolationException (IMMUTABLE_POSTED_JOURNAL) when deleting POSTED voucher",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException (IMMUTABLE_POSTED_JOURNAL) when deleting POSTED voucher",
+          "duration": 0.15799999999990177,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291608,
+      "endTime": 1793095291621.2102,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/journal/journal-entries.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository enforces tenant organization scoping on findMany",
+          "status": "passed",
+          "title": "enforces tenant organization scoping on findMany",
+          "duration": 5.031599999998434,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository applies filters by vendorName search, paymentModeId, and status",
+          "status": "passed",
+          "title": "applies filters by vendorName search, paymentModeId, and status",
+          "duration": 1.2885000000005675,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository generates sequential payment number formatted PM-YYYYMM-0001",
+          "status": "passed",
+          "title": "generates sequential payment number formatted PM-YYYYMM-0001",
+          "duration": 0.6959999999999127,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository increments sequence number when previous payment exists",
+          "status": "passed",
+          "title": "increments sequence number when previous payment exists",
+          "duration": 0.5459999999984575,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository atomically confirms payment, posts GL journal, and deducts bank balance",
+          "status": "passed",
+          "title": "atomically confirms payment, posts GL journal, and deducts bank balance",
+          "duration": 1.448099999999613,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository atomically voids payment, reverses journal voucher, and restores bank balance",
+          "status": "passed",
+          "title": "atomically voids payment, reverses journal voucher, and restores bank balance",
+          "duration": 1.3266999999996187,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeRepository"],
+          "fullName": "PaymentsMadeRepository soft deletes draft or void payment",
+          "status": "passed",
+          "title": "soft deletes draft or void payment",
+          "duration": 0.8221000000012282,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291958,
+      "endTime": 1793095291969.822,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/payments-made/payments-made.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["PaymentsMadeService", "List and Read"],
+          "fullName": "PaymentsMadeService List and Read returns paginated payments made",
+          "status": "passed",
+          "title": "returns paginated payments made",
+          "duration": 5.016600000000835,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "List and Read"],
+          "fullName": "PaymentsMadeService List and Read throws ResourceNotFoundException when payment does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when payment does not exist",
+          "duration": 2.1733000000003813,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement rejects future payment date",
+          "status": "passed",
+          "title": "rejects future payment date",
+          "duration": 1.1838000000007014,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement rejects zero or negative amount",
+          "status": "passed",
+          "title": "rejects zero or negative amount",
+          "duration": 0.6132999999990716,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement throws ResourceNotFoundException for non-existent paymentModeId",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException for non-existent paymentModeId",
+          "duration": 0.6312999999991007,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement throws ResourceNotFoundException for non-existent bankAccountId",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException for non-existent bankAccountId",
+          "duration": 0.5131000000001222,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement throws ResourceConflictException when custom paymentNumber already exists",
+          "status": "passed",
+          "title": "throws ResourceConflictException when custom paymentNumber already exists",
+          "duration": 0.681800000000294,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement creates DRAFT disbursement without posting GL journal",
+          "status": "passed",
+          "title": "creates DRAFT disbursement without posting GL journal",
+          "duration": 0.8819999999996071,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Create Disbursement"],
+          "fullName": "PaymentsMadeService Create Disbursement creates and automatically confirms payment with balanced GL posting when CONFIRMED",
+          "status": "passed",
+          "title": "creates and automatically confirms payment with balanced GL posting when CONFIRMED",
+          "duration": 3.5725000000002183,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Confirm Disbursement"],
+          "fullName": "PaymentsMadeService Confirm Disbursement rejects confirming already confirmed payment",
+          "status": "passed",
+          "title": "rejects confirming already confirmed payment",
+          "duration": 0.7655999999988126,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Confirm Disbursement"],
+          "fullName": "PaymentsMadeService Confirm Disbursement rejects confirming voided payment",
+          "status": "passed",
+          "title": "rejects confirming voided payment",
+          "duration": 0.5221000000001368,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Confirm Disbursement"],
+          "fullName": "PaymentsMadeService Confirm Disbursement throws BusinessRuleViolationException when Accounts Payable account is missing",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when Accounts Payable account is missing",
+          "duration": 0.9354000000002998,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Update Disbursement"],
+          "fullName": "PaymentsMadeService Update Disbursement updates metadata on a DRAFT payment",
+          "status": "passed",
+          "title": "updates metadata on a DRAFT payment",
+          "duration": 3.117899999999281,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Update Disbursement"],
+          "fullName": "PaymentsMadeService Update Disbursement rejects updating a CONFIRMED payment and does not mutate repository",
+          "status": "passed",
+          "title": "rejects updating a CONFIRMED payment and does not mutate repository",
+          "duration": 0.7059000000008382,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Update Disbursement"],
+          "fullName": "PaymentsMadeService Update Disbursement rejects updating a RECONCILED payment and does not mutate repository",
+          "status": "passed",
+          "title": "rejects updating a RECONCILED payment and does not mutate repository",
+          "duration": 0.586700000001656,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Update Disbursement"],
+          "fullName": "PaymentsMadeService Update Disbursement rejects updating a VOID payment and does not mutate repository",
+          "status": "passed",
+          "title": "rejects updating a VOID payment and does not mutate repository",
+          "duration": 0.5974000000005617,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Update Disbursement"],
+          "fullName": "PaymentsMadeService Update Disbursement rejects update when paymentDate is in the future and does not mutate repository",
+          "status": "passed",
+          "title": "rejects update when paymentDate is in the future and does not mutate repository",
+          "duration": 0.8779999999987922,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Void and Reversal"],
+          "fullName": "PaymentsMadeService Void and Reversal rejects voiding already voided payment",
+          "status": "passed",
+          "title": "rejects voiding already voided payment",
+          "duration": 0.7170999999998457,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Void and Reversal"],
+          "fullName": "PaymentsMadeService Void and Reversal voids CONFIRMED payment and generates balanced GL reversal voucher",
+          "status": "passed",
+          "title": "voids CONFIRMED payment and generates balanced GL reversal voucher",
+          "duration": 0.7498000000014144,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Void and Reversal"],
+          "fullName": "PaymentsMadeService Void and Reversal voids DRAFT payment without GL reversal voucher",
+          "status": "passed",
+          "title": "voids DRAFT payment without GL reversal voucher",
+          "duration": 0.6908000000003085,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Delete Disbursement"],
+          "fullName": "PaymentsMadeService Delete Disbursement rejects deleting a CONFIRMED disbursement",
+          "status": "passed",
+          "title": "rejects deleting a CONFIRMED disbursement",
+          "duration": 0.6797999999998865,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsMadeService", "Delete Disbursement"],
+          "fullName": "PaymentsMadeService Delete Disbursement allows soft-deleting DRAFT disbursement",
+          "status": "passed",
+          "title": "allows soft-deleting DRAFT disbursement",
+          "duration": 0.5617000000002008,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095292054,
+      "endTime": 1793095292081.5618,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/payments-made/payments-made.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["ReportsRepository", "@OrgScoped() validation"],
+          "fullName": "ReportsRepository @OrgScoped() validation throws synchronously if called without a valid OrgScope",
+          "status": "passed",
+          "title": "throws synchronously if called without a valid OrgScope",
+          "duration": 3.263300000000072,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ReportsRepository", "getAccounts"],
+          "fullName": "ReportsRepository getAccounts scopes account retrieval by organizationId and excludes deleted",
+          "status": "passed",
+          "title": "scopes account retrieval by organizationId and excludes deleted",
+          "duration": 2.4244999999998527,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsRepository",
+            "getPostedJournalLinesInDateRange"
+          ],
+          "fullName": "ReportsRepository getPostedJournalLinesInDateRange filters only POSTED entries within the given date bounds and tenant",
+          "status": "passed",
+          "title": "filters only POSTED entries within the given date bounds and tenant",
+          "duration": 0.6204000000000178,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsRepository",
+            "getPostedJournalLinesUpToDate"
+          ],
+          "fullName": "ReportsRepository getPostedJournalLinesUpToDate queries cumulative posted lines up to asOfDate for the tenant",
+          "status": "passed",
+          "title": "queries cumulative posted lines up to asOfDate for the tenant",
+          "duration": 0.7889999999999873,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ReportsRepository", "getAccountPriorTotals"],
+          "fullName": "ReportsRepository getAccountPriorTotals sums debits and credits prior to start date correctly",
+          "status": "passed",
+          "title": "sums debits and credits prior to start date correctly",
+          "duration": 0.6270999999999276,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ReportsRepository", "getAccountLedgerLines"],
+          "fullName": "ReportsRepository getAccountLedgerLines queries lines with pagination and ordering",
+          "status": "passed",
+          "title": "queries lines with pagination and ordering",
+          "duration": 0.5654999999999291,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["ReportsRepository", "getPeriodClosingAuditData"],
+          "fullName": "ReportsRepository getPeriodClosingAuditData returns counts and aggregate totals",
+          "status": "passed",
+          "title": "returns counts and aggregate totals",
+          "duration": 0.5246999999999389,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095289824,
+      "endTime": 1793095289833.5247,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/reports/reports.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Profit & Loss Statement (getProfitAndLoss)"
+          ],
+          "fullName": "ReportsService Profit & Loss Statement (getProfitAndLoss) throws if startDate is after endDate",
+          "status": "passed",
+          "title": "throws if startDate is after endDate",
+          "duration": 5.259900000000016,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Profit & Loss Statement (getProfitAndLoss)"
+          ],
+          "fullName": "ReportsService Profit & Loss Statement (getProfitAndLoss) aggregates revenue credits and expense debits correctly",
+          "status": "passed",
+          "title": "aggregates revenue credits and expense debits correctly",
+          "duration": 2.272399999999834,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Profit & Loss Statement (getProfitAndLoss)"
+          ],
+          "fullName": "ReportsService Profit & Loss Statement (getProfitAndLoss) flags isProfitable as false when expenses exceed revenues",
+          "status": "passed",
+          "title": "flags isProfitable as false when expenses exceed revenues",
+          "duration": 0.5604000000002998,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Balance Sheet (getBalanceSheet)"
+          ],
+          "fullName": "ReportsService Balance Sheet (getBalanceSheet) calculates Assets, Liabilities, and Equity including retained earnings and verifies balance",
+          "status": "passed",
+          "title": "calculates Assets, Liabilities, and Equity including retained earnings and verifies balance",
+          "duration": 0.7773000000001957,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Trial Balance (getTrialBalance)"
+          ],
+          "fullName": "ReportsService Trial Balance (getTrialBalance) summarizes opening, period, and closing totals and verifies debits equal credits",
+          "status": "passed",
+          "title": "summarizes opening, period, and closing totals and verifies debits equal credits",
+          "duration": 1.219000000000051,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "General Ledger (getGeneralLedger)"
+          ],
+          "fullName": "ReportsService General Ledger (getGeneralLedger) throws ResourceNotFoundException if account does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException if account does not exist",
+          "duration": 0.8589000000001761,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "General Ledger (getGeneralLedger)"
+          ],
+          "fullName": "ReportsService General Ledger (getGeneralLedger) calculates opening balance and sequential running balance along journal lines",
+          "status": "passed",
+          "title": "calculates opening balance and sequential running balance along journal lines",
+          "duration": 0.9897000000000844,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Cash & Bank Summary (getCashBankSummary)"
+          ],
+          "fullName": "ReportsService Cash & Bank Summary (getCashBankSummary) summarizes treasury accounts with opening, inflows, outflows, and closing",
+          "status": "passed",
+          "title": "summarizes treasury accounts with opening, inflows, outflows, and closing",
+          "duration": 1.4295000000001892,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Period Closing Status Audit (getPeriodClosingStatus)"
+          ],
+          "fullName": "ReportsService Period Closing Status Audit (getPeriodClosingStatus) reports canClose as true when no draft entries exist and debits equal credits",
+          "status": "passed",
+          "title": "reports canClose as true when no draft entries exist and debits equal credits",
+          "duration": 0.981499999999869,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "ReportsService",
+            "Period Closing Status Audit (getPeriodClosingStatus)"
+          ],
+          "fullName": "ReportsService Period Closing Status Audit (getPeriodClosingStatus) blocks period closing when unposted drafts or unbalanced totals exist",
+          "status": "passed",
+          "title": "blocks period closing when unposted drafts or unbalanced totals exist",
+          "duration": 0.7435999999997875,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095286570,
+      "endTime": 1793095286585.7437,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/reports/reports.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "PaymentsReceivedRepository Tenant Isolation & Querying findMany() applies tenant filter and pagination",
+          "status": "passed",
+          "title": "findMany() applies tenant filter and pagination",
+          "duration": 4.657900000000154,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "PaymentsReceivedRepository Tenant Isolation & Querying findById() restricts query to scope.organizationId",
+          "status": "passed",
+          "title": "findById() restricts query to scope.organizationId",
+          "duration": 0.7228999999997541,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "PaymentsReceivedRepository Tenant Isolation & Querying findByPaymentNumber() checks across all records including soft-deleted ones",
+          "status": "passed",
+          "title": "findByPaymentNumber() checks across all records including soft-deleted ones",
+          "duration": 0.7141000000001441,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Tenant Isolation & Querying"
+          ],
+          "fullName": "PaymentsReceivedRepository Tenant Isolation & Querying generateNextPaymentNumber() formats sequence scoped to organizationId",
+          "status": "passed",
+          "title": "generateNextPaymentNumber() formats sequence scoped to organizationId",
+          "duration": 0.8470999999999549,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedRepository", "Mutations"],
+          "fullName": "PaymentsReceivedRepository Mutations create() persists receipt and initial allocations under scope.organizationId",
+          "status": "passed",
+          "title": "create() persists receipt and initial allocations under scope.organizationId",
+          "duration": 2.4910999999992782,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedRepository", "Mutations"],
+          "fullName": "PaymentsReceivedRepository Mutations update() restricts modification to scope.organizationId",
+          "status": "passed",
+          "title": "update() restricts modification to scope.organizationId",
+          "duration": 0.8469000000004598,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedRepository", "Mutations"],
+          "fullName": "PaymentsReceivedRepository Mutations softDelete() marks deletedAt only for DRAFT or VOID within scope",
+          "status": "passed",
+          "title": "softDelete() marks deletedAt only for DRAFT or VOID within scope",
+          "duration": 0.8304000000007363,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "GL Accounting Operations"
+          ],
+          "fullName": "PaymentsReceivedRepository GL Accounting Operations postAndConfirmReceipt() creates journal voucher, updates GL balances and marks CONFIRMED",
+          "status": "passed",
+          "title": "postAndConfirmReceipt() creates journal voucher, updates GL balances and marks CONFIRMED",
+          "duration": 1.1568999999999505,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "GL Accounting Operations"
+          ],
+          "fullName": "PaymentsReceivedRepository GL Accounting Operations voidAndReverseReceipt() creates reversal journal and inverts GL balances",
+          "status": "passed",
+          "title": "voidAndReverseReceipt() creates reversal journal and inverts GL balances",
+          "duration": 1.833400000000438,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedRepository Invoice Allocations addAllocation() creates allocation and updates allocated/unallocated amounts",
+          "status": "passed",
+          "title": "addAllocation() creates allocation and updates allocated/unallocated amounts",
+          "duration": 1.550799999999981,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedRepository",
+            "Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedRepository Invoice Allocations removeAllocation() deletes allocation and restores unallocated balance",
+          "status": "passed",
+          "title": "removeAllocation() deletes allocation and restores unallocated balance",
+          "duration": 1.8177000000005137,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095291997,
+      "endTime": 1793095292015.8176,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/payments-received/payments-received.repository.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["PaymentsReceivedService", "List & Query"],
+          "fullName": "PaymentsReceivedService List & Query findAll() returns paginated list with tenant scope",
+          "status": "passed",
+          "title": "findAll() returns paginated list with tenant scope",
+          "duration": 7.033100000000559,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedService", "List & Query"],
+          "fullName": "PaymentsReceivedService List & Query findOne() returns record when found",
+          "status": "passed",
+          "title": "findOne() returns record when found",
+          "duration": 1.2066000000013446,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedService", "List & Query"],
+          "fullName": "PaymentsReceivedService List & Query findOne() throws ResourceNotFoundException when record not found",
+          "status": "passed",
+          "title": "findOne() throws ResourceNotFoundException when record not found",
+          "duration": 1.699800000000323,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws BusinessRuleViolationException when paymentDate is in the future",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when paymentDate is in the future",
+          "duration": 1.3119999999998981,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws ResourceNotFoundException when CRM customerId does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when CRM customerId does not exist",
+          "duration": 0.8642999999992753,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws ResourceNotFoundException when paymentModeId does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when paymentModeId does not exist",
+          "duration": 0.7364000000015949,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws ResourceNotFoundException when bankAccountId does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when bankAccountId does not exist",
+          "duration": 0.6242999999994936,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws BusinessRuleViolationException when an allocation amount is non-positive",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when an allocation amount is non-positive",
+          "duration": 0.7260000000005675,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws BusinessRuleViolationException when total allocations exceed payment amount",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when total allocations exceed payment amount",
+          "duration": 0.9081999999998516,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws ResourceConflictException when custom paymentNumber already exists",
+          "status": "passed",
+          "title": "throws ResourceConflictException when custom paymentNumber already exists",
+          "duration": 1.058999999999287,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt throws ResourceConflictException when paymentNumber belongs to a soft-deleted record",
+          "status": "passed",
+          "title": "throws ResourceConflictException when paymentNumber belongs to a soft-deleted record",
+          "duration": 0.7331000000012864,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt maps Prisma P2002 unique constraint error from repository.create to ResourceConflictException",
+          "status": "passed",
+          "title": "maps Prisma P2002 unique constraint error from repository.create to ResourceConflictException",
+          "duration": 1.0726999999988038,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt creates DRAFT receipt and computes allocated and unallocated balances accurately",
+          "status": "passed",
+          "title": "creates DRAFT receipt and computes allocated and unallocated balances accurately",
+          "duration": 2.85070000000087,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Create Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Create Payment Receipt creates CONFIRMED receipt and triggers GL journal posting immediately",
+          "status": "passed",
+          "title": "creates CONFIRMED receipt and triggers GL journal posting immediately",
+          "duration": 1.922099999999773,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt throws BusinessRuleViolationException when updating a VOID payment",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when updating a VOID payment",
+          "duration": 0.8767000000007101,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt throws BusinessRuleViolationException when updating a CONFIRMED payment",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when updating a CONFIRMED payment",
+          "duration": 0.588900000000649,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt throws BusinessRuleViolationException when updating a RECONCILED payment",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when updating a RECONCILED payment",
+          "duration": 0.4986000000008062,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt throws BusinessRuleViolationException when update paymentDate is in the future",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when update paymentDate is in the future",
+          "duration": 0.7198000000007596,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt throws ResourceNotFoundException when update customerId does not exist",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when update customerId does not exist",
+          "duration": 0.5441000000009808,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Update Payment Receipt"
+          ],
+          "fullName": "PaymentsReceivedService Update Payment Receipt updates metadata successfully on DRAFT payment",
+          "status": "passed",
+          "title": "updates metadata successfully on DRAFT payment",
+          "duration": 0.611800000000585,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "General Ledger Confirmation & Double-Entry Invariants"
+          ],
+          "fullName": "PaymentsReceivedService General Ledger Confirmation & Double-Entry Invariants throws BusinessRuleViolationException if payment is already CONFIRMED",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException if payment is already CONFIRMED",
+          "duration": 0.5447999999996682,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "General Ledger Confirmation & Double-Entry Invariants"
+          ],
+          "fullName": "PaymentsReceivedService General Ledger Confirmation & Double-Entry Invariants throws BusinessRuleViolationException if payment is VOID",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException if payment is VOID",
+          "duration": 0.6372000000010303,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "General Ledger Confirmation & Double-Entry Invariants"
+          ],
+          "fullName": "PaymentsReceivedService General Ledger Confirmation & Double-Entry Invariants posts balanced double-entry GL journal: Debit Bank/Cash, Credit Accounts Receivable",
+          "status": "passed",
+          "title": "posts balanced double-entry GL journal: Debit Bank/Cash, Credit Accounts Receivable",
+          "duration": 1.4925999999995838,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "General Ledger Confirmation & Double-Entry Invariants"
+          ],
+          "fullName": "PaymentsReceivedService General Ledger Confirmation & Double-Entry Invariants resolves Cash GL account (1010) when payment mode is Cash",
+          "status": "passed",
+          "title": "resolves Cash GL account (1010) when payment mode is Cash",
+          "duration": 0.7321999999985565,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "General Ledger Confirmation & Double-Entry Invariants"
+          ],
+          "fullName": "PaymentsReceivedService General Ledger Confirmation & Double-Entry Invariants throws BusinessRuleViolationException if Accounts Receivable GL account is missing",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException if Accounts Receivable GL account is missing",
+          "duration": 0.7440000000005966,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Void & Reversal Workflow"
+          ],
+          "fullName": "PaymentsReceivedService Void & Reversal Workflow throws BusinessRuleViolationException if payment is already VOID",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException if payment is already VOID",
+          "duration": 0.7219000000004598,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Void & Reversal Workflow"
+          ],
+          "fullName": "PaymentsReceivedService Void & Reversal Workflow voids DRAFT receipt without generating a reversal journal",
+          "status": "passed",
+          "title": "voids DRAFT receipt without generating a reversal journal",
+          "duration": 0.7868999999991502,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Void & Reversal Workflow"
+          ],
+          "fullName": "PaymentsReceivedService Void & Reversal Workflow voids CONFIRMED receipt, creates REV reversal voucher, inverts lines and restores balances",
+          "status": "passed",
+          "title": "voids CONFIRMED receipt, creates REV reversal voucher, inverts lines and restores balances",
+          "duration": 0.8906999999999243,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations throws BusinessRuleViolationException when allocating against a VOID receipt",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when allocating against a VOID receipt",
+          "duration": 0.5993999999991502,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations throws BusinessRuleViolationException when allocation amount is <= 0",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when allocation amount is <= 0",
+          "duration": 0.6347999999998137,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations throws BusinessRuleViolationException when allocation exceeds available unallocated balance",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when allocation exceeds available unallocated balance",
+          "duration": 0.5376000000014756,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations successfully adds allocation when within unallocated balance",
+          "status": "passed",
+          "title": "successfully adds allocation when within unallocated balance",
+          "duration": 0.5511000000005879,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations throws ResourceNotFoundException when removing an allocation that does not belong to the payment",
+          "status": "passed",
+          "title": "throws ResourceNotFoundException when removing an allocation that does not belong to the payment",
+          "duration": 0.5085999999992055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "PaymentsReceivedService",
+            "Dynamic Invoice Allocations"
+          ],
+          "fullName": "PaymentsReceivedService Dynamic Invoice Allocations successfully removes allocation and restores unallocated balance",
+          "status": "passed",
+          "title": "successfully removes allocation and restores unallocated balance",
+          "duration": 0.41599999999925785,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedService", "Delete Receipts"],
+          "fullName": "PaymentsReceivedService Delete Receipts throws BusinessRuleViolationException when attempting to delete a CONFIRMED receipt",
+          "status": "passed",
+          "title": "throws BusinessRuleViolationException when attempting to delete a CONFIRMED receipt",
+          "duration": 0.5948000000007596,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PaymentsReceivedService", "Delete Receipts"],
+          "fullName": "PaymentsReceivedService Delete Receipts soft deletes a DRAFT receipt successfully",
+          "status": "passed",
+          "title": "soft deletes a DRAFT receipt successfully",
+          "duration": 0.6417999999994208,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095292094,
+      "endTime": 1793095292133.6418,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/finance/payments-received/payments-received.service.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["billStatusFor"],
+          "fullName": "billStatusFor is OPEN with no payment, PARTIALLY_PAID part-way, PAID when settled",
+          "status": "passed",
+          "title": "is OPEN with no payment, PARTIALLY_PAID part-way, PAID when settled",
+          "duration": 2.545600000000036,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["billStatusFor"],
+          "fullName": "billStatusFor does not drift on floating point sums",
+          "status": "passed",
+          "title": "does not drift on floating point sums",
+          "duration": 0.35170000000005075,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["outstanding"],
+          "fullName": "outstanding never goes negative",
+          "status": "passed",
+          "title": "never goes negative",
+          "duration": 0.4693000000000893,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["payment terms"],
+          "fullName": "payment terms reads the day count out of free text",
+          "status": "passed",
+          "title": "reads the day count out of free text",
+          "duration": 0.8867000000000189,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["payment terms"],
+          "fullName": "payment terms derives the due date from the bill date",
+          "status": "passed",
+          "title": "derives the due date from the bill date",
+          "duration": 0.6440000000000055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["isOverdue"],
+          "fullName": "isOverdue flags unpaid bills past due only",
+          "status": "passed",
+          "title": "flags unpaid bills past due only",
+          "duration": 0.5273999999999432,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095292642,
+      "endTime": 1793095292648.5273,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/scm/finance/finance.helpers.spec.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "postBillToFinance() validation and lifecycle"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration postBillToFinance() validation and lifecycle rejects non-existent bill with ResourceNotFoundException",
+          "status": "passed",
+          "title": "rejects non-existent bill with ResourceNotFoundException",
+          "duration": 5.396300000000338,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "postBillToFinance() validation and lifecycle"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration postBillToFinance() validation and lifecycle rejects CANCELLED bill with BusinessRuleViolationException (BILL_CANCELLED)",
+          "status": "passed",
+          "title": "rejects CANCELLED bill with BusinessRuleViolationException (BILL_CANCELLED)",
+          "duration": 0.8092999999998938,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "postBillToFinance() validation and lifecycle"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration postBillToFinance() validation and lifecycle successfully posts an OPEN supplier bill to Finance and GST",
+          "status": "passed",
+          "title": "successfully posts an OPEN supplier bill to Finance and GST",
+          "duration": 1.4598000000005413,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Tax jurisdiction determination (Intra-state vs Inter-state)"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Tax jurisdiction determination (Intra-state vs Inter-state) determines INTRA_STATE (CGST + SGST) when supplier state matches company state",
+          "status": "passed",
+          "title": "determines INTRA_STATE (CGST + SGST) when supplier state matches company state",
+          "duration": 0.680000000000291,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Tax jurisdiction determination (Intra-state vs Inter-state)"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Tax jurisdiction determination (Intra-state vs Inter-state) determines INTER_STATE (IGST) when supplier state differs from company state",
+          "status": "passed",
+          "title": "determines INTER_STATE (IGST) when supplier state differs from company state",
+          "duration": 0.6090999999996711,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Tax jurisdiction determination (Intra-state vs Inter-state)"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Tax jurisdiction determination (Intra-state vs Inter-state) respects explicit jurisdiction override from DTO",
+          "status": "passed",
+          "title": "respects explicit jurisdiction override from DTO",
+          "duration": 0.618199999999888,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Multi-line HSN and Tax Rate Slabs grouping"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Multi-line HSN and Tax Rate Slabs grouping groups PO line items by HSN and tax rate when bill is linked to a PO",
+          "status": "passed",
+          "title": "groups PO line items by HSN and tax rate when bill is linked to a PO",
+          "duration": 2.479400000000169,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Ineligible ITC handling"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Ineligible ITC handling passes isItcEligible: false to integration service when marked ineligible",
+          "status": "passed",
+          "title": "passes isItcEligible: false to integration service when marked ineligible",
+          "duration": 0.6727000000000771,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "Cancellation & reversal integration"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration Cancellation & reversal integration calls cancelPurchaseBill and cancels the bill in SCM",
+          "status": "passed",
+          "title": "calls cancelPurchaseBill and cancels the bill in SCM",
+          "duration": 2.404700000000048,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "listBills() and getBill() enrichment"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration listBills() and getBill() enrichment enriches bills list with isPosted: true and journal/gst metadata",
+          "status": "passed",
+          "title": "enriches bills list with isPosted: true and journal/gst metadata",
+          "duration": 1.2627000000002226,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "FinanceService — Supplier Bills Posting & Finance/GST Integration",
+            "listBills() and getBill() enrichment"
+          ],
+          "fullName": "FinanceService — Supplier Bills Posting & Finance/GST Integration listBills() and getBill() enrichment enriches single getBill with isPosted metadata",
+          "status": "passed",
+          "title": "enriches single getBill with isPosted metadata",
+          "duration": 0.5866000000005442,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1793095287507,
+      "endTime": 1793095287525.5867,
+      "status": "passed",
+      "message": "",
+      "name": "C:/Users/skkin/OneDrive/Desktop/cooking area/Texawave_Erp_Production/apps/api/src/modules/scm/finance/finance.service.spec.ts"
+    }
+  ]
+}

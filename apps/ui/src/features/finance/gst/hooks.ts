@@ -79,6 +79,8 @@ export function useGstr3bSummary(period: string) {
 
 export function useHsnSummary(query: {
   period?: string;
+  startDate?: string;
+  endDate?: string;
   entryType?: FinanceGstEntryType;
 }) {
   const organizationId = useAuthStore((s) => s.organizationId);

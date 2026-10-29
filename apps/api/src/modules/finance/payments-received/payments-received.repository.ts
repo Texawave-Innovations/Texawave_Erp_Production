@@ -30,6 +30,13 @@ export interface PaymentBalanceDelta {
   delta: number;
 }
 
+export interface PaymentBankAccountDelta {
+  id: number;
+  delta: number;
+  paymentNumber: string;
+  customerName: string;
+}
+
 export interface PaymentReversalData {
   originalJournalEntryId: number;
   reversalEntryNumber: string;
@@ -292,6 +299,7 @@ export class PaymentsReceivedRepository {
     journalData: PaymentJournalEntryData,
     balanceDeltas: PaymentBalanceDelta[],
     updatedBy: number,
+    bankAccountDelta?: PaymentBankAccountDelta | null,
   ) {
     return this.prisma.$transaction(async (tx) => {
       // 1. Create balanced POSTED journal voucher
@@ -339,7 +347,48 @@ export class PaymentsReceivedRepository {
         });
       }
 
-      // 4. Mark receipt as CONFIRMED and link to journal entry
+      // 4. Update bank account balance and create BankTransaction if bank account linked
+      if (bankAccountDelta) {
+        const bankAcc = await tx.financeBankAccount.findFirst({
+          where: {
+            id: bankAccountDelta.id,
+            organizationId: scope.organizationId,
+          },
+        });
+        if (bankAcc) {
+          const newBankBalance = Number(
+            (Number(bankAcc.currentBalance) + bankAccountDelta.delta).toFixed(
+              2,
+            ),
+          );
+          await tx.financeBankAccount.updateMany({
+            where: {
+              id: bankAccountDelta.id,
+              organizationId: scope.organizationId,
+            },
+            data: { currentBalance: newBankBalance },
+          });
+
+          await tx.financeBankTransaction.create({
+            data: {
+              organizationId: scope.organizationId,
+              bankAccountId: bankAccountDelta.id,
+              transactionDate: journalData.entryDate,
+              transactionType: "CREDIT",
+              amount: journalData.totalDebit,
+              balanceAfter: newBankBalance,
+              description: `Receipt ${bankAccountDelta.paymentNumber} from ${bankAccountDelta.customerName}`,
+              referenceNumber: journalData.referenceNumber ?? null,
+              matchedJournalEntryId: journalEntry.id,
+              isReconciled: true,
+              reconciledAt: new Date(),
+              createdBy: updatedBy,
+            },
+          });
+        }
+      }
+
+      // 5. Mark receipt as CONFIRMED and link to journal entry
       const updateResult = await tx.financePaymentReceived.updateMany({
         where: tenantWhere<Prisma.FinancePaymentReceivedWhereInput>(scope, {
           id: paymentId,
@@ -377,6 +426,7 @@ export class PaymentsReceivedRepository {
     reversalData: PaymentReversalData | null,
     balanceDeltas: PaymentBalanceDelta[],
     updatedBy: number,
+    bankAccountDelta?: PaymentBankAccountDelta | null,
   ) {
     return this.prisma.$transaction(async (tx) => {
       if (reversalData) {
@@ -435,6 +485,47 @@ export class PaymentsReceivedRepository {
               updatedBy,
             },
           });
+        }
+
+        // Restore bank account balance & record reversal bank transaction
+        if (bankAccountDelta) {
+          const bankAcc = await tx.financeBankAccount.findFirst({
+            where: {
+              id: bankAccountDelta.id,
+              organizationId: scope.organizationId,
+            },
+          });
+          if (bankAcc) {
+            const newBankBalance = Number(
+              (Number(bankAcc.currentBalance) + bankAccountDelta.delta).toFixed(
+                2,
+              ),
+            );
+            await tx.financeBankAccount.updateMany({
+              where: {
+                id: bankAccountDelta.id,
+                organizationId: scope.organizationId,
+              },
+              data: { currentBalance: newBankBalance },
+            });
+
+            await tx.financeBankTransaction.create({
+              data: {
+                organizationId: scope.organizationId,
+                bankAccountId: bankAccountDelta.id,
+                transactionDate: reversalData.reversalDate,
+                transactionType: "DEBIT",
+                amount: reversalData.totalDebit,
+                balanceAfter: newBankBalance,
+                description: `Void reversal for ${bankAccountDelta.paymentNumber} (${bankAccountDelta.customerName})`,
+                referenceNumber: reversalData.reversalEntryNumber,
+                matchedJournalEntryId: reversalEntry.id,
+                isReconciled: true,
+                reconciledAt: new Date(),
+                createdBy: updatedBy,
+              },
+            });
+          }
         }
       }
 

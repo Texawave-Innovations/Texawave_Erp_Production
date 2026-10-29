@@ -59,9 +59,10 @@ module.exports = tseslint.config(
     },
   },
   {
-    files: ["**/*.config.js", "**/.*rc.js"],
+    files: ["**/*.config.js", "**/.*rc.js", "scripts/**/*.js"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+      "no-empty": "off",
     },
   },
   // Package-boundary rules (Phase 4): packages/* are consumed by apps/*, never

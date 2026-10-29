@@ -3,6 +3,8 @@ import type { FinanceGstEntryType } from "../finance.constants.js";
 export interface HsnSummaryItem {
   hsnSacCode: string;
   description?: string;
+  uom?: string;
+  totalQuantity?: number;
   taxableAmount: number;
   cgstAmount: number;
   sgstAmount: number;
@@ -117,5 +119,47 @@ export interface FinanceGstReconciliationResult {
   eligibleItc: number;
   discrepancies: GstReconciliationDiscrepancyItem[];
   reconciledEntriesUpdated: number;
+  generatedAt: string;
+}
+
+export interface GstNetPositionReport {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+  outwardTaxLiability: {
+    taxableAmount: number;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalTaxAmount: number;
+    transactionCount: number;
+  };
+  inwardRecordedTax: {
+    taxableAmount: number;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalTaxAmount: number;
+    transactionCount: number;
+  };
+  eligibleItc: {
+    taxableAmount: number;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalTaxAmount: number;
+    transactionCount: number;
+  };
+  ineligibleItc: {
+    taxableAmount: number;
+    totalTaxAmount: number;
+    transactionCount: number;
+  };
+  netTaxPayable: {
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalTaxAmount: number;
+  };
   generatedAt: string;
 }

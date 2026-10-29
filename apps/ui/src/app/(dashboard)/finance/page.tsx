@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
 /**
- * Root /finance entrypoint: seamlessly redirects to Chart of Accounts (/finance/accounts)
+ * Root /finance entrypoint: seamlessly redirects to General Ledger (/finance/general-ledger)
  */
 export default function FinanceRootPage() {
-  redirect("/finance/accounts");
+  redirect("/finance/general-ledger");
 }
