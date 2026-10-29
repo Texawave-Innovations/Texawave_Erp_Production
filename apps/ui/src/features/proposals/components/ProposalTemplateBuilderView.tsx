@@ -39,6 +39,19 @@ export interface ProposalTemplateBuilderViewProps {
   templateId: number;
 }
 
+/** Some older templates were saved with malformed `schemaJson` entries
+ * (e.g. a stray empty array instead of a section object) — drop anything
+ * that isn't a well-formed section so the builder/preview never crashes
+ * trying to read `.type`/`.title` off it. */
+function sanitizeSections(
+  raw: ProposalSectionConfig[],
+): ProposalSectionConfig[] {
+  return raw.filter(
+    (s): s is ProposalSectionConfig =>
+      Boolean(s) && typeof s === "object" && !Array.isArray(s) && "type" in s,
+  );
+}
+
 /** Legacy `TemplateBuilder.tsx` + `SectionConfigDrawer.tsx` +
  * `TemplateLivePreview.tsx` — template metadata and the section schema
  * editor on the left, a live document preview on the right. Published or
@@ -117,7 +130,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
   const [category, setCategory] = useState(template.category ?? "");
   const [description, setDescription] = useState(template.description ?? "");
   const [sections, setSections] = useState<ProposalSectionConfig[]>(
-    template.schemaJson,
+    sanitizeSections(template.schemaJson),
   );
   const [errors, setErrors] = useState<{ title?: string; name?: string }>({});
 

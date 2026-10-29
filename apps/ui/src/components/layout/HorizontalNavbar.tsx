@@ -401,6 +401,7 @@ const SALES_CATEGORIES: NavCategory[] = [
     id: "sales-overview",
     label: "Overview",
     icon: BarChart3,
+    icon3d: "overview",
     iconColor: "text-sky-500",
     path: "/sales/dashboard",
     menuCode: "sales-dashboard",
@@ -409,6 +410,7 @@ const SALES_CATEGORIES: NavCategory[] = [
     id: "sales-customers",
     label: "Customers",
     icon: Building2,
+    icon3d: "departments",
     iconColor: "text-blue-600",
     path: "/sales/customers",
     menuCode: "sales-customers",
@@ -417,6 +419,7 @@ const SALES_CATEGORIES: NavCategory[] = [
     id: "sales-documents",
     label: "Documents",
     icon: FileText,
+    icon3d: "documents",
     iconColor: "text-indigo-500",
     children: [
       {
@@ -424,6 +427,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Quotations",
         path: "/sales/quotations",
         icon: FileText,
+        icon3d: "documents",
         menuCode: "sales-quotations",
       },
       {
@@ -431,6 +435,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Proforma Invoices",
         path: "/sales/proforma-invoices",
         icon: Receipt,
+        icon3d: "documents",
         menuCode: "sales-proforma-invoices",
       },
       {
@@ -438,6 +443,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Tax Invoices",
         path: "/sales/tax-invoices",
         icon: Receipt,
+        icon3d: "documents",
         menuCode: "sales-tax-invoices",
       },
       {
@@ -445,6 +451,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Delivery Challans",
         path: "/sales/delivery-challans",
         icon: Truck,
+        icon3d: "inventory-scm",
         menuCode: "sales-delivery-challans",
       },
       {
@@ -452,6 +459,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Returnable DCs",
         path: "/sales/returnable-dcs",
         icon: PackageCheck,
+        icon3d: "inventory-scm",
         menuCode: "sales-returnable-dcs",
       },
     ],
@@ -460,6 +468,7 @@ const SALES_CATEGORIES: NavCategory[] = [
     id: "sales-collections",
     label: "Collections",
     icon: Wallet,
+    icon3d: "payroll",
     iconColor: "text-emerald-600",
     children: [
       {
@@ -467,6 +476,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Payments Received",
         path: "/sales/payments",
         icon: Wallet,
+        icon3d: "payroll",
         menuCode: "sales-payments",
       },
     ],
@@ -475,6 +485,7 @@ const SALES_CATEGORIES: NavCategory[] = [
     id: "sales-setup",
     label: "Setup",
     icon: ListChecks,
+    icon3d: "operations",
     iconColor: "text-gray-600",
     children: [
       {
@@ -482,6 +493,7 @@ const SALES_CATEGORIES: NavCategory[] = [
         label: "Master List",
         path: "/sales/master-list",
         icon: ListChecks,
+        icon3d: "master-list",
         menuCode: "sales-master-list",
       },
     ],
