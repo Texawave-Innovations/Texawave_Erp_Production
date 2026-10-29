@@ -49,7 +49,6 @@
     "src/modules/crm/notifications",
     "src/modules/crm/types.ts",
     "src/modules/crm/useOverallDataLive.ts",
-    "src/modules/sales",
     "src/modules/scm/SCMLayout.tsx",
     "src/modules/scm/advanced/AdvancedScmSummary.tsx",
     "src/modules/scm/advanced/ScmActionCenter.tsx",
