@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "finance";
+
 -- CreateTable
 CREATE TABLE "finance"."accounts" (
     "id" SERIAL NOT NULL,
