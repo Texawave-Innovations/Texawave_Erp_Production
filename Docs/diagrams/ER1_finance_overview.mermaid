@@ -1,0 +1,206 @@
+erDiagram
+    %% =========================================================================
+    %% ER 1: TexaWave ERP — Complete Finance Module Overview
+    %% Schema: @@schema("finance") with platform, crm, scm cross-schema references
+    %% Source of Truth: packages/database/prisma/schema.prisma & Migration 20261022174500
+    %% Status: Schema-Derived & Migration-Verified (Live DB: Offline)
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_ACCOUNT : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_EXPENSE : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_JOURNAL_ENTRY : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_JOURNAL_LINE : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_BANK_ACCOUNT : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_BANK_TRANSACTION : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_PAYMENT_RECEIVED : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_PAYMENT_RECEIVED_ALLOCATION : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_PAYMENT_MADE : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_GST_ENTRY : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ FINANCE_MASTER_LIST_ITEM : "organization_id (RESTRICT)"
+
+    FINANCE_ACCOUNT ||--o{ FINANCE_ACCOUNT : "parent_account_id (SET NULL)"
+    FINANCE_ACCOUNT ||--o{ FINANCE_JOURNAL_LINE : "account_id (RESTRICT)"
+    FINANCE_ACCOUNT ||--o{ FINANCE_BANK_ACCOUNT : "gl_account_id (SET NULL)"
+    FINANCE_ACCOUNT ||--o{ FINANCE_EXPENSE : "gl_account_id (SET NULL)"
+
+    FINANCE_JOURNAL_ENTRY ||--|{ FINANCE_JOURNAL_LINE : "journal_entry_id (CASCADE)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_JOURNAL_ENTRY : "reversed_entry_id (SET NULL)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_EXPENSE : "journal_entry_id (1:1 UK)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_PAYMENT_RECEIVED : "journal_entry_id (1:1 UK)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_PAYMENT_MADE : "journal_entry_id (1:1 UK)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_BANK_TRANSACTION : "matched_journal_entry_id (1:1 UK)"
+
+    FINANCE_BANK_ACCOUNT ||--|{ FINANCE_BANK_TRANSACTION : "bank_account_id (CASCADE)"
+    FINANCE_BANK_ACCOUNT ||--o{ FINANCE_EXPENSE : "bank_account_id (SET NULL)"
+    FINANCE_BANK_ACCOUNT ||--o{ FINANCE_PAYMENT_RECEIVED : "bank_account_id (SET NULL)"
+    FINANCE_BANK_ACCOUNT ||--o{ FINANCE_PAYMENT_MADE : "bank_account_id (SET NULL)"
+
+    FINANCE_PAYMENT_RECEIVED ||--|{ FINANCE_PAYMENT_RECEIVED_ALLOCATION : "payment_received_id (CASCADE)"
+    CRM_ACCOUNT ||--o{ FINANCE_PAYMENT_RECEIVED : "customer_id (SET NULL)"
+
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_EXPENSE : "expense_type_id (RESTRICT)"
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_EXPENSE : "payment_mode_id (SET NULL)"
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_PAYMENT_RECEIVED : "payment_mode_id (RESTRICT)"
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_PAYMENT_MADE : "payment_mode_id (RESTRICT)"
+
+    SCM_SUPPLIER_PAYMENT ||--o| FINANCE_PAYMENT_MADE : "scm_supplier_payment_id (1:1 UK)"
+
+    FINANCE_EXPENSE ||..o| HR_EXPENSE_CLAIM : "claim_id (Logical cross-schema)"
+    FINANCE_GST_ENTRY ||..o{ FINANCE_EXPENSE : "source_type EXPENSE (Polymorphic)"
+    FINANCE_PAYMENT_RECEIVED_ALLOCATION ||..o{ SCM_SALES_ORDER : "invoice_reference (String match)"
+
+    ORGANIZATION {
+        int id PK "platform.organizations"
+        string name "Tenant Business Name"
+    }
+
+    FINANCE_ACCOUNT {
+        int id PK "accounts.id"
+        int organization_id FK "References platform.organizations"
+        string code "account_code UK per org"
+        string name "Account Title"
+        string account_type "ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE"
+        int parent_account_id FK "Self-referential CoA tree"
+        decimal current_balance "Running balance"
+        boolean is_active "Active posting toggle"
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK "journal_entries.id"
+        int organization_id FK "References platform.organizations"
+        string entry_number "entry_number UK per org"
+        date entry_date "Posting date"
+        string status "DRAFT, POSTED, REVERSED"
+        decimal total_debit "Debit sum"
+        decimal total_credit "Credit sum"
+        int reversed_entry_id FK "1:1 Reversal link"
+    }
+
+    FINANCE_JOURNAL_LINE {
+        int id PK "journal_lines.id"
+        int organization_id FK "References platform.organizations"
+        int journal_entry_id FK "Cascade delete on parent voucher"
+        int account_id FK "Restrict delete on GL account"
+        string entry_type "DEBIT or CREDIT"
+        decimal amount "Scale 2 monetary decimal"
+    }
+
+    FINANCE_BANK_ACCOUNT {
+        int id PK "bank_accounts.id"
+        int organization_id FK "References platform.organizations"
+        string account_number "UK per organization"
+        string bank_name "Bank Institution"
+        string ifsc_code "Validated Indian IFSC"
+        decimal current_balance "Live balance"
+        int gl_account_id FK "Mapped Asset GL Account"
+    }
+
+    FINANCE_BANK_TRANSACTION {
+        int id PK "bank_transactions.id"
+        int organization_id FK "References platform.organizations"
+        int bank_account_id FK "Cascade delete on bank account"
+        date transaction_date "Statement date"
+        string transaction_type "DEPOSIT, WITHDRAWAL, TRANSFER"
+        decimal amount "Transaction amount"
+        string status "UNCLEARED, CLEARED, RECONCILED, VOID"
+        int matched_journal_entry_id FK "1:1 Matched GL voucher"
+    }
+
+    FINANCE_EXPENSE {
+        int id PK "expenses.id"
+        int organization_id FK "References platform.organizations"
+        string expense_number "UK per organization"
+        date expense_date "Expense voucher date"
+        int expense_type_id FK "Category master list item"
+        decimal amount "Gross disbursement amount"
+        decimal tax_amount "GST component"
+        decimal net_amount "Taxable base expense"
+        string status "DRAFT, SUBMITTED, APPROVED, PAID, CANCELLED"
+        int bank_account_id FK "Disbursing bank account"
+        int gl_account_id FK "Nominal expense account"
+        int journal_entry_id FK "1:1 Posted journal voucher"
+        int claim_id "Logical FK to hr.expense_claims"
+        string vendor_gstin "15-char statutory GSTIN"
+        boolean is_itc_eligible "true: debits 1300, false: absorbs"
+    }
+
+    FINANCE_PAYMENT_RECEIVED {
+        int id PK "payments_received.id"
+        int organization_id FK "References platform.organizations"
+        string payment_number "UK per organization"
+        date payment_date "Receipt date"
+        int customer_id FK "References crm.accounts"
+        decimal total_amount "Total money received"
+        decimal allocated_amount "Settled across invoices"
+        decimal unallocated_amount "Retained advance credit"
+        string status "DRAFT, CONFIRMED, RECONCILED, VOID"
+        int bank_account_id FK "Receiving depository bank"
+        int journal_entry_id FK "1:1 Posted journal voucher"
+    }
+
+    FINANCE_PAYMENT_RECEIVED_ALLOCATION {
+        int id PK "payment_received_allocations.id"
+        int organization_id FK "References platform.organizations"
+        int payment_received_id FK "Cascade delete on receipt"
+        string invoice_reference "Invoice number string match"
+        decimal allocated_amount "Portion applied to invoice"
+    }
+
+    FINANCE_PAYMENT_MADE {
+        int id PK "payments_made.id"
+        int organization_id FK "References platform.organizations"
+        string payment_number "UK per organization"
+        date payment_date "Disbursement date"
+        string vendor_name "Payee vendor title"
+        decimal amount "Disbursed monetary sum"
+        string status "DRAFT, CONFIRMED, RECONCILED, VOID"
+        int bank_account_id FK "Disbursing bank account"
+        int journal_entry_id FK "1:1 Posted journal voucher"
+        int scm_supplier_payment_id FK "1:1 SCM disbursement link"
+    }
+
+    FINANCE_GST_ENTRY {
+        int id PK "gst_entries.id"
+        int organization_id FK "References platform.organizations"
+        string period "Tax period e.g. 2026-10"
+        string return_type "GSTR_1 or GSTR_2B"
+        string entry_type "OUTWARD_SUPPLY or INWARD_SUPPLY"
+        string source_type "EXPENSE, PURCHASE_BILL, SALES_INVOICE"
+        int source_id "Polymorphic integer ID"
+        string gstin "Counterparty 15-char GSTIN"
+        decimal taxable_value "Base supply value"
+        decimal tax_rate "Statutory tax rate"
+        decimal cgst "Central GST"
+        decimal sgst "State GST"
+        decimal igst "Integrated GST"
+        string itc_eligibility "ELIGIBLE or INELIGIBLE"
+    }
+
+    FINANCE_MASTER_LIST_ITEM {
+        int id PK "finance_master_list_items.id"
+        int organization_id FK "References platform.organizations"
+        string category "EXPENSE_TYPE, PAYMENT_MODE"
+        string value "Category or mode code"
+        boolean is_active "Active option toggle"
+    }
+
+    CRM_ACCOUNT {
+        int id PK "crm.accounts"
+        string name "Customer Account Name"
+    }
+
+    SCM_SUPPLIER_PAYMENT {
+        int id PK "scm.supplier_payments"
+        string payment_number "SCM Payment Number"
+    }
+
+    HR_EXPENSE_CLAIM {
+        int id PK "hr.expense_claims"
+        string claim_number "CLM-XXXX"
+    }
+
+    SCM_SALES_ORDER {
+        int id PK "scm.sales_orders"
+        string order_number "SO-XXXX"
+    }
+

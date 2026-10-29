@@ -62,6 +62,8 @@ module.exports = {
         // Leads, Pipeline/Opportunities, Products, Quotations — see
         // Docs/CRM_*_PARITY.md).
         "crm",
+        "finance-settings",
+        "finance",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

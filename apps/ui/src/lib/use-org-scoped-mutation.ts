@@ -18,9 +18,18 @@ export function useOrgScopedMutation<TVariables, TData>(
   return useMutation({
     mutationFn,
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: orgScopedKey(organizationId ?? 0, ...keyPrefix),
-      });
+      // Invalidate each key prefix so multi-target mutations (e.g. ["finance-bank-transactions", "finance-bank-accounts"])
+      // correctly refresh all relevant query caches for the organization.
+      for (const prefix of keyPrefix) {
+        void queryClient.invalidateQueries({
+          queryKey: orgScopedKey(organizationId ?? 0, prefix),
+        });
+      }
+      if (keyPrefix.length > 1) {
+        void queryClient.invalidateQueries({
+          queryKey: orgScopedKey(organizationId ?? 0, ...keyPrefix),
+        });
+      }
     },
   });
 }

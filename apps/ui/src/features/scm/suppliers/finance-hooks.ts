@@ -3,6 +3,7 @@
 import type {
   CreateSupplierBillInput,
   CreateSupplierPaymentInput,
+  PostSupplierBillToFinanceInput,
   QuerySupplierBillsInput,
   QuerySupplierPaymentsInput,
   SupplierBill,
@@ -13,6 +14,7 @@ import type {
 import { useScmData, useScmList, useScmMutation } from "../shared/scm-hooks";
 import {
   cancelSupplierBill,
+  postSupplierBillToFinance,
   createSupplierBill,
   createSupplierPayment,
   getSupplierFinanceSummary,
@@ -55,6 +57,12 @@ export const useUpdateSupplierBill = () =>
 export const useCancelSupplierBill = () =>
   useScmMutation(({ id, reason }: { id: number; reason: string }) =>
     cancelSupplierBill(id, reason),
+  );
+
+export const usePostSupplierBillToFinance = () =>
+  useScmMutation(
+    ({ id, input }: { id: number; input?: PostSupplierBillToFinanceInput }) =>
+      postSupplierBillToFinance(id, input),
   );
 
 export const useCreateSupplierPayment = () =>

@@ -1,0 +1,2906 @@
+[
+  {
+    "name": "CreateBankAccountDto",
+    "file": "apps/api/src/modules/finance/banking/dto/create-bank-account.dto.ts",
+    "fields": [
+      {
+        "name": "accountName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Display name for the bank account\" })",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "accountNumber",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Bank account number (unique per organization)\" })",
+          "@IsString()",
+          "@MaxLength(50)"
+        ]
+      },
+      {
+        "name": "bankName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Name of the banking institution\" })",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "ifscCode",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"IFSC or branch routing code\" })",
+          "@IsString()",
+          "@MaxLength(20)"
+        ]
+      },
+      {
+        "name": "branchName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Branch name or location\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "accountType",
+        "type": "FinanceBankAccountType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_BANK_ACCOUNT_TYPES,\n    default: \"CURRENT\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_BANK_ACCOUNT_TYPES)"
+        ]
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ default: \"INR\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(10)"
+        ]
+      },
+      {
+        "name": "openingBalance",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Opening balance\", default: 0 })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "glAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Linked Chart of Accounts Asset GL account ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "isActive",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ default: true })",
+          "@IsOptional()",
+          "@IsBoolean()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateBankTransactionDto",
+    "file": "apps/api/src/modules/finance/banking/dto/create-bank-transaction.dto.ts",
+    "fields": [
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Target Bank Account ID\" })",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "transactionDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Transaction date (YYYY-MM-DD)\" })",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "transactionType",
+        "type": "FinanceBankTransactionType",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ enum: FINANCE_BANK_TRANSACTION_TYPES })",
+          "@IsIn(FINANCE_BANK_TRANSACTION_TYPES)"
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Transaction amount (must be positive)\" })",
+          "@Type(() => Number)",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Description or memo for the transaction\" })",
+          "@IsString()",
+          "@MaxLength(255)"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"UTR, cheque, or reference number\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "counterGlAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Counter GL Account ID to post balanced double-entry (e.g. Bank Charges Expense or Interest Revenue)\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryBankAccountsDto",
+    "file": "apps/api/src/modules/finance/banking/dto/query-bank-accounts.dto.ts",
+    "fields": [
+      {
+        "name": "accountType",
+        "type": "FinanceBankAccountType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ enum: FINANCE_BANK_ACCOUNT_TYPES })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_BANK_ACCOUNT_TYPES)"
+        ]
+      },
+      {
+        "name": "isActive",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter by active status\" })",
+          "@IsOptional()",
+          "@Transform(({ value }) => {\n    if (value === \"true\" || value === true) return true;\n    if (value === \"false\" || value === false) return false;\n    return undefined;\n  })",
+          "@IsBoolean()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search by account name, bank name, or account number\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryBankTransactionsDto",
+    "file": "apps/api/src/modules/finance/banking/dto/query-bank-transactions.dto.ts",
+    "fields": [
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter by bank account ID\" })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "transactionType",
+        "type": "FinanceBankTransactionType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ enum: FINANCE_BANK_TRANSACTION_TYPES })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_BANK_TRANSACTION_TYPES)"
+        ]
+      },
+      {
+        "name": "isReconciled",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter by reconciliation status\" })",
+          "@IsOptional()",
+          "@Transform(({ value }) => {\n    if (value === \"true\" || value === true) return true;\n    if (value === \"false\" || value === false) return false;\n    return undefined;\n  })",
+          "@IsBoolean()"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter transactions on or after this date (YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter transactions on or before this date (YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search by description or reference number\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ReconcileTransactionDto",
+    "file": "apps/api/src/modules/finance/banking/dto/reconcile-transaction.dto.ts",
+    "fields": [
+      {
+        "name": "matchedJournalEntryId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Matched FinanceJournalEntry ID to link during reconciliation\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdateBankAccountDto",
+    "file": "apps/api/src/modules/finance/banking/dto/update-bank-account.dto.ts",
+    "fields": [
+      {
+        "name": "accountName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Display name for the bank account\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "bankName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Name of the banking institution\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "ifscCode",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"IFSC or branch routing code\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(20)"
+        ]
+      },
+      {
+        "name": "branchName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Branch name or location\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "accountType",
+        "type": "FinanceBankAccountType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ enum: FINANCE_BANK_ACCOUNT_TYPES })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_BANK_ACCOUNT_TYPES)"
+        ]
+      },
+      {
+        "name": "glAccountId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Linked Chart of Accounts Asset GL account ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "isActive",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional()",
+          "@IsOptional()",
+          "@IsBoolean()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateAccountDto",
+    "file": "apps/api/src/modules/finance/coa/dto/create-account.dto.ts",
+    "fields": [
+      {
+        "name": "accountCode",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"1010\",\n    description: \"Unique account code per organization\",\n  })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 50)"
+        ]
+      },
+      {
+        "name": "accountName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Cash on Hand\",\n    description: \"Descriptive name of the account\",\n  })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 150)"
+        ]
+      },
+      {
+        "name": "accountType",
+        "type": "FinanceAccountType",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    enum: FINANCE_ACCOUNT_TYPES,\n    example: \"ASSET\",\n    description: \"Account classification in Chart of Accounts\",\n  })",
+          "@IsIn(FINANCE_ACCOUNT_TYPES)"
+        ]
+      },
+      {
+        "name": "parentAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"Parent account ID for hierarchical grouping\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INR\",\n    default: \"INR\",\n    description: \"Account currency\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(3, 3)"
+        ]
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Petty cash and cash in drawer\",\n    description: \"Optional notes and description\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(0, 500)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryAccountsDto",
+    "file": "apps/api/src/modules/finance/coa/dto/query-accounts.dto.ts",
+    "fields": [
+      {
+        "name": "accountType",
+        "type": "FinanceAccountType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_ACCOUNT_TYPES,\n    description: \"Filter accounts by classification\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_ACCOUNT_TYPES)"
+        ]
+      },
+      {
+        "name": "isActive",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter active or inactive accounts\" })",
+          "@IsOptional()",
+          "@Transform(({ value }) => {\n    if (value === \"true\" || value === true) return true;\n    if (value === \"false\" || value === false) return false;\n    return undefined;\n  })",
+          "@IsBoolean()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search by account code or account name\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdateAccountDto",
+    "file": "apps/api/src/modules/finance/coa/dto/update-account.dto.ts",
+    "fields": [
+      {
+        "name": "accountCode",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ example: \"1010\" })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 50)"
+        ]
+      },
+      {
+        "name": "accountName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ example: \"Cash on Hand (Main)\" })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 150)"
+        ]
+      },
+      {
+        "name": "parentAccountId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description:\n      \"Parent account ID, or null to convert to top-level root account\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ example: \"INR\" })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(3, 3)"
+        ]
+      },
+      {
+        "name": "description",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ example: \"Updated description notes\" })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(0, 500)"
+        ]
+      },
+      {
+        "name": "isActive",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: true,\n    description: \"Whether the account is active for postings\",\n  })",
+          "@IsOptional()",
+          "@IsBoolean()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateExpenseFromClaimDto",
+    "file": "apps/api/src/modules/finance/expenses/dto/create-expense-from-claim.dto.ts",
+    "fields": [
+      {
+        "name": "glAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description:\n      \"GL Account ID in Chart of Accounts to charge the reimbursement to\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 2,\n    description: \"Payment mode ID in Finance Master List (e.g. Bank Transfer)\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"Bank account ID used to disburse reimbursement\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Employee travel claim reimbursement approved by manager\",\n    description: \"Additional notes for the finance expense record\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateExpenseDto",
+    "file": "apps/api/src/modules/finance/expenses/dto/create-expense.dto.ts",
+    "fields": [
+      {
+        "name": "expenseNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"EXP-202610-0001\",\n    description: \"Unique expense reference number (auto-generated if omitted)\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 50)"
+        ]
+      },
+      {
+        "name": "expenseTypeId",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 1,\n    description: \"ID of active expense type in Finance Master List\",\n  })",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "expenseDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10-23\",\n    description: \"Date when expense was incurred (ISO YYYY-MM-DD)\",\n  })",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 2500.0,\n    description: \"Subtotal / gross expense amount before taxes\",\n  })",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "taxAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 450.0,\n    default: 0,\n    description: \"Tax / GST amount applied to the expense\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of active payment mode in Finance Master List\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of company bank account used for disbursement\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "glAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description: \"Chart of Accounts GL Account ID to debit for the expense\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "vendorName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Acme Office Supplies Ltd\",\n    description: \"Name of the third-party merchant or vendor\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 255)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Printer paper, toner cartridges, and desk accessories\",\n    description: \"Internal notes or purpose of the expense\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      },
+      {
+        "name": "receiptUrl",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"https://storage.texawave.com/receipts/rec-98231.pdf\",\n    description: \"URL or attachment reference to original tax invoice/bill\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 500)"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinanceExpenseStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_EXPENSE_STATUSES,\n    default: \"DRAFT\",\n    description:\n      \"Initial status of the expense (DRAFT, PENDING_APPROVAL, APPROVED, PAID)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_EXPENSE_STATUSES)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryExpensesDto",
+    "file": "apps/api/src/modules/finance/expenses/dto/query-expenses.dto.ts",
+    "fields": [
+      {
+        "name": "expenseTypeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"Filter by expense category/type ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 2,\n    description: \"Filter by payment mode ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinanceExpenseStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_EXPENSE_STATUSES,\n    description:\n      \"Filter by expense status (DRAFT, PENDING_APPROVAL, APPROVED, PAID, CANCELLED)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_EXPENSE_STATUSES)"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-01\",\n    description: \"Filter expenses incurred on or after this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-31\",\n    description: \"Filter expenses incurred on or before this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search in expenseNumber, vendorName, or notes\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RecordExpensePaymentDto",
+    "file": "apps/api/src/modules/finance/expenses/dto/record-expense-payment.dto.ts",
+    "fields": [
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 2,\n    description:\n      \"ID of active payment mode in Finance Master List (e.g. Bank Transfer, Cash)\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of company bank account used to disburse funds\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "paymentDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description:\n      \"Date payment was disbursed (defaults to current date if omitted)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Paid via NEFT ref #892837198\",\n    description: \"Payment or settlement transaction notes\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdateExpenseDto",
+    "file": "apps/api/src/modules/finance/expenses/dto/update-expense.dto.ts",
+    "fields": [
+      {
+        "name": "expenseTypeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of active expense type in Finance Master List\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "expenseDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description: \"Date when expense was incurred (ISO YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 2500.0,\n    description: \"Subtotal / gross expense amount before taxes\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "taxAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 450.0,\n    description: \"Tax / GST amount applied to the expense\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of active payment mode in Finance Master List\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of company bank account used for disbursement\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "glAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description: \"Chart of Accounts GL Account ID to debit for the expense\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "vendorName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Acme Office Supplies Ltd\",\n    description: \"Name of the third-party merchant or vendor\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 255)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Printer paper, toner cartridges, and desk accessories\",\n    description: \"Internal notes or purpose of the expense\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      },
+      {
+        "name": "receiptUrl",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"https://storage.texawave.com/receipts/rec-98231.pdf\",\n    description: \"URL or attachment reference to original tax invoice/bill\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 500)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateGstEntryDto",
+    "file": "apps/api/src/modules/finance/gst/dto/create-gst-entry.dto.ts",
+    "fields": [
+      {
+        "name": "gstin",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"29AABCT1332L1ZV\",\n    description: \"15-character GSTIN of the entity/vendor/customer\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()",
+          "@Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {\n    message:\n      \"Invalid GSTIN format. Expected standard 15-character Indian GSTIN.\",\n  })"
+        ]
+      },
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10\",\n    description: \"GST filing tax period in YYYY-MM format\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      },
+      {
+        "name": "entryType",
+        "type": "FinanceGstEntryType",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    enum: FINANCE_GST_ENTRY_TYPES,\n    example: \"OUTPUT_GST\",\n    description:\n      \"OUTPUT_GST for outward sales supplies, INPUT_TAX_CREDIT for purchase ITC\",\n  })",
+          "@IsNotEmpty()",
+          "@IsIn(FINANCE_GST_ENTRY_TYPES)"
+        ]
+      },
+      {
+        "name": "sourceType",
+        "type": "FinanceGstSourceType",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    enum: FINANCE_GST_SOURCE_TYPES,\n    example: \"SALES_INVOICE\",\n    description: \"Originating source voucher type\",\n  })",
+          "@IsNotEmpty()",
+          "@IsIn(FINANCE_GST_SOURCE_TYPES)"
+        ]
+      },
+      {
+        "name": "sourceId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 105,\n    description: \"Originating entity primary key ID in database if applicable\",\n  })",
+          "@IsOptional()",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "sourceReference",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"TEXA/INV/2026/001\",\n    description: \"Invoice or bill reference number\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "hsnSacCode",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"998314\",\n    description: \"HSN or SAC 6/8-digit goods/services tax classification code\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "taxableAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 10000.0,\n    description: \"Taxable base value before taxes in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "cgstRate",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 9.0,\n    description: \"CGST tax rate percentage (e.g. 9 for 9%)\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "cgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"CGST tax amount in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "sgstRate",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 9.0,\n    description: \"SGST tax rate percentage (e.g. 9 for 9%)\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "sgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"SGST tax amount in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "igstRate",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0.0,\n    description: \"IGST tax rate percentage (e.g. 18 for interstate)\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "igstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0.0,\n    description: \"IGST tax amount in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "totalTaxAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1800.0,\n    description: \"Total tax amount (CGST + SGST + IGST) in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "isProformaExcluded",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: false,\n    description:\n      \"Whether this entry represents a proforma invoice excluded from returns\",\n  })",
+          "@IsOptional()",
+          "@IsBoolean()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryGstEntriesDto",
+    "file": "apps/api/src/modules/finance/gst/dto/query-gst-entries.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10\",\n    description: \"Filter by tax period (YYYY-MM)\",\n  })",
+          "@IsOptional()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      },
+      {
+        "name": "entryType",
+        "type": "FinanceGstEntryType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_GST_ENTRY_TYPES,\n    description:\n      \"Filter by GST entry classification (OUTPUT_GST / INPUT_TAX_CREDIT)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_GST_ENTRY_TYPES)"
+        ]
+      },
+      {
+        "name": "sourceType",
+        "type": "FinanceGstSourceType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_GST_SOURCE_TYPES,\n    description: \"Filter by originating source type\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_GST_SOURCE_TYPES)"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinanceGstStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_GST_STATUSES,\n    description:\n      \"Filter by GST record status (ACTIVE, FILED, RECONCILED, CANCELLED)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_GST_STATUSES)"
+        ]
+      },
+      {
+        "name": "hsnSacCode",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"998314\",\n    description: \"Filter by HSN or SAC code\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "gstin",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"29AABCT1332L1ZV\",\n    description: \"Filter by GSTIN\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search in sourceReference or gstin\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryGstr1Dto",
+    "file": "apps/api/src/modules/finance/gst/dto/query-gstr1.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10\",\n    description: \"Tax period in YYYY-MM format\",\n  })",
+          "@IsNotEmpty()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryGstr3bDto",
+    "file": "apps/api/src/modules/finance/gst/dto/query-gstr3b.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10\",\n    description: \"Tax period in YYYY-MM format\",\n  })",
+          "@IsNotEmpty()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryHsnSummaryDto",
+    "file": "apps/api/src/modules/finance/gst/dto/query-hsn-summary.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10\",\n    description: \"Tax period in YYYY-MM format\",\n  })",
+          "@IsOptional()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-01\",\n    description: \"Start date (inclusive) in YYYY-MM-DD format\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-31\",\n    description: \"End date (inclusive) in YYYY-MM-DD format\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "entryType",
+        "type": "FinanceGstEntryType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_GST_ENTRY_TYPES,\n    description: \"Filter by OUTPUT_GST or INPUT_TAX_CREDIT (default: all)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_GST_ENTRY_TYPES)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CounterpartGstEntryDto",
+    "file": "apps/api/src/modules/finance/gst/dto/reconcile-gst.dto.ts",
+    "fields": [
+      {
+        "name": "gstin",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"29AABCT1332L1ZV\",\n    description: \"Vendor or supplier GSTIN\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "invoiceNumber",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"INV-2026-901\",\n    description: \"Vendor invoice number as filed in portal return\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "invoiceDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-15\",\n    description: \"Invoice date as reported by vendor\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "taxableAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 10000.0,\n    description: \"Taxable value reported on portal\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "cgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"CGST tax amount reported on portal\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "sgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"SGST tax amount reported on portal\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "igstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0.0,\n    description: \"IGST tax amount reported on portal\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "totalTaxAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 1800.0,\n    description: \"Total tax amount reported on portal\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ReconcileGstDto",
+    "file": "apps/api/src/modules/finance/gst/dto/reconcile-gst.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10\",\n    description: \"GST tax period to reconcile (YYYY-MM)\",\n  })",
+          "@IsNotEmpty()",
+          "@Matches(/^\\d{4}-(0[1-9]|1[0-2])$/, {\n    message: \"Period must be in YYYY-MM format (e.g. 2026-10)\",\n  })"
+        ]
+      },
+      {
+        "name": "persistReconciliation",
+        "type": "boolean",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: true,\n    description:\n      \"Whether to persist RECONCILED status on matching database entries\",\n  })",
+          "@IsOptional()",
+          "@IsBoolean()"
+        ]
+      },
+      {
+        "name": "counterpartEntries",
+        "type": "CounterpartGstEntryDto[]",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    type: [CounterpartGstEntryDto],\n    description:\n      \"Counterpart GSTR-2B or vendor filing records to match against ERP purchase books\",\n  })",
+          "@IsArray()",
+          "@ValidateNested({ each: true })",
+          "@Type(() => CounterpartGstEntryDto)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CancelIntegrationDocumentDto",
+    "file": "apps/api/src/modules/finance/integration/dto/cancel-integration-document.dto.ts",
+    "fields": [
+      {
+        "name": "documentReference",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"INV-2026-001\",\n    description:\n      \"Invoice or bill reference number to cancel and reverse in Finance\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Customer requested cancellation prior to fulfillment\",\n    description: \"Reason for cancellation\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "cancellationDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description: \"Date of cancellation reversal entry (defaults to today)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PostPurchaseBillDto",
+    "file": "apps/api/src/modules/finance/integration/dto/post-purchase-bill.dto.ts",
+    "fields": [
+      {
+        "name": "billNumber",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"TW/BILL/0001\",\n    description: \"Internal bill reference number generated by the ERP\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "supplierBillNumber",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"SUPP-INV-9901\",\n    description: \"External invoice number as provided by the vendor\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "billDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10-15\",\n    description: \"Vendor bill date (YYYY-MM-DD)\",\n  })",
+          "@IsNotEmpty()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "supplierId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 45,\n    description: \"Supplier database primary key ID\",\n  })",
+          "@IsOptional()",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "supplierName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Zenith Components Pvt Ltd\",\n    description: \"Supplier legal/business name\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "supplierGstin",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"33AAMCT4293K1ZU\",\n    description: \"Supplier 15-character GSTIN if registered\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "subtotal",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 20000.0,\n    description: \"Bill taxable subtotal amount before taxes in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "taxAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 3600.0,\n    description: \"Bill total tax amount in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "total",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 23600.0,\n    description: \"Grand total bill amount (subtotal + taxAmount) in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INR\",\n    description: \"ISO currency code (default: INR)\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "hsnSacCode",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"847130\",\n    description: \"Primary HSN or SAC classification code\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "cgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1800.0,\n    description: \"CGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "sgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1800.0,\n    description: \"SGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "igstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0.0,\n    description: \"IGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Monthly hardware component delivery against PO-0412\",\n    description: \"Bill narration or notes\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "purchaseOrderId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 8,\n    description: \"Originating ScmPurchaseOrder primary key ID if applicable\",\n  })",
+          "@IsOptional()",
+          "@IsInt()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PostSalesInvoiceDto",
+    "file": "apps/api/src/modules/finance/integration/dto/post-sales-invoice.dto.ts",
+    "fields": [
+      {
+        "name": "invoiceNumber",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"INV-2026-001\",\n    description: \"Sales invoice or sales order reference number\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "invoiceDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10-15\",\n    description: \"Invoice posting date (YYYY-MM-DD)\",\n  })",
+          "@IsNotEmpty()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "customerId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 101,\n    description: \"Customer database primary key ID\",\n  })",
+          "@IsOptional()",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "customerName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Acme Corp Ltd\",\n    description: \"Customer legal/business name\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "customerGstin",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"29AABCT1332L1ZV\",\n    description: \"Customer 15-character GSTIN if registered\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "subtotal",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 10000.0,\n    description: \"Invoice taxable subtotal amount before taxes in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "taxAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 1800.0,\n    description: \"Total tax amount (CGST + SGST + IGST) in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "total",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 11800.0,\n    description: \"Grand total invoice amount (subtotal + taxAmount) in INR\",\n  })",
+          "@IsNotEmpty()",
+          "@IsNumber()",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INR\",\n    description: \"ISO currency code (default: INR)\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "hsnSacCode",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"998314\",\n    description: \"Primary HSN or SAC classification code\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "cgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"CGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "sgstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 900.0,\n    description: \"SGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "igstAmount",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0.0,\n    description: \"IGST tax component in INR\",\n  })",
+          "@IsOptional()",
+          "@IsNumber()",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Professional IT services rendered for October 2026\",\n    description: \"Invoice narration or description\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "salesOrderId",
+        "type": "number | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 12,\n    description: \"Originating ScmSalesOrder primary key ID if applicable\",\n  })",
+          "@IsOptional()",
+          "@IsInt()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateJournalEntryDto",
+    "file": "apps/api/src/modules/finance/journal/dto/create-journal-entry.dto.ts",
+    "fields": [
+      {
+        "name": "entryNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"JV-202610-0001\",\n    description: \"Unique journal voucher number (auto-generated if omitted)\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 50)"
+        ]
+      },
+      {
+        "name": "entryDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10-23\",\n    description:\n      \"Date of the voucher transaction (ISO string format YYYY-MM-DD)\",\n  })",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "entryType",
+        "type": "FinanceJournalEntryType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_JOURNAL_ENTRY_TYPES,\n    default: \"MANUAL\",\n    description: \"Classification of journal voucher\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_JOURNAL_ENTRY_TYPES)"
+        ]
+      },
+      {
+        "name": "narration",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Monthly office rent payment\",\n    description: \"Explanation and business purpose of the voucher\",\n  })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 500)"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INV-9921\",\n    description: \"External reference number (invoice, PO, or check)\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(0, 100)"
+        ]
+      },
+      {
+        "name": "lines",
+        "type": "CreateJournalLineDto[]",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    type: [CreateJournalLineDto],\n    description: \"Array of debit and credit lines (minimum 2 lines required)\",\n  })",
+          "@IsArray()",
+          "@ArrayMinSize(2, {\n    message: \"A journal voucher must have at least 2 lines (double-entry)\",\n  })",
+          "@ValidateNested({ each: true })",
+          "@Type(() => CreateJournalLineDto)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateJournalLineDto",
+    "file": "apps/api/src/modules/finance/journal/dto/create-journal-line.dto.ts",
+    "fields": [
+      {
+        "name": "accountId",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ example: 1, description: \"Finance account ID\" })",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "debit",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1500.0,\n    default: 0,\n    description: \"Debit amount (must be positive, credit must be 0)\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "credit",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 0,\n    default: 0,\n    description: \"Credit amount (must be positive, debit must be 0)\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0)"
+        ]
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Line specific memo\",\n    description: \"Optional line item description\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(0, 255)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryJournalEntriesDto",
+    "file": "apps/api/src/modules/finance/journal/dto/query-journal-entries.dto.ts",
+    "fields": [
+      {
+        "name": "entryType",
+        "type": "FinanceJournalEntryType",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_JOURNAL_ENTRY_TYPES,\n    description: \"Filter by voucher entry classification\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_JOURNAL_ENTRY_TYPES)"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinanceJournalEntryStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_JOURNAL_ENTRY_STATUSES,\n    description: \"Filter by voucher status (DRAFT, POSTED, REVERSED, VOID)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_JOURNAL_ENTRY_STATUSES)"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-01\",\n    description: \"Filter entries from this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-31\",\n    description: \"Filter entries up to this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Search in entryNumber, narration, or referenceNumber\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ReverseJournalEntryDto",
+    "file": "apps/api/src/modules/finance/journal/dto/reverse-journal-entry.dto.ts",
+    "fields": [
+      {
+        "name": "reversalDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description: \"Date of reversal entry (defaults to current date)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Reversal due to billing discrepancy\",\n    description: \"Reason / narration for the reversal voucher\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 500)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdateJournalEntryDto",
+    "file": "apps/api/src/modules/finance/journal/dto/update-journal-entry.dto.ts",
+    "fields": [
+      {
+        "name": "entryDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description: \"Updated voucher transaction date\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "narration",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Updated explanation of the voucher\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 500)"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string | null",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"REF-002\",\n    description: \"External reference number\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(0, 100)"
+        ]
+      },
+      {
+        "name": "lines",
+        "type": "CreateJournalLineDto[]",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    type: [CreateJournalLineDto],\n    description: \"Updated array of journal lines (replaces all existing lines)\",\n  })",
+          "@IsOptional()",
+          "@IsArray()",
+          "@ArrayMinSize(2, {\n    message: \"A journal voucher must have at least 2 lines (double-entry)\",\n  })",
+          "@ValidateNested({ each: true })",
+          "@Type(() => CreateJournalLineDto)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreatePaymentMadeDto",
+    "file": "apps/api/src/modules/finance/payments-made/dto/create-payment-made.dto.ts",
+    "fields": [
+      {
+        "name": "paymentNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Custom payment voucher number (e.g. PM-202610-0001). Auto-generated if omitted.\",\n  })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(50)"
+        ]
+      },
+      {
+        "name": "paymentDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Payment disbursement date (YYYY-MM-DD)\" })",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "vendorName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Recipient vendor or supplier name\" })",
+          "@IsString()",
+          "@MaxLength(150)"
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Disbursement amount (positive number)\" })",
+          "@Type(() => Number)",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@Min(0.01)"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ description: \"Payment mode master list item ID\" })",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Source Finance Bank Account ID\" })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Cheque, UTR, or transaction reference number\",\n  })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "billReference",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Purchase bill reference or supplier invoice number (e.g. BILL-202610-0012)\",\n  })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "scmSupplierPaymentId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Linked ScmSupplierPayment ID\" })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Internal notes or remarks\" })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinancePaymentMadeStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_PAYMENT_MADE_STATUSES,\n    default: \"CONFIRMED\",\n    description:\n      \"Initial status (CONFIRMED automatically creates and posts GL journal voucher)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_PAYMENT_MADE_STATUSES)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryPaymentsMadeDto",
+    "file": "apps/api/src/modules/finance/payments-made/dto/query-payments-made.dto.ts",
+    "fields": [
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter by payment mode ID\" })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Filter by bank account ID\" })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinancePaymentMadeStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ enum: FINANCE_PAYMENT_MADE_STATUSES })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_PAYMENT_MADE_STATUSES)"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter payments on or after this date (YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter payments on or before this date (YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Search by vendor name, payment number, reference, or bill reference\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdatePaymentMadeDto",
+    "file": "apps/api/src/modules/finance/payments-made/dto/update-payment-made.dto.ts",
+    "fields": [
+      {
+        "name": "paymentDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Payment disbursement date (YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "vendorName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Recipient vendor or supplier name\" })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(150)"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Cheque, UTR, or transaction reference number\",\n  })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "billReference",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Purchase bill reference or supplier invoice number\",\n  })",
+          "@IsOptional()",
+          "@IsString()",
+          "@MaxLength(100)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({ description: \"Internal notes or remarks\" })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreatePaymentAllocationDto",
+    "file": "apps/api/src/modules/finance/payments-received/dto/create-allocation.dto.ts",
+    "fields": [
+      {
+        "name": "invoiceReference",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"INV-202610-0012\",\n    description: \"Invoice number or billing reference string being settled\",\n  })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 100)"
+        ]
+      },
+      {
+        "name": "allocatedAmount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 5000.0,\n    description: \"Amount to allocate towards this invoice\",\n  })",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Partial payment for milestone 1 deliverable\",\n    description: \"Allocation notes or audit remarks\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreatePaymentReceivedDto",
+    "file": "apps/api/src/modules/finance/payments-received/dto/create-payment-received.dto.ts",
+    "fields": [
+      {
+        "name": "paymentNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"REC-202610-0001\",\n    description: \"Unique receipt voucher number (auto-generated if omitted)\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 50)"
+        ]
+      },
+      {
+        "name": "paymentDate",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"2026-10-23\",\n    description: \"Date payment was received (ISO YYYY-MM-DD)\",\n  })",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "customerId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description: \"CRM Account ID of the customer (if linked)\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "customerName",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: \"Globex Corporation\",\n    description: \"Name of the customer or paying entity\",\n  })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 200)"
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 10000.0,\n    description: \"Total amount received in transaction\",\n  })",
+          "@IsNumber({ maxDecimalPlaces: 2 })",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    example: 2,\n    description:\n      \"ID of active payment mode in Finance Master List (e.g. Bank Transfer, UPI)\",\n  })",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"ID of company bank account where funds were deposited\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"NEFT-92817482910\",\n    description: \"External banking transaction reference or UTR number\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 100)"
+        ]
+      },
+      {
+        "name": "invoiceReference",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INV-202610-0012\",\n    description: \"Primary sales invoice reference number\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 100)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Advance payment against annual maintenance contract\",\n    description: \"Internal receipt notes or remarks\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinancePaymentReceivedStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_PAYMENT_RECEIVED_STATUSES,\n    default: \"CONFIRMED\",\n    description:\n      \"Initial status of receipt (CONFIRMED automatically posts to GL; DRAFT does not)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_PAYMENT_RECEIVED_STATUSES)"
+        ]
+      },
+      {
+        "name": "allocations",
+        "type": "CreatePaymentAllocationDto[]",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    type: [CreatePaymentAllocationDto],\n    description: \"Optional list of initial invoice allocations\",\n  })",
+          "@IsOptional()",
+          "@IsArray()",
+          "@ValidateNested({ each: true })",
+          "@Type(() => CreatePaymentAllocationDto)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryPaymentsReceivedDto",
+    "file": "apps/api/src/modules/finance/payments-received/dto/query-payments-received.dto.ts",
+    "fields": [
+      {
+        "name": "customerId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description: \"Filter by customer (CRM Account ID)\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "paymentModeId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 2,\n    description: \"Filter by payment mode ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "bankAccountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 1,\n    description: \"Filter by company bank account ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "status",
+        "type": "FinancePaymentReceivedStatus",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    enum: FINANCE_PAYMENT_RECEIVED_STATUSES,\n    description:\n      \"Filter by receipt status (DRAFT, CONFIRMED, RECONCILED, VOID)\",\n  })",
+          "@IsOptional()",
+          "@IsIn(FINANCE_PAYMENT_RECEIVED_STATUSES)"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-01\",\n    description: \"Filter payments received on or after this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-31\",\n    description: \"Filter payments received on or before this date (inclusive)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Search in paymentNumber, customerName, referenceNumber, or notes\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdatePaymentReceivedDto",
+    "file": "apps/api/src/modules/finance/payments-received/dto/update-payment-received.dto.ts",
+    "fields": [
+      {
+        "name": "paymentDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"2026-10-23\",\n    description: \"Date payment was received (ISO YYYY-MM-DD)\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "customerId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: 10,\n    description: \"CRM Account ID of the customer (if linked)\",\n  })",
+          "@IsOptional()",
+          "@IsInt()",
+          "@IsPositive()"
+        ]
+      },
+      {
+        "name": "customerName",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Globex Corporation\",\n    description: \"Name of the customer or paying entity\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 200)"
+        ]
+      },
+      {
+        "name": "referenceNumber",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"NEFT-92817482910\",\n    description: \"External banking transaction reference or UTR number\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 100)"
+        ]
+      },
+      {
+        "name": "invoiceReference",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"INV-202610-0012\",\n    description: \"Primary sales invoice reference number\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 100)"
+        ]
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    example: \"Advance payment against annual maintenance contract\",\n    description: \"Internal receipt notes or remarks\",\n  })",
+          "@IsOptional()",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 1000)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryBalanceSheetDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-balance-sheet.dto.ts",
+    "fields": [
+      {
+        "name": "asOfDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"As-of date for the Balance Sheet snapshot (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryCashBankSummaryDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-cash-bank-summary.dto.ts",
+    "fields": [
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Start date of the summary period (YYYY-MM-DD). Defaults to the start of current month.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"End date of the summary period (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryGeneralLedgerDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-general-ledger.dto.ts",
+    "fields": [
+      {
+        "name": "accountId",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter by specific Chart of Accounts ID\",\n  })",
+          "@IsOptional()",
+          "@Type(() => Number)",
+          "@IsInt()"
+        ]
+      },
+      {
+        "name": "accountCode",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Filter by specific Chart of Accounts code (e.g. 1020, 2010)\",\n  })",
+          "@IsOptional()",
+          "@IsString()"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Start date of the ledger period (YYYY-MM-DD). Defaults to the start of current month.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"End date of the ledger period (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryPeriodClosingDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-period-closing.dto.ts",
+    "fields": [
+      {
+        "name": "period",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    description: \"Financial period in YYYY-MM format (e.g. 2026-10)\",\n    example: \"2026-10\",\n  })",
+          "@IsNotEmpty()",
+          "@IsString()",
+          "@Matches(/^\\d{4}-(?:0[1-9]|1[0-2])$/, {\n    message: \"period must be formatted as YYYY-MM (e.g. 2026-10)\",\n  })"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryProfitAndLossDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-profit-and-loss.dto.ts",
+    "fields": [
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Start date of the reporting period (YYYY-MM-DD). Defaults to the start of current month.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"End date of the reporting period (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryTrialBalanceDto",
+    "file": "apps/api/src/modules/finance/reports/dto/query-trial-balance.dto.ts",
+    "fields": [
+      {
+        "name": "asOfDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"As-of date for the Trial Balance (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "startDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"Start date for period movement calculations (YYYY-MM-DD). Defaults to start of current month.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      },
+      {
+        "name": "endDate",
+        "type": "string",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description:\n      \"End date for period movement calculations (YYYY-MM-DD). Defaults to today.\",\n  })",
+          "@IsOptional()",
+          "@IsDateString()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CreateMasterListItemDto",
+    "file": "apps/api/src/modules/finance-settings/dto/create-master-list-item.dto.ts",
+    "fields": [
+      {
+        "name": "category",
+        "type": "FinanceMasterListCategory",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ enum: FINANCE_MASTER_LIST_CATEGORIES })",
+          "@IsIn(FINANCE_MASTER_LIST_CATEGORIES)"
+        ]
+      },
+      {
+        "name": "value",
+        "type": "string",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({ example: \"Travel\" })",
+          "@Trim()",
+          "@IsString()",
+          "@Length(1, 200)"
+        ]
+      },
+      {
+        "name": "numericValue",
+        "type": "number",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Reserved for a future numeric-backed category; null today\",\n  })",
+          "@IsOptional()",
+          "@IsNumber({ maxDecimalPlaces: 4 })"
+        ]
+      },
+      {
+        "name": "customFields",
+        "type": "Record<string, unknown>",
+        "isOptional": true,
+        "decorators": [
+          "@ApiPropertyOptional({\n    description: \"Arbitrary extra fields, not queried/filtered/joined\",\n  })",
+          "@IsOptional()",
+          "@IsObject()"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "QueryMasterListItemDto",
+    "file": "apps/api/src/modules/finance-settings/dto/query-master-list-item.dto.ts",
+    "fields": [
+      {
+        "name": "category",
+        "type": "FinanceMasterListCategory",
+        "isOptional": false,
+        "decorators": [
+          "@ApiProperty({\n    enum: FINANCE_MASTER_LIST_CATEGORIES,\n    description: \"Which Finance Master card to list\",\n  })",
+          "@IsIn(FINANCE_MASTER_LIST_CATEGORIES)"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "UpdateMasterListItemDto",
+    "file": "apps/api/src/modules/finance-settings/dto/update-master-list-item.dto.ts",
+    "fields": []
+  }
+]

@@ -1,0 +1,101 @@
+erDiagram
+    %% =========================================================================
+    %% ER 5: TexaWave ERP — Vendor Payments Made Subsystem
+    %% Physical Tables: finance.payments_made, finance.finance_master_list_items, finance.bank_accounts
+    %% Cross-Schema Tables: scm.supplier_payments, scm.suppliers, scm.supplier_bills, platform.organizations
+    %% Foreign Keys & Actions:
+    %%   - payments_made.payment_mode_id -> finance_master_list_items.id [RESTRICT]
+    %%   - payments_made.bank_account_id -> bank_accounts.id [SET NULL]
+    %%   - payments_made.journal_entry_id -> journal_entries.id [SET NULL] (1:1 UK)
+    %%   - payments_made.scm_supplier_payment_id -> scm.supplier_payments.id [SET NULL] (1:1 UK)
+    %%   - scm.supplier_payments.supplier_id -> scm.suppliers.id
+    %%   - scm.supplier_payments.bill_id -> scm.supplier_bills.id
+    %% Status: Schema-Derived & Migration-Verified
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_PAYMENT_MADE : "organization_id (RESTRICT)"
+    ORGANIZATION ||--o{ SCM_SUPPLIER_PAYMENT : "organization_id (RESTRICT)"
+
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_PAYMENT_MADE : "payment_mode_id (RESTRICT)"
+    FINANCE_BANK_ACCOUNT ||--o{ FINANCE_PAYMENT_MADE : "bank_account_id (Disbursing - SET NULL)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_PAYMENT_MADE : "journal_entry_id (Posted GL voucher - 1:1 UK)"
+
+    SCM_SUPPLIER_PAYMENT ||--o| FINANCE_PAYMENT_MADE : "scm_supplier_payment_id (1:1 UK Link)"
+    SUPPLIER ||--o{ SCM_SUPPLIER_PAYMENT : "supplier_id (Vendor Payee)"
+    SCM_SUPPLIER_BILL ||--o{ SCM_SUPPLIER_PAYMENT : "bill_id (Settled Bill)"
+
+    ORGANIZATION {
+        int id PK "platform.organizations"
+        string name "Tenant Name"
+    }
+
+    FINANCE_PAYMENT_MADE {
+        int id PK "payments_made.id"
+        int organization_id FK "References platform.organizations(id)"
+        string payment_number "payment_number UK per org (PM-YYYYMMDD-XXXX)"
+        date payment_date "Disbursement date"
+        string vendor_name "Payee vendor company"
+        int payment_mode_id FK "References finance_master_list_items.id"
+        decimal amount "Disbursed monetary amount Decimal(15,2)"
+        string reference_number "Cheque / UTR / Transaction reference"
+        string status "DRAFT, CONFIRMED, RECONCILED, VOID"
+        int bank_account_id FK "References bank_accounts.id (SET NULL)"
+        int journal_entry_id FK "References journal_entries.id (1:1 UK)"
+        int scm_supplier_payment_id FK "References scm.supplier_payments.id (1:1 UK)"
+        string notes "Payment notes"
+        int created_by "Audit user ID"
+        int updated_by "Audit user ID"
+        datetime created_at "Created timestamp"
+        datetime updated_at "Updated timestamp"
+        datetime deleted_at "Soft-delete timestamp"
+    }
+
+    SCM_SUPPLIER_PAYMENT {
+        int id PK "scm.supplier_payments.id"
+        int organization_id FK "References platform.organizations(id)"
+        string payment_number "payment_number UK per org"
+        int supplier_id FK "References scm.suppliers.id"
+        int bill_id FK "References scm.supplier_bills.id"
+        date payment_date "Payment date"
+        string mode "Payment mode"
+        decimal amount "Amount Decimal(14,2)"
+        string status "POSTED, VOID"
+    }
+
+    SUPPLIER {
+        int id PK "scm.suppliers.id"
+        int organization_id FK "References platform.organizations(id)"
+        string supplier_code "supplier_code UK per org"
+        string company_name "Supplier Trade Name"
+        string gstin "Supplier statutory GSTIN"
+        string pan "PAN identifier"
+    }
+
+    SCM_SUPPLIER_BILL {
+        int id PK "scm.supplier_bills.id"
+        int organization_id FK "References platform.organizations(id)"
+        string bill_number "bill_number UK per org"
+        decimal total "Total bill amount Decimal(14,2)"
+        decimal paid_amount "Settled amount Decimal(14,2)"
+        string status "OPEN, PAID, CANCELLED"
+    }
+
+    FINANCE_MASTER_LIST_ITEM {
+        int id PK "finance_master_list_items.id"
+        string category "PAYMENT_MODE"
+        string value "BANK_TRANSFER, CHEQUE, CASH"
+    }
+
+    FINANCE_BANK_ACCOUNT {
+        int id PK "bank_accounts.id"
+        string account_name "Disbursing Bank Account"
+        decimal current_balance "Decremented upon payment confirmation"
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK "journal_entries.id"
+        string entry_number "JE-YYYYMMDD-XXXX"
+        decimal total_debit "DR: Accounts Payable 2010"
+        decimal total_credit "CR: Bank Account 1010/1020"
+    }
+

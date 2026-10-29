@@ -1,0 +1,104 @@
+erDiagram
+    %% =========================================================================
+    %% ER 6: TexaWave ERP — Expenses & HR Claims Integration Subsystem
+    %% Physical Tables: finance.expenses, finance.finance_master_list_items, finance.accounts, finance.journal_entries
+    %% Cross-Schema Tables: hr.expense_claims, hr.employees, platform.organizations
+    %% Includes 11 GST/ITC columns from Migration 20261026160000
+    %% Foreign Keys & Actions:
+    %%   - expenses.expense_type_id -> finance_master_list_items.id [RESTRICT]
+    %%   - expenses.payment_mode_id -> finance_master_list_items.id [SET NULL]
+    %%   - expenses.bank_account_id -> bank_accounts.id [SET NULL]
+    %%   - expenses.gl_account_id -> accounts.id [SET NULL]
+    %%   - expenses.journal_entry_id -> journal_entries.id [SET NULL] (1:1 UK)
+    %% Logical Cross-Schema Key:
+    %%   - expenses.claim_id -> hr.expense_claims.id (1:1 UK hr_expense_claim_id)
+    %% Status: Schema-Derived & Migration-Verified
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_EXPENSE : "organization_id (RESTRICT)"
+
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_EXPENSE : "expense_type_id (Category - RESTRICT)"
+    FINANCE_MASTER_LIST_ITEM ||--o{ FINANCE_EXPENSE : "payment_mode_id (SET NULL)"
+    FINANCE_BANK_ACCOUNT ||--o{ FINANCE_EXPENSE : "bank_account_id (Disbursing - SET NULL)"
+    FINANCE_ACCOUNT ||--o{ FINANCE_EXPENSE : "gl_account_id (GL Expense Account 5xxx - SET NULL)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_EXPENSE : "journal_entry_id (Posted GL voucher - 1:1 UK)"
+
+    FINANCE_EXPENSE ||..o| HR_EXPENSE_CLAIM : "claim_id (Logical cross-schema 1:1 UK)"
+    HR_EMPLOYEE ||--o{ HR_EXPENSE_CLAIM : "employee_id (Claim Submitter)"
+
+    ORGANIZATION {
+        int id PK "platform.organizations"
+        string name "Tenant Name"
+    }
+
+    FINANCE_EXPENSE {
+        int id PK "expenses.id"
+        int organization_id FK "References platform.organizations(id)"
+        string expense_number "expense_number UK per org (EXP-YYYYMMDD-XXXX)"
+        date expense_date "Expense incurred date"
+        int expense_type_id FK "References finance_master_list_items.id"
+        string vendor_name "Payee vendor title"
+        decimal amount "Gross amount Decimal(15,2)"
+        decimal tax_amount "GST amount component Decimal(15,2)"
+        decimal net_amount "Taxable base expense Decimal(15,2)"
+        string payment_method "CASH, BANK_TRANSFER, UPI, CHEQUE"
+        int payment_mode_id FK "References finance_master_list_items.id"
+        int bank_account_id FK "References bank_accounts.id (SET NULL)"
+        int gl_account_id FK "References accounts.id (Expense 5xxx)"
+        string status "DRAFT, SUBMITTED, APPROVED, REJECTED, PAID, CANCELLED"
+        int journal_entry_id FK "References journal_entries.id (1:1 UK)"
+        int claim_id "Logical FK to hr.expense_claims.id (1:1 UK)"
+        string vendor_gstin "15-char statutory GSTIN (Migration 20261026160000)"
+        string vendor_invoice_number "Vendor tax invoice number"
+        date vendor_invoice_date "Invoice date for ITC validation"
+        string hsn_sac_code "HSN/SAC classification code"
+        decimal tax_rate "Statutory GST rate Decimal(5,2)"
+        decimal cgst_amount "Central GST Decimal(15,2)"
+        decimal sgst_amount "State GST Decimal(15,2)"
+        decimal igst_amount "Integrated GST Decimal(15,2)"
+        boolean is_itc_eligible "true: debits Asset 1300; false: absorbs in expense"
+        string ineligibility_reason "Sec 17(5) blocked credit reason"
+        string gst_jurisdiction "INTRA_STATE or INTER_STATE"
+        string receipt_url "Attachment URL"
+        string notes "Expense remarks"
+        int created_by "Audit user ID"
+        int updated_by "Audit user ID"
+        datetime created_at "Created timestamp"
+        datetime updated_at "Updated timestamp"
+        datetime deleted_at "Soft-delete timestamp"
+    }
+
+    FINANCE_MASTER_LIST_ITEM {
+        int id PK "finance_master_list_items.id"
+        string category "EXPENSE_TYPE, PAYMENT_MODE"
+        string value "TRAVEL, OFFICE_SUPPLIES, UTILITIES"
+    }
+
+    FINANCE_ACCOUNT {
+        int id PK "accounts.id"
+        string code "account_code (5200 Operating / 1300 ITC Asset)"
+        string name "GL Account Title"
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK "journal_entries.id"
+        string entry_number "JE Voucher Number (JE-XXXX)"
+        decimal total_debit "DR: Expense (5xxx) + DR: ITC Asset (1300)"
+        decimal total_credit "CR: Bank / Cash / Payables (1010/2000)"
+    }
+
+    HR_EXPENSE_CLAIM {
+        int id PK "hr.expense_claims.id"
+        int employee_id FK "References hr.employees.id"
+        string claim_number "claim_number UK per org (CLM-XXXX)"
+        decimal amount "Claim monetary total"
+        string status "APPROVED, CONVERTED"
+        int finance_expense_id "Cross-schema link back to expenses.id"
+    }
+
+    HR_EMPLOYEE {
+        int id PK "hr.employees.id"
+        string employee_code "employee_code UK per org"
+        string full_name "Employee Name (queried in claim conversion)"
+    }
+

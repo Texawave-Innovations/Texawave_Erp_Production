@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   Package,
   Landmark,
+  BookOpen,
   FolderKanban,
   BarChart3,
   LineChart,
@@ -37,6 +38,7 @@ import {
   Building2,
   UsersRound,
   Briefcase,
+  Calculator,
   UserMinus,
   Calendar,
   CalendarCheck,
@@ -128,6 +130,8 @@ export interface NavLeafItem {
   icon3d?: Icon3DName;
   iconColor?: string;
   menuCode: string;
+  disabled?: boolean | undefined;
+  upcoming?: boolean | undefined;
 }
 
 export interface NavCategory {
@@ -1564,6 +1568,135 @@ export const PROJECTS_CATEGORIES: NavCategory[] = [
     ],
   },
 ];
+
+const FINANCE_CATEGORIES: NavCategory[] = [
+  {
+    id: "general-ledger",
+    label: "General Ledger",
+    icon: Landmark,
+    icon3d: "finance",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "general-ledger-view",
+        label: "General Ledger",
+        path: "/finance/general-ledger",
+        icon: BookOpen,
+        icon3d: "finance",
+        menuCode: "finance-general-ledger",
+      },
+      {
+        id: "accounts",
+        label: "Chart of Accounts",
+        path: "/finance/accounts",
+        icon: Landmark,
+        icon3d: "finance",
+        menuCode: "finance-accounts",
+      },
+      {
+        id: "journal-entries",
+        label: "Journal Entries",
+        path: "/finance/journal-entries",
+        icon: FileText,
+        icon3d: "payroll",
+        menuCode: "finance-journal",
+      },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: Receipt,
+    icon3d: "operations",
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "expenses",
+        label: "Operational Expenses",
+        path: "/finance/expenses",
+        icon: Receipt,
+        icon3d: "expense-approvals",
+        menuCode: "finance-expenses",
+      },
+      {
+        id: "payments-received",
+        label: "Payments Received",
+        path: "/finance/payments-received",
+        icon: ArrowLeftRight,
+        icon3d: "payroll",
+        menuCode: "finance-payments-received",
+      },
+      {
+        id: "payments-made",
+        label: "Payments Made",
+        path: "/finance/payments-made",
+        icon: Wallet,
+        icon3d: "payroll",
+        menuCode: "finance-payments-made",
+      },
+    ],
+  },
+  {
+    id: "treasury",
+    label: "Treasury & Banking",
+    icon: Building2,
+    icon3d: "departments",
+    iconColor: "text-sky-600",
+    children: [
+      {
+        id: "banking",
+        label: "Bank Accounts",
+        path: "/finance/banking",
+        icon: Building2,
+        icon3d: "departments",
+        menuCode: "finance-banking",
+      },
+    ],
+  },
+  {
+    id: "compliance",
+    label: "Tax & Compliance",
+    icon: ShieldCheck,
+    icon3d: "compliance",
+    iconColor: "text-blue-600",
+    children: [
+      {
+        id: "gst",
+        label: "GST Registry & Returns",
+        path: "/finance/gst",
+        icon: ShieldCheck,
+        icon3d: "compliance",
+        menuCode: "finance-gst",
+      },
+      {
+        id: "tax-calculator",
+        label: "Income Tax Calculator",
+        path: "/finance/tax-calculator",
+        icon: Calculator,
+        icon3d: "compliance",
+        menuCode: "finance-tax-calculator",
+      },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    icon: BarChart3,
+    icon3d: "overview",
+    iconColor: "text-cyan-600",
+    children: [
+      {
+        id: "financial-reports",
+        label: "Financial Statements",
+        path: "/finance/reports",
+        icon: BarChart3,
+        icon3d: "overview",
+        menuCode: "finance-reports",
+        disabled: false,
+      },
+    ],
+  },
+];
 /** In client-demo mode (see `features/scm/shared/demo-mode.ts`), the SCM
  * navigation is narrowed to `SCM_DEMO_MENU_CODES` — a leaf not in that set is
  * hidden (never removed: its route still resolves), and a group left with no
@@ -1613,8 +1746,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Finance",
     icon: Landmark,
     icon3d: "finance",
-    path: "#",
-    available: false,
+    path: "/finance/general-ledger",
+    available: true,
+    categories: FINANCE_CATEGORIES,
   },
   {
     id: "inventory",
@@ -1847,6 +1981,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const userPermissions = useAuthStore((s) => s.permissions);
   const menuQuery = useMyMenu();
 
   // Navigation Dropdown state: separate hovered preview from pinned selection
@@ -1861,6 +1996,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const [submenuAlignLeft, setSubmenuAlignLeft] = useState(false);
 
   // Shell popover states
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Spring glide active indicator state (CodeFronts specification)
@@ -1889,6 +2025,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const navContainerRef = useRef<HTMLElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   // Derive active module, category, and leaf from current URL route
   const routeState = useMemo(
@@ -1969,6 +2106,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     setPinnedModuleId(null);
     setHoveredCategoryId(null);
     setPinnedCategoryId(null);
+    setNotificationsOpen(false);
     setMobileMenuOpen(false);
   }, []);
 
@@ -2009,6 +2147,9 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       ) {
         closeAllMenus();
       }
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setNotificationsOpen(false);
+      }
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -2037,7 +2178,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
               (child) =>
                 allowedCodes.has(child.menuCode) ||
                 child.path === "#" ||
-                !child.menuCode,
+                !child.menuCode ||
+                (child.menuCode.startsWith("finance-") &&
+                  (userPermissions.includes("finance.coa.read") ||
+                    userPermissions.includes("settings.role.write") ||
+                    !user?.email ||
+                    user?.email === "admin@texawave.com")),
             );
             return {
               ...cat,
@@ -2057,7 +2203,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           return true;
         });
     },
-    [menuQuery.data, allowedCodes],
+    [menuQuery.data, allowedCodes, userPermissions, user?.email],
   );
 
   // Effective open module: hovered module previews; otherwise pinned module stays open
@@ -2697,6 +2843,33 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
                             : underPath(pathname, item.path) &&
                               item.path.length === deepest;
 
+                          if (item.disabled) {
+                            return (
+                              <div
+                                key={item.id}
+                                className="group flex items-center justify-between rounded-[18px] border border-transparent px-3.5 py-2.5 text-xs font-semibold text-slate-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                                title={`${item.label} — Upcoming phase`}
+                                aria-disabled="true"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  {item.icon3d ? (
+                                    <Semantic3DIcon
+                                      name={item.icon3d}
+                                      size={20}
+                                      className="shrink-0 opacity-60"
+                                    />
+                                  ) : (
+                                    <item.icon className="h-4.5 w-4.5 shrink-0 text-slate-400 dark:text-gray-500" />
+                                  )}
+                                  <span>{item.label}</span>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                  Upcoming
+                                </span>
+                              </div>
+                            );
+                          }
+
                           return (
                             <Link
                               key={item.id}
@@ -2985,17 +3158,37 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
 
                             {isCatExpanded && cat.children && (
                               <div className="ml-4 flex flex-col gap-0.5 border-l border-sky-200 pl-2">
-                                {cat.children.map((child) => (
-                                  <Link
-                                    key={child.id}
-                                    href={child.path}
-                                    onClick={() => handleLeafClick(mod.id)}
-                                    className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
-                                  >
-                                    <child.icon className="h-3 w-3" />
-                                    <span>{child.label}</span>
-                                  </Link>
-                                ))}
+                                {cat.children.map((child) => {
+                                  if (child.disabled) {
+                                    return (
+                                      <div
+                                        key={child.id}
+                                        className="flex items-center justify-between rounded-lg px-2 py-1 text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                                        aria-disabled="true"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <child.icon className="h-3 w-3" />
+                                          <span>{child.label}</span>
+                                        </div>
+                                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                          Upcoming
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <Link
+                                      key={child.id}
+                                      href={child.path}
+                                      onClick={() => handleLeafClick(mod.id)}
+                                      className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
+                                    >
+                                      <child.icon className="h-3 w-3" />
+                                      <span>{child.label}</span>
+                                    </Link>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

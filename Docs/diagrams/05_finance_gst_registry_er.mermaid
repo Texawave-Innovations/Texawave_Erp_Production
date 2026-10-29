@@ -1,0 +1,68 @@
+erDiagram
+    %% =========================================================================
+    %% TexaWave ERP — GST Registry & Statutory Returns Subsystem ER Diagram
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_GST_ENTRY : "scopes"
+
+    FINANCE_EXPENSE ||--o| FINANCE_GST_ENTRY : "source: EXPENSE (Inward GSTR-2B)"
+    SCM_SUPPLIER_BILL ||--o| FINANCE_GST_ENTRY : "source: PURCHASE_BILL (Inward GSTR-2B)"
+    SALES_INVOICE ||--o| FINANCE_GST_ENTRY : "source: SALES_INVOICE (Outward GSTR-1)"
+
+    FINANCE_GST_ENTRY ||--o{ FINANCE_JOURNAL_ENTRY : "audited against tax vouchers"
+
+    FINANCE_GST_ENTRY {
+        int id PK
+        int organization_id FK
+        string period "Tax period e.g. '2026-10'"
+        string return_type "GSTR_1 (outward) or GSTR_2B (inward)"
+        string entry_type "OUTWARD_SUPPLY or INWARD_SUPPLY"
+        string source_type "EXPENSE, PURCHASE_BILL, SALES_INVOICE"
+        int source_id "Polymorphic integer ID of originating document"
+        string document_number "Invoice or voucher number"
+        date document_date "Date of originating supply document"
+        string counterparty_name "Customer or Vendor trade name"
+        string gstin "15-char statutory GSTIN of counterparty"
+        string pos_state_code "2-digit Place of Supply state code"
+        boolean is_reverse_charge "Flag for RCM liability"
+        decimal taxable_value "Base supply value excluding tax"
+        decimal tax_rate "Statutory GST percentage (0, 5, 12, 18, 28%)"
+        decimal cgst "Central Goods and Services Tax"
+        decimal sgst "State Goods and Services Tax"
+        decimal igst "Integrated Goods and Services Tax"
+        decimal cess "Compensation Cess"
+        string itc_eligibility "ELIGIBLE, INELIGIBLE, BLOCKED_17_5"
+        string status "DRAFT, FILED, RECONCILED, CANCELLED"
+        boolean is_reconciled "Reconciliation match flag"
+        datetime reconciled_at
+        int reconciled_by_user_id
+        datetime created_at
+        datetime updated_at
+    }
+
+    FINANCE_EXPENSE {
+        int id PK
+        string expense_number "EXP-XXXX"
+        string vendor_gstin
+        decimal tax_amount
+    }
+
+    SCM_SUPPLIER_BILL {
+        int id PK
+        string bill_number "BILL-XXXX"
+        string supplier_gstin
+        decimal tax_amount
+    }
+
+    SALES_INVOICE {
+        string invoice_number "INV-XXXX"
+        string customer_gstin
+        decimal tax_amount
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK
+        string entry_number "JE-XXXX"
+        decimal total_debit "Audits GL Account 1300 (ITC Asset)"
+        decimal total_credit "Audits GL Account 2200 (Output Tax Liability)"
+    }

@@ -35,9 +35,26 @@ export interface SupplierBill {
   updatedAt: string;
   outstanding: number;
   overdue: boolean;
-  supplier: { id: number; supplierCode: string; companyName: string };
+  supplier: {
+    id: number;
+    supplierCode: string;
+    companyName: string;
+    gstin?: string | null;
+    state?: string | null;
+  };
   purchaseOrder: { id: number; poNumber: string } | null;
   goodsReceipt: { id: number; grnNumber: string } | null;
+  isPosted?: boolean;
+  journalEntryId?: number | null;
+  journalEntryNumber?: string | null;
+  gstEntryId?: number | null;
+  postedAt?: string | null;
+}
+
+export interface PostSupplierBillToFinanceInput {
+  jurisdiction?: "INTRA_STATE" | "INTER_STATE";
+  isItcEligible?: boolean;
+  notes?: string;
 }
 
 export interface SupplierPayment {
@@ -55,7 +72,13 @@ export interface SupplierPayment {
   voidedAt: string | null;
   voidReason: string | null;
   createdAt: string;
-  supplier: { id: number; supplierCode: string; companyName: string };
+  supplier: {
+    id: number;
+    supplierCode: string;
+    companyName: string;
+    gstin?: string | null;
+    state?: string | null;
+  };
   bill: {
     id: number;
     billNumber: string;

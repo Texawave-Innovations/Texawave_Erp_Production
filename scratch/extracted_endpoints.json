@@ -1,0 +1,242 @@
+[
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controller": "finance/bank-accounts",
+    "handler": "findOne",
+    "method": "GET",
+    "path": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.read",
+    "httpCode": "200 OK",
+    "paramStr": "findOne(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controller": "finance/bank-accounts",
+    "handler": "create",
+    "method": "POST",
+    "path": "/finance/bank-accounts",
+    "permission": "finance.banking.write",
+    "httpCode": "201 Created",
+    "paramStr": "create(@Body() dto: CreateBankAccountDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controller": "finance/bank-accounts",
+    "handler": "update",
+    "method": "PATCH",
+    "path": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.write",
+    "httpCode": "200 OK",
+    "paramStr": "update( @Param(\"id\", ParseIntPipe) id: number, @Body() dto: UpdateBankAccountDto, )"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controller": "finance/bank-accounts",
+    "handler": "remove",
+    "method": "DELETE",
+    "path": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.write",
+    "httpCode": "HttpStatus.NO_CONTENT",
+    "paramStr": "async remove(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controller": "finance/bank-transactions",
+    "handler": "findOne",
+    "method": "GET",
+    "path": "/finance/bank-transactions/:id",
+    "permission": "finance.banking.read",
+    "httpCode": "200 OK",
+    "paramStr": "findOne(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controller": "finance/bank-transactions",
+    "handler": "reconcile",
+    "method": "POST",
+    "path": "/finance/bank-transactions/:id/reconcile",
+    "permission": "finance.banking.write",
+    "httpCode": "201 Created",
+    "paramStr": "reconcile( @Param(\"id\", ParseIntPipe) id: number, @Body() dto: ReconcileTransactionDto, )"
+  },
+  {
+    "file": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controller": "finance/bank-transactions",
+    "handler": "unreconcile",
+    "method": "POST",
+    "path": "/finance/bank-transactions/:id/unreconcile",
+    "permission": "finance.banking.write",
+    "httpCode": "201 Created",
+    "paramStr": "unreconcile(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controller": "finance/accounts",
+    "handler": "getTree",
+    "method": "GET",
+    "path": "/finance/accounts/tree",
+    "permission": "finance.coa.read",
+    "httpCode": "200 OK",
+    "paramStr": "getTree()"
+  },
+  {
+    "file": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controller": "finance/accounts",
+    "handler": "findOne",
+    "method": "GET",
+    "path": "/finance/accounts/:id",
+    "permission": "finance.coa.read",
+    "httpCode": "200 OK",
+    "paramStr": "findOne(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controller": "finance/accounts",
+    "handler": "create",
+    "method": "POST",
+    "path": "/finance/accounts",
+    "permission": "finance.coa.write",
+    "httpCode": "201 Created",
+    "paramStr": "create(@Body() dto: CreateAccountDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controller": "finance/accounts",
+    "handler": "update",
+    "method": "PATCH",
+    "path": "/finance/accounts/:id",
+    "permission": "finance.coa.write",
+    "httpCode": "200 OK",
+    "paramStr": "update(@Param(\"id\", ParseIntPipe) id: number, @Body() dto: UpdateAccountDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controller": "finance/accounts",
+    "handler": "remove",
+    "method": "DELETE",
+    "path": "/finance/accounts/:id",
+    "permission": "finance.coa.write",
+    "httpCode": "HttpStatus.NO_CONTENT",
+    "paramStr": "remove(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controller": "finance/expenses",
+    "handler": "submit",
+    "method": "POST",
+    "path": "/finance/expenses/:id/submit",
+    "permission": "finance.expense.write",
+    "httpCode": "201 Created",
+    "paramStr": "submit(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controller": "finance/expenses",
+    "handler": "approve",
+    "method": "POST",
+    "path": "/finance/expenses/:id/approve",
+    "permission": "finance.expense.write",
+    "httpCode": "201 Created",
+    "paramStr": "approve(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controller": "finance/expenses",
+    "handler": "reject",
+    "method": "POST",
+    "path": "/finance/expenses/:id/reject",
+    "permission": "finance.expense.write",
+    "httpCode": "201 Created",
+    "paramStr": "reject(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controller": "finance/expenses",
+    "handler": "delete",
+    "method": "DELETE",
+    "path": "/finance/expenses/:id",
+    "permission": "finance.expense.write",
+    "httpCode": "HttpStatus.NO_CONTENT",
+    "paramStr": "async delete(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controller": "finance/journal-entries",
+    "handler": "create",
+    "method": "POST",
+    "path": "/finance/journal-entries",
+    "permission": "finance.journal.write",
+    "httpCode": "201 Created",
+    "paramStr": "create(@Body() dto: CreateJournalEntryDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controller": "finance/journal-entries",
+    "handler": "update",
+    "method": "PATCH",
+    "path": "/finance/journal-entries/:id",
+    "permission": "finance.journal.write",
+    "httpCode": "200 OK",
+    "paramStr": "update( @Param(\"id\", ParseIntPipe) id: number, @Body() dto: UpdateJournalEntryDto, )"
+  },
+  {
+    "file": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controller": "finance/journal-entries",
+    "handler": "remove",
+    "method": "DELETE",
+    "path": "/finance/journal-entries/:id",
+    "permission": "finance.journal.write",
+    "httpCode": "HttpStatus.NO_CONTENT",
+    "paramStr": "remove(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controller": "finance-settings/master-list-items",
+    "handler": "findAll",
+    "method": "GET",
+    "path": "/finance-settings/master-list-items",
+    "permission": "finance_settings.master_list_item.read",
+    "httpCode": "200 OK",
+    "paramStr": "findAll(@Paginate(QueryMasterListItemDto) query: QueryMasterListItemDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controller": "finance-settings/master-list-items",
+    "handler": "findOne",
+    "method": "GET",
+    "path": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.read",
+    "httpCode": "200 OK",
+    "paramStr": "findOne(@Param(\"id\", ParseIntPipe) id: number)"
+  },
+  {
+    "file": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controller": "finance-settings/master-list-items",
+    "handler": "create",
+    "method": "POST",
+    "path": "/finance-settings/master-list-items",
+    "permission": "finance_settings.master_list_item.write",
+    "httpCode": "201 Created",
+    "paramStr": "create(@Body() dto: CreateMasterListItemDto)"
+  },
+  {
+    "file": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controller": "finance-settings/master-list-items",
+    "handler": "update",
+    "method": "PATCH",
+    "path": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.write",
+    "httpCode": "200 OK",
+    "paramStr": "update( @Param(\"id\", ParseIntPipe) id: number, @Body() dto: UpdateMasterListItemDto, )"
+  },
+  {
+    "file": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controller": "finance-settings/master-list-items",
+    "handler": "remove",
+    "method": "DELETE",
+    "path": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.write",
+    "httpCode": "HttpStatus.NO_CONTENT",
+    "paramStr": "remove(@Param(\"id\", ParseIntPipe) id: number)"
+  }
+]

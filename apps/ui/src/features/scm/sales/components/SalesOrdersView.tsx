@@ -9,7 +9,7 @@ import {
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Plus, ShoppingCart, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
@@ -29,6 +29,7 @@ import {
   useSalesOrderAction,
   useSalesOrders,
 } from "../hooks";
+import { IssueInvoiceDialog } from "./IssueInvoiceDialog";
 import { SalesOrderForm } from "./SalesOrderForm";
 
 /** Sales orders feeding fulfillment (legacy read these from the Sales module). */
@@ -39,6 +40,7 @@ export function SalesOrdersView() {
   const [formOpen, setFormOpen] = useState(false);
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<SalesOrder | null>(null);
+  const [invoicingOrder, setInvoicingOrder] = useState<SalesOrder | null>(null);
   const { toast } = useToast();
   const canWrite = usePermission("scm.sales.write");
   const canFulfil = usePermission("scm.fulfillment.write");
@@ -113,9 +115,9 @@ export function SalesOrdersView() {
             }}
           >
             <option value="">All statuses</option>
-            {SALES_ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {formatStatusLabel(s)}
+            {SALES_ORDER_STATUSES.map((st) => (
+              <option key={st} value={st}>
+                {formatStatusLabel(st)}
               </option>
             ))}
           </Select>
@@ -132,7 +134,9 @@ export function SalesOrdersView() {
         {
           header: "Order #",
           cell: (r) => (
-            <span className="font-mono text-theme-xs">{r.soNumber}</span>
+            <span className="font-semibold text-theme-xs text-gray-900 dark:text-white">
+              {r.soNumber}
+            </span>
           ),
         },
         { header: "Customer", cell: (r) => r.customerName },
@@ -147,6 +151,17 @@ export function SalesOrdersView() {
               colorToken={scmStatusToken(r.status)}
             />
           ),
+        },
+        {
+          header: "Invoice",
+          cell: (r) =>
+            r.invoiceNumber ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-theme-xs font-semibold text-[#1769F5] dark:bg-sky-950/40 dark:text-sky-300">
+                {r.invoiceNumber}
+              </span>
+            ) : (
+              <span className="text-theme-xs text-gray-400">Not Invoiced</span>
+            ),
         },
         { header: "Shipping", cell: (r) => r.shippedStatus },
         {
@@ -167,6 +182,19 @@ export function SalesOrdersView() {
                   }
                 >
                   Confirm
+                </Button>
+              ) : null}
+              {r.status === "CONFIRMED" &&
+              canWrite &&
+              r.invoicedStatus !== "Invoiced" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-[#1769F5]/30 text-[#1769F5] hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                  onClick={() => setInvoicingOrder(r)}
+                >
+                  <FileCheck className="h-3.5 w-3.5" />
+                  Issue Invoice
                 </Button>
               ) : null}
               {r.status === "CONFIRMED" && canFulfil ? (
@@ -203,7 +231,7 @@ export function SalesOrdersView() {
         open={Boolean(cancelling)}
         onClose={() => setCancelling(null)}
         title="Cancel sales order?"
-        description={`Cancel ${cancelling?.soNumber ?? ""}? Orders with open fulfillments cannot be cancelled.`}
+        description={`Cancel ${cancelling?.soNumber ?? ""}? Orders with open fulfillments cannot be cancelled. If an invoice was posted, its accounting and GST entries will be reversed.`}
         confirmText="Cancel order"
         variant="destructive"
         onConfirm={async () => {
@@ -212,6 +240,14 @@ export function SalesOrdersView() {
           setCancelling(null);
         }}
       />
+      {invoicingOrder ? (
+        <IssueInvoiceDialog
+          key={invoicingOrder.id}
+          open={Boolean(invoicingOrder)}
+          onClose={() => setInvoicingOrder(null)}
+          order={invoicingOrder}
+        />
+      ) : null}
       <ScmDetailDialog
         open={viewingId !== null}
         onClose={() => setViewingId(null)}
@@ -222,6 +258,10 @@ export function SalesOrdersView() {
           ["Order date", formatDate(so?.orderDate)],
           ["Expected", formatDate(so?.expectedDate)],
           ["Shipping", so?.shippedStatus],
+          [
+            "Invoice",
+            so?.invoiceNumber ? `${so.invoiceNumber} (Posted)` : "Not Invoiced",
+          ],
           ["Ship to", so?.shipToAddress],
           ["Bill to", so?.billToAddress],
           ["Subtotal", formatMoney(so?.subtotal)],

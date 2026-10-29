@@ -16,6 +16,30 @@ export interface ListQuery {
   status?: string | undefined;
 }
 
+export interface IssueSalesInvoicePayload {
+  invoiceDate?: string | undefined;
+  customInvoiceNumber?: string | undefined;
+  notes?: string | undefined;
+  jurisdiction?: "INTRA_STATE" | "INTER_STATE" | undefined;
+}
+
+export interface IssueSalesInvoiceResult {
+  success: boolean;
+  salesOrderId: number;
+  soNumber: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  postingResult: {
+    success: boolean;
+    alreadyPosted?: boolean;
+    documentReference: string;
+    journalEntryId: number;
+    journalEntryNumber: string;
+    gstEntryId: number | null;
+    message: string;
+  };
+}
+
 export const useCustomers = (q: ListQuery) =>
   useScmList<ScmCustomer>("customers", "/scm/customers", q);
 export const useCustomerOptions = () =>
@@ -53,4 +77,12 @@ export const useSalesOrderAction = () =>
   useScmMutation(
     ({ id, action }: { id: number; action: "confirm" | "cancel" }) =>
       scmPost<SalesOrder>(`/scm/sales-orders/${id}/${action}`),
+  );
+export const useIssueSalesInvoice = () =>
+  useScmMutation(
+    ({ id, payload }: { id: number; payload?: IssueSalesInvoicePayload }) =>
+      scmPost<IssueSalesInvoiceResult>(
+        `/scm/sales-orders/${id}/issue-invoice`,
+        payload ?? {},
+      ),
   );

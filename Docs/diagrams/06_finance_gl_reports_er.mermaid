@@ -1,0 +1,59 @@
+erDiagram
+    %% =========================================================================
+    %% TexaWave ERP — General Ledger & Financial Reports Subsystem ER Diagram
+    %% =========================================================================
+
+    ORGANIZATION ||--o{ FINANCE_ACCOUNT : "scopes"
+    ORGANIZATION ||--o{ FINANCE_JOURNAL_ENTRY : "scopes"
+    ORGANIZATION ||--o{ FINANCE_JOURNAL_LINE : "scopes"
+
+    FINANCE_ACCOUNT ||--o{ FINANCE_ACCOUNT : "parent_account_id (Hierarchical CoA Tree)"
+    FINANCE_ACCOUNT ||--o{ FINANCE_JOURNAL_LINE : "account_id (Debit/Credit postings)"
+
+    FINANCE_JOURNAL_ENTRY ||--|{ FINANCE_JOURNAL_LINE : "journal_entry_id (Cascade delete on draft)"
+    FINANCE_JOURNAL_ENTRY ||--o| FINANCE_JOURNAL_ENTRY : "reversed_entry_id (Audit trail reversal)"
+
+    FINANCE_ACCOUNT {
+        int id PK
+        int organization_id FK
+        string code UK "Account Code e.g. 1010, 1200, 2010, 4000, 5200"
+        string name "Account Title / Label"
+        string account_type "ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE"
+        int parent_account_id FK "References finance.accounts(id) for tree"
+        string currency "Default INR"
+        decimal opening_balance "Initial fiscal year opening balance"
+        date opening_date
+        decimal current_balance "Running balance (Debits - Credits or vice-versa)"
+        boolean is_active "Active posting toggle"
+        boolean is_reconciled
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at "Soft-delete"
+    }
+
+    FINANCE_JOURNAL_ENTRY {
+        int id PK
+        int organization_id FK
+        string entry_number UK "JE-YYYYMMDD-XXXX"
+        date entry_date "Transaction / Posting date"
+        string reference "Source reference / invoice / claim"
+        string description "Journal narration"
+        string status "DRAFT, POSTED, REVERSED"
+        decimal total_debit "Sum of debit lines (asserts == total_credit)"
+        decimal total_credit "Sum of credit lines (asserts == total_debit)"
+        int reversed_entry_id FK "References prior journal_entries(id) if reversal"
+        datetime created_at
+        datetime updated_at
+    }
+
+    FINANCE_JOURNAL_LINE {
+        int id PK
+        int organization_id FK
+        int journal_entry_id FK "References finance.journal_entries(id)"
+        int account_id FK "References finance.accounts(id)"
+        string entry_type "DEBIT or CREDIT"
+        decimal amount "Monetary decimal(15,2)"
+        string description "Line narration"
+        int line_order "Index order for display"
+        datetime created_at
+    }

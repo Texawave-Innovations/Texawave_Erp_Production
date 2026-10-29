@@ -1,0 +1,331 @@
+[
+  {
+    "modelName": "FinanceMasterListItem",
+    "tableName": "finance_master_list_items",
+    "scalarCount": 12,
+    "relationCount": 5,
+    "fksCount": 1,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@index([organizationId, category])",
+      "@@map(\"finance_master_list_items\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceAccount",
+    "tableName": "accounts",
+    "scalarCount": 16,
+    "relationCount": 6,
+    "fksCount": 2,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "parentAccount",
+        "targetModel": "FinanceAccount",
+        "rule": "\"AccountHierarchy\", fields: [parentAccountId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, accountCode])",
+      "@@index([organizationId, accountType])",
+      "@@index([organizationId, isActive])",
+      "@@map(\"accounts\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceJournalEntry",
+    "tableName": "journal_entries",
+    "scalarCount": 17,
+    "relationCount": 8,
+    "fksCount": 2,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "reversedEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "\"JournalReversal\", fields: [reversedEntryId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, entryNumber])",
+      "@@index([organizationId, entryDate])",
+      "@@index([organizationId, status])",
+      "@@map(\"journal_entries\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceJournalLine",
+    "tableName": "journal_lines",
+    "scalarCount": 10,
+    "relationCount": 3,
+    "fksCount": 3,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "journalEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "fields: [journalEntryId], references: [id], onDelete: Cascade"
+      },
+      {
+        "field": "account",
+        "targetModel": "FinanceAccount",
+        "rule": "fields: [accountId], references: [id], onDelete: Restrict"
+      }
+    ],
+    "modelAttrs": [
+      "@@index([organizationId, journalEntryId])",
+      "@@index([organizationId, accountId])",
+      "@@map(\"journal_lines\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceBankAccount",
+    "tableName": "bank_accounts",
+    "scalarCount": 18,
+    "relationCount": 6,
+    "fksCount": 2,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "glAccount",
+        "targetModel": "FinanceAccount",
+        "rule": "fields: [glAccountId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, accountNumber])",
+      "@@index([organizationId, isActive])",
+      "@@map(\"bank_accounts\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceBankTransaction",
+    "tableName": "bank_transactions",
+    "scalarCount": 15,
+    "relationCount": 3,
+    "fksCount": 3,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "bankAccount",
+        "targetModel": "FinanceBankAccount",
+        "rule": "fields: [bankAccountId], references: [id], onDelete: Cascade"
+      },
+      {
+        "field": "matchedEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "fields: [matchedJournalEntryId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@index([organizationId, bankAccountId, transactionDate])",
+      "@@index([organizationId, isReconciled])",
+      "@@map(\"bank_transactions\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceExpense",
+    "tableName": "expenses",
+    "scalarCount": 33,
+    "relationCount": 6,
+    "fksCount": 6,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "expenseType",
+        "targetModel": "FinanceMasterListItem",
+        "rule": "\"ExpenseCategory\", fields: [expenseTypeId], references: [id]"
+      },
+      {
+        "field": "paymentMode",
+        "targetModel": "FinanceMasterListItem",
+        "rule": "\"ExpensePaymentMode\", fields: [paymentModeId], references: [id]"
+      },
+      {
+        "field": "bankAccount",
+        "targetModel": "FinanceBankAccount",
+        "rule": "fields: [bankAccountId], references: [id]"
+      },
+      {
+        "field": "glAccount",
+        "targetModel": "FinanceAccount",
+        "rule": "fields: [glAccountId], references: [id]"
+      },
+      {
+        "field": "journalEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "fields: [journalEntryId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, expenseNumber])",
+      "@@index([organizationId, expenseDate])",
+      "@@index([organizationId, expenseTypeId])",
+      "@@index([organizationId, vendorGstin])",
+      "@@map(\"expenses\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinancePaymentReceived",
+    "tableName": "payments_received",
+    "scalarCount": 21,
+    "relationCount": 6,
+    "fksCount": 5,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "customer",
+        "targetModel": "Account",
+        "rule": "fields: [customerId], references: [id]"
+      },
+      {
+        "field": "paymentMode",
+        "targetModel": "FinanceMasterListItem",
+        "rule": "\"PaymentReceivedMode\", fields: [paymentModeId], references: [id]"
+      },
+      {
+        "field": "bankAccount",
+        "targetModel": "FinanceBankAccount",
+        "rule": "fields: [bankAccountId], references: [id]"
+      },
+      {
+        "field": "journalEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "fields: [journalEntryId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, paymentNumber])",
+      "@@index([organizationId, customerId])",
+      "@@index([organizationId, paymentDate])",
+      "@@map(\"payments_received\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinancePaymentReceivedAllocation",
+    "tableName": "payment_received_allocations",
+    "scalarCount": 9,
+    "relationCount": 2,
+    "fksCount": 2,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "paymentReceived",
+        "targetModel": "FinancePaymentReceived",
+        "rule": "fields: [paymentReceivedId], references: [id], onDelete: Cascade"
+      }
+    ],
+    "modelAttrs": [
+      "@@index([organizationId, paymentReceivedId])",
+      "@@index([organizationId, invoiceReference])",
+      "@@map(\"payment_received_allocations\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinancePaymentMade",
+    "tableName": "payments_made",
+    "scalarCount": 19,
+    "relationCount": 5,
+    "fksCount": 5,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      },
+      {
+        "field": "paymentMode",
+        "targetModel": "FinanceMasterListItem",
+        "rule": "\"PaymentMadeMode\", fields: [paymentModeId], references: [id]"
+      },
+      {
+        "field": "bankAccount",
+        "targetModel": "FinanceBankAccount",
+        "rule": "fields: [bankAccountId], references: [id]"
+      },
+      {
+        "field": "journalEntry",
+        "targetModel": "FinanceJournalEntry",
+        "rule": "fields: [journalEntryId], references: [id]"
+      },
+      {
+        "field": "scmPayment",
+        "targetModel": "ScmSupplierPayment",
+        "rule": "fields: [scmSupplierPaymentId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@unique([organizationId, paymentNumber])",
+      "@@index([organizationId, paymentDate])",
+      "@@map(\"payments_made\")",
+      "@@schema(\"finance\")"
+    ]
+  },
+  {
+    "modelName": "FinanceGstEntry",
+    "tableName": "gst_entries",
+    "scalarCount": 22,
+    "relationCount": 1,
+    "fksCount": 1,
+    "fks": [
+      {
+        "field": "organization",
+        "targetModel": "Organization",
+        "rule": "fields: [organizationId], references: [id]"
+      }
+    ],
+    "modelAttrs": [
+      "@@index([organizationId, period, entryType])",
+      "@@index([organizationId, sourceReference])",
+      "@@map(\"gst_entries\")",
+      "@@schema(\"finance\")"
+    ]
+  }
+]

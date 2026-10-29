@@ -253,4 +253,30 @@ export class SalesOrdersRepository {
       return tx.scmSalesOrder.findUniqueOrThrow({ where: { id }, include });
     });
   }
+  @OrgScoped()
+  async findOneForInvoicing(scope: OrgScope, id: number) {
+    return this.prisma.scmSalesOrder.findFirst({
+      where: tenantWhere(scope, { id }),
+      include: {
+        items: {
+          orderBy: { lineNo: "asc" },
+          include: {
+            product: {
+              select: { id: true, productCode: true, name: true, hsn: true },
+            },
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            customerCode: true,
+            name: true,
+            gstin: true,
+            billingAddress: true,
+            shippingAddress: true,
+          },
+        },
+      },
+    });
+  }
 }

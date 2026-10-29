@@ -79,7 +79,13 @@ export function TextAreaField({
   value,
   onChange,
   rows = 2,
-}: Base & { value: string; onChange: (value: string) => void; rows?: number }) {
+  placeholder,
+}: Base & {
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
   return (
     <div className={className}>
       <FormField
@@ -94,6 +100,7 @@ export function TextAreaField({
             invalid={p.invalid}
             rows={rows}
             value={value}
+            placeholder={placeholder}
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
           />

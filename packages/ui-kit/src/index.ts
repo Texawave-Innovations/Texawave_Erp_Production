@@ -35,3 +35,5 @@ export * from "./components/icons-3d/index";
 export * from "./components/segmented-control/index";
 export * from "./components/dropdown-menu/index";
 export * from "./components/dropdown-menu/demo";
+export * from "./components/master-list-card/index";
+export * from "./components/master-list-card/index";

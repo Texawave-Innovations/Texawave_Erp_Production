@@ -1,0 +1,1405 @@
+[
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controllerPrefix": "finance/bank-accounts",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/bank-accounts",
+    "permission": "finance.banking.read",
+    "summary": "List bank accounts with pagination, search, and status filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryBankAccountsDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryBankAccountsDto) query: QueryBankAccountsDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controllerPrefix": "finance/bank-accounts",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.read",
+    "summary": "Get bank account details by ID",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controllerPrefix": "finance/bank-accounts",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/bank-accounts",
+    "permission": "finance.banking.write",
+    "summary": "Create a new bank account",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateBankAccountDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateBankAccountDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controllerPrefix": "finance/bank-accounts",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.write",
+    "summary": "Update bank account details",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdateBankAccountDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdateBankAccountDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-accounts.controller.ts",
+    "controllerPrefix": "finance/bank-accounts",
+    "methodName": "remove",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/bank-accounts/:id",
+    "permission": "finance.banking.write",
+    "summary": "Soft delete a bank account",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controllerPrefix": "finance/bank-transactions",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/bank-transactions",
+    "permission": "finance.banking.read",
+    "summary": "List bank transactions with filtering by bank account, type, date range, and reconciliation",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryBankTransactionsDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryBankTransactionsDto) query: QueryBankTransactionsDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controllerPrefix": "finance/bank-transactions",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/bank-transactions/:id",
+    "permission": "finance.banking.read",
+    "summary": "Get bank transaction details by ID",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controllerPrefix": "finance/bank-transactions",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/bank-transactions",
+    "permission": "finance.banking.write",
+    "summary": "Record a bank transaction (automatically updates bank balance and optional GL double-entry)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateBankTransactionDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateBankTransactionDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controllerPrefix": "finance/bank-transactions",
+    "methodName": "reconcile",
+    "httpMethod": "POST",
+    "endpoint": "/finance/bank-transactions/:id/reconcile",
+    "permission": "finance.banking.write",
+    "summary": "Mark a bank transaction as reconciled",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "ReconcileTransactionDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: ReconcileTransactionDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/banking/bank-transactions.controller.ts",
+    "controllerPrefix": "finance/bank-transactions",
+    "methodName": "unreconcile",
+    "httpMethod": "POST",
+    "endpoint": "/finance/bank-transactions/:id/unreconcile",
+    "permission": "finance.banking.write",
+    "summary": "Unmark a bank transaction as reconciled",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/accounts",
+    "permission": "finance.coa.read",
+    "summary": "List Chart of Accounts with pagination and filtering",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryAccountsDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryAccountsDto) query: QueryAccountsDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "getTree",
+    "httpMethod": "GET",
+    "endpoint": "/finance/accounts/tree",
+    "permission": "finance.coa.read",
+    "summary": "Get complete Chart of Accounts hierarchical tree",
+    "statusCode": "200 OK",
+    "params": []
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/accounts/:id",
+    "permission": "finance.coa.read",
+    "summary": "Get Chart of Accounts entry by ID",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/accounts",
+    "permission": "finance.coa.write",
+    "summary": "Create new Chart of Accounts entry",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateAccountDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateAccountDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/accounts/:id",
+    "permission": "finance.coa.write",
+    "summary": "Update Chart of Accounts entry",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdateAccountDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdateAccountDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/coa/accounts.controller.ts",
+    "controllerPrefix": "finance/accounts",
+    "methodName": "remove",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/accounts/:id",
+    "permission": "finance.coa.write",
+    "summary": "Soft delete Chart of Accounts entry",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/expenses",
+    "permission": "finance.expense.read",
+    "summary": "List operating expenses with pagination, category, date, and status filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryExpensesDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryExpensesDto) query: QueryExpensesDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/expenses/:id",
+    "permission": "finance.expense.read",
+    "summary": "Get detailed expense record by ID with category and journal links",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses",
+    "permission": "finance.expense.write",
+    "summary": "Create an operating expense (DRAFT or immediate PAID)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateExpenseDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateExpenseDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/expenses/:id",
+    "permission": "finance.expense.write",
+    "summary": "Update an editable expense record (DRAFT or PENDING_APPROVAL)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdateExpenseDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdateExpenseDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "submit",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/:id/submit",
+    "permission": "finance.expense.write",
+    "summary": "Submit a DRAFT expense for manager approval",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "approve",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/:id/approve",
+    "permission": "finance.expense.write",
+    "summary": "Approve a PENDING_APPROVAL expense",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "reject",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/:id/reject",
+    "permission": "finance.expense.write",
+    "summary": "Reject a PENDING_APPROVAL expense back to DRAFT",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "pay",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/:id/pay",
+    "permission": "finance.expense.write",
+    "summary": "Disburse payment for an expense and atomically post double-entry GL journal",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "RecordExpensePaymentDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: RecordExpensePaymentDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "cancel",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/:id/cancel",
+    "permission": "finance.expense.write",
+    "summary": "Cancel an expense (atomically creates GL reversal voucher if already paid)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "createFromClaim",
+    "httpMethod": "POST",
+    "endpoint": "/finance/expenses/from-claim/:claimId",
+    "permission": "finance.expense.write",
+    "summary": "Convert an approved HR Expense Claim into a Finance operating expense",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "claimId",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"claimId\", ParseIntPipe) claimId: number"
+      },
+      {
+        "name": "dto",
+        "type": "CreateExpenseFromClaimDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateExpenseFromClaimDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/expenses/expenses.controller.ts",
+    "controllerPrefix": "finance/expenses",
+    "methodName": "delete",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/expenses/:id",
+    "permission": "finance.expense.write",
+    "summary": "Soft delete a DRAFT or CANCELLED expense",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "createEntry",
+    "httpMethod": "POST",
+    "endpoint": "/finance/gst/entries",
+    "permission": "finance.gst.write",
+    "summary": "Record a GST entry (outward liability or inward input tax credit)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateGstEntryDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateGstEntryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getEntries",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/entries",
+    "permission": "finance.gst.read",
+    "summary": "List GST tax ledger entries with pagination, period, and status filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryGstEntriesDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryGstEntriesDto) query: QueryGstEntriesDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getEntryById",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/entries/:id",
+    "permission": "finance.gst.read",
+    "summary": "Retrieve a specific GST tax ledger entry by ID",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getHsnSummary",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/reports/hsn-summary",
+    "permission": "finance.gst.read",
+    "summary": "HSN/SAC summary report aggregating taxable and tax component values",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryHsnSummaryDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryHsnSummaryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getGstr1Summary",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/reports/gstr1-summary",
+    "permission": "finance.gst.read",
+    "summary": "GSTR-1 Outward Tax Summary (B2B vs B2C breakdown, rate slabs, proforma exclusion)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryGstr1Dto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryGstr1Dto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getGstr3bSummary",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/reports/gstr3b-summary",
+    "permission": "finance.gst.read",
+    "summary": "GSTR-3B Summary Report (Outward liability vs Eligible ITC, Net Tax Payable)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryGstr3bDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryGstr3bDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "reconcile",
+    "httpMethod": "POST",
+    "endpoint": "/finance/gst/reconciliation",
+    "permission": "finance.gst.write",
+    "summary": "Reconcile ERP purchase books against counterpart GSTR-2B filing data",
+    "statusCode": "OK",
+    "params": [
+      {
+        "name": "dto",
+        "type": "ReconcileGstDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: ReconcileGstDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/gst/gst.controller.ts",
+    "controllerPrefix": "finance/gst",
+    "methodName": "getReconciliationSummary",
+    "httpMethod": "GET",
+    "endpoint": "/finance/gst/reconciliation/summary",
+    "permission": "finance.gst.read",
+    "summary": "Retrieve period reconciliation status summary and percentage",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "period",
+        "type": "string",
+        "decorators": ["Query"],
+        "text": "@Query(\"period\") period: string"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/integration/sales-purchases-integration.controller.ts",
+    "controllerPrefix": "finance/integration",
+    "methodName": "postSalesInvoice",
+    "httpMethod": "POST",
+    "endpoint": "/finance/integration/sales-invoices/post",
+    "permission": "finance.journal.write",
+    "summary": "Post a finalized Sales Invoice / Order to Finance (Journal Entry & Output GST)",
+    "statusCode": "OK",
+    "params": [
+      {
+        "name": "dto",
+        "type": "PostSalesInvoiceDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: PostSalesInvoiceDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/integration/sales-purchases-integration.controller.ts",
+    "controllerPrefix": "finance/integration",
+    "methodName": "cancelSalesInvoice",
+    "httpMethod": "POST",
+    "endpoint": "/finance/integration/sales-invoices/cancel",
+    "permission": "finance.journal.write",
+    "summary": "Cancel and reverse a posted Sales Invoice in Finance (Swapped Journal Entry & Cancel GST)",
+    "statusCode": "OK",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CancelIntegrationDocumentDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CancelIntegrationDocumentDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/integration/sales-purchases-integration.controller.ts",
+    "controllerPrefix": "finance/integration",
+    "methodName": "postPurchaseBill",
+    "httpMethod": "POST",
+    "endpoint": "/finance/integration/purchase-bills/post",
+    "permission": "finance.journal.write",
+    "summary": "Post a confirmed Purchase Bill to Finance (Journal Entry & Input Tax Credit GST)",
+    "statusCode": "OK",
+    "params": [
+      {
+        "name": "dto",
+        "type": "PostPurchaseBillDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: PostPurchaseBillDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/integration/sales-purchases-integration.controller.ts",
+    "controllerPrefix": "finance/integration",
+    "methodName": "cancelPurchaseBill",
+    "httpMethod": "POST",
+    "endpoint": "/finance/integration/purchase-bills/cancel",
+    "permission": "finance.journal.write",
+    "summary": "Cancel and reverse a posted Purchase Bill in Finance (Swapped Journal Entry & Cancel GST)",
+    "statusCode": "OK",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CancelIntegrationDocumentDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CancelIntegrationDocumentDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/integration/sales-purchases-integration.controller.ts",
+    "controllerPrefix": "finance/integration",
+    "methodName": "getIntegrationStatus",
+    "httpMethod": "GET",
+    "endpoint": "/finance/integration/status/:reference",
+    "permission": "finance.journal.read",
+    "summary": "Retrieve accounting journal and GST integration status for a document reference",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "reference",
+        "type": "string",
+        "decorators": ["Param"],
+        "text": "@Param(\"reference\") reference: string"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/journal-entries",
+    "permission": "finance.journal.read",
+    "summary": "List journal vouchers with pagination, status, and date filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryJournalEntriesDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryJournalEntriesDto) query: QueryJournalEntriesDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/journal-entries/:id",
+    "permission": "finance.journal.read",
+    "summary": "Get journal voucher by ID with lines and accounts",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/journal-entries",
+    "permission": "finance.journal.write",
+    "summary": "Create a new draft journal voucher",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateJournalEntryDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateJournalEntryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/journal-entries/:id",
+    "permission": "finance.journal.write",
+    "summary": "Update an existing draft journal voucher",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdateJournalEntryDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdateJournalEntryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "post",
+    "httpMethod": "POST",
+    "endpoint": "/finance/journal-entries/:id/post",
+    "permission": "finance.journal.post",
+    "summary": "Post a draft journal voucher and atomically synchronize ledger balances",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "reverse",
+    "httpMethod": "POST",
+    "endpoint": "/finance/journal-entries/:id/reverse",
+    "permission": "finance.journal.post",
+    "summary": "Reverse a posted journal voucher and restore account balances",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "ReverseJournalEntryDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: ReverseJournalEntryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/journal/journal-entries.controller.ts",
+    "controllerPrefix": "finance/journal-entries",
+    "methodName": "remove",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/journal-entries/:id",
+    "permission": "finance.journal.write",
+    "summary": "Delete a draft journal voucher",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/payments-made",
+    "permission": "finance.payment_made.read",
+    "summary": "List supplier disbursements with pagination, vendor, bank, date, and status filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryPaymentsMadeDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryPaymentsMadeDto) query: QueryPaymentsMadeDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/payments-made/:id",
+    "permission": "finance.payment_made.read",
+    "summary": "Get payment disbursement details by ID including bank account and GL entry",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-made",
+    "permission": "finance.payment_made.write",
+    "summary": "Record supplier disbursement (CONFIRMED automatically creates and posts GL journal and deducts bank balance)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreatePaymentMadeDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreatePaymentMadeDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/payments-made/:id",
+    "permission": "finance.payment_made.write",
+    "summary": "Update supplier disbursement metadata (vendorName, referenceNumber, billReference, notes)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdatePaymentMadeDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdatePaymentMadeDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "confirm",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-made/:id/confirm",
+    "permission": "finance.payment_made.write",
+    "summary": "Confirm a draft payment and atomically post double-entry GL journal + deduct bank balance",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "void",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-made/:id/void",
+    "permission": "finance.payment_made.write",
+    "summary": "Void a disbursement (atomically creates GL reversal voucher and refunds bank balance)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-made/payments-made.controller.ts",
+    "controllerPrefix": "finance/payments-made",
+    "methodName": "delete",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/payments-made/:id",
+    "permission": "finance.payment_made.write",
+    "summary": "Soft delete a DRAFT or VOID supplier disbursement",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance/payments-received",
+    "permission": "finance.payment_received.read",
+    "summary": "List customer payments received with pagination, customer, date, and status filters",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryPaymentsReceivedDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryPaymentsReceivedDto) query: QueryPaymentsReceivedDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance/payments-received/:id",
+    "permission": "finance.payment_received.read",
+    "summary": "Get customer receipt details by ID including invoice allocations and GL entry",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-received",
+    "permission": "finance.payment_received.write",
+    "summary": "Record customer receipt (CONFIRMED automatically creates and posts GL journal)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreatePaymentReceivedDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreatePaymentReceivedDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance/payments-received/:id",
+    "permission": "finance.payment_received.write",
+    "summary": "Update customer receipt metadata (referenceNumber, notes, customerName)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdatePaymentReceivedDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdatePaymentReceivedDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "confirm",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-received/:id/confirm",
+    "permission": "finance.payment_received.write",
+    "summary": "Confirm a draft receipt and atomically post double-entry GL journal",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "void",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-received/:id/void",
+    "permission": "finance.payment_received.write",
+    "summary": "Void a receipt (atomically creates GL reversal voucher and inverts account balances)",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "addAllocation",
+    "httpMethod": "POST",
+    "endpoint": "/finance/payments-received/:id/allocations",
+    "permission": "finance.payment_received.write",
+    "summary": "Allocate a portion of unallocated receipt balance to an invoice reference",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "CreatePaymentAllocationDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreatePaymentAllocationDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "removeAllocation",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/payments-received/:id/allocations/:allocationId",
+    "permission": "finance.payment_received.write",
+    "summary": "Remove an invoice allocation and restore unallocated receipt balance",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "allocationId",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"allocationId\", ParseIntPipe) allocationId: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/payments-received/payments-received.controller.ts",
+    "controllerPrefix": "finance/payments-received",
+    "methodName": "delete",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance/payments-received/:id",
+    "permission": "finance.payment_received.write",
+    "summary": "Soft delete a DRAFT or VOID customer receipt",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getProfitAndLoss",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/profit-and-loss",
+    "permission": "finance.journal.read",
+    "summary": "Profit & Loss statement (Revenue, Expenses, Net Income) derived from posted journal lines",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryProfitAndLossDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryProfitAndLossDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getBalanceSheet",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/balance-sheet",
+    "permission": "finance.journal.read",
+    "summary": "Balance Sheet snapshot (Assets, Liabilities, Equity) verifying Assets = Liabilities + Equity",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryBalanceSheetDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryBalanceSheetDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getTrialBalance",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/trial-balance",
+    "permission": "finance.journal.read",
+    "summary": "Trial Balance summarizing opening, period, and closing balances for all Chart of Accounts records",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryTrialBalanceDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryTrialBalanceDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getGeneralLedger",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/general-ledger",
+    "permission": "finance.journal.read",
+    "summary": "Account-level General Ledger statement with chronologically ordered posted transactions and running balance",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryGeneralLedgerDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryGeneralLedgerDto) query: QueryGeneralLedgerDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getCashBankSummary",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/cash-bank-summary",
+    "permission": "finance.journal.read",
+    "summary": "Cash and Bank balances, period inflows, outflows, and closing balances across all treasury accounts",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryCashBankSummaryDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryCashBankSummaryDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance/reports/reports.controller.ts",
+    "controllerPrefix": "finance/reports",
+    "methodName": "getPeriodClosingStatus",
+    "httpMethod": "GET",
+    "endpoint": "/finance/reports/period-closing-status",
+    "permission": "finance.journal.read",
+    "summary": "Financial Period Closing status audit (draft entry validation, debit/credit balancing, unreconciled items)",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryPeriodClosingDto",
+        "decorators": ["Query"],
+        "text": "@Query() query: QueryPeriodClosingDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controllerPrefix": "finance-settings/master-list-items",
+    "methodName": "findAll",
+    "httpMethod": "GET",
+    "endpoint": "/finance-settings/master-list-items",
+    "permission": "finance_settings.master_list_item.read",
+    "summary": "List one Finance Master category",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "query",
+        "type": "QueryMasterListItemDto",
+        "decorators": ["Paginate"],
+        "text": "@Paginate(QueryMasterListItemDto) query: QueryMasterListItemDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controllerPrefix": "finance-settings/master-list-items",
+    "methodName": "findOne",
+    "httpMethod": "GET",
+    "endpoint": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.read",
+    "summary": "",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controllerPrefix": "finance-settings/master-list-items",
+    "methodName": "create",
+    "httpMethod": "POST",
+    "endpoint": "/finance-settings/master-list-items",
+    "permission": "finance_settings.master_list_item.write",
+    "summary": "",
+    "statusCode": "201 Created",
+    "params": [
+      {
+        "name": "dto",
+        "type": "CreateMasterListItemDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: CreateMasterListItemDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controllerPrefix": "finance-settings/master-list-items",
+    "methodName": "update",
+    "httpMethod": "PATCH",
+    "endpoint": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.write",
+    "summary": "",
+    "statusCode": "200 OK",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      },
+      {
+        "name": "dto",
+        "type": "UpdateMasterListItemDto",
+        "decorators": ["Body"],
+        "text": "@Body() dto: UpdateMasterListItemDto"
+      }
+    ]
+  },
+  {
+    "sourceFile": "apps/api/src/modules/finance-settings/master-list-items.controller.ts",
+    "controllerPrefix": "finance-settings/master-list-items",
+    "methodName": "remove",
+    "httpMethod": "DELETE",
+    "endpoint": "/finance-settings/master-list-items/:id",
+    "permission": "finance_settings.master_list_item.write",
+    "summary": "",
+    "statusCode": "204 No Content",
+    "params": [
+      {
+        "name": "id",
+        "type": "number",
+        "decorators": ["Param"],
+        "text": "@Param(\"id\", ParseIntPipe) id: number"
+      }
+    ]
+  }
+]
