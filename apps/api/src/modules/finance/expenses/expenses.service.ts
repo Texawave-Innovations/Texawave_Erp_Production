@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleViolationException,
@@ -33,6 +33,55 @@ import { GSTIN_PATTERN } from "./dto/create-expense.dto.js";
  */
 @Injectable()
 export class ExpensesService {
+  private readonly logger = new Logger(ExpensesService.name);
+
+  /**
+   * Explicit mapping between HR Expense Claim categories and Finance Expense Types.
+   */
+  public static readonly CLAIM_TO_FINANCE_CATEGORY_MAP: Record<
+    string,
+    { canonical: string; candidates: string[] }
+  > = {
+    medical: {
+      canonical: "Medical",
+      candidates: [
+        "Medical",
+        "Medical Expenses",
+        "Healthcare",
+        "Health & Medical",
+      ],
+    },
+    travel: {
+      canonical: "Travel & Lodging",
+      candidates: [
+        "Travel & Lodging",
+        "Travel",
+        "Travel & Conveyance",
+        "Conveyance",
+      ],
+    },
+    food: {
+      canonical: "Food & Meals",
+      candidates: ["Food & Meals", "Food", "Meals & Entertainment", "Meals"],
+    },
+    accommodation: {
+      canonical: "Accommodation",
+      candidates: ["Accommodation", "Lodging", "Hotel & Stay"],
+    },
+    "office supplies": {
+      canonical: "Office Supplies",
+      candidates: [
+        "Office Supplies",
+        "Office Supplies & Stationery",
+        "Stationery",
+      ],
+    },
+    other: {
+      canonical: "Other",
+      candidates: ["Other", "General Operating Expenses", "Miscellaneous"],
+    },
+  };
+
   constructor(
     private readonly repository: ExpensesRepository,
     private readonly journalRepository: JournalEntriesRepository,
@@ -824,35 +873,12 @@ export class ExpensesService {
       );
     }
 
-    // 3. Resolve matching expense type in Finance Master List
-    let expenseType = await this.prisma.financeMasterListItem.findFirst({
-      where: {
-        organizationId: scope.organizationId,
-        category: "expense_type",
-        value: { contains: claim.expenseType, mode: "insensitive" },
-        isActive: true,
-        deletedAt: null,
-      },
-    });
-
-    if (!expenseType) {
-      // Fallback to first available active expense type
-      expenseType = await this.prisma.financeMasterListItem.findFirst({
-        where: {
-          organizationId: scope.organizationId,
-          category: "expense_type",
-          isActive: true,
-          deletedAt: null,
-        },
-      });
-    }
-
-    if (!expenseType) {
-      throw new BusinessRuleViolationException(
-        "No active expense types configured in Finance Settings. Please add expense types first.",
-        "MISSING_EXPENSE_TYPE",
-      );
-    }
+    // 3. Resolve matching expense type in Finance Master List with explicit mapping
+    const expenseType = await this.resolveExpenseTypeForClaim(
+      scope.organizationId,
+      claim.expenseType,
+      userId,
+    );
 
     const employeeName = claim.employee?.fullName?.trim() || "Employee";
     const employeeCode = claim.employee?.employeeCode || "";
@@ -884,6 +910,72 @@ export class ExpensesService {
   }
 
   // ---- Private Helpers -----------------------------------------------------
+
+  /**
+   * Resolves or auto-provisions a matching Finance Master List item for an HR Expense Claim category.
+   * Throws BusinessRuleViolationException if the category is unsupported or cannot be resolved.
+   */
+  async resolveExpenseTypeForClaim(
+    organizationId: number,
+    claimExpenseType: string,
+    userId?: number,
+  ) {
+    const rawType = (claimExpenseType || "").trim();
+    if (!rawType) {
+      throw new BusinessRuleViolationException(
+        "Expense claim does not have a valid category specified.",
+        "MISSING_CLAIM_CATEGORY",
+      );
+    }
+
+    const key = rawType.toLowerCase();
+    const mapping = ExpensesService.CLAIM_TO_FINANCE_CATEGORY_MAP[key];
+
+    // Build candidate search list
+    const candidateNames = mapping ? mapping.candidates : [rawType];
+
+    // Try finding an existing active Finance Master List item matching any of the candidate names
+    let matchedItem = await this.prisma.financeMasterListItem.findFirst({
+      where: {
+        organizationId,
+        category: "expense_type",
+        isActive: true,
+        deletedAt: null,
+        OR: candidateNames.map((name) => ({
+          value: { equals: name, mode: "insensitive" },
+        })),
+      },
+    });
+
+    if (!matchedItem && mapping) {
+      // Auto-provision the canonical category for this organization if not present
+      matchedItem = await this.prisma.financeMasterListItem.create({
+        data: {
+          organizationId,
+          category: "expense_type",
+          value: mapping.canonical,
+          isActive: true,
+          createdBy: userId ?? null,
+          updatedBy: userId ?? null,
+        },
+      });
+      this.logger.log(
+        `Auto-provisioned Finance expense category '${mapping.canonical}' for organization #${organizationId}`,
+      );
+    }
+
+    if (!matchedItem) {
+      this.logger.error(
+        `Failed to map expense claim category '${claimExpenseType}' to Finance Expense Type for organization #${organizationId}`,
+      );
+      throw new BusinessRuleViolationException(
+        `Unsupported or unmapped expense claim category: '${claimExpenseType}'. Supported categories are: Medical, Travel, Food, Accommodation, Office Supplies, Other.`,
+        "UNSUPPORTED_EXPENSE_CLAIM_CATEGORY",
+      );
+    }
+
+    return matchedItem;
+  }
 
   private async validateGlExpenseAccount(
     organizationId: number,

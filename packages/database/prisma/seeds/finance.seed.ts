@@ -72,9 +72,13 @@ const DEFAULT_ACCOUNTS = [
 const DEFAULT_MASTER_ITEMS = [
   { category: "expense_type", value: "Office Supplies" },
   { category: "expense_type", value: "Travel & Lodging" },
+  { category: "expense_type", value: "Medical" },
+  { category: "expense_type", value: "Food & Meals" },
+  { category: "expense_type", value: "Accommodation" },
   { category: "expense_type", value: "Software Subscriptions" },
   { category: "expense_type", value: "Utilities" },
   { category: "expense_type", value: "Professional Fees" },
+  { category: "expense_type", value: "Other" },
   { category: "payment_mode", value: "Cash" },
   { category: "payment_mode", value: "Bank Transfer" },
   { category: "payment_mode", value: "UPI" },

@@ -353,6 +353,7 @@ export class PaymentsReceivedRepository {
           where: {
             id: bankAccountDelta.id,
             organizationId: scope.organizationId,
+            deletedAt: null,
           },
         });
         if (bankAcc) {
@@ -388,7 +389,7 @@ export class PaymentsReceivedRepository {
         }
       }
 
-      // 5. Mark receipt as CONFIRMED and link to journal entry
+      // 5. Mark receipt as CONFIRMED, link journal entry and persist effective bankAccountId
       const updateResult = await tx.financePaymentReceived.updateMany({
         where: tenantWhere<Prisma.FinancePaymentReceivedWhereInput>(scope, {
           id: paymentId,
@@ -398,6 +399,7 @@ export class PaymentsReceivedRepository {
         data: {
           status: "CONFIRMED",
           journalEntryId: journalEntry.id,
+          ...(bankAccountDelta ? { bankAccountId: bankAccountDelta.id } : {}),
           updatedBy,
         },
       });
@@ -493,6 +495,7 @@ export class PaymentsReceivedRepository {
             where: {
               id: bankAccountDelta.id,
               organizationId: scope.organizationId,
+              deletedAt: null,
             },
           });
           if (bankAcc) {
