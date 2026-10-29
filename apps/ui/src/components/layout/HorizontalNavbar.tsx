@@ -52,6 +52,9 @@ import {
   Shield,
   Tag,
   CheckCircle2,
+  Truck,
+  PackageCheck,
+  ListChecks,
   Wallet,
   UserCheck,
   ClipboardList,
@@ -68,7 +71,6 @@ import {
   Database,
   Factory,
   Scale,
-  Truck,
   Undo2,
   RotateCw,
   SearchCheck,
@@ -384,6 +386,103 @@ const HR_CATEGORIES: NavCategory[] = [
         icon3d: "compliance",
         iconColor: "text-sky-600",
         menuCode: "hr-compliance",
+      },
+    ],
+  },
+];
+
+/**
+ * Sales Navigation. Each entry shows only when `getMyMenu()` returns its
+ * `menuCode` (packages/database/prisma/menu/catalog.ts, gated by the page's
+ * read permission). Entries are added as their screens ship.
+ */
+const SALES_CATEGORIES: NavCategory[] = [
+  {
+    id: "sales-overview",
+    label: "Overview",
+    icon: BarChart3,
+    iconColor: "text-sky-500",
+    path: "/sales/dashboard",
+    menuCode: "sales-dashboard",
+  },
+  {
+    id: "sales-customers",
+    label: "Customers",
+    icon: Building2,
+    iconColor: "text-blue-600",
+    path: "/sales/customers",
+    menuCode: "sales-customers",
+  },
+  {
+    id: "sales-documents",
+    label: "Documents",
+    icon: FileText,
+    iconColor: "text-indigo-500",
+    children: [
+      {
+        id: "sales-quotations",
+        label: "Quotations",
+        path: "/sales/quotations",
+        icon: FileText,
+        menuCode: "sales-quotations",
+      },
+      {
+        id: "sales-proforma-invoices",
+        label: "Proforma Invoices",
+        path: "/sales/proforma-invoices",
+        icon: Receipt,
+        menuCode: "sales-proforma-invoices",
+      },
+      {
+        id: "sales-tax-invoices",
+        label: "Tax Invoices",
+        path: "/sales/tax-invoices",
+        icon: Receipt,
+        menuCode: "sales-tax-invoices",
+      },
+      {
+        id: "sales-delivery-challans",
+        label: "Delivery Challans",
+        path: "/sales/delivery-challans",
+        icon: Truck,
+        menuCode: "sales-delivery-challans",
+      },
+      {
+        id: "sales-returnable-dcs",
+        label: "Returnable DCs",
+        path: "/sales/returnable-dcs",
+        icon: PackageCheck,
+        menuCode: "sales-returnable-dcs",
+      },
+    ],
+  },
+  {
+    id: "sales-collections",
+    label: "Collections",
+    icon: Wallet,
+    iconColor: "text-emerald-600",
+    children: [
+      {
+        id: "sales-payments",
+        label: "Payments Received",
+        path: "/sales/payments",
+        icon: Wallet,
+        menuCode: "sales-payments",
+      },
+    ],
+  },
+  {
+    id: "sales-setup",
+    label: "Setup",
+    icon: ListChecks,
+    iconColor: "text-gray-600",
+    children: [
+      {
+        id: "sales-master-list",
+        label: "Master List",
+        path: "/sales/master-list",
+        icon: ListChecks,
+        menuCode: "sales-master-list",
       },
     ],
   },
@@ -1738,8 +1837,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Sales",
     icon: ShoppingCart,
     icon3d: "sales",
-    path: "#",
-    available: false,
+    path: "/sales/dashboard",
+    available: true,
+    categories: SALES_CATEGORIES,
   },
   {
     id: "finance",

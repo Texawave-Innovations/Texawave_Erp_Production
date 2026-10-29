@@ -175,4 +175,50 @@ describe("default roles", () => {
       [],
     );
   });
+
+  it("Sales Executive cannot delete customers or reveal bank accounts; only Sales roles hold sales.*", () => {
+    const exec = role("Sales Executive").permissions;
+    assert.ok(!exec.includes("sales.customer.delete"));
+    assert.ok(!exec.includes("sales.customer_bank.reveal"));
+    assert.ok(
+      !exec.includes("sales.master.write"),
+      "only managers edit the master list",
+    );
+    for (const code of exec) {
+      assert.ok(!code.endsWith(".delete"), `executive must not hold ${code}`);
+    }
+    assert.ok(
+      !exec.includes("sales.invoice_payment.write"),
+      "only managers record payments",
+    );
+    assert.ok(
+      !exec.includes("sales.running_number.write"),
+      "only managers change running numbers",
+    );
+    assert.ok(
+      exec.includes("sales.payment.read"),
+      "executives see payments received",
+    );
+    assert.ok(
+      exec.includes("sales.returnable_dc.write") &&
+        !exec.includes("sales.returnable_dc.delete"),
+      "executives create returnable DCs but do not delete them",
+    );
+    assert.ok(
+      role("Sales Manager").permissions.includes("sales.customer.delete"),
+    );
+    assert.ok(
+      role("Sales Manager").permissions.includes("sales.invoice_payment.write"),
+    );
+    for (const r of DEFAULT_ROLES) {
+      const isSales = r.name.startsWith("Sales ");
+      for (const code of r.permissions) {
+        assert.equal(
+          code.startsWith("sales."),
+          isSales,
+          `${r.name} should ${isSales ? "only" : "never"} hold sales.* (${code})`,
+        );
+      }
+    }
+  });
 });

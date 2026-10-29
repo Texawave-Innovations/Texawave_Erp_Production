@@ -63,6 +63,7 @@ import { HolidaysModule } from "./modules/hr/holidays/holidays.module.js";
 import { WeeklyOffRulesModule } from "./modules/hr/weekly-off-rules/weekly-off-rules.module.js";
 import { ShiftAssignmentsModule } from "./modules/hr/shift-assignments/shift-assignments.module.js";
 import { PayrollModule } from "./modules/hr/payroll/payroll.module.js";
+import { SalesModule } from "./modules/sales/sales.module.js";
 import { ShiftsModule } from "./modules/master-data/shifts/shifts.module.js";
 import { DesignationsModule } from "./modules/master-data/designations/designations.module.js";
 import { EmploymentTypesModule } from "./modules/master-data/employment-types/employment-types.module.js";
@@ -181,6 +182,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CrmDashboardModule,
     CrmBulkImportModule,
     ProjectsModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [

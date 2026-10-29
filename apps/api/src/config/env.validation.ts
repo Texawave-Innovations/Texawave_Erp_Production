@@ -47,7 +47,7 @@ export const envSchema = z.object({
 
   // Optional: when unset, MailerService falls back to logging the reset link
   // instead of sending it — keeps local dev/e2e working without real Gmail
-  // credentials (see apps/api/src/platform/auth/mailer.service.ts).
+  // credentials (see apps/api/src/shared/mailer/mailer.service.ts).
   // GMAIL_APP_PASSWORD is a 16-char App Password (Google Account > Security >
   // App passwords), never the account's real login password.
   GMAIL_USER: z.string().optional(),

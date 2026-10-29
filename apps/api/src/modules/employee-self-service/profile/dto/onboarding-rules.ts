@@ -7,6 +7,10 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
+import {
+  FIELD_FORMAT,
+  FIELD_MESSAGE,
+} from "../../../../common/dto/field-formats.js";
 
 export const GENDERS = ["MALE", "FEMALE", "OTHER"] as const;
 export const MARITAL_STATUSES = ["SINGLE", "MARRIED", "OTHER"] as const;
@@ -39,28 +43,17 @@ export function isDocumentType(value: string): value is DocumentType {
 }
 
 export const FORMAT = {
-  mobile: /^[6-9]\d{9}$/,
-  pincode: /^[1-9]\d{5}$/,
-  accountNumber: /^\d{9,18}$/,
-  ifsc: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+  ...FIELD_FORMAT,
   aadhaar: /^\d{12}$/,
-  pan: /^[A-Z]{5}\d{4}[A-Z]$/,
   esi: /^\d{17}$/,
   pf: /^\d{12}$/,
-  /** Letters, spaces, and . ' - (e.g. "Mary Jane O'Brien-Smith"). No digits or other symbols. */
-  name: /^[A-Za-z][A-Za-z .'-]*$/,
 } as const;
 
 const MSG = {
-  mobile: "Enter a valid 10-digit mobile number starting with 6 to 9.",
-  pincode: "Enter a valid 6-digit pincode.",
-  accountNumber: "Account number must be 9 to 18 digits.",
-  ifsc: "Enter a valid IFSC code (4 letters, 0, then 6 letters or digits).",
+  ...FIELD_MESSAGE,
   aadhaar: "Aadhaar number must be exactly 12 digits.",
-  pan: "PAN must be 5 letters, 4 digits, then 1 letter (for example ABCDE1234F).",
   esi: "ESI number must be exactly 17 digits.",
   pf: "PF (UAN) number must be exactly 12 digits.",
-  name: "Enter a valid name (letters only).",
 } as const;
 
 /** A required text field: a non-empty string with a sensible length cap. */

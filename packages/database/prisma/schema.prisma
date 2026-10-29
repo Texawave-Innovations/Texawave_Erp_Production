@@ -223,6 +223,21 @@ model Organization {
   financePaymentReceivedAllocations FinancePaymentReceivedAllocation[]
   financePaymentsMade               FinancePaymentMade[]
   financeGstEntries                 FinanceGstEntry[]
+  salesCustomers            SalesCustomer[]
+  salesCustomerAddresses    SalesCustomerAddress[]
+  salesActionItems          SalesActionItem[]
+  salesCodeFormats          SalesCodeFormat[]
+  salesCompanyProfiles      SalesCompanyProfile[]
+  salesQuotations           SalesQuotation[]
+  salesQuotationLines       SalesQuotationLine[]
+  salesInvoices             SalesInvoice[]
+  salesInvoiceLines         SalesInvoiceLine[]
+  salesInvoicePayments      SalesInvoicePayment[]
+  salesDeliveryChallans     SalesDeliveryChallan[]
+  salesDeliveryChallanLines SalesDeliveryChallanLine[]
+  salesReturnableDcs        SalesReturnableDc[]
+  salesReturnableDcLines    SalesReturnableDcLine[]
+  salesDocumentMasterItems  SalesDocumentMasterItem[]
 
   @@map("organizations")
   @@schema("platform")
@@ -285,6 +300,7 @@ model User {
   loanPrepaymentsDecided         LoanPrepayment[]          @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified        EmployeeTaxDeclaration[]  @relation("TaxDeclarationVerifier")
   preference                     UserPreference?
+  salesActionItemsCompleted      SalesActionItem[]         @relation("SalesActionItemCompleter")
 
   // Email only needs to be unique WITHIN an organization — the same person's
   // email can legitimately appear at two different client organizations.
@@ -7309,4 +7325,590 @@ model FinanceGstEntry {
   @@index([organizationId, sourceReference])
   @@map("gst_entries")
   @@schema("finance")
+}
+
+// Sales (apps/api/src/modules/sales) — Postgres schema `sales`
+// ---------------------------------------------------------------------------
+// Organization-scoped, not team-scoped: Sales data is gated by `sales.*`
+// permissions only (Docs/CODING_STANDARDS.md §10). Statuses are strings with
+// CHECK constraints in the migration, like HR.
+
+/// A billing party for Sales documents. `customer_code` (CUST-0001) is issued
+/// by the server from `platform.document_sequences` and never changes. GSTIN
+/// is unique per organization among non-deleted customers (partial unique
+/// index). `state_code` defaults to the GSTIN's first two digits but may be
+/// edited. CGST/SGST/IGST rates are entered manually by the user — there are
+/// no defaults. The bank account number is stored encrypted, with a masked
+/// copy for display. `status` is ACTIVE / INACTIVE (CHECK); `is_active`
+/// mirrors it (CHECK).
+model SalesCustomer {
+  id                     Int       @id @default(autoincrement())
+  organizationId         Int       @map("organization_id")
+  customerCode           String    @map("customer_code") @db.VarChar(30)
+  companyName            String    @map("company_name") @db.VarChar(200)
+  contactPerson          String    @map("contact_person") @db.VarChar(150)
+  email                  String    @db.VarChar(254)
+  /// E.164 country calling code, e.g. "+91".
+  mobileCountryCode      String    @default("+91") @map("mobile_country_code") @db.VarChar(5)
+  mobileNumber           String    @map("mobile_number") @db.VarChar(15)
+  gstin                  String?   @db.VarChar(15)
+  /// Two-digit GST state code, e.g. "33" Tamil Nadu.
+  stateCode              String?   @map("state_code") @db.VarChar(2)
+  cgstRate               Decimal?  @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate               Decimal?  @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate               Decimal?  @map("igst_rate") @db.Decimal(5, 2)
+  pan                    String?   @db.VarChar(10)
+  cin                    String?   @db.VarChar(21)
+  bankName               String?   @map("bank_name") @db.VarChar(150)
+  bankAccountNumberEncrypted String?  @map("bank_account_number_encrypted")
+  bankAccountNumberMasked    String?   @map("bank_account_number_masked") @db.VarChar(40)
+  bankIfsc               String?   @map("bank_ifsc") @db.VarChar(11)
+  bankBranch             String?   @map("bank_branch") @db.VarChar(150)
+  paymentNotes           String?   @map("payment_notes")
+  status                 String    @default("ACTIVE")
+  customFields           Json      @default("{}") @map("custom_fields")
+  isActive               Boolean   @default(true) @map("is_active")
+  createdBy              Int?      @map("created_by")
+  updatedBy              Int?      @map("updated_by")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization           @relation(fields: [organizationId], references: [id])
+  addresses        SalesCustomerAddress[]
+  quotations       SalesQuotation[]
+  invoices         SalesInvoice[]
+  deliveryChallans SalesDeliveryChallan[]
+  returnableDcs    SalesReturnableDc[]
+
+  @@unique([organizationId, customerCode])
+  @@index([organizationId, companyName])
+  @@index([organizationId, gstin])
+  @@index([organizationId, status])
+  @@map("customers")
+  @@schema("sales")
+}
+
+/// A billing or shipping address of a customer. At most one live default
+/// per customer and type (partial unique index).
+model SalesCustomerAddress {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  customerId     Int       @map("customer_id")
+  /// BILLING or SHIPPING (CHECK).
+  addressType    String    @map("address_type")
+  label          String    @db.VarChar(100)
+  street         String    @db.VarChar(500)
+  area           String?   @db.VarChar(200)
+  city           String    @db.VarChar(100)
+  stateCode      String    @map("state_code") @db.VarChar(2)
+  pincode        String    @db.VarChar(10)
+  country        String    @default("India") @db.VarChar(100)
+  isDefault      Boolean   @default(false) @map("is_default")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  customer     SalesCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, customerId])
+  @@map("customer_addresses")
+  @@schema("sales")
+}
+
+/// A follow-up on the Sales dashboard checklist, shared by everyone in the
+/// organization who can see it. Completed items stay (completed_at/by).
+model SalesActionItem {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  title          String    @db.VarChar(300)
+  dueDate        DateTime? @map("due_date") @db.Date
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  completedBy    Int?      @map("completed_by")
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  completer    User?        @relation("SalesActionItemCompleter", fields: [completedBy], references: [id])
+
+  @@index([organizationId, completedAt, dueDate])
+  @@map("action_items")
+  @@schema("sales")
+}
+
+/// Sales master list: how each server-issued code is formatted. One row per
+/// organization and code type. A customer code is PREFIX-COUNTRY-NNN
+/// (CUS-IN-001); a document number is PREFIX/FY/NNNN (TW/QUO/26-27/0001),
+/// counted per financial year. Changing a prefix or width affects only codes
+/// issued afterwards — issued codes never change. Counters live in
+/// `platform.document_sequences`.
+model SalesCodeFormat {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  /// customer / quotation / proforma_invoice / tax_invoice /
+  /// delivery_challan (CHECK).
+  codeType       String    @map("code_type") @db.VarChar(40)
+  prefix         String    @db.VarChar(20)
+  /// Minimum digits of the running number (zero-padded); it grows past this.
+  padding        Int       @default(3)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, codeType])
+  @@map("code_formats")
+  @@schema("sales")
+}
+
+/// Sales master list: the seller's details printed on every Sales document,
+/// one row per organization. `state_code` is the supplier's GST state: a
+/// document whose place of supply is the same state is taxed CGST+SGST,
+/// otherwise IGST.
+model SalesCompanyProfile {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  legalName      String    @map("legal_name") @db.VarChar(200)
+  tagline        String?   @db.VarChar(200)
+  address        String
+  gstin          String?   @db.VarChar(15)
+  /// Two-digit GST state code; defaults to the GSTIN's first two digits.
+  stateCode      String    @map("state_code") @db.VarChar(2)
+  pan            String?   @db.VarChar(10)
+  email          String?   @db.VarChar(254)
+  phone          String?   @db.VarChar(30)
+  /// Logo image (PNG/JPEG) in file storage; printed on every document.
+  logoStorageKey String?   @map("logo_storage_key") @db.VarChar(255)
+  logoMimeType   String?   @map("logo_mime_type") @db.VarChar(50)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId])
+  @@map("company_profiles")
+  @@schema("sales")
+}
+
+/// A price quotation to a customer. The number (TW/QUO/26-27/0001) is issued
+/// by the server per financial year. `customer_snapshot` freezes the
+/// customer's name, GSTIN, state and address as they were when the document
+/// was last saved. Tax is CGST+SGST when `place_of_supply` equals
+/// `supplier_state_code` (`tax_mode` INTRA), else IGST (INTER); every amount
+/// is computed by the server. `status` is OPEN / CONVERTED (CHECK); a
+/// converted quotation is locked.
+model SalesQuotation {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  quotationNumber      String    @map("quotation_number") @db.VarChar(40)
+  customerId           Int       @map("customer_id")
+  customerSnapshot     Json      @map("customer_snapshot")
+  quotationDate        DateTime  @map("quotation_date") @db.Date
+  validity             String?   @db.VarChar(50)
+  deliveryTerms        String?   @map("delivery_terms") @db.VarChar(200)
+  supplierStateCode    String    @map("supplier_state_code") @db.VarChar(2)
+  placeOfSupply        String    @map("place_of_supply") @db.VarChar(2)
+  /// INTRA / INTER (CHECK).
+  taxMode              String    @map("tax_mode")
+  transportDescription String?   @map("transport_description") @db.VarChar(200)
+  transportCharge      Decimal   @default(0) @map("transport_charge") @db.Decimal(14, 2)
+  transportHsn         String?   @map("transport_hsn") @db.VarChar(8)
+  cgstRate             Decimal   @default(0) @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate             Decimal   @default(0) @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate             Decimal   @default(0) @map("igst_rate") @db.Decimal(5, 2)
+  itemsSubtotal        Decimal   @map("items_subtotal") @db.Decimal(14, 2)
+  taxableAmount        Decimal   @map("taxable_amount") @db.Decimal(14, 2)
+  cgstAmount           Decimal   @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount           Decimal   @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount           Decimal   @map("igst_amount") @db.Decimal(14, 2)
+  roundOff             Decimal   @map("round_off") @db.Decimal(6, 2)
+  totalAmount          Decimal   @map("total_amount") @db.Decimal(14, 2)
+  /// Bank name / account / branch / IFSC as printed.
+  bankDetails          Json?     @map("bank_details")
+  /// The chosen seal/signature, by name, until their masters exist.
+  sealName             String?   @map("seal_name") @db.VarChar(150)
+  signatureName        String?   @map("signature_name") @db.VarChar(150)
+  /// The master-list seal/signature chosen (its image is printed).
+  sealItemId           Int?      @map("seal_item_id")
+  signatureItemId      Int?      @map("signature_item_id")
+  preparedBy           String?   @map("prepared_by") @db.VarChar(150)
+  terms                String?
+  status               String    @default("OPEN")
+  convertedAt          DateTime? @map("converted_at") @db.Timestamptz(6)
+  customFields         Json      @default("{}") @map("custom_fields")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  customer     SalesCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines        SalesQuotationLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesQuotationSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesQuotationSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+  invoices     SalesInvoice[]
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId, quotationDate])
+  @@index([organizationId, customerId])
+  @@map("quotations")
+  @@schema("sales")
+}
+
+model SalesQuotationLine {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  quotationId    Int       @map("quotation_id")
+  lineNo         Int       @map("line_no")
+  description    String    @db.VarChar(500)
+  hsnCode        String?   @map("hsn_code") @db.VarChar(8)
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPrice      Decimal   @map("unit_price") @db.Decimal(14, 2)
+  amount         Decimal   @db.Decimal(14, 2)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  quotation    SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, quotationId])
+  @@map("quotation_lines")
+  @@schema("sales")
+}
+
+/// A proforma (TW/PI/26-27/0001) or tax invoice (TW/IN/26-27/0001), told
+/// apart by `invoice_type` (PROFORMA / TAX, CHECK); each type has its own
+/// per-financial-year counter. Snapshot and tax rules as on quotations.
+/// `amount_received` is the sum of live payments, kept in the same
+/// transaction as each payment. `status` (CHECK) is UNPAID / PARTIALLY_PAID
+/// / PAID, or CONVERTED for a proforma moved to a tax invoice (locked; its
+/// payments move with it).
+model SalesInvoice {
+  id                   Int       @id @default(autoincrement())
+  organizationId       Int       @map("organization_id")
+  invoiceType          String    @map("invoice_type")
+  invoiceNumber        String    @map("invoice_number") @db.VarChar(40)
+  customerId           Int       @map("customer_id")
+  customerSnapshot     Json      @map("customer_snapshot")
+  invoiceDate          DateTime  @map("invoice_date") @db.Date
+  dueDate              DateTime? @map("due_date") @db.Date
+  paymentTerms         String?   @map("payment_terms") @db.VarChar(50)
+  sourceQuotationId    Int?      @map("source_quotation_id")
+  sourceInvoiceId      Int?      @map("source_invoice_id")
+  supplierStateCode    String    @map("supplier_state_code") @db.VarChar(2)
+  placeOfSupply        String    @map("place_of_supply") @db.VarChar(2)
+  /// INTRA / INTER (CHECK).
+  taxMode              String    @map("tax_mode")
+  transportDescription String?   @map("transport_description") @db.VarChar(200)
+  transportCharge      Decimal   @default(0) @map("transport_charge") @db.Decimal(14, 2)
+  transportHsn         String?   @map("transport_hsn") @db.VarChar(8)
+  cgstRate             Decimal   @default(0) @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate             Decimal   @default(0) @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate             Decimal   @default(0) @map("igst_rate") @db.Decimal(5, 2)
+  itemsSubtotal        Decimal   @map("items_subtotal") @db.Decimal(14, 2)
+  taxableAmount        Decimal   @map("taxable_amount") @db.Decimal(14, 2)
+  cgstAmount           Decimal   @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount           Decimal   @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount           Decimal   @map("igst_amount") @db.Decimal(14, 2)
+  roundOff             Decimal   @map("round_off") @db.Decimal(6, 2)
+  totalAmount          Decimal   @map("total_amount") @db.Decimal(14, 2)
+  amountReceived       Decimal   @default(0) @map("amount_received") @db.Decimal(14, 2)
+  bankDetails          Json?     @map("bank_details")
+  sealName             String?   @map("seal_name") @db.VarChar(150)
+  signatureName        String?   @map("signature_name") @db.VarChar(150)
+  /// The master-list seal/signature chosen (its image is printed).
+  sealItemId           Int?      @map("seal_item_id")
+  signatureItemId      Int?      @map("signature_item_id")
+  preparedBy           String?   @map("prepared_by") @db.VarChar(150)
+  terms                String?
+  status               String    @default("UNPAID")
+  convertedAt          DateTime? @map("converted_at") @db.Timestamptz(6)
+  customFields         Json      @default("{}") @map("custom_fields")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdBy            Int?      @map("created_by")
+  updatedBy            Int?      @map("updated_by")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization     Organization           @relation(fields: [organizationId], references: [id])
+  customer         SalesCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sourceQuotation  SalesQuotation?        @relation(fields: [sourceQuotationId], references: [id], onDelete: Restrict)
+  sourceInvoice    SalesInvoice?          @relation("SalesInvoiceConversion", fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
+  convertedTo      SalesInvoice[]         @relation("SalesInvoiceConversion")
+  lines            SalesInvoiceLine[]
+  sealItem         SalesDocumentMasterItem? @relation("SalesInvoiceSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem    SalesDocumentMasterItem? @relation("SalesInvoiceSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+  payments         SalesInvoicePayment[]
+  deliveryChallans SalesDeliveryChallan[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, invoiceType, invoiceDate])
+  @@index([organizationId, customerId])
+  @@map("invoices")
+  @@schema("sales")
+}
+
+model SalesInvoiceLine {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  invoiceId      Int       @map("invoice_id")
+  lineNo         Int       @map("line_no")
+  description    String    @db.VarChar(500)
+  hsnCode        String?   @map("hsn_code") @db.VarChar(8)
+  quantity       Decimal   @db.Decimal(12, 3)
+  unitPrice      Decimal   @map("unit_price") @db.Decimal(14, 2)
+  amount         Decimal   @db.Decimal(14, 2)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  invoice      SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, invoiceId])
+  @@map("invoice_lines")
+  @@schema("sales")
+}
+
+/// A payment received against an invoice ("Payments Received"). `mode` is a
+/// label from the master list's PAYMENT_MODE options (or typed). Live
+/// payments never exceed the invoice total (checked under the invoice's row
+/// lock).
+model SalesInvoicePayment {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  invoiceId      Int       @map("invoice_id")
+  /// TW/PR/26-27/0001 — issued on create, never changes.
+  paymentNumber  String    @map("payment_number") @db.VarChar(40)
+  paymentDate    DateTime  @map("payment_date") @db.Date
+  /// When the remaining balance is due (shown as overdue after it).
+  dueDate        DateTime? @map("due_date") @db.Date
+  amount         Decimal   @db.Decimal(14, 2)
+  /// The mode's label (copied from the master-list option, or typed).
+  mode           String    @db.VarChar(50)
+  modeItemId     Int?      @map("mode_item_id")
+  reference      String?   @db.VarChar(100)
+  notes          String?
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  invoice      SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  modeItem     SalesDocumentMasterItem? @relation("SalesPaymentMode", fields: [modeItemId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, paymentDate])
+  @@map("invoice_payments")
+  @@schema("sales")
+}
+
+/// A non-commercial dispatch document (TW/DC/26-27/0001): items and
+/// quantities, no prices. Created directly or from a tax invoice. `status`
+/// is DRAFT / DISPATCHED (CHECK).
+model SalesDeliveryChallan {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  dcNumber         String    @map("dc_number") @db.VarChar(40)
+  customerId       Int       @map("customer_id")
+  customerSnapshot Json      @map("customer_snapshot")
+  dcDate           DateTime  @map("dc_date") @db.Date
+  sourceInvoiceId  Int?      @map("source_invoice_id")
+  sealName         String?   @map("seal_name") @db.VarChar(150)
+  signatureName    String?   @map("signature_name") @db.VarChar(150)
+  sealItemId       Int?      @map("seal_item_id")
+  signatureItemId  Int?      @map("signature_item_id")
+  preparedBy       String?   @map("prepared_by") @db.VarChar(150)
+  notes            String?
+  status           String    @default("DRAFT")
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization               @relation(fields: [organizationId], references: [id])
+  customer      SalesCustomer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sourceInvoice SalesInvoice?              @relation(fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
+  lines         SalesDeliveryChallanLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesDcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesDcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, dcNumber])
+  @@index([organizationId, dcDate])
+  @@index([organizationId, customerId])
+  @@map("delivery_challans")
+  @@schema("sales")
+}
+
+model SalesDeliveryChallanLine {
+  id                Int       @id @default(autoincrement())
+  organizationId    Int       @map("organization_id")
+  deliveryChallanId Int       @map("delivery_challan_id")
+  lineNo            Int       @map("line_no")
+  description       String    @db.VarChar(500)
+  hsnCode           String?   @map("hsn_code") @db.VarChar(8)
+  quantity          Decimal   @db.Decimal(12, 3)
+  customFields      Json      @default("{}") @map("custom_fields")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdBy         Int?      @map("created_by")
+  updatedBy         Int?      @map("updated_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization    Organization         @relation(fields: [organizationId], references: [id])
+  deliveryChallan SalesDeliveryChallan @relation(fields: [deliveryChallanId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, deliveryChallanId])
+  @@map("delivery_challan_lines")
+  @@schema("sales")
+}
+
+/// Sales master list: the choices offered on each document form, one row
+/// per option. `document_type` QUOTATION / PROFORMA_INVOICE / TAX_INVOICE /
+/// DELIVERY_CHALLAN; `field` VALIDITY / DELIVERY_TERMS / PAYMENT_TERMS /
+/// HSN_CODE / BANK_ACCOUNT / COMPANY_SEAL / AUTHORIZED_SIGNATURE /
+/// PREPARED_BY — only the fields each document has (CHECK). `value` holds
+/// the HSN code; `bank_details` the bank block; seals and signatures carry
+/// an image in file storage. At most one live default per document type and
+/// field (partial unique index). Documents copy the values they use, so
+/// editing or deleting an option never changes an issued document.
+model SalesDocumentMasterItem {
+  id               Int       @id @default(autoincrement())
+  organizationId   Int       @map("organization_id")
+  field            String    @db.VarChar(30)
+  label            String    @db.VarChar(200)
+  value            String?   @db.VarChar(50)
+  bankDetails      Json?     @map("bank_details")
+  imageStorageKey  String?   @map("image_storage_key") @db.VarChar(255)
+  imageMimeType    String?   @map("image_mime_type") @db.VarChar(50)
+  isDefault        Boolean   @default(false) @map("is_default")
+  sortOrder        Int       @default(0) @map("sort_order")
+  customFields     Json      @default("{}") @map("custom_fields")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdBy        Int?      @map("created_by")
+  updatedBy        Int?      @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization       Organization           @relation(fields: [organizationId], references: [id])
+  quotationSeals     SalesQuotation[]       @relation("SalesQuotationSeal")
+  quotationSigns     SalesQuotation[]       @relation("SalesQuotationSignature")
+  invoiceSeals       SalesInvoice[]         @relation("SalesInvoiceSeal")
+  invoiceSigns       SalesInvoice[]         @relation("SalesInvoiceSignature")
+  deliveryChallanSeals SalesDeliveryChallan[] @relation("SalesDcSeal")
+  deliveryChallanSigns SalesDeliveryChallan[] @relation("SalesDcSignature")
+  returnableDcSeals    SalesReturnableDc[]    @relation("SalesRdcSeal")
+  returnableDcSigns    SalesReturnableDc[]    @relation("SalesRdcSignature")
+  paymentModes         SalesInvoicePayment[]  @relation("SalesPaymentMode")
+
+  @@index([organizationId, field])
+  @@map("document_master_items")
+  @@schema("sales")
+}
+
+/// A returnable delivery challan (TW/RDC/26-27/0001): goods lent to a
+/// customer (demo, testing, repair) and expected back. `status` is ISSUED /
+/// RETURNED (CHECK); `returned_date` is set exactly when RETURNED.
+model SalesReturnableDc {
+  id                 Int       @id @default(autoincrement())
+  organizationId     Int       @map("organization_id")
+  rdcNumber          String    @map("rdc_number") @db.VarChar(40)
+  customerId         Int       @map("customer_id")
+  customerSnapshot   Json      @map("customer_snapshot")
+  issueDate          DateTime  @map("issue_date") @db.Date
+  purpose            String    @db.VarChar(200)
+  expectedReturnDate DateTime  @map("expected_return_date") @db.Date
+  takenBy            String?   @map("taken_by") @db.VarChar(150)
+  status             String    @default("ISSUED")
+  returnedDate       DateTime? @map("returned_date") @db.Date
+  sealName           String?   @map("seal_name") @db.VarChar(150)
+  signatureName      String?   @map("signature_name") @db.VarChar(150)
+  sealItemId         Int?      @map("seal_item_id")
+  signatureItemId    Int?      @map("signature_item_id")
+  preparedBy         String?   @map("prepared_by") @db.VarChar(150)
+  notes              String?
+  customFields       Json      @default("{}") @map("custom_fields")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdBy          Int?      @map("created_by")
+  updatedBy          Int?      @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization  Organization             @relation(fields: [organizationId], references: [id])
+  customer      SalesCustomer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines         SalesReturnableDcLine[]
+  sealItem      SalesDocumentMasterItem? @relation("SalesRdcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem? @relation("SalesRdcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, rdcNumber])
+  @@index([organizationId, issueDate])
+  @@index([organizationId, customerId])
+  @@map("returnable_delivery_challans")
+  @@schema("sales")
+}
+
+model SalesReturnableDcLine {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  returnableDcId Int       @map("returnable_dc_id")
+  lineNo         Int       @map("line_no")
+  description    String    @db.VarChar(500)
+  quantity       Decimal   @db.Decimal(12, 3)
+  customFields   Json      @default("{}") @map("custom_fields")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      Int?      @map("created_by")
+  updatedBy      Int?      @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  returnableDc SalesReturnableDc @relation(fields: [returnableDcId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, returnableDcId])
+  @@map("returnable_delivery_challan_lines")
+  @@schema("sales")
 }

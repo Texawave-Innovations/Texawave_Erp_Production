@@ -11,7 +11,7 @@ import { AuthController } from "./auth.controller.js";
 import { AuthService } from "./auth.service.js";
 import { JwtAuthGuard } from "./jwt-auth.guard.js";
 import { JwtStrategy } from "./jwt.strategy.js";
-import { MailerService } from "./mailer.service.js";
+import { MailerService } from "../../shared/mailer/mailer.service.js";
 import { PasswordResetTokensRepository } from "./password-reset-tokens.repository.js";
 
 @Module({

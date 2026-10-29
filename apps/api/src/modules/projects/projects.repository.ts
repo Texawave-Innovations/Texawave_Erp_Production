@@ -63,7 +63,7 @@ export class ProjectsRepository {
     });
 
     const [items, total] = await Promise.all([
-      this.prisma.projectRecord.findMany({
+      this.prisma.project.findMany({
         where,
         skip: query.skip,
         take: query.limit,
@@ -105,7 +105,7 @@ export class ProjectsRepository {
           },
         },
       }),
-      this.prisma.projectRecord.count({ where }),
+      this.prisma.project.count({ where }),
     ]);
 
     return { items, total };
@@ -170,7 +170,7 @@ export class ProjectsRepository {
 
   @OrgScoped()
   findOne(scope: OrgScope, id: number) {
-    return this.prisma.projectRecord.findFirst({
+    return this.prisma.project.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
       include: {
         clientHandlingPerson: {
@@ -218,7 +218,7 @@ export class ProjectsRepository {
 
   @OrgScoped()
   findByCode(scope: OrgScope, projectCode: string) {
-    return this.prisma.projectRecord.findFirst({
+    return this.prisma.project.findFirst({
       where: tenantWhere(scope, { projectCode, deletedAt: null }),
     });
   }
@@ -237,7 +237,7 @@ export class ProjectsRepository {
         codeFormat,
       );
 
-      const project = await tx.projectRecord.create({
+      const project = await tx.project.create({
         data: {
           organizationId: scope.organizationId,
           projectCode,
@@ -311,7 +311,7 @@ export class ProjectsRepository {
       clientHandlingPersonId,
     } = dto;
 
-    const data: Prisma.ProjectRecordUpdateInput = {
+    const data: Prisma.ProjectUpdateInput = {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(description !== undefined
@@ -348,7 +348,7 @@ export class ProjectsRepository {
       updatedBy,
     };
 
-    const result = await this.prisma.projectRecord.updateMany({
+    const result = await this.prisma.project.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data,
     });
@@ -359,7 +359,7 @@ export class ProjectsRepository {
 
   @OrgScoped()
   async softDelete(scope: OrgScope, id: number, deletedBy: number) {
-    const result = await this.prisma.projectRecord.updateMany({
+    const result = await this.prisma.project.updateMany({
       where: tenantWhere(scope, { id, deletedAt: null }),
       data: {
         deletedAt: new Date(),
@@ -1007,7 +1007,7 @@ export class ProjectsRepository {
       });
 
       // Update actualCost on project
-      await tx.projectRecord.update({
+      await tx.project.update({
         where: { id: projectId },
         data: { actualCost: { increment: new Prisma.Decimal(dto.amount) } },
       });
@@ -1064,7 +1064,7 @@ export class ProjectsRepository {
       });
 
       if (amountDiff && !amountDiff.isZero()) {
-        await tx.projectRecord.update({
+        await tx.project.update({
           where: { id: existing.projectId },
           data: { actualCost: { increment: amountDiff } },
         });

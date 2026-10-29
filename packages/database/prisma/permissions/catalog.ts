@@ -1334,6 +1334,109 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "finance.gst.write",
     description: "Manage GST tax periods and file returns",
   },
+
+  // apps/api/src/modules/sales — organization-scoped, no team dimension
+  // (Sales data is gated by permission only, like IAM data).
+  { code: "sales.dashboard.read", description: "View the Sales dashboard" },
+  { code: "sales.customer.read", description: "View sales customers" },
+  {
+    code: "sales.customer.write",
+    description: "Create and edit sales customers and their addresses",
+  },
+  { code: "sales.customer.delete", description: "Delete sales customers" },
+  {
+    code: "sales.customer_bank.reveal",
+    description: "Reveal a customer's full bank account number (audited)",
+  },
+  {
+    code: "sales.action_item.read",
+    description: "View the Sales dashboard checklist",
+  },
+  {
+    code: "sales.action_item.write",
+    description: "Add, complete, reopen and delete Sales checklist items",
+  },
+  {
+    code: "sales.master.read",
+    description:
+      "View the Sales master list (code formats, running numbers, company details, document fields incl. payment modes)",
+  },
+  {
+    code: "sales.master.write",
+    description:
+      "Edit the Sales master list (code formats, company details and logo, document fields)",
+  },
+  {
+    code: "sales.running_number.write",
+    description:
+      "Set the running numbers of quotations, proforma/tax invoices, delivery challans, payments received and returnable DCs",
+  },
+  { code: "sales.quotation.read", description: "View and export quotations" },
+  {
+    code: "sales.quotation.write",
+    description: "Create and edit quotations",
+  },
+  { code: "sales.quotation.delete", description: "Delete quotations" },
+  {
+    code: "sales.quotation.send",
+    description: "Email quotations and share them on WhatsApp",
+  },
+  {
+    code: "sales.invoice.read",
+    description: "View and export proforma and tax invoices",
+  },
+  {
+    code: "sales.invoice.write",
+    description:
+      "Create and edit invoices, convert quotations and move proformas to tax invoices",
+  },
+  { code: "sales.invoice.delete", description: "Delete invoices" },
+  {
+    code: "sales.invoice.send",
+    description: "Email invoices and share them on WhatsApp",
+  },
+  {
+    code: "sales.invoice_payment.write",
+    description: "Record, edit and delete payments received against invoices",
+  },
+  {
+    code: "sales.payment.read",
+    description: "View payments received, due-date alerts and receipts",
+  },
+  {
+    code: "sales.delivery_challan.read",
+    description: "View and export delivery challans",
+  },
+  {
+    code: "sales.delivery_challan.write",
+    description: "Create and edit delivery challans, incl. from tax invoices",
+  },
+  {
+    code: "sales.delivery_challan.delete",
+    description: "Delete delivery challans",
+  },
+  {
+    code: "sales.delivery_challan.send",
+    description: "Email delivery challans and share them on WhatsApp",
+  },
+  {
+    code: "sales.returnable_dc.read",
+    description: "View and export returnable delivery challans",
+  },
+  {
+    code: "sales.returnable_dc.write",
+    description:
+      "Create and edit returnable delivery challans, mark them returned or reopen them",
+  },
+  {
+    code: "sales.returnable_dc.delete",
+    description: "Delete returnable delivery challans",
+  },
+  {
+    code: "sales.returnable_dc.send",
+    description:
+      "Email returnable delivery challans and share them on WhatsApp",
+  },
 ];
 
 export const RETIRED_PERMISSIONS: readonly RetiredPermission[] = [
