@@ -21,12 +21,15 @@ function quotationsKey(organizationId: number, query?: QueryQuotationsInput) {
     : orgScopedKey(organizationId, "crm-quotations", query);
 }
 
-export function useQuotations(query: QueryQuotationsInput) {
+export function useQuotations(
+  query: QueryQuotationsInput,
+  options?: { enabled?: boolean },
+) {
   const organizationId = useAuthStore((s) => s.organizationId);
   return useQuery({
     queryKey: quotationsKey(organizationId ?? 0, query),
     queryFn: () => listQuotations(query),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && (options?.enabled ?? true),
   });
 }
 

@@ -85,7 +85,7 @@ export const useCreatePacking = () =>
     scmPost<Packing>("/scm/packings", input),
   );
 export const usePackingAction = () =>
-  useScmMutation(({ id, action }: { id: number; action: "cancel" }) =>
+  useScmMutation(({ id, action }: { id: number; action: "pack" | "cancel" }) =>
     scmPost<Packing>(`/scm/packings/${id}/${action}`),
   );
 

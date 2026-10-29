@@ -214,24 +214,49 @@ export function PackingsView() {
           },
         ]}
         footer={
-          canWrite && viewing?.status === "PACKED" ? (
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  await act.mutateAsync({ id: viewing.id, action: "cancel" });
-                  toast({ title: "Packing cancelled", variant: "success" });
-                  setViewing(null);
-                } catch (err) {
-                  toast({
-                    title: errorText(err, "Failed to cancel packing"),
-                    variant: "error",
-                  });
-                }
-              }}
-            >
-              Cancel Packing
-            </Button>
+          canWrite &&
+          (viewing?.status === "PACKED" ||
+            viewing?.status === "IN_PROGRESS") ? (
+            <div className="flex justify-end gap-2">
+              {viewing.status === "IN_PROGRESS" ? (
+                <Button
+                  onClick={async () => {
+                    try {
+                      await act.mutateAsync({
+                        id: viewing.id,
+                        action: "pack",
+                      });
+                      toast({ title: "Packing completed", variant: "success" });
+                      setViewing(null);
+                    } catch (err) {
+                      toast({
+                        title: errorText(err, "Failed to complete packing"),
+                        variant: "error",
+                      });
+                    }
+                  }}
+                >
+                  Mark as Packed
+                </Button>
+              ) : null}
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    await act.mutateAsync({ id: viewing.id, action: "cancel" });
+                    toast({ title: "Packing cancelled", variant: "success" });
+                    setViewing(null);
+                  } catch (err) {
+                    toast({
+                      title: errorText(err, "Failed to cancel packing"),
+                      variant: "error",
+                    });
+                  }
+                }}
+              >
+                Cancel Packing
+              </Button>
+            </div>
           ) : null
         }
       />

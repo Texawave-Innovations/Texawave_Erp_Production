@@ -10,7 +10,11 @@ import {
   Min,
 } from "class-validator";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
-import { QueryBoolean, Trim } from "../../../../common/dto/transforms.js";
+import {
+  EmptyToUndefined,
+  QueryBoolean,
+  Trim,
+} from "../../../../common/dto/transforms.js";
 
 /** Migrated from the LIVE legacy TexaWave_ERP/src/modules/crm/domain/
  * contactsService.ts (RTDB `crm/contacts`). `name` and `accountId` are
@@ -45,6 +49,7 @@ export class CreateContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @EmptyToUndefined()
   @Trim()
   @IsEmail()
   email?: string;

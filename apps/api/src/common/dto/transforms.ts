@@ -6,6 +6,15 @@ export const Trim = () =>
     typeof value === "string" ? value.trim() : value,
   );
 
+/** Blank-string optional fields (e.g. a cleared form input) must not fail a
+ * format validator like `@IsEmail()`, which `@IsOptional()` alone does not
+ * cover — it only skips `undefined`/`null`, not `""`. Apply before the
+ * format validator on any optional field validated by more than `@IsString`. */
+export const EmptyToUndefined = () =>
+  Transform(({ value }: { value: unknown }) =>
+    value === "" ? undefined : value,
+  );
+
 /** Trims and upper-cases (codes are stored upper-case: `eng` → `ENG`). */
 export const UpperTrim = () =>
   Transform(({ value }: { value: unknown }) =>

@@ -57,8 +57,9 @@ import {
 /** Large bound — a single bounded fetch per entity kind plus client-side
  * filtering/pagination (same approach as AccountStatusQueueList), rather than
  * threading cross-entity pagination through 3 independent lists merged by due
- * date. */
-const FETCH_LIMIT = 200;
+ * date. Capped at the API's MAX_PAGE_SIZE (100) — anything higher gets
+ * rejected with a 400, which previously broke every query on this page. */
+const FETCH_LIMIT = 100;
 
 type Kind = "Task" | "Follow-up" | "Meeting";
 type SubTab = "all" | Kind;
