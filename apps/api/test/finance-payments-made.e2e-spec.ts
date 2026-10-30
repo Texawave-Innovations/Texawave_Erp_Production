@@ -47,7 +47,10 @@ describe("finance payments made (e2e)", () => {
   let tokenB: string;
   let readOnlyToken: string;
   let paymentModeA: { id: number };
+  let cashModeA: { id: number };
   let bankAccountA: { id: number };
+  let inactiveBankAccountA: { id: number };
+  let bankAccountB: { id: number };
 
   const PERMISSION_CODES = [
     "finance.payment_made.read",
@@ -155,8 +158,16 @@ describe("finance payments made (e2e)", () => {
       data: {
         organizationId: orgA.id,
         category: "payment_mode",
-        code: "BANK_TRANSFER",
         value: "Bank Transfer",
+        isActive: true,
+      },
+    });
+
+    cashModeA = await prisma.financeMasterListItem.create({
+      data: {
+        organizationId: orgA.id,
+        category: "payment_mode",
+        value: "Cash",
         isActive: true,
       },
     });
@@ -169,6 +180,17 @@ describe("finance payments made (e2e)", () => {
         accountType: "ASSET",
         normalBalance: "DEBIT",
         currentBalance: 100000,
+      },
+    });
+
+    await prisma.financeAccount.create({
+      data: {
+        organizationId: orgA.id,
+        accountCode: "1010",
+        accountName: "Cash on Hand",
+        accountType: "ASSET",
+        normalBalance: "DEBIT",
+        currentBalance: 20000,
       },
     });
 
@@ -194,6 +216,34 @@ describe("finance payments made (e2e)", () => {
         openingBalance: 100000,
         currentBalance: 100000,
         glAccountId: glBankAcc.id,
+        isActive: true,
+      },
+    });
+
+    inactiveBankAccountA = await prisma.financeBankAccount.create({
+      data: {
+        organizationId: orgA.id,
+        accountName: "Closed Account",
+        accountNumber: `ACC-CLOSED-${suffix}`,
+        bankName: "HDFC Bank",
+        ifscCode: "HDFC0001234",
+        accountType: "CURRENT",
+        openingBalance: 0,
+        currentBalance: 0,
+        isActive: false,
+      },
+    });
+
+    bankAccountB = await prisma.financeBankAccount.create({
+      data: {
+        organizationId: orgB.id,
+        accountName: "Org B Account",
+        accountNumber: `ACC-ORGB-${suffix}`,
+        bankName: "ICICI Bank",
+        ifscCode: "ICIC0001234",
+        accountType: "CURRENT",
+        openingBalance: 50000,
+        currentBalance: 50000,
         isActive: true,
       },
     });
@@ -234,6 +284,17 @@ describe("finance payments made (e2e)", () => {
         await prisma.organization.delete({ where: { id: orgA.id } });
       }
       if (orgB?.id) {
+        await prisma.financeBankAccount.deleteMany({
+          where: { organizationId: orgB.id },
+        });
+        await prisma.userRole.deleteMany({
+          where: { user: { organizationId: orgB.id } },
+        });
+        await prisma.rolePermission.deleteMany({
+          where: { role: { organizationId: orgB.id } },
+        });
+        await prisma.user.deleteMany({ where: { organizationId: orgB.id } });
+        await prisma.role.deleteMany({ where: { organizationId: orgB.id } });
         await prisma.organization.delete({ where: { id: orgB.id } });
       }
     }
@@ -260,6 +321,121 @@ describe("finance payments made (e2e)", () => {
           paymentModeId: paymentModeA.id,
         })
         .expect(403);
+    });
+  });
+
+  describe("Bank Account Mandatory Validation", () => {
+    it("rejects a Bank Transfer payment with no bank account selected", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "No Bank Account Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          status: "CONFIRMED",
+        })
+        .expect(400);
+    });
+
+    it("allows a Cash payment with no bank account selected", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Cash Vendor",
+          amount: 500,
+          paymentModeId: cashModeA.id,
+          status: "CONFIRMED",
+        })
+        .expect(201);
+
+      const body = res.body as ApiDataResponse<PaymentMadeResponseData>;
+      expect(body.data.status).toBe("CONFIRMED");
+      expect(body.data.bankAccountId ?? null).toBeNull();
+    });
+
+    it("rejects a bank account that belongs to a different organization", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Cross Org Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountB.id,
+          status: "CONFIRMED",
+        })
+        .expect(404);
+    });
+
+    it("rejects an inactive bank account", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Inactive Account Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: inactiveBankAccountA.id,
+          status: "CONFIRMED",
+        })
+        .expect(404);
+    });
+
+    it("confirms a Bank Transfer payment with a valid bank account and updates the bank balance", async () => {
+      const before = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+
+      const res = await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Valid Bank Payment Vendor",
+          amount: 1500,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          status: "CONFIRMED",
+        })
+        .expect(201);
+
+      const body = res.body as ApiDataResponse<PaymentMadeResponseData>;
+      expect(body.data.status).toBe("CONFIRMED");
+
+      const after = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+      expect(Number(after.currentBalance)).toBe(
+        Number(before.currentBalance) - 1500,
+      );
+
+      const transaction = await prisma.financeBankTransaction.findFirst({
+        where: { bankAccountId: bankAccountA.id, amount: 1500 },
+      });
+      expect(transaction).not.toBeNull();
+      expect(transaction?.transactionType).toBe("DEBIT");
+    });
+
+    it("cannot be bypassed by confirming a DRAFT bank-mode payment saved without a bank account", async () => {
+      const draftRes = await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Draft Without Bank Vendor",
+          amount: 750,
+          paymentModeId: paymentModeA.id,
+          status: "DRAFT",
+        });
+
+      // The create-time rule already rejects this combination outright.
+      expect(draftRes.status).toBe(400);
     });
   });
 

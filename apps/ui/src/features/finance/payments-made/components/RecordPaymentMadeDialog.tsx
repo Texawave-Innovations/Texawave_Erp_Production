@@ -89,11 +89,13 @@ function RecordPaymentMadeForm({
   const selectedModeObj = paymentModes.find(
     (m) => m.id === Number(effectivePaymentModeId),
   );
-  const isBankMode =
-    selectedModeObj?.value.toLowerCase().includes("bank") ||
-    selectedModeObj?.value.toLowerCase().includes("transfer") ||
-    selectedModeObj?.value.toLowerCase().includes("cheque") ||
-    selectedModeObj?.value.toLowerCase().includes("upi");
+  // Matches the backend's cash-vs-bank classification exactly
+  // (isCashPaymentMode in apps/api/.../finance.constants.ts): every mode
+  // other than cash settles through a real bank account.
+  const isCashMode = Boolean(
+    selectedModeObj?.value.toLowerCase().includes("cash"),
+  );
+  const isBankMode = !isCashMode;
 
   const handleSubmit = async (targetStatus: "CONFIRMED" | "DRAFT") => {
     setSubmitError(null);
@@ -119,6 +121,13 @@ function RecordPaymentMadeForm({
         fieldErrors[fieldName] = issue.message;
       }
       setErrors(fieldErrors);
+      return;
+    }
+
+    if (isBankMode && !parsed.data.bankAccountId) {
+      setErrors({
+        bankAccountId: `A disbursing bank account is required for "${selectedModeObj?.value ?? "this"}" payments so the bank balance and transaction ledger stay in sync.`,
+      });
       return;
     }
 
@@ -274,18 +283,27 @@ function RecordPaymentMadeForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative focus-within:z-30">
         <FormField
           label="Disbursing Bank Account"
+          required={isBankMode}
+          error={errors.bankAccountId}
           hint={
             isBankMode
-              ? "Recommended for bank transactions and GL balance deduction"
+              ? "Required for bank transactions and GL balance deduction"
               : "Optional for cash payments"
           }
         >
           {() => (
             <Select
               value={bankAccountId}
-              onChange={(e) =>
-                setBankAccountId(e.target.value ? Number(e.target.value) : "")
-              }
+              onChange={(e) => {
+                setBankAccountId(e.target.value ? Number(e.target.value) : "");
+                if (errors.bankAccountId) {
+                  setErrors((prev) => {
+                    const { bankAccountId: _discard, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
+              required={isBankMode}
             >
               <option value="">
                 {isBankMode

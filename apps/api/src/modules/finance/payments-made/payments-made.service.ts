@@ -9,6 +9,7 @@ import { TenantContextService } from "../../../platform/tenancy/tenant-context.s
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import {
   calculateAccountBalanceDelta,
+  isCashPaymentMode,
   type FinanceAccountType,
 } from "../finance.constants.js";
 import { JournalEntriesRepository } from "../journal/journal-entries.repository.js";
@@ -100,6 +101,16 @@ export class PaymentsMadeService {
       if (!bankAccount) {
         throw new ResourceNotFoundException("Bank account", dto.bankAccountId);
       }
+    }
+
+    // 4a. Bank-type payment modes (everything except cash) must settle
+    // through a real bank account, so the bank balance and bank transaction
+    // ledger stay in sync with the GL. Cash modes never require one.
+    if (!dto.bankAccountId && !isCashPaymentMode(paymentMode.value)) {
+      throw new BusinessRuleViolationException(
+        `Payment mode "${paymentMode.value}" requires a bank account to be selected.`,
+        "BANK_ACCOUNT_REQUIRED",
+      );
     }
 
     // 5. Validate linked ScmSupplierPayment if provided
@@ -227,6 +238,19 @@ export class PaymentsMadeService {
       throw new BusinessRuleViolationException(
         "Cannot confirm a voided payment disbursement",
         "PAYMENT_VOID",
+      );
+    }
+
+    // Rechecked here (not just on create) so a DRAFT saved before this rule
+    // existed, or without a bank account chosen, can never be confirmed
+    // without one once its mode requires it.
+    if (
+      !existing.bankAccountId &&
+      !isCashPaymentMode(existing.paymentMode?.value)
+    ) {
+      throw new BusinessRuleViolationException(
+        `Payment mode "${existing.paymentMode?.value}" requires a bank account to be selected.`,
+        "BANK_ACCOUNT_REQUIRED",
       );
     }
 
