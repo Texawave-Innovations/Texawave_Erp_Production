@@ -126,6 +126,10 @@ function makeService() {
         accountName: "Corporate Current Account",
         glAccountId: 20,
       }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    financeBankTransaction: {
+      findFirst: vi.fn().mockResolvedValue(null),
     },
     financeAccount: {
       findFirst: vi
@@ -556,7 +560,7 @@ describe("PaymentsReceivedService", () => {
       );
     });
 
-    it("resolves Cash GL account (1010) when payment mode is Cash", async () => {
+    it("resolves Cash GL account (1010) when payment mode is Cash and passes null bankAccountDelta", async () => {
       const { service, repository } = makeService();
       repository.findById.mockResolvedValue({
         ...MOCK_PAYMENT_DRAFT,
@@ -570,10 +574,78 @@ describe("PaymentsReceivedService", () => {
 
       await service.confirm(10);
 
-      const [, , journalData] = repository.postAndConfirmReceipt.mock
-        .calls[0] as [unknown, unknown, PaymentJournalEntryData];
+      const [, , journalData, , , bankAccountDelta] = repository
+        .postAndConfirmReceipt.mock.calls[0] as [
+        unknown,
+        unknown,
+        PaymentJournalEntryData,
+        unknown,
+        unknown,
+        unknown,
+      ];
       expect(journalData.lines[0]?.accountId).toBe(10); // Cash on Hand
       expect(journalData.lines[0]?.debit).toBe(5000);
+      expect(bankAccountDelta).toBeNull();
+    });
+
+    it("auto-resolves active organization bank account when bankAccountId is omitted on non-cash receipt", async () => {
+      const { service, repository, prisma } = makeService();
+      repository.findById.mockResolvedValue({
+        ...MOCK_PAYMENT_DRAFT,
+        bankAccountId: null,
+        paymentMode: {
+          id: 5,
+          value: "Bank Transfer",
+          category: "payment_mode",
+        },
+      });
+      prisma.financeBankAccount.findFirst.mockResolvedValue({
+        id: 7,
+        accountName: "HDFC Primary",
+        glAccountId: 20,
+      });
+
+      await service.confirm(10);
+
+      expect(repository.postAndConfirmReceipt).toHaveBeenCalledWith(
+        SCOPE,
+        10,
+        expect.anything(),
+        expect.anything(),
+        USER_ID,
+        expect.objectContaining({
+          id: 7,
+          delta: 5000,
+        }),
+      );
+    });
+
+    it("auto-links bank account to GL 1020 if ba.glAccountId is null", async () => {
+      const { service, repository, prisma } = makeService();
+      repository.findById.mockResolvedValue({
+        ...MOCK_PAYMENT_DRAFT,
+        bankAccountId: 9,
+      });
+      prisma.financeBankAccount.findFirst.mockResolvedValue({
+        id: 9,
+        accountName: "Unlinked Bank Account",
+        glAccountId: null,
+      });
+
+      await service.confirm(10);
+
+      expect(prisma.financeBankAccount.updateMany).toHaveBeenCalledWith({
+        where: { id: 9, organizationId: 1 },
+        data: { glAccountId: 20 },
+      });
+      expect(repository.postAndConfirmReceipt).toHaveBeenCalledWith(
+        SCOPE,
+        10,
+        expect.anything(),
+        expect.anything(),
+        USER_ID,
+        expect.objectContaining({ id: 9, delta: 5000 }),
+      );
     });
 
     it("throws BusinessRuleViolationException if Accounts Receivable GL account is missing", async () => {
@@ -653,6 +725,36 @@ describe("PaymentsReceivedService", () => {
         USER_ID,
         expect.objectContaining({
           id: 2,
+          delta: -5000,
+        }),
+      );
+    });
+
+    it("voids CONFIRMED receipt when existing.bankAccountId is null by finding bank account from matched transaction", async () => {
+      const { service, repository, prisma, journalRepository } = makeService();
+      repository.findById.mockResolvedValue({
+        ...MOCK_PAYMENT_CONFIRMED,
+        bankAccountId: null,
+      });
+      journalRepository.generateNextEntryNumber.mockResolvedValue(
+        "REV-202610-0002",
+      );
+      prisma.financeBankTransaction.findFirst.mockResolvedValue({
+        id: 99,
+        bankAccountId: 4,
+        matchedJournalEntryId: 55,
+      });
+
+      await service.void(11);
+
+      expect(repository.voidAndReverseReceipt).toHaveBeenCalledWith(
+        SCOPE,
+        11,
+        expect.anything(),
+        expect.anything(),
+        USER_ID,
+        expect.objectContaining({
+          id: 4,
           delta: -5000,
         }),
       );

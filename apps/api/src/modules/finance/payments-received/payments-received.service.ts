@@ -293,10 +293,30 @@ export class PaymentsReceivedService {
       );
     }
 
-    // 1. Resolve Bank/Cash GL Account (Debit)
+    // 1. Resolve effective Bank Account if not explicitly set on receipt
+    let effectiveBankAccountId = existing.bankAccountId;
+    const isCashPayment = Boolean(
+      existing.paymentMode?.value?.toLowerCase().includes("cash"),
+    );
+
+    if (!effectiveBankAccountId && !isCashPayment) {
+      const activeBank = await this.prisma.financeBankAccount.findFirst({
+        where: {
+          organizationId: scope.organizationId,
+          isActive: true,
+          deletedAt: null,
+        },
+        orderBy: { id: "asc" },
+      });
+      if (activeBank) {
+        effectiveBankAccountId = activeBank.id;
+      }
+    }
+
+    // 2. Resolve Bank/Cash GL Account (Debit)
     const debitAccount = await this.resolveGlDepositAccount(
       scope.organizationId,
-      existing.bankAccountId,
+      effectiveBankAccountId,
       existing.paymentMode?.value,
     );
 
@@ -361,9 +381,9 @@ export class PaymentsReceivedService {
       lines,
     };
 
-    const bankAccountDelta = existing.bankAccountId
+    const bankAccountDelta = effectiveBankAccountId
       ? {
-          id: existing.bankAccountId,
+          id: effectiveBankAccountId,
           delta: amount,
           paymentNumber: existing.paymentNumber,
           customerName: existing.customerName,
@@ -452,9 +472,23 @@ export class PaymentsReceivedService {
         lines,
       };
 
-      const bankAccountDelta = existing.bankAccountId
+      let voidBankAccountId = existing.bankAccountId;
+      if (!voidBankAccountId && existing.journalEntryId) {
+        const matchedBankTx =
+          await this.prisma.financeBankTransaction.findFirst({
+            where: {
+              organizationId: scope.organizationId,
+              matchedJournalEntryId: existing.journalEntryId,
+            },
+          });
+        if (matchedBankTx) {
+          voidBankAccountId = matchedBankTx.bankAccountId;
+        }
+      }
+
+      const bankAccountDelta = voidBankAccountId
         ? {
-            id: existing.bankAccountId,
+            id: voidBankAccountId,
             delta: -Number(originalJournal.totalDebit),
             paymentNumber: existing.paymentNumber,
             customerName: existing.customerName,
@@ -596,6 +630,26 @@ export class PaymentsReceivedService {
           return {
             id: gl.id,
             accountType: gl.accountType as FinanceAccountType,
+          };
+        }
+      }
+      if (ba && !ba.glAccountId) {
+        const defaultBankGl = await this.prisma.financeAccount.findFirst({
+          where: {
+            organizationId,
+            accountCode: "1020",
+            isActive: true,
+            deletedAt: null,
+          },
+        });
+        if (defaultBankGl) {
+          await this.prisma.financeBankAccount.updateMany({
+            where: { id: ba.id, organizationId },
+            data: { glAccountId: defaultBankGl.id },
+          });
+          return {
+            id: defaultBankGl.id,
+            accountType: defaultBankGl.accountType as FinanceAccountType,
           };
         }
       }

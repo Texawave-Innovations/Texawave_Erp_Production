@@ -72,6 +72,14 @@ function makeService() {
         value: "Office Supplies",
         category: "expense_type",
       }),
+      create: vi
+        .fn()
+        .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: 99,
+            ...data,
+          }),
+        ),
     },
     financeBankAccount: {
       findFirst: vi.fn().mockResolvedValue({
@@ -508,6 +516,280 @@ describe("ExpensesService", () => {
       await expect(service.createFromClaim(88, {})).rejects.toThrow(
         ResourceConflictException,
       );
+    });
+
+    it("preserves Medical category by auto-provisioning when not yet present in master list", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 8,
+        organizationId: 1,
+        expenseType: "Medical",
+        amount: "5000.00",
+        expenseDate: new Date("2026-10-28"),
+        description: "medic emergency",
+        receiptRef: null,
+        status: "APPROVED",
+        employee: {
+          fullName: "employee demo",
+          employeeCode: "EMP-000002",
+        },
+      });
+
+      // No item initially exists
+      prisma.financeMasterListItem.findFirst.mockResolvedValue(null);
+      prisma.financeMasterListItem.create.mockResolvedValue({
+        id: 25,
+        value: "Medical",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(8, {
+        notes: "Medical claim reimbursement",
+      });
+
+      expect(prisma.financeMasterListItem.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: 1,
+          category: "expense_type",
+          value: "Medical",
+          isActive: true,
+          createdBy: USER_ID,
+          updatedBy: USER_ID,
+        },
+      });
+
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(25);
+      expect(createData.hrExpenseClaimId).toBe(8);
+      expect(createData.amount).toBe(5000);
+      expect(createData.vendorName).toBe(
+        "Reimbursement: employee demo (EMP-000002)",
+      );
+    });
+
+    it("preserves Medical category when already present in master list", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 8,
+        organizationId: 1,
+        expenseType: "Medical",
+        amount: "5000.00",
+        expenseDate: new Date("2026-10-28"),
+        description: "medic emergency",
+        receiptRef: null,
+        status: "APPROVED",
+        employee: {
+          fullName: "employee demo",
+          employeeCode: "EMP-000002",
+        },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue({
+        id: 11,
+        value: "Medical",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(8, {});
+
+      expect(prisma.financeMasterListItem.create).not.toHaveBeenCalled();
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(11);
+    });
+
+    it("maps Travel claim to Travel & Lodging category", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 88,
+        organizationId: 1,
+        expenseType: "Travel",
+        amount: "3500.00",
+        expenseDate: new Date("2026-10-20"),
+        description: "Travel expenses",
+        status: "APPROVED",
+        employee: { fullName: "Alice Smith", employeeCode: "EMP001" },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue({
+        id: 2,
+        value: "Travel & Lodging",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(88, {});
+
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(2);
+    });
+
+    it("maps Food claim to Food & Meals category", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 89,
+        organizationId: 1,
+        expenseType: "Food",
+        amount: "1200.00",
+        expenseDate: new Date("2026-10-21"),
+        status: "APPROVED",
+        employee: { fullName: "Bob", employeeCode: "EMP002" },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue(null);
+      prisma.financeMasterListItem.create.mockResolvedValue({
+        id: 26,
+        value: "Food & Meals",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(89, {});
+
+      expect(prisma.financeMasterListItem.create).toHaveBeenCalled();
+      const [foodCall] = prisma.financeMasterListItem.create.mock.calls[0] as [
+        { data: { value: string; category: string } },
+      ];
+      expect(foodCall.data.value).toBe("Food & Meals");
+      expect(foodCall.data.category).toBe("expense_type");
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(26);
+    });
+
+    it("maps Accommodation claim to Accommodation category", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 90,
+        organizationId: 1,
+        expenseType: "Accommodation",
+        amount: "4500.00",
+        expenseDate: new Date("2026-10-22"),
+        status: "APPROVED",
+        employee: { fullName: "Carol", employeeCode: "EMP003" },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue(null);
+      prisma.financeMasterListItem.create.mockResolvedValue({
+        id: 27,
+        value: "Accommodation",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(90, {});
+
+      expect(prisma.financeMasterListItem.create).toHaveBeenCalled();
+      const [accomCall] = prisma.financeMasterListItem.create.mock.calls[0] as [
+        { data: { value: string; category: string } },
+      ];
+      expect(accomCall.data.value).toBe("Accommodation");
+      expect(accomCall.data.category).toBe("expense_type");
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(27);
+    });
+
+    it("maps Other claim to Other category", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 91,
+        organizationId: 1,
+        expenseType: "Other",
+        amount: "800.00",
+        expenseDate: new Date("2026-10-23"),
+        status: "APPROVED",
+        employee: { fullName: "Dave", employeeCode: "EMP004" },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue(null);
+      prisma.financeMasterListItem.create.mockResolvedValue({
+        id: 28,
+        value: "Other",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(91, {});
+
+      expect(prisma.financeMasterListItem.create).toHaveBeenCalled();
+      const [otherCall] = prisma.financeMasterListItem.create.mock.calls[0] as [
+        { data: { value: string; category: string } },
+      ];
+      expect(otherCall.data.value).toBe("Other");
+      expect(otherCall.data.category).toBe("expense_type");
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(28);
+    });
+
+    it("throws BusinessRuleViolationException and never silently falls back to Office Supplies for unsupported category", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 92,
+        organizationId: 1,
+        expenseType: "CryptoTokens",
+        amount: "1000.00",
+        status: "APPROVED",
+      });
+      prisma.financeMasterListItem.findFirst.mockResolvedValue(null);
+
+      await expect(service.createFromClaim(92, {})).rejects.toThrow(
+        BusinessRuleViolationException,
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it("preserves paymentModeId, bankAccountId, glAccountId, notes, and receiptUrl", async () => {
+      const { service, repository, prisma } = makeService();
+      prisma.expenseClaim.findFirst.mockResolvedValue({
+        id: 93,
+        organizationId: 1,
+        expenseType: "Office Supplies",
+        amount: "750.00",
+        expenseDate: new Date("2026-10-25"),
+        description: "Printer toner cartridge",
+        receiptRef: "https://storage.texawave.com/receipts/toner.pdf",
+        status: "APPROVED",
+        employee: { fullName: "Eve", employeeCode: "EMP005" },
+      });
+
+      prisma.financeMasterListItem.findFirst.mockResolvedValue({
+        id: 1,
+        value: "Office Supplies",
+        category: "expense_type",
+      });
+
+      await service.createFromClaim(93, {
+        paymentModeId: 6,
+        bankAccountId: 2,
+        glAccountId: 9,
+        notes: "Approved stationery reimbursement",
+      });
+
+      const [, createData] = repository.create.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
+      expect(createData.expenseTypeId).toBe(1);
+      expect(createData.paymentModeId).toBe(6);
+      expect(createData.bankAccountId).toBe(2);
+      expect(createData.glAccountId).toBe(9);
+      expect(createData.notes).toBe("Approved stationery reimbursement");
+      expect(createData.receiptUrl).toBe(
+        "https://storage.texawave.com/receipts/toner.pdf",
+      );
+      expect(createData.hrExpenseClaimId).toBe(93);
     });
   });
 });

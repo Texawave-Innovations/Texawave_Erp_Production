@@ -36,12 +36,27 @@ function makeRepository() {
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   };
 
+  const financeBankAccount = {
+    findFirst: vi.fn().mockResolvedValue({
+      id: 2,
+      currentBalance: 50000,
+      organizationId: 10,
+    }),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+  };
+
+  const financeBankTransaction = {
+    create: vi.fn().mockResolvedValue({ id: 100 }),
+  };
+
   const prisma = {
     financePaymentReceived,
     financePaymentReceivedAllocation,
     financeJournalEntry,
     financeJournalLine,
     financeAccount,
+    financeBankAccount,
+    financeBankTransaction,
     $transaction: vi.fn(async (cb: (tx: unknown) => unknown) =>
       cb({
         financePaymentReceived,
@@ -49,6 +64,8 @@ function makeRepository() {
         financeJournalEntry,
         financeJournalLine,
         financeAccount,
+        financeBankAccount,
+        financeBankTransaction,
       }),
     ),
   };
@@ -63,6 +80,8 @@ function makeRepository() {
     financeJournalEntry,
     financeJournalLine,
     financeAccount,
+    financeBankAccount,
+    financeBankTransaction,
   };
 }
 
@@ -323,6 +342,162 @@ describe("PaymentsReceivedRepository", () => {
 
       // Verify GL balances inverted
       expect(financeAccount.updateMany).toHaveBeenCalledTimes(2);
+    });
+
+    it("postAndConfirmReceipt() updates bank account balance, creates CREDIT bank transaction, and persists effective bankAccountId", async () => {
+      const {
+        repository,
+        financePaymentReceived,
+        financeBankAccount,
+        financeBankTransaction,
+      } = makeRepository();
+
+      await repository.postAndConfirmReceipt(
+        SCOPE_A,
+        15,
+        {
+          entryNumber: "JV-202610-0001",
+          entryDate: new Date("2026-10-23"),
+          entryType: "PAYMENT_RECEIVED",
+          narration: "Payment REC-001",
+          referenceNumber: "REC-001",
+          totalDebit: 5000,
+          totalCredit: 5000,
+          lines: [
+            { accountId: 10, lineOrder: 0, debit: 5000, credit: 0 },
+            { accountId: 20, lineOrder: 1, debit: 0, credit: 5000 },
+          ],
+        },
+        [
+          { accountId: 10, delta: 5000 },
+          { accountId: 20, delta: -5000 },
+        ],
+        USER_ID,
+        {
+          id: 2,
+          delta: 5000,
+          paymentNumber: "REC-001",
+          customerName: "Acme Corp",
+        },
+      );
+
+      // Verify bank account was queried with organizationId and deletedAt: null
+      expect(financeBankAccount.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 2,
+          organizationId: 10,
+          deletedAt: null,
+        },
+      });
+
+      // Verify bank account currentBalance was incremented from 50000 to 55000
+      expect(financeBankAccount.updateMany).toHaveBeenCalledWith({
+        where: { id: 2, organizationId: 10 },
+        data: { currentBalance: 55000 },
+      });
+
+      // Verify CREDIT bank transaction was created with linkage to journalEntry
+      const createTxArg = financeBankTransaction.create.mock.lastCall?.[0] as
+        | {
+            data: {
+              organizationId: number;
+              bankAccountId: number;
+              transactionType: string;
+              amount: number;
+              balanceAfter: number;
+              matchedJournalEntryId: number;
+              isReconciled: boolean;
+            };
+          }
+        | undefined;
+      expect(createTxArg?.data?.organizationId).toBe(10);
+      expect(createTxArg?.data?.bankAccountId).toBe(2);
+      expect(createTxArg?.data?.transactionType).toBe("CREDIT");
+      expect(createTxArg?.data?.amount).toBe(5000);
+      expect(createTxArg?.data?.balanceAfter).toBe(55000);
+      expect(createTxArg?.data?.matchedJournalEntryId).toBe(50);
+      expect(createTxArg?.data?.isReconciled).toBe(true);
+
+      // Verify payment received had bankAccountId persisted
+      const updatePaymentArg = financePaymentReceived.updateMany.mock
+        .lastCall as unknown as [
+        {
+          where: { id: number; organizationId: number; status: string };
+          data: {
+            status: string;
+            journalEntryId: number;
+            bankAccountId: number;
+          };
+        },
+      ];
+      expect(updatePaymentArg[0]?.where?.id).toBe(15);
+      expect(updatePaymentArg[0]?.where?.organizationId).toBe(10);
+      expect(updatePaymentArg[0]?.where?.status).toBe("DRAFT");
+      expect(updatePaymentArg[0]?.data?.status).toBe("CONFIRMED");
+      expect(updatePaymentArg[0]?.data?.journalEntryId).toBe(50);
+      expect(updatePaymentArg[0]?.data?.bankAccountId).toBe(2);
+    });
+
+    it("voidAndReverseReceipt() restores bank account balance and records DEBIT reversal bank transaction", async () => {
+      const { repository, financeBankAccount, financeBankTransaction } =
+        makeRepository();
+
+      await repository.voidAndReverseReceipt(
+        SCOPE_A,
+        15,
+        {
+          originalJournalEntryId: 50,
+          reversalEntryNumber: "REV-202610-0001",
+          reversalDate: new Date("2026-10-23"),
+          narration: "Reversal of JV-001",
+          totalDebit: 5000,
+          totalCredit: 5000,
+          lines: [
+            { accountId: 10, lineOrder: 0, debit: 0, credit: 5000 },
+            { accountId: 20, lineOrder: 1, debit: 5000, credit: 0 },
+          ],
+        },
+        [
+          { accountId: 10, delta: -5000 },
+          { accountId: 20, delta: 5000 },
+        ],
+        USER_ID,
+        {
+          id: 2,
+          delta: -5000,
+          paymentNumber: "REC-001",
+          customerName: "Acme Corp",
+        },
+      );
+
+      // Verify bank account currentBalance was decremented from 50000 to 45000
+      expect(financeBankAccount.updateMany).toHaveBeenCalledWith({
+        where: { id: 2, organizationId: 10 },
+        data: { currentBalance: 45000 },
+      });
+
+      // Verify DEBIT reversal bank transaction was created
+      const createRevTxArg = financeBankTransaction.create.mock
+        .lastCall?.[0] as
+        | {
+            data: {
+              organizationId: number;
+              bankAccountId: number;
+              transactionType: string;
+              amount: number;
+              balanceAfter: number;
+              matchedJournalEntryId: number;
+              isReconciled: boolean;
+            };
+          }
+        | undefined;
+      expect(createRevTxArg?.data?.organizationId).toBe(10);
+      expect(createRevTxArg?.data?.bankAccountId).toBe(2);
+      expect(createRevTxArg?.data?.transactionType).toBe("DEBIT");
+      expect(createRevTxArg?.data?.amount).toBe(5000);
+      expect(createRevTxArg?.data?.balanceAfter).toBe(45000);
+      expect(createRevTxArg?.data?.matchedJournalEntryId).toBe(50);
+      expect(createRevTxArg?.data?.isReconciled).toBe(true);
     });
   });
 
