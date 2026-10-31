@@ -10,7 +10,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { Plus, Send } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -19,6 +19,10 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import {
+  purchasesAwarePath,
+  withoutQueryParams,
+} from "../../shared/purchases-aware-path";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -38,6 +42,7 @@ const RESPONSE = ["RESPONSES_PENDING", "PARTIALLY_RESPONDED", "RESPONDED"];
  * from an approved requisition. */
 export function RfqsView() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const fromId = params.get("fromRequisition");
   const c = useListControls();
@@ -78,7 +83,9 @@ export function RfqsView() {
 
   function closeForm() {
     setFormOpen(false);
-    if (fromId) router.replace("/scm/procurement/rfqs");
+    if (fromId) {
+      router.replace(withoutQueryParams(pathname, params, ["fromRequisition"]));
+    }
   }
 
   async function save(input: CreateRfqInput) {
@@ -212,7 +219,12 @@ export function RfqsView() {
                       size="sm"
                       onClick={() =>
                         router.push(
-                          `/scm/procurement/quotations?fromRfq=${r.id}`,
+                          purchasesAwarePath(
+                            pathname,
+                            "quotations",
+                            "/scm/procurement/quotations",
+                            `fromRfq=${r.id}`,
+                          ),
                         )
                       }
                     >

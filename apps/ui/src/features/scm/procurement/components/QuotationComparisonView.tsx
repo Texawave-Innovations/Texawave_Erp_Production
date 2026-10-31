@@ -15,7 +15,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { Scale } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { TextField } from "../../shared/form-bits";
@@ -25,6 +25,7 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { purchasesAwarePath } from "../../shared/purchases-aware-path";
 import { errorText } from "../../shared/use-list-controls";
 import {
   useComparison,
@@ -37,6 +38,7 @@ import {
  * choosing the winner is always a user decision. */
 export function QuotationComparisonView() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const [rfqId, setRfqId] = useState<number | null>(
     params.get("rfqId") ? Number(params.get("rfqId")) : null,
@@ -265,7 +267,12 @@ export function QuotationComparisonView() {
                 <Button
                   onClick={() =>
                     router.push(
-                      `/scm/procurement/purchase-orders?fromQuotation=${decided.id}`,
+                      purchasesAwarePath(
+                        pathname,
+                        "purchase-orders",
+                        "/scm/procurement/purchase-orders",
+                        `fromQuotation=${decided.id}`,
+                      ),
                     )
                   }
                 >

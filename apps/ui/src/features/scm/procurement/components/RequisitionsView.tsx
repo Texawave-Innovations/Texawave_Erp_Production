@@ -14,7 +14,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { FileText, GitCompareArrows, Plus, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -24,6 +24,7 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { purchasesAwarePath } from "../../shared/purchases-aware-path";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -53,6 +54,7 @@ const ORDER_STATUS_LABEL: Record<
 /** Legacy `ScmPurchaseRequisitions` (renamed Material Requisitions). */
 export function RequisitionsView() {
   const router = useRouter();
+  const pathname = usePathname();
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [from, setFrom] = useState("");
@@ -301,7 +303,14 @@ export function RequisitionsView() {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    router.push(`/scm/procurement/rfqs?fromRequisition=${r.id}`)
+                    router.push(
+                      purchasesAwarePath(
+                        pathname,
+                        "rfqs",
+                        "/scm/procurement/rfqs",
+                        `fromRequisition=${r.id}`,
+                      ),
+                    )
                   }
                 >
                   Create RFQ
@@ -410,7 +419,12 @@ export function RequisitionsView() {
           onClose={() => setTracing(null)}
           onOpenPos={() =>
             router.push(
-              `/scm/procurement/purchase-orders?requisitionId=${tracing.id}&mr=${encodeURIComponent(tracing.requisitionNumber)}`,
+              purchasesAwarePath(
+                pathname,
+                "purchase-orders",
+                "/scm/procurement/purchase-orders",
+                `requisitionId=${tracing.id}&mr=${encodeURIComponent(tracing.requisitionNumber)}`,
+              ),
             )
           }
         />

@@ -65,7 +65,12 @@ apps, packages, repo,                                   # Phase 0 bootstrap only
 auth, rbac, tenancy, organizations, users, roles,        # anticipated — Epic 1/2 (login, RBAC, menu)
 permissions, departments, teams, menu, deps
 hr, employees, attendance                                # business modules — HR → Attendance backend
+scm                                                       # business module — SCM (Docs/SCM_LEGACY_PARITY.md)
 ```
+
+**Note (pre-existing drift, not from this change):** `commitlint.config.js` also already has `crm`,
+`finance-settings`, and `finance` scopes that this list doesn't mention — worth a follow-up to
+reconcile this doc with the actual enum.
 
 Adding a new scope is a PR to `commitlint.config.js` **on its own** — it's shared tooling
 config (root `CLAUDE.md`'s "needs review before merge" list), not something to expand silently
@@ -435,6 +440,13 @@ Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-buildin
 - Listeners live in the _subscribing_ module (`finance/listeners/invoice-created.listener.ts`), using `@OnEvent(INVOICE_EVENTS.CREATED)` — never in the emitting module.
 
 **PR review question:** does this PR touch two modules' folders? If yes, check whether it should have been an event listener instead — not an automatic violation, but worth a second look every time.
+
+**Narrower exception: a synchronous cross-module _write_, only when atomicity is the actual requirement.** The read-only exception above and `EventEmitter2` together don't cover every case — sometimes a write in module B must commit or roll back together with a write in module A, in the same database transaction, because any gap between them (an event firing before the second write lands, or two separate transactions) would let one half succeed without the other. Example: `finance/payments-made` confirming a disbursement against a real SCM bill needs the bill's row-locked overpayment check and `paidAmount` update to happen in the _same transaction_ as the GL journal/bank posting — a transactional outbox would be the "correct" general solution, but building one is out of scope (see the `EventEmitter2` durability note above), so this is the accepted, narrow pattern instead:
+
+- The owning module exports a narrow method (not its repository) that accepts an optional trailing `tx?: Prisma.TransactionClient` — when given, it runs inside that transaction; when omitted, it opens its own, so every existing caller is unaffected.
+- The calling module's service opens one `prisma.$transaction(...)` and passes that `tx` into both the cross-module call and its own writes.
+- This is for genuine atomicity requirements only — if eventual consistency is acceptable, use `EventEmitter2` instead. Don't reach for this because it's convenient.
+- Reference: `apps/api/src/modules/scm/finance/finance.repository.ts` (`createPayment`/`voidPayment`'s `externalTx`) and `apps/api/src/modules/finance/payments-made/payments-made.service.ts` (`confirm`/`void`), which also need `forwardRef()` on both modules' `@Module({ imports: [...] })` since each now injects the other's service.
 
 ---
 

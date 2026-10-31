@@ -13,7 +13,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { Plus, ShoppingCart, Trash2 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -24,6 +24,10 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
+import {
+  purchasesAwarePath,
+  withoutQueryParams,
+} from "../../shared/purchases-aware-path";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmListView } from "../../shared/ScmListView";
 import { errorText, useListControls } from "../../shared/use-list-controls";
@@ -54,6 +58,7 @@ const SUCCESS: Record<Action, string> = {
  * from that exact requisition. */
 export function PurchaseOrdersView() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const fromQuotationId = params.get("fromQuotation");
   const mrFilterId = params.get("requisitionId");
@@ -100,7 +105,9 @@ export function PurchaseOrdersView() {
 
   function closeForm() {
     setFormOpen(false);
-    if (fromQuotationId) router.replace("/scm/procurement/purchase-orders");
+    if (fromQuotationId) {
+      router.replace(withoutQueryParams(pathname, params, ["fromQuotation"]));
+    }
   }
 
   async function save(input: CreatePurchaseOrderInput) {
@@ -192,7 +199,9 @@ export function PurchaseOrdersView() {
               type="button"
               className="text-theme-xs text-brand-600 underline"
               onClick={() => {
-                router.replace("/scm/procurement/purchase-orders");
+                router.replace(
+                  withoutQueryParams(pathname, params, ["requisitionId", "mr"]),
+                );
                 c.setPage(1);
               }}
             >
@@ -288,7 +297,12 @@ export function PurchaseOrdersView() {
                   size="sm"
                   onClick={() =>
                     router.push(
-                      `/scm/procurement/goods-receipts?fromPo=${p.id}`,
+                      purchasesAwarePath(
+                        pathname,
+                        "goods-receipts",
+                        "/scm/procurement/goods-receipts",
+                        `fromPo=${p.id}`,
+                      ),
                     )
                   }
                 >

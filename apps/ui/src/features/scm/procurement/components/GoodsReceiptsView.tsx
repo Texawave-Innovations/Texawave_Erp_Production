@@ -7,7 +7,7 @@ import type {
 import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
 import { PackageCheck, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -17,6 +17,7 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import { withoutQueryParams } from "../../shared/purchases-aware-path";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -32,6 +33,7 @@ import { GoodsReceiptForm } from "./GoodsReceiptForm";
 /** Legacy `ScmGrn`. `?fromPo=<id>` opens the receive form for that PO. */
 export function GoodsReceiptsView() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const fromPo = params.get("fromPo");
   const c = useListControls();
@@ -47,7 +49,8 @@ export function GoodsReceiptsView() {
 
   function closeForm() {
     setFormOpen(false);
-    if (fromPo) router.replace("/scm/procurement/goods-receipts");
+    if (fromPo)
+      router.replace(withoutQueryParams(pathname, params, ["fromPo"]));
   }
 
   async function save(input: CreateGoodsReceiptInput) {

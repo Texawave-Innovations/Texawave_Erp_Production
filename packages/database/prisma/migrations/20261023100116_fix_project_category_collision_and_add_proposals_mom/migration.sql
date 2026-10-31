@@ -11,7 +11,13 @@ CREATE TYPE "projects"."MomTemplateStatus" AS ENUM ('draft', 'active', 'archived
 CREATE TYPE "projects"."MomStatus" AS ENUM ('draft', 'finalized', 'archived');
 
 -- DropIndex
-DROP INDEX "projects"."projects_organization_id_department_idx";
+-- Guarded with IF EXISTS: no migration in this repo's history ever created
+-- this index (it must have existed only via an out-of-band `db push` on
+-- whoever authored this migration), so on any database that was migrated
+-- from a clean slate the unguarded DROP INDEX aborted migrate deploy/dev
+-- here with "index ... does not exist" before any later migration could
+-- run. The intended end state (no such index) is unaffected either way.
+DROP INDEX IF EXISTS "projects"."projects_organization_id_department_idx";
 
 -- AlterTable
 ALTER TABLE "projects"."project_tasks" ADD COLUMN     "dependency_requirement" TEXT,

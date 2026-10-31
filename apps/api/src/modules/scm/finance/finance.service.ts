@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import type { Prisma } from "@texawave-erp/database";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
@@ -30,6 +31,7 @@ import type {
   UploadSupplierDocumentDto,
 } from "./dto/finance.dto.js";
 import { FinanceRepository } from "./finance.repository.js";
+import { PAYMENT_MODES } from "./finance.helpers.js";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -438,12 +440,38 @@ export class FinanceService {
     return new PaginatedResponseDto(items, total, query.page, query.limit);
   }
 
-  createPayment(dto: CreatePaymentDto) {
-    return this.repo.createPayment(this.scope, dto, this.actor);
+  /**
+   * Maps a Finance Master List payment-mode display value (e.g. "Bank
+   * Transfer", "Cash", "Credit Card") to this module's `PAYMENT_MODES`
+   * enum, for callers (Finance Payments Made) that only have the free-text
+   * value and need to create a `ScmSupplierPayment` through `createPayment`.
+   */
+  mapPaymentMode(financeModeValue: string): (typeof PAYMENT_MODES)[number] {
+    const normalized = financeModeValue.trim().toLowerCase();
+    if (normalized.includes("cash")) return "CASH";
+    if (normalized.includes("bank") || normalized.includes("transfer"))
+      return "BANK_TRANSFER";
+    if (normalized.includes("cheque") || normalized.includes("check"))
+      return "CHEQUE";
+    if (normalized.includes("upi")) return "UPI";
+    if (normalized.includes("card")) return "CARD";
+    return "OTHER";
   }
 
-  async voidPayment(id: number, reason: string) {
-    const row = await this.repo.voidPayment(this.scope, id, reason, this.actor);
+  /** `tx`: see FinanceRepository.createPayment's externalTx doc. */
+  createPayment(dto: CreatePaymentDto, tx?: Prisma.TransactionClient) {
+    return this.repo.createPayment(this.scope, dto, this.actor, tx);
+  }
+
+  /** `tx`: see FinanceRepository.createPayment's externalTx doc. */
+  async voidPayment(id: number, reason: string, tx?: Prisma.TransactionClient) {
+    const row = await this.repo.voidPayment(
+      this.scope,
+      id,
+      reason,
+      this.actor,
+      tx,
+    );
     if (!row) throw new ResourceNotFoundException("Payment", id);
     return row;
   }

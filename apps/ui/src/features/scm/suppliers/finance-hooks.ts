@@ -25,8 +25,16 @@ import {
   voidSupplierPayment,
 } from "./finance-api";
 
-export const useSupplierBills = (query: QuerySupplierBillsInput) =>
-  useScmList<SupplierBill>("finance-bills", "/scm/finance/bills", query);
+export const useSupplierBills = (
+  query: QuerySupplierBillsInput,
+  enabled = true,
+) =>
+  useScmList<SupplierBill>(
+    "finance-bills",
+    "/scm/finance/bills",
+    query,
+    enabled,
+  );
 
 export const useSupplierPayments = (query: QuerySupplierPaymentsInput) =>
   useScmList<SupplierPayment>(

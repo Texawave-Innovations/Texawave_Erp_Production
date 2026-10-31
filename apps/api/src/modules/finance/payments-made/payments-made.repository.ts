@@ -252,6 +252,15 @@ export class PaymentsMadeRepository {
   }
 
   @OrgScoped()
+  /**
+   * `scmSupplierPaymentId`: set when this confirmation also created a linked
+   * `ScmSupplierPayment` (Finance <-> SCM bridge) so it's persisted in the
+   * same update as the journal link, not a second write.
+   * `externalTx`: run inside a transaction the caller already opened — e.g.
+   * so the SCM supplier-payment creation and this GL/bank posting commit or
+   * roll back together (Docs/CODING_STANDARDS.md §11). Omit to open a
+   * dedicated transaction, as every pre-existing caller does.
+   */
   async postAndConfirmPayment(
     scope: OrgScope,
     id: number,
@@ -264,8 +273,10 @@ export class PaymentsMadeRepository {
       vendorName: string;
     } | null,
     userId: number,
+    scmSupplierPaymentId?: number | null,
+    externalTx?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       // 1. Create balanced journal entry
       const journal = await tx.financeJournalEntry.create({
         data: {
@@ -353,6 +364,9 @@ export class PaymentsMadeRepository {
         data: {
           status: "CONFIRMED",
           journalEntryId: journal.id,
+          ...(scmSupplierPaymentId !== undefined
+            ? { scmSupplierPaymentId }
+            : {}),
           updatedBy: userId,
         },
       });
@@ -381,9 +395,11 @@ export class PaymentsMadeRepository {
           },
         },
       });
-    });
+    };
+    return externalTx ? run(externalTx) : this.prisma.$transaction(run);
   }
 
+  /** `externalTx`: see postAndConfirmPayment's doc — same atomicity exception. */
   @OrgScoped()
   async voidAndReversePayment(
     scope: OrgScope,
@@ -397,8 +413,9 @@ export class PaymentsMadeRepository {
       vendorName: string;
     } | null,
     userId: number,
+    externalTx?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       if (reversalData) {
         // Mark original journal as REVERSED
         await tx.financeJournalEntry.updateMany({
@@ -504,7 +521,8 @@ export class PaymentsMadeRepository {
       return tx.financePaymentMade.findFirst({
         where: { id, organizationId: scope.organizationId },
       });
-    });
+    };
+    return externalTx ? run(externalTx) : this.prisma.$transaction(run);
   }
 
   @OrgScoped()

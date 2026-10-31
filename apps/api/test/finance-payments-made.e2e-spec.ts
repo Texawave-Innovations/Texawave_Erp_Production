@@ -17,9 +17,8 @@ import { PrismaService } from "../src/shared/prisma/prisma.service.js";
  * - Multi-tenant isolation (Org A vs Org B)
  */
 interface AuthLoginResponse {
-  token?: string;
   data?: {
-    token?: string;
+    accessToken?: string;
   };
 }
 
@@ -51,6 +50,10 @@ describe("finance payments made (e2e)", () => {
   let bankAccountA: { id: number };
   let inactiveBankAccountA: { id: number };
   let bankAccountB: { id: number };
+  let supplierA: { id: number };
+  let supplierB: { id: number };
+  let billA: { id: number };
+  let billB: { id: number };
 
   const PERMISSION_CODES = [
     "finance.payment_made.read",
@@ -141,17 +144,20 @@ describe("finance payments made (e2e)", () => {
       readOnlyIds,
     );
 
-    async function login(email: string): Promise<string> {
+    async function login(
+      organizationSlug: string,
+      email: string,
+    ): Promise<string> {
       const res = await request(app.getHttpServer())
         .post("/auth/login")
-        .send({ email, password: "Password123!" });
+        .send({ organizationSlug, email, password: "Password123!" });
       const body = res.body as AuthLoginResponse;
-      return body?.data?.token ?? body?.token ?? "";
+      return body?.data?.accessToken ?? "";
     }
 
-    tokenA = await login(userA.email);
-    tokenB = await login(userB.email);
-    readOnlyToken = await login(readOnlyUser.email);
+    tokenA = await login(orgA.slug, userA.email);
+    tokenB = await login(orgB.slug, userB.email);
+    readOnlyToken = await login(orgA.slug, readOnlyUser.email);
 
     // Setup master data for Org A
     paymentModeA = await prisma.financeMasterListItem.create({
@@ -178,7 +184,6 @@ describe("finance payments made (e2e)", () => {
         accountCode: "1020",
         accountName: "Operating Bank Account",
         accountType: "ASSET",
-        normalBalance: "DEBIT",
         currentBalance: 100000,
       },
     });
@@ -189,7 +194,6 @@ describe("finance payments made (e2e)", () => {
         accountCode: "1010",
         accountName: "Cash on Hand",
         accountType: "ASSET",
-        normalBalance: "DEBIT",
         currentBalance: 20000,
       },
     });
@@ -200,7 +204,6 @@ describe("finance payments made (e2e)", () => {
         accountCode: "2010",
         accountName: "Accounts Payable",
         accountType: "LIABILITY",
-        normalBalance: "CREDIT",
         currentBalance: 50000,
       },
     });
@@ -247,12 +250,65 @@ describe("finance payments made (e2e)", () => {
         isActive: true,
       },
     });
+
+    // Supplier + bill fixtures for the supplier/bill linkage suite.
+    supplierA = await prisma.supplier.create({
+      data: {
+        organizationId: orgA.id,
+        supplierCode: `SUP-A-${suffix}`,
+        companyName: "Org A Supplier Co",
+        contactPerson: "Buyer",
+      },
+    });
+    supplierB = await prisma.supplier.create({
+      data: {
+        organizationId: orgB.id,
+        supplierCode: `SUP-B-${suffix}`,
+        companyName: "Org B Supplier Co",
+        contactPerson: "Buyer",
+      },
+    });
+    billA = await prisma.scmSupplierBill.create({
+      data: {
+        organizationId: orgA.id,
+        billNumber: `BILL-A-${suffix}`,
+        supplierId: supplierA.id,
+        billDate: new Date(),
+        subtotal: 10000,
+        taxAmount: 1800,
+        total: 11800,
+        paidAmount: 0,
+        status: "OPEN",
+      },
+    });
+    billB = await prisma.scmSupplierBill.create({
+      data: {
+        organizationId: orgB.id,
+        billNumber: `BILL-B-${suffix}`,
+        supplierId: supplierB.id,
+        billDate: new Date(),
+        subtotal: 5000,
+        taxAmount: 0,
+        total: 5000,
+        paidAmount: 0,
+        status: "OPEN",
+      },
+    });
   });
 
   afterAll(async () => {
     if (prisma) {
       if (orgA?.id) {
         await prisma.financePaymentMade.deleteMany({
+          where: { organizationId: orgA.id },
+        });
+        await prisma.scmSupplierPayment.deleteMany({
+          where: { organizationId: orgA.id },
+        });
+        await prisma.scmSupplierBill.deleteMany({
+          where: { organizationId: orgA.id },
+        });
+        await prisma.supplier.deleteMany({
           where: { organizationId: orgA.id },
         });
         await prisma.financeBankTransaction.deleteMany({
@@ -279,12 +335,27 @@ describe("finance payments made (e2e)", () => {
         await prisma.rolePermission.deleteMany({
           where: { role: { organizationId: orgA.id } },
         });
-        await prisma.user.deleteMany({ where: { organizationId: orgA.id } });
-        await prisma.role.deleteMany({ where: { organizationId: orgA.id } });
-        await prisma.organization.delete({ where: { id: orgA.id } });
+        // The SCM audit writes this suite now triggers (via
+        // scmFinance.createPayment/voidPayment) are append-only by design
+        // (apps/api/test/README.md) — a user/org that produced one can never
+        // be deleted. That's expected, not a bug; swallow it here so the
+        // suite doesn't fail on cleanup it was never meant to fully achieve.
+        try {
+          await prisma.user.deleteMany({ where: { organizationId: orgA.id } });
+          await prisma.role.deleteMany({ where: { organizationId: orgA.id } });
+          await prisma.organization.delete({ where: { id: orgA.id } });
+        } catch {
+          // Left behind on purpose — see comment above.
+        }
       }
       if (orgB?.id) {
         await prisma.financeBankAccount.deleteMany({
+          where: { organizationId: orgB.id },
+        });
+        await prisma.scmSupplierBill.deleteMany({
+          where: { organizationId: orgB.id },
+        });
+        await prisma.supplier.deleteMany({
           where: { organizationId: orgB.id },
         });
         await prisma.userRole.deleteMany({
@@ -336,7 +407,7 @@ describe("finance payments made (e2e)", () => {
           paymentModeId: paymentModeA.id,
           status: "CONFIRMED",
         })
-        .expect(400);
+        .expect(422);
     });
 
     it("allows a Cash payment with no bank account selected", async () => {
@@ -435,7 +506,188 @@ describe("finance payments made (e2e)", () => {
         });
 
       // The create-time rule already rejects this combination outright.
-      expect(draftRes.status).toBe(400);
+      expect(draftRes.status).toBe(422);
+    });
+  });
+
+  describe("Supplier/Bill Linkage (SCM integration)", () => {
+    it("rejects a billId with no supplierId", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Missing Supplier Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          billId: billA.id,
+        })
+        .expect(422);
+    });
+
+    it("rejects a bill belonging to a different organization", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Cross Org Bill Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          supplierId: supplierA.id,
+          billId: billB.id,
+        })
+        .expect(404);
+    });
+
+    it("rejects a bill that does not belong to the given supplier", async () => {
+      const otherSupplier = await prisma.supplier.create({
+        data: {
+          organizationId: orgA.id,
+          supplierCode: `SUP-OTHER-${Date.now()}`,
+          companyName: "Another Supplier",
+          contactPerson: "Buyer",
+        },
+      });
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Mismatched Bill Vendor",
+          amount: 1000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          supplierId: otherSupplier.id,
+          billId: billA.id,
+        })
+        .expect(422);
+      await prisma.supplier.delete({ where: { id: otherSupplier.id } });
+    });
+
+    it("rejects a payment that exceeds the bill's outstanding amount", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Overpay Vendor",
+          amount: 99999,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          supplierId: supplierA.id,
+          billId: billA.id,
+          status: "CONFIRMED",
+        })
+        .expect(422);
+
+      const bill = await prisma.scmSupplierBill.findUniqueOrThrow({
+        where: { id: billA.id },
+      });
+      expect(Number(bill.paidAmount)).toBe(0);
+      expect(bill.status).toBe("OPEN");
+    });
+
+    it("applies a partial payment to the bill, posts GL/bank, and links the SCM supplier payment", async () => {
+      const bankBefore = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+
+      const res = await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Org A Supplier Co",
+          amount: 4000,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          supplierId: supplierA.id,
+          billId: billA.id,
+          status: "CONFIRMED",
+        })
+        .expect(201);
+
+      const body = res.body as ApiDataResponse<
+        PaymentMadeResponseData & { scmSupplierPaymentId?: number | null }
+      >;
+      expect(body.data.status).toBe("CONFIRMED");
+      expect(body.data.scmSupplierPaymentId).toBeTruthy();
+
+      const bill = await prisma.scmSupplierBill.findUniqueOrThrow({
+        where: { id: billA.id },
+      });
+      expect(Number(bill.paidAmount)).toBe(4000);
+      expect(bill.status).toBe("PARTIALLY_PAID");
+
+      const scmPayment = await prisma.scmSupplierPayment.findUniqueOrThrow({
+        where: { id: body.data.scmSupplierPaymentId! },
+      });
+      expect(scmPayment.billId).toBe(billA.id);
+      expect(scmPayment.supplierId).toBe(supplierA.id);
+      expect(Number(scmPayment.amount)).toBe(4000);
+
+      const bankAfter = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+      expect(Number(bankAfter.currentBalance)).toBe(
+        Number(bankBefore.currentBalance) - 4000,
+      );
+    });
+
+    it("voiding that payment restores the bill's outstanding amount and the bank balance", async () => {
+      const paymentsRes = await request(app.getHttpServer())
+        .get("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .query({ search: "Org A Supplier Co" })
+        .expect(200);
+      const list = (
+        paymentsRes.body as ApiDataResponse<PaymentMadeResponseData[]>
+      ).data;
+      const payment = list.find(
+        (p) => p.amount == 4000 || p.amount == "4000.00",
+      );
+      expect(payment).toBeDefined();
+
+      const bankBefore = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/finance/payments-made/${payment!.id}/void`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ reason: "Test cleanup void" })
+        .expect(201);
+
+      const bill = await prisma.scmSupplierBill.findUniqueOrThrow({
+        where: { id: billA.id },
+      });
+      expect(Number(bill.paidAmount)).toBe(0);
+      expect(bill.status).toBe("OPEN");
+
+      const bankAfter = await prisma.financeBankAccount.findUniqueOrThrow({
+        where: { id: bankAccountA.id },
+      });
+      expect(Number(bankAfter.currentBalance)).toBe(
+        Number(bankBefore.currentBalance) + 4000,
+      );
+    });
+
+    it("still accepts a legacy free-text payment with no supplier/bill at all", async () => {
+      await request(app.getHttpServer())
+        .post("/finance/payments-made")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          paymentDate: new Date().toISOString().slice(0, 10),
+          vendorName: "Unregistered Payee",
+          amount: 250,
+          paymentModeId: paymentModeA.id,
+          bankAccountId: bankAccountA.id,
+          status: "CONFIRMED",
+        })
+        .expect(201);
     });
   });
 

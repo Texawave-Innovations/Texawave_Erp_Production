@@ -14,6 +14,7 @@ import {
 import { Check, Clock, Wallet } from "lucide-react";
 import { useMasterListItems } from "@/features/finance-settings/hooks";
 import { useSuppliers } from "@/features/scm/suppliers/hooks";
+import { useSupplierBills } from "@/features/scm/suppliers/finance-hooks";
 import { useActiveBankAccounts } from "../hooks";
 import { createPaymentMadeSchema } from "../schema";
 
@@ -35,6 +36,7 @@ function RecordPaymentMadeForm({
   // Form State
   const [paymentDate, setPaymentDate] = useState(today);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | "">("");
+  const [selectedBillId, setSelectedBillId] = useState<number | "">("");
   const [vendorName, setVendorName] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [paymentModeId, setPaymentModeId] = useState<number | "">("");
@@ -54,11 +56,28 @@ function RecordPaymentMadeForm({
     limit: 100,
   });
   const bankAccountsQuery = useActiveBankAccounts();
+  const supplierBillsQuery = useSupplierBills(
+    {
+      supplierId:
+        typeof selectedSupplierId === "number" ? selectedSupplierId : 0,
+      limit: 100,
+    },
+    typeof selectedSupplierId === "number",
+  );
 
   const suppliers = useMemo(
     () => suppliersQuery.data?.data ?? [],
     [suppliersQuery.data?.data],
   );
+
+  // Only OPEN/PARTIALLY_PAID bills can take a payment — same rule as the
+  // Supplier detail page's own "Record Payment" form.
+  const payableBills = useMemo(() => {
+    if (typeof selectedSupplierId !== "number") return [];
+    return (supplierBillsQuery.data?.data ?? []).filter(
+      (b) => b.status === "OPEN" || b.status === "PARTIALLY_PAID",
+    );
+  }, [supplierBillsQuery.data?.data, selectedSupplierId]);
 
   const paymentModes = useMemo(
     () => paymentModesQuery.data?.data ?? [],
@@ -74,6 +93,7 @@ function RecordPaymentMadeForm({
     paymentModeId || (paymentModes.length > 0 ? paymentModes[0]!.id : "");
 
   const handleSupplierChange = (val: string) => {
+    setSelectedBillId("");
     if (!val) {
       setSelectedSupplierId("");
       return;
@@ -83,6 +103,21 @@ function RecordPaymentMadeForm({
     const found = suppliers.find((s) => s.id === id);
     if (found) {
       setVendorName(found.companyName);
+    }
+  };
+
+  const selectedBill = payableBills.find((b) => b.id === selectedBillId);
+
+  const handleBillChange = (val: string) => {
+    if (!val) {
+      setSelectedBillId("");
+      return;
+    }
+    const id = Number(val);
+    setSelectedBillId(id);
+    const bill = payableBills.find((b) => b.id === id);
+    if (bill) {
+      setAmount(Number(bill.outstanding));
     }
   };
 
@@ -104,6 +139,9 @@ function RecordPaymentMadeForm({
     const rawValues = {
       paymentDate,
       vendorName: vendorName.trim(),
+      supplierId:
+        typeof selectedSupplierId === "number" ? selectedSupplierId : undefined,
+      billId: typeof selectedBillId === "number" ? selectedBillId : undefined,
       amount: typeof amount === "number" ? amount : 0,
       paymentModeId: Number(effectivePaymentModeId),
       bankAccountId: bankAccountId ? Number(bankAccountId) : null,
@@ -131,11 +169,26 @@ function RecordPaymentMadeForm({
       return;
     }
 
+    // Client-side convenience check — the authoritative, concurrency-safe
+    // check happens server-side when this is applied to the bill.
+    if (
+      parsed.data.billId &&
+      selectedBill &&
+      parsed.data.amount > Number(selectedBill.outstanding) + 0.001
+    ) {
+      setErrors({
+        amount: `Cannot exceed the ${selectedBill.outstanding} still outstanding on ${selectedBill.billNumber}.`,
+      });
+      return;
+    }
+
     const payload: CreateFinancePaymentMadeInput = {
       paymentDate: parsed.data.paymentDate,
       vendorName: parsed.data.vendorName,
       amount: parsed.data.amount,
       paymentModeId: parsed.data.paymentModeId,
+      ...(parsed.data.supplierId ? { supplierId: parsed.data.supplierId } : {}),
+      ...(parsed.data.billId ? { billId: parsed.data.billId } : {}),
       ...(parsed.data.bankAccountId
         ? { bankAccountId: parsed.data.bankAccountId }
         : {}),
@@ -303,7 +356,6 @@ function RecordPaymentMadeForm({
                   });
                 }
               }}
-              required={isBankMode}
             >
               <option value="">
                 {isBankMode
@@ -334,21 +386,53 @@ function RecordPaymentMadeForm({
         </FormField>
       </div>
 
-      {/* Row 4: Bill / PO Reference */}
+      {/* Row 4: Bill linkage */}
       <div className="relative focus-within:z-30">
-        <FormField
-          label="Purchase Order or Bill Reference"
-          hint="Optional PO number or vendor invoice reference being liquidated"
-        >
-          {(fieldProps) => (
-            <Input
-              {...fieldProps}
-              placeholder="e.g. PO-2026-0001 or BILL-202610-0012"
-              value={billReference}
-              onChange={(e) => setBillReference(e.target.value)}
-            />
-          )}
-        </FormField>
+        {typeof selectedSupplierId === "number" ? (
+          <FormField
+            label="Apply to Bill"
+            error={errors.amount && selectedBillId ? errors.amount : undefined}
+            hint={
+              supplierBillsQuery.isLoading
+                ? "Loading this supplier's open bills..."
+                : payableBills.length === 0
+                  ? "No open bills for this supplier — this will be recorded as an advance / on-account payment."
+                  : "Leave unselected to record an advance / on-account payment not tied to a bill."
+            }
+          >
+            {() => (
+              <Select
+                value={selectedBillId}
+                onChange={(e) => handleBillChange(e.target.value)}
+              >
+                <option value="">-- On account / advance (no bill) --</option>
+                {payableBills.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.billNumber}
+                    {b.supplierBillNumber
+                      ? ` (Inv ${b.supplierBillNumber})`
+                      : ""}{" "}
+                    · {b.outstanding} outstanding
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+        ) : (
+          <FormField
+            label="Purchase Order or Bill Reference"
+            hint="Optional PO number or vendor invoice reference being liquidated. Select a registered supplier above to apply this payment to a real bill instead."
+          >
+            {(fieldProps) => (
+              <Input
+                {...fieldProps}
+                placeholder="e.g. PO-2026-0001 or BILL-202610-0012"
+                value={billReference}
+                onChange={(e) => setBillReference(e.target.value)}
+              />
+            )}
+          </FormField>
+        )}
       </div>
 
       {/* Row 5: Remittance Notes */}

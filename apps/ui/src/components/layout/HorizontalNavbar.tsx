@@ -1826,6 +1826,145 @@ export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
     })
   : SCM_CATEGORIES_FULL;
 
+/**
+ * Master List top-nav dropdown — the same five sections as
+ * features/masters/MastersTabBar.tsx's secondary nav (Sales & Document,
+ * HR, Finance, Projects, SCM masters), surfaced from the top nav instead of
+ * only being reachable once already on one of those pages. No menuCode: none
+ * of these five routes have one in the menu catalog yet, matching the
+ * module's existing unfiltered (no RBAC gating) access.
+ */
+const MASTER_LIST_CATEGORIES: NavCategory[] = [
+  {
+    id: "master-list-sales",
+    label: "Sales & Document Masters",
+    icon: ShoppingCart,
+    icon3d: "master-list",
+    iconColor: "text-blue-600",
+    path: "/settings/sales-settings",
+  },
+  {
+    id: "master-list-hr",
+    label: "HR Master",
+    icon: Users,
+    icon3d: "master-list",
+    iconColor: "text-emerald-600",
+    path: "/settings/masters/hr",
+  },
+  {
+    id: "master-list-finance",
+    label: "Finance Master",
+    icon: Landmark,
+    icon3d: "master-list",
+    iconColor: "text-amber-600",
+    path: "/settings/masters/finance",
+  },
+  {
+    id: "master-list-projects",
+    label: "Projects Master",
+    icon: Briefcase,
+    icon3d: "master-list",
+    iconColor: "text-rose-600",
+    path: "/settings/masters/projects",
+  },
+  {
+    id: "master-list-scm",
+    label: "SCM Master",
+    icon: Package,
+    icon3d: "master-list",
+    iconColor: "text-cyan-600",
+    path: "/settings/masters/scm",
+  },
+];
+
+/**
+ * Purchases top-nav entry point — a tabbed shell (features/purchases/components/
+ * PurchasesView) over the existing SCM procurement pipeline + Finance
+ * (Suppliers = Supplier, Material Requisitions = ScmPurchaseRequisition, RFQs/Supplier
+ * Quotations/Quotation Comparison = Scm{Rfq,SupplierQuotation,
+ * QuotationComparison}, Purchase Orders = ScmPurchaseOrder, Goods Receipts =
+ * ScmGoodsReceipt, Payments Made = FinancePaymentMade/ScmSupplierPayment).
+ * Every tab lives on the one `/purchases` route (switched via the `tab` query
+ * param, not a page navigation) so clicking between them feels like a tab
+ * switch instead of routing to an unrelated page. No new permissions: reuses
+ * the exact same `menuCode`s as the SCM/Finance entries above, so RBAC
+ * visibility (see `filterCategories`) matches those modules automatically.
+ */
+const PURCHASES_CATEGORIES: NavCategory[] = [
+  {
+    id: "purchases-vendors",
+    label: "Suppliers",
+    icon: Factory,
+    icon3d: "inventory-scm",
+    iconColor: "text-blue-600",
+    path: "/purchases?tab=vendors",
+    menuCode: "scm-suppliers",
+  },
+  {
+    id: "purchases-requisitions",
+    label: "Material Requisitions",
+    icon: FileText,
+    icon3d: "documents",
+    iconColor: "text-cyan-600",
+    path: "/purchases?tab=requisitions",
+    menuCode: "scm-requisitions",
+  },
+  {
+    id: "purchases-rfqs",
+    label: "RFQs",
+    icon: Mail,
+    icon3d: "overview",
+    iconColor: "text-sky-600",
+    path: "/purchases?tab=rfqs",
+    menuCode: "scm-rfqs",
+  },
+  {
+    id: "purchases-quotations",
+    label: "Supplier Quotations",
+    icon: Receipt,
+    icon3d: "payroll",
+    iconColor: "text-rose-600",
+    path: "/purchases?tab=quotations",
+    menuCode: "scm-quotations",
+  },
+  {
+    id: "purchases-comparison",
+    label: "Quotation Comparison",
+    icon: Scale,
+    icon3d: "overview",
+    iconColor: "text-amber-600",
+    path: "/purchases?tab=comparison",
+    menuCode: "scm-comparison",
+  },
+  {
+    id: "purchases-orders",
+    label: "Purchase Orders",
+    icon: ShoppingCart,
+    icon3d: "purchases",
+    iconColor: "text-amber-600",
+    path: "/purchases?tab=purchase-orders",
+    menuCode: "scm-purchase-orders",
+  },
+  {
+    id: "purchases-grn",
+    label: "Goods Receipts",
+    icon: CheckCircle2,
+    icon3d: "overview",
+    iconColor: "text-teal-600",
+    path: "/purchases?tab=goods-receipts",
+    menuCode: "scm-grn",
+  },
+  {
+    id: "purchases-payments-made",
+    label: "Payments Made",
+    icon: Wallet,
+    icon3d: "payroll",
+    iconColor: "text-emerald-600",
+    path: "/purchases?tab=payments-made",
+    menuCode: "finance-payments-made",
+  },
+];
+
 const ERP_MODULES: ErpModuleConfig[] = [
   {
     id: "dashboard",
@@ -1885,9 +2024,9 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Purchases",
     icon: Receipt,
     icon3d: "purchases",
-    path: "#",
-    available: false,
-    upcoming: true,
+    path: "/purchases",
+    available: true,
+    categories: PURCHASES_CATEGORIES,
   },
   {
     id: "projects",
@@ -1905,6 +2044,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     icon3d: "master-list",
     path: "/settings/sales-settings",
     available: true,
+    categories: MASTER_LIST_CATEGORIES,
   },
   {
     id: "settings",
@@ -2056,6 +2196,9 @@ function findRouteNavigationState(pathname: string) {
         : null,
       leafId: null,
     };
+  }
+  if (pathname.startsWith("/purchases")) {
+    return { moduleId: "purchases", categoryId: null, leafId: null };
   }
   if (pathname.startsWith("/projects")) {
     return {

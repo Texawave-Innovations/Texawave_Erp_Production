@@ -13,6 +13,7 @@ import {
   type FinanceAccountType,
 } from "../finance.constants.js";
 import { JournalEntriesRepository } from "../journal/journal-entries.repository.js";
+import { FinanceService } from "../../scm/finance/finance.service.js";
 import type { CreatePaymentMadeDto } from "./dto/create-payment-made.dto.js";
 import type { QueryPaymentsMadeDto } from "./dto/query-payments-made.dto.js";
 import type { UpdatePaymentMadeDto } from "./dto/update-payment-made.dto.js";
@@ -35,6 +36,7 @@ export class PaymentsMadeService {
     private readonly journalRepository: JournalEntriesRepository,
     private readonly tenantContext: TenantContextService,
     private readonly prisma: PrismaService,
+    private readonly scmFinance: FinanceService,
   ) {}
 
   async findAll(query: QueryPaymentsMadeDto) {
@@ -129,6 +131,46 @@ export class PaymentsMadeService {
       }
     }
 
+    // 5a. Validate real supplier/bill linkage, if provided
+    if (dto.billId && !dto.supplierId) {
+      throw new BusinessRuleViolationException(
+        "A bill reference requires a supplier to also be selected.",
+        "BILL_REQUIRES_SUPPLIER",
+      );
+    }
+    if (dto.supplierId) {
+      const supplier = await this.prisma.supplier.findFirst({
+        where: {
+          id: dto.supplierId,
+          organizationId: scope.organizationId,
+          deletedAt: null,
+        },
+      });
+      if (!supplier) {
+        throw new ResourceNotFoundException("Supplier", dto.supplierId);
+      }
+    }
+    if (dto.billId) {
+      const bill = await this.prisma.scmSupplierBill.findFirst({
+        where: { id: dto.billId, organizationId: scope.organizationId },
+      });
+      if (!bill) {
+        throw new ResourceNotFoundException("Supplier bill", dto.billId);
+      }
+      if (bill.supplierId !== dto.supplierId) {
+        throw new BusinessRuleViolationException(
+          "The selected bill does not belong to the selected supplier.",
+          "PAYMENT_BILL_MISMATCH",
+        );
+      }
+      if (bill.status !== "OPEN" && bill.status !== "PARTIALLY_PAID") {
+        throw new BusinessRuleViolationException(
+          `A ${bill.status.toLowerCase().replace("_", " ")} bill cannot take a payment.`,
+          "PAYMENT_BILL_STATE",
+        );
+      }
+    }
+
     // 6. Payment number resolution
     let paymentNumber = dto.paymentNumber;
     if (paymentNumber) {
@@ -153,6 +195,8 @@ export class PaymentsMadeService {
       paymentNumber,
       paymentDate: new Date(dto.paymentDate),
       vendorName: dto.vendorName.trim(),
+      supplierId: dto.supplierId ?? null,
+      billId: dto.billId ?? null,
       amount,
       paymentModeId: dto.paymentModeId,
       bankAccountId: dto.bankAccountId ?? null,
@@ -331,14 +375,43 @@ export class PaymentsMadeService {
         }
       : null;
 
-    return this.repository.postAndConfirmPayment(
-      scope,
-      id,
-      journalData,
-      balanceDeltas,
-      bankAccountDelta,
-      userId,
-    );
+    // 4. If a real bill was chosen, apply this payment to it through the
+    // SCM Accounts Payable engine (row-locked overpayment check, bill
+    // paidAmount/status update) in the *same* transaction as the GL/bank
+    // posting below — one commit, one rollback, no duplicate accounting.
+    return this.prisma.$transaction(async (tx) => {
+      let scmSupplierPaymentId: number | undefined;
+      if (existing.billId && existing.supplierId) {
+        const scmPayment = await this.scmFinance.createPayment(
+          {
+            supplierId: existing.supplierId,
+            billId: existing.billId,
+            paymentDate: existing.paymentDate.toISOString().slice(0, 10),
+            mode: this.scmFinance.mapPaymentMode(
+              existing.paymentMode?.value ?? "",
+            ),
+            amount,
+            ...(existing.referenceNumber
+              ? { referenceNumber: existing.referenceNumber }
+              : {}),
+            ...(existing.notes ? { notes: existing.notes } : {}),
+          },
+          tx,
+        );
+        scmSupplierPaymentId = scmPayment.id;
+      }
+
+      return this.repository.postAndConfirmPayment(
+        scope,
+        id,
+        journalData,
+        balanceDeltas,
+        bankAccountDelta,
+        userId,
+        scmSupplierPaymentId,
+        tx,
+      );
+    });
   }
 
   /**
@@ -346,7 +419,7 @@ export class PaymentsMadeService {
    * associated GL journal entry, generates a balanced reversal journal entry,
    * restores GL account balances, and refunds the bank account balance.
    */
-  async void(id: number) {
+  async void(id: number, reason?: string) {
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
 
@@ -418,14 +491,25 @@ export class PaymentsMadeService {
           }
         : null;
 
-      return this.repository.voidAndReversePayment(
-        scope,
-        id,
-        reversalData,
-        balanceDeltas,
-        bankAccountDelta,
-        userId,
-      );
+      return this.prisma.$transaction(async (tx) => {
+        if (existing.scmSupplierPaymentId) {
+          await this.scmFinance.voidPayment(
+            existing.scmSupplierPaymentId,
+            reason?.trim() ||
+              `Voided via Finance Payments Made ${existing.paymentNumber}`,
+            tx,
+          );
+        }
+        return this.repository.voidAndReversePayment(
+          scope,
+          id,
+          reversalData,
+          balanceDeltas,
+          bankAccountDelta,
+          userId,
+          tx,
+        );
+      });
     }
 
     // If DRAFT, void without GL reversal

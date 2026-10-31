@@ -520,9 +520,22 @@ export class FinanceRepository {
     return { items: rows, total };
   }
 
+  /**
+   * Creates a supplier payment (optionally applied to a bill, with row-locked
+   * overpayment protection). Pass `externalTx` to run inside a transaction a
+   * caller already opened — e.g. Finance Payments Made posting its GL
+   * journal and this SCM payment atomically in one commit
+   * (Docs/CODING_STANDARDS.md §11 synchronous cross-module write exception).
+   * Omit it to open a dedicated transaction, as every existing caller does.
+   */
   @OrgScoped()
-  async createPayment(scope: OrgScope, dto: CreatePaymentDto, actorId: number) {
-    return this.prisma.$transaction(async (tx) => {
+  async createPayment(
+    scope: OrgScope,
+    dto: CreatePaymentDto,
+    actorId: number,
+    externalTx?: Prisma.TransactionClient,
+  ) {
+    const run = async (tx: Prisma.TransactionClient) => {
       const org = scope.organizationId;
       const supplier = await tx.supplier.findFirst({
         where: { id: dto.supplierId, organizationId: org, deletedAt: null },
@@ -603,17 +616,20 @@ export class FinanceRepository {
         after: { paymentNumber, amount: dto.amount },
       });
       return created;
-    });
+    };
+    return externalTx ? run(externalTx) : this.prisma.$transaction(run);
   }
 
+  /** See `createPayment`'s `externalTx` doc — same atomicity exception. */
   @OrgScoped()
   async voidPayment(
     scope: OrgScope,
     id: number,
     reason: string,
     actorId: number,
+    externalTx?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       const org = scope.organizationId;
       await tx.$queryRaw`SELECT id FROM scm.supplier_payments WHERE id = ${id} AND organization_id = ${org} FOR UPDATE`;
       const payment = await tx.scmSupplierPayment.findFirst({
@@ -653,7 +669,8 @@ export class FinanceRepository {
         reason,
       });
       return after;
-    });
+    };
+    return externalTx ? run(externalTx) : this.prisma.$transaction(run);
   }
 
   // ---- documents ---------------------------------------------------------------
