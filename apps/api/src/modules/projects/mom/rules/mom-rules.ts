@@ -23,6 +23,7 @@ export interface MomFinalizeInput {
   meetingDate: Date | string | null;
   startTime: string | null;
   endTime: string | null;
+  location?: string | null;
   attendeesJson: unknown;
   meetingNotesJson: unknown;
 }
@@ -32,7 +33,16 @@ function hasText(value: unknown): boolean {
 }
 
 function asArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed as T[];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 /**
@@ -60,6 +70,9 @@ export function validateMomFinalize(doc: MomFinalizeInput): string[] {
     (doc.endTime as string) <= (doc.startTime as string)
   ) {
     errors.push("Meeting end time must be after the start time.");
+  }
+  if (!hasText(doc.location)) {
+    errors.push("Meeting location or virtual link is required to finalize.");
   }
 
   const present = asArray<AttendeeLike>(doc.attendeesJson).filter(

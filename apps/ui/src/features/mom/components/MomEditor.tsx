@@ -121,6 +121,9 @@ function validate(state: EditorState, finalize: boolean): string[] {
   if (state.startTime && state.endTime && state.endTime <= state.startTime) {
     errors.push("End time must be after the start time.");
   }
+  if (!state.location.trim()) {
+    errors.push("Meeting location or virtual link is required to finalize.");
+  }
   if (!state.attendees.some((a) => attendanceOf(a) !== "absent")) {
     errors.push("At least one attendee must be present or remote.");
   }
@@ -174,8 +177,14 @@ function stateFromDocument(doc: MomDocument): EditorState {
     endTime: doc.endTime ?? "",
     timezone: doc.timezone ?? DEFAULT_TIMEZONE,
     location: doc.location ?? "",
-    attendees: doc.attendeesJson ?? [],
-    absentees: doc.absenteesJson ?? [],
+    attendees: (doc.attendeesJson ?? []).map((a, idx) => ({
+      ...a,
+      id: a.id || `att_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
+    })),
+    absentees: (doc.absenteesJson ?? []).map((a, idx) => ({
+      ...a,
+      id: a.id || `abs_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
+    })),
     agenda: doc.agendaJson ?? [],
     notes: doc.meetingNotesJson ?? [],
     freeText: readFreeText(
@@ -352,6 +361,7 @@ function EditorBody({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -373,6 +383,13 @@ function EditorBody({
     setState((prev) => ({ ...prev, ...next }));
     setDirty(true);
     setErrors([]);
+    setFieldErrors((prev) => {
+      const updated = { ...prev };
+      for (const k of Object.keys(next)) {
+        delete updated[k];
+      }
+      return updated;
+    });
   }
 
   function applyTemplate(templateId: number) {
@@ -460,9 +477,37 @@ function EditorBody({
   }
 
   async function handleSave(finalize: boolean) {
+    const fErrors: Record<string, string> = {};
+    if (!state.projectId) fErrors.projectId = "Project is required.";
+    if (!state.meetingTitle.trim())
+      fErrors.meetingTitle = "Meeting title is required.";
+    if (!state.meetingDate) fErrors.meetingDate = "Meeting date is required.";
+    if (finalize) {
+      if (!state.startTime) fErrors.startTime = "Start time is required.";
+      if (!state.endTime) fErrors.endTime = "End time is required.";
+      else if (state.startTime && state.endTime <= state.startTime) {
+        fErrors.endTime = "End time must be after the start time.";
+      }
+      if (!state.location.trim()) {
+        fErrors.location =
+          "Meeting location or virtual link is required to finalize.";
+      }
+    }
+    setFieldErrors(fErrors);
+
     const problems = validate(state, finalize);
     if (problems.length > 0) {
       setErrors(problems);
+      if (fErrors.location) {
+        const el =
+          typeof window !== "undefined"
+            ? window.document.getElementById("mom-location-input")
+            : null;
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus();
+        }
+      }
       return;
     }
     setSaving(true);
@@ -764,32 +809,20 @@ function EditorBody({
           ) : null}
 
           {!readOnly ? (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={
-                  saving &&
-                  !finalizeMutation.isPending &&
-                  !finalizeRevisionMutation.isPending
-                }
-                disabled={saving}
-                onClick={() => void handleSave(false)}
-              >
-                <Save className="h-4 w-4" />
-                Save Draft
-              </Button>
-              <Button
-                size="sm"
-                disabled={saving}
-                onClick={() => void handleSave(true)}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {document?.workingRevision
-                  ? `Finalize Rev ${document.workingRevision}`
-                  : "Finalize MoM"}
-              </Button>
-            </>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={
+                saving &&
+                !finalizeMutation.isPending &&
+                !finalizeRevisionMutation.isPending
+              }
+              disabled={saving}
+              onClick={() => void handleSave(false)}
+            >
+              <Save className="h-4 w-4" />
+              Save Draft
+            </Button>
           ) : null}
 
           {document && canDelete && !isArchived ? (
@@ -896,41 +929,43 @@ function EditorBody({
                     >
                       <FormField label="Linked Project" required>
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
-                            <Select
-                              {...fp}
-                              value={
-                                state.projectId ? String(state.projectId) : ""
-                              }
-                              onChange={(e) =>
-                                patch({
-                                  projectId: Number(e.target.value) || null,
-                                })
-                              }
-                              className="w-full"
-                            >
-                              <option value="">
-                                {projectsQuery.isPending
-                                  ? "Loading projects..."
-                                  : "Select project"}
+                          <Select
+                            {...fp}
+                            prefixIcon={
+                              <Building2 className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                            }
+                            value={
+                              state.projectId ? String(state.projectId) : ""
+                            }
+                            onChange={(e) =>
+                              patch({
+                                projectId: Number(e.target.value) || null,
+                              })
+                            }
+                            className="w-full"
+                          >
+                            <option value="">
+                              {projectsQuery.isPending
+                                ? "Loading projects..."
+                                : "Select project"}
+                            </option>
+                            {projects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                [{p.projectCode}] {p.name}
                               </option>
-                              {projects.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  [{p.projectCode}] {p.name}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
+                            ))}
+                          </Select>
                         )}
                       </FormField>
                       <FormField label="Template">
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                          <div className="w-full min-w-0">
                             {mode === "create" ? (
                               <Select
                                 {...fp}
+                                prefixIcon={
+                                  <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                                }
                                 value={
                                   state.templateId
                                     ? String(state.templateId)
@@ -954,11 +989,14 @@ function EditorBody({
                                 ))}
                               </Select>
                             ) : (
-                              <p className="text-theme-sm font-semibold text-gray-800 dark:text-gray-200">
-                                {document?.templateTitle ?? "Standard"}
-                                {document?.templateVersion
-                                  ? ` (V${document.templateVersion})`
-                                  : ""}
+                              <p className="flex items-center gap-2 py-2 text-theme-sm font-semibold text-gray-800 dark:text-gray-200">
+                                <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                                <span>
+                                  {document?.templateTitle ?? "Standard"}
+                                  {document?.templateVersion
+                                    ? ` (V${document.templateVersion})`
+                                    : ""}
+                                </span>
                               </p>
                             )}
                           </div>
@@ -966,17 +1004,15 @@ function EditorBody({
                       </FormField>
                       <FormField label="Meeting Date" required>
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
-                            <Input
-                              {...fp}
-                              type="date"
-                              value={state.meetingDate}
-                              onChange={(e) =>
-                                patch({ meetingDate: e.target.value })
-                              }
-                            />
-                          </div>
+                          <Input
+                            {...fp}
+                            type="date"
+                            iconClassName="text-brand-600 dark:text-brand-400"
+                            value={state.meetingDate}
+                            onChange={(e) =>
+                              patch({ meetingDate: e.target.value })
+                            }
+                          />
                         )}
                       </FormField>
                       <FormField label="Start / End Time">
@@ -1014,14 +1050,20 @@ function EditorBody({
                           />
                         )}
                       </FormField>
-                      <FormField label="Location / Meeting Link">
+                      <FormField
+                        label="Location / Meeting Link"
+                        error={fieldErrors.location}
+                        required={Boolean(fieldErrors.location)}
+                      >
                         {(fp) => (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <MapPin className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
                             <Input
                               {...fp}
+                              id="mom-location-input"
                               placeholder="Meeting room or virtual link"
                               value={state.location}
+                              invalid={Boolean(fieldErrors.location)}
                               onChange={(e) =>
                                 patch({ location: e.target.value })
                               }
@@ -1096,6 +1138,51 @@ function EditorBody({
           </div>
         </Card>
       )}
+
+      {!readOnly ? (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div>
+            <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+              Meeting Completion &amp; Finalization
+            </h3>
+            <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+              Verify attendance, agenda points, notes, and task assignments
+              above before finalizing these minutes.
+            </p>
+          </div>
+          <div className="flex w-full sm:w-auto items-center justify-end gap-3 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={
+                saving &&
+                !finalizeMutation.isPending &&
+                !finalizeRevisionMutation.isPending
+              }
+              disabled={saving}
+              onClick={() => void handleSave(false)}
+            >
+              <Save className="h-4 w-4" />
+              Save Draft
+            </Button>
+            <Button
+              size="sm"
+              loading={
+                saving &&
+                (finalizeMutation.isPending ||
+                  finalizeRevisionMutation.isPending)
+              }
+              disabled={saving}
+              onClick={() => void handleSave(true)}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {document?.workingRevision
+                ? `Finalize Rev ${document.workingRevision}`
+                : "Finalize MoM"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <MomPreviewModal
         open={previewOpen}

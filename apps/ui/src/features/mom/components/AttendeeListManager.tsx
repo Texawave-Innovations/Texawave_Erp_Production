@@ -1,9 +1,10 @@
 "use client";
 
 import type { MomAttendance, MomAttendee } from "@texawave-erp/api-types";
-import { Button, Input, Select } from "@texawave-erp/ui-kit";
+import { Button, Input, Select, useToast } from "@texawave-erp/ui-kit";
 import { Plus, Trash2, User, UserX, Users } from "lucide-react";
 import { useState } from "react";
+import { useEmployees } from "@/features/hr/employees/hooks";
 import { attendanceOf, rowId } from "../utils";
 
 export interface AttendeeListManagerProps {
@@ -26,16 +27,37 @@ export function AttendeeListManager({
   onChange,
   disabled = false,
 }: AttendeeListManagerProps) {
+  const { toast } = useToast();
+  const employeesQuery = useEmployees({ page: 1, limit: 100 });
+  const employees = employeesQuery.data?.data ?? [];
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [organization, setOrganization] = useState("");
   const [attendance, setAttendance] = useState<MomAttendance>("present");
 
   function addPerson() {
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    const isDuplicate =
+      attendees.some(
+        (a) => a.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+      ) ||
+      absentees.some(
+        (a) => a.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+      );
+
+    if (isDuplicate) {
+      toast({
+        title: "Duplicate Participant",
+        description: `${trimmedName} is already on the participants list.`,
+        variant: "warning",
+      });
+      return;
+    }
     const person: MomAttendee = {
       id: rowId("att"),
-      name: name.trim(),
+      name: trimmedName,
       role: role.trim() || undefined,
       organization: organization.trim() || undefined,
       attendance,
@@ -100,6 +122,59 @@ export function AttendeeListManager({
             <Users className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
             Add Meeting Participant
           </p>
+
+          <div className="mb-3">
+            <label className="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">
+              Select Company Employee
+            </label>
+            <Select
+              aria-label="Select existing employee"
+              value=""
+              disabled={disabled || employeesQuery.isPending}
+              onChange={(e) => {
+                const empId = Number(e.target.value);
+                if (!empId) return;
+                const emp = employees.find((x) => x.id === empId);
+                if (emp) {
+                  setName(emp.fullName);
+                  setRole(emp.designation?.name || "Staff");
+                  setOrganization("TexaWave Innovations");
+                }
+              }}
+            >
+              <option value="">
+                {employeesQuery.isPending
+                  ? "Loading employees..."
+                  : employeesQuery.isError
+                    ? "Failed to load employees"
+                    : employees.length === 0
+                      ? "No employees found"
+                      : "Select employee to autofill..."}
+              </option>
+              {employees.map((emp) => {
+                const isAlreadyAdded =
+                  attendees.some(
+                    (a) =>
+                      a.name.trim().toLowerCase() ===
+                      emp.fullName.trim().toLowerCase(),
+                  ) ||
+                  absentees.some(
+                    (a) =>
+                      a.name.trim().toLowerCase() ===
+                      emp.fullName.trim().toLowerCase(),
+                  );
+                return (
+                  <option key={emp.id} value={emp.id} disabled={isAlreadyAdded}>
+                    {emp.fullName} ({emp.employeeCode}
+                    {emp.designation?.name ? ` · ${emp.designation.name}` : ""}
+                    {emp.team?.name ? ` · ${emp.team.name}` : ""})
+                    {isAlreadyAdded ? " — Already added" : ""}
+                  </option>
+                );
+              })}
+            </Select>
+          </div>
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-6">
             <Input
               aria-label="Participant name"
@@ -265,9 +340,9 @@ function PeopleColumn({
         </p>
       ) : (
         <ul className="flex max-h-60 flex-col gap-1.5 overflow-y-auto pr-1">
-          {people.map((p) => (
+          {people.map((p, idx) => (
             <li
-              key={p.id}
+              key={p.id || `people-${p.name || idx}-${idx}`}
               className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-800 dark:bg-gray-800/40"
             >
               <div className="min-w-0">

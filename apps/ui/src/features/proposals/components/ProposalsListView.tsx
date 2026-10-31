@@ -389,82 +389,100 @@ export function ProposalsListView() {
       >
         {tab === "proposals" ? (
           <div className="flex flex-col gap-4">
-            <Card>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                <SearchInput
-                  aria-label="Search proposals"
-                  placeholder="Search number, title, client, project..."
-                  value={search}
-                  onChangeValue={(v) => {
-                    setSearch(v);
-                    setPage(1);
-                  }}
-                  clearable
-                  onClear={() => setSearch("")}
-                  className="xl:col-span-2"
-                />
-                <Select
-                  aria-label="Filter by status"
-                  value={status}
-                  onChange={(e) => applyStatus(e.target.value)}
-                >
-                  <option value="">All statuses</option>
-                  <option value={FOLLOW_UP_FILTER}>Follow-ups due</option>
-                  {PROPOSAL_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {PROPOSAL_STATUS_META[s].label}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  aria-label="Filter by client"
-                  value={client}
-                  onChange={(e) => {
-                    setClient(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All clients</option>
-                  {(stats?.clients ?? []).map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  aria-label="Filter by project"
-                  value={projectId}
-                  onChange={(e) => {
-                    setProjectId(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All projects</option>
-                  {(projectsQuery.data?.data ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      [{p.projectCode}] {p.name}
-                    </option>
-                  ))}
-                </Select>
-                <div className="flex gap-2">
-                  <Input
-                    aria-label="Created from"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => {
-                      setFromDate(e.target.value);
+            <Card className="relative focus-within:z-30 w-full overflow-visible">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12 items-center">
+                <div className="sm:col-span-2 md:col-span-3 lg:col-span-2 xl:col-span-3">
+                  <SearchInput
+                    aria-label="Search proposals"
+                    placeholder="Search number, title, client, project..."
+                    value={search}
+                    onChangeValue={(v) => {
+                      setSearch(v);
                       setPage(1);
                     }}
+                    clearable
+                    onClear={() => setSearch("")}
                   />
-                  <Input
-                    aria-label="Created to"
-                    type="date"
-                    value={toDate}
+                </div>
+                <div className="sm:col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-2">
+                  <Select
+                    aria-label="Filter by status"
+                    value={status}
+                    onChange={(e) => applyStatus(e.target.value)}
+                  >
+                    <option value="">All statuses</option>
+                    <option value={FOLLOW_UP_FILTER}>Follow-ups due</option>
+                    {PROPOSAL_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {PROPOSAL_STATUS_META[s].label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="sm:col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-2">
+                  <Select
+                    aria-label="Filter by client"
+                    value={client}
                     onChange={(e) => {
-                      setToDate(e.target.value);
+                      setClient(e.target.value);
                       setPage(1);
                     }}
-                  />
+                  >
+                    <option value="">All clients</option>
+                    {(stats?.clients ?? []).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="sm:col-span-1 md:col-span-1 lg:col-span-2 xl:col-span-2">
+                  <Select
+                    aria-label="Filter by project"
+                    value={projectId}
+                    onChange={(e) => {
+                      setProjectId(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">All projects</option>
+                    {(projectsQuery.data?.data ?? []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        [{p.projectCode}] {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-3 min-w-0">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 px-0.5">
+                      From Date
+                    </label>
+                    <Input
+                      aria-label="From Date"
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => {
+                        setFromDate(e.target.value);
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 px-0.5">
+                      To Date
+                    </label>
+                    <Input
+                      aria-label="To Date"
+                      type="date"
+                      value={toDate}
+                      min={fromDate || undefined}
+                      onChange={(e) => {
+                        setToDate(e.target.value);
+                        setPage(1);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
               {hasFilters ? (

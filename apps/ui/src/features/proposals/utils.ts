@@ -4,6 +4,7 @@ import type {
   ProposalWorkflowAction,
 } from "@texawave-erp/api-types";
 import { todayInput, toDateInput } from "@/features/projects/format";
+import { getFieldValidationError } from "./field-validation";
 
 export type ProposalTone = "brand" | "gray" | "success" | "warning" | "error";
 
@@ -205,8 +206,25 @@ export function proposalCompleteness(
       continue;
     total++;
     const filled = hasContent(values[s.id]);
-    if (filled) done++;
-    else if (s.required)
+    if (filled) {
+      done++;
+      if (s.type === "key_value" && s.keyValueFields) {
+        const kv = (
+          values[s.id] && typeof values[s.id] === "object" ? values[s.id] : {}
+        ) as Record<string, string>;
+        for (const f of s.keyValueFields) {
+          const val = String(
+            kv[f.id] ?? f.defaultValue ?? f.value ?? "",
+          ).trim();
+          if (val) {
+            const err = getFieldValidationError(f.type ?? "text", val);
+            if (err) {
+              issues.push(`"${s.title}" → ${f.label}: ${err}`);
+            }
+          }
+        }
+      }
+    } else if (s.required)
       issues.push(`Required section "${s.title}" is missing content`);
   }
   return {

@@ -6,10 +6,11 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
   align?: "left" | "right" | "auto" | undefined;
   placement?: "top" | "bottom" | "auto" | undefined;
+  iconClassName?: string | undefined;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { invalid = false, align, placement, className, ...props },
+  { invalid = false, align, placement, iconClassName, className, ...props },
   ref,
 ) {
   if (props.type === "date") {
@@ -20,6 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         invalid={invalid}
         align={align}
         placement={placement}
+        iconClassName={iconClassName}
         className={className}
         {...rest}
       />

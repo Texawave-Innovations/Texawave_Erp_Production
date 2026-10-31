@@ -94,4 +94,20 @@ test.describe("Projects parity pages", () => {
       page.getByText("Select the project this meeting belongs to."),
     ).toBeVisible();
   });
+
+  test("views a proposal template without runtime crash or key errors", async ({
+    page,
+  }) => {
+    const errors = trackErrors(page);
+    await page.goto("/projects/proposals/templates");
+    await expect(
+      page.getByRole("heading", { name: /Proposal Templates/ }).first(),
+    ).toBeVisible({ timeout: 20_000 });
+
+    await page.goto("/projects/proposals/templates/1/builder");
+    await expect(page.getByText("Executive Summary").first()).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(errors).toEqual([]);
+  });
 });

@@ -168,6 +168,7 @@ function TaskForm({
     edit?.dependencyRequirement ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [depReqError, setDepReqError] = useState<string | null>(null);
 
   const configPoints = useMemo(() => {
     const cfg = pointsConfig.data;
@@ -227,6 +228,7 @@ function TaskForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setDepReqError(null);
 
     if (title.trim().length < 2) {
       setFormError("Task title is required (at least 2 characters).");
@@ -245,9 +247,11 @@ function TaskForm({
       return;
     }
     if (depKind !== "none" && !depRequirement.trim()) {
-      setFormError(
-        "Please enter the requirement / detail needed for this dependency.",
+      setDepReqError(
+        "Requirement details are required for an Employee dependency.",
       );
+      // scroll to the field
+      document.getElementById("dep-requirement-textarea")?.focus();
       return;
     }
 
@@ -616,17 +620,39 @@ function TaskForm({
         ) : null}
 
         {depKind !== "none" ? (
-          <FormField label="Requirement Details / Input Description" required>
-            {(field) => (
-              <Textarea
-                {...field}
-                rows={2}
-                value={depRequirement}
-                onChange={(e) => setDepRequirement(e.target.value)}
-                placeholder="Specify the exact deliverables, inputs, approvals, or files needed from this dependency..."
-              />
-            )}
-          </FormField>
+          <>
+            <FormField label="Requirement Details / Input Description" required>
+              {(field) => (
+                <Textarea
+                  {...field}
+                  rows={2}
+                  value={depRequirement}
+                  id="dep-requirement-textarea"
+                  onChange={(e) => {
+                    setDepRequirement(e.target.value);
+                    if (e.target.value.trim()) setDepReqError(null);
+                  }}
+                  aria-describedby={depReqError ? "dep-req-error" : undefined}
+                  aria-invalid={depReqError ? true : undefined}
+                  className={
+                    depReqError
+                      ? "border-rose-400 focus:ring-rose-400"
+                      : undefined
+                  }
+                  placeholder="Specify the exact deliverables, inputs, approvals, or files needed from this dependency..."
+                />
+              )}
+            </FormField>
+            {depReqError ? (
+              <p
+                id="dep-req-error"
+                role="alert"
+                className="mt-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
+              >
+                {depReqError}
+              </p>
+            ) : null}
+          </>
         ) : null}
       </div>
 

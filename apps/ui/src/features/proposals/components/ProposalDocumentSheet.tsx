@@ -7,6 +7,11 @@ import type {
 } from "@texawave-erp/api-types";
 import { formatDate } from "@/features/projects/format";
 import { PROPOSAL_STATUS_META } from "../utils";
+import {
+  formatDmyDate,
+  formatINR,
+  parseNumericValue,
+} from "../field-validation";
 
 export interface ProposalSheetData {
   proposalNumber: string;
@@ -55,7 +60,7 @@ function asText(v: unknown): string {
 function asList(v: unknown, fallback: string[] = []): string[] {
   return Array.isArray(v)
     ? (v as unknown[]).map((x) => String(x ?? "")).filter((x) => x.trim())
-    : fallback;
+    : fallback.filter((x) => String(x ?? "").trim());
 }
 
 function asRecord(v: unknown): Record<string, string> {
@@ -67,12 +72,6 @@ function asRecord(v: unknown): Record<string, string> {
 function asRows(v: unknown): Record<string, string>[] {
   return Array.isArray(v) ? (v as Record<string, string>[]) : [];
 }
-
-const INR = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 2,
-});
 
 /** Read-only, printable proposal (legacy `ProposalPreviewModal.tsx` /
  * `TemplateLivePreview.tsx` document body), honouring the organization's
@@ -215,11 +214,18 @@ function SheetSections({
             return (
               <div
                 key={s.id}
-                className="break-after-page border-t border-dashed border-gray-300"
-              />
+                className="my-3 flex items-center gap-2 break-after-page text-theme-xs text-gray-400 print:my-0 print:border-none print:py-0"
+              >
+                <div className="h-px flex-1 border-t border-dashed border-gray-300 print:hidden" />
+                <span className="italic print:hidden">Page Break</span>
+                <div className="h-px flex-1 border-t border-dashed border-gray-300 print:hidden" />
+              </div>
             );
           }
-          if (s.type === "spacer") return <div key={s.id} className="h-6" />;
+          if (s.type === "spacer") {
+            return <div key={s.id} className="h-6 w-full" aria-hidden="true" />;
+          }
+
           const heading = (
             <h3
               className={
@@ -270,46 +276,64 @@ function SheetValue({
   const empty = <p className="text-theme-sm italic text-gray-400">—</p>;
   switch (section.type) {
     case "short_text":
-    case "long_text":
-      return asText(value).trim() ? (
+    case "long_text": {
+      const userText = asText(value);
+      const defaultText = asText(section.defaultContent);
+      const text = userText.trim().length > 0 ? userText : defaultText;
+      return text.trim().length > 0 ? (
         <p className="whitespace-pre-wrap text-theme-sm text-gray-800">
-          {asText(value)}
+          {text}
         </p>
       ) : (
         empty
       );
+    }
     case "bullet_list":
     case "numbered_list": {
-      const items = asList(value, section.defaultItems ?? []);
+      const items = asList(value, section.defaultItems ?? []).filter(
+        (i) => i.trim().length > 0,
+      );
       if (items.length === 0) return empty;
       return section.type === "bullet_list" ? (
         <ul className="list-disc pl-5 text-theme-sm">
           {items.map((i, n) => (
-            <li key={n}>{i}</li>
+            <li key={`${section.id}-item-${n}`}>{i}</li>
           ))}
         </ul>
       ) : (
         <ol className="list-decimal pl-5 text-theme-sm">
           {items.map((i, n) => (
-            <li key={n}>{i}</li>
+            <li key={`${section.id}-item-${n}`}>{i}</li>
           ))}
         </ol>
       );
     }
     case "checklist": {
-      const checked = new Set(asList(value));
-      const items = section.defaultItems ?? [];
+      const checkedList = asList(value);
+      const isIndexBased = checkedList.some((v) => /^\d+$/.test(v));
+      const checkedSet = new Set(checkedList);
+      const items = (section.defaultItems ?? []).filter(
+        (i) => i.trim().length > 0,
+      );
       if (items.length === 0) return empty;
       return (
         <ul className="text-theme-sm">
-          {items.map((i) => (
-            <li key={i} className="flex items-center gap-2">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-gray-400 text-theme-xs">
-                {checked.has(i) ? "✓" : ""}
-              </span>
-              {i}
-            </li>
-          ))}
+          {items.map((i, idx) => {
+            const isChecked = isIndexBased
+              ? checkedSet.has(String(idx))
+              : checkedSet.has(i);
+            return (
+              <li
+                key={`${section.id}-check-${idx}`}
+                className="flex items-center gap-2"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded border border-gray-400 text-theme-xs">
+                  {isChecked ? "✓" : ""}
+                </span>
+                {i}
+              </li>
+            );
+          })}
         </ul>
       );
     }
@@ -319,28 +343,60 @@ function SheetValue({
       if (fields.length === 0) return empty;
       return (
         <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-theme-sm sm:grid-cols-2">
-          {fields.map((f) => (
-            <div key={f.id} className="flex gap-2">
-              <dt className="font-semibold text-gray-600">{f.label}:</dt>
-              <dd>
-                {f.type === "currency" && kv[f.id]
-                  ? INR.format(Number(kv[f.id]) || 0)
-                  : kv[f.id] || "—"}
-              </dd>
-            </div>
-          ))}
+          {fields.map((f) => {
+            const rawVal =
+              kv[f.id] !== undefined && String(kv[f.id]).trim().length > 0
+                ? kv[f.id]
+                : (f.defaultValue ?? f.value);
+            const hasVal =
+              rawVal !== undefined &&
+              rawVal !== null &&
+              String(rawVal).trim().length > 0;
+            let displayVal = "—";
+            if (hasVal) {
+              if (f.type === "currency") {
+                displayVal = formatINR(rawVal);
+              } else if (f.type === "date") {
+                displayVal = formatDmyDate(rawVal);
+              } else {
+                displayVal = String(rawVal);
+              }
+            }
+            return (
+              <div key={f.id} className="flex gap-2">
+                <dt className="font-semibold text-gray-600">{f.label}:</dt>
+                <dd className="text-gray-800">{displayVal}</dd>
+              </div>
+            );
+          })}
         </dl>
       );
     }
     case "table": {
       const columns = section.tableColumns ?? [];
-      const rows = asRows(value);
+      const userRows = asRows(value);
+      const rows = userRows.length > 0 ? userRows : (section.defaultRows ?? []);
       if (columns.length === 0) return empty;
-      const totals = columns.map((c) =>
-        c.type === "currency" || c.type === "number"
-          ? rows.reduce((sum, r) => sum + (Number(r[c.id]) || 0), 0)
-          : null,
-      );
+      if (rows.length === 0) {
+        return (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 p-3 text-center text-theme-xs italic text-gray-400">
+            No rows configured.
+          </div>
+        );
+      }
+      const totals = columns.map((c) => {
+        if (c.type !== "currency" && c.type !== "number") return null;
+        let sum = 0;
+        let hasValid = false;
+        for (const r of rows) {
+          const num = parseNumericValue(r[c.id]);
+          if (num !== null) {
+            sum += num;
+            hasValid = true;
+          }
+        }
+        return hasValid ? sum : null;
+      });
       const hasTotals = rows.length > 1 && totals.some((t) => t !== null);
       return (
         <table className="w-full border-collapse text-left text-theme-sm">
@@ -357,59 +413,67 @@ function SheetValue({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  className="border border-gray-300 px-2 py-3 text-center italic text-gray-400"
-                >
-                  No rows entered.
+            {rows.map((r, i) => (
+              <tr key={`${section.id}-row-${i}`}>
+                <td className="border border-gray-300 px-2 py-1.5 text-center text-gray-400">
+                  {i + 1}
                 </td>
-              </tr>
-            ) : (
-              rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="border border-gray-300 px-2 py-1.5 text-center">
-                    {i + 1}
-                  </td>
-                  {columns.map((c) => (
+                {columns.map((c) => {
+                  const cellRaw = r[c.id];
+                  let cellDisplay = "—";
+                  if (
+                    cellRaw !== undefined &&
+                    cellRaw !== null &&
+                    String(cellRaw).trim().length > 0
+                  ) {
+                    if (c.type === "currency") {
+                      cellDisplay = formatINR(cellRaw);
+                    } else if (c.type === "date") {
+                      cellDisplay = formatDmyDate(cellRaw);
+                    } else {
+                      cellDisplay = String(cellRaw);
+                    }
+                  }
+                  return (
                     <td
                       key={c.id}
-                      className="border border-gray-300 px-2 py-1.5"
+                      className="border border-gray-300 px-2 py-1.5 text-gray-800"
                     >
-                      {c.type === "currency" && r[c.id]
-                        ? INR.format(Number(r[c.id]) || 0)
-                        : c.type === "date"
-                          ? formatDate(r[c.id])
-                          : r[c.id] || ""}
+                      {cellDisplay}
                     </td>
-                  ))}
-                </tr>
-              ))
-            )}
-            {hasTotals ? (
-              <tr className="bg-gray-50 font-bold">
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          {hasTotals ? (
+            <tfoot>
+              <tr className="border-t-2 border-gray-400 bg-gray-50 font-bold">
                 <td className="border border-gray-300 px-2 py-1.5 text-center">
-                  Σ
+                  Total
                 </td>
                 {columns.map((c, i) => (
-                  <td key={c.id} className="border border-gray-300 px-2 py-1.5">
+                  <td
+                    key={c.id}
+                    className="border border-gray-300 px-2 py-1.5 text-gray-900"
+                  >
                     {totals[i] === null
-                      ? ""
+                      ? "—"
                       : c.type === "currency"
-                        ? INR.format(totals[i] ?? 0)
-                        : totals[i]}
+                        ? formatINR(totals[i])
+                        : String(totals[i])}
                   </td>
                 ))}
               </tr>
-            ) : null}
-          </tbody>
+            </tfoot>
+          ) : null}
         </table>
       );
     }
     case "signature": {
       const sig = asRecord(value);
       const fields = section.signatureFields ?? [];
+      if (fields.length === 0) return empty;
       return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.map((f) => (

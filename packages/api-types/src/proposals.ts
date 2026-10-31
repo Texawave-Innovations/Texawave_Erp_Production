@@ -36,6 +36,8 @@ export interface TableColumnDef {
 }
 
 export interface KeyValueFieldDef {
+  defaultValue?: string | undefined;
+  value?: string | undefined;
   id: string;
   label: string;
   type: "text" | "date" | "number" | "email" | "phone" | "currency";
@@ -56,12 +58,14 @@ export interface ProposalSectionConfig {
   title: string;
   type: ProposalSectionContentType;
   description?: string | undefined;
+  defaultContent?: string | undefined;
   required?: boolean | undefined;
   order: number;
   children?: ProposalSectionConfig[] | undefined;
   defaultItems?: string[] | undefined;
   keyValueFields?: KeyValueFieldDef[] | undefined;
   tableColumns?: TableColumnDef[] | undefined;
+  defaultRows?: Record<string, string>[] | undefined;
   signatureFields?: SignatureFieldDef[] | undefined;
 }
 

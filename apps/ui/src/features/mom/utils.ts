@@ -266,8 +266,14 @@ export function toSheetData(
     projectCode: doc.projectCode,
     projectName: doc.projectName,
     clientName: doc.clientName,
-    attendees: src.attendeesJson ?? [],
-    absentees: src.absenteesJson ?? [],
+    attendees: (src.attendeesJson ?? []).map((a, idx) => ({
+      ...a,
+      id: a.id || `att_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
+    })),
+    absentees: (src.absenteesJson ?? []).map((a, idx) => ({
+      ...a,
+      id: a.id || `abs_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
+    })),
     agenda: src.agendaJson ?? [],
     notes: src.meetingNotesJson ?? [],
     freeText: readFreeText(

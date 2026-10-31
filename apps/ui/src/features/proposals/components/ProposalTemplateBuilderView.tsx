@@ -1,8 +1,12 @@
 "use client";
 
 import type {
+  KeyValueFieldDef,
   ProposalSectionConfig,
+  ProposalSectionContentType,
   ProposalTemplate,
+  SignatureFieldDef,
+  TableColumnDef,
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -32,11 +36,76 @@ import {
   useUpdateProposalTemplate,
 } from "../hooks";
 import { PROPOSALS_MANAGE_TEMPLATES, PROPOSALS_READ } from "../permissions";
+import { getFieldValidationError } from "../field-validation";
 import { ProposalDocumentSheet } from "./ProposalDocumentSheet";
 import { SectionBuilder } from "./SectionBuilder";
 
 export interface ProposalTemplateBuilderViewProps {
   templateId: number;
+}
+
+function normalizeIncomingSections(raw: unknown): ProposalSectionConfig[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (s): s is Record<string, unknown> =>
+        Boolean(s) && typeof s === "object" && !Array.isArray(s),
+    )
+    .map((s, index) => ({
+      id:
+        typeof s.id === "string" && s.id.trim()
+          ? s.id.trim()
+          : `section-${index + 1}`,
+      title:
+        typeof s.title === "string" && s.title.trim()
+          ? s.title.trim()
+          : `Section ${index + 1}`,
+      type: (typeof s.type === "string"
+        ? s.type
+        : "short_text") as ProposalSectionContentType,
+      description:
+        typeof s.description === "string" ? s.description : undefined,
+      defaultContent:
+        typeof s.defaultContent === "string" ? s.defaultContent : undefined,
+      required: Boolean(s.required),
+      order:
+        typeof s.order === "number" && !isNaN(s.order) ? s.order : index + 1,
+      defaultItems: Array.isArray(s.defaultItems)
+        ? (s.defaultItems as string[])
+        : undefined,
+      keyValueFields: Array.isArray(s.keyValueFields)
+        ? (s.keyValueFields as KeyValueFieldDef[]).map((f, fi) => ({
+            id: f.id || `kv-${fi + 1}`,
+            label: f.label || "",
+            defaultValue: f.defaultValue ?? f.value ?? "",
+            type: f.type ?? "text",
+          }))
+        : undefined,
+      tableColumns: Array.isArray(s.tableColumns)
+        ? (s.tableColumns as TableColumnDef[])
+        : undefined,
+      defaultRows: Array.isArray(s.defaultRows)
+        ? (s.defaultRows as Record<string, string>[])
+        : undefined,
+      signatureFields: Array.isArray(s.signatureFields)
+        ? (s.signatureFields as SignatureFieldDef[])
+        : undefined,
+      children: Array.isArray(s.children)
+        ? normalizeIncomingSections(s.children)
+        : undefined,
+    }));
+}
+
+function sanitizeSectionsForApi(
+  list: ProposalSectionConfig[],
+): ProposalSectionConfig[] {
+  return list.map((s) => ({
+    ...s,
+    defaultItems: s.defaultItems
+      ? s.defaultItems.map((x) => x.trim()).filter(Boolean)
+      : undefined,
+    children: s.children ? sanitizeSectionsForApi(s.children) : undefined,
+  }));
 }
 
 /** Legacy `TemplateBuilder.tsx` + `SectionConfigDrawer.tsx` +
@@ -116,10 +185,16 @@ function Builder({ template }: { template: ProposalTemplate }) {
   const [department, setDepartment] = useState(template.department ?? "");
   const [category, setCategory] = useState(template.category ?? "");
   const [description, setDescription] = useState(template.description ?? "");
-  const [sections, setSections] = useState<ProposalSectionConfig[]>(
-    template.schemaJson,
+  const [sections, setSections] = useState<ProposalSectionConfig[]>(() =>
+    normalizeIncomingSections(template.schemaJson),
   );
   const [errors, setErrors] = useState<{ title?: string; name?: string }>({});
+
+  const isBusy =
+    updateMutation.isPending ||
+    publishMutation.isPending ||
+    versionMutation.isPending ||
+    duplicateMutation.isPending;
 
   async function save(): Promise<boolean> {
     const next: typeof errors = {};
@@ -137,7 +212,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
           department: department.trim() || undefined,
           category: category.trim() || undefined,
           description: description.trim() || undefined,
-          schemaJson: sections,
+          schemaJson: sanitizeSectionsForApi(sections),
         },
       });
       return true;
@@ -152,6 +227,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
   }
 
   async function handlePublish() {
+    if (isBusy) return;
     if (sections.length === 0) {
       toast({
         title: "Add at least one section before publishing",
@@ -159,7 +235,38 @@ function Builder({ template }: { template: ProposalTemplate }) {
       });
       return;
     }
-    if (!(await save())) return;
+    const hasEmptyTitle = sections.some((s) => !s.title || !s.title.trim());
+    if (hasEmptyTitle) {
+      toast({
+        title: "Section title missing",
+        description:
+          "Please provide a title for all sections before publishing.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    for (const s of sections) {
+      if (s.type === "key_value" && s.keyValueFields) {
+        for (const f of s.keyValueFields) {
+          const val = (f.defaultValue ?? f.value ?? "").trim();
+          if (val) {
+            const err = getFieldValidationError(f.type ?? "text", val);
+            if (err) {
+              toast({
+                title: "Invalid default value",
+                description: `Field "${f.label || "Untitled"}" in section "${s.title}": ${err}`,
+                variant: "error",
+              });
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    const saved = await save();
+    if (!saved) return;
     try {
       await publishMutation.mutateAsync(template.id);
       toast({
@@ -167,6 +274,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
         description: "This version is now locked.",
         variant: "success",
       });
+      router.push("/projects/proposals/templates");
     } catch (err) {
       toast({
         title: "Could not publish",
@@ -235,6 +343,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
             <Button
               variant="secondary"
               size="sm"
+              disabled={isBusy}
               loading={duplicateMutation.isPending}
               onClick={() =>
                 void navigateTo(
@@ -250,6 +359,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
             {locked ? (
               <Button
                 size="sm"
+                disabled={isBusy}
                 loading={versionMutation.isPending}
                 onClick={() =>
                   void navigateTo(
@@ -267,6 +377,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
                 <Button
                   variant="secondary"
                   size="sm"
+                  disabled={isBusy}
                   loading={updateMutation.isPending}
                   onClick={() =>
                     void save().then(
@@ -284,6 +395,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
                 </Button>
                 <Button
                   size="sm"
+                  disabled={isBusy}
                   loading={publishMutation.isPending}
                   onClick={() => void handlePublish()}
                 >
@@ -319,6 +431,9 @@ function Builder({ template }: { template: ProposalTemplate }) {
                     {...fp}
                     value={title}
                     disabled={readOnly}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     onChange={(e) => setTitle(e.target.value)}
                   />
                 )}
@@ -329,6 +444,9 @@ function Builder({ template }: { template: ProposalTemplate }) {
                     {...fp}
                     value={name}
                     disabled={readOnly}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     onChange={(e) => setName(e.target.value)}
                   />
                 )}
@@ -339,6 +457,9 @@ function Builder({ template }: { template: ProposalTemplate }) {
                     {...fp}
                     value={code}
                     disabled={readOnly}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     onChange={(e) => setCode(e.target.value)}
                   />
                 )}
@@ -349,6 +470,9 @@ function Builder({ template }: { template: ProposalTemplate }) {
                     {...fp}
                     value={department}
                     disabled={readOnly}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     onChange={(e) => setDepartment(e.target.value)}
                   />
                 )}
@@ -359,6 +483,9 @@ function Builder({ template }: { template: ProposalTemplate }) {
                     {...fp}
                     value={category}
                     disabled={readOnly}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     onChange={(e) => setCategory(e.target.value)}
                   />
                 )}
@@ -383,20 +510,20 @@ function Builder({ template }: { template: ProposalTemplate }) {
             {readOnly ? (
               <ol className="flex flex-col gap-1.5">
                 {[...sections]
-                  .sort((a, b) => a.order - b.order)
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                   .map((s, i) => (
                     <li
-                      key={s.id}
+                      key={s.id || `read-only-sec-${i}`}
                       className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-800"
                     >
                       <span>
-                        {i + 1}. {s.title}
+                        {i + 1}. {s.title || "Untitled Section"}
                         {s.required ? (
                           <span className="text-error-500"> *</span>
                         ) : null}
                       </span>
                       <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                        {s.type.replace(/_/g, " ")}
+                        {(s.type || "short_text").replace(/_/g, " ")}
                       </span>
                     </li>
                   ))}

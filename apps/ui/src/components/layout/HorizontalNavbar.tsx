@@ -1408,23 +1408,13 @@ const SCM_CATEGORIES_FULL: NavCategory[] = [
  */
 export const PROJECTS_CATEGORIES: NavCategory[] = [
   {
-    id: "projects-overview",
-    label: "Overview",
+    id: "projects-dashboard",
+    label: "Dashboard",
     icon: LayoutDashboard,
     icon3d: "dashboard",
     iconColor: "text-blue-600",
     path: "/projects/dashboard",
     menuCode: "projects-dashboard",
-    children: [
-      {
-        id: "projects-dashboard",
-        label: "Dashboard",
-        path: "/projects/dashboard",
-        icon: LayoutDashboard,
-        icon3d: "dashboard",
-        menuCode: "projects-dashboard",
-      },
-    ],
   },
   {
     id: "projects-projects",

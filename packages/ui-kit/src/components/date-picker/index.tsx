@@ -284,7 +284,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
 
       // Find closest scrollable or clipping container (dialog, modal, card, or viewport)
       const scrollParent = containerRef.current.closest<HTMLElement>(
-        'dialog, [role="dialog"], .overflow-y-auto, .overflow-auto, .overflow-hidden',
+        'dialog, [role="dialog"], [data-radix-popper-content-wrapper], .overflow-y-auto, .overflow-auto',
       );
       const containerRect = scrollParent
         ? scrollParent.getBoundingClientRect()
@@ -312,7 +312,9 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         setPopoverPlacement("top");
       } else if (placementProp === "bottom") {
         setPopoverPlacement("bottom");
-      } else if (spaceBelow < popoverHeight && spaceAbove >= popoverHeight) {
+      } else if (spaceBelow >= popoverHeight) {
+        setPopoverPlacement("bottom");
+      } else if (spaceAbove >= popoverHeight || spaceAbove > spaceBelow) {
         setPopoverPlacement("top");
       } else {
         setPopoverPlacement("bottom");

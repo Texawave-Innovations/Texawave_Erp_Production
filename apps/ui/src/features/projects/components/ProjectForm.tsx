@@ -211,7 +211,7 @@ export function ProjectForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Card 1: Project identity & customer */}
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
               <FolderKanban className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
@@ -358,7 +358,7 @@ export function ProjectForm({
         </section>
 
         {/* Card 2: Financials, timelines & resources */}
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
               <IndianRupee className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
@@ -395,7 +395,7 @@ export function ProjectForm({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="relative focus-within:z-30 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <FormField label="Start Date" required>
                 {(field) => (
                   <Input
