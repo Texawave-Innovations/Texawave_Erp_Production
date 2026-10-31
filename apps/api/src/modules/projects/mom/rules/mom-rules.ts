@@ -8,6 +8,8 @@ export type MomAttendance = "present" | "remote" | "absent";
 
 interface AttendeeLike {
   name?: unknown;
+  fullName?: unknown;
+  attendeeName?: unknown;
   attendance?: unknown;
 }
 
@@ -75,22 +77,36 @@ export function validateMomFinalize(doc: MomFinalizeInput): string[] {
     errors.push("Meeting location or virtual link is required to finalize.");
   }
 
-  const present = asArray<AttendeeLike>(doc.attendeesJson).filter(
-    (a) =>
-      hasText(a.name) &&
-      (a.attendance === undefined ||
-        a.attendance === "present" ||
-        a.attendance === "remote"),
-  );
+  const present = asArray<AttendeeLike>(doc.attendeesJson).filter((a) => {
+    if (!a || typeof a !== "object") return false;
+    const name =
+      typeof a.name === "string" && a.name.trim()
+        ? a.name.trim()
+        : typeof a.fullName === "string" && a.fullName.trim()
+          ? a.fullName.trim()
+          : typeof a.attendeeName === "string" && a.attendeeName.trim()
+            ? a.attendeeName.trim()
+            : "";
+    if (!name) return false;
+    const att =
+      typeof a.attendance === "string"
+        ? a.attendance.trim().toLowerCase()
+        : a.attendance === undefined || a.attendance === null
+          ? "present"
+          : "";
+    return att === "present" || att === "remote";
+  });
   if (present.length === 0) {
     errors.push("At least one attendee must be marked as present or remote.");
   }
 
   const hasNotes = asArray<NoteRowLike>(doc.meetingNotesJson).some(
     (n) =>
-      hasText(n.agendaItem) ||
-      hasText(n.discussionPoints) ||
-      hasText(n.actionItems),
+      Boolean(n) &&
+      typeof n === "object" &&
+      (hasText(n.agendaItem) ||
+        hasText(n.discussionPoints) ||
+        hasText(n.actionItems)),
   );
   if (!hasNotes) {
     errors.push(

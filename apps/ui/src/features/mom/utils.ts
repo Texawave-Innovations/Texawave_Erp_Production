@@ -3,6 +3,7 @@
 import type {
   MomAdditionalSection,
   MomAgendaItem,
+  MomAttendance,
   MomAttendee,
   MomNoteRow,
   MomDocument,
@@ -14,6 +15,85 @@ import { useProposalSettings } from "@/features/proposals/hooks";
 import { PROPOSALS_READ } from "@/features/proposals/permissions";
 
 let uidCounter = 0;
+/** Safely checks whether two person names match (case-insensitive, whitespace-trimmed).
+ * Never throws on undefined, null, or malformed values; returns false if either
+ * name is missing, empty, or whitespace-only. */
+export function isSamePersonName(a: unknown, b: unknown): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const trimmedA = a.trim();
+  const trimmedB = b.trim();
+  if (!trimmedA || !trimmedB) return false;
+  return trimmedA.toLowerCase() === trimmedB.toLowerCase();
+}
+
+/** Normalizes a raw attendee record (e.g. from legacy JSON or API envelopes)
+ * so that it always has a valid string id, a string name, and well-formed
+ * optional fields without losing data or crashing. */
+export function normalizeAttendee(
+  raw: unknown,
+  fallbackPrefix = "att",
+  idx = 0,
+): MomAttendee {
+  if (!raw || typeof raw !== "object") {
+    return {
+      id: `${fallbackPrefix}_${idx}_${rowId(fallbackPrefix)}`,
+      name: "",
+      attendance: "present",
+    };
+  }
+  const obj = raw as Record<string, unknown>;
+  const resolvedName =
+    typeof obj.name === "string"
+      ? obj.name
+      : typeof obj.fullName === "string"
+        ? obj.fullName
+        : typeof obj.attendeeName === "string"
+          ? obj.attendeeName
+          : "";
+
+  const resolvedRole =
+    typeof obj.role === "string"
+      ? obj.role
+      : typeof obj.designation === "string"
+        ? obj.designation
+        : undefined;
+
+  const resolvedOrg =
+    typeof obj.organization === "string"
+      ? obj.organization
+      : typeof obj.company === "string"
+        ? obj.company
+        : undefined;
+
+  const rawAttendance =
+    typeof obj.attendance === "string"
+      ? obj.attendance.trim().toLowerCase()
+      : undefined;
+
+  const resolvedAttendance: MomAttendance =
+    rawAttendance === "remote"
+      ? "remote"
+      : rawAttendance === "absent"
+        ? "absent"
+        : "present";
+
+  const resolvedId =
+    typeof obj.id === "string" && obj.id.trim()
+      ? obj.id
+      : typeof obj.id === "number"
+        ? String(obj.id)
+        : `${fallbackPrefix}_${idx}_${(resolvedName || "").replace(/\s+/g, "_") || rowId(fallbackPrefix)}`;
+
+  return {
+    ...obj,
+    id: resolvedId,
+    name: resolvedName,
+    role: resolvedRole,
+    organization: resolvedOrg,
+    attendance: resolvedAttendance,
+  };
+}
+
 /** Stable client-side row id for attendee/agenda/note rows (legacy used
  * `att_${Date.now()}_${random}` the same way — ids only need to be unique
  * within one document's JSON column). */
@@ -45,9 +125,154 @@ export function momStatusTone(
   return map[doc.status];
 }
 
-/** Attendees saved before the `attendance` field existed count as present. */
+/** Attendees saved before the `attendance` field existed count as present.
+ * Normalizes case-insensitively so "Present", "Remote", "Absent" match. */
 export function attendanceOf(a: MomAttendee): "present" | "remote" | "absent" {
-  return a.attendance ?? "present";
+  const att =
+    typeof a.attendance === "string" ? a.attendance.trim().toLowerCase() : "";
+  if (att === "remote") return "remote";
+  if (att === "absent") return "absent";
+  return "present";
+}
+
+/** Normalizes a raw meeting notes row so that it always has a valid, stable,
+ * and unique string `id`, consistent with the existing model and lifecycle,
+ * along with string fields and numeric order. */
+export function normalizeNoteRow(
+  raw: unknown,
+  index = 0,
+  seenIds: Set<string> = new Set<string>(),
+): MomNoteRow {
+  if (!raw || typeof raw !== "object") {
+    const fallbackId = `nr_${index + 1}`;
+    const id = seenIds.has(fallbackId)
+      ? `${fallbackId}_${rowId("nr")}`
+      : fallbackId;
+    seenIds.add(id);
+    return {
+      id,
+      order: index + 1,
+      agendaItem: "",
+      discussionPoints: "",
+      actionItems: "",
+    };
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const order =
+    typeof obj.order === "number" && Number.isFinite(obj.order)
+      ? obj.order
+      : index + 1;
+
+  const agendaItem = typeof obj.agendaItem === "string" ? obj.agendaItem : "";
+  const discussionPoints =
+    typeof obj.discussionPoints === "string" ? obj.discussionPoints : "";
+  const actionItems =
+    typeof obj.actionItems === "string" ? obj.actionItems : "";
+
+  let resolvedId =
+    typeof obj.id === "string" && obj.id.trim()
+      ? obj.id.trim()
+      : typeof obj.id === "number"
+        ? `nr_${obj.id}`
+        : "";
+
+  if (!resolvedId || seenIds.has(resolvedId)) {
+    const slug = (agendaItem || discussionPoints || "")
+      .trim()
+      .slice(0, 16)
+      .replace(/\s+/g, "_");
+    const candidate = resolvedId
+      ? `${resolvedId}_${index + 1}`
+      : slug
+        ? `nr_${order}_${slug}`
+        : `nr_${order}`;
+    resolvedId = seenIds.has(candidate)
+      ? `${candidate}_${rowId("nr")}`
+      : candidate;
+  }
+
+  seenIds.add(resolvedId);
+
+  return {
+    ...obj,
+    id: resolvedId,
+    order,
+    agendaItem,
+    discussionPoints,
+    actionItems,
+  };
+}
+
+export function normalizeNoteRows(rows: unknown): MomNoteRow[] {
+  if (!Array.isArray(rows)) return [];
+  const seenIds = new Set<string>();
+  return rows.map((r, i) => normalizeNoteRow(r, i, seenIds));
+}
+
+/** Normalizes a raw agenda item so that it always has a stable, unique ID
+ * and numeric order. */
+export function normalizeAgendaItem(
+  raw: unknown,
+  index = 0,
+  seenIds: Set<string> = new Set<string>(),
+): MomAgendaItem {
+  if (!raw || typeof raw !== "object") {
+    const fallbackId = `ag_${index + 1}`;
+    const id = seenIds.has(fallbackId)
+      ? `${fallbackId}_${rowId("ag")}`
+      : fallbackId;
+    seenIds.add(id);
+    return {
+      id,
+      order: index + 1,
+      topic: "",
+    };
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const order =
+    typeof obj.order === "number" && Number.isFinite(obj.order)
+      ? obj.order
+      : index + 1;
+  const topic = typeof obj.topic === "string" ? obj.topic : "";
+
+  let resolvedId =
+    typeof obj.id === "string" && obj.id.trim()
+      ? obj.id.trim()
+      : typeof obj.id === "number"
+        ? `ag_${obj.id}`
+        : "";
+
+  if (!resolvedId || seenIds.has(resolvedId)) {
+    const slug = topic.trim().slice(0, 16).replace(/\s+/g, "_");
+    const candidate = resolvedId
+      ? `${resolvedId}_${index + 1}`
+      : slug
+        ? `ag_${order}_${slug}`
+        : `ag_${order}`;
+    resolvedId = seenIds.has(candidate)
+      ? `${candidate}_${rowId("ag")}`
+      : candidate;
+  }
+
+  seenIds.add(resolvedId);
+
+  return {
+    ...obj,
+    id: resolvedId,
+    order,
+    topic,
+    presenter: typeof obj.presenter === "string" ? obj.presenter : undefined,
+    durationMinutes:
+      typeof obj.durationMinutes === "number" ? obj.durationMinutes : undefined,
+  };
+}
+
+export function normalizeAgendaItems(items: unknown): MomAgendaItem[] {
+  if (!Array.isArray(items)) return [];
+  const seenIds = new Set<string>();
+  return items.map((item, i) => normalizeAgendaItem(item, i, seenIds));
 }
 
 /** Legacy `OFFICIAL_TEXAWAVE_MOM_TEMPLATE.sections` — what a document renders
@@ -266,16 +491,14 @@ export function toSheetData(
     projectCode: doc.projectCode,
     projectName: doc.projectName,
     clientName: doc.clientName,
-    attendees: (src.attendeesJson ?? []).map((a, idx) => ({
-      ...a,
-      id: a.id || `att_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
-    })),
-    absentees: (src.absenteesJson ?? []).map((a, idx) => ({
-      ...a,
-      id: a.id || `abs_${idx}_${(a.name || "").replace(/\s+/g, "_")}`,
-    })),
-    agenda: src.agendaJson ?? [],
-    notes: src.meetingNotesJson ?? [],
+    attendees: (src.attendeesJson ?? []).map((a, idx) =>
+      normalizeAttendee(a, "att", idx),
+    ),
+    absentees: (src.absenteesJson ?? []).map((a, idx) =>
+      normalizeAttendee(a, "abs", idx),
+    ),
+    agenda: normalizeAgendaItems(src.agendaJson),
+    notes: normalizeNoteRows(src.meetingNotesJson),
     freeText: readFreeText(
       sections,
       src.freeTextContent,

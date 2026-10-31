@@ -90,9 +90,7 @@ test.describe("Projects parity pages", () => {
     await page.getByLabel("Meeting title").fill(`PW Incomplete ${Date.now()}`);
     // No project selected -> client-side validation lists the problem.
     await page.getByRole("button", { name: "Finalize MoM" }).click();
-    await expect(
-      page.getByText("Select the project this meeting belongs to."),
-    ).toBeVisible();
+    await expect(page.getByText("Please select a project.")).toBeVisible();
   });
 
   test("views a proposal template without runtime crash or key errors", async ({

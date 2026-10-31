@@ -2,10 +2,10 @@
 
 import type { MomAttendance, MomAttendee } from "@texawave-erp/api-types";
 import { Button, Input, Select, useToast } from "@texawave-erp/ui-kit";
-import { Plus, Trash2, User, UserX, Users } from "lucide-react";
+import { AlertCircle, Plus, Trash2, User, UserX, Users } from "lucide-react";
 import { useState } from "react";
 import { useEmployees } from "@/features/hr/employees/hooks";
-import { attendanceOf, rowId } from "../utils";
+import { attendanceOf, isSamePersonName, rowId } from "../utils";
 
 export interface AttendeeListManagerProps {
   attendees: MomAttendee[];
@@ -14,7 +14,8 @@ export interface AttendeeListManagerProps {
     attendees: MomAttendee[];
     absentees: MomAttendee[];
   }) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
+  error?: string | undefined;
 }
 
 /** Legacy `mom/components/AttendeeListManager.tsx` — quick-add row plus
@@ -26,6 +27,7 @@ export function AttendeeListManager({
   absentees,
   onChange,
   disabled = false,
+  error,
 }: AttendeeListManagerProps) {
   const { toast } = useToast();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -40,12 +42,8 @@ export function AttendeeListManager({
     if (!trimmedName) return;
 
     const isDuplicate =
-      attendees.some(
-        (a) => a.name.trim().toLowerCase() === trimmedName.toLowerCase(),
-      ) ||
-      absentees.some(
-        (a) => a.name.trim().toLowerCase() === trimmedName.toLowerCase(),
-      );
+      attendees.some((a) => isSamePersonName(a.name, trimmedName)) ||
+      absentees.some((a) => isSamePersonName(a.name, trimmedName));
 
     if (isDuplicate) {
       toast({
@@ -153,19 +151,13 @@ export function AttendeeListManager({
               </option>
               {employees.map((emp) => {
                 const isAlreadyAdded =
-                  attendees.some(
-                    (a) =>
-                      a.name.trim().toLowerCase() ===
-                      emp.fullName.trim().toLowerCase(),
+                  attendees.some((a) =>
+                    isSamePersonName(a.name, emp.fullName),
                   ) ||
-                  absentees.some(
-                    (a) =>
-                      a.name.trim().toLowerCase() ===
-                      emp.fullName.trim().toLowerCase(),
-                  );
+                  absentees.some((a) => isSamePersonName(a.name, emp.fullName));
                 return (
                   <option key={emp.id} value={emp.id} disabled={isAlreadyAdded}>
-                    {emp.fullName} ({emp.employeeCode}
+                    {emp.fullName || `Employee #${emp.id}`} ({emp.employeeCode}
                     {emp.designation?.name ? ` · ${emp.designation.name}` : ""}
                     {emp.team?.name ? ` · ${emp.team.name}` : ""})
                     {isAlreadyAdded ? " — Already added" : ""}
@@ -215,8 +207,19 @@ export function AttendeeListManager({
         </div>
       ) : null}
 
+      {error ? (
+        <div
+          className="flex items-center gap-2 rounded-xl border border-error-200 bg-error-50/70 p-3 text-theme-xs font-medium text-error-600 dark:border-error-900/60 dark:bg-error-950/40 dark:text-error-400"
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0 text-error-500" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <PeopleColumn
+          hasError={Boolean(error)}
           title={`Attendees (${attendees.length})`}
           hint="Present / Remote"
           icon={
@@ -250,13 +253,13 @@ export function AttendeeListManager({
               : (p) => (
                   <>
                     <IconButton
-                      label={`Mark ${p.name} absent`}
+                      label={`Mark ${p.name?.trim() ? p.name : "participant"} absent`}
                       onClick={() => setPersonAttendance(p, "absent")}
                     >
                       <UserX className="h-3.5 w-3.5" />
                     </IconButton>
                     <IconButton
-                      label={`Remove ${p.name}`}
+                      label={`Remove ${p.name?.trim() ? p.name : "participant"}`}
                       danger
                       onClick={() => removePerson(p.id, false)}
                     >
@@ -285,13 +288,13 @@ export function AttendeeListManager({
               : (p) => (
                   <>
                     <IconButton
-                      label={`Mark ${p.name} present`}
+                      label={`Mark ${p.name?.trim() ? p.name : "participant"} present`}
                       onClick={() => setPersonAttendance(p, "present")}
                     >
                       <User className="h-3.5 w-3.5" />
                     </IconButton>
                     <IconButton
-                      label={`Remove ${p.name}`}
+                      label={`Remove ${p.name?.trim() ? p.name : "participant"}`}
                       danger
                       onClick={() => removePerson(p.id, true)}
                     >
@@ -314,6 +317,7 @@ function PeopleColumn({
   people,
   renderBadge,
   actions,
+  hasError = false,
 }: {
   title: string;
   hint: string;
@@ -322,9 +326,16 @@ function PeopleColumn({
   people: MomAttendee[];
   renderBadge: (p: MomAttendee) => React.ReactNode;
   actions?: ((p: MomAttendee) => React.ReactNode) | undefined;
+  hasError?: boolean | undefined;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+    <div
+      className={
+        hasError
+          ? "flex flex-col gap-2 rounded-xl border border-rose-300 bg-white p-3 dark:border-rose-700 dark:bg-gray-900"
+          : "flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+      }
+    >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-theme-xs font-semibold text-gray-800 dark:text-gray-200">
           {icon}
@@ -347,7 +358,7 @@ function PeopleColumn({
             >
               <div className="min-w-0">
                 <p className="truncate text-theme-sm font-semibold text-gray-900 dark:text-white/90">
-                  {p.name}
+                  {p.name?.trim() ? p.name : "(Unnamed participant)"}
                 </p>
                 <p className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
                   {p.role || "Member"}
