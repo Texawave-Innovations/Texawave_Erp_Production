@@ -3,7 +3,7 @@
 import type { MomAttendance, MomAttendee } from "@texawave-erp/api-types";
 import { Button, Input, Select, useToast } from "@texawave-erp/ui-kit";
 import { AlertCircle, Plus, Trash2, User, UserX, Users } from "lucide-react";
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { attendanceOf, isSamePersonName, rowId } from "../utils";
 
@@ -18,17 +18,24 @@ export interface AttendeeListManagerProps {
   error?: string | undefined;
 }
 
+export interface AttendeeListManagerHandle {
+  /** True when the quick-add row has a staged (unadded) name typed in. */
+  hasPendingDraft: () => boolean;
+  /** Adds the staged quick-add row, if any. Returns the added name or null. */
+  commitPendingDraft: () => string | null;
+}
+
 /** Legacy `mom/components/AttendeeListManager.tsx` — quick-add row plus
  * two columns (Attendees present/remote, Absentees). Moving someone between
  * columns updates both lists in one change (legacy dropped the absentee side
  * of that move). */
-export function AttendeeListManager({
-  attendees,
-  absentees,
-  onChange,
-  disabled = false,
-  error,
-}: AttendeeListManagerProps) {
+export const AttendeeListManager = forwardRef<
+  AttendeeListManagerHandle,
+  AttendeeListManagerProps
+>(function AttendeeListManager(
+  { attendees, absentees, onChange, disabled = false, error },
+  ref,
+) {
   const { toast } = useToast();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
   const employees = employeesQuery.data?.data ?? [];
@@ -37,9 +44,9 @@ export function AttendeeListManager({
   const [organization, setOrganization] = useState("");
   const [attendance, setAttendance] = useState<MomAttendance>("present");
 
-  function addPerson() {
+  function addPerson(): string | null {
     const trimmedName = name.trim();
-    if (!trimmedName) return;
+    if (!trimmedName) return null;
 
     const isDuplicate =
       attendees.some((a) => isSamePersonName(a.name, trimmedName)) ||
@@ -51,7 +58,7 @@ export function AttendeeListManager({
         description: `${trimmedName} is already on the participants list.`,
         variant: "warning",
       });
-      return;
+      return null;
     }
     const person: MomAttendee = {
       id: rowId("att"),
@@ -69,7 +76,13 @@ export function AttendeeListManager({
     setRole("");
     setOrganization("");
     setAttendance("present");
+    return trimmedName;
   }
+
+  useImperativeHandle(ref, () => ({
+    hasPendingDraft: () => name.trim().length > 0,
+    commitPendingDraft: () => addPerson(),
+  }));
 
   function setPersonAttendance(person: MomAttendee, next: MomAttendance) {
     const wasAbsent = absentees.some((a) => a.id === person.id);
@@ -307,7 +320,7 @@ export function AttendeeListManager({
       </div>
     </div>
   );
-}
+});
 
 function PeopleColumn({
   title,

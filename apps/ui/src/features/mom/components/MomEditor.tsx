@@ -44,7 +44,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProjects } from "@/features/projects/hooks";
@@ -82,7 +82,10 @@ import {
   type MomSheetData,
 } from "../utils";
 import { AgendaListManager } from "./AgendaListManager";
-import { AttendeeListManager } from "./AttendeeListManager";
+import {
+  AttendeeListManager,
+  type AttendeeListManagerHandle,
+} from "./AttendeeListManager";
 import { MeetingNotesTable } from "./MeetingNotesTable";
 import { MomDocumentSheet } from "./MomDocumentSheet";
 import { MomPreviewModal } from "./MomPreviewModal";
@@ -296,6 +299,7 @@ function EditorBody({
 
   const canWrite = usePermission(MOM_WRITE);
   const canDelete = usePermission(MOM_DELETE);
+  const attendeeManagerRef = useRef<AttendeeListManagerHandle>(null);
 
   const projectsQuery = useProjects({ limit: 100 });
   const projects = projectsQuery.data?.data ?? [];
@@ -584,6 +588,17 @@ function EditorBody({
   }
 
   async function handleSave(finalize: boolean) {
+    if (attendeeManagerRef.current?.hasPendingDraft()) {
+      const addedName = attendeeManagerRef.current.commitPendingDraft();
+      if (addedName) {
+        toast({
+          title: "Participant added",
+          description: `${addedName} was still in the "Add Meeting Participant" row, so we added them before saving. Review the attendee list and save again.`,
+        });
+      }
+      return;
+    }
+
     const fErrors: Record<string, string> = {};
     if (!state.projectId) fErrors.projectId = "Please select a project.";
     if (!state.meetingTitle.trim())
@@ -1257,6 +1272,7 @@ function EditorBody({
                         {section.title}
                       </h3>
                       <AttendeeListManager
+                        ref={attendeeManagerRef}
                         attendees={state.attendees}
                         absentees={state.absentees}
                         error={fieldErrors.attendees}

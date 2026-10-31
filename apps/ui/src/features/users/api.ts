@@ -4,6 +4,7 @@ import type {
   CreateUserInput,
   PaginatedEnvelope,
   QueryUsersInput,
+  ResetUserPasswordResult,
   UpdateUserInput,
   User,
 } from "@texawave-erp/api-types";
@@ -43,6 +44,15 @@ export async function updateUser(
 
 export async function deleteUser(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete<void>(`/users/${id}`));
+}
+
+export async function resetUserPassword(
+  id: number,
+): Promise<ResetUserPasswordResult> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<ResetUserPasswordResult>(`/users/${id}/reset-password`, {}),
+  );
+  return data;
 }
 
 export async function assignUserRoles(

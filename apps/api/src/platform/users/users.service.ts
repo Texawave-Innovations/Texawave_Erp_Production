@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
+import { generateTemporaryPassword } from "../../common/validation/password-policy.js";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto.js";
 import type { PaginationDto } from "../../common/dto/pagination.dto.js";
 import {
@@ -169,6 +170,27 @@ export class UsersService {
     await this.repository.assignRoles(scope, id, dto.roleIds, callerId);
     await this.permissions.invalidate(id);
     return this.repository.findOneDetail(scope, id);
+  }
+
+  /** Generates a new temporary password, hashes it for storage, and returns
+   * the plaintext once — the API never persists or logs it. The user must
+   * change it on next login. */
+  async resetPassword(id: number) {
+    const scope = this.tenantContext.getOrgScope();
+    const callerId = this.tenantContext.getUserId();
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, BCRYPT_ROUNDS);
+    const found = await this.repository.resetPasswordByAdmin(
+      scope,
+      id,
+      passwordHash,
+      callerId,
+    );
+    if (!found) {
+      throw new ResourceNotFoundException("User", id);
+    }
+    return { temporaryPassword };
   }
 
   async assignTeams(id: number, dto: AssignUserTeamsDto) {
