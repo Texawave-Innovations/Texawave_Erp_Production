@@ -23,16 +23,25 @@ import {
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
-import { Plus, Pencil, Shield, Users as UsersIcon, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Shield,
+  Users as UsersIcon,
+  Trash2,
+  KeyRound,
+} from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
 import {
   useCreateUser,
   useDeleteUser,
+  useResetUserPassword,
   useUpdateUser,
   useUsers,
 } from "../hooks";
 import { AssignRolesModal } from "./AssignRolesModal";
 import { AssignTeamsModal } from "./AssignTeamsModal";
+import { PortalCredentialsDialog } from "./PortalCredentialsDialog";
 import { UserForm } from "./UserForm";
 import { userErrorDescription } from "../errors";
 
@@ -60,6 +69,8 @@ export function UsersView() {
     null,
   );
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [credentialsFor, setCredentialsFor] = useState<User | null>(null);
+  const [credentials, setCredentials] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -71,6 +82,23 @@ export function UsersView() {
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
+  const resetPasswordMutation = useResetUserPassword();
+
+  async function handleResetPassword(user: User) {
+    try {
+      const result = await resetPasswordMutation.mutateAsync(user.id);
+      setCredentialsFor(user);
+      setCredentials(result.temporaryPassword);
+    } catch (error) {
+      toast({
+        title:
+          error instanceof ApiError
+            ? error.message
+            : "Failed to reset password",
+        variant: "error",
+      });
+    }
+  }
 
   const rawUsers = useMemo(() => query.data?.data ?? [], [query.data?.data]);
   const meta = query.data?.meta;
@@ -432,6 +460,11 @@ export function UsersView() {
                         onClick: () => setAssigningTeamsUser(u),
                       },
                       {
+                        label: "Reset password",
+                        icon: <KeyRound className="h-3.5 w-3.5" />,
+                        onClick: () => void handleResetPassword(u),
+                      },
+                      {
                         label: "Delete user",
                         icon: <Trash2 className="h-3.5 w-3.5" />,
                         variant: "destructive",
@@ -538,6 +571,18 @@ export function UsersView() {
         itemName={deletingUser?.fullName ?? ""}
         loading={deleteMutation.isPending}
       />
+
+      {credentialsFor && credentials ? (
+        <PortalCredentialsDialog
+          open
+          onClose={() => {
+            setCredentialsFor(null);
+            setCredentials(null);
+          }}
+          username={credentialsFor.email}
+          password={credentials}
+        />
+      ) : null}
     </div>
   );
 }

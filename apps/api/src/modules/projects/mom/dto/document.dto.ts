@@ -66,26 +66,31 @@ export class CreateMomDocumentDto {
   @ApiPropertyOptional({ description: "MomAttendee[]" })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   attendeesJson?: unknown[];
 
   @ApiPropertyOptional({ description: "MomAttendee[] (absent)" })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   absenteesJson?: unknown[];
 
   @ApiPropertyOptional({ description: "MomAgendaItem[]" })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   agendaJson?: unknown[];
 
   @ApiPropertyOptional({ description: "MomNoteRow[]" })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   meetingNotesJson?: unknown[];
 
   @ApiPropertyOptional({ description: "MomAdditionalSection[]" })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   additionalSectionsJson?: unknown[];
 
   @ApiPropertyOptional()

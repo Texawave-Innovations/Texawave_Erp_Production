@@ -516,13 +516,20 @@ export class EmployeesRepository {
       if (!force) assertReviewable(before.onboardingReviewStatus);
 
       const outcome = reviewOutcome(decision);
+      // A force-approved profile was never submitted, so it never went
+      // through the submit step that normally flips onboardingStatus to
+      // COMPLETE — without this, landingPathAfterLogin keeps sending the
+      // employee back into the wizard despite being Approved.
+      const forceApproved = force && decision === "approve";
       const after = await tx.employee.update({
         where: { id },
         data: {
           onboardingReviewStatus: outcome.reviewStatus,
           ...(outcome.onboardingStatus
             ? { onboardingStatus: outcome.onboardingStatus }
-            : {}),
+            : forceApproved
+              ? { onboardingStatus: "COMPLETE" }
+              : {}),
           onboardingReviewedAt: new Date(),
           onboardingReviewedBy: actorId,
           onboardingReviewNote: note,
