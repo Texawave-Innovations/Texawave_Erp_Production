@@ -380,8 +380,10 @@ describe("ReportsService", () => {
 
       expect(result.openingBalance).toBe(8000);
       expect(result.transactions).toHaveLength(2);
-      expect(result.transactions[0]?.runningBalance).toBe(11000); // 8000 + 3000
-      expect(result.transactions[1]?.runningBalance).toBe(9500); // 11000 - 1500
+      // Transactions are displayed newest-first; running balances are still
+      // computed chronologically (oldest first) under the hood.
+      expect(result.transactions[0]?.runningBalance).toBe(9500); // 11000 - 1500
+      expect(result.transactions[1]?.runningBalance).toBe(11000); // 8000 + 3000
       expect(result.totalDebit).toBe(3000);
       expect(result.totalCredit).toBe(1500);
       expect(result.closingBalance).toBe(9500);

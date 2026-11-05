@@ -3241,11 +3241,6 @@ model CompanyDetail {
   logoDataUri    String?   @map("logo_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -4054,11 +4049,6 @@ model AuthorizedSignatory {
   designation    String?
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -4162,8 +4152,6 @@ model Salesperson {
   commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
   customFields      Json      @default("{}") @map("custom_fields")
   isActive          Boolean   @default(true) @map("is_active")
-  createdBy         Int?      @map("created_by")
-  updatedBy         Int?      @map("updated_by")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -4330,8 +4318,6 @@ model SealSignature {
   imageDataUri   String    @map("image_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
