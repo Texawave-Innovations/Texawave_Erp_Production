@@ -1,0 +1,1 @@
+node scripts/post-pull-sync.mjs
