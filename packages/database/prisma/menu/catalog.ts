@@ -253,6 +253,14 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "employee_self_service.task.read",
   },
   {
+    code: "portal-work",
+    label: "My Work",
+    path: "/portal/work",
+    order: 16,
+    parentCode: "portal",
+    permission: "projects.timer.write",
+  },
+  {
     code: "portal-tickets",
     label: "Tickets",
     path: "/portal/tickets",

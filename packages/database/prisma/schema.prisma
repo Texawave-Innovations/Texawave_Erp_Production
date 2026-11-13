@@ -6431,6 +6431,9 @@ model Project {
   description            String?
   customerId             Int?          @map("customer_id")
   customerName           String?       @map("customer_name")
+  /// Sales customer the project is for — the source the project form picks
+  /// from. `customerId` (CRM account) is legacy and no longer written.
+  salesCustomerId        Int?          @map("sales_customer_id")
   projectType            String?       @map("project_type")
   /// Multi-department selection (legacy `ProjectForm.tsx` chip-toggle UX) —
   /// a project can span more than one department, unlike the single-string
@@ -6458,6 +6461,7 @@ model Project {
 
   organization         Organization       @relation(fields: [organizationId], references: [id])
   customer             Account?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesCustomer        SalesCustomer?     @relation(fields: [salesCustomerId], references: [id], onDelete: SetNull)
   clientHandlingPerson Employee?          @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
   members              ProjectMember[]
   milestones           ProjectMilestone[]
@@ -6468,6 +6472,7 @@ model Project {
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
+  @@index([organizationId, salesCustomerId])
   @@map("projects")
   @@schema("projects")
 }
@@ -7380,6 +7385,7 @@ model SalesCustomer {
   invoices         SalesInvoice[]
   deliveryChallans SalesDeliveryChallan[]
   returnableDcs    SalesReturnableDc[]
+  projects         Project[]
 
   @@unique([organizationId, customerCode])
   @@index([organizationId, companyName])
