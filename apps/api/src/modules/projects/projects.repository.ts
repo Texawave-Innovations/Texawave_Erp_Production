@@ -50,7 +50,9 @@ export class ProjectsRepository {
       ...(restrictToIds ? { id: { in: restrictToIds } } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.department ? { departments: { has: query.department } } : {}),
-      ...(query.customerId ? { customerId: query.customerId } : {}),
+      ...(query.salesCustomerId
+        ? { salesCustomerId: query.salesCustomerId }
+        : {}),
       ...(query.search
         ? {
             OR: [
@@ -72,8 +74,8 @@ export class ProjectsRepository {
           clientHandlingPerson: {
             select: { id: true, fullName: true, employeeCode: true },
           },
-          customer: {
-            select: { id: true, name: true },
+          salesCustomer: {
+            select: { id: true, customerCode: true, companyName: true },
           },
           members: {
             include: {
@@ -181,8 +183,8 @@ export class ProjectsRepository {
             workEmail: true,
           },
         },
-        customer: {
-          select: { id: true, name: true },
+        salesCustomer: {
+          select: { id: true, customerCode: true, companyName: true },
         },
         members: {
           include: {
@@ -216,6 +218,44 @@ export class ProjectsRepository {
     });
   }
 
+  /** A live Sales customer of this organization (used to validate the link
+   * and to copy the company name onto the project). */
+  @OrgScoped()
+  findSalesCustomer(scope: OrgScope, id: number) {
+    return this.prisma.salesCustomer.findFirst({
+      where: tenantWhere(scope, { id, deletedAt: null }),
+      select: { id: true, customerCode: true, companyName: true, status: true },
+    });
+  }
+
+  /** Customer picker rows — identity only, so a projects user never receives
+   * the bank/tax details the full Sales customer endpoint returns. */
+  @OrgScoped()
+  searchSalesCustomers(
+    scope: OrgScope,
+    search: string | undefined,
+    take: number,
+  ) {
+    const where: Prisma.SalesCustomerWhereInput = tenantWhere(scope, {
+      deletedAt: null,
+      status: "ACTIVE",
+      ...(search
+        ? {
+            OR: [
+              { companyName: { contains: search, mode: "insensitive" } },
+              { customerCode: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    });
+    return this.prisma.salesCustomer.findMany({
+      where,
+      orderBy: { companyName: "asc" },
+      take,
+      select: { id: true, customerCode: true, companyName: true },
+    });
+  }
+
   @OrgScoped()
   findByCode(scope: OrgScope, projectCode: string) {
     return this.prisma.project.findFirst({
@@ -243,7 +283,7 @@ export class ProjectsRepository {
           projectCode,
           name: dto.name,
           description: dto.description ?? null,
-          customerId: dto.customerId ?? null,
+          salesCustomerId: dto.salesCustomerId ?? null,
           customerName: dto.customerName ?? null,
           projectType: dto.projectType ?? null,
           departments: dto.departments ?? [],
@@ -303,7 +343,7 @@ export class ProjectsRepository {
       name,
       status,
       description,
-      customerId,
+      salesCustomerId,
       customerName,
       projectType,
       departments,
@@ -311,13 +351,13 @@ export class ProjectsRepository {
       clientHandlingPersonId,
     } = dto;
 
-    const data: Prisma.ProjectUpdateInput = {
+    const data: Prisma.ProjectUncheckedUpdateManyInput = {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(description !== undefined
         ? { description: description ?? null }
         : {}),
-      ...(customerId !== undefined ? { customerId: customerId ?? null } : {}),
+      ...(salesCustomerId !== undefined ? { salesCustomerId } : {}),
       ...(customerName !== undefined
         ? { customerName: customerName ?? null }
         : {}),
@@ -607,7 +647,17 @@ export class ProjectsRepository {
       },
       include: {
         project: {
-          select: { id: true, projectCode: true, name: true, status: true },
+          select: {
+            id: true,
+            projectCode: true,
+            name: true,
+            status: true,
+            // The employee task-update modal shows the client without a
+            // separate (org-wide) project read.
+            customerName: true,
+            salesCustomerId: true,
+            clientHandlingPerson: { select: { id: true, fullName: true } },
+          },
         },
         milestone: {
           select: { id: true, title: true, targetDate: true, status: true },
@@ -911,9 +961,13 @@ export class ProjectsRepository {
   }
 
   @OrgScoped()
-  findTaskTimeEntries(scope: OrgScope, taskId: number) {
+  findTaskTimeEntries(scope: OrgScope, taskId: number, employeeId?: number) {
     return this.prisma.projectTimeEntry.findMany({
-      where: { organizationId: scope.organizationId, taskId },
+      where: {
+        organizationId: scope.organizationId,
+        taskId,
+        ...(employeeId !== undefined ? { employeeId } : {}),
+      },
       include: {
         employee: {
           select: { id: true, fullName: true, employeeCode: true },

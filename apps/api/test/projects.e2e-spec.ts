@@ -222,6 +222,137 @@ describe("Projects Module (e2e)", () => {
     await app.close();
   });
 
+  describe("Project customer link (Sales customers)", () => {
+    const tag = randomUUID().slice(0, 8);
+    let ownCustomer: { id: number; companyName: string };
+    let otherOrgCustomer: { id: number };
+    let linkedProjectId: number;
+
+    function makeCustomer(organizationId: number, name: string, code: string) {
+      return prisma.salesCustomer.create({
+        data: {
+          organizationId,
+          customerCode: code,
+          companyName: name,
+          contactPerson: "Buyer",
+          email: `buyer-${code}@example.test`,
+          mobileNumber: "9876543210",
+          bankName: "Secret Bank",
+        },
+      });
+    }
+
+    beforeAll(async () => {
+      ownCustomer = await makeCustomer(
+        orgA.id,
+        `Acme Industries ${tag}`,
+        `C-A-${tag}`,
+      );
+      otherOrgCustomer = await makeCustomer(
+        orgB.id,
+        `Foreign Co ${tag}`,
+        `C-B-${tag}`,
+      );
+    });
+
+    it("lists only this organization's active customers, identity fields only", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/projects/customers")
+        .query({ search: tag })
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(200);
+
+      const rows = (res.body as ApiResponse<Record<string, unknown>[]>).data;
+      expect(rows.map((r) => r.id)).toEqual([ownCustomer.id]);
+      expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
+        "companyName",
+        "customerCode",
+        "id",
+      ]);
+    });
+
+    it("rejects the customer picker without projects.project.write", async () => {
+      await request(app.getHttpServer())
+        .get("/projects/customers")
+        .set("Authorization", `Bearer ${tokenNoPerm}`)
+        .expect(403);
+    });
+
+    it("creates a project linked to a Sales customer and copies its company name", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/projects")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          name: "Linked customer project",
+          salesCustomerId: ownCustomer.id,
+          customerName: "ignored free text",
+          startDate: "2026-10-01",
+        })
+        .expect(201);
+
+      const body = (
+        res.body as ApiResponse<{
+          id: number;
+          salesCustomerId: number | null;
+          customerName: string | null;
+          salesCustomer: { id: number; companyName: string } | null;
+        }>
+      ).data;
+      linkedProjectId = body.id;
+      expect(body.salesCustomerId).toBe(ownCustomer.id);
+      expect(body.customerName).toBe(ownCustomer.companyName);
+      expect(body.salesCustomer?.companyName).toBe(ownCustomer.companyName);
+    });
+
+    it("filters the project list by salesCustomerId", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/projects")
+        .query({ salesCustomerId: ownCustomer.id })
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(200);
+
+      const ids = (res.body as ApiResponse<{ id: number }[]>).data.map(
+        (p) => p.id,
+      );
+      expect(ids).toEqual([linkedProjectId]);
+    });
+
+    it("rejects a customer that belongs to another organization", async () => {
+      await request(app.getHttpServer())
+        .post("/projects")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({
+          name: "Cross-tenant customer",
+          salesCustomerId: otherOrgCustomer.id,
+          startDate: "2026-10-01",
+        })
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .patch(`/projects/${linkedProjectId}`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ salesCustomerId: otherOrgCustomer.id })
+        .expect(404);
+    });
+
+    it("clears the link and the copied name when salesCustomerId is null", async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/projects/${linkedProjectId}`)
+        .set("Authorization", `Bearer ${tokenA}`)
+        .send({ salesCustomerId: null })
+        .expect(200);
+
+      const body = (
+        res.body as ApiResponse<{
+          salesCustomerId: number | null;
+          customerName: string | null;
+        }>
+      ).data;
+      expect(body.salesCustomerId).toBeNull();
+      expect(body.customerName).toBeNull();
+    });
+  });
+
   describe("Projects Lifecycle", () => {
     let createdProjectId: number;
     let createdMilestoneId: number;

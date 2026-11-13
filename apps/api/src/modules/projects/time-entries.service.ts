@@ -245,6 +245,20 @@ export class TimeEntriesService {
     return this.repository.findTaskTimeEntries(scope, taskId);
   }
 
+  /** The caller's own time entries on a task. Unlike `findTaskTimeEntries`
+   * it never returns other people's entries, so it is safe for the employee
+   * portal (no `projects.project.read`). 404s unless the task is assigned to
+   * the caller. */
+  async findMyTaskTimeEntries(taskId: number) {
+    const scope = this.tenantContext.getOrgScope();
+    const employee = await this.employeeQuery.findCurrentEmployeeOrNull();
+    const task = await this.repository.findTaskById(scope, taskId);
+    if (!employee || !task || task.assignedToId !== employee.id) {
+      throw new ResourceNotFoundException("Task", taskId);
+    }
+    return this.repository.findTaskTimeEntries(scope, taskId, employee.id);
+  }
+
   /** "Logged Today" / "This Week" for an employee (closed entries; the UI
    * adds a running timer's live elapsed time on top). */
   async getTimeSummary(employeeId: number) {

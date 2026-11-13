@@ -185,18 +185,24 @@ export class ProjectsService {
 
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
+    const customerName = await this.resolveCustomerName(dto);
     // Legacy format `TXW/PRJ/<type>/<FY>/<seq>` from the Project Code Master;
     // the FY label follows the project's start date unless the master pins one.
     const cfg = await this.codeMaster.findOne();
-    const project = await this.repository.create(scope, dto, userId, {
-      companyPrefix: cfg.companyPrefix,
-      moduleIdentifier: cfg.moduleIdentifier,
-      typeCode: dto.projectType?.trim() || cfg.defaultProjectCode || null,
-      financialYear:
-        cfg.financialYear?.trim() ||
-        financialYearLabel(new Date(dto.startDate)),
-      sequenceDigits: cfg.sequenceDigits,
-    });
+    const project = await this.repository.create(
+      scope,
+      { ...dto, ...(customerName !== undefined ? { customerName } : {}) },
+      userId,
+      {
+        companyPrefix: cfg.companyPrefix,
+        moduleIdentifier: cfg.moduleIdentifier,
+        typeCode: dto.projectType?.trim() || cfg.defaultProjectCode || null,
+        financialYear:
+          cfg.financialYear?.trim() ||
+          financialYearLabel(new Date(dto.startDate)),
+        sequenceDigits: cfg.sequenceDigits,
+      },
+    );
     return this.findOne(project.id);
   }
 
@@ -225,11 +231,42 @@ export class ProjectsService {
     }
 
     const userId = this.tenantContext.getUserId();
-    const updated = await this.repository.update(scope, id, dto, userId);
+    const customerName = await this.resolveCustomerName(dto);
+    const updated = await this.repository.update(
+      scope,
+      id,
+      { ...dto, ...(customerName !== undefined ? { customerName } : {}) },
+      userId,
+    );
     if (!updated) {
       throw new ResourceNotFoundException("Project", id);
     }
     return this.findOne(id);
+  }
+
+  /** Picker rows for the project form: active Sales customers, identity only. */
+  async searchCustomers(search?: string) {
+    const scope = this.tenantContext.getOrgScope();
+    return this.repository.searchSalesCustomers(scope, search?.trim(), 50);
+  }
+
+  /** The Sales customer's company name is the project's customer name, so the
+   * proposal/MoM documents that read `customerName` follow the Sales record.
+   * Returns undefined when the request does not touch the customer link. */
+  private async resolveCustomerName(dto: {
+    salesCustomerId?: number | null;
+  }): Promise<string | null | undefined> {
+    if (dto.salesCustomerId === undefined) return undefined;
+    if (dto.salesCustomerId === null) return null;
+    const scope = this.tenantContext.getOrgScope();
+    const customer = await this.repository.findSalesCustomer(
+      scope,
+      dto.salesCustomerId,
+    );
+    if (!customer) {
+      throw new ResourceNotFoundException("Customer", dto.salesCustomerId);
+    }
+    return customer.companyName;
   }
 
   async softDelete(id: number) {

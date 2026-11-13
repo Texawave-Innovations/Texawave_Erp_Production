@@ -38,8 +38,10 @@ export class TimeEntriesController {
     return this.service.getMyAttendanceStatus();
   }
 
+  // Own-data endpoint: gated like the My Work menu item and the stopwatch
+  // (projects.timer.write), so employees need no org-wide project read.
   @Get("time-summary/me")
-  @RequirePermission("projects.project.read")
+  @RequirePermission("projects.timer.write")
   @ApiOperation({
     summary: "Logged-today / this-week minutes for the authenticated employee",
   })
@@ -85,6 +87,15 @@ export class TimeEntriesController {
     @Body() dto: CreateTimeEntryDto,
   ) {
     return this.service.createManualTimeEntry(taskId, dto);
+  }
+
+  @Get(":taskId/time-entries/mine")
+  @RequirePermission("projects.timer.write")
+  @ApiOperation({
+    summary: "The caller's own time entries on a task assigned to them",
+  })
+  getMyTaskTimeEntries(@Param("taskId", ParseIntPipe) taskId: number) {
+    return this.service.findMyTaskTimeEntries(taskId);
   }
 
   @Get(":taskId/time-entries")

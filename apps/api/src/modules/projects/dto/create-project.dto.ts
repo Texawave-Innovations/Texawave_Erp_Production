@@ -25,15 +25,25 @@ export class CreateProjectDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: 1 })
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      "Sales customer id. The server copies its company name into customerName.",
+    nullable: true,
+  })
   @IsOptional()
   @IsInt()
-  customerId?: number;
+  salesCustomerId?: number | null;
 
-  @ApiPropertyOptional({ example: "Global Enterprises Pvt Ltd" })
+  @ApiPropertyOptional({
+    example: "Global Enterprises Pvt Ltd",
+    description:
+      "Free-text client name, used only when no sales customer is selected.",
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
-  customerName?: string;
+  customerName?: string | null;
 
   @ApiPropertyOptional({ example: "Software" })
   @IsOptional()

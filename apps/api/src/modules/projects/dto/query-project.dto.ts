@@ -39,9 +39,9 @@ export class QueryProjectDto extends PaginationDto {
   @IsIn(PROJECT_HEALTH_FILTERS)
   health?: ProjectHealthFilter;
 
-  @ApiPropertyOptional({ description: "Customer/Account ID filter" })
+  @ApiPropertyOptional({ description: "Sales customer ID filter" })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  customerId?: number;
+  salesCustomerId?: number;
 }
