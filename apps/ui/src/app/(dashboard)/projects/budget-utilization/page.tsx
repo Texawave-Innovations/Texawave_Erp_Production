@@ -321,7 +321,10 @@ export default function BudgetUtilizationPage() {
                       {p.name}
                     </Link>
                     <span className="text-[11px] font-semibold text-gray-400">
-                      • {p.customerName || p.customer?.name || "Client"}
+                      •{" "}
+                      {p.customerName ||
+                        p.salesCustomer?.companyName ||
+                        "Client"}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -514,7 +517,7 @@ export default function BudgetUtilizationPage() {
                       </Link>
                     </td>
                     <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                      {p.customerName || p.customer?.name || "—"}
+                      {p.customerName || p.salesCustomer?.companyName || "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 font-bold text-gray-900 dark:text-white">
                       {formatCurrency(p.price)}
@@ -620,7 +623,9 @@ export default function BudgetUtilizationPage() {
                       </Link>
                       <span className="text-[10px] text-gray-400">
                         {p.projectCode} •{" "}
-                        {p.customerName || p.customer?.name || "Client"}
+                        {p.customerName ||
+                          p.salesCustomer?.companyName ||
+                          "Client"}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-gray-600 dark:text-gray-400">

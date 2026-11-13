@@ -364,7 +364,9 @@ export default function ProjectsDashboardPage() {
                           </Link>
                         </td>
                         <td className="px-4 py-4 text-center text-sm font-bold text-gray-800 dark:text-gray-200">
-                          {p.customerName || p.customer?.name || "—"}
+                          {p.customerName ||
+                            p.salesCustomer?.companyName ||
+                            "—"}
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex flex-col items-center gap-1.5">

@@ -10,6 +10,7 @@ import type {
   PointsConfig,
   PointsLeaderboardEntry,
   Project,
+  ProjectCustomerOption,
   ProjectExpense,
   ProjectMilestone,
   ProjectTask,
@@ -34,6 +35,18 @@ export async function listProjects(
     data: Project[];
     meta?: { total: number; page: number; limit: number };
   };
+}
+
+/** Active Sales customers for the project form (identity only). */
+export async function listProjectCustomers(
+  search?: string,
+): Promise<ProjectCustomerOption[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<ProjectCustomerOption[]>("/projects/customers", {
+      query: search ? { search } : {},
+    }),
+  );
+  return data;
 }
 
 export async function getProject(id: number): Promise<Project> {
@@ -254,9 +267,15 @@ export async function createManualTimeEntry(
 
 export async function getTaskTimeEntries(
   taskId: number,
+  mine = false,
 ): Promise<TaskTimeEntry[]> {
+  // `mine` = only the caller's own entries on a task assigned to them (no
+  // org-wide project read needed — the employee portal).
+  const suffix = mine ? "/mine" : "";
   const { data } = await withAuthRetry(() =>
-    apiClient.get<TaskTimeEntry[]>(`/projects/tasks/${taskId}/time-entries`),
+    apiClient.get<TaskTimeEntry[]>(
+      `/projects/tasks/${taskId}/time-entries${suffix}`,
+    ),
   );
   return data;
 }

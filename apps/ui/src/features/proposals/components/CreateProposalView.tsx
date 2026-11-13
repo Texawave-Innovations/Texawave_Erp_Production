@@ -70,7 +70,7 @@ export function CreateProposalView() {
   function selectProject(id: string) {
     setProjectId(id);
     const project = projects.find((p) => String(p.id) === id);
-    const client = project?.customerName ?? project?.customer?.name;
+    const client = project?.customerName ?? project?.salesCustomer?.companyName;
     if (client) setClientName(client);
   }
 

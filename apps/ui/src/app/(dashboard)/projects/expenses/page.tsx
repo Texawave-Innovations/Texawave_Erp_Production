@@ -128,7 +128,7 @@ export default function ExpensesPage() {
   );
   const clientOfProject = (projectId: number): string => {
     const p = projectById.get(projectId);
-    return p?.customerName || p?.customer?.name || "";
+    return p?.customerName || p?.salesCustomer?.companyName || "";
   };
   const clientOf = (exp: ProjectExpense): string =>
     clientOfProject(exp.projectId);
@@ -217,7 +217,7 @@ export default function ExpensesPage() {
           exp.notes,
           exp.department,
           p?.customerName,
-          p?.customer?.name,
+          p?.salesCustomer?.companyName,
         ]
           .filter(Boolean)
           .join(" ")

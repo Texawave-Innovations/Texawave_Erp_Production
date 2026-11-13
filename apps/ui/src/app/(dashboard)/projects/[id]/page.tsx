@@ -557,11 +557,13 @@ export default function ProjectDetailPage({
           <div className="grid grid-cols-1 gap-6 p-6 text-xs sm:grid-cols-2">
             <InfoBlock label="Customer / Client">
               <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                {project.customerName || project.customer?.name || "—"}
+                {project.customerName ||
+                  project.salesCustomer?.companyName ||
+                  "—"}
               </p>
-              {project.customerId ? (
+              {project.salesCustomer ? (
                 <span className="text-[11px] text-gray-400">
-                  ID: {project.customerId}
+                  {project.salesCustomer.customerCode}
                 </span>
               ) : null}
             </InfoBlock>

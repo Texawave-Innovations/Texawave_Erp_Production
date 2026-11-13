@@ -24,6 +24,7 @@ import {
   getTask,
   listExpenses,
   listMyWork,
+  listProjectCustomers,
   listProjects,
   listProjectTasks,
   removeProjectMember,
@@ -53,6 +54,15 @@ export function useProjects(query: Record<string, unknown> = {}) {
   return useQuery({
     queryKey: baseKey(orgId, "list", query),
     queryFn: () => listProjects(query),
+    enabled: Boolean(orgId),
+  });
+}
+
+export function useProjectCustomers(search: string) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "customers", search),
+    queryFn: () => listProjectCustomers(search || undefined),
     enabled: Boolean(orgId),
   });
 }
@@ -336,11 +346,11 @@ export function useStartTimer() {
   });
 }
 
-export function useTaskTimeEntries(taskId: number | undefined) {
+export function useTaskTimeEntries(taskId: number | undefined, mine = false) {
   const orgId = useAuthStore((s) => s.organizationId) ?? 0;
   return useQuery({
-    queryKey: baseKey(orgId, "time-entries", taskId),
-    queryFn: () => getTaskTimeEntries(taskId as number),
+    queryKey: baseKey(orgId, "time-entries", taskId, mine),
+    queryFn: () => getTaskTimeEntries(taskId as number, mine),
     enabled: Boolean(orgId) && Boolean(taskId),
   });
 }

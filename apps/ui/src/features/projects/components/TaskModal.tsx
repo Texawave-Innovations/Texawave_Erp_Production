@@ -208,7 +208,9 @@ function TaskForm({
     (t) => !taskToEdit || t.id !== taskToEdit.id,
   );
   const clientName =
-    project.customerName || project.customer?.name || "Project Client";
+    project.customerName ||
+    project.salesCustomer?.companyName ||
+    "Project Client";
   const clientLead = project.clientHandlingPerson?.fullName ?? "";
   const autoHours = businessHours(startDate, endDate);
 
@@ -263,7 +265,7 @@ function TaskForm({
       dependencyTargetId = Number(depTarget);
       dependencyTargetName = emp?.fullName ?? null;
     } else if (depKind === "client") {
-      dependencyTargetId = project.customerId ?? null;
+      dependencyTargetId = project.salesCustomerId ?? null;
       dependencyTargetName = clientName;
     }
 

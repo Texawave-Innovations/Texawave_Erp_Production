@@ -43,12 +43,12 @@ export function useDebouncedValue<T>(value: T, delayMs = 300): T {
   return debounced;
 }
 
-export function useEmployees(query: EmployeeListQuery) {
+export function useEmployees(query: EmployeeListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "list", query),
     queryFn: () => listEmployees(query),
-    enabled: orgId > 0,
+    enabled: enabled && orgId > 0,
   });
 }
 

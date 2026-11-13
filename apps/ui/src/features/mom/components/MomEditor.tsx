@@ -615,7 +615,7 @@ function EditorBody({
         projectName: selectedProject?.name ?? null,
         clientName:
           selectedProject?.customerName ??
-          selectedProject?.customer?.name ??
+          selectedProject?.salesCustomer?.companyName ??
           null,
         attendees: state.attendees,
         absentees: state.absentees,

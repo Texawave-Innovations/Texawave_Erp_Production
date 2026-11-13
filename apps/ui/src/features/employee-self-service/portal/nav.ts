@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   DoorOpen,
+  FolderKanban,
   FolderOpen,
   HandCoins,
   LayoutDashboard,
@@ -110,6 +111,12 @@ export const PORTAL_NAV_GROUPS: PortalNavGroup[] = [
   {
     label: "WORK & PROJECTS",
     items: [
+      {
+        path: "/portal/work",
+        label: "My Work",
+        icon: FolderKanban,
+        menuCode: "portal-work",
+      },
       {
         path: "/portal/tasks",
         label: "Personal Tasks",
