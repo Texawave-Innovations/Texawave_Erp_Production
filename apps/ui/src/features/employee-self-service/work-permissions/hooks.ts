@@ -5,8 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   createMyWorkPermission,
+  decideWorkPermission,
+  listAllWorkPermissions,
   listMyWorkPermissions,
   type CreateWorkPermissionInput,
+  type ListAllWorkPermissionsInput,
   type WorkPermissionsResult,
 } from "./api";
 
@@ -40,6 +43,43 @@ export function useCreateMyWorkPermission() {
           organizationId ?? 0,
           "self-service-work-permissions",
         ),
+      });
+    },
+  });
+}
+
+export function useAllWorkPermissions(input: ListAllWorkPermissionsInput = {}) {
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useQuery<WorkPermissionsResult>({
+    queryKey: orgScopedKey(
+      organizationId ?? 0,
+      "hr-work-permissions",
+      "list",
+      input.status ?? "ALL",
+      input.year ?? "all",
+      input.page ?? 1,
+    ),
+    queryFn: () => listAllWorkPermissions({ ...input, limit: 20 }),
+    enabled: Boolean(organizationId),
+  });
+}
+
+export function useDecideWorkPermission() {
+  const queryClient = useQueryClient();
+  const organizationId = useAuthStore((s) => s.organizationId);
+  return useMutation({
+    mutationFn: ({
+      id,
+      decision,
+      hrNote,
+    }: {
+      id: number;
+      decision: "APPROVED" | "REJECTED";
+      hrNote?: string;
+    }) => decideWorkPermission(id, decision, hrNote),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(organizationId ?? 0, "hr-work-permissions"),
       });
     },
   });

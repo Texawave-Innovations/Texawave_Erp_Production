@@ -50,3 +50,43 @@ export async function createMyWorkPermission(
   );
   return data;
 }
+
+export interface ListAllWorkPermissionsInput {
+  status?: string;
+  year?: number;
+  page?: number;
+  limit?: number;
+}
+
+export async function listAllWorkPermissions(
+  input: ListAllWorkPermissionsInput = {},
+): Promise<WorkPermissionsResult> {
+  const envelope = await withAuthRetry(() =>
+    apiClient.get<WorkPermission[]>("/hr/work-permissions", {
+      query: {
+        limit: input.limit ?? 20,
+        page: input.page ?? 1,
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.year ? { year: input.year } : {}),
+      },
+    }),
+  );
+  return {
+    items: envelope.data,
+    meta: envelope.meta ?? { page: 1, limit: 20, total: 0, totalPages: 0 },
+  };
+}
+
+export async function decideWorkPermission(
+  id: number,
+  decision: "APPROVED" | "REJECTED",
+  hrNote?: string,
+): Promise<WorkPermission> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<WorkPermission>(`/hr/work-permissions/${id}/decide`, {
+      decision,
+      hrNote,
+    }),
+  );
+  return data;
+}
