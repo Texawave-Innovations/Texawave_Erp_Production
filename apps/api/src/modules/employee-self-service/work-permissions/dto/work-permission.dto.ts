@@ -58,3 +58,33 @@ export class QueryMyWorkPermissionsDto extends PaginationDto {
   @Max(2100)
   year?: number;
 }
+
+export class QueryAllWorkPermissionsDto extends PaginationDto {
+  @ApiPropertyOptional({ description: "Filter by status", example: "PENDING" })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: "Filter by year (YYYY)", example: 2026 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2020)
+  @Max(2100)
+  year?: number;
+}
+
+export class DecideWorkPermissionDto {
+  @ApiProperty({ description: "APPROVED or REJECTED", example: "APPROVED" })
+  @IsString()
+  decision!: string;
+
+  @ApiPropertyOptional({
+    description: "Note for the employee (required when rejecting)",
+  })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(500)
+  hrNote?: string;
+}

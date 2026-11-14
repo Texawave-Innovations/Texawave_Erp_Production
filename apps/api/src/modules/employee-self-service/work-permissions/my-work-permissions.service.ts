@@ -9,6 +9,8 @@ import { TenantContextService } from "../../../platform/tenancy/tenant-context.s
 import { EmployeeQueryService } from "../../hr/employees/employee-query.service.js";
 import type {
   CreateWorkPermissionDto,
+  DecideWorkPermissionDto,
+  QueryAllWorkPermissionsDto,
   QueryMyWorkPermissionsDto,
 } from "./dto/work-permission.dto.js";
 import { MyWorkPermissionsRepository } from "./my-work-permissions.repository.js";
@@ -114,5 +116,60 @@ export class MyWorkPermissionsService {
     );
     if (!row) throw new ResourceNotFoundException("Work permission", id);
     return row;
+  }
+
+  async findAll(query: QueryAllWorkPermissionsDto) {
+    const { items, total } = await this.repository.findAll(
+      this.tenantContext.getOrgScope(),
+      {
+        status: query.status,
+        year: query.year,
+        skip: query.skip,
+        limit: query.limit,
+      },
+    );
+    return new PaginatedResponseDto(items, total, query.page, query.limit);
+  }
+
+  async decide(id: number, dto: DecideWorkPermissionDto) {
+    const scope = this.tenantContext.getOrgScope();
+    const userId = this.tenantContext.getUserId();
+
+    if (!["APPROVED", "REJECTED"].includes(dto.decision)) {
+      throw new BusinessRuleViolationException(
+        "decision must be APPROVED or REJECTED",
+        "INVALID_DECISION",
+      );
+    }
+    if (dto.decision === "REJECTED" && !dto.hrNote?.trim()) {
+      throw new BusinessRuleViolationException(
+        "A note is required when rejecting a permission request",
+        "NOTE_REQUIRED",
+      );
+    }
+
+    const existing = await this.repository.findOne(scope, id);
+    if (!existing) throw new ResourceNotFoundException("Work permission", id);
+    if (existing.status !== "PENDING") {
+      throw new BusinessRuleViolationException(
+        "Only PENDING requests can be decided",
+        "ALREADY_DECIDED",
+      );
+    }
+
+    const updated = await this.repository.decide(scope, id, {
+      status: dto.decision,
+      hrNote: dto.hrNote,
+      decidedBy: userId,
+    });
+
+    void this.notifications.notifyUser(scope, existing.requestedBy, {
+      type: "work_permission.decided",
+      title: `Permission Request ${dto.decision === "APPROVED" ? "Approved" : "Rejected"}`,
+      body: `Your permission request on ${existing.date.toISOString().slice(0, 10)} from ${existing.fromTime} to ${existing.toTime} was ${dto.decision.toLowerCase()}.${dto.hrNote ? ` Note: ${dto.hrNote}` : ""}`,
+      link: `/portal/permissions`,
+    });
+
+    return updated;
   }
 }

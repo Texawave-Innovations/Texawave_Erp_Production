@@ -86,4 +86,60 @@ export class MyWorkPermissionsRepository {
       include: INCLUDE,
     });
   }
+
+  @OrgScoped()
+  async findAll(
+    scope: OrgScope,
+    query: { status?: string; year?: number; skip: number; limit: number },
+  ) {
+    const where = {
+      organizationId: scope.organizationId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.year
+        ? {
+            date: {
+              gte: new Date(`${query.year}-01-01`),
+              lte: new Date(`${query.year}-12-31`),
+            },
+          }
+        : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.workPermission.findMany({
+        where,
+        include: INCLUDE,
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        skip: query.skip,
+        take: query.limit,
+      }),
+      this.prisma.workPermission.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  @OrgScoped()
+  findOne(scope: OrgScope, id: number) {
+    return this.prisma.workPermission.findFirst({
+      where: { id, organizationId: scope.organizationId },
+      include: INCLUDE,
+    });
+  }
+
+  @OrgScoped()
+  decide(
+    scope: OrgScope,
+    id: number,
+    data: { status: string; hrNote?: string; decidedBy: number },
+  ) {
+    return this.prisma.workPermission.update({
+      where: { id, organizationId: scope.organizationId },
+      data: {
+        status: data.status,
+        hrNote: data.hrNote ?? null,
+        decidedBy: data.decidedBy,
+        decidedAt: new Date(),
+      },
+      include: INCLUDE,
+    });
+  }
 }
