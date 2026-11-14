@@ -502,25 +502,25 @@ function RequestDialog({ onClose }: { onClose: () => void }) {
 
 function HistoryTable({ items }: { items: WorkPermission[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+    <div className="overflow-x-auto rounded-xl border border-brand-200 dark:border-brand-800/40">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+          <tr className="border-b border-brand-100 bg-brand-50/60 dark:border-brand-800/30 dark:bg-brand-900/10">
             {["Date", "Time", "Duration", "Reason", "Status"].map((h) => (
               <th
                 key={h}
-                className="px-4 py-3 first:pl-5 last:pr-5 text-theme-xs font-semibold text-gray-500 dark:text-gray-400"
+                className="px-4 py-3 first:pl-5 last:pr-5 text-theme-xs font-semibold text-brand-700 dark:text-brand-400"
               >
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-brand-100 dark:divide-brand-800/30">
           {items.map((item) => (
             <tr
               key={item.id}
-              className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors"
+              className="hover:bg-brand-50/40 dark:hover:bg-brand-900/10 transition-colors"
             >
               <td className="px-4 py-3 pl-5 text-theme-sm font-medium text-gray-900 dark:text-white/90 whitespace-nowrap">
                 {formatDate(item.date)}
@@ -540,13 +540,15 @@ function HistoryTable({ items }: { items: WorkPermission[] }) {
                 </span>
               </td>
               <td className="px-4 py-3 pr-5">
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col items-start gap-1">
                   <StatusBadge status={item.status} />
                   {item.status === "REJECTED" && item.hrNote ? (
-                    <span
-                      className="max-w-[180px] truncate text-[11px] text-error-600 dark:text-error-400"
-                      title={item.hrNote}
-                    >
+                    <span className="text-[11px] text-error-600 dark:text-error-400 whitespace-normal break-words">
+                      Note: {item.hrNote}
+                    </span>
+                  ) : null}
+                  {item.status === "APPROVED" && item.hrNote ? (
+                    <span className="text-[11px] text-success-600 dark:text-success-400 whitespace-normal break-words">
                       Note: {item.hrNote}
                     </span>
                   ) : null}
