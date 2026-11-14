@@ -503,7 +503,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Filter & Search card */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-4 py-3 text-xs font-bold text-gray-700 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-300">
           <Filter className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
           Filter &amp; Search Expenses
@@ -558,25 +558,42 @@ export default function ExpensesPage() {
               ))}
             </select>
           </div>
-          <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-            <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-              Date From:
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className={selectClass}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-              Date To:
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className={selectClass}
-              />
-            </label>
+          <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="expense-date-from"
+                className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap"
+              >
+                Date From:
+              </label>
+              <div className="w-44">
+                <Input
+                  id="expense-date-from"
+                  aria-label="Date From"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="expense-date-to"
+                className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap"
+              >
+                Date To:
+              </label>
+              <div className="w-44">
+                <Input
+                  id="expense-date-to"
+                  aria-label="Date To"
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+            </div>
             {hasActiveFilters ? (
               <Button
                 type="button"

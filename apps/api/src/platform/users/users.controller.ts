@@ -71,6 +71,16 @@ export class UsersController {
     return this.users.remove(id);
   }
 
+  @Post(":id/reset-password")
+  @RequirePermission("users.user.write")
+  @ApiOperation({
+    summary:
+      "Generate a new temporary password for this user, returned once so an admin can share it",
+  })
+  resetPassword(@Param("id", ParseIntPipe) id: number) {
+    return this.users.resetPassword(id);
+  }
+
   @Post(":id/roles")
   @RequirePermission("users.user.write")
   @ApiOperation({ summary: "Assign roles to user (org-scoped)" })

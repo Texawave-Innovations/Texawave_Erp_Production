@@ -35,6 +35,8 @@ import { usePermission } from "@/hooks/usePermission";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import { PortalCredentialsDialog } from "@/features/users/components/PortalCredentialsDialog";
+import { useResetUserPassword } from "@/features/users/hooks";
 import {
   useEmployee,
   useEmployeeStatusHistory,
@@ -90,9 +92,32 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const unlinkMutation = useUnlinkEmployeeUser();
+  const resetPasswordMutation = useResetUserPassword();
+  const [credentials, setCredentials] = useState<{
+    username: string;
+    password: string;
+  } | null>(null);
   const { toast } = useToast();
   const { formatDate } = useRegionalFormatter();
   const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
+
+  async function handleResetPassword(userId: number, email: string | null) {
+    try {
+      const result = await resetPasswordMutation.mutateAsync(userId);
+      setCredentials({
+        username: email ?? "",
+        password: result.temporaryPassword,
+      });
+    } catch (error) {
+      toast({
+        title:
+          error instanceof ApiError
+            ? error.message
+            : "Failed to reset password",
+        variant: "error",
+      });
+    }
+  }
 
   if (!canRead) {
     return (
@@ -463,6 +488,23 @@ export function EmployeeDetailView({ id }: { id: number }) {
                         {e.hasLogin ? "Unlink" : "Create / Link"}
                       </Button>
                     ) : null}
+                    {(canAccount || canWrite) && e.hasLogin && e.userId ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={resetPasswordMutation.isPending}
+                        onClick={() =>
+                          void handleResetPassword(
+                            e.userId as number,
+                            e.workEmail,
+                          )
+                        }
+                        className="h-7 px-2.5 text-[11px]"
+                      >
+                        Reset password
+                      </Button>
+                    ) : null}
                   </div>
                 </DetailField>
               </dl>
@@ -599,6 +641,15 @@ export function EmployeeDetailView({ id }: { id: number }) {
           onClose={() => setLinkDialogOpen(false)}
           employee={e}
           mode="link"
+        />
+      ) : null}
+
+      {credentials ? (
+        <PortalCredentialsDialog
+          open
+          onClose={() => setCredentials(null)}
+          username={credentials.username}
+          password={credentials.password}
         />
       ) : null}
     </div>

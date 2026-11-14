@@ -18,6 +18,7 @@ import {
   deleteUser,
   getUser,
   listUsers,
+  resetUserPassword,
   updateUser,
 } from "./api";
 
@@ -59,6 +60,10 @@ export function useUpdateUser() {
 
 export function useDeleteUser() {
   return useOrgScopedMutation(["users"], (id: number) => deleteUser(id));
+}
+
+export function useResetUserPassword() {
+  return useOrgScopedMutation(["users"], (id: number) => resetUserPassword(id));
 }
 
 export function useAssignUserRoles() {

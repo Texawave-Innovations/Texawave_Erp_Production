@@ -8,6 +8,7 @@ function complete(overrides: Partial<MomFinalizeInput> = {}): MomFinalizeInput {
     meetingDate: "2026-10-20",
     startTime: "10:00",
     endTime: "11:00",
+    location: "Conference Room A",
     attendeesJson: [{ id: "a1", name: "Asha", attendance: "present" }],
     meetingNotesJson: [
       {
@@ -98,5 +99,223 @@ describe("validateMomFinalize", () => {
       complete({ attendeesJson: null, meetingNotesJson: "oops" }),
     );
     expect(errors).toHaveLength(2);
+  });
+});
+
+// ─── BUG 5: MoM Regression Tests ────────────────────────────────────────────────────────────────────────────
+
+describe("BUG 5 — MoM attendee creation and attendance status", () => {
+  // Test A: Attendee with Present status satisfies quorum
+  it("Test A: attendee added as Present satisfies quorum validation", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [
+          { id: "att_1", name: "KAMALESH S", attendance: "present" },
+        ],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  // Test B: Remote attendance satisfies quorum
+  it("Test B: attendee marked Remote satisfies quorum validation", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [{ id: "att_2", name: "Priya R", attendance: "remote" }],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  // Test C: No qualifying attendees blocks finalization
+  it("Test C: empty attendee list blocks finalization with a clear error", () => {
+    const errors = validateMomFinalize(complete({ attendeesJson: [] }));
+    expect(errors).toContain(
+      "At least one attendee must be marked as present or remote.",
+    );
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("Test C: all-absent attendee list blocks finalization", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [
+          { id: "att_a", name: "Ravi K", attendance: "absent" },
+          { id: "att_b", name: "Meena S", attendance: "absent" },
+        ],
+      }),
+    );
+    expect(errors).toContain(
+      "At least one attendee must be marked as present or remote.",
+    );
+  });
+
+  // Test D: Valid quorum — at least one Present/Remote — passes
+  it("parses stringified attendeesJson gracefully", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: JSON.stringify([
+          { id: "att_1", name: "KAMALESH S", attendance: "present" },
+        ]),
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  it("Test D: one Present and one Absent attendee passes quorum", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [
+          { id: "att_1", name: "KAMALESH S", attendance: "present" },
+          { id: "att_2", name: "Ravi K", attendance: "absent" },
+        ],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  it("Test D: mixed Remote + Absent attendees passes quorum", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [
+          { id: "att_1", name: "Priya R", attendance: "remote" },
+          { id: "att_2", name: "Ravi K", attendance: "absent" },
+        ],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  // Test E: Location / Meeting Link is REQUIRED on finalization per TC-09.
+  it("Test E: requires meeting location or virtual link to finalize", () => {
+    expect(validateMomFinalize(complete({ location: null }))).toContain(
+      "Meeting location or virtual link is required to finalize.",
+    );
+    expect(validateMomFinalize(complete({ location: "   " }))).toContain(
+      "Meeting location or virtual link is required to finalize.",
+    );
+    expect(
+      validateMomFinalize(
+        complete({ location: "https://meet.google.com/xyz" }),
+      ),
+    ).toEqual([]);
+  });
+
+  // Test F: Duplicate notification prevention — a single validation failure
+  // produces exactly one error message per rule (not duplicated).
+  it("Test F: one failed validation produces exactly one error message per rule", () => {
+    const errors = validateMomFinalize(complete({ attendeesJson: [] }));
+    const quorumErrors = errors.filter((e) =>
+      e.includes("At least one attendee"),
+    );
+    expect(quorumErrors).toHaveLength(1);
+  });
+
+  // Test G: Successful finalization with a complete, valid MoM
+  it("Test G: a fully complete MoM passes all finalization checks", () => {
+    const errors = validateMomFinalize(
+      complete({
+        attendeesJson: [
+          { id: "att_1", name: "KAMALESH S", attendance: "present" },
+        ],
+        meetingNotesJson: [
+          {
+            id: "n1",
+            order: 1,
+            agendaItem: "Project Status",
+            discussionPoints: "All milestones on track",
+            actionItems: "Confirm next review date",
+          },
+        ],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  // Test H: Attendance case-insensitivity and legacy attendee field normalization
+  it("accepts mixed-case 'Present' and 'Remote' attendance", () => {
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [{ id: "att_1", name: "Asha", attendance: "Present" }],
+        }),
+      ),
+    ).toEqual([]);
+
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [{ id: "att_2", name: "Ravi", attendance: "REMOTE" }],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects mixed-case 'Absent' attendance when no present/remote attendee exists", () => {
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [{ id: "att_1", name: "Asha", attendance: "Absent" }],
+        }),
+      ),
+    ).toContain("At least one attendee must be marked as present or remote.");
+  });
+
+  it("recognizes legacy 'fullName' and 'attendeeName' properties", () => {
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [
+            {
+              id: "att_legacy_1",
+              fullName: "Asha Devi",
+              attendance: "present",
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [
+            {
+              id: "att_legacy_2",
+              attendeeName: "Ravi Kumar",
+              attendance: "remote",
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects attendees with empty or whitespace-only names from quorum", () => {
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [
+            { id: "att_empty_1", name: "   ", attendance: "present" },
+            { id: "att_empty_2", fullName: "", attendance: "present" },
+          ],
+        }),
+      ),
+    ).toContain("At least one attendee must be marked as present or remote.");
+  });
+
+  it("handles null/undefined/malformed attendee objects safely without throwing", () => {
+    expect(
+      validateMomFinalize(
+        complete({
+          attendeesJson: [
+            null,
+            undefined,
+            "not-an-object",
+            { id: "att_1", name: "Asha", attendance: "present" },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 });

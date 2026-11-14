@@ -50,6 +50,10 @@ export interface QueryUsersInput {
   search?: string;
 }
 
+export interface ResetUserPasswordResult {
+  temporaryPassword: string;
+}
+
 export interface AssignUserRolesInput {
   roleIds: number[];
 }

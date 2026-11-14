@@ -31,6 +31,7 @@ export function MilestoneModal(props: MilestoneModalProps) {
       open={open}
       onClose={onClose}
       size="md"
+      showCloseButton={false}
       title={
         <span className="flex items-center gap-3">
           <span className="rounded-xl bg-sky-50 p-2 text-brand-600 dark:bg-sky-950/40 dark:text-cyan-400">

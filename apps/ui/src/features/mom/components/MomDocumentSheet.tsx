@@ -14,19 +14,71 @@ export type { MomSheetData };
  * `MomPreviewModal.tsx` document body). Sections follow the document's
  * template snapshot order/visibility. Uses plain light-surface colors on
  * purpose: this is the paper copy, printed or saved as PDF. */
+/**
+ * Resolves a stable, guaranteed unique React key for an item in a list.
+ * Prefers the item's persisted `id`.
+ * Falls back to a deterministic string constructed from model fields (e.g. name, role, topic).
+ * Disambiguates duplicate keys with the index if already seen in the current render.
+ */
+function getUniqueItemKey(
+  id: unknown,
+  fallbackText: unknown,
+  index: number,
+  prefix: string,
+  seen: Set<string>,
+): string {
+  const cleanId =
+    id !== null && id !== undefined && String(id).trim()
+      ? String(id).trim()
+      : null;
+  const cleanText =
+    fallbackText !== null &&
+    fallbackText !== undefined &&
+    String(fallbackText).trim()
+      ? String(fallbackText).trim().replace(/\s+/g, "_")
+      : null;
+
+  const baseKey = cleanId
+    ? `${prefix}-${cleanId}`
+    : cleanText
+      ? `${prefix}-${cleanText}`
+      : `${prefix}-${index}`;
+
+  if (!seen.has(baseKey)) {
+    seen.add(baseKey);
+    return baseKey;
+  }
+
+  const uniqueKey = `${baseKey}-${index}`;
+  seen.add(uniqueKey);
+  return uniqueKey;
+}
+
 export function MomDocumentSheet({ data }: { data: MomSheetData }) {
   const company = useMomCompanyHeader();
   const present = data.attendees.filter((a) => attendanceOf(a) !== "absent");
+  const seenSectionKeys = new Set<string>();
+  const seenPresentKeys = new Set<string>();
+  const seenAbsentKeys = new Set<string>();
+  const seenAgendaKeys = new Set<string>();
+  const seenNotesKeys = new Set<string>();
 
   return (
     <article className="relative mx-auto w-full max-w-4xl bg-white p-6 text-gray-900 sm:p-10">
       <div className="relative flex flex-col gap-6">
-        {data.sections.map((section) => {
+        {data.sections.map((section, sIdx) => {
+          const sectionKey = getUniqueItemKey(
+            section.id,
+            section.type,
+            sIdx,
+            "sec",
+            seenSectionKeys,
+          );
           switch (section.type) {
             case "company_header":
               return (
                 <header
-                  key={section.id}
+                  key={sectionKey}
                   className="flex flex-col items-start justify-between gap-4 border-b-2 border-brand-600 pb-4 sm:flex-row sm:items-center"
                 >
                   <div>
@@ -62,7 +114,7 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
               );
             case "meeting_details":
               return (
-                <section key={section.id} className="flex flex-col gap-3">
+                <section key={sectionKey} className="flex flex-col gap-3">
                   <div className="text-center">
                     <p className="text-theme-xs font-bold uppercase tracking-widest text-brand-700">
                       Minutes of Meeting
@@ -115,7 +167,7 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
               );
             case "people_lists":
               return (
-                <section key={section.id} className="flex flex-col gap-2">
+                <section key={sectionKey} className="flex flex-col gap-2">
                   <SheetHeading>{section.title}</SheetHeading>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -128,8 +180,16 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
                         </p>
                       ) : (
                         <ul className="list-disc pl-5 text-theme-sm">
-                          {present.map((p) => (
-                            <li key={p.id}>
+                          {present.map((p, pIdx) => (
+                            <li
+                              key={getUniqueItemKey(
+                                p.id,
+                                `${p.name}_${p.role || ""}_${p.organization || ""}`,
+                                pIdx,
+                                "pres",
+                                seenPresentKeys,
+                              )}
+                            >
                               <span className="font-semibold">{p.name}</span>
                               {p.role ? `, ${p.role}` : ""}
                               {p.organization ? ` (${p.organization})` : ""}
@@ -149,8 +209,16 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
                         </p>
                       ) : (
                         <ul className="list-disc pl-5 text-theme-sm">
-                          {data.absentees.map((p) => (
-                            <li key={p.id}>
+                          {data.absentees.map((p, aIdx) => (
+                            <li
+                              key={getUniqueItemKey(
+                                p.id,
+                                `${p.name}_${p.role || ""}_${p.organization || ""}`,
+                                aIdx,
+                                "abs",
+                                seenAbsentKeys,
+                              )}
+                            >
                               <span className="font-semibold">{p.name}</span>
                               {p.role ? `, ${p.role}` : ""}
                               {p.organization ? ` (${p.organization})` : ""}
@@ -165,7 +233,7 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
             case "agenda_list": {
               const agenda = [...data.agenda].sort((a, b) => a.order - b.order);
               return (
-                <section key={section.id} className="flex flex-col gap-2">
+                <section key={sectionKey} className="flex flex-col gap-2">
                   <SheetHeading>{section.title}</SheetHeading>
                   {agenda.length === 0 ? (
                     <p className="text-theme-sm italic text-gray-500">
@@ -173,8 +241,16 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
                     </p>
                   ) : (
                     <ol className="list-decimal pl-5 text-theme-sm">
-                      {agenda.map((a) => (
-                        <li key={a.id}>
+                      {agenda.map((a, agIdx) => (
+                        <li
+                          key={getUniqueItemKey(
+                            a.id,
+                            a.topic,
+                            agIdx,
+                            "agenda",
+                            seenAgendaKeys,
+                          )}
+                        >
                           {a.topic}
                           {a.presenter ? ` — ${a.presenter}` : ""}
                           {a.durationMinutes
@@ -190,7 +266,7 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
             case "meeting_notes_table": {
               const notes = [...data.notes].sort((a, b) => a.order - b.order);
               return (
-                <section key={section.id} className="flex flex-col gap-2">
+                <section key={sectionKey} className="flex flex-col gap-2">
                   <SheetHeading>{section.title}</SheetHeading>
                   <table className="w-full border-collapse text-left text-theme-sm">
                     <thead>
@@ -221,7 +297,16 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
                         </tr>
                       ) : (
                         notes.map((n, i) => (
-                          <tr key={n.id} className="align-top">
+                          <tr
+                            key={getUniqueItemKey(
+                              n.id,
+                              n.agendaItem || n.discussionPoints,
+                              i,
+                              "note",
+                              seenNotesKeys,
+                            )}
+                            className="align-top"
+                          >
                             <td className="border border-gray-300 px-2 py-1.5 text-center">
                               {i + 1}
                             </td>
@@ -244,7 +329,7 @@ export function MomDocumentSheet({ data }: { data: MomSheetData }) {
             }
             case "free_text":
               return (
-                <section key={section.id} className="flex flex-col gap-2">
+                <section key={sectionKey} className="flex flex-col gap-2">
                   <SheetHeading>{section.title}</SheetHeading>
                   <p className="whitespace-pre-wrap text-theme-sm text-gray-800">
                     {data.freeText[section.id]?.trim() || "—"}

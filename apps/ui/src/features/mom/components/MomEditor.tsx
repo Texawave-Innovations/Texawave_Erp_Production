@@ -44,7 +44,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProjects } from "@/features/projects/hooks";
@@ -76,10 +76,16 @@ import {
   toSheetData,
   writeFreeText,
   attendanceOf,
+  normalizeAttendee,
+  normalizeAgendaItems,
+  normalizeNoteRows,
   type MomSheetData,
 } from "../utils";
 import { AgendaListManager } from "./AgendaListManager";
-import { AttendeeListManager } from "./AttendeeListManager";
+import {
+  AttendeeListManager,
+  type AttendeeListManagerHandle,
+} from "./AttendeeListManager";
 import { MeetingNotesTable } from "./MeetingNotesTable";
 import { MomDocumentSheet } from "./MomDocumentSheet";
 import { MomPreviewModal } from "./MomPreviewModal";
@@ -111,8 +117,7 @@ interface EditorState {
  * finalization (`MOM_INCOMPLETE`); this only gives instant feedback. */
 function validate(state: EditorState, finalize: boolean): string[] {
   const errors: string[] = [];
-  if (!state.projectId)
-    errors.push("Select the project this meeting belongs to.");
+  if (!state.projectId) errors.push("Please select a project.");
   if (!state.meetingTitle.trim()) errors.push("Meeting title is required.");
   if (!state.meetingDate) errors.push("Meeting date is required.");
   if (!finalize) return errors;
@@ -121,7 +126,14 @@ function validate(state: EditorState, finalize: boolean): string[] {
   if (state.startTime && state.endTime && state.endTime <= state.startTime) {
     errors.push("End time must be after the start time.");
   }
-  if (!state.attendees.some((a) => attendanceOf(a) !== "absent")) {
+  if (!state.location.trim()) {
+    errors.push("Meeting location or virtual link is required to finalize.");
+  }
+  if (
+    !state.attendees.some(
+      (a) => (a.name?.trim() || "").length > 0 && attendanceOf(a) !== "absent",
+    )
+  ) {
     errors.push("At least one attendee must be present or remote.");
   }
   if (
@@ -174,10 +186,14 @@ function stateFromDocument(doc: MomDocument): EditorState {
     endTime: doc.endTime ?? "",
     timezone: doc.timezone ?? DEFAULT_TIMEZONE,
     location: doc.location ?? "",
-    attendees: doc.attendeesJson ?? [],
-    absentees: doc.absenteesJson ?? [],
-    agenda: doc.agendaJson ?? [],
-    notes: doc.meetingNotesJson ?? [],
+    attendees: (doc.attendeesJson ?? []).map((a, idx) =>
+      normalizeAttendee(a, "att", idx),
+    ),
+    absentees: (doc.absenteesJson ?? []).map((a, idx) =>
+      normalizeAttendee(a, "abs", idx),
+    ),
+    agenda: normalizeAgendaItems(doc.agendaJson),
+    notes: normalizeNoteRows(doc.meetingNotesJson),
     freeText: readFreeText(
       sections,
       doc.freeTextContent,
@@ -283,6 +299,7 @@ function EditorBody({
 
   const canWrite = usePermission(MOM_WRITE);
   const canDelete = usePermission(MOM_DELETE);
+  const attendeeManagerRef = useRef<AttendeeListManagerHandle>(null);
 
   const projectsQuery = useProjects({ limit: 100 });
   const projects = projectsQuery.data?.data ?? [];
@@ -352,6 +369,7 @@ function EditorBody({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
@@ -373,6 +391,61 @@ function EditorBody({
     setState((prev) => ({ ...prev, ...next }));
     setDirty(true);
     setErrors([]);
+    setFieldErrors((prev) => {
+      const updated = { ...prev };
+      for (const [k, v] of Object.entries(next)) {
+        if (k === "projectId") {
+          if (v) {
+            delete updated.projectId;
+          } else if (prev.projectId) {
+            updated.projectId = "Please select a project.";
+          }
+        } else if (k === "location") {
+          if (typeof v === "string" && v.trim()) {
+            delete updated.location;
+          }
+        } else if (k === "meetingTitle") {
+          if (typeof v === "string" && v.trim()) {
+            delete updated.meetingTitle;
+          }
+        } else if (k === "meetingDate") {
+          if (v) {
+            delete updated.meetingDate;
+          }
+        } else if (k === "startTime") {
+          if (v) {
+            delete updated.startTime;
+          }
+        } else if (k === "endTime") {
+          if (v) {
+            delete updated.endTime;
+          }
+        } else if (k === "attendees" || k === "absentees") {
+          const nextAttendees = next.attendees ?? state.attendees;
+          const hasQuorum = nextAttendees.some(
+            (a) =>
+              (a.name?.trim() || "").length > 0 && attendanceOf(a) !== "absent",
+          );
+          if (hasQuorum) {
+            delete updated.attendees;
+          }
+        } else if (k === "notes") {
+          const nextNotes = next.notes ?? state.notes;
+          const hasNotes = nextNotes.some(
+            (n) =>
+              n.agendaItem?.trim() ||
+              n.discussionPoints?.trim() ||
+              n.actionItems?.trim(),
+          );
+          if (hasNotes) {
+            delete updated.notes;
+          }
+        } else {
+          delete updated[k];
+        }
+      }
+      return updated;
+    });
   }
 
   function applyTemplate(templateId: number) {
@@ -449,6 +522,61 @@ function EditorBody({
       setConflict(true);
       return;
     }
+    const msg = errorMessage(err, "");
+    if (msg) {
+      const fieldPatterns: [RegExp, string, string][] = [
+        [/linked project/i, "projectId", "Please select a project."],
+        [/meeting title/i, "meetingTitle", "Meeting title is required."],
+        [/meeting date/i, "meetingDate", "Meeting date is required."],
+        [/start time/i, "startTime", "Start time is required."],
+        [
+          /end time must be after/i,
+          "endTime",
+          "End time must be after the start time.",
+        ],
+        [/end time/i, "endTime", "End time is required."],
+        [
+          /location|virtual link/i,
+          "location",
+          "Meeting location or virtual link is required to finalize.",
+        ],
+        [
+          /attendee.*marked as present or remote|at least one attendee/i,
+          "attendees",
+          "At least one attendee must be present or remote.",
+        ],
+        [
+          /meeting notes row/i,
+          "notes",
+          "Add at least one meeting notes row with discussion points or action items.",
+        ],
+      ];
+      const unmapped: string[] = [];
+      const updatedFErrors: Record<string, string> = {};
+      const sentences = msg
+        .split(/[.!?]\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const sentence of sentences) {
+        let mapped = false;
+        for (const [regex, field, standardMsg] of fieldPatterns) {
+          if (regex.test(sentence)) {
+            updatedFErrors[field] = standardMsg;
+            mapped = true;
+            break;
+          }
+        }
+        if (!mapped) {
+          unmapped.push(sentence.endsWith(".") ? sentence : sentence + ".");
+        }
+      }
+      if (Object.keys(updatedFErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...updatedFErrors }));
+      }
+      if (unmapped.length > 0) {
+        setErrors(unmapped);
+      }
+    }
     toast({
       title: fallback,
       description: errorMessage(
@@ -460,9 +588,82 @@ function EditorBody({
   }
 
   async function handleSave(finalize: boolean) {
-    const problems = validate(state, finalize);
-    if (problems.length > 0) {
-      setErrors(problems);
+    if (attendeeManagerRef.current?.hasPendingDraft()) {
+      const addedName = attendeeManagerRef.current.commitPendingDraft();
+      if (addedName) {
+        toast({
+          title: "Participant added",
+          description: `${addedName} was still in the "Add Meeting Participant" row, so we added them before saving. Review the attendee list and save again.`,
+        });
+      }
+      return;
+    }
+
+    const fErrors: Record<string, string> = {};
+    if (!state.projectId) fErrors.projectId = "Please select a project.";
+    if (!state.meetingTitle.trim())
+      fErrors.meetingTitle = "Meeting title is required.";
+    if (!state.meetingDate) fErrors.meetingDate = "Meeting date is required.";
+    if (finalize) {
+      if (!state.startTime) fErrors.startTime = "Start time is required.";
+      if (!state.endTime) fErrors.endTime = "End time is required.";
+      else if (state.startTime && state.endTime <= state.startTime) {
+        fErrors.endTime = "End time must be after the start time.";
+      }
+      if (!state.location.trim()) {
+        fErrors.location =
+          "Meeting location or virtual link is required to finalize.";
+      }
+      if (
+        !state.attendees.some(
+          (a) =>
+            (a.name?.trim() || "").length > 0 && attendanceOf(a) !== "absent",
+        )
+      ) {
+        fErrors.attendees = "At least one attendee must be present or remote.";
+      }
+      if (
+        !state.notes.some(
+          (n) =>
+            n.agendaItem?.trim() ||
+            n.discussionPoints?.trim() ||
+            n.actionItems?.trim(),
+        )
+      ) {
+        fErrors.notes =
+          "Add at least one meeting notes row with discussion points or action items.";
+      }
+    }
+    setFieldErrors(fErrors);
+    setErrors([]);
+
+    if (Object.keys(fErrors).length > 0) {
+      if (typeof window !== "undefined") {
+        const targetId = fErrors.projectId
+          ? "mom-project-select"
+          : fErrors.meetingTitle
+            ? "mom-meeting-title-input"
+            : fErrors.meetingDate
+              ? "mom-meeting-date-input"
+              : fErrors.startTime
+                ? "mom-start-time-input"
+                : fErrors.endTime
+                  ? "mom-end-time-input"
+                  : fErrors.location
+                    ? "mom-location-input"
+                    : fErrors.attendees
+                      ? "mom-attendees-section"
+                      : fErrors.notes
+                        ? "mom-notes-section"
+                        : null;
+        if (targetId) {
+          const el = window.document.getElementById(targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.focus();
+          }
+        }
+      }
       return;
     }
     setSaving(true);
@@ -764,32 +965,20 @@ function EditorBody({
           ) : null}
 
           {!readOnly ? (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={
-                  saving &&
-                  !finalizeMutation.isPending &&
-                  !finalizeRevisionMutation.isPending
-                }
-                disabled={saving}
-                onClick={() => void handleSave(false)}
-              >
-                <Save className="h-4 w-4" />
-                Save Draft
-              </Button>
-              <Button
-                size="sm"
-                disabled={saving}
-                onClick={() => void handleSave(true)}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {document?.workingRevision
-                  ? `Finalize Rev ${document.workingRevision}`
-                  : "Finalize MoM"}
-              </Button>
-            </>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={
+                saving &&
+                !finalizeMutation.isPending &&
+                !finalizeRevisionMutation.isPending
+              }
+              disabled={saving}
+              onClick={() => void handleSave(false)}
+            >
+              <Save className="h-4 w-4" />
+              Save Draft
+            </Button>
           ) : null}
 
           {document && canDelete && !isArchived ? (
@@ -836,7 +1025,7 @@ function EditorBody({
       ) : null}
 
       {errors.length > 0 ? (
-        <Alert variant="error" title="Please complete the following">
+        <Alert variant="error" title="Submission failed">
           <ul className="list-disc pl-5">
             {errors.map((e) => (
               <li key={e}>{e}</li>
@@ -854,8 +1043,8 @@ function EditorBody({
           </div>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <div className="h-1.5 w-full bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3]" />
+        <Card className="relative p-0 focus-within:z-30">
+          <div className="h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3]" />
           <div className="flex flex-col gap-8 p-5 sm:p-8">
             <div className="flex flex-col items-center gap-2 text-center">
               <span className="text-theme-xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-400">
@@ -875,12 +1064,22 @@ function EditorBody({
               </p>
               <div className="w-full max-w-xl">
                 <Input
+                  id="mom-meeting-title-input"
                   aria-label="Meeting title"
                   placeholder="Enter Meeting Title *"
                   value={state.meetingTitle}
+                  invalid={Boolean(fieldErrors.meetingTitle)}
                   onChange={(e) => patch({ meetingTitle: e.target.value })}
                   className="text-center text-lg font-bold"
                 />
+                {fieldErrors.meetingTitle ? (
+                  <p
+                    className="mt-1.5 text-center text-theme-xs font-medium text-error-500"
+                    role="alert"
+                  >
+                    {fieldErrors.meetingTitle}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -894,43 +1093,51 @@ function EditorBody({
                       key={section.id}
                       className="grid grid-cols-1 gap-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-800 dark:bg-gray-900/50 sm:grid-cols-2 lg:grid-cols-3"
                     >
-                      <FormField label="Linked Project" required>
+                      <FormField
+                        label="Linked Project"
+                        required
+                        error={fieldErrors.projectId}
+                      >
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
-                            <Select
-                              {...fp}
-                              value={
-                                state.projectId ? String(state.projectId) : ""
-                              }
-                              onChange={(e) =>
-                                patch({
-                                  projectId: Number(e.target.value) || null,
-                                })
-                              }
-                              className="w-full"
-                            >
-                              <option value="">
-                                {projectsQuery.isPending
-                                  ? "Loading projects..."
-                                  : "Select project"}
+                          <Select
+                            {...fp}
+                            id="mom-project-select"
+                            prefixIcon={
+                              <Building2 className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                            }
+                            value={
+                              state.projectId ? String(state.projectId) : ""
+                            }
+                            invalid={Boolean(fieldErrors.projectId)}
+                            onChange={(e) =>
+                              patch({
+                                projectId: Number(e.target.value) || null,
+                              })
+                            }
+                            className="w-full"
+                          >
+                            <option value="">
+                              {projectsQuery.isPending
+                                ? "Loading projects..."
+                                : "Select project"}
+                            </option>
+                            {projects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                [{p.projectCode}] {p.name}
                               </option>
-                              {projects.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  [{p.projectCode}] {p.name}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
+                            ))}
+                          </Select>
                         )}
                       </FormField>
                       <FormField label="Template">
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                          <div className="w-full min-w-0">
                             {mode === "create" ? (
                               <Select
                                 {...fp}
+                                prefixIcon={
+                                  <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                                }
                                 value={
                                   state.templateId
                                     ? String(state.templateId)
@@ -954,48 +1161,65 @@ function EditorBody({
                                 ))}
                               </Select>
                             ) : (
-                              <p className="text-theme-sm font-semibold text-gray-800 dark:text-gray-200">
-                                {document?.templateTitle ?? "Standard"}
-                                {document?.templateVersion
-                                  ? ` (V${document.templateVersion})`
-                                  : ""}
+                              <p className="flex items-center gap-2 py-2 text-theme-sm font-semibold text-gray-800 dark:text-gray-200">
+                                <Layers className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                                <span>
+                                  {document?.templateTitle ?? "Standard"}
+                                  {document?.templateVersion
+                                    ? ` (V${document.templateVersion})`
+                                    : ""}
+                                </span>
                               </p>
                             )}
                           </div>
                         )}
                       </FormField>
-                      <FormField label="Meeting Date" required>
+                      <FormField
+                        label="Meeting Date"
+                        required
+                        error={fieldErrors.meetingDate}
+                      >
                         {(fp) => (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
-                            <Input
-                              {...fp}
-                              type="date"
-                              value={state.meetingDate}
-                              onChange={(e) =>
-                                patch({ meetingDate: e.target.value })
-                              }
-                            />
-                          </div>
+                          <Input
+                            {...fp}
+                            id="mom-meeting-date-input"
+                            type="date"
+                            iconClassName="text-brand-600 dark:text-brand-400"
+                            value={state.meetingDate}
+                            invalid={Boolean(fieldErrors.meetingDate)}
+                            onChange={(e) =>
+                              patch({ meetingDate: e.target.value })
+                            }
+                          />
                         )}
                       </FormField>
-                      <FormField label="Start / End Time">
+                      <FormField
+                        label="Start / End Time"
+                        error={fieldErrors.startTime || fieldErrors.endTime}
+                        required={Boolean(
+                          fieldErrors.startTime || fieldErrors.endTime,
+                        )}
+                      >
                         {() => (
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
                             <Input
+                              id="mom-start-time-input"
                               aria-label="Start time"
                               type="time"
                               value={state.startTime}
+                              invalid={Boolean(fieldErrors.startTime)}
                               onChange={(e) =>
                                 patch({ startTime: e.target.value })
                               }
                             />
                             <span className="text-gray-400">–</span>
                             <Input
+                              id="mom-end-time-input"
                               aria-label="End time"
                               type="time"
                               value={state.endTime}
+                              invalid={Boolean(fieldErrors.endTime)}
                               onChange={(e) =>
                                 patch({ endTime: e.target.value })
                               }
@@ -1014,14 +1238,20 @@ function EditorBody({
                           />
                         )}
                       </FormField>
-                      <FormField label="Location / Meeting Link">
+                      <FormField
+                        label="Location / Meeting Link"
+                        error={fieldErrors.location}
+                        required={Boolean(fieldErrors.location)}
+                      >
                         {(fp) => (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <MapPin className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
                             <Input
                               {...fp}
+                              id="mom-location-input"
                               placeholder="Meeting room or virtual link"
                               value={state.location}
+                              invalid={Boolean(fieldErrors.location)}
                               onChange={(e) =>
                                 patch({ location: e.target.value })
                               }
@@ -1033,13 +1263,19 @@ function EditorBody({
                   );
                 case "people_lists":
                   return (
-                    <section key={section.id} className="flex flex-col gap-3">
+                    <section
+                      key={section.id}
+                      id="mom-attendees-section"
+                      className="flex flex-col gap-3"
+                    >
                       <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
                         {section.title}
                       </h3>
                       <AttendeeListManager
+                        ref={attendeeManagerRef}
                         attendees={state.attendees}
                         absentees={state.absentees}
+                        error={fieldErrors.attendees}
                         onChange={({ attendees, absentees }) =>
                           patch({ attendees, absentees })
                         }
@@ -1057,13 +1293,15 @@ function EditorBody({
                   );
                 case "meeting_notes_table":
                   return (
-                    <MeetingNotesTable
-                      key={section.id}
-                      title={section.title}
-                      rows={state.notes}
-                      agenda={state.agenda}
-                      onChange={(notes) => patch({ notes })}
-                    />
+                    <div key={section.id} id="mom-notes-section">
+                      <MeetingNotesTable
+                        title={section.title}
+                        rows={state.notes}
+                        agenda={state.agenda}
+                        error={fieldErrors.notes}
+                        onChange={(notes) => patch({ notes })}
+                      />
+                    </div>
                   );
                 case "free_text":
                   return (
@@ -1096,6 +1334,51 @@ function EditorBody({
           </div>
         </Card>
       )}
+
+      {!readOnly ? (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div>
+            <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+              Meeting Completion &amp; Finalization
+            </h3>
+            <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+              Verify attendance, agenda points, notes, and task assignments
+              above before finalizing these minutes.
+            </p>
+          </div>
+          <div className="flex w-full sm:w-auto items-center justify-end gap-3 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={
+                saving &&
+                !finalizeMutation.isPending &&
+                !finalizeRevisionMutation.isPending
+              }
+              disabled={saving}
+              onClick={() => void handleSave(false)}
+            >
+              <Save className="h-4 w-4" />
+              Save Draft
+            </Button>
+            <Button
+              size="sm"
+              loading={
+                saving &&
+                (finalizeMutation.isPending ||
+                  finalizeRevisionMutation.isPending)
+              }
+              disabled={saving}
+              onClick={() => void handleSave(true)}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {document?.workingRevision
+                ? `Finalize Rev ${document.workingRevision}`
+                : "Finalize MoM"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <MomPreviewModal
         open={previewOpen}

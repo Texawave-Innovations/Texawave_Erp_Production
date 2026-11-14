@@ -523,4 +523,33 @@ export class UsersRepository {
       data: { passwordHash, mustChangePassword: false },
     });
   }
+
+  /** Admin-issued reset (HR giving someone a new temporary password):
+   * requires a change on next login, unlike the self-service reset above. */
+  @OrgScoped()
+  async resetPasswordByAdmin(
+    scope: OrgScope,
+    userId: number,
+    passwordHash: string,
+    performedBy: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, organizationId: scope.organizationId },
+        data: {
+          passwordHash,
+          mustChangePassword: true,
+          updatedBy: performedBy,
+        },
+      });
+      if (count > 0) {
+        await this.audit.write(tx, {
+          entityType: ENTITY_TYPE,
+          entityId: userId,
+          action: "reset_password",
+        });
+      }
+      return count > 0;
+    });
+  }
 }

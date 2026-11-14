@@ -196,12 +196,14 @@ function TeamMembersCard({ project }: { project: Project }) {
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400">
-              <th className="pb-3 font-semibold">Employee</th>
-              <th className="pb-3 font-semibold">Role</th>
-              <th className="pb-3 font-semibold">Hourly Rate</th>
-              <th className="pb-3 font-semibold">Allocated Hours</th>
-              <th className="pb-3 font-semibold">Logged Hours</th>
-              <th className="pb-3 text-right font-semibold">Action</th>
+              <th className="pb-3 text-center font-semibold">Employee</th>
+              <th className="pb-3 text-center font-semibold">Role</th>
+              <th className="pb-3 text-center font-semibold">Hourly Rate</th>
+              <th className="pb-3 text-center font-semibold">
+                Allocated Hours
+              </th>
+              <th className="pb-3 text-center font-semibold">Logged Hours</th>
+              <th className="pb-3 text-center font-semibold">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
@@ -211,25 +213,27 @@ function TeamMembersCard({ project }: { project: Project }) {
                   key={m.id}
                   className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
                 >
-                  <td className="py-3 font-medium text-gray-900 dark:text-white">
-                    {m.employee?.fullName || `Employee #${m.employeeId}`}
+                  <td className="py-3 text-center font-medium text-gray-900 dark:text-white">
+                    <div>
+                      {m.employee?.fullName || `Employee #${m.employeeId}`}
+                    </div>
                     <div className="text-[11px] text-gray-400">
                       {m.employee?.employeeCode}
                     </div>
                   </td>
-                  <td className="py-3 text-gray-600 dark:text-gray-300">
+                  <td className="py-3 text-center text-gray-600 dark:text-gray-300">
                     {m.role}
                   </td>
-                  <td className="py-3 text-gray-700 dark:text-gray-300">
+                  <td className="py-3 text-center text-gray-700 dark:text-gray-300">
                     ₹{Number(m.hourlyRate).toFixed(2)}/h
                   </td>
-                  <td className="py-3 text-gray-600 dark:text-gray-300">
+                  <td className="py-3 text-center text-gray-600 dark:text-gray-300">
                     {Number(m.estimatedHours)}h
                   </td>
-                  <td className="py-3 text-gray-600 dark:text-gray-300">
+                  <td className="py-3 text-center text-gray-600 dark:text-gray-300">
                     {Number(m.loggedHours)}h
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-center">
                     <button
                       type="button"
                       onClick={() =>

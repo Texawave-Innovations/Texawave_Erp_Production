@@ -1,5 +1,6 @@
 import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
 import { ProposalTemplateStatus } from "@texawave-erp/database";
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsBoolean,
@@ -45,6 +46,7 @@ export class CreateProposalTemplateDto {
   })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   schemaJson?: unknown[];
 
   @ApiPropertyOptional()
@@ -91,9 +93,12 @@ export class UpdateProposalTemplateDto {
   @IsEnum(ProposalTemplateStatus)
   status?: ProposalTemplateStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: "Dynamic ProposalSectionConfig[] schema",
+  })
   @IsOptional()
   @IsArray()
+  @Type(() => Object)
   schemaJson?: unknown[];
 
   @ApiPropertyOptional()
