@@ -13,6 +13,7 @@ import {
   ChangeEmployeeStatusDto,
   CorrectEmployeeStatusDto,
   LinkEmployeeUserDto,
+  SetPortalPasswordDto,
   UnlinkEmployeeUserDto,
 } from "./dto/lifecycle.dto.js";
 import { EmployeeLifecycleService } from "./employee-lifecycle.service.js";
@@ -73,5 +74,19 @@ export class EmployeeLifecycleController {
     @Body() dto: UnlinkEmployeeUserDto,
   ) {
     return this.lifecycle.unlinkUser(id, dto);
+  }
+
+  @Post(":id/set-portal-password")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("hr.employee_account.write")
+  @ApiOperation({
+    summary:
+      "HR override: set the portal login password for the linked user account",
+  })
+  setPortalPassword(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: SetPortalPasswordDto,
+  ) {
+    return this.lifecycle.setPortalPassword(id, dto);
   }
 }

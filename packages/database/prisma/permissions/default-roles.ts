@@ -230,6 +230,8 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "employee_self_service.attendance.punch",
       "employee_self_service.attendance.read",
       "employee_self_service.attendance_correction.create",
+      "employee_self_service.work_permission.read",
+      "employee_self_service.work_permission.create",
       "employee_self_service.payslip.read",
       "employee_self_service.loan.read",
       "employee_self_service.loan.write",

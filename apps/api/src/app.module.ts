@@ -51,6 +51,7 @@ import { ExpenseClaimsModule } from "./modules/hr/expense-claims/expense-claims.
 import { MyExpenseClaimsModule } from "./modules/employee-self-service/expense-claims/my-expense-claims.module.js";
 import { ExitRequestsModule } from "./modules/hr/exit-requests/exit-requests.module.js";
 import { MyExitRequestsModule } from "./modules/employee-self-service/exit-requests/my-exit-requests.module.js";
+import { MyWorkPermissionsModule } from "./modules/employee-self-service/work-permissions/my-work-permissions.module.js";
 import { AttendanceModule } from "./modules/hr/attendance/attendance.module.js";
 import { RevisionLettersModule } from "./modules/hr/revision-letters/revision-letters.module.js";
 import { PromotionLettersModule } from "./modules/hr/promotion-letters/promotion-letters.module.js";
@@ -151,6 +152,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     MyTicketsModule,
     MyExpenseClaimsModule,
     MyExitRequestsModule,
+    MyWorkPermissionsModule,
     DepartmentsModule,
     UsersModule,
     MenuModule,

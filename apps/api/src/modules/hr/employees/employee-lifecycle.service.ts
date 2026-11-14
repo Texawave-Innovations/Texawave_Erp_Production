@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { AuthService } from "../../../platform/auth/auth.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
@@ -6,6 +6,7 @@ import type {
   ChangeEmployeeStatusDto,
   CorrectEmployeeStatusDto,
   LinkEmployeeUserDto,
+  SetPortalPasswordDto,
   UnlinkEmployeeUserDto,
 } from "./dto/lifecycle.dto.js";
 import { EmployeeLifecycleRepository } from "./employee-lifecycle.repository.js";
@@ -40,6 +41,23 @@ export class EmployeeLifecycleService {
     );
     if (!row) throw new ResourceNotFoundException("Employee", id);
     return toDetail(row);
+  }
+
+  async setPortalPassword(id: number, dto: SetPortalPasswordDto) {
+    const scope = this.tenantContext.getOrgScope();
+    const employee = await this.repository.findOne(scope, id);
+    if (!employee) throw new ResourceNotFoundException("Employee", id);
+    if (!employee.userId) {
+      throw new BadRequestException(
+        "This employee has no linked portal login. Link an account first.",
+      );
+    }
+    await this.auth.adminSetPassword(
+      scope.organizationId,
+      employee.userId,
+      dto.password,
+    );
+    return toDetail(employee);
   }
 
   async unlinkUser(id: number, dto: UnlinkEmployeeUserDto) {

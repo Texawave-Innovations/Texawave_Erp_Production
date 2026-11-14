@@ -400,6 +400,14 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.attendance_correction.create",
     description: "Request a correction to my own attendance",
   },
+  {
+    code: "employee_self_service.work_permission.read",
+    description: "View my own work permission requests",
+  },
+  {
+    code: "employee_self_service.work_permission.create",
+    description: "Submit a short-time work permission request for myself",
+  },
 
   // apps/api/src/modules/hr/tasks — team-scoped by the ASSIGNEE's team. There is
   // no separate approve permission: in legacy the same admin who assigns a
