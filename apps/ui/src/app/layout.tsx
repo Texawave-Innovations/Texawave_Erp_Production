@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nunito_Sans, JetBrains_Mono, Merriweather } from "next/font/google";
+import { Nunito_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -13,12 +13,6 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const merriweather = Merriweather({
-  variable: "--font-merriweather",
-  weight: ["400", "700"],
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: "TexaOne ERP",
   description: "TexaOne ERP Enterprise Management",
@@ -28,7 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${nunitoSans.variable} ${jetbrainsMono.variable} ${merriweather.variable} font-sans h-full antialiased`}
+      className={`${nunitoSans.variable} ${jetbrainsMono.variable} font-sans h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

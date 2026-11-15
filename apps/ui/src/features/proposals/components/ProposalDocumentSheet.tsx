@@ -6,7 +6,7 @@ import type {
   ProposalSettings,
 } from "@texawave-erp/api-types";
 import { formatDate } from "@/features/projects/format";
-import { PROPOSAL_STATUS_META } from "../utils";
+import { PROPOSAL_STATUS_META, snapshotToSections } from "../utils";
 import {
   formatDmyDate,
   formatINR,
@@ -46,9 +46,7 @@ export function toProposalSheet(doc: ProposalDocument): ProposalSheetData {
     preparedBy: doc.createdByName ?? null,
     templateTitle: doc.templateTitle,
     templateVersion: doc.templateVersion,
-    sections: Array.isArray(doc.templateSnapshot)
-      ? (doc.templateSnapshot as ProposalSectionConfig[])
-      : [],
+    sections: snapshotToSections(doc.templateSnapshot),
     values: doc.sectionValues ?? {},
   };
 }

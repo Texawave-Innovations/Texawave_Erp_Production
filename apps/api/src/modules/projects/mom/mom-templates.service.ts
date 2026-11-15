@@ -8,6 +8,7 @@ import type {
   CreateMomTemplateDto,
   UpdateMomTemplateDto,
 } from "./dto/template.dto.js";
+import { ensureUniqueSectionIds } from "../section-ids.js";
 import { MomRepository } from "./mom.repository.js";
 import {
   DEFAULT_MOM_AGENDA,
@@ -58,7 +59,9 @@ export class MomTemplatesService {
       {
         ...dto,
         ...(code ? { code } : {}),
-        sectionsJson: dto.sectionsJson ?? DEFAULT_MOM_SECTIONS,
+        sectionsJson: ensureUniqueSectionIds(
+          dto.sectionsJson ?? DEFAULT_MOM_SECTIONS,
+        ),
         defaultAgendaJson: dto.defaultAgendaJson ?? DEFAULT_MOM_AGENDA,
         defaultNoteRowsJson: dto.defaultNoteRowsJson ?? DEFAULT_MOM_NOTE_ROWS,
       },
@@ -88,6 +91,9 @@ export class MomTemplatesService {
     const scope = this.tenantContext.getOrgScope();
     const updated = await this.repository.updateTemplate(scope, id, {
       ...dto,
+      ...(dto.sectionsJson
+        ? { sectionsJson: ensureUniqueSectionIds(dto.sectionsJson) }
+        : {}),
       ...(dto.code !== undefined
         ? { code: dto.code.trim().toUpperCase() }
         : {}),

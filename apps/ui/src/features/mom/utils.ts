@@ -94,6 +94,19 @@ export function normalizeAttendee(
   };
 }
 
+/** Makes section ids unique (stored templates may have missing/duplicate ids,
+ * which breaks React keys and makes sections share edits). First keeps its id. */
+export function uniqueSectionIds<T extends { id?: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.map((s, i) => {
+    const base = s.id ? String(s.id) : `sec_${i + 1}`;
+    let id = base;
+    for (let n = 2; seen.has(id); n++) id = `${base}_${n}`;
+    seen.add(id);
+    return { ...s, id };
+  });
+}
+
 /** Stable client-side row id for attendee/agenda/note rows (legacy used
  * `att_${Date.now()}_${random}` the same way — ids only need to be unique
  * within one document's JSON column). */
@@ -336,7 +349,9 @@ export function documentSections(snapshot: unknown): MomSectionConfig[] {
     Array.isArray(snapshot) && snapshot.length > 0
       ? (snapshot as MomSectionConfig[])
       : FALLBACK_MOM_SECTIONS;
-  return [...source].filter((s) => s.visible).sort((a, b) => a.order - b.order);
+  return uniqueSectionIds(source)
+    .filter((s) => s.visible)
+    .sort((a, b) => a.order - b.order);
 }
 
 export interface MomCompanyHeader {

@@ -33,7 +33,11 @@ import {
   useUpdateMomTemplate,
 } from "../hooks";
 import { MOM_MANAGE_TEMPLATES, MOM_READ } from "../permissions";
-import { FALLBACK_MOM_SECTIONS, type MomSheetData } from "../utils";
+import {
+  FALLBACK_MOM_SECTIONS,
+  uniqueSectionIds,
+  type MomSheetData,
+} from "../utils";
 import { AgendaListManager } from "./AgendaListManager";
 import { MeetingNotesTable } from "./MeetingNotesTable";
 import { MomDocumentSheet } from "./MomDocumentSheet";
@@ -109,9 +113,11 @@ function Builder({ template }: { template: MomTemplate }) {
   const [category, setCategory] = useState(template.category ?? "");
   const [description, setDescription] = useState(template.description ?? "");
   const [sections, setSections] = useState<MomSectionConfig[]>(
-    template.sectionsJson.length > 0
-      ? template.sectionsJson
-      : FALLBACK_MOM_SECTIONS,
+    uniqueSectionIds(
+      template.sectionsJson.length > 0
+        ? template.sectionsJson
+        : FALLBACK_MOM_SECTIONS,
+    ),
   );
   const [agenda, setAgenda] = useState<MomAgendaItem[]>(
     (template.defaultAgendaJson as MomAgendaItem[]) ?? [],

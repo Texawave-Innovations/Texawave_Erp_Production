@@ -73,6 +73,7 @@ import {
   momStatusTone,
   readFreeText,
   rowId,
+  uniqueSectionIds,
   toSheetData,
   writeFreeText,
   attendanceOf,
@@ -161,9 +162,9 @@ function cloneRows<T extends { id: string }>(
 }
 
 function templateSections(t: MomTemplate | undefined): MomSectionConfig[] {
-  return t && t.sectionsJson.length > 0
-    ? t.sectionsJson
-    : FALLBACK_MOM_SECTIONS;
+  return uniqueSectionIds(
+    t && t.sectionsJson.length > 0 ? t.sectionsJson : FALLBACK_MOM_SECTIONS,
+  );
 }
 
 function defaultFreeText(sections: MomSectionConfig[]): Record<string, string> {

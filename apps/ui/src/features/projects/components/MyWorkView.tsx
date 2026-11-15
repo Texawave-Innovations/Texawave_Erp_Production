@@ -705,19 +705,6 @@ export function MyWorkView() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      aria-label={`Status for ${task.taskCode}`}
-                      value={task.status}
-                      disabled={readOnly}
-                      onChange={(e) => handleStatusChange(task, e.target.value)}
-                      className="rounded-lg border border-gray-200 bg-gray-50/50 px-2 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    >
-                      <option value="not_started">Not Started</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="hold">On Hold</option>
-                      <option value="completed">Completed</option>
-                    </select>
-
                     {isRunning ? (
                       <>
                         <span className="rounded-lg bg-cyan-100 px-2.5 py-1 text-xs font-extrabold text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200">

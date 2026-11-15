@@ -150,6 +150,24 @@ export const ACTIONS_BY_STATUS: Record<
 
 /** Flattens nested `section_group` children so every fillable section is
  * visited (values are keyed by section id regardless of nesting). */
+/** Reads a stored template snapshot as sections, making ids unique. Older or
+ * hand-edited templates can contain missing/duplicate section ids, which breaks
+ * React keys and makes sections share one value. First occurrence keeps its id. */
+export function snapshotToSections(snapshot: unknown): ProposalSectionConfig[] {
+  if (!Array.isArray(snapshot)) return [];
+  const seen = new Set<string>();
+  const fix = (list: ProposalSectionConfig[]): ProposalSectionConfig[] =>
+    list.map((s, i) => {
+      let id = s.id ? String(s.id) : `section-${s.order ?? i}`;
+      for (let n = 2; seen.has(id); n++) id = `${s.id || "section"}-${n}`;
+      seen.add(id);
+      return s.children
+        ? { ...s, id, children: fix(s.children) }
+        : { ...s, id };
+    });
+  return fix(snapshot as ProposalSectionConfig[]);
+}
+
 export function flattenSections(
   sections: ProposalSectionConfig[],
 ): ProposalSectionConfig[] {

@@ -2,7 +2,6 @@
 
 import type {
   ProposalDocument,
-  ProposalSectionConfig,
   ProposalWorkflowAction,
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
@@ -58,6 +57,7 @@ import {
   PROPOSAL_STATUS_META,
   WORKFLOW_ACTION_META,
   flattenSections,
+  snapshotToSections,
   followUpState,
   proposalCompleteness,
 } from "../utils";
@@ -150,10 +150,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
 
   const editable = canWrite && EDITABLE_STATUSES.includes(proposal.status);
   const sections = useMemo(
-    () =>
-      Array.isArray(proposal.templateSnapshot)
-        ? (proposal.templateSnapshot as ProposalSectionConfig[])
-        : [],
+    () => snapshotToSections(proposal.templateSnapshot),
     [proposal.templateSnapshot],
   );
 
