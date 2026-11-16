@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { orgScopedKey } from "@texawave-erp/core";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   addProjectMember,
@@ -36,6 +37,7 @@ import {
   updateProject,
   updateTask,
   listExpenseVendors,
+  listExpenseDepartments,
   getEmployeeWork,
   getMyAttendanceStatus,
   getMyTimeSummary,
@@ -406,6 +408,24 @@ export function useExpenseVendors() {
     queryFn: () => listExpenseVendors(),
     enabled: Boolean(orgId),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Active departments from the Departments master (expense department
+ * picker); gated server-side by the expenses permission. */
+export function useExpenseDepartments() {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    // Under the "departments" key so creating/renaming/deleting a department
+    // in the master (which invalidates that prefix) refreshes this list too.
+    queryKey: orgScopedKey(orgId, "departments", "expense-options"),
+    queryFn: () => listExpenseDepartments(),
+    enabled: Boolean(orgId),
+    // Always refetch on mount/focus: a stale list hid newly added departments
+    // until a hard refresh.
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 

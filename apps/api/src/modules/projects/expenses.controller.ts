@@ -41,6 +41,16 @@ export class ExpensesController {
     return this.service.findVendors(q);
   }
 
+  @Get("expenses/departments")
+  @RequirePermission("projects.expenses.read")
+  @ApiOperation({
+    summary:
+      "Active departments from the Departments master, for the expense department picker",
+  })
+  findDepartments() {
+    return this.service.findDepartments();
+  }
+
   @Get(":id/expenses")
   @RequirePermission("projects.expenses.read")
   @ApiOperation({ summary: "List expenses for a specific project" })

@@ -46,6 +46,18 @@ export class DepartmentsRepository {
   }
 
   @OrgScoped()
+  findActiveNames(scope: OrgScope) {
+    return this.prisma.department.findMany({
+      where: tenantWhere<Prisma.DepartmentWhereInput>(scope, {
+        deletedAt: null,
+        isActive: true,
+      }),
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  @OrgScoped()
   findOne(scope: OrgScope, id: number) {
     return this.prisma.department.findFirst({
       where: tenantWhere(scope, { id, deletedAt: null }),
@@ -60,7 +72,28 @@ export class DepartmentsRepository {
   }
 
   @OrgScoped()
-  create(scope: OrgScope, dto: CreateDepartmentDto, createdBy: number) {
+  async create(scope: OrgScope, dto: CreateDepartmentDto, createdBy: number) {
+    // `@@unique([organizationId, name])` also covers soft-deleted rows, so
+    // re-adding a removed department would hit the unique index and fail.
+    // Bring the deleted row back instead (the service has already checked
+    // that no LIVE department has this name).
+    const removed = await this.prisma.department.findFirst({
+      where: tenantWhere<Prisma.DepartmentWhereInput>(scope, {
+        name: dto.name,
+        deletedAt: { not: null },
+      }),
+    });
+    if (removed) {
+      return this.prisma.department.update({
+        where: { id: removed.id },
+        data: {
+          deletedAt: null,
+          isActive: dto.isActive ?? true,
+          customFields: (dto.customFields ?? {}) as Prisma.InputJsonValue,
+          updatedBy: createdBy,
+        },
+      });
+    }
     return this.prisma.department.create({
       data: {
         name: dto.name,
