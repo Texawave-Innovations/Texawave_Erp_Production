@@ -1,7 +1,7 @@
 "use client";
 
 import { orgScopedKey } from "@texawave-erp/core";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import { listFullMonthPresent } from "@/features/hr/full-month-present/api";
@@ -114,12 +114,32 @@ export function useUpdateAttendanceSettings() {
   );
 }
 
+/** The My Work stopwatch (active timer, check-in gate, time summary) lives
+ * under this key and depends on the punch state, so a punch must refresh it
+ * now rather than at the next 30-60 s poll. Mirrors `baseKey` in
+ * features/projects/hooks.ts. */
+function usePunchMutation<T>(fn: () => Promise<T>) {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: orgScopedKey(orgId, KEY),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["org", orgId, "projects", "timer"],
+      });
+    },
+  });
+}
+
 export function useCheckIn() {
-  return useOrgScopedMutation([KEY], () => checkIn());
+  return usePunchMutation(() => checkIn());
 }
 
 export function useCheckOut() {
-  return useOrgScopedMutation([KEY], () => checkOut());
+  return usePunchMutation(() => checkOut());
 }
 
 export function useDailyReport(query: PageQuery & { date: string }) {
