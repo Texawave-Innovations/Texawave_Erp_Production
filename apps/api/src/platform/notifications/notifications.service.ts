@@ -1,13 +1,29 @@
 import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto.js";
-import { ResourceNotFoundException } from "../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceNotFoundException,
+} from "../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../common/tenancy/org-scope.js";
 import { TenantContextService } from "../tenancy/tenant-context.service.js";
+import {
+  checkDndRequest,
+  type DndRequestError,
+  type DndState,
+  dndStateOf,
+} from "./dnd.rules.js";
 import type { QueryNotificationsDto } from "./dto/query-notifications.dto.js";
+import type { SetDndDto } from "./dto/set-dnd.dto.js";
 import {
   NotificationsRepository,
   type NewNotification,
 } from "./notifications.repository.js";
+
+const DND_MESSAGES: Record<DndRequestError, string> = {
+  BOTH_GIVEN: "Give either an end time or indefinite, not both",
+  UNTIL_NOT_IN_FUTURE: "The snooze must end in the future",
+  UNTIL_TOO_FAR: "A snooze can last at most 7 days; use indefinite instead",
+};
 
 /**
  * In-app notifications (Docs/ARCHITECTURE.md §11, 2026-10-11; Docs/HR_API.md → Notifications).
@@ -82,6 +98,33 @@ export class NotificationsService {
       this.tenantContext.getUserId(),
     );
     return { unread };
+  }
+
+  /** The caller's Do Not Disturb state. It only quiets the bell badge;
+   * notifications are still stored. */
+  async getDnd(): Promise<DndState> {
+    const pref = await this.repository.findPreference(
+      this.tenantContext.getOrgScope(),
+      this.tenantContext.getUserId(),
+    );
+    return dndStateOf(pref, new Date());
+  }
+
+  async setDnd(dto: SetDndDto): Promise<DndState> {
+    const now = new Date();
+    const request = {
+      until: dto.until ? new Date(dto.until) : null,
+      indefinite: dto.indefinite ?? false,
+    };
+    const error = checkDndRequest(request, now);
+    if (error)
+      throw new BusinessRuleViolationException(DND_MESSAGES[error], error);
+    const saved = await this.repository.savePreference(
+      this.tenantContext.getOrgScope(),
+      this.tenantContext.getUserId(),
+      { dndUntil: request.until, dndIndefinite: request.indefinite },
+    );
+    return dndStateOf(saved, now);
   }
 
   /** 404 for a notification that is not the caller's. */

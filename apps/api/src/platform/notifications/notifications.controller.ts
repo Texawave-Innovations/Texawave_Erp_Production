@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -6,9 +7,11 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Put,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Paginate } from "../../common/decorators/paginate.decorator.js";
+import { SetDndDto } from "./dto/set-dnd.dto.js";
 import { QueryNotificationsDto } from "./dto/query-notifications.dto.js";
 import { NotificationsService } from "./notifications.service.js";
 
@@ -34,6 +37,24 @@ export class NotificationsController {
   })
   unreadCount() {
     return this.notifications.unreadCount();
+  }
+
+  @Get("dnd")
+  @ApiOperation({
+    summary:
+      "The caller's Do Not Disturb state (quiets the bell badge only; notifications are still stored)",
+  })
+  getDnd() {
+    return this.notifications.getDnd();
+  }
+
+  @Put("dnd")
+  @ApiOperation({
+    summary:
+      "Turn the caller's Do Not Disturb on (until a time within 7 days, or indefinite) or off",
+  })
+  setDnd(@Body() dto: SetDndDto) {
+    return this.notifications.setDnd(dto);
   }
 
   @Post("read-all")
