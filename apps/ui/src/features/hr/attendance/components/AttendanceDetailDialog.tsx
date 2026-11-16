@@ -108,7 +108,10 @@ export function AttendanceDetailDialog({
               subtext={employee?.designation?.name ?? "Company Employee"}
               size="md"
             />
-            <AttendanceStatusBadge status={record.data.status} />
+            <AttendanceStatusBadge
+              status={record.data.status}
+              pending={record.data.pendingRegularization}
+            />
           </div>
 
           {/* Attendance Summary Grid */}

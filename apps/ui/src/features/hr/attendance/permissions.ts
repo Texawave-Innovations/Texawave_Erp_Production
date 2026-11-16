@@ -22,6 +22,10 @@ export const WRITE_ANY_SCOPE = [
 export const SELF_SERVICE_READ = "employee_self_service.attendance.read";
 export const SELF_SERVICE_PUNCH = "employee_self_service.attendance.punch";
 
+/** Organization-wide attendance policy (HR master): exact permissions. */
+export const SETTINGS_READ = "hr.attendance_settings.read";
+export const SETTINGS_WRITE = "hr.attendance_settings.write";
+
 export const REPORT_READ_ANY_SCOPE = [
   "hr.attendance_report.read.own",
   "hr.attendance_report.read.team",

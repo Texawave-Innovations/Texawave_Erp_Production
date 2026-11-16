@@ -31,6 +31,7 @@ import {
   type PunchSession,
 } from "./services/attendance-calculation.service.js";
 import type { EmployeeRef } from "./services/attendance-day-resolver.js";
+import { AttendanceSettingsService } from "./settings/attendance-settings.service.js";
 import {
   AttendanceDayViewService,
   type DayView,
@@ -53,6 +54,7 @@ export class AttendanceService {
     private readonly employees: EmployeeQueryService,
     private readonly locationPrivilege: LocationPrivilegeService,
     private readonly notifications: NotificationsService,
+    private readonly settings: AttendanceSettingsService,
   ) {}
 
   // ---- self-service -------------------------------------------------------
@@ -65,12 +67,14 @@ export class AttendanceService {
     await this.locationPrivilege.assertPunchAllowed(employee.id);
     const now = new Date();
     const attendanceDate = istDateOf(now);
+    const rules = await this.settings.rules();
     const result = await this.repository.checkIn(
       this.tenantContext.getOrgScope(),
       employee.id,
       attendanceDate,
       now,
       this.tenantContext.getUserId(),
+      rules.autoCheckoutEnabled ? rules.autoCheckoutTime : null,
     );
 
     const timeFormatted = now.toLocaleTimeString("en-US", {

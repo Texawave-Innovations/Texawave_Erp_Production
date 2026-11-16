@@ -16,6 +16,9 @@ import { AttendanceMonthLocksService } from "./month-locks/attendance-month-lock
 import { AttendanceReportsController } from "./reports/attendance-reports.controller.js";
 import { AttendanceReportsRepository } from "./reports/attendance-reports.repository.js";
 import { AttendanceReportsService } from "./reports/attendance-reports.service.js";
+import { AttendanceSettingsController } from "./settings/attendance-settings.controller.js";
+import { AttendanceSettingsRepository } from "./settings/attendance-settings.repository.js";
+import { AttendanceSettingsService } from "./settings/attendance-settings.service.js";
 import { AttendanceAutoCheckoutService } from "./services/attendance-auto-checkout.service.js";
 import { AttendanceAutoCheckoutScheduler } from "./services/attendance-auto-checkout.scheduler.js";
 import { AttendanceAlertsScheduler } from "./services/attendance-alerts.scheduler.js";
@@ -31,12 +34,15 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
 @Module({
   imports: [EmployeesModule, LocationPrivilegeModule, NotificationsModule],
   controllers: [
+    AttendanceSettingsController,
     AttendanceCorrectionsController,
     AttendanceReportsController,
     AttendanceMonthLocksController,
     AttendanceController,
   ],
   providers: [
+    AttendanceSettingsRepository,
+    AttendanceSettingsService,
     AttendanceCalculationService,
     AttendanceDayViewService,
     AttendanceDayContextRepository,

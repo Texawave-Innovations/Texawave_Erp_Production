@@ -379,7 +379,12 @@ export function DailyAttendanceTab() {
                 },
                 {
                   header: "Status",
-                  cell: (r) => <AttendanceStatusBadge status={r.status} />,
+                  cell: (r) => (
+                    <AttendanceStatusBadge
+                      status={r.status}
+                      pending={r.pendingRegularization}
+                    />
+                  ),
                 },
                 {
                   header: "Check-in",

@@ -517,7 +517,12 @@ export function AttendanceRecordsTab() {
               },
               {
                 header: "Status",
-                cell: (r) => <AttendanceStatusBadge status={r.status} />,
+                cell: (r) => (
+                  <AttendanceStatusBadge
+                    status={r.status}
+                    pending={r.pendingRegularization}
+                  />
+                ),
               },
               {
                 header: "Actions",

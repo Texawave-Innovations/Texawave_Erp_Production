@@ -504,6 +504,18 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description: "Browse the organization's audit trail",
   },
 
+  // apps/api/src/modules/hr/attendance/settings — organization-wide attendance
+  // policy (auto check-out). Not employee data, so no scope.
+  {
+    code: "hr.attendance_settings.read",
+    description: "View the attendance settings (automatic check-out)",
+  },
+  {
+    code: "hr.attendance_settings.write",
+    description:
+      "Change the attendance settings (automatic check-out on or off, and the cut-off time)",
+  },
+
   // apps/api/src/modules/hr/payroll — team-scoped
   ...scopedPermission(
     "hr.payroll.read",

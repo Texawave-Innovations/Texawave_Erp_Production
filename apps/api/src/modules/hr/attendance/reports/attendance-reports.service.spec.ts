@@ -68,6 +68,7 @@ function makeService(opts: {
             overtimeMinutes: 0,
             shortfallMinutes: 0,
             hasOpenSession: d.sessions.some((s) => s.checkOutAt === null),
+            pendingRegularization: false,
             ...derive(d),
           })),
       ),

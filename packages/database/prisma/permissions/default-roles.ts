@@ -89,6 +89,8 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "hr.attendance.import.all",
       "hr.attendance_lock.read.all",
       "hr.attendance_lock.finalize.all",
+      "hr.attendance_settings.read",
+      "hr.attendance_settings.write",
       "hr.location_privilege.read",
       "hr.location_privilege.write",
       "hr.office_network.read",

@@ -68,7 +68,11 @@ interface Row {
 
 function makeService(
   open: Row[],
-  opts: { updateCount?: number; orgs?: number[] } = {},
+  opts: {
+    updateCount?: number;
+    orgs?: number[];
+    settings?: { autoCheckoutEnabled: boolean; autoCheckoutTime: string };
+  } = {},
 ) {
   const tx = {
     attendanceSession: {
@@ -115,13 +119,15 @@ function makeService(
     }),
   };
   const notifications = { notify: vi.fn().mockResolvedValue(0) };
+  const settings = { find: vi.fn().mockResolvedValue(opts.settings ?? null) };
   const service = new AttendanceAutoCheckoutService(
     prisma as never,
     audit as never,
     dayContext as never,
     notifications as never,
+    settings as never,
   );
-  return { service, prisma, tx, audit, dayContext, notifications };
+  return { service, prisma, tx, audit, dayContext, notifications, settings };
 }
 
 describe("AttendanceAutoCheckoutService", () => {
@@ -219,6 +225,74 @@ describe("AttendanceAutoCheckoutService", () => {
     const result = await service.runForAllOrganizations(ASOF);
     expect(result.failedOrganizations).toBe(1);
     expect(result.closed).toBe(1);
+  });
+});
+
+describe("AttendanceAutoCheckoutService — fixed cut-off (HR master)", () => {
+  const on = { autoCheckoutEnabled: true, autoCheckoutTime: "20:00" };
+  // A forgotten check-out on Saturday 14 Nov, found on Monday 16 Nov.
+  const forgotten: Row = {
+    id: 21,
+    checkInAt: at("2026-11-14T04:00:00Z"),
+    attendanceDate: at("2026-11-14T00:00:00Z"),
+    employeeId: 3,
+  };
+  const monday = at("2026-11-16T03:10:00Z");
+
+  it("closes the forgotten session at that day's cut-off and flags it pending", async () => {
+    const { service, tx, audit } = makeService([forgotten], { settings: on });
+    const result = await service.runForOrganization(ORG, monday);
+
+    expect(result).toEqual({ closed: 1, noTarget: 0, notDue: 0 });
+    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 21, checkOutAt: null },
+      data: { checkOutAt: at("2026-11-14T14:30:00Z"), autoClosed: true },
+    });
+    expect(audit.write.mock.calls[0]![1]).toMatchObject({
+      action: "auto_checkout",
+      system: { organizationId: ORG, label: "attendance.auto_checkout" },
+    });
+  });
+
+  it("needs no shift target and loads no calendar", async () => {
+    const { service, dayContext } = makeService([forgotten], { settings: on });
+    await service.runForOrganization(ORG, monday);
+    expect(dayContext.load).not.toHaveBeenCalled();
+  });
+
+  it("leaves today's session open until the cut-off", async () => {
+    const today: Row = {
+      id: 22,
+      checkInAt: at("2026-11-16T04:00:00Z"),
+      attendanceDate: at("2026-11-16T00:00:00Z"),
+      employeeId: 4,
+    };
+    const { service, tx } = makeService([today], { settings: on });
+    const result = await service.runForOrganization(
+      ORG,
+      at("2026-11-16T10:00:00Z"),
+    );
+    expect(result).toEqual({ closed: 0, noTarget: 0, notDue: 1 });
+    expect(tx.attendanceSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("when switched off, keeps the shift rule and does not flag sessions", async () => {
+    const { service, tx } = makeService(
+      [
+        {
+          id: 11,
+          checkInAt: at("2026-10-04T03:00:00Z"),
+          attendanceDate: at("2026-10-04T00:00:00Z"),
+          employeeId: 1,
+        },
+      ],
+      { settings: { autoCheckoutEnabled: false, autoCheckoutTime: "20:00" } },
+    );
+    await service.runForOrganization(ORG, ASOF);
+    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, checkOutAt: null },
+      data: { checkOutAt: at("2026-10-04T11:00:00Z") },
+    });
   });
 });
 

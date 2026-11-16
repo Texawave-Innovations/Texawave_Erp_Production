@@ -34,6 +34,44 @@ function run(overrides: Partial<AttendanceDayInput>) {
 }
 
 describe("AttendanceCalculationService", () => {
+  describe("auto-closed day pending HR regularization", () => {
+    it("is not marked, with nothing worked and the full target as shortfall", () => {
+      const r = run({
+        sessions: [session("10:00", "20:00")],
+        autoClosedPending: true,
+      });
+      expect(r).toMatchObject({
+        status: "NOT_MARKED",
+        workedMinutes: 0,
+        overtimeMinutes: 0,
+        shortfallMinutes: 480,
+      });
+    });
+
+    it("an explicit stored status set by HR still wins", () => {
+      const r = run({
+        sessions: [session("10:00", "20:00")],
+        storedStatus: "HALF_DAY",
+        autoClosedPending: true,
+      });
+      expect(r.status).toBe("HALF_DAY");
+    });
+
+    it("a holiday keeps its calendar status", () => {
+      const r = run({
+        sessions: [session("10:00", "20:00")],
+        calendar: { ...NO_CALENDAR, holiday: true },
+        autoClosedPending: true,
+      });
+      expect(r.status).toBe("HOLIDAY");
+    });
+
+    it("without the flag the same punches count as present", () => {
+      const r = run({ sessions: [session("10:00", "20:00")] });
+      expect(r.status).toBe("PRESENT");
+    });
+  });
+
   describe("normal working day", () => {
     it("full day: worked equals target, no overtime or shortfall", () => {
       const r = run({ sessions: [session("10:00", "18:00")] });

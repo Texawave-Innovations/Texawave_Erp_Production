@@ -4,6 +4,7 @@ import { fetchFile } from "@/lib/fetch-file";
 import { downloadBlob } from "@/features/hr/payroll/download";
 import type {
   AttendanceDayView,
+  AttendanceSettings,
   AttendanceImportReport,
   BulkApproveReport,
   DailyAttendanceRow,
@@ -42,6 +43,30 @@ export function listAttendance(
 export async function getAttendance(id: number): Promise<AttendanceDayView> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<AttendanceDayView>(`${BASE}/${id}`),
+  );
+  return data;
+}
+
+const SETTINGS = `${BASE}/settings`;
+
+export async function getAttendanceSettings(): Promise<AttendanceSettings> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<AttendanceSettings>(SETTINGS),
+  );
+  return data;
+}
+
+export interface AttendanceSettingsBody {
+  version: number;
+  autoCheckoutEnabled?: boolean;
+  autoCheckoutTime?: string;
+}
+
+export async function updateAttendanceSettings(
+  body: AttendanceSettingsBody,
+): Promise<AttendanceSettings> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.patch<AttendanceSettings>(SETTINGS, body),
   );
   return data;
 }

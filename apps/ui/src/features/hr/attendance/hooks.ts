@@ -20,6 +20,9 @@ import {
   checkIn,
   checkOut,
   getAttendance,
+  getAttendanceSettings,
+  updateAttendanceSettings,
+  type AttendanceSettingsBody,
   listAttendance,
   listMyAttendance,
   manualEditAttendance,
@@ -93,6 +96,21 @@ export function useManualEditAttendance() {
     [KEY],
     ({ id, body }: { id: number; body: ManualEditAttendanceBody }) =>
       manualEditAttendance(id, body),
+  );
+}
+
+export function useAttendanceSettings(enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "settings"),
+    queryFn: getAttendanceSettings,
+    enabled: orgId > 0 && enabled,
+  });
+}
+
+export function useUpdateAttendanceSettings() {
+  return useOrgScopedMutation([KEY], (body: AttendanceSettingsBody) =>
+    updateAttendanceSettings(body),
   );
 }
 

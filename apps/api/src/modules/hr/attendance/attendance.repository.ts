@@ -32,6 +32,7 @@ import {
   LOCKED_STATUSES,
   monthOf,
 } from "./month-locks/month-lock.rules.js";
+import { fixedCloseAt } from "./settings/attendance-settings.rules.js";
 import type { StoredStatus } from "./services/attendance-calculation.service.js";
 import {
   planCorrection,
@@ -50,6 +51,7 @@ const SESSION_SELECT = {
   checkInAt: true,
   checkOutAt: true,
   source: true,
+  autoClosed: true,
 } satisfies Prisma.AttendanceSessionSelect;
 
 const RECORD_INCLUDE = {
@@ -107,6 +109,7 @@ export function toStoredDay(row: AttendanceRecordRow): StoredDay {
       checkInAt: s.checkInAt,
       checkOutAt: s.checkOutAt,
       source: s.source,
+      autoClosed: s.autoClosed,
     })),
   };
 }
@@ -147,11 +150,41 @@ export class AttendanceRepository {
     attendanceDate: string,
     now: Date,
     userId: number,
+    /** The organization's fixed auto check-out time (`HH:mm`, IST), or null
+     * when that setting is off. */
+    autoCheckoutTime: string | null = null,
   ): Promise<{ recordId: number; sessionId: number }> {
     return this.prisma.$transaction(async (tx) => {
       await this.lockEmployee(tx, scope, employeeId);
-      if (await this.findOpenSession(tx, scope, employeeId)) {
-        throw new AlreadyCheckedInException();
+      const open = await this.findOpenSession(tx, scope, employeeId);
+      if (open) {
+        // A session left open on an EARLIER day no longer blocks today's
+        // check-in once its cut-off has passed: it is closed at that day's
+        // cut-off (flagged for HR) and the check-in goes ahead.
+        const closeAt =
+          autoCheckoutTime !== null && open.attendanceDate < attendanceDate
+            ? fixedCloseAt(
+                open.attendanceDate,
+                autoCheckoutTime,
+                open.checkInAt,
+              )
+            : null;
+        if (closeAt === null || closeAt.getTime() > now.getTime()) {
+          throw new AlreadyCheckedInException();
+        }
+        const { count } = await tx.attendanceSession.updateMany({
+          where: { id: open.id, checkOutAt: null },
+          data: { checkOutAt: closeAt, autoClosed: true, updatedBy: userId },
+        });
+        if (count !== 1) throw new AlreadyCheckedInException();
+        await this.audit.write(tx, {
+          entityType: "attendance_session",
+          entityId: open.id,
+          action: "auto_checkout",
+          before: { checkOutAt: null },
+          after: { checkOutAt: closeAt.toISOString() },
+          reason: `Closed at the ${autoCheckoutTime} (IST) cut-off when the employee next checked in; pending HR regularization`,
+        });
       }
       const record = await tx.attendanceRecord.upsert({
         where: {
@@ -318,6 +351,15 @@ export class AttendanceRepository {
         }
       }
 
+      // HR has looked at this day: whatever the system auto-closed is now
+      // regularized (replaced sessions are new rows, which are never flagged).
+      if (sessions === undefined) {
+        await tx.attendanceSession.updateMany({
+          where: { attendanceRecordId: recordId, autoClosed: true },
+          data: { autoClosed: false, updatedBy: userId },
+        });
+      }
+
       const statusChanged = edit.status !== undefined;
       await tx.attendanceRecord.update({
         where: { id: recordId },
@@ -431,6 +473,7 @@ export class AttendanceRepository {
         data: {
           ...(update.checkInAt ? { checkInAt: update.checkInAt } : {}),
           ...(update.checkOutAt ? { checkOutAt: update.checkOutAt } : {}),
+          autoClosed: false,
           source: "CORRECTION",
           updatedBy: userId,
         },
@@ -713,13 +756,24 @@ export class AttendanceRepository {
     tx: Prisma.TransactionClient,
     scope: OrgScope,
     employeeId: number,
-  ): Promise<{ id: number; recordId: number; checkInAt: Date } | null> {
+  ): Promise<{
+    id: number;
+    recordId: number;
+    checkInAt: Date;
+    /** IST business date of the session's record, `YYYY-MM-DD`. */
+    attendanceDate: string;
+  } | null> {
     const row = await tx.attendanceSession.findFirst({
       where: {
         checkOutAt: null,
         record: { organizationId: scope.organizationId, employeeId },
       },
-      select: { id: true, attendanceRecordId: true, checkInAt: true },
+      select: {
+        id: true,
+        attendanceRecordId: true,
+        checkInAt: true,
+        record: { select: { attendanceDate: true } },
+      },
       orderBy: { checkInAt: "desc" },
     });
     return row
@@ -727,6 +781,7 @@ export class AttendanceRepository {
           id: row.id,
           recordId: row.attendanceRecordId,
           checkInAt: row.checkInAt,
+          attendanceDate: formatDateOnly(row.record.attendanceDate),
         }
       : null;
   }
