@@ -9,6 +9,7 @@ import { cn } from "@/components/legacy-ui/utils";
 import { DeleteConfirmDialog } from "@/features/crm/legacy-ui/CrmCommon";
 import { DateTimePicker } from "@/features/crm/legacy-ui/DateTimePicker";
 import { usePermission } from "@/hooks/usePermission";
+import { useDnd } from "@/features/notifications/hooks";
 import {
   AlarmClockOff,
   Bell,
@@ -100,6 +101,8 @@ export function CrmNotificationBell() {
   const completed = useNotificationFeed("completed", open);
   const deleted = useNotificationFeed("deleted", open);
   const counts = active.data?.counts;
+  // Do Not Disturb (set from the main bell) quiets this badge too.
+  const dnd = useDnd();
 
   const acknowledge = useAcknowledgeNotification();
   const markDone = useMarkNotificationDone();
@@ -445,7 +448,7 @@ export function CrmNotificationBell() {
         className="relative h-9 w-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-brand-600 hover:bg-brand-50 transition-all duration-150"
       >
         <Bell className="h-[18px] w-[18px]" />
-        {unread > 0 && (
+        {unread > 0 && !dnd.data?.active && (
           <span className="absolute -top-0.5 -right-0.5 h-[18px] min-w-[18px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold shadow-sm px-0.5">
             {unread > 99 ? "99+" : unread}
           </span>
