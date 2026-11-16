@@ -25,7 +25,16 @@ export async function selectCombobox(
   optionName: string,
 ): Promise<void> {
   const byLabel = scope.getByLabel(name);
-  const count = await byLabel.count();
+  // `.count()` is a one-shot read with no auto-wait, unlike most Playwright
+  // calls — right after a dialog opens, a field whose options depend on an
+  // async fetch (e.g. an RFQ's invited suppliers) can still be mid-mount, so
+  // this briefly polls instead of committing to a branch off a single
+  // snapshot that may just be too early.
+  let count = await byLabel.count();
+  for (let attempt = 0; count !== 1 && attempt < 10; attempt++) {
+    await scope.page().waitForTimeout(200);
+    count = await byLabel.count();
+  }
   if (count === 1) {
     await byLabel.selectOption({ label: optionName });
     return;

@@ -16,6 +16,7 @@ import { RequirePermission } from "../../../common/decorators/require-permission
 import { CreatePaymentMadeDto } from "./dto/create-payment-made.dto.js";
 import { QueryPaymentsMadeDto } from "./dto/query-payments-made.dto.js";
 import { UpdatePaymentMadeDto } from "./dto/update-payment-made.dto.js";
+import { VoidPaymentMadeDto } from "./dto/void-payment-made.dto.js";
 import { PaymentsMadeService } from "./payments-made.service.js";
 
 @ApiTags("finance-payments-made")
@@ -82,8 +83,11 @@ export class PaymentsMadeController {
     summary:
       "Void a disbursement (atomically creates GL reversal voucher and refunds bank balance)",
   })
-  void(@Param("id", ParseIntPipe) id: number) {
-    return this.paymentsMadeService.void(id);
+  void(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto?: VoidPaymentMadeDto,
+  ) {
+    return this.paymentsMadeService.void(id, dto?.reason);
   }
 
   @Delete(":id")

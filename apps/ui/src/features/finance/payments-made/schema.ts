@@ -19,6 +19,8 @@ export const createPaymentMadeSchema = z.object({
     .trim()
     .min(1, "Vendor / Supplier name is required")
     .max(150, "Vendor name must be 150 characters or fewer"),
+  supplierId: z.number().int().positive().optional(),
+  billId: z.number().int().positive().optional(),
   amount: z
     .number()
     .positive("Disbursement amount must be greater than zero")

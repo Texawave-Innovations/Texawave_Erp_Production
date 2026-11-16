@@ -361,8 +361,9 @@ export class ReportsService {
 
   /**
    * General Ledger Report
-   * Account-level statement with opening balance, chronologically ordered
-   * posted journal transactions, sequential running balances, and closing balance.
+   * Account-level statement with opening balance, sequential running balances
+   * computed chronologically, and closing balance. Returned transaction list
+   * is displayed newest-first.
    */
   async getGeneralLedger(
     dto: QueryGeneralLedgerDto,
@@ -469,7 +470,9 @@ export class ReportsService {
         endDate: endStr,
       },
       openingBalance,
-      transactions,
+      // Running balances are computed chronologically (oldest first) above;
+      // reverse only for display so the most recently recorded entries appear on top.
+      transactions: [...transactions].reverse(),
       totalDebit,
       totalCredit,
       closingBalance,

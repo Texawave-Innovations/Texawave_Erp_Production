@@ -7,6 +7,7 @@ import {
 import type { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import type { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type { JournalEntriesRepository } from "../journal/journal-entries.repository.js";
+import type { FinanceService } from "../../scm/finance/finance.service.js";
 import { QueryPaymentsMadeDto } from "./dto/query-payments-made.dto.js";
 import type { PaymentsMadeRepository } from "./payments-made.repository.js";
 import { PaymentsMadeService } from "./payments-made.service.js";
@@ -18,7 +19,7 @@ const MOCK_PAYMENT_DRAFT = {
   id: 10,
   organizationId: 1,
   paymentNumber: "PM-202610-0001",
-  paymentDate: "2026-10-23T00:00:00.000Z",
+  paymentDate: new Date("2026-10-23T00:00:00.000Z"),
   vendorName: "Steel Industries Corp",
   amount: "3500.00",
   paymentModeId: 4,
@@ -51,6 +52,22 @@ const MOCK_PAYMENT_RECONCILED = {
   ...MOCK_PAYMENT_CONFIRMED,
   id: 13,
   status: "RECONCILED",
+};
+
+const MOCK_PAYMENT_WITH_BILL = {
+  ...MOCK_PAYMENT_DRAFT,
+  id: 20,
+  supplierId: 14,
+  billId: 8,
+  status: "DRAFT",
+};
+
+const MOCK_PAYMENT_CONFIRMED_WITH_SCM_LINK = {
+  ...MOCK_PAYMENT_CONFIRMED,
+  id: 21,
+  supplierId: 14,
+  billId: 8,
+  scmSupplierPaymentId: 301,
 };
 
 function makeService() {
@@ -106,6 +123,19 @@ function makeService() {
       findFirst: vi
         .fn()
         .mockResolvedValue({ id: 301, paymentNumber: "SP-001" }),
+    },
+    supplier: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 14, companyName: "GBSuppliers" }),
+    },
+    scmSupplierBill: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: 8,
+        supplierId: 14,
+        status: "OPEN",
+        billNumber: "TW/BILL/26-27/0008",
+      }),
     },
     financeAccount: {
       findFirst: vi
@@ -171,6 +201,13 @@ function makeService() {
         ],
       }),
     },
+    $transaction: vi.fn((cb: (tx: unknown) => unknown) => cb(prisma)),
+  };
+
+  const scmFinance = {
+    createPayment: vi.fn(),
+    voidPayment: vi.fn(),
+    mapPaymentMode: vi.fn().mockReturnValue("BANK_TRANSFER"),
   };
 
   const service = new PaymentsMadeService(
@@ -178,9 +215,10 @@ function makeService() {
     journalRepository as unknown as JournalEntriesRepository,
     tenantContext as unknown as TenantContextService,
     prisma as unknown as PrismaService,
+    scmFinance as unknown as FinanceService,
   );
 
-  return { service, repository, journalRepository, prisma };
+  return { service, repository, journalRepository, prisma, scmFinance };
 }
 
 describe("PaymentsMadeService", () => {
@@ -269,6 +307,7 @@ describe("PaymentsMadeService", () => {
           vendorName: "Steel Corp",
           amount: 1000,
           paymentModeId: 4,
+          bankAccountId: 2,
         }),
       ).rejects.toThrow(ResourceConflictException);
     });
@@ -281,6 +320,7 @@ describe("PaymentsMadeService", () => {
         vendorName: "Steel Corp",
         amount: 1000,
         paymentModeId: 4,
+        bankAccountId: 2,
         status: "DRAFT",
       });
 
@@ -296,6 +336,7 @@ describe("PaymentsMadeService", () => {
         vendorName: "Steel Corp",
         amount: 3500,
         paymentModeId: 4,
+        bankAccountId: 2,
         status: "CONFIRMED",
       });
 
@@ -325,6 +366,118 @@ describe("PaymentsMadeService", () => {
       expect(confirmCall[4].delta).toBe(-3500);
       expect(confirmCall[5]).toBe(USER_ID);
     });
+
+    it("throws ResourceNotFoundException for non-existent supplierId", async () => {
+      const { service, prisma } = makeService();
+      prisma.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          paymentDate: "2026-10-23",
+          vendorName: "Steel Corp",
+          amount: 1000,
+          paymentModeId: 4,
+          bankAccountId: 2,
+          supplierId: 999,
+        }),
+      ).rejects.toThrow(ResourceNotFoundException);
+    });
+
+    it("rejects a billId with no supplierId", async () => {
+      const { service } = makeService();
+
+      await expect(
+        service.create({
+          paymentDate: "2026-10-23",
+          vendorName: "Steel Corp",
+          amount: 1000,
+          paymentModeId: 4,
+          bankAccountId: 2,
+          billId: 8,
+        }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it("throws ResourceNotFoundException for non-existent billId", async () => {
+      const { service, prisma } = makeService();
+      prisma.scmSupplierBill.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          paymentDate: "2026-10-23",
+          vendorName: "Steel Corp",
+          amount: 1000,
+          paymentModeId: 4,
+          bankAccountId: 2,
+          supplierId: 14,
+          billId: 999,
+        }),
+      ).rejects.toThrow(ResourceNotFoundException);
+    });
+
+    it("rejects a bill that belongs to a different supplier", async () => {
+      const { service, prisma } = makeService();
+      prisma.scmSupplierBill.findFirst.mockResolvedValue({
+        id: 8,
+        supplierId: 999,
+        status: "OPEN",
+        billNumber: "TW/BILL/26-27/0008",
+      });
+
+      await expect(
+        service.create({
+          paymentDate: "2026-10-23",
+          vendorName: "Steel Corp",
+          amount: 1000,
+          paymentModeId: 4,
+          bankAccountId: 2,
+          supplierId: 14,
+          billId: 8,
+        }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it("rejects a bill that is not in a payable state", async () => {
+      const { service, prisma } = makeService();
+      prisma.scmSupplierBill.findFirst.mockResolvedValue({
+        id: 8,
+        supplierId: 14,
+        status: "CANCELLED",
+        billNumber: "TW/BILL/26-27/0008",
+      });
+
+      await expect(
+        service.create({
+          paymentDate: "2026-10-23",
+          vendorName: "Steel Corp",
+          amount: 1000,
+          paymentModeId: 4,
+          bankAccountId: 2,
+          supplierId: 14,
+          billId: 8,
+        }),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it("persists supplierId and billId on the created record", async () => {
+      const { service, repository } = makeService();
+
+      await service.create({
+        paymentDate: "2026-10-23",
+        vendorName: "Steel Corp",
+        amount: 1000,
+        paymentModeId: 4,
+        bankAccountId: 2,
+        supplierId: 14,
+        billId: 8,
+        status: "DRAFT",
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        SCOPE,
+        expect.objectContaining({ supplierId: 14, billId: 8 }),
+      );
+    });
   });
 
   describe("Confirm Disbursement", () => {
@@ -353,6 +506,66 @@ describe("PaymentsMadeService", () => {
       await expect(service.confirm(10)).rejects.toThrow(
         BusinessRuleViolationException,
       );
+    });
+
+    it("does not call the SCM engine when no bill is linked", async () => {
+      const { service, repository, scmFinance } = makeService();
+
+      await service.confirm(10);
+
+      expect(scmFinance.createPayment).not.toHaveBeenCalled();
+      const call = repository.postAndConfirmPayment.mock.calls[0] as unknown[];
+      expect(call[6]).toBeUndefined();
+    });
+
+    it("applies the payment to the real bill through the SCM engine, in the same transaction, and links scmSupplierPaymentId", async () => {
+      const { service, repository, prisma, scmFinance } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_WITH_BILL);
+      scmFinance.createPayment.mockResolvedValue({
+        id: 301,
+        paymentNumber: "TW/PAY/26-27/0002",
+      });
+
+      await service.confirm(20);
+
+      expect(scmFinance.createPayment).toHaveBeenCalledTimes(1);
+      const [payload, tx] = scmFinance.createPayment.mock.calls[0] as [
+        {
+          supplierId: number;
+          billId: number;
+          mode: string;
+          amount: number;
+        },
+        unknown,
+      ];
+      expect(payload.supplierId).toBe(14);
+      expect(payload.billId).toBe(8);
+      expect(payload.mode).toBe("BANK_TRANSFER");
+      expect(payload.amount).toBe(3500);
+      // Run inside the same `prisma.$transaction` this service opened, not a
+      // separate one — that's the whole point of the atomicity exception.
+      expect(tx).toBe(prisma);
+
+      const confirmCall = repository.postAndConfirmPayment.mock
+        .calls[0] as unknown[];
+      expect(confirmCall[6]).toBe(301);
+      expect(confirmCall[7]).toBe(prisma);
+    });
+
+    it("rolls back without posting GL/bank when the SCM engine rejects the bill (e.g. overpayment)", async () => {
+      const { service, repository, scmFinance } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_WITH_BILL);
+      scmFinance.createPayment.mockRejectedValue(
+        new BusinessRuleViolationException(
+          "The payment exceeds the outstanding balance.",
+          "PAYMENT_OVERPAY",
+        ),
+      );
+
+      await expect(service.confirm(20)).rejects.toThrow(
+        BusinessRuleViolationException,
+      );
+      expect(repository.postAndConfirmPayment).not.toHaveBeenCalled();
     });
   });
 
@@ -469,6 +682,52 @@ describe("PaymentsMadeService", () => {
         [],
         null,
         USER_ID,
+      );
+    });
+
+    it("does not call the SCM engine when the payment has no linked SCM payment", async () => {
+      const { service, repository, scmFinance } = makeService();
+      repository.findById.mockResolvedValue(MOCK_PAYMENT_CONFIRMED);
+
+      await service.void(11);
+
+      expect(scmFinance.voidPayment).not.toHaveBeenCalled();
+    });
+
+    it("voids the linked SCM supplier payment (restoring the bill's outstanding) in the same transaction as the GL reversal", async () => {
+      const { service, repository, prisma, scmFinance } = makeService();
+      repository.findById.mockResolvedValue(
+        MOCK_PAYMENT_CONFIRMED_WITH_SCM_LINK,
+      );
+
+      await service.void(21, "Customer requested cancellation");
+
+      expect(scmFinance.voidPayment).toHaveBeenCalledTimes(1);
+      const [id, reason, tx] = scmFinance.voidPayment.mock.calls[0] as [
+        number,
+        string,
+        unknown,
+      ];
+      expect(id).toBe(301);
+      expect(reason).toBe("Customer requested cancellation");
+      expect(tx).toBe(prisma);
+      expect(repository.voidAndReversePayment).toHaveBeenCalled();
+    });
+
+    it("falls back to a generated reason when none is given", async () => {
+      const { service, repository, scmFinance } = makeService();
+      repository.findById.mockResolvedValue(
+        MOCK_PAYMENT_CONFIRMED_WITH_SCM_LINK,
+      );
+
+      await service.void(21);
+
+      const [, reason] = scmFinance.voidPayment.mock.calls[0] as [
+        number,
+        string,
+      ];
+      expect(reason).toContain(
+        MOCK_PAYMENT_CONFIRMED_WITH_SCM_LINK.paymentNumber,
       );
     });
   });

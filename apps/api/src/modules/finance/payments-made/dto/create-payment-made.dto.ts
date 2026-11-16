@@ -34,6 +34,26 @@ export class CreatePaymentMadeDto {
   @MaxLength(150)
   vendorName!: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Real SCM Supplier Master id. When set, this payment is linked to the " +
+      "Supplier's Accounts Payable ledger instead of being free-text only.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  supplierId?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "SCM supplier bill (ScmSupplierBill) this payment settles. Requires " +
+      "supplierId. Omit for an advance/on-account payment.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  billId?: number;
+
   @ApiProperty({ description: "Disbursement amount (positive number)" })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })

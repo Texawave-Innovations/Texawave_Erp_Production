@@ -13,7 +13,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { Plus, ReceiptText } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -23,6 +23,10 @@ import {
   formatStatusLabel,
   scmStatusToken,
 } from "../../shared/format";
+import {
+  purchasesAwarePath,
+  withoutQueryParams,
+} from "../../shared/purchases-aware-path";
 import { ScmDetailDialog } from "../../shared/ScmDetailDialog";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -38,6 +42,7 @@ import { QuotationForm } from "./QuotationForm";
 /** Legacy `ScmSupplierQuotations`. `?fromRfq=<id>` opens the form for that RFQ. */
 export function QuotationsView() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const fromRfq = params.get("fromRfq");
   const c = useListControls();
@@ -78,7 +83,8 @@ export function QuotationsView() {
 
   function closeForm() {
     setFormOpen(false);
-    if (fromRfq) router.replace("/scm/procurement/quotations");
+    if (fromRfq)
+      router.replace(withoutQueryParams(pathname, params, ["fromRfq"]));
   }
 
   async function save(input: CreateQuotationInput) {
@@ -185,7 +191,14 @@ export function QuotationsView() {
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  router.push(`/scm/procurement/comparison?rfqId=${q.rfqId}`)
+                  router.push(
+                    purchasesAwarePath(
+                      pathname,
+                      "comparison",
+                      "/scm/procurement/comparison",
+                      `rfqId=${q.rfqId}`,
+                    ),
+                  )
                 }
               >
                 Compare
@@ -196,7 +209,12 @@ export function QuotationsView() {
                   size="sm"
                   onClick={() =>
                     router.push(
-                      `/scm/procurement/purchase-orders?fromQuotation=${q.id}`,
+                      purchasesAwarePath(
+                        pathname,
+                        "purchase-orders",
+                        "/scm/procurement/purchase-orders",
+                        `fromQuotation=${q.id}`,
+                      ),
                     )
                   }
                 >

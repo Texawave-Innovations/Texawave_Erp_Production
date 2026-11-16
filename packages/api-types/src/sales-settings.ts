@@ -48,11 +48,6 @@ export interface CompanyDetail {
   pan: string | null;
   logoDataUri: string | null;
   customFields: Record<string, unknown>;
-  createdBy: number | null;
-  updatedBy: number | null;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
 }
 
 export type UpsertCompanyDetailInput = {
@@ -133,11 +128,6 @@ export interface AuthorizedSignatory {
   name: string | null;
   designation: string | null;
   customFields: Record<string, unknown>;
-  createdBy: number | null;
-  updatedBy: number | null;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
 }
 
 export interface UpsertAuthorizedSignatoryInput {
@@ -156,8 +146,6 @@ export interface Salesperson {
   phone: string | null;
   commissionPercent: number | null;
   customFields: Record<string, unknown>;
-  createdBy: number | null;
-  updatedBy: number | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -192,8 +180,6 @@ export interface SealSignature {
   designation: string | null;
   imageDataUri: string;
   customFields: Record<string, unknown>;
-  createdBy: number | null;
-  updatedBy: number | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
