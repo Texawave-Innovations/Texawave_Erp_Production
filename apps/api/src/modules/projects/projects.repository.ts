@@ -178,6 +178,7 @@ export class ProjectsRepository {
         clientHandlingPerson: {
           select: {
             id: true,
+            userId: true,
             fullName: true,
             employeeCode: true,
             workEmail: true,

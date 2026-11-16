@@ -24,12 +24,14 @@ function makeService() {
       sequenceDigits: 3,
     }),
   };
+  const notifications = { notifyUser: vi.fn().mockResolvedValue(1) };
   const service = new ProjectsService(
     repository as never,
     tenantContext as never,
     codeMaster as never,
+    notifications as never,
   );
-  return { service, repository, tenantContext, codeMaster };
+  return { service, repository, tenantContext, codeMaster, notifications };
 }
 
 describe("ProjectsService", () => {
@@ -77,6 +79,69 @@ describe("ProjectsService", () => {
         sequenceDigits: 3,
       },
     );
+  });
+
+  describe("client handling person notification", () => {
+    const base = {
+      id: 7,
+      projectCode: "TXW/PRJ/ME/26-27/007",
+      name: "ERP Overhaul",
+      members: [],
+      milestones: [],
+      tasks: [],
+      startDate: new Date("2026-10-01"),
+      plannedEndDate: new Date("2026-12-31"),
+      expectedHours: 0,
+      projectPrice: 0,
+      actualCost: 0,
+      status: "active",
+    };
+    const dto = { name: "ERP Overhaul", startDate: "2026-10-01" };
+
+    it("notifies the selected client handling person", async () => {
+      const { service, repository, notifications } = makeService();
+      repository.create.mockResolvedValue(base);
+      repository.findOne.mockResolvedValue({
+        ...base,
+        clientHandlingPerson: { id: 3, userId: 42, fullName: "Afzal M" },
+      });
+      await service.create(dto);
+      expect(notifications.notifyUser).toHaveBeenCalledWith(
+        { organizationId: 1 },
+        42,
+        expect.objectContaining({
+          type: "project.client_handler_assigned",
+          link: "/projects/7",
+        }),
+      );
+    });
+
+    it("does not notify when they created the project themselves", async () => {
+      const { service, repository, notifications } = makeService();
+      repository.create.mockResolvedValue(base);
+      repository.findOne.mockResolvedValue({
+        ...base,
+        clientHandlingPerson: { id: 3, userId: 10, fullName: "Self" },
+      });
+      await service.create(dto);
+      expect(notifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it("does not notify when none is selected or they have no login", async () => {
+      const { service, repository, notifications } = makeService();
+      repository.create.mockResolvedValue(base);
+      repository.findOne.mockResolvedValue({
+        ...base,
+        clientHandlingPerson: null,
+      });
+      await service.create(dto);
+      repository.findOne.mockResolvedValue({
+        ...base,
+        clientHandlingPerson: { id: 3, userId: null, fullName: "No login" },
+      });
+      await service.create(dto);
+      expect(notifications.notifyUser).not.toHaveBeenCalled();
+    });
   });
 
   it("finds a project by id and enriches it with calculated metrics", async () => {
