@@ -105,6 +105,7 @@ model Organization {
   attendanceCorrections       AttendanceCorrection[]
   attendanceMonthLocks         AttendanceMonthLock[]
   notifications                Notification[]
+  notificationPreferences      NotificationPreference[]
   revisionLetters              RevisionLetter[]
   promotionLetters             PromotionLetter[]
   interviews                   Interview[]
@@ -284,6 +285,7 @@ model User {
   attendanceMonthLocksSubmitted  AttendanceMonthLock[]     @relation("AttendanceMonthLockSubmitter")
   attendanceMonthLocksDecided    AttendanceMonthLock[]     @relation("AttendanceMonthLockDecider")
   notifications                  Notification[]
+  notificationPreference         NotificationPreference?
   passwordResetTokens            PasswordResetToken[]
   approvalsRequested             Approval[]                @relation("ApprovalRequester")
   approvalsDecided               Approval[]                @relation("ApprovalDecider")
@@ -3232,6 +3234,26 @@ model Notification {
   @@unique([userId, dedupKey])
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+  @@schema("platform")
+}
+
+/// A user's own notification preferences. Today: Do Not Disturb (snooze). It
+/// only quiets the bell badge; notifications are still created and stored.
+/// Active when `dnd_indefinite`, or `dnd_until` is in the future; an expired
+/// `dnd_until` is simply inactive, so no job is needed to switch it off.
+model NotificationPreference {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  userId         Int       @unique @map("user_id")
+  dndUntil       DateTime? @map("dnd_until") @db.Timestamptz(6)
+  dndIndefinite  Boolean   @default(false) @map("dnd_indefinite")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
   @@schema("platform")
 }
 

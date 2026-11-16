@@ -363,12 +363,16 @@ The core attendance API (punches, HR view, manual edit, corrections, reports, au
 
 In-app inbox (`platform.notifications`). Only server-side code sends notifications (`NotificationsService.notify()`); there is no create route.
 
-| Route                             | Permission              | Notes                                                                                  |
-| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
-| GET `/notifications`              | authenticated (no code) | The caller's own notifications, newest first; `unreadOnly=true`; paginated.            |
-| GET `/notifications/unread-count` | authenticated           | `{unread}`.                                                                            |
-| POST `/notifications/:id/read`    | authenticated           | Marks one of the caller's own read (keeps the first read time); 404 for anyone else's. |
-| POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                            |
+| Route                             | Permission              | Notes                                                                                              |
+| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| GET `/notifications`              | authenticated (no code) | The caller's own notifications, newest first; `unreadOnly=true`; paginated.                        |
+| GET `/notifications/unread-count` | authenticated           | `{unread}`.                                                                                        |
+| POST `/notifications/:id/read`    | authenticated           | Marks one of the caller's own read (keeps the first read time); 404 for anyone else's.             |
+| POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                                        |
+| GET `/notifications/dnd`          | authenticated           | The caller's Do Not Disturb: `{active, until, indefinite}`.                                        |
+| PUT `/notifications/dnd`          | authenticated           | `{until}` (an ISO instant, at most 7 days ahead), `{indefinite: true}`, or neither to turn it off. |
+
+**Do Not Disturb** (snooze, `platform.notification_preferences`, one row per user): it quiets only the bell **badge**. Notifications are still created, stored and listed, with their own unread dots, so nothing is lost. A timed snooze is active while `until` is in the future and switches itself off afterwards (no job); `indefinite` stays until turned off. No exceptions by notification type in this version. The CRM bell's badge follows the same setting.
 
 Like `GET /menu/my-menu`, these routes need a login but no permission: every query is keyed to the user in the JWT. Senders so far: `attendance.missing_check_in`, `attendance.missing_check_out`, `attendance.auto_checkout`, `attendance.month_returned`, `attendance.month_reopened`, and leave: `leave.submitted`, `leave.submitted_on_behalf`, `leave.first_approved`, `leave.awaiting_hr`, `leave.approved`, `leave.rejected`, `leave.cancelled_by_hr`, `leave.withdrawn`, `leave.delegation_created`.
 
