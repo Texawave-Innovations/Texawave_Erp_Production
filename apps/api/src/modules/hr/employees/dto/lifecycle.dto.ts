@@ -99,3 +99,16 @@ export class UnlinkEmployeeUserDto {
   @Length(3, 500)
   reason?: string;
 }
+
+export class SetPortalPasswordDto {
+  @ApiProperty({
+    description:
+      "New portal login password for the linked user (6–72 chars). Set by HR on behalf of the employee.",
+    minLength: 6,
+    maxLength: 72,
+  })
+  @Trim()
+  @IsString()
+  @Length(6, 72)
+  password!: string;
+}

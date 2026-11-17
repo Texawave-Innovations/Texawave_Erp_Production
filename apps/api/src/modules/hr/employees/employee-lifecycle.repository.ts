@@ -53,6 +53,14 @@ export class EmployeeLifecycleRepository {
   ) {}
 
   @OrgScoped()
+  findOne(scope: OrgScope, id: number) {
+    return this.prisma.employee.findFirst({
+      where: { id, organizationId: scope.organizationId, deletedAt: null },
+      include: EMPLOYEE_INCLUDE,
+    });
+  }
+
+  @OrgScoped()
   async changeStatus(
     scope: OrgScope,
     id: number,
