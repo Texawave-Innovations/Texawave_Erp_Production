@@ -16,6 +16,7 @@ import {
   FolderKanban,
   History,
   ListTodo,
+  Pause,
   Play,
   Square,
   Star,
@@ -345,6 +346,26 @@ export function MyWorkView() {
     }
   };
 
+  // Pause = stop the stopwatch AND put the task on hold, in one step. Starting
+  // the timer again resumes it.
+  const handlePause = async (task: ProjectTask) => {
+    try {
+      const paused = await stopTimerMutation.mutateAsync({
+        taskId: task.id,
+        pause: true,
+      });
+      toast({
+        title: `Task paused — ${paused.durationMinutes ?? 0} min logged. It is now on hold.`,
+        variant: "success",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: errorMessage(err, "Failed to pause task"),
+        variant: "error",
+      });
+    }
+  };
+
   const handleStatusChange = async (task: ProjectTask, newStatus: string) => {
     try {
       const willComplete =
@@ -370,6 +391,17 @@ export function MyWorkView() {
   // Legacy TaskTimer "Finish": stop the running stopwatch, then complete.
   const handleFinish = async (task: ProjectTask) => {
     try {
+      if (task.status === "in_progress" || task.status === "hold") {
+        // One server call: closes the running session (if any), completes the
+        // task and awards the points once.
+        await stopTimerMutation.mutateAsync({
+          taskId: task.id,
+          complete: true,
+        });
+        celebrate(task);
+        return;
+      }
+      // A task that was never started has no session to close.
       if (activeTimer?.taskId === task.id) {
         await stopTimerMutation.mutateAsync({ taskId: task.id });
       }
@@ -722,6 +754,18 @@ export function MyWorkView() {
                           <Square className="h-3.5 w-3.5 fill-current" />
                           Stop Timer
                         </Button>
+                        {task.status === "in_progress" && !readOnly ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handlePause(task)}
+                            loading={stopTimerMutation.isPending}
+                            title="Stop the timer and put this task on hold"
+                          >
+                            <Pause className="h-3.5 w-3.5 fill-current" />
+                            Pause
+                          </Button>
+                        ) : null}
                       </>
                     ) : task.status !== "completed" && !readOnly ? (
                       <Button
@@ -741,7 +785,7 @@ export function MyWorkView() {
                         }
                       >
                         <Play className="h-3.5 w-3.5 fill-current" />
-                        Start Timer
+                        {task.status === "hold" ? "Resume" : "Start Timer"}
                       </Button>
                     ) : null}
 

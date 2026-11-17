@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { businessDateOf } from "../../common/dates/business-date.js";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto.js";
 import {
+  BusinessRuleConflictException,
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../common/exceptions/business.exception.js";
@@ -98,7 +100,7 @@ export class ProjectsService {
     const scope = this.tenantContext.getOrgScope();
     const projects = await this.repository.findAllForAnalytics(scope);
     const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
+    const todayIso = businessDateOf(today);
     const windowEnd = new Date(todayIso + "T00:00:00.000Z");
     windowEnd.setUTCDate(
       windowEnd.getUTCDate() + DEFAULT_UPCOMING_MILESTONE_DAYS,
@@ -269,11 +271,28 @@ export class ProjectsService {
     return customer.companyName;
   }
 
+  /** Projects the employee may link a timesheet activity to (member of, or
+   * holding a task in). Used by the timesheet so it never reads project data
+   * itself. */
+  async findLinkableProjects(employeeId: number) {
+    const scope = this.tenantContext.getOrgScope();
+    return this.repository.findLinkableProjects(scope, employeeId);
+  }
+
   async softDelete(id: number) {
     const scope = this.tenantContext.getOrgScope();
     const existing = await this.repository.findOne(scope, id);
     if (!existing) {
       throw new ResourceNotFoundException("Project", id);
+    }
+
+    // A project with a running timer cannot be deleted: the open sessions would
+    // be orphaned. The assignees must stop or pause first.
+    if ((await this.repository.countOpenSessionsInProject(scope, id)) > 0) {
+      throw new BusinessRuleConflictException(
+        "This project has tasks with a running timer. Ask the assignees to stop or pause them before deleting the project.",
+        "PROJECT_HAS_ACTIVE_SESSIONS",
+      );
     }
 
     const userId = this.tenantContext.getUserId();

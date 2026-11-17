@@ -15,6 +15,7 @@ import {
   MapPin,
   Receipt,
   TicketCheck,
+  Timer,
   User,
   Users,
   Wallet,
@@ -50,8 +51,9 @@ export interface PortalNavGroup {
  * catalog.ts), so RBAC is unchanged — only the presentation follows legacy.
  *
  * Differences from legacy, on purpose:
- * - "My Timesheet" and "My Work" are not listed: the work-log module was
- *   removed from this ERP and My Work lives in the Projects workspace.
+ * - "My Work" and "My Timesheet" sit under WORK & PROJECTS. The old HR
+ *   work-log module stays removed; My Timesheet is the new day-by-day view of
+ *   the same stopwatch sessions My Work records (menu code portal-timesheet).
  * - Items legacy never had (Team Attendance, Team Leaves, My Loans, My Tax)
  *   sit in the legacy group they belong to; plain employees never see them
  *   because they hold none of those permissions.
@@ -116,6 +118,18 @@ export const PORTAL_NAV_GROUPS: PortalNavGroup[] = [
         label: "My Work",
         icon: FolderKanban,
         menuCode: "portal-work",
+      },
+      {
+        path: "/portal/timesheet",
+        label: "My Timesheet",
+        icon: Timer,
+        menuCode: "portal-timesheet",
+      },
+      {
+        path: "/portal/team-timesheets",
+        label: "Team Timesheets",
+        icon: Users,
+        menuCode: "portal-team-timesheets",
       },
       {
         path: "/portal/tasks",

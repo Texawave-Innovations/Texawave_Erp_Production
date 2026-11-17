@@ -396,10 +396,56 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.attendance.read",
     description: "View my own attendance",
   },
+  // apps/api/src/modules/timesheets — the employee's own timesheet (read side).
+  // Working a task uses the existing stopwatch permission (projects.timer.write).
+  {
+    code: "employee_self_service.timesheet.read",
+    description: "View my own timesheet (daily work, hours and task history)",
+  },
+  {
+    code: "employee_self_service.timesheet.write",
+    description:
+      "Record, edit and delete my own custom activities (meetings, discussions...) while they are drafts",
+  },
+  {
+    code: "employee_self_service.timesheet.submit",
+    description: "Submit my own timesheet days for approval",
+  },
   {
     code: "employee_self_service.attendance_correction.create",
     description: "Request a correction to my own attendance",
   },
+
+  // apps/api/src/modules/timesheets — reviewing submitted days (Docs/TIMESHEET.md).
+  // Same two-level shape as leave: hr.timesheet.approve.own is the REPORTING
+  // MANAGER level (the caller's direct reports only, never their own day);
+  // .team/.all also decide within their scope, and only .all gives the second
+  // (HR) approval — or decides alone when the employee has no reporting
+  // manager. An approver also holds hr.timesheet.read at the same scope, which
+  // is what lists and opens a day. Who approves is an open decision, so
+  // approve.own/.team are granted to no role by default.
+  ...scopedPermission(
+    "hr.timesheet.read",
+    "View submitted, approved and returned timesheet days",
+  ),
+  {
+    code: "hr.timesheet.approve.own",
+    description:
+      "Approve or return timesheets of employees who report to me (reporting manager)",
+  },
+  {
+    code: "hr.timesheet.approve.team",
+    description:
+      "Approve or return timesheets (own team, plus my direct reports)",
+  },
+  {
+    code: "hr.timesheet.approve.all",
+    description:
+      "Approve or return timesheets (all teams), including the HR approval",
+  },
+  // CSV reports of submitted days. HR (.all) also reopens an approved day and
+  // confirms the end of a flagged timer through hr.timesheet.approve.all.
+  ...scopedPermission("hr.timesheet.export", "Export timesheet reports to CSV"),
 
   // apps/api/src/modules/hr/tasks — team-scoped by the ASSIGNEE's team. There is
   // no separate approve permission: in legacy the same admin who assigns a

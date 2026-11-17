@@ -450,6 +450,17 @@ Same caveat as `@OrgScoped()`: this is a runtime assertion plus a filter-buildin
 
 ---
 
+### Business date (work date)
+
+The ERP's business day is the **IST calendar date** (documented HR policy,
+`ATTENDANCE_ARCHITECTURE.md` §7.4). Derive a work date ONLY with `businessDateOf` /
+`businessToday` from `apps/api/src/common/dates/business-date.ts` (HR's `istDateOf`/`istToday`
+delegate to it). Never use `toISOString().slice(0, 10)`, `getUTC*()` or the server/browser local
+zone to decide "which day is this instant" — the UTC date is the previous day between 00:00 and
+05:30 IST. Calendar dates a user types (`YYYY-MM-DD`) are already business dates: use
+`parseDateOnly`/`formatDateOnly`. `OrganizationSetting.timezone` is display-only and must not
+drive business logic.
+
 ## 12. Design tokens
 
 No component anywhere hardcodes a hex value, a raw `px` font size, or an ad-hoc `transition` duration. Need a new color, radius, shadow, or type size? It gets added to `packages/ui-kit/src/theme.css` first, then used. Every color utility ships with its `dark:` pair in the same commit — see `Docs/DESIGN_SYSTEM.md` for the full token reference and dark-mode substitution table. Status badges always read `color_token` off the `statuses` row and render through the shared `<StatusBadge />` widget (`packages/ui-kit`) — never a per-module reimplementation.

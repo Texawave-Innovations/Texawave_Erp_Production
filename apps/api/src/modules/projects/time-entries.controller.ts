@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
 import { CreateTimeEntryDto } from "./dto/create-time-entry.dto.js";
+import { StopTimerDto } from "./dto/stop-timer.dto.js";
 import { TimeEntriesService } from "./time-entries.service.js";
 
 @ApiTags("Project Time Entries & Stopwatch")
@@ -70,13 +71,17 @@ export class TimeEntriesController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission("projects.timer.write")
   @ApiOperation({
-    summary: "Stop live stopwatch timer and compute logged hours",
+    summary:
+      "Stop the stopwatch and compute logged hours; optionally also pause or complete the task",
   })
   stopTimer(
     @Param("taskId", ParseIntPipe) taskId: number,
-    @Body("notes") notes?: string,
+    @Body() dto: StopTimerDto,
   ) {
-    return this.service.stopTimer(taskId, notes);
+    return this.service.stopTimer(taskId, dto.notes, {
+      pause: dto.pause === true,
+      complete: dto.complete === true,
+    });
   }
 
   @Post(":taskId/time-entries")

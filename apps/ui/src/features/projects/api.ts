@@ -242,15 +242,28 @@ export async function startTimer(taskId: number): Promise<ActiveTimer> {
   return data;
 }
 
+/** Result of `timer/stop`. A plain stop returns the closed session; with
+ * `pause` / `complete` it also carries the task's new status. `id` and
+ * `durationMinutes` are absent when no session was running (completing a task
+ * that is on hold records 0 new minutes). */
+export interface StopTimerResult {
+  id?: number;
+  durationMinutes?: number;
+  endedAt?: string;
+  taskStatus?: string;
+}
+
 export async function stopTimer(
   taskId: number,
   notes?: string,
-): Promise<{ id: number; durationMinutes: number; endedAt: string }> {
+  options: { pause?: boolean; complete?: boolean } = {},
+): Promise<StopTimerResult> {
   const { data } = await withAuthRetry(() =>
-    apiClient.post<{ id: number; durationMinutes: number; endedAt: string }>(
-      `/projects/tasks/${taskId}/timer/stop`,
-      { notes },
-    ),
+    apiClient.post<StopTimerResult>(`/projects/tasks/${taskId}/timer/stop`, {
+      notes,
+      ...(options.pause ? { pause: true } : {}),
+      ...(options.complete ? { complete: true } : {}),
+    }),
   );
   return data;
 }

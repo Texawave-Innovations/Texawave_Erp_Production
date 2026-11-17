@@ -199,6 +199,7 @@ model Organization {
   projectMilestones                 ProjectMilestone[]
   projectTasks                      ProjectTask[]
   projectTimeEntries                ProjectTimeEntry[]
+  timesheets                        Timesheet[]
   projectExpenses                   ProjectExpense[]
   projectPointsLedger               ProjectPointsLedger[]
   projectPointsConfig               ProjectPointsConfig?
@@ -976,6 +977,7 @@ model Employee {
   assignedProjectTasks ProjectTask[]
   projectTimeEntries   ProjectTimeEntry[]
   projectPointsLedger  ProjectPointsLedger[]
+  timesheets           Timesheet[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -6462,6 +6464,7 @@ model Project {
   expenses             ProjectExpense[]
   proposalDocuments    ProposalDocument[]
   momDocuments         MomDocument[]
+  timesheets           Timesheet[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -6564,6 +6567,7 @@ model ProjectTask {
   dependentTasks ProjectTask[]         @relation("TaskDependencies")
   timeEntries    ProjectTimeEntry[]
   pointsLedger   ProjectPointsLedger[]
+  timesheets     Timesheet[]
 
   @@unique([organizationId, taskCode])
   @@index([projectId, status])
@@ -6580,16 +6584,39 @@ model ProjectTimeEntry {
   startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
   endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
   durationMinutes Int       @default(0) @map("duration_minutes")
+  /// IST business date of `startedAt` (never the UTC date) — see
+  /// apps/api/src/common/dates/business-date.ts.
   entryDate       DateTime  @map("entry_date") @db.Date
   notes           String?
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy       Int?      @map("created_by")
+  /// TIMER | MANUAL | CORRECTION (CHECK in the migration).
+  source          String    @default("TIMER")
+  /// EXACT | DURATION_ONLY — manual duration-only rows carry a day-start
+  /// instant by convention, not a real clock time (excluded from overlap checks).
+  timePrecision   String    @default("EXACT") @map("time_precision")
+  /// Why the session ended: STOPPED | PAUSED | COMPLETED | ATTENDANCE_CHECKOUT |
+  /// AUTO_CHECKOUT | STALE | MIDNIGHT_SPLIT | MIGRATED_DUPLICATE | CORRECTED.
+  closedReason    String?   @map("closed_reason")
+  /// OK | REVIEW_REQUIRED | STALE_UNRESOLVED.
+  reviewState     String    @default("OK") @map("review_state")
+  /// The timesheet row (employee/day/task activity) this session belongs to.
+  /// Required (NOT NULL since the PR2 migration): no session exists without its
+  /// day row. RESTRICT: history is never cascaded away.
+  timesheetId     Int       @map("timesheet_id")
+  /// Pre-normalisation `entry_date` when the backfill moved it to the IST date.
+  legacyEntryDate DateTime? @map("legacy_entry_date") @db.Date
 
   organization Organization @relation(fields: [organizationId], references: [id])
   task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   employee     Employee     @relation(fields: [employeeId], references: [id])
+  timesheet    Timesheet    @relation(fields: [timesheetId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, employeeId, entryDate])
+  @@index([organizationId, employeeId, startedAt])
   @@index([taskId])
+  @@index([timesheetId])
   @@map("project_time_entries")
   @@schema("projects")
 }
@@ -7928,4 +7955,90 @@ model SalesReturnableDcLine {
   @@index([organizationId, returnableDcId])
   @@map("returnable_delivery_challan_lines")
   @@schema("sales")
+}
+
+// =============================================================================
+// Timesheets (hr schema) — ONE table: one row per activity per IST work date,
+// split by `category` (TASK for assigned project tasks; meeting / discussion /
+// research ... for custom activities). Task time itself stays in
+// projects.project_time_entries (`timesheet_id`); custom rows carry their own
+// interval. History of submit/approve/reject/correct goes to the audit log
+// (AuditWriter), not to a separate table.
+// `text` + CHECK per the hr convention; CHECKs, partial unique indexes and the
+// immutability trigger live in the migration SQL (Prisma cannot express them).
+// =============================================================================
+model Timesheet {
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @map("employee_id")
+  /// IST business date of the work (never the UTC date).
+  workDate                 DateTime  @map("work_date") @db.Date
+  /// TASK or a custom-activity category code. The allowed codes live in ONE
+  /// place (apps/api/src/modules/timesheets/timesheets.rules.ts
+  /// TIMESHEET_CATEGORIES, mirrored by hand in packages/api-types) and are validated by the
+  /// DTO — deliberately no CHECK/master table to keep in sync.
+  category                 String
+  taskId                   Int?      @map("task_id")
+  projectId                Int?      @map("project_id")
+  title                    String
+  description              String?
+  notes                    String?
+  /// IN_PROGRESS | ON_HOLD | COMPLETED. Any day with work is IN_PROGRESS;
+  /// COMPLETED only on the completion day. ON_HOLD is a display value for
+  /// carried (no-work) days and is never stored on a day that has sessions.
+  dailyStatus              String    @default("IN_PROGRESS") @map("daily_status")
+  /// RECORDED | INFERRED (legacy backfill).
+  dailyStatusSource        String    @default("RECORDED") @map("daily_status_source")
+  /// Custom activities only (TASK time lives in ProjectTimeEntry).
+  startedAt                DateTime? @map("started_at") @db.Timestamptz(6)
+  endedAt                  DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationMinutes          Int?      @map("duration_minutes")
+  isBackdated              Boolean   @default(false) @map("is_backdated")
+  lateEntryReason          String?   @map("late_entry_reason")
+  enteredAt                DateTime  @default(now()) @map("entered_at") @db.Timestamptz(6)
+  /// Approval state of this row. Submit/approve/reject act on every row of an
+  /// employee-day together. DRAFT | SUBMITTED | APPROVED | REJECTED
+  status                   String    @default("DRAFT")
+  /// NATIVE | MIGRATED — migrated legacy rows never count as "pending submission".
+  origin                   String    @default("NATIVE")
+  submittedAt              DateTime? @map("submitted_at") @db.Timestamptz(6)
+  submittedBy              Int?      @map("submitted_by")
+  approverEmployeeId       Int?      @map("approver_employee_id")
+  /// REPORTING_MANAGER | TEAM | HR
+  approverBasis            String?   @map("approver_basis")
+  /// HR attendance status of the day when it was submitted, kept to detect
+  /// drift after approval (never rewritten).
+  attendanceStatusAtSubmit String?   @map("attendance_status_at_submit")
+  decidedAt                DateTime? @map("decided_at") @db.Timestamptz(6)
+  decidedBy                Int?      @map("decided_by")
+  decisionNote             String?   @map("decision_note")
+  /// 2 = reporting manager first, HR second; 1 = HR alone (the employee has no
+  /// reporting manager with a login). Set when the day is submitted.
+  approvalLevels           Int       @default(1) @map("approval_levels")
+  /// The first (reporting manager / team) approval of a two-level day. The
+  /// status stays SUBMITTED until HR gives the second one.
+  firstDecidedBy           Int?      @map("first_decided_by")
+  firstDecidedAt           DateTime? @map("first_decided_at") @db.Timestamptz(6)
+  firstDecisionNote        String?   @map("first_decision_note")
+  version                  Int       @default(1)
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  task         ProjectTask?       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  project      Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  sessions     ProjectTimeEntry[]
+
+  // `timesheets_one_task_per_day_key (organization_id, employee_id, work_date, task_id)
+  // WHERE task_id IS NOT NULL AND deleted_at IS NULL` is created in the migration.
+  @@index([organizationId, employeeId, workDate])
+  @@index([organizationId, status, workDate])
+  @@index([taskId])
+  @@index([organizationId, projectId])
+  @@map("timesheets")
+  @@schema("hr")
 }

@@ -15,6 +15,7 @@ import { useEmployees } from "@/features/hr/employees/hooks";
 import { useCreateTask, usePointsConfig, useUpdateTask } from "../hooks";
 import { errorMessage, formatDate, toDateInput, todayInput } from "../format";
 import type { Project, ProjectTask, TaskPriority, TaskStatus } from "../types";
+import { ReopenReasonField, isReopen } from "./ReopenReason";
 
 type DependencyKind = "none" | "employee" | "client" | "task";
 
@@ -156,6 +157,8 @@ function TaskForm({
   const [completionPercent, setCompletionPercent] = useState(
     edit?.completionPercent ?? 0,
   );
+  // Required (and sent to the API) only when a completed task is reopened.
+  const [reopenReason, setReopenReason] = useState("");
   const [depKind, setDepKind] = useState<DependencyKind>(initialKind);
   const [depTarget, setDepTarget] = useState<string>(() => {
     if (!edit) return "";
@@ -232,6 +235,12 @@ function TaskForm({
     setFormError(null);
     setDepReqError(null);
 
+    const reopening = taskToEdit ? isReopen(taskToEdit.status, status) : false;
+    if (reopening && !reopenReason.trim()) {
+      setFormError("Enter a reason for reopening this task.");
+      return;
+    }
+
     if (title.trim().length < 2) {
       setFormError("Task title is required (at least 2 characters).");
       return;
@@ -295,6 +304,7 @@ function TaskForm({
             milestoneId: milestoneId ? Number(milestoneId) : null,
             assignedToId: assignedToId ? Number(assignedToId) : null,
             status,
+            ...(reopening ? { statusChangeReason: reopenReason.trim() } : {}),
             completionPercent:
               status === "completed" ? 100 : Number(completionPercent) || 0,
             dependencyType: depKind === "none" ? null : depKind,
@@ -694,6 +704,14 @@ function TaskForm({
               />
             )}
           </FormField>
+          {taskToEdit && isReopen(taskToEdit.status, status) ? (
+            <div className="sm:col-span-2">
+              <ReopenReasonField
+                value={reopenReason}
+                onChange={setReopenReason}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

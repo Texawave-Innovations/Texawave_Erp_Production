@@ -1,3 +1,4 @@
+import { businessToday } from "../../../common/dates/business-date.js";
 import {
   InvalidStateTransitionException,
   BusinessRuleViolationException,
@@ -20,18 +21,12 @@ export interface TaskState {
   adminApproved: boolean;
 }
 
-const IST_DATE = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Kolkata",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
 /** The organization's current calendar day (IST), `YYYY-MM-DD`. Same business
- * day boundary as attendance (attendance-calculation.service.ts `istDateOf`);
- * copied rather than imported so this module does not depend on attendance. */
+ * day boundary as attendance; both delegate to the shared business-date helper
+ * (common/dates/business-date.ts), so this module still does not depend on
+ * attendance. */
 export function istToday(now: Date = new Date()): string {
-  return IST_DATE.format(now);
+  return businessToday(now);
 }
 
 /** Legacy rule: not finished (DONE/CANCELLED) and due before today. */

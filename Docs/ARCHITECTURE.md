@@ -477,6 +477,29 @@ keep both env vars in sync with whatever you chose.
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
 
+- **2026-11-16 — Timesheets foundation (PR1).** ONE new table, `hr.timesheets` (one row per
+  activity per IST work date, split by `category`: `TASK` or a custom-activity code), plus link/
+  bookkeeping columns on `projects.project_time_entries` (which stays the single source of task work
+  sessions). Task-status and approval history use the audit log — no separate history table.
+  Migrations `20261116100000_timesheets_foundation` (additive), `20261116100100_timesheets_backfill`
+  (data, idempotent, self-verifying), `20261116100200_timesheets_constraints` (one-open-session
+  index, submitted-day immutability triggers) and `20261116110000_timesheets_session_constraints`
+  (`timesheet_id NOT NULL`, IST-day checks; ships with the PR2 application code). Pause/complete ride on the
+  existing `timer/stop` endpoint; the employee reads `GET /timesheets/my/:date` and
+  `GET /timesheets/tasks/:id/history` (`employee_self_service.timesheet.read`); forgotten timers are closed by
+  an in-process sweep. PR3 adds custom activities (`/timesheets/custom-activities`,
+  `employee_self_service.timesheet.write`): IST times typed by the employee, durations calculated by the server,
+  no overlaps, a reason for late entries. PR4 shows HR's full derived attendance status on every timesheet day
+  (via the exported `AttendanceLookupService.dayStatuses`, reusing HR's own calculation) with mismatch flags
+  derived on read. PR5 adds submit and a two-level review (reporting manager, then HR; HR alone when there is
+  no reporting manager) on the same table, copying leave's pattern: three columns on `hr.timesheets`, permissions
+  `hr.timesheet.read/approve/export.*` and `employee_self_service.timesheet.submit`; HR can reopen an approved day
+  and confirm the end of a flagged timer (audited, via the one transaction-local trigger bypass), and
+  `/timesheets/reports/*` give per-employee reports and CSV. An independent review hardened the module (a submitted
+  day now takes no new work through any task). The business day is the IST date via
+  `apps/api/src/common/dates/business-date.ts`; `OrganizationSetting.timezone` stays display-only.
+  Details: `TIMESHEET.md`.
+
 - **2026-10-20 — Sales: payments received, returnable delivery challans.** Migration
   `20261020090000_sales_payments_received_returnable_dc` (numbers existing payments). Details:
   `SALES_API.md` §8–§9.

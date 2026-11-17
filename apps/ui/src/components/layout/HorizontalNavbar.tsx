@@ -89,6 +89,7 @@ import {
   Sun,
   Moon,
   type LucideIcon,
+  Timer,
 } from "lucide-react";
 import {
   Semantic3DIcon,
@@ -284,6 +285,13 @@ const HR_CATEGORIES: NavCategory[] = [
         icon: Calendar,
         icon3d: "leaves",
         menuCode: "hr-leaves",
+      },
+      {
+        id: "timesheets",
+        label: "Timesheets",
+        path: "/hr/timesheets",
+        icon: Timer,
+        menuCode: "hr-timesheets",
       },
       {
         id: "holidays",

@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { TaskStatus } from "@texawave-erp/database";
 import {
+  BusinessRuleConflictException,
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../common/exceptions/business.exception.js";
+import { businessToday } from "../../common/dates/business-date.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../hr/employees/employee-query.service.js";
 import {
@@ -11,6 +13,11 @@ import {
   hasCircularDependency,
 } from "./calculations/project-calculations.js";
 import type { CreateTaskDto, UpdateTaskDto } from "./dto/create-task.dto.js";
+import {
+  assertManagerStatusChange,
+  isCompletionTransition,
+  type TaskStatus as LifecycleTaskStatus,
+} from "../timesheets/timesheets.rules.js";
 import { ProjectsRepository } from "./projects.repository.js";
 import { TaskRunningNumberMasterService } from "../projects-master/task-running-number-master.service.js";
 
@@ -39,6 +46,12 @@ export class TasksService {
       throw new ResourceNotFoundException("Task", taskId);
     }
     return task;
+  }
+
+  /** The task's status history (oldest first) for the timesheet day history. */
+  async findStatusEvents(taskId: number) {
+    const scope = this.tenantContext.getOrgScope();
+    return this.repository.findTaskStatusEvents(scope, taskId);
   }
 
   async findMyWork() {
@@ -155,6 +168,29 @@ export class TasksService {
       }
     }
 
+    // Leaving "completed" is a reopen: it un-completes finished work, so it needs
+    // a reason (recorded in the audit log). Any other change is allowed as before.
+    if (dto.status !== undefined) {
+      assertManagerStatusChange(
+        existing.status as LifecycleTaskStatus,
+        dto.status as LifecycleTaskStatus,
+        dto.statusChangeReason,
+      );
+    }
+
+    // A task with a running timer cannot change hands: the open session
+    // belongs to the current assignee and would be orphaned.
+    if (
+      dto.assignedToId !== undefined &&
+      (dto.assignedToId ?? null) !== (existing.assignedToId ?? null) &&
+      (await this.repository.hasOpenSession(scope, taskId))
+    ) {
+      throw new BusinessRuleConflictException(
+        "This task has a running timer. Ask the assignee to stop or pause it before reassigning.",
+        "TASK_HAS_ACTIVE_SESSION",
+      );
+    }
+
     // Recompute business hours if dates changed and hours not explicitly specified
     let computedHours: number | undefined;
     if ((dto.startDate || dto.endDate) && dto.hoursToComplete === undefined) {
@@ -163,35 +199,32 @@ export class TasksService {
       computedHours = dto.hoursToComplete;
     }
 
-    // Gamification check: if status transitioned to completed or completionPercent reached 100%
-    const isNowCompleted =
-      dto.status === TaskStatus.completed || dto.completionPercent === 100;
-    const wasCompleted =
-      existing.status === TaskStatus.completed ||
-      existing.completionPercent === 100;
+    // The task BECOMES complete when its status is set to completed or its
+    // percent reaches 100 and it was not already complete (unchanged trigger).
+    const completionNow = isCompletionTransition(
+      {
+        status: existing.status as LifecycleTaskStatus,
+        completionPercent: existing.completionPercent,
+      },
+      {
+        status: dto.status as LifecycleTaskStatus | undefined,
+        completionPercent: dto.completionPercent,
+      },
+    );
 
     const payload: UpdateTaskDto = { ...dto };
-    if (isNowCompleted && !wasCompleted) {
+    if (completionNow) {
       payload.status = TaskStatus.completed;
       payload.completionPercent = 100;
       if (!payload.actualEndDate) {
-        payload.actualEndDate = new Date().toISOString().slice(0, 10);
-      }
-
-      // Award gamification points to the assigned employee if assigned
-      const targetEmpId = payload.assignedToId ?? existing.assignedToId;
-      if (targetEmpId) {
-        const pointsAwarded = payload.points ?? existing.points;
-        await this.repository.awardPoints(
-          scope,
-          targetEmpId,
-          taskId,
-          payload.title ?? existing.title,
-          pointsAwarded,
-          `Completed ${existing.taskCode} (${existing.priority} priority)`,
-        );
+        payload.actualEndDate = businessToday();
       }
     }
+
+    // Every status change is part of the task's history: it is written to the
+    // audit log in the same transaction as the update.
+    const statusChanged =
+      payload.status !== undefined && payload.status !== existing.status;
 
     const userId = this.tenantContext.getUserId();
     const updated = await this.repository.updateTask(
@@ -200,9 +233,32 @@ export class TasksService {
       payload,
       computedHours,
       userId,
+      statusChanged && payload.status !== undefined
+        ? {
+            before: existing.status,
+            after: payload.status,
+            reason:
+              dto.statusChangeReason?.trim() ||
+              (completionNow ? "task completed" : "status updated"),
+          }
+        : undefined,
     );
     if (!updated) {
       throw new ResourceNotFoundException("Task", taskId);
+    }
+
+    // Points go to the assigned employee, once per task (the repository ignores
+    // a repeat), and only after the update itself succeeded.
+    const targetEmpId = payload.assignedToId ?? existing.assignedToId;
+    if (completionNow && targetEmpId) {
+      await this.repository.awardPoints(
+        scope,
+        targetEmpId,
+        taskId,
+        payload.title ?? existing.title,
+        payload.points ?? existing.points,
+        `Completed ${existing.taskCode} (${existing.priority} priority)`,
+      );
     }
     return updated;
   }
@@ -212,6 +268,12 @@ export class TasksService {
     const existing = await this.repository.findTaskById(scope, taskId);
     if (!existing) {
       throw new ResourceNotFoundException("Task", taskId);
+    }
+    if (await this.repository.hasOpenSession(scope, taskId)) {
+      throw new BusinessRuleConflictException(
+        "This task has a running timer. Ask the assignee to stop or pause it before deleting the task.",
+        "TASK_HAS_ACTIVE_SESSION",
+      );
     }
     const userId = this.tenantContext.getUserId();
     await this.repository.softDeleteTask(scope, taskId, userId);

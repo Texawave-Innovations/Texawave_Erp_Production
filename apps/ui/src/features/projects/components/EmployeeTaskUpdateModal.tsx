@@ -16,6 +16,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useProject, useProjectTasks, useUpdateTask } from "../hooks";
 import { errorMessage } from "../format";
 import type { ProjectTask, TaskStatus } from "../types";
+import { ReopenReasonField, isReopen } from "./ReopenReason";
 
 type DependencyKind = "none" | "employee" | "client" | "task";
 
@@ -96,6 +97,7 @@ export function EmployeeTaskUpdateModal({
     task?.dependencyRequirement ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
 
   const project = projectQuery.data;
   const rowProject = task?.project;
@@ -131,6 +133,13 @@ export function EmployeeTaskUpdateModal({
     e.preventDefault();
     if (!task) return;
     setFormError(null);
+
+    // Moving a completed task back needs a reason; the API records it.
+    const reopening = isReopen(task.status, status);
+    if (reopening && !reopenReason.trim()) {
+      setFormError("Enter a reason for reopening this task.");
+      return;
+    }
 
     if ((depKind === "task" || depKind === "employee") && !depTarget) {
       setFormError("Please select the specific dependency target.");
@@ -178,6 +187,7 @@ export function EmployeeTaskUpdateModal({
           dependencyTaskId,
           dependencyTargetId,
           dependencyTargetName,
+          ...(reopening ? { statusChangeReason: reopenReason.trim() } : {}),
         },
       });
       if (willComplete) {
@@ -262,6 +272,13 @@ export function EmployeeTaskUpdateModal({
               </Select>
             )}
           </FormField>
+
+          {task && isReopen(task.status, status) ? (
+            <ReopenReasonField
+              value={reopenReason}
+              onChange={setReopenReason}
+            />
+          ) : null}
 
           <FormField
             label="Completion Percentage"

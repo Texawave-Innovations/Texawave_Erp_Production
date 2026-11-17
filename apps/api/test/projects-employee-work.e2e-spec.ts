@@ -134,17 +134,39 @@ describe("Employee portal My Work, no org-wide project read (e2e)", () => {
     ownTaskId = (await mkTask(1, me.id)).id;
     othersTaskId = (await mkTask(2, other.id)).id;
 
-    const entry = (taskId: number, employeeId: number, minutes: number) => ({
-      organizationId: org.id,
-      taskId,
-      employeeId,
-      startedAt: new Date("2026-10-05T04:00:00Z"),
-      endedAt: new Date(Date.parse("2026-10-05T04:00:00Z") + minutes * 60000),
-      durationMinutes: minutes,
-      entryDate: new Date("2026-10-05"),
-    });
+    // Every session belongs to its day's timesheet row (NOT NULL link).
+    const entry = async (
+      taskId: number,
+      employeeId: number,
+      minutes: number,
+    ) => {
+      const day = await prisma.timesheet.create({
+        data: {
+          organizationId: org.id,
+          employeeId,
+          workDate: new Date("2026-10-05"),
+          category: "TASK",
+          taskId,
+          projectId: project.id,
+          title: `Task ${taskId}`,
+        },
+      });
+      return {
+        organizationId: org.id,
+        taskId,
+        employeeId,
+        startedAt: new Date("2026-10-05T04:00:00Z"),
+        endedAt: new Date(Date.parse("2026-10-05T04:00:00Z") + minutes * 60000),
+        durationMinutes: minutes,
+        entryDate: new Date("2026-10-05"),
+        timesheetId: day.id,
+      };
+    };
     await prisma.projectTimeEntry.createMany({
-      data: [entry(ownTaskId, me.id, 30), entry(othersTaskId, other.id, 45)],
+      data: [
+        await entry(ownTaskId, me.id, 30),
+        await entry(othersTaskId, other.id, 45),
+      ],
     });
 
     const res = await request(app.getHttpServer())
