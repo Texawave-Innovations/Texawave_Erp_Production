@@ -19,6 +19,7 @@ import {
   listEmployees,
   listLookup,
   listStatusHistory,
+  setPortalPassword,
   unlinkEmployeeUser,
   updateEmployee,
   type EmployeeListQuery,
@@ -203,5 +204,13 @@ export function useUnlinkEmployeeUser() {
     [KEY],
     ({ id, body }: { id: number; body: UnlinkAccountBody }) =>
       unlinkEmployeeUser(id, body),
+  );
+}
+
+export function useSetPortalPassword() {
+  return useOrgScopedMutation(
+    [KEY],
+    ({ id, password }: { id: number; password: string }) =>
+      setPortalPassword(id, password),
   );
 }

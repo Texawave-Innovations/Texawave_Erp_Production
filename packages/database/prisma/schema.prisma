@@ -104,6 +104,7 @@ model Organization {
   attendanceRecords          AttendanceRecord[]
   attendanceCorrections      AttendanceCorrection[]
   attendanceMonthLocks       AttendanceMonthLock[]
+  workPermissions            WorkPermission[]
   notifications              Notification[]
   revisionLetters            RevisionLetter[]
   promotionLetters           PromotionLetter[]
@@ -300,6 +301,8 @@ model User {
   loanPrepaymentsRequested       LoanPrepayment[]          @relation("LoanPrepaymentRequester")
   loanPrepaymentsDecided         LoanPrepayment[]          @relation("LoanPrepaymentDecider")
   taxDeclarationsVerified        EmployeeTaxDeclaration[]  @relation("TaxDeclarationVerifier")
+  workPermissionsRequested       WorkPermission[]          @relation("WorkPermissionRequester")
+  workPermissionsDecided         WorkPermission[]          @relation("WorkPermissionDecider")
   preference                     UserPreference?
   salesActionItemsCompleted      SalesActionItem[]         @relation("SalesActionItemCompleter")
 
@@ -972,6 +975,8 @@ model Employee {
   esiContributions      EsiContribution[]
   taxDeclarations       EmployeeTaxDeclaration[]
 
+  workPermissions      WorkPermission[]
+
   handledProjects      Project[]             @relation("ProjectClientHandler")
   projectMemberships   ProjectMember[]
   assignedProjectTasks ProjectTask[]
@@ -1013,6 +1018,48 @@ model EmployeeStatusHistory {
 
   @@index([organizationId, employeeId, id(sort: Desc)], map: "employee_status_history_employee_idx")
   @@map("employee_status_history")
+  @@schema("hr")
+}
+
+// ---------------------------------------------------------------------------
+// Work Permissions (apps/api/src/modules/employee-self-service/work-permissions)
+// ---------------------------------------------------------------------------
+
+/// Short-time permission request (early exit / mid-day step-out). An employee
+/// may request up to 2 hours (120 minutes) of permission within work hours
+/// (10:00–19:00). Times are stored as "HH:mm" strings; `duration_mins` is
+/// computed by the API and stored for fast aggregation. Status transitions:
+/// PENDING → APPROVED | REJECTED.
+model WorkPermission {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  employeeId     Int       @map("employee_id")
+  /// Calendar date the permission covers (not the submitted date).
+  date           DateTime  @map("date") @db.Date
+  /// Wall-clock start time within that day, "HH:mm".
+  fromTime       String    @map("from_time") @db.VarChar(5)
+  /// Wall-clock end time within that day, "HH:mm".
+  toTime         String    @map("to_time") @db.VarChar(5)
+  /// Pre-computed duration in minutes; maximum 120.
+  durationMins   Int       @map("duration_mins")
+  reason         String
+  /// PENDING | APPROVED | REJECTED
+  status         String    @default("PENDING")
+  hrNote         String?   @map("hr_note")
+  requestedBy    Int       @map("requested_by")
+  decidedBy      Int?      @map("decided_by")
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  requester    User         @relation("WorkPermissionRequester", fields: [requestedBy], references: [id])
+  decider      User?        @relation("WorkPermissionDecider", fields: [decidedBy], references: [id])
+
+  @@index([organizationId, employeeId, date(sort: Desc)], map: "work_permissions_org_emp_date_idx")
+  @@index([organizationId, status], map: "work_permissions_org_status_idx")
+  @@map("work_permissions")
   @@schema("hr")
 }
 

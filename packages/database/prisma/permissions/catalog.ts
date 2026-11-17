@@ -415,6 +415,47 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.attendance_correction.create",
     description: "Request a correction to my own attendance",
   },
+  {
+    code: "employee_self_service.work_permission.read",
+    description: "View my own work permission requests",
+  },
+  {
+    code: "employee_self_service.work_permission.create",
+    description: "Submit a short-time work permission request for myself",
+  },
+  // Work permission requests are HR's to read and decide for the whole
+  // organization: the API guards them with the exact `.all` codes. The repo rule
+  // (validate.ts) is that a scoped permission family exists as .own/.team/.all
+  // together, so the other two are seeded but RESERVED: they grant nothing, and
+  // are granted to no role. Nobody gets access to anyone's requests through them.
+  {
+    code: "hr.work_permission.read.own",
+    description:
+      "Reserved: work permission requests are viewed organization-wide only (.all); this grants nothing",
+  },
+  {
+    code: "hr.work_permission.read.team",
+    description:
+      "Reserved: work permission requests are viewed organization-wide only (.all); this grants nothing",
+  },
+  {
+    code: "hr.work_permission.read.all",
+    description: "View all employee work permission requests",
+  },
+  {
+    code: "hr.work_permission.decide.own",
+    description:
+      "Reserved: work permission requests are decided organization-wide only (.all); this grants nothing",
+  },
+  {
+    code: "hr.work_permission.decide.team",
+    description:
+      "Reserved: work permission requests are decided organization-wide only (.all); this grants nothing",
+  },
+  {
+    code: "hr.work_permission.decide.all",
+    description: "Approve or reject employee work permission requests",
+  },
 
   // apps/api/src/modules/timesheets — reviewing submitted days (Docs/TIMESHEET.md).
   // Same two-level shape as leave: hr.timesheet.approve.own is the REPORTING

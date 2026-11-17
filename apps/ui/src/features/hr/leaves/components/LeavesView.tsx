@@ -40,13 +40,20 @@ import { DelegationsSection } from "./DelegationsSection";
 import { LeaveBalanceCards } from "./LeaveBalanceCards";
 import { LeaveStatusBadge } from "./LeaveStatusBadge";
 import { LeaveTypesSection } from "./LeaveTypesSection";
+import { PermissionsSection } from "./PermissionsSection";
 import { RequestLeaveDialog } from "./RequestLeaveDialog";
 import { appliedByOther } from "./cells";
 
 const PAGE_SIZE = 10;
 
 type LeavesTab =
-  "mine" | "approvals" | "applications" | "allotment" | "delegations" | "types";
+  | "mine"
+  | "approvals"
+  | "applications"
+  | "allotment"
+  | "delegations"
+  | "types"
+  | "permissions";
 
 /** My leave: balances, history, request, cancel and resubmit. */
 function MySection() {
@@ -307,6 +314,7 @@ export function LeavesView() {
   const canReadAny = usePermission(READ_ANY_SCOPE);
   const canApprove = usePermission(APPROVE_ANY_SCOPE);
   const canReadTypes = usePermission(LEAVE_TYPE_READ);
+  const canReadPermissions = usePermission("hr.work_permission.read.all");
 
   const tabs = [
     ...(canReadMine ? [{ id: "mine" as const, label: "My leave" }] : []),
@@ -321,6 +329,9 @@ export function LeavesView() {
       ? [{ id: "delegations" as const, label: "Delegations" }]
       : []),
     ...(canReadTypes ? [{ id: "types" as const, label: "Leave types" }] : []),
+    ...(canReadPermissions
+      ? [{ id: "permissions" as const, label: "Permissions" }]
+      : []),
   ];
   // A notification links approvers to `?tab=approvals` or `?id=...`
   const searchParams = useSearchParams();
@@ -366,6 +377,7 @@ export function LeavesView() {
         {active === "allotment" ? <AllotmentSection /> : null}
         {active === "delegations" ? <DelegationsSection /> : null}
         {active === "types" ? <LeaveTypesSection /> : null}
+        {active === "permissions" ? <PermissionsSection /> : null}
       </Tabs>
     </div>
   );
