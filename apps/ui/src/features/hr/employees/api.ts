@@ -120,6 +120,18 @@ export async function unlinkEmployeeUser(
   return data;
 }
 
+export async function setPortalPassword(
+  id: number,
+  password: string,
+): Promise<EmployeeDetail> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<EmployeeDetail>(`${BASE}/${id}/set-portal-password`, {
+      password,
+    }),
+  );
+  return data;
+}
+
 export function listStatusHistory(
   id: number,
   page: number,

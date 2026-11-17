@@ -5,13 +5,20 @@ import { useState } from "react";
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle2,
+  Copy,
   Edit,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileDown,
   KeyRound,
+  Lock,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
+  Send,
   ShieldAlert,
   ShieldCheck,
   User,
@@ -40,6 +47,7 @@ import { useResetUserPassword } from "@/features/users/hooks";
 import {
   useEmployee,
   useEmployeeStatusHistory,
+  useSetPortalPassword,
   useUnlinkEmployeeUser,
 } from "../hooks";
 import { STATUS_LABELS, isExitStatus } from "../status";
@@ -91,6 +99,11 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const history = useEmployeeStatusHistory(id, historyPage, HISTORY_PAGE_SIZE);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [showPortalPassword, setShowPortalPassword] = useState(false);
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalPasswordSaved, setPortalPasswordSaved] = useState(false);
+  const setPortalPasswordMutation = useSetPortalPassword();
   const unlinkMutation = useUnlinkEmployeeUser();
   const resetPasswordMutation = useResetUserPassword();
   const [credentials, setCredentials] = useState<{
@@ -541,6 +554,287 @@ export function EmployeeDetailView({ id }: { id: number }) {
           </div>
         </div>
       </div>
+
+      {/* Portal Access Card — Admin Only */}
+      {canAccount || canWrite ? (
+        <div className="overflow-visible rounded-2xl border border-sky-200/90 bg-white shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:bg-gray-900 transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(23,105,245,0.12)]">
+          <div className="flex items-center justify-between border-b border-sky-200/90 bg-linear-to-r from-[#edf6ff] via-[#f0f8ff] to-[#e6f4fe] px-6 py-4.5 rounded-t-2xl dark:border-slate-700/80 dark:from-slate-800/90 dark:via-slate-850 dark:to-slate-900/60">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-1.5 shadow-[0_2px_10px_rgba(23,105,245,0.1)] dark:border-gray-700/80 dark:bg-gray-800 select-none">
+                <Lock className="h-6 w-6 text-brand-500 dark:text-cyan-400" />
+              </div>
+              <div>
+                <h2 className="text-theme-sm font-bold tracking-tight text-[#0a3271] dark:text-sky-100">
+                  Portal Access
+                </h2>
+                <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
+                  Employee self-service portal login credentials
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center rounded-full border border-sky-200/80 bg-sky-50/80 px-2.5 py-0.5 text-[10px] font-bold text-brand-500 shadow-2xs dark:border-sky-800/60 dark:bg-slate-800 dark:text-sky-300">
+              Admin Only
+            </span>
+          </div>
+          <div className="p-6 space-y-4">
+            {/* Enable toggle row */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={e.hasLogin}
+                onClick={() => void handleAccountAction()}
+                disabled={unlinkMutation.isPending}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-2 focus-visible:outline-brand-500 ${
+                  e.hasLogin
+                    ? "bg-brand-500 dark:bg-cyan-500"
+                    : "bg-slate-200 dark:bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition-transform ${
+                    e.hasLogin ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+              <span className="text-[13px] font-bold text-[#0a3271] dark:text-sky-100">
+                Enable Employee Portal Login
+              </span>
+            </div>
+
+            {/* Credentials grid */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                  Username
+                </label>
+                <div className="flex h-9 items-center rounded-xl border border-sky-100 bg-[#f8fbff]/80 px-3 text-theme-sm font-semibold text-[#0a3271] dark:border-slate-700 dark:bg-slate-800/60 dark:text-white">
+                  {e.workEmail ?? (
+                    <span className="text-slate-400 dark:text-slate-500">
+                      No email set
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Employee uses this to log in
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#2f6396] dark:text-sky-300">
+                  Password
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex flex-1 h-9 items-center rounded-xl border border-sky-100 bg-[#f8fbff]/80 px-3 dark:border-slate-700 dark:bg-slate-800/60">
+                    <input
+                      type={showPortalPassword ? "text" : "password"}
+                      value={portalPassword}
+                      onChange={(ev) => {
+                        setPortalPassword(ev.target.value);
+                        setPortalPasswordSaved(false);
+                      }}
+                      placeholder={e.hasLogin ? "Set new password…" : "—"}
+                      disabled={
+                        !e.hasLogin || setPortalPasswordMutation.isPending
+                      }
+                      className="flex-1 bg-transparent text-theme-sm font-semibold text-[#0a3271] outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500 disabled:opacity-50"
+                    />
+                    {e.hasLogin ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowPortalPassword((v) => !v)}
+                        className="ml-2 text-slate-400 hover:text-brand-500 dark:hover:text-cyan-400 transition-colors"
+                        aria-label={
+                          showPortalPassword ? "Hide password" : "Show password"
+                        }
+                      >
+                        {showPortalPassword ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                  {e.hasLogin && portalPassword.length >= 6 ? (
+                    <button
+                      type="button"
+                      disabled={setPortalPasswordMutation.isPending}
+                      onClick={async () => {
+                        try {
+                          await setPortalPasswordMutation.mutateAsync({
+                            id: e.id,
+                            password: portalPassword,
+                          });
+                          setPortalPasswordSaved(true);
+                          toast({
+                            title: "Password updated",
+                            variant: "success",
+                          });
+                        } catch (err) {
+                          toast({
+                            title: "Failed to set password",
+                            description:
+                              err instanceof Error ? err.message : "Try again.",
+                            variant: "error",
+                          });
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-2xs transition-all hover:bg-brand-600 disabled:opacity-60"
+                    >
+                      {portalPasswordSaved ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : null}
+                      {setPortalPasswordMutation.isPending
+                        ? "Saving…"
+                        : portalPasswordSaved
+                          ? "Saved"
+                          : "Save"}
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Employee can update their profile after login
+                </p>
+              </div>
+            </div>
+
+            {/* Share credentials box */}
+            {e.hasLogin && e.workEmail ? (
+              <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4 dark:border-slate-700/80 dark:bg-slate-800/40 space-y-3">
+                <p className="text-[11px] font-bold text-brand-500 dark:text-sky-300">
+                  Share these credentials with the employee:
+                </p>
+                <div className="rounded-lg border border-sky-200/80 bg-white p-3 text-[12px] space-y-1 dark:border-slate-700 dark:bg-slate-900/60">
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Login URL:{" "}
+                    </span>
+                    <span className="font-bold text-brand-500 dark:text-cyan-400">
+                      {typeof window !== "undefined"
+                        ? `${window.location.origin}/login`
+                        : "/login"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Username:{" "}
+                    </span>
+                    <span className="font-bold text-[#0a3271] dark:text-sky-100">
+                      {e.workEmail}
+                    </span>
+                  </div>
+                  {portalPasswordSaved && portalPassword ? (
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Password:{" "}
+                      </span>
+                      <span className="font-bold text-[#0a3271] dark:text-sky-100">
+                        {portalPassword}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const origin =
+                        typeof window !== "undefined"
+                          ? window.location.origin
+                          : "";
+                      const pwLine =
+                        portalPasswordSaved && portalPassword
+                          ? `\nPassword: ${portalPassword}`
+                          : "";
+                      const text = `Employee Portal Access\nLogin URL: ${origin}/login\nUsername: ${e.workEmail}${pwLine}`;
+                      await navigator.clipboard
+                        .writeText(text)
+                        .catch(() => undefined);
+                      setCopiedCredentials(true);
+                      setTimeout(() => setCopiedCredentials(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200"
+                  >
+                    {copiedCredentials ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
+                    )}
+                    {copiedCredentials ? "Copied!" : "Copy Credentials"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const origin =
+                        typeof window !== "undefined"
+                          ? window.location.origin
+                          : "";
+                      const pwLine =
+                        portalPasswordSaved && portalPassword
+                          ? `\nPassword: ${portalPassword}`
+                          : "";
+                      const subject = encodeURIComponent(
+                        "Your Employee Portal Access",
+                      );
+                      const body = encodeURIComponent(
+                        `Hi ${e.fullName},\n\nYour Employee Portal access has been set up.\n\nLogin URL: ${origin}/login\nUsername: ${e.workEmail}${pwLine}\n\nPlease log in and complete your profile details.\n\nRegards,\nHR Team`,
+                      );
+                      window.open(
+                        `mailto:${e.workEmail ?? ""}?subject=${subject}&body=${body}`,
+                        "_self",
+                      );
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200"
+                  >
+                    <Send className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
+                    Send via Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const origin =
+                        typeof window !== "undefined"
+                          ? window.location.origin
+                          : "";
+                      const pwLine =
+                        portalPasswordSaved && portalPassword
+                          ? `\nPassword: ${portalPassword}`
+                          : "";
+                      const text = encodeURIComponent(
+                        `Hi ${e.fullName},\n\nYour Employee Portal access has been set up.\n\nLogin URL: ${origin}/login\nUsername: ${e.workEmail}${pwLine}\n\nPlease log in and fill in your profile details.\n\nRegards,\nHR Team`,
+                      );
+                      window.open(`https://wa.me/?text=${text}`, "_blank");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 text-green-500" />
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Profile filled status */}
+            {e.hasLogin ? (
+              e.onboardingStatus === "COMPLETE" ? (
+                <div className="flex items-center gap-2 rounded-xl border border-green-200/80 bg-green-50/60 px-4 py-2.5 dark:border-green-800/40 dark:bg-green-900/20">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500 dark:text-green-400" />
+                  <span className="text-[12px] font-semibold text-green-700 dark:text-green-300">
+                    Employee has filled their profile details
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-sky-200/80 bg-sky-50/40 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800/40">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">
+                    Profile not yet completed by employee
+                  </span>
+                </div>
+              )
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* Status History Card */}
       <div className="overflow-visible rounded-2xl border border-sky-200/90 bg-white shadow-[0_4px_24px_-4px_rgba(23,105,245,0.08)] dark:border-slate-700/80 dark:bg-gray-900 transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(23,105,245,0.12)]">
