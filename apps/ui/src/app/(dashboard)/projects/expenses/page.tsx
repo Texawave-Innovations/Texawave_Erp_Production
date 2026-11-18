@@ -36,6 +36,7 @@ import {
   useDeleteExpense,
   useExpenses,
   useExpenseVendors,
+  useExpenseDepartments,
   useProjects,
   useUpdateExpense,
 } from "@/features/projects/hooks";
@@ -94,6 +95,7 @@ export default function ExpensesPage() {
   const expensesQuery = useExpenses();
   const { data: projectsData } = useProjects({ limit: 100 });
   const vendorsQuery = useExpenseVendors();
+  const masterDepartments = useExpenseDepartments().data ?? [];
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
   const deleteExpenseMutation = useDeleteExpense();
@@ -879,20 +881,30 @@ export default function ExpensesPage() {
 
               <FormField label="Department">
                 {(field) => (
-                  <Input
+                  <Select
                     {...field}
-                    list="expense-department-options"
                     value={form.department}
                     onChange={(e) => setField("department", e.target.value)}
-                    placeholder="e.g. Engineering"
-                  />
+                  >
+                    <option value="">Select department</option>
+                    {/* A value saved before the master was enforced stays
+                        visible so editing doesn't silently blank it. */}
+                    {form.department &&
+                    !masterDepartments.some(
+                      (d) => d.name === form.department,
+                    ) ? (
+                      <option value={form.department}>
+                        {form.department} (not in master)
+                      </option>
+                    ) : null}
+                    {masterDepartments.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </Select>
                 )}
               </FormField>
-              <datalist id="expense-department-options">
-                {departments.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
 
               <FormField label="Date" required>
                 {(field) => (

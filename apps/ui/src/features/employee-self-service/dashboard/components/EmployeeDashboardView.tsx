@@ -12,7 +12,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { Card } from "@texawave-erp/ui-kit";
+import { Alert, Card } from "@texawave-erp/ui-kit";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { usePortalNavGroups } from "../../portal/nav";
 import { useTodayAttendance } from "../useTodayAttendance";
@@ -147,6 +147,23 @@ export function EmployeeDashboardView() {
           ) : null}
         </div>
       </div>
+
+      {attendance.canRead && attendance.staleOpenDate ? (
+        <Alert variant="warning" title="You did not check out earlier">
+          Your session from {attendance.staleOpenDate} is still open, so a new
+          check-in is refused. Ask HR to close it, or check out and raise an
+          attendance correction.
+        </Alert>
+      ) : null}
+      {attendance.canRead && attendance.pendingDates.length > 0 ? (
+        <Alert variant="info" title="Waiting for HR">
+          You were checked out automatically on{" "}
+          {attendance.pendingDates.join(", ")}. HR needs to regularize{" "}
+          {attendance.pendingDates.length === 1 ? "that day" : "those days"}{" "}
+          before{" "}
+          {attendance.pendingDates.length === 1 ? "it counts" : "they count"}.
+        </Alert>
+      ) : null}
 
       {/* Attendance clock card */}
       {attendance.canRead ? (

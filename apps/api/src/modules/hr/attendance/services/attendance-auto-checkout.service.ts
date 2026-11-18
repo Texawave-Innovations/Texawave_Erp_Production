@@ -5,6 +5,11 @@ import type { NewNotification } from "../../../../platform/notifications/notific
 import { NotificationsService } from "../../../../platform/notifications/notifications.service.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { AttendanceDayContextRepository } from "../attendance-day-context.repository.js";
+import { AttendanceSettingsRepository } from "../settings/attendance-settings.repository.js";
+import {
+  planFixedCheckouts,
+  toRules,
+} from "../settings/attendance-settings.rules.js";
 import {
   resolveTargetMinutes,
   type EmployeeRef,
@@ -97,6 +102,7 @@ export class AttendanceAutoCheckoutService {
     private readonly audit: AuditWriter,
     private readonly dayContext: AttendanceDayContextRepository,
     private readonly notifications: NotificationsService,
+    private readonly settings: AttendanceSettingsRepository,
   ) {}
 
   /** Runs for every active organization. A failure in one organization is
@@ -158,32 +164,56 @@ export class AttendanceAutoCheckoutService {
     });
     if (open.length === 0) return { closed: 0, noTarget: 0, notDue: 0 };
 
-    const employees = new Map<number, EmployeeRef>();
-    let from = formatDateOnly(open[0]!.record.attendanceDate);
-    let to = from;
-    for (const row of open) {
-      const date = formatDateOnly(row.record.attendanceDate);
-      if (date < from) from = date;
-      if (date > to) to = date;
-      employees.set(row.record.employee.id, row.record.employee);
+    // HR master: a fixed cut-off, when switched on, replaces the shift-target
+    // rule for every employee. Sessions it closes are flagged so the day stays
+    // pending until HR regularizes it.
+    const rules = toRules(await this.settings.find({ organizationId }));
+    let plan: AutoCheckoutPlan;
+    let reason: string;
+    if (rules.autoCheckoutEnabled) {
+      const fixed = planFixedCheckouts(
+        open.map((row) => ({
+          id: row.id,
+          checkInAt: row.checkInAt,
+          attendanceDate: formatDateOnly(row.record.attendanceDate),
+        })),
+        rules.autoCheckoutTime,
+        asOf,
+      );
+      plan = {
+        closes: fixed.closes,
+        noTarget: fixed.unclosable,
+        notDue: fixed.notDue,
+      };
+      reason = `Closed automatically at the ${rules.autoCheckoutTime} (IST) cut-off; pending HR regularization`;
+    } else {
+      const employees = new Map<number, EmployeeRef>();
+      let from = formatDateOnly(open[0]!.record.attendanceDate);
+      let to = from;
+      for (const row of open) {
+        const date = formatDateOnly(row.record.attendanceDate);
+        if (date < from) from = date;
+        if (date > to) to = date;
+        employees.set(row.record.employee.id, row.record.employee);
+      }
+      const ctx = await this.dayContext.load(
+        { organizationId },
+        [...employees.values()],
+        from,
+        to,
+      );
+      const sessions: OpenSessionForCheckout[] = open.map((row) => ({
+        id: row.id,
+        checkInAt: row.checkInAt,
+        targetMinutes: resolveTargetMinutes(
+          ctx,
+          row.record.employee,
+          formatDateOnly(row.record.attendanceDate),
+        ),
+      }));
+      plan = planAutoCheckouts(sessions, asOf);
+      reason = "Closed automatically at check-in plus the shift target";
     }
-    const ctx = await this.dayContext.load(
-      { organizationId },
-      [...employees.values()],
-      from,
-      to,
-    );
-
-    const sessions: OpenSessionForCheckout[] = open.map((row) => ({
-      id: row.id,
-      checkInAt: row.checkInAt,
-      targetMinutes: resolveTargetMinutes(
-        ctx,
-        row.record.employee,
-        formatDateOnly(row.record.attendanceDate),
-      ),
-    }));
-    const plan = planAutoCheckouts(sessions, asOf);
 
     let closed = 0;
     const notices: NewNotification[] = [];
@@ -192,7 +222,9 @@ export class AttendanceAutoCheckoutService {
       const wrote = await this.prisma.$transaction(async (tx) => {
         const { count } = await tx.attendanceSession.updateMany({
           where: { id: close.id, checkOutAt: null },
-          data: { checkOutAt: close.checkOutAt },
+          data: rules.autoCheckoutEnabled
+            ? { checkOutAt: close.checkOutAt, autoClosed: true }
+            : { checkOutAt: close.checkOutAt },
         });
         if (count !== 1) return false;
         await this.audit.write(tx, {
@@ -201,7 +233,7 @@ export class AttendanceAutoCheckoutService {
           action: "auto_checkout",
           before: { checkOutAt: null },
           after: { checkOutAt: close.checkOutAt.toISOString() },
-          reason: "Closed automatically at check-in plus the shift target",
+          reason,
           system: { organizationId, label: AUTO_CHECKOUT_LABEL },
         });
         return true;

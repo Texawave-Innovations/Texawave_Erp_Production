@@ -351,18 +351,28 @@ The core attendance API (punches, HR view, manual edit, corrections, reports, au
 - Legacy alerted at 10:30 and 20:30 for a 10:00–18:30 shift; the offsets reproduce that for any shift. **No shift assignment → no alert** (there is no due time to compare against).
 - Recipients: the employee (if they have a login) and their **reporting manager** (if that manager has a login). Each alert is stored once per kind, employee and date (dedup key), so repeated runs and several API instances never notify twice.
 
+**Fixed auto check-out (HR master)** — `GET` / `PATCH /hr/attendance/settings` (`hr.attendance_settings.read` / `.write`, organization-wide, optimistic `version` as for payroll settings; table `hr.attendance_settings`, built-in default: off, `20:00`).
+
+- **On:** every open session is closed at `autoCheckoutTime` (IST, `HH:mm`) of its **own** business date, whatever the shift, so a forgotten check-out on one day never runs into the next (a session started after the cut-off is closed at 23:59 of that day). The first run after switching it on also closes sessions left open on earlier days (e.g. a forgotten Saturday check-out). **Off:** the shift-target rule above applies, unchanged.
+- Sessions closed this way carry `auto_closed = true` and are audited as `auto_checkout`. The day stays **pending**: `pendingRegularization: true` on the day view, status `NOT_MARKED` with nothing worked (calendar days and an HR-set status still win). An HR manual edit or an approved correction clears the flag.
+- A check-in is no longer blocked by a session left open on an earlier day once its cut-off has passed (that session is closed first, in the same transaction). With the setting off, such a session still gives `ALREADY_CHECKED_IN`.
+
 **UI** (`apps/ui/src/features/hr/attendance`): `/hr/attendance` is tabbed — **Daily roster** (reports/daily: everyone in scope for a date, status buckets, search, 9 AM–9 PM session timeline), **Records** (stored days with filters), **Employee month** (calendar from the full-month-present report + records), **Missing punches** (with a "Fix punches" edit), **Month close** (submit selected / all eligible, approve selected, approve / return / reopen with notes; "Needs another approver" on the caller's own submissions). Header: **Import punches** (template, check file, import) and **Export CSV**. Each tab and button shows only to holders of its endpoint's permission. Search and status counts on the daily roster apply to the loaded page (100 employees).
 
 ### Notifications (`platform/notifications`)
 
 In-app inbox (`platform.notifications`). Only server-side code sends notifications (`NotificationsService.notify()`); there is no create route.
 
-| Route                             | Permission              | Notes                                                                                  |
-| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
-| GET `/notifications`              | authenticated (no code) | The caller's own notifications, newest first; `unreadOnly=true`; paginated.            |
-| GET `/notifications/unread-count` | authenticated           | `{unread}`.                                                                            |
-| POST `/notifications/:id/read`    | authenticated           | Marks one of the caller's own read (keeps the first read time); 404 for anyone else's. |
-| POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                            |
+| Route                             | Permission              | Notes                                                                                              |
+| --------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| GET `/notifications`              | authenticated (no code) | The caller's own notifications, newest first; `unreadOnly=true`; paginated.                        |
+| GET `/notifications/unread-count` | authenticated           | `{unread}`.                                                                                        |
+| POST `/notifications/:id/read`    | authenticated           | Marks one of the caller's own read (keeps the first read time); 404 for anyone else's.             |
+| POST `/notifications/read-all`    | authenticated           | `{marked}`.                                                                                        |
+| GET `/notifications/dnd`          | authenticated           | The caller's Do Not Disturb: `{active, until, indefinite}`.                                        |
+| PUT `/notifications/dnd`          | authenticated           | `{until}` (an ISO instant, at most 7 days ahead), `{indefinite: true}`, or neither to turn it off. |
+
+**Do Not Disturb** (snooze, `platform.notification_preferences`, one row per user): it quiets only the bell **badge**. Notifications are still created, stored and listed, with their own unread dots, so nothing is lost. A timed snooze is active while `until` is in the future and switches itself off afterwards (no job); `indefinite` stays until turned off. No exceptions by notification type in this version. The CRM bell's badge follows the same setting.
 
 Like `GET /menu/my-menu`, these routes need a login but no permission: every query is keyed to the user in the JWT. Senders so far: `attendance.missing_check_in`, `attendance.missing_check_out`, `attendance.auto_checkout`, `attendance.month_returned`, `attendance.month_reopened`, and leave: `leave.submitted`, `leave.submitted_on_behalf`, `leave.first_approved`, `leave.awaiting_hr`, `leave.approved`, `leave.rejected`, `leave.cancelled_by_hr`, `leave.withdrawn`, `leave.delegation_created`.
 

@@ -34,6 +34,12 @@ export class DepartmentsService {
     );
   }
 
+  /** Active departments as plain id + name, for pickers in other modules.
+   * Callers gate on their own permission, not the Departments master's. */
+  findActiveNames() {
+    return this.repository.findActiveNames(this.tenantContext.getOrgScope());
+  }
+
   async findOne(id: number) {
     const scope = this.tenantContext.getOrgScope();
     const department = await this.repository.findOne(scope, id);

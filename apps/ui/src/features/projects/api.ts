@@ -313,6 +313,17 @@ export async function listExpenseVendors(): Promise<ExpenseVendor[]> {
   return data;
 }
 
+export async function listExpenseDepartments(): Promise<
+  { id: number; name: string }[]
+> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ id: number; name: string }[]>(
+      "/projects/expenses/departments",
+    ),
+  );
+  return data;
+}
+
 export async function createExpense(
   projectId: number,
   input: Record<string, unknown>,

@@ -95,106 +95,108 @@ model Organization {
   leaveEntitlements          LeaveEntitlement[]
   leaveDelegations           LeaveApprovalDelegation[]
   expenseClaims              ExpenseClaim[]
-  exitRequests               ExitRequest[]
-  tasks                      Task[]
-  tickets                    Ticket[]
-  ticketComments             TicketComment[]
-  weeklyOffRules             WeeklyOffRule[]
-  menuItems                  MenuItem[]
-  attendanceRecords          AttendanceRecord[]
-  attendanceCorrections      AttendanceCorrection[]
-  attendanceMonthLocks       AttendanceMonthLock[]
-  workPermissions            WorkPermission[]
-  notifications              Notification[]
-  revisionLetters            RevisionLetter[]
-  promotionLetters           PromotionLetter[]
-  interviews                 Interview[]
-  offerLetters               OfferLetter[]
-  employeeProfiles           EmployeeProfile[]
-  employeeSensitiveInfos     EmployeeSensitiveInfo[]
-  employeeAddresses          EmployeeAddress[]
-  employeeGovernmentIds      EmployeeGovernmentId[]
-  payrollPeriods             PayrollPeriod[]
-  payrollRuns                PayrollRun[]
-  payrollEntries             PayrollEntry[]
-  companyDetail              CompanyDetail?
-  bankAccounts               BankAccount[]
-  authorizedSignatory        AuthorizedSignatory?
-  salespersons               Salesperson[]
-  sealSignatures             SealSignature[]
-  salesMasterListItems       SalesMasterListItem[]
-  financeMasterListItems     FinanceMasterListItem[]
-  scmMasterListItems         ScmMasterListItem[]
-  payrollEarnings            PayrollEarning[]
-  payrollDeductions          PayrollDeduction[]
-  projects                   Project[]
-  projectCategoryMasters     ProjectCategoryMaster[]
-  projectCodeMaster          ProjectCodeMaster?
-  taskRunningNumberMaster    TaskRunningNumberMaster?
-  employeeSalaries           EmployeeSalary[]
-  payrollSetting             PayrollSetting?
-  employeePfProfiles         EmployeePfProfile[]
-  pfContributions            PfContribution[]
-  employeeEsiProfiles        EmployeeEsiProfile[]
-  esiContributions           EsiContribution[]
-  employeeLoans              EmployeeLoan[]
-  loanRepayments             LoanRepayment[]
-  loanSkipRequests           LoanSkipRequest[]
-  employeeBonuses            EmployeeBonus[]
-  payslips                   Payslip[]
-  paymentBatches             PaymentBatch[]
-  payrollPayments            PayrollPayment[]
-  salaryComponents           SalaryComponent[]
-  salaryTemplates            SalaryTemplate[]
-  employeeSalaryComponents   EmployeeSalaryComponent[]
-  professionalTaxSlabs       ProfessionalTaxSlab[]
-  ptLocationStates           PtLocationState[]
-  incomeTaxRegimes           IncomeTaxRegime[]
-  employeeTaxDeclarations    EmployeeTaxDeclaration[]
-  loanPrepayments            LoanPrepayment[]
-  crmAccounts                Account[]
-  crmContacts                Contact[]
-  crmLeads                   Lead[]
-  crmPipelineStages          PipelineStage[]
-  crmOpportunities           Opportunity[]
-  crmOpportunityStageHistory OpportunityStageHistory[]
-  crmProducts                Product[]
-  crmOpportunityProducts     OpportunityProduct[]
-  crmQuotations              Quotation[]
-  crmQuotationLineItems      QuotationLineItem[]
-  crmMeetings                CrmMeeting[]
-  crmFollowUps               CrmFollowUp[]
-  crmActivities              CrmActivity[]
-  crmTasks                   CrmTask[]
-  crmDocuments               CrmDocument[]
-  crmNotes                   CrmNote[]
-  crmLeadNotes               CrmLeadNote[]
-  crmColdCallingEntries      CrmColdCallingEntry[]
-  crmMiningRows              CrmMiningRow[]
-  crmQuotas                  CrmQuota[]
-  crmNotifications           CrmNotification[]
-  crmCustomFieldDefs         CrmCustomFieldDef[]
-  scmRequisitions            ScmPurchaseRequisition[]
-  scmRfqs                    ScmRfq[]
-  scmQuotations              ScmSupplierQuotation[]
-  scmComparisons             ScmQuotationComparison[]
-  scmPurchaseOrders          ScmPurchaseOrder[]
-  scmGoodsReceipts           ScmGoodsReceipt[]
-  scmCustomers               ScmCustomer[]
-  scmSalesOrders             ScmSalesOrder[]
-  scmFulfillments            ScmFulfillment[]
-  scmPickings                ScmPicking[]
-  scmPackings                ScmPacking[]
-  scmCarriers                ScmCarrier[]
-  scmShipments               ScmShipment[]
-  scmReturns                 ScmReturn[]
-  scmQualityDefects          ScmQualityDefect[]
-  scmQualityTemplates        ScmQualityTemplate[]
-  scmQualityInspections      ScmQualityInspection[]
-  scmQuarantineRecords       ScmQuarantineRecord[]
-  scmLocationStock           ScmLocationStock[]
-  scmPutaways                ScmPutaway[]
-  scmWarehouseMovements      ScmWarehouseMovement[]
+  exitRequests                ExitRequest[]
+  tasks                       Task[]
+  tickets                     Ticket[]
+  ticketComments              TicketComment[]
+  weeklyOffRules              WeeklyOffRule[]
+  menuItems                   MenuItem[]
+  attendanceRecords           AttendanceRecord[]
+  attendanceCorrections       AttendanceCorrection[]
+  attendanceMonthLocks         AttendanceMonthLock[]
+  workPermissions              WorkPermission[]
+  notifications                Notification[]
+  notificationPreferences      NotificationPreference[]
+  revisionLetters              RevisionLetter[]
+  promotionLetters             PromotionLetter[]
+  interviews                   Interview[]
+  offerLetters                 OfferLetter[]
+  employeeProfiles              EmployeeProfile[]
+  employeeSensitiveInfos        EmployeeSensitiveInfo[]
+  employeeAddresses             EmployeeAddress[]
+  employeeGovernmentIds         EmployeeGovernmentId[]
+  payrollPeriods                PayrollPeriod[]
+  payrollRuns                   PayrollRun[]
+  payrollEntries                 PayrollEntry[]
+  companyDetail                  CompanyDetail?
+  bankAccounts                   BankAccount[]
+  authorizedSignatory             AuthorizedSignatory?
+  salespersons                    Salesperson[]
+  sealSignatures                   SealSignature[]
+  salesMasterListItems              SalesMasterListItem[]
+  financeMasterListItems            FinanceMasterListItem[]
+  scmMasterListItems                 ScmMasterListItem[]
+  payrollEarnings                   PayrollEarning[]
+  payrollDeductions                 PayrollDeduction[]
+  projects                          Project[]
+  projectCategoryMasters            ProjectCategoryMaster[]
+  projectCodeMaster                 ProjectCodeMaster?
+  taskRunningNumberMaster           TaskRunningNumberMaster?
+  employeeSalaries                  EmployeeSalary[]
+  payrollSetting                    PayrollSetting?
+  attendanceSetting                 AttendanceSetting?
+  employeePfProfiles                 EmployeePfProfile[]
+  pfContributions                    PfContribution[]
+  employeeEsiProfiles                EmployeeEsiProfile[]
+  esiContributions                   EsiContribution[]
+  employeeLoans                      EmployeeLoan[]
+  loanRepayments                     LoanRepayment[]
+  loanSkipRequests                   LoanSkipRequest[]
+  employeeBonuses                    EmployeeBonus[]
+  payslips                           Payslip[]
+  paymentBatches                     PaymentBatch[]
+  payrollPayments                    PayrollPayment[]
+  salaryComponents                   SalaryComponent[]
+  salaryTemplates                    SalaryTemplate[]
+  employeeSalaryComponents           EmployeeSalaryComponent[]
+  professionalTaxSlabs               ProfessionalTaxSlab[]
+  ptLocationStates                   PtLocationState[]
+  incomeTaxRegimes                   IncomeTaxRegime[]
+  employeeTaxDeclarations            EmployeeTaxDeclaration[]
+  loanPrepayments                    LoanPrepayment[]
+  crmAccounts                        Account[]
+  crmContacts                        Contact[]
+  crmLeads                           Lead[]
+  crmPipelineStages                  PipelineStage[]
+  crmOpportunities                   Opportunity[]
+  crmOpportunityStageHistory         OpportunityStageHistory[]
+  crmProducts                        Product[]
+  crmOpportunityProducts             OpportunityProduct[]
+  crmQuotations                      Quotation[]
+  crmQuotationLineItems              QuotationLineItem[]
+  crmMeetings                        CrmMeeting[]
+  crmFollowUps                       CrmFollowUp[]
+  crmActivities                      CrmActivity[]
+  crmTasks                           CrmTask[]
+  crmDocuments                       CrmDocument[]
+  crmNotes                           CrmNote[]
+  crmLeadNotes                       CrmLeadNote[]
+  crmColdCallingEntries              CrmColdCallingEntry[]
+  crmMiningRows                      CrmMiningRow[]
+  crmQuotas                          CrmQuota[]
+  crmNotifications                   CrmNotification[]
+  crmCustomFieldDefs                 CrmCustomFieldDef[]
+  scmRequisitions                    ScmPurchaseRequisition[]
+  scmRfqs                            ScmRfq[]
+  scmQuotations                      ScmSupplierQuotation[]
+  scmComparisons                     ScmQuotationComparison[]
+  scmPurchaseOrders                  ScmPurchaseOrder[]
+  scmGoodsReceipts                   ScmGoodsReceipt[]
+  scmCustomers                       ScmCustomer[]
+  scmSalesOrders                     ScmSalesOrder[]
+  scmFulfillments                    ScmFulfillment[]
+  scmPickings                        ScmPicking[]
+  scmPackings                        ScmPacking[]
+  scmCarriers                        ScmCarrier[]
+  scmShipments                       ScmShipment[]
+  scmReturns                         ScmReturn[]
+  scmQualityDefects                  ScmQualityDefect[]
+  scmQualityTemplates                ScmQualityTemplate[]
+  scmQualityInspections              ScmQualityInspection[]
+  scmQuarantineRecords               ScmQuarantineRecord[]
+  scmLocationStock                   ScmLocationStock[]
+  scmPutaways                        ScmPutaway[]
+  scmWarehouseMovements              ScmWarehouseMovement[]
 
   projectMembers                    ProjectMember[]
   projectMilestones                 ProjectMilestone[]
@@ -285,6 +287,7 @@ model User {
   attendanceMonthLocksSubmitted  AttendanceMonthLock[]     @relation("AttendanceMonthLockSubmitter")
   attendanceMonthLocksDecided    AttendanceMonthLock[]     @relation("AttendanceMonthLockDecider")
   notifications                  Notification[]
+  notificationPreference         NotificationPreference?
   passwordResetTokens            PasswordResetToken[]
   approvalsRequested             Approval[]                @relation("ApprovalRequester")
   approvalsDecided               Approval[]                @relation("ApprovalDecider")
@@ -1612,6 +1615,10 @@ model AttendanceSession {
   checkOutAt         DateTime? @map("check_out_at") @db.Timestamptz(6)
   /// SELF | HR | CORRECTION | IMPORT (CHECK in the migration)
   source             String
+  /// True when the system closed this session (the organization's fixed
+  /// auto check-out). The day stays pending until HR regularizes it; any HR
+  /// edit or approved correction clears the flag.
+  autoClosed         Boolean   @default(false) @map("auto_closed")
   createdBy          Int?      @map("created_by")
   updatedBy          Int?      @map("updated_by")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1621,6 +1628,28 @@ model AttendanceSession {
 
   @@index([attendanceRecordId, checkInAt])
   @@map("attendance_sessions")
+  @@schema("hr")
+}
+
+/// The organization's single attendance policy row (HR master). Absent until
+/// first saved; the built-in defaults then apply (auto check-out off).
+model AttendanceSetting {
+  id                  Int      @id @default(autoincrement())
+  organizationId      Int      @unique @map("organization_id")
+  /// When on, every open session is closed at `auto_checkout_time` (IST) of
+  /// its own business date. When off, the shift-target rule applies.
+  autoCheckoutEnabled Boolean  @default(false) @map("auto_checkout_enabled")
+  /// `HH:mm`, 24-hour, IST (CHECK in the migration).
+  autoCheckoutTime    String   @default("20:00") @map("auto_checkout_time")
+  version             Int      @default(1)
+  createdBy           Int?     @map("created_by")
+  updatedBy           Int?     @map("updated_by")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("attendance_settings")
   @@schema("hr")
 }
 
@@ -3254,6 +3283,26 @@ model Notification {
   @@unique([userId, dedupKey])
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+  @@schema("platform")
+}
+
+/// A user's own notification preferences. Today: Do Not Disturb (snooze). It
+/// only quiets the bell badge; notifications are still created and stored.
+/// Active when `dnd_indefinite`, or `dnd_until` is in the future; an expired
+/// `dnd_until` is simply inactive, so no job is needed to switch it off.
+model NotificationPreference {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  userId         Int       @unique @map("user_id")
+  dndUntil       DateTime? @map("dnd_until") @db.Timestamptz(6)
+  dndIndefinite  Boolean   @default(false) @map("dnd_indefinite")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
   @@schema("platform")
 }
 

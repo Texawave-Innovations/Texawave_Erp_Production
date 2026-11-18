@@ -1,6 +1,6 @@
 import type { PaginatedEnvelope } from "@texawave-erp/api-types";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
-import type { AppNotification } from "./types";
+import type { AppNotification, DndRequest, DndState } from "./types";
 
 const BASE = "/notifications";
 
@@ -21,6 +21,21 @@ export async function getUnreadCount(): Promise<number> {
     apiClient.get<{ unread: number }>(`${BASE}/unread-count`),
   );
   return data.unread;
+}
+
+/** Do Not Disturb: quiets the bell badge only; notifications are still stored. */
+export async function getDnd(): Promise<DndState> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<DndState>(`${BASE}/dnd`),
+  );
+  return data;
+}
+
+export async function setDnd(body: DndRequest): Promise<DndState> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.put<DndState>(`${BASE}/dnd`, body),
+  );
+  return data;
 }
 
 export async function markNotificationRead(

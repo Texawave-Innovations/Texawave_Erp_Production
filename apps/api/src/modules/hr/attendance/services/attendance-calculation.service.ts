@@ -28,6 +28,9 @@ import {
  *  - No shift target → hours are reported as punched, with no overtime or
  *    shortfall (the target is unknown, so neither can be computed honestly).
  *  - An open session counts time up to `asOf`.
+ *  - A plain punched day with a session the system auto-closed (HR master's
+ *    fixed cut-off) is NOT_MARKED with nothing worked until HR regularizes it.
+ *    Calendar and explicit stored statuses still win, as above.
  */
 
 export const STORED_STATUSES = ["PRESENT", "ABSENT", "HALF_DAY"] as const;
@@ -64,6 +67,9 @@ export interface AttendanceDayInput {
   targetMinutes: number | null;
   calendar: CalendarFlags;
   asOf: Date;
+  /** A session was closed by the system's fixed auto check-out and HR has not
+   * regularized it: an otherwise plain punched day is not counted as worked. */
+  autoClosedPending?: boolean;
 }
 
 export interface AttendanceDayResult {
@@ -189,6 +195,17 @@ export class AttendanceCalculationService {
       return {
         ...base,
         status: input.storedStatus === "PRESENT" ? "PRESENT" : "NOT_MARKED",
+        workedMinutes: 0,
+        overtimeMinutes: 0,
+        shortfallMinutes: target ?? 0,
+      };
+    }
+    if (input.autoClosedPending) {
+      // The close time is the system's, not the employee's: the day stays
+      // pending (not marked, nothing worked) until HR regularizes it.
+      return {
+        ...base,
+        status: "NOT_MARKED",
         workedMinutes: 0,
         overtimeMinutes: 0,
         shortfallMinutes: target ?? 0,

@@ -131,6 +131,30 @@ export class NotificationsRepository {
     return count;
   }
 
+  // ---- Do Not Disturb (the caller's own preference row) ---------------------
+
+  @OrgScoped()
+  findPreference(scope: OrgScope, userId: number) {
+    return this.prisma.notificationPreference.findFirst({
+      where: tenantWhere(scope, { userId }),
+      select: { dndUntil: true, dndIndefinite: true },
+    });
+  }
+
+  @OrgScoped()
+  async savePreference(
+    scope: OrgScope,
+    userId: number,
+    dnd: { dndUntil: Date | null; dndIndefinite: boolean },
+  ) {
+    return this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: { organizationId: scope.organizationId, userId, ...dnd },
+      update: dnd,
+      select: { dndUntil: true, dndIndefinite: true },
+    });
+  }
+
   @OrgScoped()
   async findAdminUserIds(scope: OrgScope): Promise<number[]> {
     const users = await this.prisma.user.findMany({

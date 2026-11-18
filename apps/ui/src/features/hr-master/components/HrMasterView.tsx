@@ -38,6 +38,8 @@ import {
   useWorkLocations,
 } from "../hooks";
 
+import { AutoCheckoutCard } from "./AutoCheckoutCard";
+
 const PAGE_SIZE = 50;
 
 /** Departments — the one resource without a `code` field; `MasterDataService`
@@ -355,6 +357,7 @@ export function HrMasterView() {
       <OfficeLocationsCard />
       <LeaveTypesCard />
       <ShiftsCard />
+      <AutoCheckoutCard />
     </div>
   );
 }

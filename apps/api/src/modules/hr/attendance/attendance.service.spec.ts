@@ -79,6 +79,12 @@ function makeService(opts?: {
     notifyAdmins: vi.fn(),
     notify: vi.fn(),
   };
+  const settings = {
+    rules: vi.fn().mockResolvedValue({
+      autoCheckoutEnabled: false,
+      autoCheckoutTime: "20:00",
+    }),
+  };
   const service = new AttendanceService(
     repository as never,
     dayContext as never,
@@ -88,8 +94,10 @@ function makeService(opts?: {
     employees as never,
     locationPrivilege as never,
     notifications as never,
+    settings as never,
   );
   return {
+    settings,
     service,
     scope,
     repository,
@@ -120,6 +128,7 @@ describe("AttendanceService", () => {
         "2026-10-05",
         NOW,
         USER_ID,
+        null,
       );
       expect(result).toEqual({
         id: 100,
@@ -127,6 +136,16 @@ describe("AttendanceService", () => {
         attendanceDate: "2026-10-05",
         checkInAt: NOW,
       });
+    });
+
+    it("passes the fixed auto check-out time to the repository when the setting is on", async () => {
+      const { service, repository, settings } = makeService();
+      settings.rules.mockResolvedValue({
+        autoCheckoutEnabled: true,
+        autoCheckoutTime: "19:30",
+      });
+      await service.checkIn();
+      expect(repository.checkIn.mock.calls[0]![5]).toBe("19:30");
     });
 
     it("uses the IST date, not the UTC date, just after IST midnight", async () => {

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { DepartmentsModule } from "../departments/departments.module.js";
 import { EmployeesModule } from "../hr/employees/employees.module.js";
 import { ProjectsMasterModule } from "../projects-master/projects-master.module.js";
 import { SuppliersModule } from "../scm/suppliers/suppliers.module.js";
@@ -28,6 +29,7 @@ import { TimeEntriesService } from "./time-entries.service.js";
     ProjectsMasterModule,
     SuppliersModule,
     AttendanceModule,
+    DepartmentsModule,
     TimesheetsCoreModule,
   ],
   // ProjectsController registers LAST: its `GET /projects/:id` (ParseIntPipe)

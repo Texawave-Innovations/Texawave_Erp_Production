@@ -23,6 +23,8 @@ export interface StoredDay {
     checkInAt: Date;
     checkOutAt: Date | null;
     source: string;
+    /** Closed by the system's fixed auto check-out; awaiting HR. */
+    autoClosed?: boolean;
   }[];
 }
 
@@ -37,6 +39,9 @@ export interface DayView {
   overtimeMinutes: number;
   shortfallMinutes: number;
   hasOpenSession: boolean;
+  /** The system auto-closed a session on this day and HR has not yet
+   * regularized it. Until then the day is not counted as worked. */
+  pendingRegularization: boolean;
   sessions: StoredDay["sessions"];
 }
 
@@ -65,12 +70,14 @@ export class AttendanceDayViewService {
         employee,
         day.attendanceDate,
       );
+      const pendingRegularization = day.sessions.some((s) => s.autoClosed);
       const result = this.calculation.calculate({
         storedStatus: day.storedStatus,
         sessions: day.sessions,
         targetMinutes,
         calendar: resolveCalendar(ctx, employee, day.attendanceDate),
         asOf,
+        autoClosedPending: pendingRegularization,
       });
       return {
         recordId: day.recordId,
@@ -83,6 +90,7 @@ export class AttendanceDayViewService {
         overtimeMinutes: result.overtimeMinutes,
         shortfallMinutes: result.shortfallMinutes,
         hasOpenSession: result.hasOpenSession,
+        pendingRegularization,
         sessions: day.sessions,
       };
     });

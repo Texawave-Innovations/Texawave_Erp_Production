@@ -5,11 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import {
+  getDnd,
   getUnreadCount,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  setDnd,
 } from "./api";
+import type { DndRequest } from "./types";
 
 const KEY = "notifications" as const;
 /** Alerts are produced by a 5-minute server job, so polling every minute
@@ -37,6 +40,22 @@ export function useNotifications(enabled: boolean) {
     queryFn: () => listNotifications({ page: 1, limit: 40 }),
     enabled: orgId > 0 && enabled,
   });
+}
+
+/** Do Not Disturb. Refetched every minute so a timed snooze that ends turns
+ * the badge back on without a reload. */
+export function useDnd() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "dnd"),
+    queryFn: getDnd,
+    enabled: orgId > 0,
+    refetchInterval: POLL_MS,
+  });
+}
+
+export function useSetDnd() {
+  return useOrgScopedMutation([KEY], (body: DndRequest) => setDnd(body));
 }
 
 export function useMarkNotificationRead() {

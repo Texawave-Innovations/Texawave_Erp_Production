@@ -94,6 +94,15 @@ export function useTodayAttendance() {
   const rawSessions = todayRow?.sessions ?? [];
   const isCheckedIn = todayRow?.hasOpenSession ?? false;
   const hasAnySession = rawSessions.length > 0;
+  // A session left open on an earlier day (a forgotten check-out) and days the
+  // system auto-closed that HR has yet to regularize. Neither is today's row,
+  // so the clock above ignores them; the dashboard surfaces them separately.
+  const staleOpenDate =
+    rows.find((r) => r.hasOpenSession && r.attendanceDate < today)
+      ?.attendanceDate ?? null;
+  const pendingDates = rows
+    .filter((r) => r.pendingRegularization)
+    .map((r) => r.attendanceDate);
 
   const completedMs = rawSessions.reduce(
     (sum, s) =>
@@ -165,6 +174,8 @@ export function useTodayAttendance() {
     query: month,
     isCheckedIn,
     hasAnySession,
+    staleOpenDate,
+    pendingDates,
     sessions,
     totalElapsed,
     summary,

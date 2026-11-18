@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
+  BellOff,
   CheckCheck,
   Star,
   Ticket,
@@ -15,13 +16,16 @@ import {
   CalendarCheck,
 } from "lucide-react";
 import { Spinner, Semantic3DIcon } from "@texawave-erp/ui-kit";
+import { describeDnd } from "../dnd";
 import {
+  useDnd,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
   useUnreadNotificationCount,
 } from "../hooks";
 import type { AppNotification } from "../types";
+import { DoNotDisturbMenu } from "./DoNotDisturbMenu";
 
 function formatNotificationDate(iso: string): string {
   const d = new Date(iso);
@@ -160,7 +164,11 @@ export function NotificationBell() {
   const list = useNotifications(open);
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+  const dnd = useDnd();
+  const snoozed = dnd.data?.active ?? false;
   const count = unread.data ?? 0;
+  // Do Not Disturb hides the badge only; the list and its unread dots stay.
+  const badgeCount = snoozed ? 0 : count;
 
   useEffect(() => {
     if (!open) return;
@@ -271,7 +279,11 @@ export function NotificationBell() {
       <button
         type="button"
         aria-label={
-          count > 0 ? `Notifications, ${count} unread` : "Notifications"
+          snoozed
+            ? "Notifications, do not disturb is on"
+            : count > 0
+              ? `Notifications, ${count} unread`
+              : "Notifications"
         }
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -279,9 +291,17 @@ export function NotificationBell() {
         className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/60 bg-white/70 backdrop-blur-md text-slate-600 hover:bg-white hover:text-slate-900 shadow-2xs focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-sky-900/40 dark:bg-gray-800/70 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white transition-all cursor-pointer"
       >
         <Semantic3DIcon name="bell" size={20} />
-        {count > 0 && (
+        {badgeCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-            {count > 99 ? "99+" : count}
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </span>
+        )}
+        {snoozed && (
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-500 text-white shadow-xs"
+          >
+            <BellOff className="h-2.5 w-2.5" />
           </span>
         )}
       </button>
@@ -302,18 +322,26 @@ export function NotificationBell() {
                 Notifications
               </span>
             </div>
-            {count > 0 && (
-              <button
-                type="button"
-                onClick={() => markAll.mutate()}
-                disabled={markAll.isPending}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 dark:text-cyan-400 hover:underline disabled:opacity-50 cursor-pointer transition-colors"
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                <span>Mark all read</span>
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <DoNotDisturbMenu state={dnd.data} />
+              {count > 0 && (
+                <button
+                  type="button"
+                  onClick={() => markAll.mutate()}
+                  disabled={markAll.isPending}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 dark:text-cyan-400 hover:underline disabled:opacity-50 cursor-pointer transition-colors"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  <span>Mark all read</span>
+                </button>
+              )}
+            </div>
           </div>
+          {snoozed && dnd.data && (
+            <p className="border-b border-amber-100 bg-amber-50/70 px-3 py-1.5 text-[11px] font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+              {describeDnd(dnd.data)}
+            </p>
+          )}
 
           {/* Category Filter Pills (Matches Reference Screenshots) */}
           {categories.length > 0 && (

@@ -34,7 +34,19 @@ export interface AttendanceDayView {
   overtimeMinutes: number;
   shortfallMinutes: number;
   hasOpenSession: boolean;
+  /** The system auto-closed a session on this day; HR has yet to regularize it. */
+  pendingRegularization: boolean;
   sessions: AttendanceSession[];
+}
+
+/** HR master → attendance policy (GET/PATCH /hr/attendance/settings). */
+export interface AttendanceSettings {
+  autoCheckoutEnabled: boolean;
+  /** `HH:mm`, 24-hour, IST. */
+  autoCheckoutTime: string;
+  isDefault: boolean;
+  version: number;
+  updatedAt: string | null;
 }
 
 export interface CheckInResult {

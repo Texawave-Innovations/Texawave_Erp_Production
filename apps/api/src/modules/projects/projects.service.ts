@@ -6,6 +6,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../common/exceptions/business.exception.js";
+import { NotificationsService } from "../../platform/notifications/notifications.service.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import {
   DEFAULT_UPCOMING_MILESTONE_DAYS,
@@ -30,6 +31,7 @@ export class ProjectsService {
     private readonly repository: ProjectsRepository,
     private readonly tenantContext: TenantContextService,
     private readonly codeMaster: ProjectCodeMasterService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async findAll(query: QueryProjectDto) {
@@ -205,7 +207,22 @@ export class ProjectsService {
         sequenceDigits: cfg.sequenceDigits,
       },
     );
-    return this.findOne(project.id);
+    const created = await this.findOne(project.id);
+
+    // Tell the client handling person they were named on a new project
+    // (not when they created it themselves). Fire-and-forget: a failed
+    // notification must never fail project creation.
+    const handler = created.clientHandlingPerson;
+    if (handler?.userId && handler.userId !== userId) {
+      void this.notifications.notifyUser(scope, handler.userId, {
+        type: "project.client_handler_assigned",
+        title: `You are the client handling person for ${created.projectCode}`,
+        body: `${created.name} has been created and you were selected as its client handling person.`,
+        link: `/projects/${created.id}`,
+      });
+    }
+
+    return created;
   }
 
   async update(id: number, dto: UpdateProjectDto) {

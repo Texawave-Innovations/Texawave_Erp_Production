@@ -4,6 +4,7 @@ import { TenantContextService } from "../../platform/tenancy/tenant-context.serv
 import type { CreateExpenseDto } from "./dto/create-expense.dto.js";
 import type { UpdateExpenseDto } from "./dto/update-expense.dto.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { DepartmentsService } from "../departments/departments.service.js";
 import { SuppliersService } from "../scm/suppliers/suppliers.service.js";
 import { QuerySupplierDto } from "../scm/suppliers/dto/supplier.dto.js";
 
@@ -13,12 +14,20 @@ export class ExpensesService {
     private readonly repository: ProjectsRepository,
     private readonly tenantContext: TenantContextService,
     private readonly suppliers: SuppliersService,
+    private readonly departments: DepartmentsService,
   ) {}
 
   /** Vendor picker for the Expenses page — active suppliers from the SCM
    * supplier master (synchronous read through SCM's public service,
    * Docs/CODING_STANDARDS.md §11), so Projects users don't need SCM
    * permissions just to pick a vendor. */
+  /** Departments master (active), for the expense department picker. Gated by
+   * the expenses permission so recording an expense doesn't also require
+   * `departments.department.read`. */
+  findDepartments() {
+    return this.departments.findActiveNames();
+  }
+
   async findVendors(search?: string) {
     const query = Object.assign(new QuerySupplierDto(), {
       page: 1,
