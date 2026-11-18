@@ -53,6 +53,7 @@ import {
   Sliders,
   Globe,
   type LucideIcon,
+  Timer,
 } from "lucide-react";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useAuthStore } from "@/stores/auth-store";
@@ -240,6 +241,13 @@ export const HR_NAV_GROUPS: NavGroup[] = [
         label: "Leaves",
         path: "/hr/leaves",
         icon: Calendar,
+      },
+      {
+        id: "timesheets",
+        menuCode: "hr-timesheets",
+        label: "Timesheets",
+        path: "/hr/timesheets",
+        icon: Timer,
       },
       {
         id: "holidays",

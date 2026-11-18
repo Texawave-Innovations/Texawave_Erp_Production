@@ -21,7 +21,8 @@ const WORK_END = "19:00";
 const MAX_DURATION_MINS = 120;
 
 function timeToMins(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
+  // The DTO has already checked the HH:mm shape, so both parts are present.
+  const [h = 0, m = 0] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
 
@@ -122,8 +123,8 @@ export class MyWorkPermissionsService {
     const { items, total } = await this.repository.findAll(
       this.tenantContext.getOrgScope(),
       {
-        status: query.status,
-        year: query.year,
+        ...(query.status !== undefined ? { status: query.status } : {}),
+        ...(query.year !== undefined ? { year: query.year } : {}),
         skip: query.skip,
         limit: query.limit,
       },
@@ -159,7 +160,7 @@ export class MyWorkPermissionsService {
 
     const updated = await this.repository.decide(scope, id, {
       status: dto.decision,
-      hrNote: dto.hrNote,
+      ...(dto.hrNote !== undefined ? { hrNote: dto.hrNote } : {}),
       decidedBy: userId,
     });
 

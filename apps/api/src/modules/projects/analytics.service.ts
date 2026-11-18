@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { businessDateOf } from "../../common/dates/business-date.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import {
   DEFAULT_UPCOMING_MILESTONE_DAYS,
@@ -27,7 +28,7 @@ export class ProjectsAnalyticsService {
     const scope = this.tenantContext.getOrgScope();
     const projects = await this.repository.findAllForAnalytics(scope);
     const today = new Date();
-    const todayIso = isoDay(today);
+    const todayIso = businessDateOf(today);
     const windowEnd = new Date(todayIso + "T00:00:00.000Z");
     windowEnd.setUTCDate(
       windowEnd.getUTCDate() + DEFAULT_UPCOMING_MILESTONE_DAYS,

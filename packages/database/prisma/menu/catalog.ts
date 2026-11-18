@@ -156,6 +156,14 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "hr.leave_request.read",
   },
   {
+    code: "hr-timesheets",
+    label: "Timesheets",
+    path: "/hr/timesheets",
+    order: 24,
+    parentCode: "hr",
+    permission: "hr.timesheet.read",
+  },
+  {
     code: "hr-holidays",
     label: "Holidays",
     path: "/hr/holidays",
@@ -253,6 +261,14 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     permission: "employee_self_service.task.read",
   },
   {
+    code: "portal-timesheet",
+    label: "My Timesheet",
+    path: "/portal/timesheet",
+    order: 3,
+    parentCode: "portal",
+    permission: "employee_self_service.timesheet.read",
+  },
+  {
     code: "portal-work",
     label: "My Work",
     path: "/portal/work",
@@ -340,6 +356,17 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     order: 12,
     parentCode: "portal",
     permission: "hr.leave_request.read",
+  },
+  // Submitted timesheet days of the reviewer's reach: the reporting manager's
+  // first approval and HR's second. Read scope lists and opens a day; the
+  // decisions need hr.timesheet.approve.
+  {
+    code: "portal-team-timesheets",
+    label: "Team Timesheets",
+    path: "/portal/team-timesheets",
+    order: 17,
+    parentCode: "portal",
+    permission: "hr.timesheet.read",
   },
   // Own pay records. Self-service codes only, so an employee never needs the
   // HR payroll workspace (hr.payroll.read) to see their own payslip.

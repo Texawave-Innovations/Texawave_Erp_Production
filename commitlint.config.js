@@ -64,6 +64,10 @@ module.exports = {
         "crm",
         "finance-settings",
         "finance",
+        // Business-module scope for the SCM migration (Suppliers, Procurement,
+        // Inventory, Orders/Fulfillment, Logistics, Returns, Quality, Reports —
+        // see Docs/SCM_LEGACY_PARITY.md).
+        "scm",
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

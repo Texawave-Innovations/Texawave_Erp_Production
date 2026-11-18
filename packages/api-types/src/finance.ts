@@ -557,6 +557,8 @@ export interface FinancePaymentMade {
   paymentNumber: string;
   paymentDate: string;
   vendorName: string;
+  supplierId: number | null;
+  billId: number | null;
   amount: string | number;
   paymentModeId: number;
   bankAccountId: number | null;
@@ -592,6 +594,8 @@ export interface CreateFinancePaymentMadeInput {
   paymentNumber?: string;
   paymentDate: string;
   vendorName: string;
+  supplierId?: number;
+  billId?: number;
   amount: number;
   paymentModeId: number;
   bankAccountId?: number | null;

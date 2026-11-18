@@ -1,3 +1,5 @@
+import { businessToday } from "@texawave-erp/core";
+
 /** Shared display helpers for the Projects feature pages (legacy
  * `ProjectsDashboard.tsx`/`ProjectList.tsx`/`ProjectDetail.tsx` all formatted
  * money as en-IN rupees and dates as plain calendar days). */
@@ -32,10 +34,10 @@ export function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** Today as a `YYYY-MM-DD` input value — the IST business date, never the
+ * browser's own zone (see packages/core business-date). */
 export function todayInput(): string {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  return businessToday();
 }
 
 /** True when a not-yet-completed item's target day is before today. */

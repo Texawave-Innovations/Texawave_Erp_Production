@@ -1,3 +1,5 @@
+import { businessDateOf } from "../../../common/dates/business-date.js";
+
 export interface MilestoneHealthInput {
   targetDate: string | Date;
   status: string;
@@ -89,7 +91,8 @@ export function calculateProjectHealth(
     return "completed";
   }
 
-  const todayIso = today.toISOString().slice(0, 10);
+  // "today" is the IST business date, not the UTC date (they differ 00:00-05:30 IST).
+  const todayIso = businessDateOf(today);
   const open = milestones.filter((m) => m.status !== "completed");
   if (open.some((m) => isoDay(m.targetDate) < todayIso)) return "delayed";
 
@@ -109,9 +112,7 @@ export function isMilestoneUpcoming(
   const target = new Date(milestone.targetDate);
   if (Number.isNaN(target.getTime())) return false;
 
-  const todayMidnight = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-  );
+  const todayMidnight = new Date(`${businessDateOf(today)}T00:00:00.000Z`);
   const targetMidnight = new Date(
     Date.UTC(
       target.getUTCFullYear(),

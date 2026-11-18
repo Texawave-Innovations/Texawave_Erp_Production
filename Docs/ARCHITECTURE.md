@@ -273,7 +273,9 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats`, `company_profiles` and `document_master_items` (Sales master list), `quotations`, `quotation_lines`, `invoices` (proforma + tax), `invoice_lines`, `invoice_payments`, `delivery_challans`, `delivery_challan_lines`, `returnable_delivery_challans`, `returnable_delivery_challan_lines`; planned: `customer_contacts`, `leads`, `sales_orders`, `sales_order_lines`, credit notes
 
-**Purchases** — `vendors`, `purchase_orders`, `purchase_order_lines`, `vendor_bills`, `vendor_bill_lines`
+**Purchases** — no tables of its own. It's a top-level UI entry point (`apps/ui/src/components/layout/HorizontalNavbar.tsx`'s `PURCHASES_CATEGORIES`) over existing SCM/Finance data: Vendors → `Supplier` (`scm.suppliers`), Purchase Orders → `ScmPurchaseOrder` (`scm.purchase_orders`), Payments Made → `FinancePaymentMade`/`ScmSupplierPayment`. Deliberately not a second parallel vendor/PO/bill data model — see `Docs/SCM_LEGACY_PARITY.md` for the full SCM audit this reuses.
+
+**Payments Made ↔ SCM bridge.** `FinancePaymentMade` has nullable `supplierId` (→ `Supplier`) and `billId` (→ `ScmSupplierBill`) set at create time as a pending reference, plus `scmSupplierPaymentId` (→ `ScmSupplierPayment`, unique) set only once the SCM-side write actually happens. When a Payments Made disbursement is confirmed against a real bill, `PaymentsMadeService.confirm()` calls `FinanceService.createPayment()` (the SCM Accounts Payable engine — row-locked overpayment check, `ScmSupplierBill.paidAmount`/status update) _inside the same database transaction_ as its own GL journal and bank balance posting (see `Docs/CODING_STANDARDS.md` §11's narrow synchronous-cross-module-write exception). One commit produces both a GL-posted, bank-reconciled `FinancePaymentMade` and a real linked `ScmSupplierPayment` — no duplicate accounting engine, no duplicate outstanding-balance calculation. Voiding mirrors this: `FinanceService.voidPayment()` restores the bill's `paidAmount` in the same transaction as the GL/bank reversal. The standalone SCM Supplier detail page's own Bills/Payments tabs still call the same `FinanceService.createPayment()`/`voidPayment()` directly (their own transaction, no GL/bank posting) — a legitimate "track AP without touching the books yet" path, unaffected by this bridge. Historical rows and payments to a payee with no `Supplier` record keep `vendorName`/`billReference` as free text.
 
 **Finance** — `journal_entries`, `journal_lines`, `bank_accounts`, `bank_transactions`, `expenses`, `currency_rates`. `invoices` lives in Sales but _posts_ a `journal_entry` — never duplicate the invoice table here, reference it.
 
@@ -474,6 +476,29 @@ keep both env vars in sync with whatever you chose.
 
 Schema-level decisions made after this doc's "Last verified" date, recorded here until the next
 full doc pass folds them into the sections above.
+
+- **2026-11-16 — Timesheets foundation (PR1).** ONE new table, `hr.timesheets` (one row per
+  activity per IST work date, split by `category`: `TASK` or a custom-activity code), plus link/
+  bookkeeping columns on `projects.project_time_entries` (which stays the single source of task work
+  sessions). Task-status and approval history use the audit log — no separate history table.
+  Migrations `20261116100000_timesheets_foundation` (additive), `20261116100100_timesheets_backfill`
+  (data, idempotent, self-verifying), `20261116100200_timesheets_constraints` (one-open-session
+  index, submitted-day immutability triggers) and `20261116110000_timesheets_session_constraints`
+  (`timesheet_id NOT NULL`, IST-day checks; ships with the PR2 application code). Pause/complete ride on the
+  existing `timer/stop` endpoint; the employee reads `GET /timesheets/my/:date` and
+  `GET /timesheets/tasks/:id/history` (`employee_self_service.timesheet.read`); forgotten timers are closed by
+  an in-process sweep. PR3 adds custom activities (`/timesheets/custom-activities`,
+  `employee_self_service.timesheet.write`): IST times typed by the employee, durations calculated by the server,
+  no overlaps, a reason for late entries. PR4 shows HR's full derived attendance status on every timesheet day
+  (via the exported `AttendanceLookupService.dayStatuses`, reusing HR's own calculation) with mismatch flags
+  derived on read. PR5 adds submit and a two-level review (reporting manager, then HR; HR alone when there is
+  no reporting manager) on the same table, copying leave's pattern: three columns on `hr.timesheets`, permissions
+  `hr.timesheet.read/approve/export.*` and `employee_self_service.timesheet.submit`; HR can reopen an approved day
+  and confirm the end of a flagged timer (audited, via the one transaction-local trigger bypass), and
+  `/timesheets/reports/*` give per-employee reports and CSV. An independent review hardened the module (a submitted
+  day now takes no new work through any task). The business day is the IST date via
+  `apps/api/src/common/dates/business-date.ts`; `OrganizationSetting.timezone` stays display-only.
+  Details: `TIMESHEET.md`.
 
 - **2026-10-20 — Sales: payments received, returnable delivery challans.** Migration
   `20261020090000_sales_payments_received_returnable_dc` (numbers existing payments). Details:

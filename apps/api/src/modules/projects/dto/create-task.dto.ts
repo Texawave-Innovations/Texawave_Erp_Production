@@ -11,6 +11,7 @@ import {
   IsString,
   Length,
   Max,
+  MaxLength,
   Min,
 } from "class-validator";
 
@@ -108,6 +109,16 @@ export class CreateTaskDto {
 }
 
 export class UpdateTaskDto {
+  @ApiPropertyOptional({
+    example: "Client asked for changes after delivery",
+    description:
+      "Why the status is being changed. Required to move a task OUT of 'completed' (a reopen); recorded in the audit log.",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  statusChangeReason?: string;
+
   @ApiPropertyOptional({ example: "Updated task title" })
   @IsOptional()
   @IsString()

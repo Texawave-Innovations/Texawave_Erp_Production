@@ -378,8 +378,21 @@ export function useStopTimer() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.organizationId) ?? 0;
   return useMutation({
-    mutationFn: ({ taskId, notes }: { taskId: number; notes?: string }) =>
-      stopTimer(taskId, notes),
+    mutationFn: ({
+      taskId,
+      notes,
+      pause,
+      complete,
+    }: {
+      taskId: number;
+      notes?: string;
+      pause?: boolean;
+      complete?: boolean;
+    }) =>
+      stopTimer(taskId, notes, {
+        ...(pause ? { pause: true } : {}),
+        ...(complete ? { complete: true } : {}),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: baseKey(orgId, "timer") });
       queryClient.invalidateQueries({ queryKey: baseKey(orgId) });

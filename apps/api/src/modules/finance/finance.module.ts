@@ -1,4 +1,5 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
+import { FinanceModule as ScmFinanceModule } from "../scm/finance/finance.module.js";
 import { BankAccountsController } from "./banking/bank-accounts.controller.js";
 import { BankAccountsRepository } from "./banking/bank-accounts.repository.js";
 import { BankTransactionsController } from "./banking/bank-transactions.controller.js";
@@ -45,6 +46,7 @@ import {
  * GST Reporting & Reconciliation, and Sales/Purchases Accounting Integration.
  */
 @Module({
+  imports: [forwardRef(() => ScmFinanceModule)],
   controllers: [
     AccountsController,
     JournalEntriesController,

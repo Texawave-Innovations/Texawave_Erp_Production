@@ -76,7 +76,7 @@ function DecideDialog({
       await mutation.mutateAsync({
         id: request.id,
         decision,
-        hrNote: hrNote.trim() || undefined,
+        ...(hrNote.trim() ? { hrNote: hrNote.trim() } : {}),
       });
       toast({
         title: `Permission ${decision === "APPROVED" ? "approved" : "rejected"}`,
@@ -170,7 +170,7 @@ export function PermissionsSection() {
   } | null>(null);
 
   const { data, isPending, isError, refetch } = useAllWorkPermissions({
-    status: status || undefined,
+    ...(status ? { status } : {}),
     page,
   });
 

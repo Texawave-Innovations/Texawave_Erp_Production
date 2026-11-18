@@ -14,12 +14,17 @@ export function useScmOrgId() {
   return useAuthStore((s) => s.organizationId);
 }
 
-export function useScmList<T>(resource: string, path: string, query: object) {
+export function useScmList<T>(
+  resource: string,
+  path: string,
+  query: object,
+  enabled = true,
+) {
   const organizationId = useScmOrgId();
   return useQuery({
     queryKey: orgScopedKey(organizationId ?? 0, SCM, resource, "list", query),
     queryFn: () => scmList<T>(path, query),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && enabled,
   });
 }
 
