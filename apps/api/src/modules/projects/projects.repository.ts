@@ -12,6 +12,10 @@ import type { PaginationDto } from "../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../common/tenancy/org-scope.js";
 import { tenantWhere } from "../../common/tenancy/tenant-where.js";
 import { PrismaService } from "../../shared/prisma/prisma.service.js";
+import { businessToday } from "../../common/dates/business-date.js";
+import { parseDateOnly } from "../../common/dates/date-only.js";
+import { AuditWriter } from "../../platform/audit/audit-writer.js";
+import { TaskLifecycleRepository } from "./task-lifecycle.repository.js";
 import type { AddProjectMemberDto } from "./dto/add-project-member.dto.js";
 import type { CreateExpenseDto } from "./dto/create-expense.dto.js";
 import type { CreateMilestoneDto } from "./dto/create-milestone.dto.js";
@@ -33,7 +37,11 @@ import {
 
 @Injectable()
 export class ProjectsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lifecycle: TaskLifecycleRepository,
+    private readonly audit: AuditWriter,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Projects Core
@@ -50,7 +58,9 @@ export class ProjectsRepository {
       ...(restrictToIds ? { id: { in: restrictToIds } } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.department ? { departments: { has: query.department } } : {}),
-      ...(query.customerId ? { customerId: query.customerId } : {}),
+      ...(query.salesCustomerId
+        ? { salesCustomerId: query.salesCustomerId }
+        : {}),
       ...(query.search
         ? {
             OR: [
@@ -72,8 +82,8 @@ export class ProjectsRepository {
           clientHandlingPerson: {
             select: { id: true, fullName: true, employeeCode: true },
           },
-          customer: {
-            select: { id: true, name: true },
+          salesCustomer: {
+            select: { id: true, customerCode: true, companyName: true },
           },
           members: {
             include: {
@@ -181,8 +191,8 @@ export class ProjectsRepository {
             workEmail: true,
           },
         },
-        customer: {
-          select: { id: true, name: true },
+        salesCustomer: {
+          select: { id: true, customerCode: true, companyName: true },
         },
         members: {
           include: {
@@ -216,6 +226,44 @@ export class ProjectsRepository {
     });
   }
 
+  /** A live Sales customer of this organization (used to validate the link
+   * and to copy the company name onto the project). */
+  @OrgScoped()
+  findSalesCustomer(scope: OrgScope, id: number) {
+    return this.prisma.salesCustomer.findFirst({
+      where: tenantWhere(scope, { id, deletedAt: null }),
+      select: { id: true, customerCode: true, companyName: true, status: true },
+    });
+  }
+
+  /** Customer picker rows — identity only, so a projects user never receives
+   * the bank/tax details the full Sales customer endpoint returns. */
+  @OrgScoped()
+  searchSalesCustomers(
+    scope: OrgScope,
+    search: string | undefined,
+    take: number,
+  ) {
+    const where: Prisma.SalesCustomerWhereInput = tenantWhere(scope, {
+      deletedAt: null,
+      status: "ACTIVE",
+      ...(search
+        ? {
+            OR: [
+              { companyName: { contains: search, mode: "insensitive" } },
+              { customerCode: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    });
+    return this.prisma.salesCustomer.findMany({
+      where,
+      orderBy: { companyName: "asc" },
+      take,
+      select: { id: true, customerCode: true, companyName: true },
+    });
+  }
+
   @OrgScoped()
   findByCode(scope: OrgScope, projectCode: string) {
     return this.prisma.project.findFirst({
@@ -243,7 +291,7 @@ export class ProjectsRepository {
           projectCode,
           name: dto.name,
           description: dto.description ?? null,
-          customerId: dto.customerId ?? null,
+          salesCustomerId: dto.salesCustomerId ?? null,
           customerName: dto.customerName ?? null,
           projectType: dto.projectType ?? null,
           departments: dto.departments ?? [],
@@ -303,7 +351,7 @@ export class ProjectsRepository {
       name,
       status,
       description,
-      customerId,
+      salesCustomerId,
       customerName,
       projectType,
       departments,
@@ -311,13 +359,13 @@ export class ProjectsRepository {
       clientHandlingPersonId,
     } = dto;
 
-    const data: Prisma.ProjectUpdateInput = {
+    const data: Prisma.ProjectUncheckedUpdateManyInput = {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(description !== undefined
         ? { description: description ?? null }
         : {}),
-      ...(customerId !== undefined ? { customerId: customerId ?? null } : {}),
+      ...(salesCustomerId !== undefined ? { salesCustomerId } : {}),
       ...(customerName !== undefined
         ? { customerName: customerName ?? null }
         : {}),
@@ -607,7 +655,17 @@ export class ProjectsRepository {
       },
       include: {
         project: {
-          select: { id: true, projectCode: true, name: true, status: true },
+          select: {
+            id: true,
+            projectCode: true,
+            name: true,
+            status: true,
+            // The employee task-update modal shows the client without a
+            // separate (org-wide) project read.
+            customerName: true,
+            salesCustomerId: true,
+            clientHandlingPerson: { select: { id: true, fullName: true } },
+          },
         },
         milestone: {
           select: { id: true, title: true, targetDate: true, status: true },
@@ -676,6 +734,9 @@ export class ProjectsRepository {
     dto: UpdateTaskDto,
     computedHours: number | undefined,
     updatedBy: number,
+    /** Present when the status changes: written to the audit log in the SAME
+     * transaction, so the task's status history never misses a change. */
+    statusAudit?: { before: TaskStatus; after: TaskStatus; reason: string },
   ) {
     const {
       customFields,
@@ -743,16 +804,102 @@ export class ProjectsRepository {
       updatedBy,
     };
 
-    const result = await this.prisma.projectTask.updateMany({
-      where: {
-        id: taskId,
-        organizationId: scope.organizationId,
-        deletedAt: null,
-      },
-      data,
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.projectTask.updateMany({
+        where: {
+          id: taskId,
+          organizationId: scope.organizationId,
+          deletedAt: null,
+        },
+        data,
+      });
+      if (updated.count > 0 && statusAudit) {
+        await this.audit.write(tx, {
+          entityType: "project_task",
+          entityId: taskId,
+          action: "status_change",
+          before: { status: statusAudit.before },
+          after: { status: statusAudit.after },
+          reason: statusAudit.reason,
+        });
+      }
+      return updated;
     });
     if (result.count === 0) return null;
     return this.findTaskById(scope, taskId);
+  }
+
+  /** A task's status history, oldest first — read from the audit trail that
+   * every status change writes (lifecycle, timer and PATCH paths alike). */
+  @OrgScoped()
+  async findTaskStatusEvents(
+    scope: OrgScope,
+    taskId: number,
+  ): Promise<{ at: Date; status: string }[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        entityType: "project_task",
+        entityId: BigInt(taskId),
+        action: "status_change",
+      },
+      orderBy: { id: "asc" },
+      select: { at: true, after: true },
+    });
+    const events: { at: Date; status: string }[] = [];
+    for (const row of rows) {
+      const status = (row.after as { status?: unknown } | null)?.status;
+      if (typeof status === "string") events.push({ at: row.at, status });
+    }
+    return events;
+  }
+
+  @OrgScoped()
+  findSessionWithTask(scope: OrgScope, sessionId: number) {
+    return this.prisma.projectTimeEntry.findFirst({
+      where: { id: sessionId, organizationId: scope.organizationId },
+      include: { task: true },
+    });
+  }
+
+  /** Projects an employee may attach an activity to: live projects they are a
+   * member of or hold a task in. Identity fields only. */
+  @OrgScoped()
+  findLinkableProjects(scope: OrgScope, employeeId: number) {
+    return this.prisma.project.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        deletedAt: null,
+        OR: [
+          { members: { some: { employeeId } } },
+          { tasks: { some: { assignedToId: employeeId, deletedAt: null } } },
+        ],
+      },
+      select: { id: true, projectCode: true, name: true },
+      orderBy: { name: "asc" },
+      take: 200,
+    });
+  }
+
+  /** A task with a running timer cannot be reassigned or deleted: the open
+   * session belongs to the current assignee and would be orphaned. */
+  @OrgScoped()
+  async hasOpenSession(scope: OrgScope, taskId: number): Promise<boolean> {
+    const open = await this.prisma.projectTimeEntry.count({
+      where: { organizationId: scope.organizationId, taskId, endedAt: null },
+    });
+    return open > 0;
+  }
+
+  @OrgScoped()
+  countOpenSessionsInProject(scope: OrgScope, projectId: number) {
+    return this.prisma.projectTimeEntry.count({
+      where: {
+        organizationId: scope.organizationId,
+        endedAt: null,
+        task: { projectId },
+      },
+    });
   }
 
   @OrgScoped()
@@ -785,7 +932,12 @@ export class ProjectsRepository {
         organizationId: scope.organizationId,
         employeeId,
         endedAt: { not: null },
-        entryDate: { gte: new Date(fromDate) },
+        // Bounded above by today (IST): a future-dated row must never count
+        // toward "Logged Today" / "This Week".
+        entryDate: {
+          gte: new Date(fromDate),
+          lte: parseDateOnly(businessToday()),
+        },
       },
       _sum: { durationMinutes: true },
       _count: { id: true },
@@ -840,17 +992,20 @@ export class ProjectsRepository {
     });
   }
 
+  /** Legacy `timer/start`. Delegates to the lifecycle transaction (employee +
+   * task locks, the day's timesheet row, IST work date, task set in progress
+   * and audited) and returns the session exactly as before. */
   @OrgScoped()
-  startTimer(scope: OrgScope, taskId: number, employeeId: number) {
-    const now = new Date();
-    return this.prisma.projectTimeEntry.create({
-      data: {
-        organizationId: scope.organizationId,
-        taskId,
-        employeeId,
-        startedAt: now,
-        entryDate: now,
-      },
+  async startTimer(scope: OrgScope, taskId: number, employeeId: number) {
+    const result = await this.lifecycle.begin(scope, {
+      taskId,
+      employeeId,
+      userId: null,
+      now: new Date(),
+      mode: "begin",
+    });
+    return this.prisma.projectTimeEntry.findUniqueOrThrow({
+      where: { id: result.sessionId! },
       include: {
         task: {
           select: {
@@ -867,6 +1022,9 @@ export class ProjectsRepository {
     });
   }
 
+  /** Legacy `timer/stop` and the check-out auto-pause. Closes the session
+   * (splitting it at IST midnight if needed); the caller rolls the hours up
+   * separately. Idempotent: an already-closed session is returned as is. */
   @OrgScoped()
   async stopTimer(
     scope: OrgScope,
@@ -875,19 +1033,24 @@ export class ProjectsRepository {
     notes?: string,
     endedAt: Date = new Date(),
   ) {
-    return this.prisma.projectTimeEntry.update({
-      where: { id: entryId },
-      data: {
-        endedAt,
-        durationMinutes,
-        ...(notes !== undefined ? { notes } : {}),
-      },
-      include: {
-        task: true,
-      },
+    const closed = await this.lifecycle.closeSessionAt(scope, {
+      sessionId: entryId,
+      endedAt,
+      closedReason: "STOPPED",
+      notes,
+      totalMinutes: durationMinutes,
+      rollup: false,
+      userId: null,
+    });
+    if (closed) return closed;
+    return this.prisma.projectTimeEntry.findFirstOrThrow({
+      where: { id: entryId, organizationId: scope.organizationId },
+      include: { task: true },
     });
   }
 
+  /** Legacy manual entry (a date and a duration): stored as a DURATION_ONLY
+   * session linked to that day's timesheet row. */
   @OrgScoped()
   createManualTimeEntry(
     scope: OrgScope,
@@ -895,25 +1058,24 @@ export class ProjectsRepository {
     employeeId: number,
     dto: CreateTimeEntryDto,
   ) {
-    const date = new Date(dto.entryDate);
-    return this.prisma.projectTimeEntry.create({
-      data: {
-        organizationId: scope.organizationId,
-        taskId,
-        employeeId,
-        startedAt: date,
-        endedAt: new Date(date.getTime() + dto.durationMinutes * 60000),
-        durationMinutes: dto.durationMinutes,
-        entryDate: date,
-        notes: dto.notes ?? null,
-      },
+    return this.lifecycle.addManualEntry(scope, {
+      taskId,
+      employeeId,
+      userId: null,
+      entryDate: dto.entryDate.slice(0, 10),
+      durationMinutes: dto.durationMinutes,
+      notes: dto.notes ?? null,
     });
   }
 
   @OrgScoped()
-  findTaskTimeEntries(scope: OrgScope, taskId: number) {
+  findTaskTimeEntries(scope: OrgScope, taskId: number, employeeId?: number) {
     return this.prisma.projectTimeEntry.findMany({
-      where: { organizationId: scope.organizationId, taskId },
+      where: {
+        organizationId: scope.organizationId,
+        taskId,
+        ...(employeeId !== undefined ? { employeeId } : {}),
+      },
       include: {
         employee: {
           select: { id: true, fullName: true, employeeCode: true },
@@ -1133,7 +1295,7 @@ export class ProjectsRepository {
   }
 
   @OrgScoped()
-  awardPoints(
+  async awardPoints(
     scope: OrgScope,
     employeeId: number,
     taskId: number,
@@ -1141,6 +1303,12 @@ export class ProjectsRepository {
     points: number,
     note?: string,
   ) {
+    // Once per task and employee, ever: a re-opened task that is completed
+    // again, a retry, or a second request never pays twice.
+    const existing = await this.prisma.projectPointsLedger.findFirst({
+      where: { organizationId: scope.organizationId, taskId, employeeId },
+    });
+    if (existing) return existing;
     return this.prisma.projectPointsLedger.create({
       data: {
         organizationId: scope.organizationId,

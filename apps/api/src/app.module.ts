@@ -1,4 +1,5 @@
 import { ProjectsModule } from "./modules/projects/projects.module.js";
+import { TimesheetsModule } from "./modules/timesheets/timesheets.module.js";
 import { ProposalsModule } from "./modules/projects/proposals/proposals.module.js";
 import { MomModule } from "./modules/projects/mom/mom.module.js";
 import { Module, ValidationPipe } from "@nestjs/common";
@@ -185,6 +186,7 @@ import { RedisModule } from "./shared/redis/redis.module.js";
     CrmDashboardModule,
     CrmBulkImportModule,
     ProjectsModule,
+    TimesheetsModule,
     ProposalsModule,
     MomModule,
     SalesModule,

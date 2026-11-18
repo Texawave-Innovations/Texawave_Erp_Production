@@ -2,6 +2,7 @@
 
 import { Clock, History, Pause, Play } from "lucide-react";
 import { Button, Dialog, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
+import { usePermission } from "@/hooks/usePermission";
 import { useTaskTimeEntries } from "../hooks";
 import { formatDate } from "../format";
 import type { ProjectTask } from "../types";
@@ -47,7 +48,13 @@ export function TaskTimeLogsModal({
   task,
   projectLabel,
 }: TaskTimeLogsModalProps) {
-  const entriesQuery = useTaskTimeEntries(open && task ? task.id : undefined);
+  // Without an org-wide project read (employee portal) only the caller's own
+  // entries on their own task can be listed.
+  const canReadProjects = usePermission("projects.project.read");
+  const entriesQuery = useTaskTimeEntries(
+    open && task ? task.id : undefined,
+    !canReadProjects,
+  );
   const entries = entriesQuery.data ?? [];
   const totalMinutes = entries.reduce(
     (sum, e) => sum + (e.durationMinutes || 0),

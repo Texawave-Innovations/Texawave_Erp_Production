@@ -15,6 +15,7 @@ import { useEmployees } from "@/features/hr/employees/hooks";
 import { useCreateTask, usePointsConfig, useUpdateTask } from "../hooks";
 import { errorMessage, formatDate, toDateInput, todayInput } from "../format";
 import type { Project, ProjectTask, TaskPriority, TaskStatus } from "../types";
+import { ReopenReasonField, isReopen } from "./ReopenReason";
 
 type DependencyKind = "none" | "employee" | "client" | "task";
 
@@ -156,6 +157,8 @@ function TaskForm({
   const [completionPercent, setCompletionPercent] = useState(
     edit?.completionPercent ?? 0,
   );
+  // Required (and sent to the API) only when a completed task is reopened.
+  const [reopenReason, setReopenReason] = useState("");
   const [depKind, setDepKind] = useState<DependencyKind>(initialKind);
   const [depTarget, setDepTarget] = useState<string>(() => {
     if (!edit) return "";
@@ -168,6 +171,7 @@ function TaskForm({
     edit?.dependencyRequirement ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [depReqError, setDepReqError] = useState<string | null>(null);
 
   const configPoints = useMemo(() => {
     const cfg = pointsConfig.data;
@@ -208,7 +212,9 @@ function TaskForm({
     (t) => !taskToEdit || t.id !== taskToEdit.id,
   );
   const clientName =
-    project.customerName || project.customer?.name || "Project Client";
+    project.customerName ||
+    project.salesCustomer?.companyName ||
+    "Project Client";
   const clientLead = project.clientHandlingPerson?.fullName ?? "";
   const autoHours = businessHours(startDate, endDate);
 
@@ -227,6 +233,13 @@ function TaskForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setDepReqError(null);
+
+    const reopening = taskToEdit ? isReopen(taskToEdit.status, status) : false;
+    if (reopening && !reopenReason.trim()) {
+      setFormError("Enter a reason for reopening this task.");
+      return;
+    }
 
     if (title.trim().length < 2) {
       setFormError("Task title is required (at least 2 characters).");
@@ -245,9 +258,11 @@ function TaskForm({
       return;
     }
     if (depKind !== "none" && !depRequirement.trim()) {
-      setFormError(
-        "Please enter the requirement / detail needed for this dependency.",
+      setDepReqError(
+        "Requirement details are required for an Employee dependency.",
       );
+      // scroll to the field
+      document.getElementById("dep-requirement-textarea")?.focus();
       return;
     }
 
@@ -263,7 +278,7 @@ function TaskForm({
       dependencyTargetId = Number(depTarget);
       dependencyTargetName = emp?.fullName ?? null;
     } else if (depKind === "client") {
-      dependencyTargetId = project.customerId ?? null;
+      dependencyTargetId = project.salesCustomerId ?? null;
       dependencyTargetName = clientName;
     }
 
@@ -289,6 +304,7 @@ function TaskForm({
             milestoneId: milestoneId ? Number(milestoneId) : null,
             assignedToId: assignedToId ? Number(assignedToId) : null,
             status,
+            ...(reopening ? { statusChangeReason: reopenReason.trim() } : {}),
             completionPercent:
               status === "completed" ? 100 : Number(completionPercent) || 0,
             dependencyType: depKind === "none" ? null : depKind,
@@ -616,17 +632,39 @@ function TaskForm({
         ) : null}
 
         {depKind !== "none" ? (
-          <FormField label="Requirement Details / Input Description" required>
-            {(field) => (
-              <Textarea
-                {...field}
-                rows={2}
-                value={depRequirement}
-                onChange={(e) => setDepRequirement(e.target.value)}
-                placeholder="Specify the exact deliverables, inputs, approvals, or files needed from this dependency..."
-              />
-            )}
-          </FormField>
+          <>
+            <FormField label="Requirement Details / Input Description" required>
+              {(field) => (
+                <Textarea
+                  {...field}
+                  rows={2}
+                  value={depRequirement}
+                  id="dep-requirement-textarea"
+                  onChange={(e) => {
+                    setDepRequirement(e.target.value);
+                    if (e.target.value.trim()) setDepReqError(null);
+                  }}
+                  aria-describedby={depReqError ? "dep-req-error" : undefined}
+                  aria-invalid={depReqError ? true : undefined}
+                  className={
+                    depReqError
+                      ? "border-rose-400 focus:ring-rose-400"
+                      : undefined
+                  }
+                  placeholder="Specify the exact deliverables, inputs, approvals, or files needed from this dependency..."
+                />
+              )}
+            </FormField>
+            {depReqError ? (
+              <p
+                id="dep-req-error"
+                role="alert"
+                className="mt-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
+              >
+                {depReqError}
+              </p>
+            ) : null}
+          </>
         ) : null}
       </div>
 
@@ -666,6 +704,14 @@ function TaskForm({
               />
             )}
           </FormField>
+          {taskToEdit && isReopen(taskToEdit.status, status) ? (
+            <div className="sm:col-span-2">
+              <ReopenReasonField
+                value={reopenReason}
+                onChange={setReopenReason}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

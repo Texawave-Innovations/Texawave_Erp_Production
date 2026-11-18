@@ -32,6 +32,16 @@ export class ProjectsController {
     return this.service.findAll(query);
   }
 
+  // Declared before ":id" so "customers" is not parsed as an id.
+  @Get("customers")
+  @RequirePermission("projects.project.write")
+  @ApiOperation({
+    summary: "Sales customers for the project form picker (identity only)",
+  })
+  searchCustomers(@Query("search") search?: string) {
+    return this.service.searchCustomers(search);
+  }
+
   @Get(":id")
   @RequirePermission("projects.project.read")
   @ApiOperation({ summary: "Get detailed project breakdown by ID" })

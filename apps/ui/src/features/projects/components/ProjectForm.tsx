@@ -11,13 +11,13 @@ import {
   Textarea,
 } from "@texawave-erp/ui-kit";
 import { useProjects as useProjectCategories } from "@/features/projects-master/hooks";
-import { useAccounts } from "@/features/crm/accounts/hooks";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { DepartmentMultiSelect } from "./DepartmentMultiSelect";
 import {
   ProjectResourcesGrid,
   filterEmployeesByDepartments,
 } from "./ProjectResourcesGrid";
+import { useProjectCustomers } from "../hooks";
 import { toDateInput, todayInput } from "../format";
 import type { Project, ProjectStatus } from "../types";
 
@@ -55,10 +55,10 @@ export function ProjectForm({
   const [projectType, setProjectType] = useState(project?.projectType ?? "");
   const [name, setName] = useState(project?.name ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
-  const [customerId, setCustomerId] = useState<string>(
-    project?.customerId ? String(project.customerId) : "",
+  const [salesCustomerId, setSalesCustomerId] = useState<string>(
+    project?.salesCustomerId ? String(project.salesCustomerId) : "",
   );
-  const [customerName, setCustomerName] = useState(project?.customerName ?? "");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [departments, setDepartments] = useState<string[]>(
     project?.departments ?? [],
   );
@@ -92,7 +92,16 @@ export function ProjectForm({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const categoriesQuery = useProjectCategories({ limit: 100 });
-  const accountsQuery = useAccounts({ limit: 100 });
+  const customersQuery = useProjectCustomers(customerSearch.trim());
+  const customerOptions = useMemo(() => {
+    const rows = customersQuery.data ?? [];
+    const current = project?.salesCustomer;
+    // Keep the saved customer selectable even when the search filters it out
+    // (or it has since been deactivated in Sales).
+    return current && !rows.some((c) => c.id === current.id)
+      ? [current, ...rows]
+      : rows;
+  }, [customersQuery.data, project?.salesCustomer]);
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
   const allEmployees = useMemo(
     () => employeesQuery.data?.data ?? [],
@@ -147,8 +156,14 @@ export function ProjectForm({
       projectType: projectType || undefined,
       departments,
       resourceNames,
-      customerId: customerId ? Number(customerId) : undefined,
-      customerName: customerName || undefined,
+      // The server copies the Sales customer's company name onto the project.
+      // `null` only when an existing link is cleared — a legacy project with a
+      // free-text customer name and no link must keep that name.
+      salesCustomerId: salesCustomerId
+        ? Number(salesCustomerId)
+        : project?.salesCustomerId
+          ? null
+          : undefined,
       clientHandlingPersonId: clientHandlingPersonId
         ? Number(clientHandlingPersonId)
         : undefined,
@@ -211,7 +226,7 @@ export function ProjectForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Card 1: Project identity & customer */}
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
               <FolderKanban className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
@@ -278,25 +293,31 @@ export function ProjectForm({
               <p className="mb-2 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer Assignment
               </p>
+              <Input
+                aria-label="Search customers"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Search customers by name or code"
+                className="mb-2"
+              />
               <Select
                 aria-label="Customer / Company"
-                value={customerId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setCustomerId(id);
-                  const acc = accountsQuery.data?.data.find(
-                    (a) => String(a.id) === id,
-                  );
-                  setCustomerName(id ? (acc?.name ?? customerName) : "");
-                }}
+                value={salesCustomerId}
+                onChange={(e) => setSalesCustomerId(e.target.value)}
               >
                 <option value="">Select customer / company (optional)</option>
-                {(accountsQuery.data?.data ?? []).map((a) => (
-                  <option key={a.id} value={String(a.id)}>
-                    {a.name} (ID {a.id})
+                {customerOptions.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.companyName} ({c.customerCode})
                   </option>
                 ))}
               </Select>
+              {!salesCustomerId && project?.customerName ? (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Current client: {project.customerName} (not linked to a Sales
+                  customer)
+                </p>
+              ) : null}
             </div>
 
             <FormField label="Project Scope Description">
@@ -358,7 +379,7 @@ export function ProjectForm({
         </section>
 
         {/* Card 2: Financials, timelines & resources */}
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
               <IndianRupee className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
@@ -395,7 +416,7 @@ export function ProjectForm({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="relative focus-within:z-30 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <FormField label="Start Date" required>
                 {(field) => (
                   <Input

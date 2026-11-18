@@ -516,13 +516,20 @@ export class EmployeesRepository {
       if (!force) assertReviewable(before.onboardingReviewStatus);
 
       const outcome = reviewOutcome(decision);
+      // A force-approved profile was never submitted, so it never went
+      // through the submit step that normally flips onboardingStatus to
+      // COMPLETE — without this, landingPathAfterLogin keeps sending the
+      // employee back into the wizard despite being Approved.
+      const forceApproved = force && decision === "approve";
       const after = await tx.employee.update({
         where: { id },
         data: {
           onboardingReviewStatus: outcome.reviewStatus,
           ...(outcome.onboardingStatus
             ? { onboardingStatus: outcome.onboardingStatus }
-            : {}),
+            : forceApproved
+              ? { onboardingStatus: "COMPLETE" }
+              : {}),
           onboardingReviewedAt: new Date(),
           onboardingReviewedBy: actorId,
           onboardingReviewNote: note,
@@ -875,6 +882,17 @@ export class EmployeesRepository {
         });
         if (!before) return false;
         const where = { employeeId: id };
+
+        // Timesheet history (what was worked on, approved hours) is kept for
+        // audit and payroll disputes: its foreign keys are RESTRICT and approved
+        // days are immutable. The reversible way to remove someone is to
+        // deactivate them through the status lifecycle.
+        const timesheetRows = await tx.timesheet.count({ where });
+        if (timesheetRows > 0) {
+          throw new ResourceConflictException(
+            "This employee has timesheet records, which are kept for audit. Deactivate the employee instead of deleting them.",
+          );
+        }
 
         // Detach — these are someone else's record or a shared one; this
         // employee's relation to it is incidental, not its reason to exist.

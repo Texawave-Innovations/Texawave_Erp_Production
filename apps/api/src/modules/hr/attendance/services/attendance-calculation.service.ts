@@ -1,4 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import {
+  businessDateOf,
+  isoWeekdayOf as businessIsoWeekdayOf,
+} from "../../../../common/dates/business-date.js";
 
 /**
  * The ONLY place attendance status and hours are derived
@@ -71,23 +75,17 @@ export interface AttendanceDayResult {
 }
 
 const MS_PER_MINUTE = 60_000;
-const IST_DATE = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Kolkata",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
 /** The Asia/Kolkata (IST) calendar date of an instant, as `YYYY-MM-DD`.
- * Legacy is IST-only; the business day boundary is IST midnight. */
+ * Legacy is IST-only; the business day boundary is IST midnight. Delegates to
+ * the shared business-date helper (same output) so Projects, Timesheets and
+ * Attendance can never disagree about which day an instant belongs to. */
 export function istDateOf(instant: Date): string {
-  return IST_DATE.format(instant);
+  return businessDateOf(instant);
 }
 
 /** ISO weekday (1 = Monday … 7 = Sunday) of a `YYYY-MM-DD` calendar date. */
 export function isoWeekdayOf(dateOnly: string): number {
-  const day = new Date(`${dateOnly}T00:00:00.000Z`).getUTCDay();
-  return day === 0 ? 7 : day;
+  return businessIsoWeekdayOf(dateOnly);
 }
 
 /** Sum of closed session time, plus open-session time up to `asOf`, whole

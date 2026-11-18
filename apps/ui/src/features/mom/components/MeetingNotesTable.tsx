@@ -3,6 +3,7 @@
 import type { MomAgendaItem, MomNoteRow } from "@texawave-erp/api-types";
 import { Button, Textarea } from "@texawave-erp/ui-kit";
 import {
+  AlertCircle,
   ArrowDown,
   ArrowUp,
   ClipboardList,
@@ -10,7 +11,8 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { rowId } from "../utils";
+import { useMemo } from "react";
+import { normalizeNoteRows, rowId } from "../utils";
 
 export interface MeetingNotesTableProps {
   rows: MomNoteRow[];
@@ -19,6 +21,7 @@ export interface MeetingNotesTableProps {
   agenda?: MomAgendaItem[];
   disabled?: boolean;
   title?: string;
+  error?: string | undefined;
 }
 
 function renumber(rows: MomNoteRow[]): MomNoteRow[] {
@@ -33,8 +36,13 @@ export function MeetingNotesTable({
   agenda = [],
   disabled = false,
   title = "Deliberations & Action Items",
+  error,
 }: MeetingNotesTableProps) {
-  const sorted = [...rows].sort((a, b) => a.order - b.order);
+  const normalizedRows = useMemo(() => normalizeNoteRows(rows), [rows]);
+  const sorted = useMemo(
+    () => [...normalizedRows].sort((a, b) => a.order - b.order),
+    [normalizedRows],
+  );
 
   function update(
     id: string,
@@ -77,12 +85,14 @@ export function MeetingNotesTable({
     const additions = [...agenda]
       .sort((a, b) => a.order - b.order)
       .filter(
-        (a) => a.topic.trim() && !covered.has(a.topic.trim().toLowerCase()),
+        (a) =>
+          (a.topic ?? "").trim() &&
+          !covered.has((a.topic ?? "").trim().toLowerCase()),
       )
       .map((a) => ({
         id: rowId("nr"),
         order: 0,
-        agendaItem: a.topic.trim(),
+        agendaItem: (a.topic ?? "").trim(),
         discussionPoints: "",
         actionItems: "",
       }));
@@ -122,7 +132,23 @@ export function MeetingNotesTable({
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+      {error ? (
+        <div
+          className="flex items-center gap-2 rounded-xl border border-error-200 bg-error-50/70 p-3 text-theme-xs font-medium text-error-600 dark:border-error-900/60 dark:bg-error-950/40 dark:text-error-400"
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0 text-error-500" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      <div
+        className={
+          error
+            ? "overflow-x-auto rounded-xl border border-rose-300 dark:border-rose-700"
+            : "overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800"
+        }
+      >
         <table className="w-full min-w-[720px] text-left text-theme-sm">
           <thead className="bg-gray-50 text-theme-xs font-semibold uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">
             <tr>

@@ -1,34 +1,23 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { businessToday, weekStart } from "../../common/dates/business-date.js";
 import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import { AttendanceService } from "../hr/attendance/attendance.service.js";
-import { QueryMyAttendanceDto } from "../hr/attendance/dto/attendance.dto.js";
-import { istDateOf } from "../hr/attendance/services/attendance-calculation.service.js";
 import { EmployeeQueryService } from "../hr/employees/employee-query.service.js";
+import {
+  assertCheckedIn,
+  readMyAttendanceStatus,
+  type AttendanceGateStatus,
+} from "./attendance-gate.js";
 import type { CreateTimeEntryDto } from "./dto/create-time-entry.dto.js";
+import { OpenSessionSweepService } from "./open-session-sweep.service.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { TaskLifecycleService } from "./task-lifecycle.service.js";
 
-/** Today's attendance as the stopwatch sees it (legacy My Work read the
- * same day's `hr/attendance` node). */
-export interface AttendanceGateStatus {
-  /** An open (not checked-out) attendance session exists right now. */
-  checkedIn: boolean;
-  /** The employee has an attendance record for today at all. */
-  hasRecordToday: boolean;
-  /** Latest check-out instant today, if any. */
-  lastCheckOutAt: Date | null;
-}
-
-/** Monday of the IST week containing `day` (YYYY-MM-DD). */
-function weekStart(day: string): string {
-  const d = new Date(`${day}T00:00:00.000Z`);
-  const offset = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - offset);
-  return d.toISOString().slice(0, 10);
-}
+export type { AttendanceGateStatus } from "./attendance-gate.js";
 
 @Injectable()
 export class TimeEntriesService {
@@ -39,6 +28,8 @@ export class TimeEntriesService {
     private readonly tenantContext: TenantContextService,
     private readonly employeeQuery: EmployeeQueryService,
     private readonly attendance: AttendanceService,
+    private readonly lifecycle: TaskLifecycleService,
+    private readonly sweep: OpenSessionSweepService,
   ) {}
 
   private async requireCurrentEmployeeId(): Promise<number> {
@@ -55,31 +46,7 @@ export class TimeEntriesService {
   /** The caller's attendance today, read through HR Attendance's public
    * service (Docs/CODING_STANDARDS.md §11 — no access to its repository). */
   async getMyAttendanceStatus(): Promise<AttendanceGateStatus> {
-    const today = istDateOf(new Date());
-    const query = Object.assign(new QueryMyAttendanceDto(), {
-      from: today,
-      to: today,
-      page: 1,
-      limit: 5,
-    });
-    const page = await this.attendance.findMine(query);
-    const day =
-      page.items.find((v) => v.attendanceDate === today) ?? page.items[0];
-    if (!day) {
-      return { checkedIn: false, hasRecordToday: false, lastCheckOutAt: null };
-    }
-    const checkOuts = day.sessions
-      .map((s) => s.checkOutAt)
-      .filter((d): d is Date => d instanceof Date);
-    const lastCheckOutAt =
-      checkOuts.length > 0
-        ? new Date(Math.max(...checkOuts.map((d) => d.getTime())))
-        : null;
-    return {
-      checkedIn: day.hasOpenSession,
-      hasRecordToday: true,
-      lastCheckOutAt,
-    };
+    return readMyAttendanceStatus(this.attendance);
   }
 
   /** Legacy auto-pause: a timer still running after the employee checked
@@ -127,15 +94,11 @@ export class TimeEntriesService {
     }
 
     // Legacy gate: the stopwatch only runs while the employee is checked in.
-    const status = await this.getMyAttendanceStatus();
-    if (!status.checkedIn) {
-      throw new BusinessRuleViolationException(
-        status.hasRecordToday
-          ? "You are checked out — check in again to start a timer"
-          : "Check in for today before starting a timer",
-        "ATTENDANCE_CHECK_IN_REQUIRED",
-      );
-    }
+    assertCheckedIn(await this.getMyAttendanceStatus());
+
+    // A forgotten timer (checked out since, or left over from an earlier day)
+    // is resolved first, so it never blocks starting a new one.
+    await this.sweep.resolveEmployee(scope.organizationId, employeeId);
 
     // Check if another timer is running
     const active = await this.repository.findActiveTimer(scope, employeeId);
@@ -149,31 +112,80 @@ export class TimeEntriesService {
     return this.repository.startTimer(scope, taskId, employeeId);
   }
 
-  async stopTimer(taskId: number, notes?: string) {
+  /**
+   * Stops the stopwatch. A plain stop only closes the running session. With
+   * `pause` or `complete` the same call also moves the task (on hold, or
+   * completed with points paid once) in one transaction, using the strict
+   * lifecycle rules; those two require the caller to be the task's assignee.
+   */
+  async stopTimer(
+    taskId: number,
+    notes?: string,
+    options: { pause?: boolean; complete?: boolean } = {},
+  ) {
+    if (options.pause && options.complete) {
+      throw new BusinessRuleViolationException(
+        "Choose either pause or complete, not both",
+        "TIMER_STOP_CONFLICTING_FLAGS",
+      );
+    }
+    if (options.pause || options.complete) {
+      return this.stopAndMoveTask(taskId, notes, options.complete === true);
+    }
+
     const scope = this.tenantContext.getOrgScope();
     const employeeId = await this.requireCurrentEmployeeId();
 
+    // The task may have been deleted while the timer ran: the employee must
+    // still be able to stop their own timer, so fall back to the timer's task.
     const task = await this.repository.findTaskById(scope, taskId);
-    if (!task) {
+    const active = await this.repository.findActiveTimer(scope, employeeId);
+    if (!task && (!active || active.taskId !== taskId)) {
       throw new ResourceNotFoundException("Task", taskId);
     }
-
-    const active = await this.repository.findActiveTimer(scope, employeeId);
     if (!active || active.taskId !== taskId) {
       throw new BusinessRuleViolationException(
         "No active timer running for this task",
         "NO_ACTIVE_TIMER",
       );
     }
+    const projectId = task?.projectId ?? active.task?.projectId;
+    if (projectId === undefined) {
+      throw new ResourceNotFoundException("Task", taskId);
+    }
 
     return this.closeTimer(
       scope,
       active,
-      task.projectId,
+      projectId,
       employeeId,
       new Date(),
       notes,
     );
+  }
+
+  /** `timer/stop` with `pause` or `complete`: closes the session AND changes
+   * the task. Returns the closed session (the usual response shape) plus the
+   * task's new status and the day's timesheet row. */
+  private async stopAndMoveTask(
+    taskId: number,
+    notes: string | undefined,
+    complete: boolean,
+  ) {
+    const result = complete
+      ? await this.lifecycle.complete(taskId, notes)
+      : await this.lifecycle.pause(taskId, notes);
+    const scope = this.tenantContext.getOrgScope();
+    const session = result.sessionId
+      ? await this.repository.findSessionWithTask(scope, result.sessionId)
+      : null;
+    return {
+      ...(session ?? {}),
+      taskId: result.taskId,
+      taskStatus: result.status,
+      dailyStatus: result.dailyStatus,
+      timesheetId: result.timesheetId,
+    };
   }
 
   /** Closes a running entry at `endedAt` and rolls the hours up to the task
@@ -215,6 +227,12 @@ export class TimeEntriesService {
     if (!task) {
       throw new ResourceNotFoundException("Task", taskId);
     }
+    if (dto.entryDate.slice(0, 10) > businessToday()) {
+      throw new BusinessRuleViolationException(
+        "Time cannot be logged for a future date",
+        "TIME_ENTRY_IN_FUTURE",
+      );
+    }
 
     const hours = Math.round((dto.durationMinutes / 60) * 100) / 100;
     const entry = await this.repository.createManualTimeEntry(
@@ -245,11 +263,25 @@ export class TimeEntriesService {
     return this.repository.findTaskTimeEntries(scope, taskId);
   }
 
+  /** The caller's own time entries on a task. Unlike `findTaskTimeEntries`
+   * it never returns other people's entries, so it is safe for the employee
+   * portal (no `projects.project.read`). 404s unless the task is assigned to
+   * the caller. */
+  async findMyTaskTimeEntries(taskId: number) {
+    const scope = this.tenantContext.getOrgScope();
+    const employee = await this.employeeQuery.findCurrentEmployeeOrNull();
+    const task = await this.repository.findTaskById(scope, taskId);
+    if (!employee || !task || task.assignedToId !== employee.id) {
+      throw new ResourceNotFoundException("Task", taskId);
+    }
+    return this.repository.findTaskTimeEntries(scope, taskId, employee.id);
+  }
+
   /** "Logged Today" / "This Week" for an employee (closed entries; the UI
    * adds a running timer's live elapsed time on top). */
   async getTimeSummary(employeeId: number) {
     const scope = this.tenantContext.getOrgScope();
-    const today = istDateOf(new Date());
+    const today = businessToday();
     const [todayTotals, weekTotals] = await Promise.all([
       this.repository.sumLoggedMinutes(scope, employeeId, today),
       this.repository.sumLoggedMinutes(scope, employeeId, weekStart(today)),
@@ -266,7 +298,7 @@ export class TimeEntriesService {
     const employee = await this.employeeQuery.findCurrentEmployeeOrNull();
     if (!employee) {
       return {
-        date: istDateOf(new Date()),
+        date: businessToday(),
         loggedTodayMinutes: 0,
         entriesToday: 0,
         loggedThisWeekMinutes: 0,

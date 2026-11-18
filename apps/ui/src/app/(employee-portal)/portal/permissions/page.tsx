@@ -337,7 +337,8 @@ function TimeSelect({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const [h, m] = value.split(":");
+  // `value` is always HH:mm; the fallbacks only satisfy the type checker.
+  const [h = "", m = ""] = value.split(":");
   return (
     <div>
       <label className="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
@@ -372,8 +373,8 @@ function RequestDialog({ onClose }: { onClose: () => void }) {
   const mutation = useCreateMyWorkPermission();
 
   const durationMins = (() => {
-    const [fh, fm] = fromTime.split(":").map(Number);
-    const [th, tm] = toTime.split(":").map(Number);
+    const [fh = 0, fm = 0] = fromTime.split(":").map(Number);
+    const [th = 0, tm = 0] = toTime.split(":").map(Number);
     const diff = th * 60 + tm - (fh * 60 + fm);
     return diff > 0 ? diff : 0;
   })();

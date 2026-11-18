@@ -101,6 +101,19 @@ export const FINANCE_GST_STATUSES = [
 export type FinanceGstStatus = (typeof FINANCE_GST_STATUSES)[number];
 
 /**
+ * Classifies a Finance Master List payment-mode value as cash vs. bank-type,
+ * using the same "contains cash" convention already used to pick the GL
+ * disbursement account (see PaymentsMadeService.resolveGlDisbursementAccount).
+ * Bank-type modes (Bank Transfer, Cheque, UPI, Credit Card, ...) settle
+ * through a real bank account and must have one selected; cash does not.
+ */
+export function isCashPaymentMode(
+  paymentModeValue: string | undefined | null,
+): boolean {
+  return Boolean(paymentModeValue?.toLowerCase().includes("cash"));
+}
+
+/**
  * Calculates the balance impact on an account given its classification.
  * - ASSET & EXPENSE: Debit increases balance, Credit decreases balance.
  * - LIABILITY, EQUITY & REVENUE: Credit increases balance, Debit decreases balance.

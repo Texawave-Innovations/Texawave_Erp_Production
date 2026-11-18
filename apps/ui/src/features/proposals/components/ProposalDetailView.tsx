@@ -2,7 +2,6 @@
 
 import type {
   ProposalDocument,
-  ProposalSectionConfig,
   ProposalWorkflowAction,
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
@@ -58,6 +57,7 @@ import {
   PROPOSAL_STATUS_META,
   WORKFLOW_ACTION_META,
   flattenSections,
+  snapshotToSections,
   followUpState,
   proposalCompleteness,
 } from "../utils";
@@ -150,10 +150,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
 
   const editable = canWrite && EDITABLE_STATUSES.includes(proposal.status);
   const sections = useMemo(
-    () =>
-      Array.isArray(proposal.templateSnapshot)
-        ? (proposal.templateSnapshot as ProposalSectionConfig[])
-        : [],
+    () => snapshotToSections(proposal.templateSnapshot),
     [proposal.templateSnapshot],
   );
 
@@ -189,7 +186,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
   );
 
   const save = useCallback(
-    async (silent: boolean): Promise<boolean> => {
+    async (silent: boolean, returnToList = false): Promise<boolean> => {
       if (savingRef.current) return false;
       if (title.trim().length < 2) {
         if (!silent)
@@ -217,6 +214,9 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
         setLastSaved(new Date());
         setNow(Date.now());
         if (!silent) toast({ title: "Proposal saved", variant: "success" });
+        if (returnToList) {
+          router.push("/projects/proposals");
+        }
         return true;
       } catch (err) {
         toast({
@@ -240,6 +240,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
       proposal.id,
       proposal.projectId,
       proposalDate,
+      router,
       title,
       toast,
       updateMutation,
@@ -312,6 +313,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
         title: `${proposal.proposalNumber}: ${WORKFLOW_ACTION_META[action].label}`,
         variant: "success",
       });
+      router.push("/projects/proposals");
     } catch (err) {
       toast({
         title: "Could not update the status",
@@ -390,13 +392,16 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
             </strong>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-theme-xs font-semibold text-sky-50">
-            {canWrite ? savedLabel() : null}
-          </span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {canWrite ? (
+            <span className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-theme-xs font-bold text-white shadow-xs backdrop-blur-md">
+              {savedLabel()}
+            </span>
+          ) : null}
           <Button
             variant="secondary"
             size="sm"
+            className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
             onClick={() => setPreviewOpen(true)}
           >
             <Eye className="h-4 w-4" />
@@ -407,6 +412,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
               variant="secondary"
               size="sm"
               loading={duplicateMutation.isPending}
+              className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
               onClick={() => void handleDuplicate()}
             >
               <Copy className="h-4 w-4" />
@@ -418,7 +424,8 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
               variant="secondary"
               size="sm"
               loading={updateMutation.isPending}
-              onClick={() => void save(false)}
+              className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
+              onClick={() => void save(false, true)}
             >
               <Save className="h-4 w-4" />
               Save
@@ -657,6 +664,25 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
                 readOnly={!editable}
               />
             )}
+            {canWrite && editable ? (
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push("/projects/proposals")}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  loading={updateMutation.isPending}
+                  onClick={() => void save(false, true)}
+                >
+                  <Save className="h-4 w-4" />
+                  Save & Return
+                </Button>
+              </div>
+            ) : null}
           </Card>
         </div>
 

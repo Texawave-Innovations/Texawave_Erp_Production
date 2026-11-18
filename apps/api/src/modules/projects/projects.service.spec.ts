@@ -8,6 +8,7 @@ function makeService() {
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),
+    countOpenSessionsInProject: vi.fn().mockResolvedValue(0),
     addMember: vi.fn(),
     removeMember: vi.fn(),
   };

@@ -177,7 +177,7 @@ export function GeneralLedgerView({
       {!hideHeader && (
         <PageHeader
           title="General Ledger"
-          description="Chronological audit records of all posted debits, credits, and sequential running balances per account."
+          description="Newest-first audit records of all posted debits, credits, and sequential running balances per account."
           badge={
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-theme-xs font-semibold">
               <BookOpen className="h-3.5 w-3.5" />

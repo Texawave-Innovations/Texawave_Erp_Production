@@ -158,6 +158,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             "disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-300",
             "dark:bg-gray-dark dark:text-white/90 dark:placeholder:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:border-gray-700",
             SIZE_CLASSES[sizeVariant],
+            "[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:hidden",
             invalid
               ? "border-error-500 focus:border-error-500 focus:ring-error-500/20 dark:border-error-400"
               : "border-gray-500 hover:border-gray-700 focus:border-brand-500 focus:ring-brand-500/20 dark:border-gray-500 dark:hover:border-gray-400",

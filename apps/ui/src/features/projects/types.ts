@@ -68,6 +68,10 @@ export interface ProjectTask {
     projectCode: string;
     name: string;
     status: ProjectStatus;
+    /** Present on My Work rows so the employee task modal needs no project read. */
+    customerName?: string | null;
+    salesCustomerId?: number | null;
+    clientHandlingPerson?: { id: number; fullName: string } | null;
   } | null;
   assignedTo?: {
     id: number;
@@ -107,12 +111,19 @@ export interface ProjectExpense {
   };
 }
 
+/** Slim Sales customer row for the project form picker (no bank/tax data). */
+export interface ProjectCustomerOption {
+  id: number;
+  customerCode: string;
+  companyName: string;
+}
+
 export interface Project {
   id: number;
   projectCode: string;
   name: string;
   description?: string | null;
-  customerId?: number | null;
+  salesCustomerId?: number | null;
   customerName?: string | null;
   projectType?: string | null;
   department?: string | null;
@@ -132,7 +143,8 @@ export interface Project {
     fullName: string;
     employeeCode: string;
   } | null;
-  customer?: { id: number; name: string } | null;
+  /** Sales customer the project belongs to (list + detail). */
+  salesCustomer?: ProjectCustomerOption | null;
   /** Only included by `GET /projects/:id` (detail). */
   expenses?: ProjectExpense[];
   createdAt?: string;

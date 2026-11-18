@@ -52,6 +52,10 @@ import {
   normalizeHealth,
 } from "@/features/projects/components/HealthBadge";
 import { TaskModal } from "@/features/projects/components/TaskModal";
+import {
+  ReopenReasonDialog,
+  isReopen,
+} from "@/features/projects/components/ReopenReason";
 import { MilestoneModal } from "@/features/projects/components/MilestoneModal";
 import { TaskTimeLogsModal } from "@/features/projects/components/TaskTimeLogsModal";
 import {
@@ -158,6 +162,11 @@ export default function ProjectDetailPage({
   const deleteTask = useDeleteTask();
   const removeMember = useRemoveProjectMember();
   const updateTask = useUpdateTask();
+  // A completed task being moved back waits here for its reason.
+  const [reopenTarget, setReopenTarget] = useState<{
+    task: ProjectTask;
+    status: string;
+  } | null>(null);
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
 
@@ -268,9 +277,25 @@ export default function ProjectDetailPage({
     }
   }
 
-  async function handleStatusChange(task: ProjectTask, status: string) {
+  async function handleStatusChange(
+    task: ProjectTask,
+    status: string,
+    statusChangeReason?: string,
+  ) {
+    // Reopening a completed task needs a reason: ask first, then send it.
+    if (isReopen(task.status, status) && !statusChangeReason) {
+      setReopenTarget({ task, status });
+      return;
+    }
     try {
-      await updateTask.mutateAsync({ taskId: task.id, input: { status } });
+      await updateTask.mutateAsync({
+        taskId: task.id,
+        input: {
+          status,
+          ...(statusChangeReason ? { statusChangeReason } : {}),
+        },
+      });
+      setReopenTarget(null);
     } catch (err) {
       toast({
         title: "Could not update task status",
@@ -557,11 +582,13 @@ export default function ProjectDetailPage({
           <div className="grid grid-cols-1 gap-6 p-6 text-xs sm:grid-cols-2">
             <InfoBlock label="Customer / Client">
               <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                {project.customerName || project.customer?.name || "—"}
+                {project.customerName ||
+                  project.salesCustomer?.companyName ||
+                  "—"}
               </p>
-              {project.customerId ? (
+              {project.salesCustomer ? (
                 <span className="text-[11px] text-gray-400">
-                  ID: {project.customerId}
+                  {project.salesCustomer.customerCode}
                 </span>
               ) : null}
             </InfoBlock>
@@ -1107,6 +1134,25 @@ export default function ProjectDetailPage({
         projectId={project.id}
         milestoneToEdit={milestoneModal.edit}
         currentMilestoneCount={milestones.length}
+      />
+      <ReopenReasonDialog
+        open={reopenTarget !== null}
+        taskLabel={
+          reopenTarget
+            ? `${reopenTarget.task.taskCode} — ${reopenTarget.task.title}`
+            : ""
+        }
+        loading={updateTask.isPending}
+        onCancel={() => setReopenTarget(null)}
+        onConfirm={(reason) =>
+          reopenTarget
+            ? void handleStatusChange(
+                reopenTarget.task,
+                reopenTarget.status,
+                reason,
+              )
+            : undefined
+        }
       />
       <TaskModal
         open={taskModal.open}

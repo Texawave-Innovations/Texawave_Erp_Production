@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { businessDateOf } from "../../common/dates/business-date.js";
 import { PaginatedResponseDto } from "../../common/dto/paginated-response.dto.js";
 import {
+  BusinessRuleConflictException,
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../common/exceptions/business.exception.js";
@@ -98,7 +100,7 @@ export class ProjectsService {
     const scope = this.tenantContext.getOrgScope();
     const projects = await this.repository.findAllForAnalytics(scope);
     const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
+    const todayIso = businessDateOf(today);
     const windowEnd = new Date(todayIso + "T00:00:00.000Z");
     windowEnd.setUTCDate(
       windowEnd.getUTCDate() + DEFAULT_UPCOMING_MILESTONE_DAYS,
@@ -185,18 +187,24 @@ export class ProjectsService {
 
     const scope = this.tenantContext.getOrgScope();
     const userId = this.tenantContext.getUserId();
+    const customerName = await this.resolveCustomerName(dto);
     // Legacy format `TXW/PRJ/<type>/<FY>/<seq>` from the Project Code Master;
     // the FY label follows the project's start date unless the master pins one.
     const cfg = await this.codeMaster.findOne();
-    const project = await this.repository.create(scope, dto, userId, {
-      companyPrefix: cfg.companyPrefix,
-      moduleIdentifier: cfg.moduleIdentifier,
-      typeCode: dto.projectType?.trim() || cfg.defaultProjectCode || null,
-      financialYear:
-        cfg.financialYear?.trim() ||
-        financialYearLabel(new Date(dto.startDate)),
-      sequenceDigits: cfg.sequenceDigits,
-    });
+    const project = await this.repository.create(
+      scope,
+      { ...dto, ...(customerName !== undefined ? { customerName } : {}) },
+      userId,
+      {
+        companyPrefix: cfg.companyPrefix,
+        moduleIdentifier: cfg.moduleIdentifier,
+        typeCode: dto.projectType?.trim() || cfg.defaultProjectCode || null,
+        financialYear:
+          cfg.financialYear?.trim() ||
+          financialYearLabel(new Date(dto.startDate)),
+        sequenceDigits: cfg.sequenceDigits,
+      },
+    );
     return this.findOne(project.id);
   }
 
@@ -225,11 +233,50 @@ export class ProjectsService {
     }
 
     const userId = this.tenantContext.getUserId();
-    const updated = await this.repository.update(scope, id, dto, userId);
+    const customerName = await this.resolveCustomerName(dto);
+    const updated = await this.repository.update(
+      scope,
+      id,
+      { ...dto, ...(customerName !== undefined ? { customerName } : {}) },
+      userId,
+    );
     if (!updated) {
       throw new ResourceNotFoundException("Project", id);
     }
     return this.findOne(id);
+  }
+
+  /** Picker rows for the project form: active Sales customers, identity only. */
+  async searchCustomers(search?: string) {
+    const scope = this.tenantContext.getOrgScope();
+    return this.repository.searchSalesCustomers(scope, search?.trim(), 50);
+  }
+
+  /** The Sales customer's company name is the project's customer name, so the
+   * proposal/MoM documents that read `customerName` follow the Sales record.
+   * Returns undefined when the request does not touch the customer link. */
+  private async resolveCustomerName(dto: {
+    salesCustomerId?: number | null;
+  }): Promise<string | null | undefined> {
+    if (dto.salesCustomerId === undefined) return undefined;
+    if (dto.salesCustomerId === null) return null;
+    const scope = this.tenantContext.getOrgScope();
+    const customer = await this.repository.findSalesCustomer(
+      scope,
+      dto.salesCustomerId,
+    );
+    if (!customer) {
+      throw new ResourceNotFoundException("Customer", dto.salesCustomerId);
+    }
+    return customer.companyName;
+  }
+
+  /** Projects the employee may link a timesheet activity to (member of, or
+   * holding a task in). Used by the timesheet so it never reads project data
+   * itself. */
+  async findLinkableProjects(employeeId: number) {
+    const scope = this.tenantContext.getOrgScope();
+    return this.repository.findLinkableProjects(scope, employeeId);
   }
 
   async softDelete(id: number) {
@@ -237,6 +284,15 @@ export class ProjectsService {
     const existing = await this.repository.findOne(scope, id);
     if (!existing) {
       throw new ResourceNotFoundException("Project", id);
+    }
+
+    // A project with a running timer cannot be deleted: the open sessions would
+    // be orphaned. The assignees must stop or pause first.
+    if ((await this.repository.countOpenSessionsInProject(scope, id)) > 0) {
+      throw new BusinessRuleConflictException(
+        "This project has tasks with a running timer. Ask the assignees to stop or pause them before deleting the project.",
+        "PROJECT_HAS_ACTIVE_SESSIONS",
+      );
     }
 
     const userId = this.tenantContext.getUserId();

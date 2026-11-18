@@ -50,7 +50,8 @@ type FieldKey = keyof NewHireFormValues;
 const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
 const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
 const generateSecurePassword = () => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+  const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
   let pwd = "";
   for (let i = 0; i < 14; i++) {
     pwd += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -198,8 +199,14 @@ export function NewHireView() {
     }
   }
 
-  async function copyPassword(password: string) {
-    await navigator.clipboard.writeText(password);
+  async function copyCredentials(email: string, password: string) {
+    const text = [
+      "Employee Portal Access",
+      `Login URL: ${window.location.origin}/login`,
+      `Email: ${email}`,
+      `Password: ${password}`,
+    ].join("\n");
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   }
@@ -219,7 +226,8 @@ export function NewHireView() {
                 New Hire Created
               </h1>
               <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
-                {created.employee.fullName} ({created.employee.employeeCode}) can now sign in.
+                {created.employee.fullName} ({created.employee.employeeCode})
+                can now sign in.
               </p>
             </div>
           </div>
@@ -253,7 +261,9 @@ export function NewHireView() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Button
                 variant="secondary"
-                onClick={() => copyPassword(created.tempPassword)}
+                onClick={() =>
+                  copyCredentials(created.email, created.tempPassword)
+                }
                 className="gap-2"
               >
                 {copied ? (
@@ -264,7 +274,7 @@ export function NewHireView() {
                 ) : (
                   <>
                     <Copy className="h-4 w-4" />
-                    <span>Copy password</span>
+                    <span>Copy credentials</span>
                   </>
                 )}
               </Button>
@@ -330,13 +340,18 @@ export function NewHireView() {
             </div>
 
             <p className="max-w-2xl text-[12px] font-medium text-[#2f6396] dark:text-sky-300/80">
-              Creates the employee master record, organizational assignment, and temporary sign-in credentials.
+              Creates the employee master record, organizational assignment, and
+              temporary sign-in credentials.
             </p>
           </div>
 
           <div className="hidden sm:flex sm:items-center sm:gap-3">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-2 shadow-[0_8px_20px_rgba(23,105,245,0.12)] ring-4 ring-white/70 dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-800/60">
-              <Semantic3DIcon name="recruitment" size={42} alt="New hire onboarding" />
+              <Semantic3DIcon
+                name="recruitment"
+                size={42}
+                alt="New hire onboarding"
+              />
             </div>
           </div>
         </div>
@@ -344,17 +359,23 @@ export function NewHireView() {
         {/* 3-Step Wizard Roadmap */}
         <div className="mt-5 pt-4 border-t border-sky-200/90 dark:border-slate-700 flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-semibold text-[#2f6396] dark:text-sky-300/70">
           <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">1</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">
+              1
+            </span>
             Personal Info
           </span>
           <span className="text-sky-300 dark:text-slate-600 font-bold">→</span>
           <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">2</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">
+              2
+            </span>
             Organization & Roles
           </span>
           <span className="text-sky-300 dark:text-slate-600 font-bold">→</span>
           <span className="inline-flex items-center gap-2 rounded-xl border border-sky-200/90 bg-white/85 px-2.5 py-1 text-[#0a3271] shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-sky-200">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">3</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-white text-[10px] font-black shadow-xs">
+              3
+            </span>
             Security & Access
           </span>
         </div>
@@ -444,7 +465,11 @@ export function NewHireView() {
                   )}
                 </FormField>
 
-                <FormField label="Email (sign-in)" required error={errors.email}>
+                <FormField
+                  label="Email (sign-in)"
+                  required
+                  error={errors.email}
+                >
                   {(p) => (
                     <Input
                       {...p}
@@ -640,7 +665,9 @@ export function NewHireView() {
               <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-[#edf6ff]/60 p-3.5 text-[11px] text-[#2f6396] dark:border-slate-700 dark:bg-slate-800/40 dark:text-sky-300">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-brand-500 mt-0.5" />
                 <p>
-                  This temporary password will be securely provisioned to the user account. The new employee will be strictly required to configure their own password on their very first sign-in.
+                  This temporary password will be securely provisioned to the
+                  user account. The new employee will be strictly required to
+                  configure their own password on their very first sign-in.
                 </p>
               </div>
             </div>

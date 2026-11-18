@@ -26,8 +26,10 @@ export class TasksController {
     return this.service.findTasks(projectId);
   }
 
+  // Own-data endpoint: gated like the My Work menu item and the stopwatch
+  // (projects.timer.write), so employees need no org-wide project read.
   @Get("tasks/my-work")
-  @RequirePermission("projects.project.read")
+  @RequirePermission("projects.timer.write")
   @ApiOperation({ summary: "List tasks assigned to the current employee" })
   findMyWork() {
     return this.service.findMyWork();

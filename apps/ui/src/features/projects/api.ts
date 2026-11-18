@@ -10,6 +10,7 @@ import type {
   PointsConfig,
   PointsLeaderboardEntry,
   Project,
+  ProjectCustomerOption,
   ProjectExpense,
   ProjectMilestone,
   ProjectTask,
@@ -34,6 +35,18 @@ export async function listProjects(
     data: Project[];
     meta?: { total: number; page: number; limit: number };
   };
+}
+
+/** Active Sales customers for the project form (identity only). */
+export async function listProjectCustomers(
+  search?: string,
+): Promise<ProjectCustomerOption[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<ProjectCustomerOption[]>("/projects/customers", {
+      query: search ? { search } : {},
+    }),
+  );
+  return data;
 }
 
 export async function getProject(id: number): Promise<Project> {
@@ -229,15 +242,28 @@ export async function startTimer(taskId: number): Promise<ActiveTimer> {
   return data;
 }
 
+/** Result of `timer/stop`. A plain stop returns the closed session; with
+ * `pause` / `complete` it also carries the task's new status. `id` and
+ * `durationMinutes` are absent when no session was running (completing a task
+ * that is on hold records 0 new minutes). */
+export interface StopTimerResult {
+  id?: number;
+  durationMinutes?: number;
+  endedAt?: string;
+  taskStatus?: string;
+}
+
 export async function stopTimer(
   taskId: number,
   notes?: string,
-): Promise<{ id: number; durationMinutes: number; endedAt: string }> {
+  options: { pause?: boolean; complete?: boolean } = {},
+): Promise<StopTimerResult> {
   const { data } = await withAuthRetry(() =>
-    apiClient.post<{ id: number; durationMinutes: number; endedAt: string }>(
-      `/projects/tasks/${taskId}/timer/stop`,
-      { notes },
-    ),
+    apiClient.post<StopTimerResult>(`/projects/tasks/${taskId}/timer/stop`, {
+      notes,
+      ...(options.pause ? { pause: true } : {}),
+      ...(options.complete ? { complete: true } : {}),
+    }),
   );
   return data;
 }
@@ -254,9 +280,15 @@ export async function createManualTimeEntry(
 
 export async function getTaskTimeEntries(
   taskId: number,
+  mine = false,
 ): Promise<TaskTimeEntry[]> {
+  // `mine` = only the caller's own entries on a task assigned to them (no
+  // org-wide project read needed — the employee portal).
+  const suffix = mine ? "/mine" : "";
   const { data } = await withAuthRetry(() =>
-    apiClient.get<TaskTimeEntry[]>(`/projects/tasks/${taskId}/time-entries`),
+    apiClient.get<TaskTimeEntry[]>(
+      `/projects/tasks/${taskId}/time-entries${suffix}`,
+    ),
   );
   return data;
 }

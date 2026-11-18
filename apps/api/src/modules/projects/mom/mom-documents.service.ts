@@ -260,7 +260,8 @@ export class MomDocumentsService {
       id: project.id,
       code: project.projectCode,
       name: project.name,
-      clientName: project.customerName ?? project.customer?.name ?? null,
+      clientName:
+        project.customerName ?? project.salesCustomer?.companyName ?? null,
     };
   }
 }

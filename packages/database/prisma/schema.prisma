@@ -95,125 +95,126 @@ model Organization {
   leaveEntitlements          LeaveEntitlement[]
   leaveDelegations           LeaveApprovalDelegation[]
   expenseClaims              ExpenseClaim[]
-  exitRequests                ExitRequest[]
-  tasks                       Task[]
-  tickets                     Ticket[]
-  ticketComments              TicketComment[]
-  weeklyOffRules              WeeklyOffRule[]
-  menuItems                   MenuItem[]
-  attendanceRecords           AttendanceRecord[]
-  attendanceCorrections       AttendanceCorrection[]
-  attendanceMonthLocks         AttendanceMonthLock[]
-  workPermissions              WorkPermission[]
-  notifications                Notification[]
-  revisionLetters              RevisionLetter[]
-  promotionLetters             PromotionLetter[]
-  interviews                   Interview[]
-  offerLetters                 OfferLetter[]
-  employeeProfiles              EmployeeProfile[]
-  employeeSensitiveInfos        EmployeeSensitiveInfo[]
-  employeeAddresses             EmployeeAddress[]
-  employeeGovernmentIds         EmployeeGovernmentId[]
-  payrollPeriods                PayrollPeriod[]
-  payrollRuns                   PayrollRun[]
-  payrollEntries                 PayrollEntry[]
-  companyDetail                  CompanyDetail?
-  bankAccounts                   BankAccount[]
-  authorizedSignatory             AuthorizedSignatory?
-  salespersons                    Salesperson[]
-  sealSignatures                   SealSignature[]
-  salesMasterListItems              SalesMasterListItem[]
-  financeMasterListItems            FinanceMasterListItem[]
-  scmMasterListItems                 ScmMasterListItem[]
-  payrollEarnings                   PayrollEarning[]
-  payrollDeductions                 PayrollDeduction[]
-  projects                          Project[]
-  projectCategoryMasters            ProjectCategoryMaster[]
-  projectCodeMaster                 ProjectCodeMaster?
-  taskRunningNumberMaster           TaskRunningNumberMaster?
-  employeeSalaries                  EmployeeSalary[]
-  payrollSetting                    PayrollSetting?
-  employeePfProfiles                 EmployeePfProfile[]
-  pfContributions                    PfContribution[]
-  employeeEsiProfiles                EmployeeEsiProfile[]
-  esiContributions                   EsiContribution[]
-  employeeLoans                      EmployeeLoan[]
-  loanRepayments                     LoanRepayment[]
-  loanSkipRequests                   LoanSkipRequest[]
-  employeeBonuses                    EmployeeBonus[]
-  payslips                           Payslip[]
-  paymentBatches                     PaymentBatch[]
-  payrollPayments                    PayrollPayment[]
-  salaryComponents                   SalaryComponent[]
-  salaryTemplates                    SalaryTemplate[]
-  employeeSalaryComponents           EmployeeSalaryComponent[]
-  professionalTaxSlabs               ProfessionalTaxSlab[]
-  ptLocationStates                   PtLocationState[]
-  incomeTaxRegimes                   IncomeTaxRegime[]
-  employeeTaxDeclarations            EmployeeTaxDeclaration[]
-  loanPrepayments                    LoanPrepayment[]
-  crmAccounts                        Account[]
-  crmContacts                        Contact[]
-  crmLeads                           Lead[]
-  crmPipelineStages                  PipelineStage[]
-  crmOpportunities                   Opportunity[]
-  crmOpportunityStageHistory         OpportunityStageHistory[]
-  crmProducts                        Product[]
-  crmOpportunityProducts             OpportunityProduct[]
-  crmQuotations                      Quotation[]
-  crmQuotationLineItems              QuotationLineItem[]
-  crmMeetings                        CrmMeeting[]
-  crmFollowUps                       CrmFollowUp[]
-  crmActivities                      CrmActivity[]
-  crmTasks                           CrmTask[]
-  crmDocuments                       CrmDocument[]
-  crmNotes                           CrmNote[]
-  crmLeadNotes                       CrmLeadNote[]
-  crmColdCallingEntries              CrmColdCallingEntry[]
-  crmMiningRows                      CrmMiningRow[]
-  crmQuotas                          CrmQuota[]
-  crmNotifications                   CrmNotification[]
-  crmCustomFieldDefs                 CrmCustomFieldDef[]
-  scmRequisitions                    ScmPurchaseRequisition[]
-  scmRfqs                            ScmRfq[]
-  scmQuotations                      ScmSupplierQuotation[]
-  scmComparisons                     ScmQuotationComparison[]
-  scmPurchaseOrders                  ScmPurchaseOrder[]
-  scmGoodsReceipts                   ScmGoodsReceipt[]
-  scmCustomers                       ScmCustomer[]
-  scmSalesOrders                     ScmSalesOrder[]
-  scmFulfillments                    ScmFulfillment[]
-  scmPickings                        ScmPicking[]
-  scmPackings                        ScmPacking[]
-  scmCarriers                        ScmCarrier[]
-  scmShipments                       ScmShipment[]
-  scmReturns                         ScmReturn[]
-  scmQualityDefects                  ScmQualityDefect[]
-  scmQualityTemplates                ScmQualityTemplate[]
-  scmQualityInspections              ScmQualityInspection[]
-  scmQuarantineRecords               ScmQuarantineRecord[]
-  scmLocationStock                   ScmLocationStock[]
-  scmPutaways                        ScmPutaway[]
-  scmWarehouseMovements              ScmWarehouseMovement[]
+  exitRequests               ExitRequest[]
+  tasks                      Task[]
+  tickets                    Ticket[]
+  ticketComments             TicketComment[]
+  weeklyOffRules             WeeklyOffRule[]
+  menuItems                  MenuItem[]
+  attendanceRecords          AttendanceRecord[]
+  attendanceCorrections      AttendanceCorrection[]
+  attendanceMonthLocks       AttendanceMonthLock[]
+  workPermissions            WorkPermission[]
+  notifications              Notification[]
+  revisionLetters            RevisionLetter[]
+  promotionLetters           PromotionLetter[]
+  interviews                 Interview[]
+  offerLetters               OfferLetter[]
+  employeeProfiles           EmployeeProfile[]
+  employeeSensitiveInfos     EmployeeSensitiveInfo[]
+  employeeAddresses          EmployeeAddress[]
+  employeeGovernmentIds      EmployeeGovernmentId[]
+  payrollPeriods             PayrollPeriod[]
+  payrollRuns                PayrollRun[]
+  payrollEntries             PayrollEntry[]
+  companyDetail              CompanyDetail?
+  bankAccounts               BankAccount[]
+  authorizedSignatory        AuthorizedSignatory?
+  salespersons               Salesperson[]
+  sealSignatures             SealSignature[]
+  salesMasterListItems       SalesMasterListItem[]
+  financeMasterListItems     FinanceMasterListItem[]
+  scmMasterListItems         ScmMasterListItem[]
+  payrollEarnings            PayrollEarning[]
+  payrollDeductions          PayrollDeduction[]
+  projects                   Project[]
+  projectCategoryMasters     ProjectCategoryMaster[]
+  projectCodeMaster          ProjectCodeMaster?
+  taskRunningNumberMaster    TaskRunningNumberMaster?
+  employeeSalaries           EmployeeSalary[]
+  payrollSetting             PayrollSetting?
+  employeePfProfiles         EmployeePfProfile[]
+  pfContributions            PfContribution[]
+  employeeEsiProfiles        EmployeeEsiProfile[]
+  esiContributions           EsiContribution[]
+  employeeLoans              EmployeeLoan[]
+  loanRepayments             LoanRepayment[]
+  loanSkipRequests           LoanSkipRequest[]
+  employeeBonuses            EmployeeBonus[]
+  payslips                   Payslip[]
+  paymentBatches             PaymentBatch[]
+  payrollPayments            PayrollPayment[]
+  salaryComponents           SalaryComponent[]
+  salaryTemplates            SalaryTemplate[]
+  employeeSalaryComponents   EmployeeSalaryComponent[]
+  professionalTaxSlabs       ProfessionalTaxSlab[]
+  ptLocationStates           PtLocationState[]
+  incomeTaxRegimes           IncomeTaxRegime[]
+  employeeTaxDeclarations    EmployeeTaxDeclaration[]
+  loanPrepayments            LoanPrepayment[]
+  crmAccounts                Account[]
+  crmContacts                Contact[]
+  crmLeads                   Lead[]
+  crmPipelineStages          PipelineStage[]
+  crmOpportunities           Opportunity[]
+  crmOpportunityStageHistory OpportunityStageHistory[]
+  crmProducts                Product[]
+  crmOpportunityProducts     OpportunityProduct[]
+  crmQuotations              Quotation[]
+  crmQuotationLineItems      QuotationLineItem[]
+  crmMeetings                CrmMeeting[]
+  crmFollowUps               CrmFollowUp[]
+  crmActivities              CrmActivity[]
+  crmTasks                   CrmTask[]
+  crmDocuments               CrmDocument[]
+  crmNotes                   CrmNote[]
+  crmLeadNotes               CrmLeadNote[]
+  crmColdCallingEntries      CrmColdCallingEntry[]
+  crmMiningRows              CrmMiningRow[]
+  crmQuotas                  CrmQuota[]
+  crmNotifications           CrmNotification[]
+  crmCustomFieldDefs         CrmCustomFieldDef[]
+  scmRequisitions            ScmPurchaseRequisition[]
+  scmRfqs                    ScmRfq[]
+  scmQuotations              ScmSupplierQuotation[]
+  scmComparisons             ScmQuotationComparison[]
+  scmPurchaseOrders          ScmPurchaseOrder[]
+  scmGoodsReceipts           ScmGoodsReceipt[]
+  scmCustomers               ScmCustomer[]
+  scmSalesOrders             ScmSalesOrder[]
+  scmFulfillments            ScmFulfillment[]
+  scmPickings                ScmPicking[]
+  scmPackings                ScmPacking[]
+  scmCarriers                ScmCarrier[]
+  scmShipments               ScmShipment[]
+  scmReturns                 ScmReturn[]
+  scmQualityDefects          ScmQualityDefect[]
+  scmQualityTemplates        ScmQualityTemplate[]
+  scmQualityInspections      ScmQualityInspection[]
+  scmQuarantineRecords       ScmQuarantineRecord[]
+  scmLocationStock           ScmLocationStock[]
+  scmPutaways                ScmPutaway[]
+  scmWarehouseMovements      ScmWarehouseMovement[]
 
-  projectMembers          ProjectMember[]
-  projectMilestones       ProjectMilestone[]
-  projectTasks            ProjectTask[]
-  projectTimeEntries      ProjectTimeEntry[]
-  projectExpenses         ProjectExpense[]
-  projectPointsLedger     ProjectPointsLedger[]
-  projectPointsConfig     ProjectPointsConfig?
-  proposalTemplates       ProposalTemplate[]
-  proposalDocuments       ProposalDocument[]
-  proposalActivities      ProposalActivity[]
-  proposalSettings        ProposalSettings?
-  momTemplates            MomTemplate[]
-  momDocuments            MomDocument[]
-  momRevisions            MomRevision[]
-  momHistoryEvents        MomHistoryEvent[]
-  organizationSetting     OrganizationSetting?
-  userPreferences         UserPreference[]
-  exchangeRates           ExchangeRate[]
+  projectMembers                    ProjectMember[]
+  projectMilestones                 ProjectMilestone[]
+  projectTasks                      ProjectTask[]
+  projectTimeEntries                ProjectTimeEntry[]
+  timesheets                        Timesheet[]
+  projectExpenses                   ProjectExpense[]
+  projectPointsLedger               ProjectPointsLedger[]
+  projectPointsConfig               ProjectPointsConfig?
+  proposalTemplates                 ProposalTemplate[]
+  proposalDocuments                 ProposalDocument[]
+  proposalActivities                ProposalActivity[]
+  proposalSettings                  ProposalSettings?
+  momTemplates                      MomTemplate[]
+  momDocuments                      MomDocument[]
+  momRevisions                      MomRevision[]
+  momHistoryEvents                  MomHistoryEvent[]
+  organizationSetting               OrganizationSetting?
+  userPreferences                   UserPreference[]
+  exchangeRates                     ExchangeRate[]
   financeAccounts                   FinanceAccount[]
   financeJournalEntries             FinanceJournalEntry[]
   financeJournalLines               FinanceJournalLine[]
@@ -224,21 +225,21 @@ model Organization {
   financePaymentReceivedAllocations FinancePaymentReceivedAllocation[]
   financePaymentsMade               FinancePaymentMade[]
   financeGstEntries                 FinanceGstEntry[]
-  salesCustomers            SalesCustomer[]
-  salesCustomerAddresses    SalesCustomerAddress[]
-  salesActionItems          SalesActionItem[]
-  salesCodeFormats          SalesCodeFormat[]
-  salesCompanyProfiles      SalesCompanyProfile[]
-  salesQuotations           SalesQuotation[]
-  salesQuotationLines       SalesQuotationLine[]
-  salesInvoices             SalesInvoice[]
-  salesInvoiceLines         SalesInvoiceLine[]
-  salesInvoicePayments      SalesInvoicePayment[]
-  salesDeliveryChallans     SalesDeliveryChallan[]
-  salesDeliveryChallanLines SalesDeliveryChallanLine[]
-  salesReturnableDcs        SalesReturnableDc[]
-  salesReturnableDcLines    SalesReturnableDcLine[]
-  salesDocumentMasterItems  SalesDocumentMasterItem[]
+  salesCustomers                    SalesCustomer[]
+  salesCustomerAddresses            SalesCustomerAddress[]
+  salesActionItems                  SalesActionItem[]
+  salesCodeFormats                  SalesCodeFormat[]
+  salesCompanyProfiles              SalesCompanyProfile[]
+  salesQuotations                   SalesQuotation[]
+  salesQuotationLines               SalesQuotationLine[]
+  salesInvoices                     SalesInvoice[]
+  salesInvoiceLines                 SalesInvoiceLine[]
+  salesInvoicePayments              SalesInvoicePayment[]
+  salesDeliveryChallans             SalesDeliveryChallan[]
+  salesDeliveryChallanLines         SalesDeliveryChallanLine[]
+  salesReturnableDcs                SalesReturnableDc[]
+  salesReturnableDcLines            SalesReturnableDcLine[]
+  salesDocumentMasterItems          SalesDocumentMasterItem[]
 
   @@map("organizations")
   @@schema("platform")
@@ -686,48 +687,48 @@ model AuditLog {
 }
 
 model OrganizationSetting {
-  id                     Int       @id @default(autoincrement())
-  organizationId         Int       @unique @map("organization_id")
-  theme                  String    @default("system")
-  density                String    @default("comfortable")
-  country                String    @default("IN")
-  locale                 String    @default("en-IN")
-  timezone               String    @default("Asia/Kolkata")
-  dateFormat             String    @default("DD/MM/YYYY") @map("date_format")
-  timeFormat             String    @default("12h") @map("time_format")
-  baseCurrency           String    @default("INR") @map("base_currency")
-  currencySymbolPosition String    @default("before") @map("currency_symbol_position")
-  numberFormat           String    @default("indian") @map("number_format")
-  fiscalYearStartMonth   Int       @default(4) @map("fiscal_year_start_month")
-  customFields           Json      @default("{}") @map("custom_fields")
-  createdBy              Int?      @map("created_by")
-  updatedBy              Int?      @map("updated_by")
-  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     Int      @id @default(autoincrement())
+  organizationId         Int      @unique @map("organization_id")
+  theme                  String   @default("system")
+  density                String   @default("comfortable")
+  country                String   @default("IN")
+  locale                 String   @default("en-IN")
+  timezone               String   @default("Asia/Kolkata")
+  dateFormat             String   @default("DD/MM/YYYY") @map("date_format")
+  timeFormat             String   @default("12h") @map("time_format")
+  baseCurrency           String   @default("INR") @map("base_currency")
+  currencySymbolPosition String   @default("before") @map("currency_symbol_position")
+  numberFormat           String   @default("indian") @map("number_format")
+  fiscalYearStartMonth   Int      @default(4) @map("fiscal_year_start_month")
+  customFields           Json     @default("{}") @map("custom_fields")
+  createdBy              Int?     @map("created_by")
+  updatedBy              Int?     @map("updated_by")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization           Organization @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   @@map("organization_settings")
   @@schema("platform")
 }
 
 model UserPreference {
-  id              Int       @id @default(autoincrement())
-  userId          Int       @unique @map("user_id")
-  organizationId  Int       @map("organization_id")
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique @map("user_id")
+  organizationId  Int      @map("organization_id")
   theme           String?
   density         String?
   locale          String?
   timezone        String?
-  dateFormat      String?   @map("date_format")
-  timeFormat      String?   @map("time_format")
-  displayCurrency String?   @map("display_currency")
-  customFields    Json      @default("{}") @map("custom_fields")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  dateFormat      String?  @map("date_format")
+  timeFormat      String?  @map("time_format")
+  displayCurrency String?  @map("display_currency")
+  customFields    Json     @default("{}") @map("custom_fields")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId])
   @@map("user_preferences")
@@ -735,19 +736,19 @@ model UserPreference {
 }
 
 model ExchangeRate {
-  id             Int       @id @default(autoincrement())
-  organizationId Int       @map("organization_id")
-  fromCurrency   String    @map("from_currency") @db.VarChar(3)
-  toCurrency     String    @map("to_currency") @db.VarChar(3)
-  rate           Decimal   @db.Decimal(18, 6)
-  effectiveDate  DateTime  @map("effective_date") @db.Date
-  source         String    @default("manual") @db.VarChar(64)
-  isHistorical   Boolean   @default(false) @map("is_historical")
-  createdBy      Int?      @map("created_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  fromCurrency   String   @map("from_currency") @db.VarChar(3)
+  toCurrency     String   @map("to_currency") @db.VarChar(3)
+  rate           Decimal  @db.Decimal(18, 6)
+  effectiveDate  DateTime @map("effective_date") @db.Date
+  source         String   @default("manual") @db.VarChar(64)
+  isHistorical   Boolean  @default(false) @map("is_historical")
+  createdBy      Int?     @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, fromCurrency, toCurrency, effectiveDate])
   @@index([organizationId, fromCurrency, toCurrency])
@@ -981,6 +982,7 @@ model Employee {
   assignedProjectTasks ProjectTask[]
   projectTimeEntries   ProjectTimeEntry[]
   projectPointsLedger  ProjectPointsLedger[]
+  timesheets           Timesheet[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId, status])
@@ -1055,8 +1057,8 @@ model WorkPermission {
   requester    User         @relation("WorkPermissionRequester", fields: [requestedBy], references: [id])
   decider      User?        @relation("WorkPermissionDecider", fields: [decidedBy], references: [id])
 
-  @@index([organizationId, employeeId, date(sort: Desc)])
-  @@index([organizationId, status])
+  @@index([organizationId, employeeId, date(sort: Desc)], map: "work_permissions_org_emp_date_idx")
+  @@index([organizationId, status], map: "work_permissions_org_status_idx")
   @@map("work_permissions")
   @@schema("hr")
 }
@@ -3288,11 +3290,6 @@ model CompanyDetail {
   logoDataUri    String?   @map("logo_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -3381,14 +3378,14 @@ model Account {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  organization       Organization          @relation(fields: [organizationId], references: [id])
-  team               Team?                 @relation(fields: [teamId], references: [id])
-  contacts           Contact[]
-  leads              Lead[]
-  opportunities      Opportunity[]
-  quotations         Quotation[]
-  notes              CrmNote[]
-  coldCallingEntries CrmColdCallingEntry[]
+  organization            Organization             @relation(fields: [organizationId], references: [id])
+  team                    Team?                    @relation(fields: [teamId], references: [id])
+  contacts                Contact[]
+  leads                   Lead[]
+  opportunities           Opportunity[]
+  quotations              Quotation[]
+  notes                   CrmNote[]
+  coldCallingEntries      CrmColdCallingEntry[]
   financePaymentsReceived FinancePaymentReceived[]
 
   projects Project[]
@@ -4101,11 +4098,6 @@ model AuthorizedSignatory {
   designation    String?
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -4209,8 +4201,6 @@ model Salesperson {
   commissionPercent Decimal?  @map("commission_percent") @db.Decimal(5, 2)
   customFields      Json      @default("{}") @map("custom_fields")
   isActive          Boolean   @default(true) @map("is_active")
-  createdBy         Int?      @map("created_by")
-  updatedBy         Int?      @map("updated_by")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -4377,8 +4367,6 @@ model SealSignature {
   imageDataUri   String    @map("image_data_uri") @db.Text
   customFields   Json      @default("{}") @map("custom_fields")
   isActive       Boolean   @default(true) @map("is_active")
-  createdBy      Int?      @map("created_by")
-  updatedBy      Int?      @map("updated_by")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -4518,7 +4506,7 @@ model FinanceMasterListItem {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization         Organization             @relation(fields: [organizationId], references: [id])
   expenseCategories    FinanceExpense[]         @relation("ExpenseCategory")
   expensePaymentModes  FinanceExpense[]         @relation("ExpensePaymentMode")
   receivedPaymentModes FinancePaymentReceived[] @relation("PaymentReceivedMode")
@@ -4617,6 +4605,10 @@ model Supplier {
   /// Back-relation only (no column on suppliers) — Projects expenses that
   /// reference this supplier.
   projectExpenses ProjectExpense[]
+  /// Back-relation only — Finance Payments Made disbursements recorded
+  /// against this supplier (Docs/ARCHITECTURE.md §5.6 Payments Made <-> SCM
+  /// supplier-payment bridge).
+  paymentsMade    FinancePaymentMade[]
 
   @@unique([organizationId, supplierCode])
   @@index([organizationId, status])
@@ -6355,6 +6347,9 @@ model ScmSupplierBill {
   purchaseOrder ScmPurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
   goodsReceipt  ScmGoodsReceipt?     @relation(fields: [goodsReceiptId], references: [id])
   payments      ScmSupplierPayment[]
+  /// Back-relation only — Finance Payments Made disbursements that chose
+  /// this bill as their pending reference (Docs/ARCHITECTURE.md §5.6).
+  paymentsMade  FinancePaymentMade[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId, supplierId])
@@ -6386,9 +6381,9 @@ model ScmSupplierPayment {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  supplier     Supplier         @relation(fields: [supplierId], references: [id])
-  bill         ScmSupplierBill? @relation(fields: [billId], references: [id])
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  supplier           Supplier            @relation(fields: [supplierId], references: [id])
+  bill               ScmSupplierBill?    @relation(fields: [billId], references: [id])
   financePaymentMade FinancePaymentMade?
 
   @@unique([organizationId, paymentNumber])
@@ -6478,6 +6473,9 @@ model Project {
   description            String?
   customerId             Int?          @map("customer_id")
   customerName           String?       @map("customer_name")
+  /// Sales customer the project is for — the source the project form picks
+  /// from. `customerId` (CRM account) is legacy and no longer written.
+  salesCustomerId        Int?          @map("sales_customer_id")
   projectType            String?       @map("project_type")
   /// Multi-department selection (legacy `ProjectForm.tsx` chip-toggle UX) —
   /// a project can span more than one department, unlike the single-string
@@ -6505,6 +6503,7 @@ model Project {
 
   organization         Organization       @relation(fields: [organizationId], references: [id])
   customer             Account?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesCustomer        SalesCustomer?     @relation(fields: [salesCustomerId], references: [id], onDelete: SetNull)
   clientHandlingPerson Employee?          @relation("ProjectClientHandler", fields: [clientHandlingPersonId], references: [id])
   members              ProjectMember[]
   milestones           ProjectMilestone[]
@@ -6512,9 +6511,11 @@ model Project {
   expenses             ProjectExpense[]
   proposalDocuments    ProposalDocument[]
   momDocuments         MomDocument[]
+  timesheets           Timesheet[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
+  @@index([organizationId, salesCustomerId])
   @@map("projects")
   @@schema("projects")
 }
@@ -6531,9 +6532,9 @@ model ProjectMember {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization   @relation(fields: [organizationId], references: [id])
-  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  employee     Employee       @relation(fields: [employeeId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id])
 
   @@unique([projectId, employeeId])
   @@index([organizationId, employeeId])
@@ -6554,8 +6555,8 @@ model ProjectMilestone {
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization    @relation(fields: [organizationId], references: [id])
-  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks        ProjectTask[]
 
   @@index([projectId, order])
@@ -6613,6 +6614,7 @@ model ProjectTask {
   dependentTasks ProjectTask[]         @relation("TaskDependencies")
   timeEntries    ProjectTimeEntry[]
   pointsLedger   ProjectPointsLedger[]
+  timesheets     Timesheet[]
 
   @@unique([organizationId, taskCode])
   @@index([projectId, status])
@@ -6629,16 +6631,39 @@ model ProjectTimeEntry {
   startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
   endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
   durationMinutes Int       @default(0) @map("duration_minutes")
+  /// IST business date of `startedAt` (never the UTC date) — see
+  /// apps/api/src/common/dates/business-date.ts.
   entryDate       DateTime  @map("entry_date") @db.Date
   notes           String?
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy       Int?      @map("created_by")
+  /// TIMER | MANUAL | CORRECTION (CHECK in the migration).
+  source          String    @default("TIMER")
+  /// EXACT | DURATION_ONLY — manual duration-only rows carry a day-start
+  /// instant by convention, not a real clock time (excluded from overlap checks).
+  timePrecision   String    @default("EXACT") @map("time_precision")
+  /// Why the session ended: STOPPED | PAUSED | COMPLETED | ATTENDANCE_CHECKOUT |
+  /// AUTO_CHECKOUT | STALE | MIDNIGHT_SPLIT | MIGRATED_DUPLICATE | CORRECTED.
+  closedReason    String?   @map("closed_reason")
+  /// OK | REVIEW_REQUIRED | STALE_UNRESOLVED.
+  reviewState     String    @default("OK") @map("review_state")
+  /// The timesheet row (employee/day/task activity) this session belongs to.
+  /// Required (NOT NULL since the PR2 migration): no session exists without its
+  /// day row. RESTRICT: history is never cascaded away.
+  timesheetId     Int       @map("timesheet_id")
+  /// Pre-normalisation `entry_date` when the backfill moved it to the IST date.
+  legacyEntryDate DateTime? @map("legacy_entry_date") @db.Date
 
   organization Organization @relation(fields: [organizationId], references: [id])
   task         ProjectTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   employee     Employee     @relation(fields: [employeeId], references: [id])
+  timesheet    Timesheet    @relation(fields: [timesheetId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, employeeId, entryDate])
+  @@index([organizationId, employeeId, startedAt])
   @@index([taskId])
+  @@index([timesheetId])
   @@map("project_time_entries")
   @@schema("projects")
 }
@@ -6729,12 +6754,12 @@ model FinanceAccount {
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization    Organization          @relation(fields: [organizationId], references: [id])
-  parentAccount   FinanceAccount?       @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
-  subAccounts     FinanceAccount[]      @relation("AccountHierarchy")
-  journalLines    FinanceJournalLine[]
-  bankAccounts    FinanceBankAccount[]
-  expenses        FinanceExpense[]
+  organization  Organization         @relation(fields: [organizationId], references: [id])
+  parentAccount FinanceAccount?      @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
+  subAccounts   FinanceAccount[]     @relation("AccountHierarchy")
+  journalLines  FinanceJournalLine[]
+  bankAccounts  FinanceBankAccount[]
+  expenses      FinanceExpense[]
 
   @@unique([organizationId, accountCode])
   @@index([organizationId, accountType])
@@ -7066,6 +7091,7 @@ model MomHistoryEvent {
   @@map("mom_history_events")
   @@schema("projects")
 }
+
 /// Journal Entries — general ledger vouchers.
 model FinanceJournalEntry {
   id              Int       @id @default(autoincrement())
@@ -7088,14 +7114,14 @@ model FinanceJournalEntry {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization    Organization            @relation(fields: [organizationId], references: [id])
-  reversedEntry   FinanceJournalEntry?    @relation("JournalReversal", fields: [reversedEntryId], references: [id])
-  reversalOf      FinanceJournalEntry?    @relation("JournalReversal")
-  lines           FinanceJournalLine[]
-  bankTxnMatch    FinanceBankTransaction?
-  expense         FinanceExpense?
-  receivedPay     FinancePaymentReceived?
-  madePay         FinancePaymentMade?
+  organization  Organization            @relation(fields: [organizationId], references: [id])
+  reversedEntry FinanceJournalEntry?    @relation("JournalReversal", fields: [reversedEntryId], references: [id])
+  reversalOf    FinanceJournalEntry?    @relation("JournalReversal")
+  lines         FinanceJournalLine[]
+  bankTxnMatch  FinanceBankTransaction?
+  expense       FinanceExpense?
+  receivedPay   FinancePaymentReceived?
+  madePay       FinancePaymentMade?
 
   @@unique([organizationId, entryNumber])
   @@index([organizationId, entryDate])
@@ -7117,9 +7143,9 @@ model FinanceJournalLine {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  journalEntry   FinanceJournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account        FinanceAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  journalEntry FinanceJournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      FinanceAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, journalEntryId])
   @@index([organizationId, accountId])
@@ -7149,12 +7175,12 @@ model FinanceBankAccount {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization   Organization              @relation(fields: [organizationId], references: [id])
-  glAccount      FinanceAccount?           @relation(fields: [glAccountId], references: [id])
-  transactions   FinanceBankTransaction[]
-  expenses       FinanceExpense[]
-  paymentsRec    FinancePaymentReceived[]
-  paymentsMade   FinancePaymentMade[]
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  glAccount    FinanceAccount?          @relation(fields: [glAccountId], references: [id])
+  transactions FinanceBankTransaction[]
+  expenses     FinanceExpense[]
+  paymentsRec  FinancePaymentReceived[]
+  paymentsMade FinancePaymentMade[]
 
   @@unique([organizationId, accountNumber])
   @@index([organizationId, isActive])
@@ -7181,9 +7207,9 @@ model FinanceBankTransaction {
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization          Organization         @relation(fields: [organizationId], references: [id])
-  bankAccount           FinanceBankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  matchedEntry          FinanceJournalEntry? @relation(fields: [matchedJournalEntryId], references: [id])
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  bankAccount  FinanceBankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  matchedEntry FinanceJournalEntry? @relation(fields: [matchedJournalEntryId], references: [id])
 
   @@index([organizationId, bankAccountId, transactionDate])
   @@index([organizationId, isReconciled])
@@ -7193,16 +7219,16 @@ model FinanceBankTransaction {
 
 /// Operational Expenses — direct corporate expense entries.
 model FinanceExpense {
-  id                Int       @id @default(autoincrement())
-  organizationId    Int       @map("organization_id")
-  expenseNumber     String    @map("expense_number")
-  expenseTypeId     Int       @map("expense_type_id")
-  expenseDate       DateTime  @map("expense_date") @db.Date
-  amount            Decimal   @db.Decimal(15, 2)
-  taxAmount         Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
-  netAmount         Decimal   @default(0) @map("net_amount") @db.Decimal(15, 2)
-  paymentModeId     Int?      @map("payment_mode_id")
-  bankAccountId     Int?      @map("bank_account_id")
+  id                  Int       @id @default(autoincrement())
+  organizationId      Int       @map("organization_id")
+  expenseNumber       String    @map("expense_number")
+  expenseTypeId       Int       @map("expense_type_id")
+  expenseDate         DateTime  @map("expense_date") @db.Date
+  amount              Decimal   @db.Decimal(15, 2)
+  taxAmount           Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  netAmount           Decimal   @default(0) @map("net_amount") @db.Decimal(15, 2)
+  paymentModeId       Int?      @map("payment_mode_id")
+  bankAccountId       Int?      @map("bank_account_id")
   vendorName          String?   @map("vendor_name")
   vendorGstin         String?   @map("vendor_gstin")
   vendorInvoiceNumber String?   @map("vendor_invoice_number")
@@ -7216,24 +7242,24 @@ model FinanceExpense {
   ineligibilityReason String?   @map("ineligibility_reason")
   gstJurisdiction     String?   @map("gst_jurisdiction")
   notes               String?
-  receiptUrl        String?   @map("receipt_url")
+  receiptUrl          String?   @map("receipt_url")
   /// DRAFT | PENDING_APPROVAL | APPROVED | PAID | CANCELLED
-  status            String    @default("PAID")
-  glAccountId       Int?      @map("gl_account_id")
-  journalEntryId    Int?      @unique @map("journal_entry_id")
-  hrExpenseClaimId  Int?      @unique @map("hr_expense_claim_id")
-  createdBy         Int?      @map("created_by")
-  updatedBy         Int?      @map("updated_by")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+  status              String    @default("PAID")
+  glAccountId         Int?      @map("gl_account_id")
+  journalEntryId      Int?      @unique @map("journal_entry_id")
+  hrExpenseClaimId    Int?      @unique @map("hr_expense_claim_id")
+  createdBy           Int?      @map("created_by")
+  updatedBy           Int?      @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization      Organization           @relation(fields: [organizationId], references: [id])
-  expenseType       FinanceMasterListItem  @relation("ExpenseCategory", fields: [expenseTypeId], references: [id])
-  paymentMode       FinanceMasterListItem? @relation("ExpensePaymentMode", fields: [paymentModeId], references: [id])
-  bankAccount       FinanceBankAccount?    @relation(fields: [bankAccountId], references: [id])
-  glAccount         FinanceAccount?        @relation(fields: [glAccountId], references: [id])
-  journalEntry      FinanceJournalEntry?   @relation(fields: [journalEntryId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  expenseType  FinanceMasterListItem  @relation("ExpenseCategory", fields: [expenseTypeId], references: [id])
+  paymentMode  FinanceMasterListItem? @relation("ExpensePaymentMode", fields: [paymentModeId], references: [id])
+  bankAccount  FinanceBankAccount?    @relation(fields: [bankAccountId], references: [id])
+  glAccount    FinanceAccount?        @relation(fields: [glAccountId], references: [id])
+  journalEntry FinanceJournalEntry?   @relation(fields: [journalEntryId], references: [id])
 
   @@unique([organizationId, expenseNumber])
   @@index([organizationId, expenseDate])
@@ -7268,12 +7294,12 @@ model FinancePaymentReceived {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization      Organization                        @relation(fields: [organizationId], references: [id])
-  customer          Account?                            @relation(fields: [customerId], references: [id])
-  paymentMode       FinanceMasterListItem               @relation("PaymentReceivedMode", fields: [paymentModeId], references: [id])
-  bankAccount       FinanceBankAccount?                 @relation(fields: [bankAccountId], references: [id])
-  journalEntry      FinanceJournalEntry?                @relation(fields: [journalEntryId], references: [id])
-  allocations       FinancePaymentReceivedAllocation[]
+  organization Organization                       @relation(fields: [organizationId], references: [id])
+  customer     Account?                           @relation(fields: [customerId], references: [id])
+  paymentMode  FinanceMasterListItem              @relation("PaymentReceivedMode", fields: [paymentModeId], references: [id])
+  bankAccount  FinanceBankAccount?                @relation(fields: [bankAccountId], references: [id])
+  journalEntry FinanceJournalEntry?               @relation(fields: [journalEntryId], references: [id])
+  allocations  FinancePaymentReceivedAllocation[]
 
   @@unique([organizationId, paymentNumber])
   @@index([organizationId, customerId])
@@ -7294,8 +7320,8 @@ model FinancePaymentReceivedAllocation {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization      Organization           @relation(fields: [organizationId], references: [id])
-  paymentReceived   FinancePaymentReceived @relation(fields: [paymentReceivedId], references: [id], onDelete: Cascade)
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  paymentReceived FinancePaymentReceived @relation(fields: [paymentReceivedId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, paymentReceivedId])
   @@index([organizationId, invoiceReference])
@@ -7309,7 +7335,20 @@ model FinancePaymentMade {
   organizationId       Int       @map("organization_id")
   paymentNumber        String    @map("payment_number")
   paymentDate          DateTime  @map("payment_date") @db.Date
+  /// Free-text payee name. Kept for historical rows and for the
+  /// no-supplier-record case; once `supplierId` is set it is a display
+  /// snapshot, not the source of truth for which supplier was paid.
   vendorName           String    @map("vendor_name")
+  /// Real SCM Supplier Master link (nullable: historical rows, and payments
+  /// to a payee with no Supplier record, have none).
+  supplierId           Int?      @map("supplier_id")
+  /// Bill this disbursement is applied to, set at create time. Nullable: an
+  /// advance/on-account payment, or one with no supplier link at all. The
+  /// actual `ScmSupplierPayment` application happens at confirm() time (see
+  /// scmSupplierPaymentId) — this column is only the pending reference
+  /// carried from create() to confirm(), so a never-confirmed DRAFT can't
+  /// leave the bill looking paid with nothing posted to back it.
+  billId               Int?      @map("bill_id")
   amount               Decimal   @db.Decimal(15, 2)
   paymentModeId        Int       @map("payment_mode_id")
   bankAccountId        Int?      @map("bank_account_id")
@@ -7326,14 +7365,18 @@ model FinancePaymentMade {
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization         Organization          @relation(fields: [organizationId], references: [id])
-  paymentMode          FinanceMasterListItem @relation("PaymentMadeMode", fields: [paymentModeId], references: [id])
-  bankAccount          FinanceBankAccount?   @relation(fields: [bankAccountId], references: [id])
-  journalEntry         FinanceJournalEntry?  @relation(fields: [journalEntryId], references: [id])
-  scmPayment           ScmSupplierPayment?   @relation(fields: [scmSupplierPaymentId], references: [id])
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  paymentMode  FinanceMasterListItem @relation("PaymentMadeMode", fields: [paymentModeId], references: [id])
+  bankAccount  FinanceBankAccount?   @relation(fields: [bankAccountId], references: [id])
+  journalEntry FinanceJournalEntry?  @relation(fields: [journalEntryId], references: [id])
+  scmPayment   ScmSupplierPayment?   @relation(fields: [scmSupplierPaymentId], references: [id])
+  supplier     Supplier?             @relation(fields: [supplierId], references: [id])
+  bill         ScmSupplierBill?      @relation(fields: [billId], references: [id])
 
   @@unique([organizationId, paymentNumber])
   @@index([organizationId, paymentDate])
+  @@index([organizationId, supplierId])
+  @@index([organizationId, billId])
   @@map("payments_made")
   @@schema("finance")
 }
@@ -7343,7 +7386,7 @@ model FinanceGstEntry {
   id                 Int      @id @default(autoincrement())
   organizationId     Int      @map("organization_id")
   gstin              String
-  period             String   /// e.g. "2026-10"
+  period             String /// e.g. "2026-10"
   /// OUTPUT_GST | INPUT_TAX_CREDIT
   entryType          String   @map("entry_type")
   /// SALES_INVOICE | PURCHASE_BILL | EXPENSE | MANUAL
@@ -7366,7 +7409,7 @@ model FinanceGstEntry {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization       Organization @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId, period, entryType])
   @@index([organizationId, sourceReference])
@@ -7389,37 +7432,37 @@ model FinanceGstEntry {
 /// copy for display. `status` is ACTIVE / INACTIVE (CHECK); `is_active`
 /// mirrors it (CHECK).
 model SalesCustomer {
-  id                     Int       @id @default(autoincrement())
-  organizationId         Int       @map("organization_id")
-  customerCode           String    @map("customer_code") @db.VarChar(30)
-  companyName            String    @map("company_name") @db.VarChar(200)
-  contactPerson          String    @map("contact_person") @db.VarChar(150)
-  email                  String    @db.VarChar(254)
+  id                         Int       @id @default(autoincrement())
+  organizationId             Int       @map("organization_id")
+  customerCode               String    @map("customer_code") @db.VarChar(30)
+  companyName                String    @map("company_name") @db.VarChar(200)
+  contactPerson              String    @map("contact_person") @db.VarChar(150)
+  email                      String    @db.VarChar(254)
   /// E.164 country calling code, e.g. "+91".
-  mobileCountryCode      String    @default("+91") @map("mobile_country_code") @db.VarChar(5)
-  mobileNumber           String    @map("mobile_number") @db.VarChar(15)
-  gstin                  String?   @db.VarChar(15)
+  mobileCountryCode          String    @default("+91") @map("mobile_country_code") @db.VarChar(5)
+  mobileNumber               String    @map("mobile_number") @db.VarChar(15)
+  gstin                      String?   @db.VarChar(15)
   /// Two-digit GST state code, e.g. "33" Tamil Nadu.
-  stateCode              String?   @map("state_code") @db.VarChar(2)
-  cgstRate               Decimal?  @map("cgst_rate") @db.Decimal(5, 2)
-  sgstRate               Decimal?  @map("sgst_rate") @db.Decimal(5, 2)
-  igstRate               Decimal?  @map("igst_rate") @db.Decimal(5, 2)
-  pan                    String?   @db.VarChar(10)
-  cin                    String?   @db.VarChar(21)
-  bankName               String?   @map("bank_name") @db.VarChar(150)
-  bankAccountNumberEncrypted String?  @map("bank_account_number_encrypted")
+  stateCode                  String?   @map("state_code") @db.VarChar(2)
+  cgstRate                   Decimal?  @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate                   Decimal?  @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate                   Decimal?  @map("igst_rate") @db.Decimal(5, 2)
+  pan                        String?   @db.VarChar(10)
+  cin                        String?   @db.VarChar(21)
+  bankName                   String?   @map("bank_name") @db.VarChar(150)
+  bankAccountNumberEncrypted String?   @map("bank_account_number_encrypted")
   bankAccountNumberMasked    String?   @map("bank_account_number_masked") @db.VarChar(40)
-  bankIfsc               String?   @map("bank_ifsc") @db.VarChar(11)
-  bankBranch             String?   @map("bank_branch") @db.VarChar(150)
-  paymentNotes           String?   @map("payment_notes")
-  status                 String    @default("ACTIVE")
-  customFields           Json      @default("{}") @map("custom_fields")
-  isActive               Boolean   @default(true) @map("is_active")
-  createdBy              Int?      @map("created_by")
-  updatedBy              Int?      @map("updated_by")
-  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+  bankIfsc                   String?   @map("bank_ifsc") @db.VarChar(11)
+  bankBranch                 String?   @map("bank_branch") @db.VarChar(150)
+  paymentNotes               String?   @map("payment_notes")
+  status                     String    @default("ACTIVE")
+  customFields               Json      @default("{}") @map("custom_fields")
+  isActive                   Boolean   @default(true) @map("is_active")
+  createdBy                  Int?      @map("created_by")
+  updatedBy                  Int?      @map("updated_by")
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   organization     Organization           @relation(fields: [organizationId], references: [id])
   addresses        SalesCustomerAddress[]
@@ -7427,6 +7470,7 @@ model SalesCustomer {
   invoices         SalesInvoice[]
   deliveryChallans SalesDeliveryChallan[]
   returnableDcs    SalesReturnableDc[]
+  projects         Project[]
 
   @@unique([organizationId, customerCode])
   @@index([organizationId, companyName])
@@ -7610,12 +7654,12 @@ model SalesQuotation {
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization         @relation(fields: [organizationId], references: [id])
-  customer     SalesCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  lines        SalesQuotationLine[]
+  organization  Organization             @relation(fields: [organizationId], references: [id])
+  customer      SalesCustomer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines         SalesQuotationLine[]
   sealItem      SalesDocumentMasterItem? @relation("SalesQuotationSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
   signatureItem SalesDocumentMasterItem? @relation("SalesQuotationSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
-  invoices     SalesInvoice[]
+  invoices      SalesInvoice[]
 
   @@unique([organizationId, quotationNumber])
   @@index([organizationId, quotationDate])
@@ -7705,11 +7749,11 @@ model SalesInvoice {
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization     Organization           @relation(fields: [organizationId], references: [id])
-  customer         SalesCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  sourceQuotation  SalesQuotation?        @relation(fields: [sourceQuotationId], references: [id], onDelete: Restrict)
-  sourceInvoice    SalesInvoice?          @relation("SalesInvoiceConversion", fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
-  convertedTo      SalesInvoice[]         @relation("SalesInvoiceConversion")
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  customer         SalesCustomer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sourceQuotation  SalesQuotation?          @relation(fields: [sourceQuotationId], references: [id], onDelete: Restrict)
+  sourceInvoice    SalesInvoice?            @relation("SalesInvoiceConversion", fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
+  convertedTo      SalesInvoice[]           @relation("SalesInvoiceConversion")
   lines            SalesInvoiceLine[]
   sealItem         SalesDocumentMasterItem? @relation("SalesInvoiceSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
   signatureItem    SalesDocumentMasterItem? @relation("SalesInvoiceSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
@@ -7776,8 +7820,8 @@ model SalesInvoicePayment {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  invoice      SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  invoice      SalesInvoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   modeItem     SalesDocumentMasterItem? @relation("SalesPaymentMode", fields: [modeItemId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, paymentNumber])
@@ -7817,8 +7861,8 @@ model SalesDeliveryChallan {
   customer      SalesCustomer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
   sourceInvoice SalesInvoice?              @relation(fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
   lines         SalesDeliveryChallanLine[]
-  sealItem      SalesDocumentMasterItem? @relation("SalesDcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
-  signatureItem SalesDocumentMasterItem? @relation("SalesDcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
+  sealItem      SalesDocumentMasterItem?   @relation("SalesDcSeal", fields: [sealItemId], references: [id], onDelete: Restrict)
+  signatureItem SalesDocumentMasterItem?   @relation("SalesDcSignature", fields: [signatureItemId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, dcNumber])
   @@index([organizationId, dcDate])
@@ -7861,29 +7905,29 @@ model SalesDeliveryChallanLine {
 /// field (partial unique index). Documents copy the values they use, so
 /// editing or deleting an option never changes an issued document.
 model SalesDocumentMasterItem {
-  id               Int       @id @default(autoincrement())
-  organizationId   Int       @map("organization_id")
-  field            String    @db.VarChar(30)
-  label            String    @db.VarChar(200)
-  value            String?   @db.VarChar(50)
-  bankDetails      Json?     @map("bank_details")
-  imageStorageKey  String?   @map("image_storage_key") @db.VarChar(255)
-  imageMimeType    String?   @map("image_mime_type") @db.VarChar(50)
-  isDefault        Boolean   @default(false) @map("is_default")
-  sortOrder        Int       @default(0) @map("sort_order")
-  customFields     Json      @default("{}") @map("custom_fields")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdBy        Int?      @map("created_by")
-  updatedBy        Int?      @map("updated_by")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  field           String    @db.VarChar(30)
+  label           String    @db.VarChar(200)
+  value           String?   @db.VarChar(50)
+  bankDetails     Json?     @map("bank_details")
+  imageStorageKey String?   @map("image_storage_key") @db.VarChar(255)
+  imageMimeType   String?   @map("image_mime_type") @db.VarChar(50)
+  isDefault       Boolean   @default(false) @map("is_default")
+  sortOrder       Int       @default(0) @map("sort_order")
+  customFields    Json      @default("{}") @map("custom_fields")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdBy       Int?      @map("created_by")
+  updatedBy       Int?      @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  organization       Organization           @relation(fields: [organizationId], references: [id])
-  quotationSeals     SalesQuotation[]       @relation("SalesQuotationSeal")
-  quotationSigns     SalesQuotation[]       @relation("SalesQuotationSignature")
-  invoiceSeals       SalesInvoice[]         @relation("SalesInvoiceSeal")
-  invoiceSigns       SalesInvoice[]         @relation("SalesInvoiceSignature")
+  organization         Organization           @relation(fields: [organizationId], references: [id])
+  quotationSeals       SalesQuotation[]       @relation("SalesQuotationSeal")
+  quotationSigns       SalesQuotation[]       @relation("SalesQuotationSignature")
+  invoiceSeals         SalesInvoice[]         @relation("SalesInvoiceSeal")
+  invoiceSigns         SalesInvoice[]         @relation("SalesInvoiceSignature")
   deliveryChallanSeals SalesDeliveryChallan[] @relation("SalesDcSeal")
   deliveryChallanSigns SalesDeliveryChallan[] @relation("SalesDcSignature")
   returnableDcSeals    SalesReturnableDc[]    @relation("SalesRdcSeal")
@@ -7958,4 +8002,90 @@ model SalesReturnableDcLine {
   @@index([organizationId, returnableDcId])
   @@map("returnable_delivery_challan_lines")
   @@schema("sales")
+}
+
+// =============================================================================
+// Timesheets (hr schema) — ONE table: one row per activity per IST work date,
+// split by `category` (TASK for assigned project tasks; meeting / discussion /
+// research ... for custom activities). Task time itself stays in
+// projects.project_time_entries (`timesheet_id`); custom rows carry their own
+// interval. History of submit/approve/reject/correct goes to the audit log
+// (AuditWriter), not to a separate table.
+// `text` + CHECK per the hr convention; CHECKs, partial unique indexes and the
+// immutability trigger live in the migration SQL (Prisma cannot express them).
+// =============================================================================
+model Timesheet {
+  id                       Int       @id @default(autoincrement())
+  organizationId           Int       @map("organization_id")
+  employeeId               Int       @map("employee_id")
+  /// IST business date of the work (never the UTC date).
+  workDate                 DateTime  @map("work_date") @db.Date
+  /// TASK or a custom-activity category code. The allowed codes live in ONE
+  /// place (apps/api/src/modules/timesheets/timesheets.rules.ts
+  /// TIMESHEET_CATEGORIES, mirrored by hand in packages/api-types) and are validated by the
+  /// DTO — deliberately no CHECK/master table to keep in sync.
+  category                 String
+  taskId                   Int?      @map("task_id")
+  projectId                Int?      @map("project_id")
+  title                    String
+  description              String?
+  notes                    String?
+  /// IN_PROGRESS | ON_HOLD | COMPLETED. Any day with work is IN_PROGRESS;
+  /// COMPLETED only on the completion day. ON_HOLD is a display value for
+  /// carried (no-work) days and is never stored on a day that has sessions.
+  dailyStatus              String    @default("IN_PROGRESS") @map("daily_status")
+  /// RECORDED | INFERRED (legacy backfill).
+  dailyStatusSource        String    @default("RECORDED") @map("daily_status_source")
+  /// Custom activities only (TASK time lives in ProjectTimeEntry).
+  startedAt                DateTime? @map("started_at") @db.Timestamptz(6)
+  endedAt                  DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationMinutes          Int?      @map("duration_minutes")
+  isBackdated              Boolean   @default(false) @map("is_backdated")
+  lateEntryReason          String?   @map("late_entry_reason")
+  enteredAt                DateTime  @default(now()) @map("entered_at") @db.Timestamptz(6)
+  /// Approval state of this row. Submit/approve/reject act on every row of an
+  /// employee-day together. DRAFT | SUBMITTED | APPROVED | REJECTED
+  status                   String    @default("DRAFT")
+  /// NATIVE | MIGRATED — migrated legacy rows never count as "pending submission".
+  origin                   String    @default("NATIVE")
+  submittedAt              DateTime? @map("submitted_at") @db.Timestamptz(6)
+  submittedBy              Int?      @map("submitted_by")
+  approverEmployeeId       Int?      @map("approver_employee_id")
+  /// REPORTING_MANAGER | TEAM | HR
+  approverBasis            String?   @map("approver_basis")
+  /// HR attendance status of the day when it was submitted, kept to detect
+  /// drift after approval (never rewritten).
+  attendanceStatusAtSubmit String?   @map("attendance_status_at_submit")
+  decidedAt                DateTime? @map("decided_at") @db.Timestamptz(6)
+  decidedBy                Int?      @map("decided_by")
+  decisionNote             String?   @map("decision_note")
+  /// 2 = reporting manager first, HR second; 1 = HR alone (the employee has no
+  /// reporting manager with a login). Set when the day is submitted.
+  approvalLevels           Int       @default(1) @map("approval_levels")
+  /// The first (reporting manager / team) approval of a two-level day. The
+  /// status stays SUBMITTED until HR gives the second one.
+  firstDecidedBy           Int?      @map("first_decided_by")
+  firstDecidedAt           DateTime? @map("first_decided_at") @db.Timestamptz(6)
+  firstDecisionNote        String?   @map("first_decision_note")
+  version                  Int       @default(1)
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  task         ProjectTask?       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  project      Project?           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  sessions     ProjectTimeEntry[]
+
+  // `timesheets_one_task_per_day_key (organization_id, employee_id, work_date, task_id)
+  // WHERE task_id IS NOT NULL AND deleted_at IS NULL` is created in the migration.
+  @@index([organizationId, employeeId, workDate])
+  @@index([organizationId, status, workDate])
+  @@index([taskId])
+  @@index([organizationId, projectId])
+  @@map("timesheets")
+  @@schema("hr")
 }

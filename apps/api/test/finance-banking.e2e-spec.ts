@@ -16,9 +16,8 @@ import { PrismaService } from "../src/shared/prisma/prisma.service.js";
  * - Multi-tenant isolation (Org A vs Org B)
  */
 interface AuthLoginResponse {
-  token?: string;
   data?: {
-    token?: string;
+    accessToken?: string;
   };
 }
 
@@ -142,17 +141,20 @@ describe("finance banking (e2e)", () => {
       readOnlyIds,
     );
 
-    async function login(email: string): Promise<string> {
+    async function login(
+      organizationSlug: string,
+      email: string,
+    ): Promise<string> {
       const res = await request(app.getHttpServer())
         .post("/auth/login")
-        .send({ email, password: "Password123!" });
+        .send({ organizationSlug, email, password: "Password123!" });
       const body = res.body as AuthLoginResponse;
-      return body?.data?.token ?? body?.token ?? "";
+      return body?.data?.accessToken ?? "";
     }
 
-    tokenA = await login(userA.email);
-    tokenB = await login(userB.email);
-    readOnlyToken = await login(readOnlyUser.email);
+    tokenA = await login(orgA.slug, userA.email);
+    tokenB = await login(orgB.slug, userB.email);
+    readOnlyToken = await login(orgA.slug, readOnlyUser.email);
 
     // Create an ASSET GL account for Org A
     glAssetAccountA = await prisma.financeAccount.create({
@@ -161,7 +163,6 @@ describe("finance banking (e2e)", () => {
         accountCode: "1020",
         accountName: "HDFC Primary Bank Account",
         accountType: "ASSET",
-        normalBalance: "DEBIT",
         currentBalance: 0,
       },
     });
@@ -196,6 +197,14 @@ describe("finance banking (e2e)", () => {
         await prisma.organization.delete({ where: { id: orgA.id } });
       }
       if (orgB?.id) {
+        await prisma.userRole.deleteMany({
+          where: { user: { organizationId: orgB.id } },
+        });
+        await prisma.rolePermission.deleteMany({
+          where: { role: { organizationId: orgB.id } },
+        });
+        await prisma.user.deleteMany({ where: { organizationId: orgB.id } });
+        await prisma.role.deleteMany({ where: { organizationId: orgB.id } });
         await prisma.organization.delete({ where: { id: orgB.id } });
       }
     }

@@ -234,8 +234,9 @@ export class ProposalDocumentsService {
       id: project.id,
       code: project.projectCode,
       name: project.name,
-      clientId: project.customerId ?? null,
-      clientName: project.customerName ?? project.customer?.name ?? null,
+      clientId: project.salesCustomerId ?? null,
+      clientName:
+        project.customerName ?? project.salesCustomer?.companyName ?? null,
     };
   }
 }

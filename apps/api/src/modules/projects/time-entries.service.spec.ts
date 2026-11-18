@@ -34,11 +34,15 @@ function makeService() {
       ],
     }),
   };
+  const lifecycle = { pause: vi.fn(), complete: vi.fn() };
+  const sweep = { resolveEmployee: vi.fn().mockResolvedValue({}) };
   const service = new TimeEntriesService(
     repository as never,
     tenantContext as never,
     employeeQuery as never,
     attendance as never,
+    lifecycle as never,
+    sweep as never,
   );
   return { service, repository, employeeQuery, attendance, today };
 }
@@ -181,6 +185,86 @@ describe("TimeEntriesService", () => {
       5,
       1.5,
     );
+  });
+
+  describe("stop with pause / complete (task moves with the timer)", () => {
+    function withLifecycle() {
+      const ctx = makeService();
+      (ctx.repository as Record<string, unknown>).findSessionWithTask = vi
+        .fn()
+        .mockResolvedValue({ id: 100, taskId: 2, durationMinutes: 90 });
+      return ctx;
+    }
+    // makeService does not expose the lifecycle mock; reach it through the service.
+    const lifecycleOf = (service: unknown) =>
+      (
+        service as {
+          lifecycle: {
+            pause: ReturnType<typeof vi.fn>;
+            complete: ReturnType<typeof vi.fn>;
+          };
+        }
+      ).lifecycle;
+
+    it("refuses both flags at once (422, nothing changes)", async () => {
+      const { service, repository } = withLifecycle();
+      await expect(
+        service.stopTimer(2, undefined, { pause: true, complete: true }),
+      ).rejects.toThrow("either pause or complete");
+      expect(repository.stopTimer).not.toHaveBeenCalled();
+      expect(lifecycleOf(service).pause).not.toHaveBeenCalled();
+      expect(lifecycleOf(service).complete).not.toHaveBeenCalled();
+    });
+
+    it("pause: delegates to the lifecycle and returns the session plus the task's new status", async () => {
+      const { service, repository } = withLifecycle();
+      lifecycleOf(service).pause.mockResolvedValue({
+        taskId: 2,
+        status: "hold",
+        sessionId: 100,
+        timesheetId: 7,
+        dailyStatus: "IN_PROGRESS",
+        replayed: false,
+      });
+      const res = await service.stopTimer(2, "waiting on spec", {
+        pause: true,
+      });
+      expect(lifecycleOf(service).pause).toHaveBeenCalledWith(
+        2,
+        "waiting on spec",
+      );
+      expect(res).toMatchObject({
+        id: 100,
+        taskId: 2,
+        taskStatus: "hold",
+        dailyStatus: "IN_PROGRESS",
+        timesheetId: 7,
+      });
+      // the plain-stop path (and its separate hour roll-up) is not used
+      expect(repository.stopTimer).not.toHaveBeenCalled();
+      expect(repository.incrementLoggedHours).not.toHaveBeenCalled();
+    });
+
+    it("complete: delegates to the lifecycle, and works when no session was running (complete from hold)", async () => {
+      const { service } = withLifecycle();
+      lifecycleOf(service).complete.mockResolvedValue({
+        taskId: 2,
+        status: "completed",
+        sessionId: null,
+        timesheetId: 9,
+        dailyStatus: "COMPLETED",
+        replayed: false,
+      });
+      const res = await service.stopTimer(2, undefined, { complete: true });
+      expect(lifecycleOf(service).complete).toHaveBeenCalledWith(2, undefined);
+      expect(res).toMatchObject({
+        taskId: 2,
+        taskStatus: "completed",
+        dailyStatus: "COMPLETED",
+        timesheetId: 9,
+      });
+      expect(res).not.toHaveProperty("id"); // no session was fabricated
+    });
   });
 
   it("keeps a running timer while the employee is still checked in", async () => {

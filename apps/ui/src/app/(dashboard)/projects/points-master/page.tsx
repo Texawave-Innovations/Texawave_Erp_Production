@@ -160,7 +160,7 @@ function PriorityConfigForm({
     <form
       id={FORM_ID}
       onSubmit={handleSaveConfig}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-4"
     >
       {formError ? (
         <p
@@ -173,7 +173,7 @@ function PriorityConfigForm({
 
       {/* Default Priority Points — legacy 4-tier grid */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+        <div className="border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
           <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
             <Award className="h-5 w-5 text-amber-500" />
             Default Priority Points
@@ -184,11 +184,11 @@ function PriorityConfigForm({
             marked 100% complete.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
           {PRIORITY_TIERS.map((tier) => (
             <div
               key={tier.key}
-              className={`flex flex-col gap-2 rounded-2xl border p-4 ${tier.className}`}
+              className={`flex flex-col gap-1.5 rounded-xl border p-3.5 ${tier.className}`}
             >
               <p className="text-xs font-black uppercase tracking-wider">
                 {tier.label}
@@ -216,7 +216,7 @@ function PriorityConfigForm({
 
       {/* Custom Deliverable Types — legacy add-row + list */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+        <div className="border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
           <h2 className="text-base font-bold text-gray-900 dark:text-white">
             Custom Deliverable Types (Optional)
           </h2>
@@ -225,9 +225,9 @@ function PriorityConfigForm({
             priority tiers.
           </p>
         </div>
-        <div className="flex flex-col gap-4 p-5">
-          <div className="flex flex-col items-end gap-3 sm:flex-row">
-            <div className="w-full flex-1">
+        <div className="flex flex-col gap-3 p-4 sm:p-5">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
+            <div className="w-full flex-1 min-w-0">
               <FormField label="Category Name">
                 {(field) => (
                   <Input
@@ -245,7 +245,7 @@ function PriorityConfigForm({
                 )}
               </FormField>
             </div>
-            <div className="w-full sm:w-32">
+            <div className="w-full sm:w-28 shrink-0">
               <FormField label="Points">
                 {(field) => (
                   <Input
@@ -264,6 +264,7 @@ function PriorityConfigForm({
             <Button
               type="button"
               variant="secondary"
+              className="shrink-0"
               onClick={handleAddCustomType}
             >
               <Plus className="h-4 w-4" />
@@ -271,47 +272,49 @@ function PriorityConfigForm({
             </Button>
           </div>
 
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-800/20">
             {customTypes.length === 0 ? (
-              <p className="p-4 text-center text-xs text-gray-400">
+              <p className="py-2.5 px-4 text-center text-xs text-gray-400 dark:text-gray-500">
                 No custom deliverable types added
               </p>
             ) : (
-              customTypes.map((ct, idx) => (
-                <div
-                  key={ct.name}
-                  className="flex items-center justify-between gap-3 bg-white p-3.5 text-xs dark:bg-gray-900"
-                >
-                  <span className="font-bold text-gray-800 dark:text-gray-200">
-                    {ct.name}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min="0"
-                      max="500"
-                      aria-label={`${ct.name} points`}
-                      value={ct.points}
-                      onChange={(e) =>
-                        updateCustomPoints(idx, Number(e.target.value) || 0)
-                      }
-                      className="w-20 rounded-lg border border-gray-300 bg-white p-1.5 text-right text-xs font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-black text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                      +{ct.points} pts
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {customTypes.map((ct, idx) => (
+                  <div
+                    key={`${ct.name}-${idx}`}
+                    className="flex items-center justify-between gap-3 bg-white px-3.5 py-2 text-xs sm:py-2.5 dark:bg-gray-900"
+                  >
+                    <span className="font-bold text-gray-800 dark:text-gray-200">
+                      {ct.name}
                     </span>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeCustomType(idx)}
-                      aria-label={`Remove ${ct.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="0"
+                        max="500"
+                        aria-label={`${ct.name} points`}
+                        value={ct.points}
+                        onChange={(e) =>
+                          updateCustomPoints(idx, Number(e.target.value) || 0)
+                        }
+                        className="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1 text-right text-xs font-bold text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                      />
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                        +{ct.points} pts
+                      </span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeCustomType(idx)}
+                        aria-label={`Remove ${ct.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -421,7 +424,7 @@ export default function PointsMasterPage() {
 
                     return (
                       <div
-                        key={entry.employeeId}
+                        key={`${entry.employeeId ?? "entry"}-${idx}`}
                         className="flex items-center justify-between py-3.5 first:pt-1 last:pb-1"
                       >
                         <div className="flex items-center gap-3">

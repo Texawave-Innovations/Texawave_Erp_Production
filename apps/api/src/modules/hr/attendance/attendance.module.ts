@@ -17,6 +17,7 @@ import { AttendanceReportsController } from "./reports/attendance-reports.contro
 import { AttendanceReportsRepository } from "./reports/attendance-reports.repository.js";
 import { AttendanceReportsService } from "./reports/attendance-reports.service.js";
 import { AttendanceAutoCheckoutService } from "./services/attendance-auto-checkout.service.js";
+import { AttendanceLookupService } from "./services/attendance-lookup.service.js";
 import { AttendanceAutoCheckoutScheduler } from "./services/attendance-auto-checkout.scheduler.js";
 import { AttendanceAlertsScheduler } from "./services/attendance-alerts.scheduler.js";
 import { AttendanceAlertsService } from "./services/attendance-alerts.service.js";
@@ -47,6 +48,7 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
     AttendanceReportsRepository,
     AttendanceReportsService,
     AttendanceAutoCheckoutService,
+    AttendanceLookupService,
     AttendanceImportExportService,
     AttendanceMonthLocksRepository,
     AttendanceMonthLocksService,
@@ -60,6 +62,7 @@ import { AttendanceDayViewService } from "./services/attendance-day-view.service
     AttendanceService,
     AttendanceAutoCheckoutService,
     AttendanceDayContextRepository,
+    AttendanceLookupService,
   ],
 })
 export class AttendanceModule {}

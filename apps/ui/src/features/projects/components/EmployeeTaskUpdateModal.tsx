@@ -12,9 +12,11 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useEmployees } from "@/features/hr/employees/hooks";
+import { usePermission } from "@/hooks/usePermission";
 import { useProject, useProjectTasks, useUpdateTask } from "../hooks";
 import { errorMessage } from "../format";
 import type { ProjectTask, TaskStatus } from "../types";
+import { ReopenReasonField, isReopen } from "./ReopenReason";
 
 type DependencyKind = "none" | "employee" | "client" | "task";
 
@@ -54,9 +56,23 @@ export function EmployeeTaskUpdateModal({
   const { toast } = useToast();
   const updateTask = useUpdateTask();
   const projectId = open && task ? task.projectId : undefined;
-  const projectQuery = useProject(projectId);
-  const siblingTasksQuery = useProjectTasks(projectId);
-  const employeesQuery = useEmployees({ page: 1, limit: 100 });
+  // Employees in the portal hold neither the org-wide project read nor an HR
+  // employee read: the client comes from the My Work row (`task.project`) and
+  // the dependency kinds that need those lists are hidden for them.
+  const canReadProjects = usePermission("projects.project.read");
+  const canListEmployees = usePermission([
+    "hr.employee.read.own",
+    "hr.employee.read.team",
+    "hr.employee.read.all",
+  ]);
+  const projectQuery = useProject(canReadProjects ? projectId : undefined);
+  const siblingTasksQuery = useProjectTasks(
+    canReadProjects ? projectId : undefined,
+  );
+  const employeesQuery = useEmployees(
+    { page: 1, limit: 100 },
+    canListEmployees,
+  );
 
   // State is seeded from `task` on mount — callers key this component by the
   // task id so each opened task gets a fresh form (no setState-in-effect).
@@ -81,11 +97,19 @@ export function EmployeeTaskUpdateModal({
     task?.dependencyRequirement ?? "",
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
 
   const project = projectQuery.data;
+  const rowProject = task?.project;
   const clientName =
-    project?.customerName || project?.customer?.name || "Project Client";
-  const clientLead = project?.clientHandlingPerson?.fullName ?? "";
+    project?.customerName ||
+    project?.salesCustomer?.companyName ||
+    rowProject?.customerName ||
+    "Project Client";
+  const clientLead =
+    project?.clientHandlingPerson?.fullName ??
+    rowProject?.clientHandlingPerson?.fullName ??
+    "";
   const employees = employeesQuery.data?.data ?? [];
   const siblingTasks = (siblingTasksQuery.data ?? []).filter(
     (t) => t.id !== task?.id,
@@ -110,6 +134,13 @@ export function EmployeeTaskUpdateModal({
     if (!task) return;
     setFormError(null);
 
+    // Moving a completed task back needs a reason; the API records it.
+    const reopening = isReopen(task.status, status);
+    if (reopening && !reopenReason.trim()) {
+      setFormError("Enter a reason for reopening this task.");
+      return;
+    }
+
     if ((depKind === "task" || depKind === "employee") && !depTarget) {
       setFormError("Please select the specific dependency target.");
       return;
@@ -133,7 +164,8 @@ export function EmployeeTaskUpdateModal({
       dependencyTargetId = Number(depTarget);
       dependencyTargetName = emp?.fullName ?? null;
     } else if (depKind === "client") {
-      dependencyTargetId = project?.customerId ?? null;
+      dependencyTargetId =
+        project?.salesCustomerId ?? rowProject?.salesCustomerId ?? null;
       dependencyTargetName = clientName;
     }
 
@@ -155,6 +187,7 @@ export function EmployeeTaskUpdateModal({
           dependencyTaskId,
           dependencyTargetId,
           dependencyTargetName,
+          ...(reopening ? { statusChangeReason: reopenReason.trim() } : {}),
         },
       });
       if (willComplete) {
@@ -240,6 +273,13 @@ export function EmployeeTaskUpdateModal({
             )}
           </FormField>
 
+          {task && isReopen(task.status, status) ? (
+            <ReopenReasonField
+              value={reopenReason}
+              onChange={setReopenReason}
+            />
+          ) : null}
+
           <FormField
             label="Completion Percentage"
             labelAction={
@@ -290,7 +330,11 @@ export function EmployeeTaskUpdateModal({
               ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {DEPENDENCY_KINDS.map((dk) => (
+              {DEPENDENCY_KINDS.filter(
+                (dk) =>
+                  (dk.id !== "employee" || canListEmployees) &&
+                  (dk.id !== "task" || canReadProjects),
+              ).map((dk) => (
                 <button
                   key={dk.id}
                   type="button"
