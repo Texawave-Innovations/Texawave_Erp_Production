@@ -471,6 +471,104 @@ dialog::backdrop {
   background-color: rgba(203, 213, 225, 0.5);
 }
 
+/* Shared floating-pill scrollbar for every Tailwind scroll container
+   (.overflow-auto / -y-auto / -x-auto / -scroll), e.g. the dashboard <main>,
+   dialog bodies, select and dropdown lists. Slim thumb inset from the edge, no
+   arrows, transparent track, subtly visible at rest, brand blue on hover/drag.
+   The selector sits in :where() (zero specificity) so any component- or
+   module-level scrollbar rule (.crm-module, .crm-*-scroll) still wins, and
+   .scrollbar-none (nav flyouts) / .no-scrollbar are opted out. Native
+   scrolling is untouched; this is cosmetic only. */
+:root {
+  /* Firefox fallback (no gradients on its scrollbar) */
+  --scrollbar-thumb: rgba(23, 105, 245, 0.4);
+  --scrollbar-thumb-active: #1769f5;
+  /* TexaOne brand gradient stops: Prime Blue to cyan, soft at rest, full
+     strength on hover. The angle is set on the thumb (vertical vs horizontal). */
+  --scrollbar-from: rgba(23, 105, 245, 0.42);
+  --scrollbar-to: rgba(18, 207, 227, 0.42);
+  --scrollbar-from-active: #1769f5;
+  --scrollbar-to-active: #12cfe3;
+}
+.dark {
+  --scrollbar-thumb: rgba(56, 189, 248, 0.45);
+  --scrollbar-thumb-active: #38bdf8;
+  --scrollbar-from: rgba(56, 189, 248, 0.5);
+  --scrollbar-to: rgba(18, 207, 227, 0.5);
+  --scrollbar-from-active: #38bdf8;
+  --scrollbar-to-active: #12cfe3;
+}
+
+:where(
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-scroll,
+  .overflow-y-scroll,
+  .overflow-x-scroll
+):where(:not(.scrollbar-none, .no-scrollbar)) {
+  &::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* 12px gutter - 2 x 3px transparent border = 6px visible pill, 3px inset. */
+  &::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(
+      180deg,
+      var(--scrollbar-from),
+      var(--scrollbar-to)
+    );
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    transition: border-width 180ms ease;
+  }
+  /* Horizontal bars run the gradient left to right. */
+  &::-webkit-scrollbar-thumb:horizontal {
+    background-image: linear-gradient(
+      90deg,
+      var(--scrollbar-from),
+      var(--scrollbar-to)
+    );
+  }
+  /* Hover / drag: 8px visible pill, full-strength brand gradient. */
+  &::-webkit-scrollbar-thumb:hover,
+  &::-webkit-scrollbar-thumb:active {
+    background-image: linear-gradient(
+      180deg,
+      var(--scrollbar-from-active),
+      var(--scrollbar-to-active)
+    );
+    border-width: 2px;
+  }
+  &::-webkit-scrollbar-thumb:horizontal:hover,
+  &::-webkit-scrollbar-thumb:horizontal:active {
+    background-image: linear-gradient(
+      90deg,
+      var(--scrollbar-from-active),
+      var(--scrollbar-to-active)
+    );
+  }
+}
+/* Firefox has no ::-webkit-scrollbar: standard thin scrollbar, same colours. */
+@supports not selector(::-webkit-scrollbar) {
+  :where(
+    .overflow-auto,
+    .overflow-y-auto,
+    .overflow-x-auto,
+    .overflow-scroll,
+    .overflow-y-scroll,
+    .overflow-x-scroll
+  ):where(:not(.scrollbar-none, .no-scrollbar)) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
 /* Electric Luminous Blue Active Pill (Softened Contrast Specification) */
 .glass-item-active {
   background: linear-gradient(

@@ -401,7 +401,11 @@ export default function EmployeePortalLayout({
           initials={initials}
         />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/60 dark:bg-gray-900/40">
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
+          {/* `relative`: keep absolutely positioned descendants (sr-only
+              captions, tooltips) inside this scroller instead of the document. */}
+          <div className="relative flex-1 overflow-y-auto p-4 lg:p-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

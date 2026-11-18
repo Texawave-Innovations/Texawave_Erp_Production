@@ -359,6 +359,21 @@ UI Typography Scale (Labels, controls, data cells):
 - Every Tailwind class name must be a complete string literal in source. Never interpolate variables into class names (e.g., `` `bg-${color}-500` `` is prohibited as Tailwind's compiler drops dynamic classes).
 - Use `Record<Variant, string>` literal maps indexed by variant enum (exemplified in `Button`, `Alert`, and `StatusBadge`).
 
+### 3.13a Scrollbars
+
+- Every Tailwind scroll container (`overflow-auto`, `overflow-y-auto`, `overflow-x-auto` and the `-scroll` variants) gets one shared floating-pill scrollbar from `theme.css`: 6px thumb inset 3px, no arrows, transparent track, visible at rest as a soft Prime Blue (`#1769F5`) to cyan (`#12CFE3`) gradient (sky `#38bdf8` to cyan in dark mode); on hover/drag it becomes 8px and full-strength gradient (the width eases over 180ms; the gradient swap is instant, CSS cannot animate gradients). Colours are the `--scrollbar-thumb*` variables. Firefox cannot draw gradients on its scrollbar, so it falls back to `scrollbar-width: thin` with a solid brand-blue (sky in dark mode) thumb.
+- It is applied by class, not by element: there is no `*`, `html` or `body` rule. The selector sits in `:where()` (zero specificity), so a component's own scrollbar rule wins.
+- Opt out with `scrollbar-none` (slim 6px style used by nav flyouts) or `no-scrollbar` (hidden). CRM's `.crm-module` scrollbar rules keep their own look.
+- Every shell scroller must be `relative` (dashboard `<main>`, employee-portal content area). `sr-only` and tooltips are `position: absolute`; with no positioned ancestor they escape the shell's `overflow-hidden`, make the whole document scroll, and show the browser's default scrollbar on both axes (`w-screen` then also overflows).
+- A scroll area built without a Tailwind overflow utility (e.g. an inline `style={{ overflow: "auto" }}`) shows the browser default; use the utility class.
+
+### 3.14 Class Merging (`cn`) and Custom Font-Size Tokens
+
+- Always compose classes with the shared `cn` from `@texawave-erp/ui-kit` (`packages/ui-kit/src/lib/cn.ts`). Never call `twMerge` directly and never add a second `cn` (the CRM `legacy-ui/utils.ts` re-exports the shared one).
+- `tailwind-merge` only knows Tailwind's built-in font sizes. An unregistered `text-*` class is treated as a text **colour**, so `cn("text-white", "text-theme-xs")` silently drops `text-white` and the label inherits its parent's colour (dark text on a blue gradient button).
+- Every `--text-<name>` token added to `theme.css` (§3.5) must also be added to `CUSTOM_FONT_SIZES` in `cn.ts`. `pnpm --filter @texawave-erp/ui-kit test` (`packages/ui-kit/test/cn.test.ts`) reads `theme.css` and fails if a token is missing, and asserts `text-white` survives next to every registered size.
+- Do not work around a missing label colour by adding `text-white` to the call site or to child `<span>`s; fix the registration instead.
+
 ---
 
 ## 4. Shared UI Component Contracts (`packages/ui-kit/src/components/`)
