@@ -226,6 +226,86 @@ export class CustomersRepository {
     return row ? toView(row) : null;
   }
 
+  /** Tax-invoice ledger inputs for one customer: what was owed before
+   * `from`, plus the invoices and payments inside [from, to]. */
+  @OrgScoped()
+  async statementSources(
+    scope: OrgScope,
+    customerId: number,
+    range: { from?: string | undefined; to?: string | undefined },
+  ) {
+    const at = (d: string) => new Date(`${d}T00:00:00Z`);
+    const within = {
+      ...(range.from ? { gte: at(range.from) } : {}),
+      ...(range.to ? { lte: at(range.to) } : {}),
+    };
+    const hasRange = Boolean(range.from || range.to);
+    const invoiceOwner = {
+      customerId,
+      invoiceType: "TAX",
+      deletedAt: null,
+    } as const;
+    const [priorInvoiced, priorPaid, invoices, payments] = await Promise.all([
+      range.from
+        ? this.prisma.salesInvoice.aggregate({
+            where: tenantWhere(scope, {
+              ...invoiceOwner,
+              invoiceDate: { lt: at(range.from) },
+            }),
+            _sum: { totalAmount: true },
+          })
+        : null,
+      range.from
+        ? this.prisma.salesInvoicePayment.aggregate({
+            where: tenantWhere(scope, {
+              deletedAt: null,
+              paymentDate: { lt: at(range.from) },
+              invoice: invoiceOwner,
+            }),
+            _sum: { amount: true },
+          })
+        : null,
+      this.prisma.salesInvoice.findMany({
+        where: tenantWhere(scope, {
+          ...invoiceOwner,
+          ...(hasRange ? { invoiceDate: within } : {}),
+        }),
+        select: {
+          id: true,
+          invoiceNumber: true,
+          invoiceDate: true,
+          totalAmount: true,
+        },
+      }),
+      this.prisma.salesInvoicePayment.findMany({
+        where: tenantWhere(scope, {
+          deletedAt: null,
+          ...(hasRange ? { paymentDate: within } : {}),
+          invoice: invoiceOwner,
+        }),
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          amount: true,
+          mode: true,
+          reference: true,
+          invoice: { select: { invoiceNumber: true } },
+        },
+      }),
+    ]);
+    return {
+      opening: new Prisma.Decimal(priorInvoiced?._sum.totalAmount ?? 0).minus(
+        priorPaid?._sum.amount ?? 0,
+      ),
+      invoices,
+      payments: payments.map(({ invoice, ...p }) => ({
+        ...p,
+        invoiceNumber: invoice.invoiceNumber,
+      })),
+    };
+  }
+
   /** Another live customer holding `gstin` (excluding `exceptId`). */
   @OrgScoped()
   findByGstin(scope: OrgScope, gstin: string, exceptId?: number) {

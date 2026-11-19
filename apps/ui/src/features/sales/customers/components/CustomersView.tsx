@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Plus } from "lucide-react";
+import {
+  Building2,
+  Eye,
+  FileText,
+  Pencil,
+  Plus,
+  Receipt,
+  Trash2,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
   DataTable,
+  DeleteConfirmDialog,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -16,12 +26,15 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
+  useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SALES_PERMISSIONS } from "../../permissions";
-import { useCustomers } from "../hooks";
+import { useCustomers, useDeleteCustomer } from "../hooks";
 import type { Customer, CustomerStatus } from "../types";
+import { CustomerInvoiceHistoryDialog } from "./CustomerInvoiceHistoryDialog";
+import { CustomerStatementDialog } from "./CustomerStatementDialog";
 
 const PAGE_SIZE = 20;
 
@@ -29,6 +42,13 @@ export function CustomersView() {
   const router = useRouter();
   const canRead = usePermission(SALES_PERMISSIONS.customerRead);
   const canWrite = usePermission(SALES_PERMISSIONS.customerWrite);
+  const canDelete = usePermission(SALES_PERMISSIONS.customerDelete);
+  const { toast } = useToast();
+  const remove = useDeleteCustomer();
+  const [toDelete, setToDelete] = useState<Customer | null>(null);
+  const canSeeInvoices = usePermission(SALES_PERMISSIONS.invoiceRead);
+  const [history, setHistory] = useState<Customer | null>(null);
+  const [statementFor, setStatementFor] = useState<Customer | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | CustomerStatus>("");
@@ -50,9 +70,32 @@ export function CustomersView() {
     );
   }
 
+  async function handleDelete() {
+    if (!toDelete) return;
+    const c = toDelete;
+    try {
+      await remove.mutateAsync(c.id);
+      toast({ title: `${c.companyName} deleted`, variant: "success" });
+    } catch (error) {
+      toast({
+        title:
+          error instanceof ApiError &&
+          error.errorCode === "CUSTOMER_HAS_DOCUMENTS"
+            ? `${c.companyName} has documents and cannot be deleted`
+            : `Could not delete ${c.companyName}`,
+        variant: "error",
+      });
+    } finally {
+      setToDelete(null);
+    }
+  }
+
   const filtered = debounced !== "" || status !== "";
   const newButton = canWrite ? (
-    <Button onClick={() => router.push("/sales/customers/new")}>
+    <Button
+      variant="secondary"
+      onClick={() => router.push("/sales/customers/new")}
+    >
       <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
       New customer
     </Button>
@@ -63,15 +106,12 @@ export function CustomersView() {
       <PageHeader
         variant="banner"
         title="Customers"
-        description="Clients you quote, invoice and deliver to."
-        icon={Building2}
-        badge={
-          query.data ? (
-            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-              {query.data.meta.total} customers
-            </span>
-          ) : undefined
+        description={
+          query.data
+            ? `Clients you quote, invoice and deliver to • Total: ${query.data.meta.total}`
+            : "Clients you quote, invoice and deliver to"
         }
+        icon={Building2}
         action={newButton}
       />
 
@@ -141,8 +181,9 @@ export function CustomersView() {
             columns={[
               {
                 header: "Code",
+                align: "center",
                 cell: (c) => (
-                  <span className="font-mono text-theme-sm font-medium text-gray-900 dark:text-white/90">
+                  <span className="inline-flex rounded-full bg-brand-50 px-3 py-1 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                     {c.customerCode}
                   </span>
                 ),
@@ -151,33 +192,75 @@ export function CustomersView() {
                 header: "Company",
                 cell: (c) => (
                   <div className="flex flex-col">
-                    <span className="font-semibold text-gray-900 dark:text-white/90">
-                      {c.companyName}
-                    </span>
-                    <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                      {c.contactPerson} · {c.email}
-                    </span>
+                    {canSeeInvoices ? (
+                      <button
+                        type="button"
+                        className="w-fit text-left font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistory(c);
+                        }}
+                        aria-label={`View invoice history for ${c.companyName}`}
+                      >
+                        {c.companyName}
+                      </button>
+                    ) : (
+                      <span className="font-semibold text-gray-900 dark:text-white/90">
+                        {c.companyName}
+                      </span>
+                    )}
                   </div>
                 ),
               },
+              { header: "Contact", cell: (c) => c.contactPerson },
               {
-                header: "Mobile",
-                cell: (c) => `${c.mobileCountryCode} ${c.mobileNumber}`,
-              },
-              {
-                header: "GSTIN",
+                header: "Email",
                 cell: (c) => (
-                  <span className="font-mono text-theme-sm">
-                    {c.gstin ?? "—"}
+                  <span className="break-all text-gray-600 dark:text-gray-300">
+                    {c.email}
                   </span>
                 ),
               },
               {
-                header: "Location",
+                header: "Phone",
+                cell: (c) => `${c.mobileCountryCode} ${c.mobileNumber}`,
+              },
+              {
+                header: "Default address",
+                cell: (c) => {
+                  const a = c.defaultAddress;
+                  const place =
+                    [a?.city, a?.stateName ?? c.stateName]
+                      .filter(Boolean)
+                      .join(", ") || "—";
+                  return (
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-gray-900 dark:text-white/90">
+                        {place}
+                      </span>
+                      {a?.label ? (
+                        <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                          {a.label}
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                },
+              },
+              {
+                header: "GST",
+                align: "center",
                 cell: (c) =>
-                  [c.defaultAddress?.city, c.stateName]
-                    .filter(Boolean)
-                    .join(", ") || "—",
+                  c.gstin ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pr-3 pl-1 text-theme-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-200">
+                      <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                        {c.gstin.slice(0, 2)}
+                      </span>
+                      {c.gstin}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
               },
               {
                 header: "Status",
@@ -185,6 +268,79 @@ export function CustomersView() {
                   <StatusBadge
                     label={c.status === "ACTIVE" ? "Active" : "Inactive"}
                     colorToken={c.status === "ACTIVE" ? "success" : "gray"}
+                  />
+                ),
+              },
+              {
+                header: "Actions",
+                align: "center",
+                cell: (c) => (
+                  <ActionMenu
+                    triggerIcon="horizontal"
+                    ariaLabel={`Actions for ${c.companyName}`}
+                    items={[
+                      {
+                        label: "View details",
+                        icon: <Eye className="h-4 w-4" aria-hidden="true" />,
+                        onClick: () => router.push(`/sales/customers/${c.id}`),
+                      },
+                      ...(canSeeInvoices
+                        ? [
+                            {
+                              label: "Invoice history",
+                              icon: (
+                                <Receipt
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                              ),
+                              onClick: () => setHistory(c),
+                            },
+                            {
+                              label: "Statement",
+                              icon: (
+                                <FileText
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                              ),
+                              onClick: () => setStatementFor(c),
+                            },
+                          ]
+                        : []),
+                      ...(canWrite
+                        ? [
+                            {
+                              label: "Edit customer",
+                              icon: (
+                                <Pencil
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                              ),
+                              separator: true,
+                              onClick: () =>
+                                router.push(`/sales/customers/${c.id}/edit`),
+                            },
+                          ]
+                        : []),
+                      ...(canDelete
+                        ? [
+                            {
+                              label: "Delete customer",
+                              icon: (
+                                <Trash2
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                              ),
+                              variant: "destructive" as const,
+                              separator: !canWrite,
+                              onClick: () => setToDelete(c),
+                            },
+                          ]
+                        : []),
+                    ]}
                   />
                 ),
               },
@@ -199,6 +355,28 @@ export function CustomersView() {
           />
         </>
       )}
+
+      {canDelete ? (
+        <DeleteConfirmDialog
+          open={toDelete !== null}
+          onClose={() => setToDelete(null)}
+          onConfirm={handleDelete}
+          title="Delete customer"
+          itemName={toDelete?.companyName ?? ""}
+          description="Customers with quotations, invoices or challans cannot be deleted."
+          loading={remove.isPending}
+        />
+      ) : null}
+
+      <CustomerInvoiceHistoryDialog
+        customer={history}
+        onClose={() => setHistory(null)}
+        onOpenStatement={() => setStatementFor(history)}
+      />
+      <CustomerStatementDialog
+        customer={statementFor}
+        onClose={() => setStatementFor(null)}
+      />
     </div>
   );
 }

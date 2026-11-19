@@ -9,6 +9,7 @@ import {
   createCustomer,
   deleteCustomer,
   getCustomer,
+  getCustomerStatement,
   getNextCustomerCode,
   listCustomers,
   updateCustomer,
@@ -75,4 +76,24 @@ export function useUpdateCustomer() {
 
 export function useDeleteCustomer() {
   return useOrgScopedMutation([SALES_KEY], (id: number) => deleteCustomer(id));
+}
+
+/** Pass `null` to keep the query idle (dialog closed). */
+export function useCustomerStatement(
+  id: number | null,
+  range: { from?: string; to?: string },
+) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(
+      orgId,
+      SALES_KEY,
+      "customers",
+      "statement",
+      id ?? 0,
+      range,
+    ),
+    queryFn: () => getCustomerStatement(id as number, range),
+    enabled: orgId > 0 && id !== null,
+  });
 }

@@ -283,6 +283,20 @@ export class QueryCustomerDto extends PaginationDto {
   status?: CustomerStatus;
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export class CustomerStatementQueryDto {
+  @ApiPropertyOptional({ example: "2026-04-01", description: "Period start" })
+  @IsOptional()
+  @Matches(ISO_DAY, { message: "from must be a date (YYYY-MM-DD)" })
+  from?: string;
+
+  @ApiPropertyOptional({ example: "2026-11-19", description: "Period end" })
+  @IsOptional()
+  @Matches(ISO_DAY, { message: "to must be a date (YYYY-MM-DD)" })
+  to?: string;
+}
+
 export class NextCustomerCodeQueryDto {
   @ApiPropertyOptional({ example: "+91", default: "+91", enum: CALLING_CODES })
   @IsOptional()
