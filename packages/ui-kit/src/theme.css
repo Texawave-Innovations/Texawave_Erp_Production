@@ -107,10 +107,20 @@
   --color-gray-500: #64748b;
   --color-gray-600: #475569;
   --color-gray-700: #334155;
+  --color-gray-750: #283548;
   --color-gray-800: #1e293b;
+  --color-gray-850: #172033;
   --color-gray-900: #0f172a;
   --color-gray-950: #020617;
   --color-gray-dark: #0d1117;
+
+  /* In-between dark surfaces used across the app (dark:bg-slate-850,
+     dark:to-gray-850, dark:hover:bg-slate-750, ...). Tailwind's palette has
+     no 750/850, and a class with an undefined shade generates NO css, so the
+     light-mode colour silently showed through in dark mode. Midpoints of the
+     neighbouring slate shades (700/800/900). */
+  --color-slate-750: #283548;
+  --color-slate-850: #172033;
 
   /* Semantic — success (approved, QA-accepted, dispatched, payment cleared) */
   --color-success-25: #f6fef9;

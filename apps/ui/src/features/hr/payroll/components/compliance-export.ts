@@ -1,4 +1,5 @@
 import type { Contribution } from "../api";
+import { downloadWorkbook } from "@/lib/spreadsheet";
 import { downloadText } from "../download";
 import { money } from "../format";
 import type { ComplianceKind, PfContribution } from "../types";
@@ -106,139 +107,142 @@ export function exportEsicReturnCsv(
 }
 
 /**
- * Exports monthly compliance contributions to an audit-ready CSV spreadsheet.
+ * Exports monthly compliance contributions to an audit-ready `.xlsx` workbook
+ * (typed amounts, fitted columns, totals row). The EPFO / ESIC portal upload
+ * files above stay in their prescribed text/CSV formats.
  */
-export function exportComplianceCsv(
+export async function exportComplianceExcel(
   contributions: Contribution<ComplianceKind>[],
   kind: ComplianceKind,
   periodLabel: string,
-): void {
+): Promise<void> {
   const isPf = kind === "pf";
-  const headers = isPf
-    ? [
-        "Employee Code",
-        "Employee Name",
-        "Period",
-        "PF Covered",
-        "PF Wage (₹)",
-        "Employee Share (12%) (₹)",
-        "Employer EPF Share (3.67%) (₹)",
-        "Employer EPS Share (8.33%) (₹)",
-        "Total Employer Share (₹)",
-        "Net Deposit (₹)",
-        "Payment Status",
-        "Salary Credited",
-      ]
-    : [
-        "Employee Code",
-        "Employee Name",
-        "Period",
-        "ESI Covered",
-        "ESI Wage (₹)",
-        "Employee Share (0.75%) (₹)",
-        "Employer Share (3.25%) (₹)",
-        "Net Deposit (₹)",
-        "Payment Status",
-        "Salary Credited",
-      ];
 
-  const rows: string[] = [headers.map((h) => safeCell(h)).join(",")];
+  interface Line {
+    code: string;
+    name: string;
+    covered: string;
+    wage: number;
+    employee: number;
+    employer: number;
+    eps: number;
+    epfEmployer: number;
+    status: string;
+    credited: string;
+  }
 
-  let totalWage = 0;
-  let totalEe = 0;
-  let totalEr = 0;
-  let totalEps = 0;
-  let totalEpfEr = 0;
-
-  for (const c of contributions) {
-    const isIncluded = "pfIncluded" in c ? c.pfIncluded : c.esiIncluded;
-    const wageNum = Number("pfWage" in c ? c.pfWage : c.esiWage) || 0;
-    const eeNum = Number(c.employeeContribution) || 0;
-    const erNum = Number(c.employerContribution) || 0;
-
-    totalWage += wageNum;
-    totalEe += eeNum;
-    totalEr += erNum;
-
+  const lines: Line[] = contributions.map((c) => {
+    const included = "pfIncluded" in c ? c.pfIncluded : c.esiIncluded;
+    const wage = Number("pfWage" in c ? c.pfWage : c.esiWage) || 0;
+    const employee = Number(c.employeeContribution) || 0;
+    const employer = Number(c.employerContribution) || 0;
+    let eps = 0;
+    let epfEmployer = 0;
     if (isPf) {
       const pf = c as PfContribution;
-      const epsNum =
-        Number(pf.epsContribution) || Math.min(1250, wageNum * 0.0833);
-      const epfErNum =
-        Number(pf.epfEmployerContribution) || Math.max(0, erNum - epsNum);
-      totalEps += epsNum;
-      totalEpfEr += epfErNum;
-
-      rows.push(
-        [
-          safeCell(c.employee.employeeCode),
-          safeCell(c.employee.fullName),
-          safeCell(periodLabel),
-          safeCell(isIncluded ? "Yes" : "No"),
-          safeCell(wageNum.toFixed(2)),
-          safeCell(eeNum.toFixed(2)),
-          safeCell(epfErNum.toFixed(2)),
-          safeCell(epsNum.toFixed(2)),
-          safeCell(erNum.toFixed(2)),
-          safeCell((eeNum + erNum).toFixed(2)),
-          safeCell(c.paymentStatus),
-          safeCell(c.salaryCredited ? "Yes" : "No"),
-        ].join(","),
-      );
-    } else {
-      rows.push(
-        [
-          safeCell(c.employee.employeeCode),
-          safeCell(c.employee.fullName),
-          safeCell(periodLabel),
-          safeCell(isIncluded ? "Yes" : "No"),
-          safeCell(wageNum.toFixed(2)),
-          safeCell(eeNum.toFixed(2)),
-          safeCell(erNum.toFixed(2)),
-          safeCell((eeNum + erNum).toFixed(2)),
-          safeCell(c.paymentStatus),
-          safeCell(c.salaryCredited ? "Yes" : "No"),
-        ].join(","),
-      );
+      eps = Number(pf.epsContribution) || Math.min(1250, wage * 0.0833);
+      epfEmployer =
+        Number(pf.epfEmployerContribution) || Math.max(0, employer - eps);
     }
-  }
+    return {
+      code: c.employee.employeeCode,
+      name: c.employee.fullName,
+      covered: included ? "Yes" : "No",
+      wage,
+      employee,
+      employer,
+      eps,
+      epfEmployer,
+      status: c.paymentStatus,
+      credited: c.salaryCredited ? "Yes" : "No",
+    };
+  });
 
-  // Summary Row
-  if (isPf) {
-    rows.push(
-      [
-        safeCell("TOTALS"),
-        safeCell(`${contributions.length} Members`),
-        safeCell(""),
-        safeCell(""),
-        safeCell(totalWage.toFixed(2)),
-        safeCell(totalEe.toFixed(2)),
-        safeCell(totalEpfEr.toFixed(2)),
-        safeCell(totalEps.toFixed(2)),
-        safeCell(totalEr.toFixed(2)),
-        safeCell((totalEe + totalEr).toFixed(2)),
-        safeCell(""),
-        safeCell(""),
-      ].join(","),
-    );
-  } else {
-    rows.push(
-      [
-        safeCell("TOTALS"),
-        safeCell(`${contributions.length} Insured Persons`),
-        safeCell(""),
-        safeCell(""),
-        safeCell(totalWage.toFixed(2)),
-        safeCell(totalEe.toFixed(2)),
-        safeCell(totalEr.toFixed(2)),
-        safeCell((totalEe + totalEr).toFixed(2)),
-        safeCell(""),
-        safeCell(""),
-      ].join(","),
-    );
-  }
+  const common = {
+    first: [
+      { header: "Employee Code", value: (l: Line) => l.code },
+      { header: "Employee Name", value: (l: Line) => l.name },
+      { header: "Period", value: () => periodLabel },
+    ],
+    last: [
+      { header: "Payment Status", value: (l: Line) => l.status },
+      { header: "Salary Credited", value: (l: Line) => l.credited },
+    ],
+  };
+
+  const columns = isPf
+    ? [
+        ...common.first,
+        { header: "PF Covered", value: (l: Line) => l.covered },
+        {
+          header: "PF Wage (₹)",
+          value: (l: Line) => l.wage,
+          type: "amount" as const,
+        },
+        {
+          header: "Employee Share (12%) (₹)",
+          value: (l: Line) => l.employee,
+          type: "amount" as const,
+        },
+        {
+          header: "Employer EPF Share (3.67%) (₹)",
+          value: (l: Line) => l.epfEmployer,
+          type: "amount" as const,
+        },
+        {
+          header: "Employer EPS Share (8.33%) (₹)",
+          value: (l: Line) => l.eps,
+          type: "amount" as const,
+        },
+        {
+          header: "Total Employer Share (₹)",
+          value: (l: Line) => l.employer,
+          type: "amount" as const,
+        },
+        {
+          header: "Net Deposit (₹)",
+          value: (l: Line) => l.employee + l.employer,
+          type: "amount" as const,
+        },
+        ...common.last,
+      ]
+    : [
+        ...common.first,
+        { header: "ESI Covered", value: (l: Line) => l.covered },
+        {
+          header: "ESI Wage (₹)",
+          value: (l: Line) => l.wage,
+          type: "amount" as const,
+        },
+        {
+          header: "Employee Share (0.75%) (₹)",
+          value: (l: Line) => l.employee,
+          type: "amount" as const,
+        },
+        {
+          header: "Employer Share (3.25%) (₹)",
+          value: (l: Line) => l.employer,
+          type: "amount" as const,
+        },
+        {
+          header: "Net Deposit (₹)",
+          value: (l: Line) => l.employee + l.employer,
+          type: "amount" as const,
+        },
+        ...common.last,
+      ];
 
   const cleanPeriod = periodLabel.replace(/\s+/g, "_");
-  const fileName = `${kind.toUpperCase()}_Compliance_Report_${cleanPeriod}.csv`;
-  downloadText(fileName, rows.join("\r\n"), "text/csv;charset=utf-8");
+  await downloadWorkbook(
+    `${kind.toUpperCase()}_Compliance_Report_${cleanPeriod}`,
+    [
+      {
+        name: `${kind.toUpperCase()} Compliance`,
+        title: `TexaOne ERP — ${kind.toUpperCase()} Compliance Report — ${periodLabel}`,
+        totals: `TOTALS — ${contributions.length} ${isPf ? "members" : "insured persons"}`,
+        rows: lines,
+        columns,
+      },
+    ],
+  );
 }

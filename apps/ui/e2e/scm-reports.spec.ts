@@ -119,6 +119,6 @@ test("shows the reports dashboard and a procurement report row with a CSV export
     page.getByRole("row").filter({ hasText: supplierName }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Download CSV" }),
+    page.getByRole("button", { name: "Download Excel" }),
   ).toBeVisible();
 });

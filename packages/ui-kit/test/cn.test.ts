@@ -61,3 +61,73 @@ test("Button-style composition keeps white label colour", () => {
   ).split(" ");
   assert.ok(out.includes("text-white"));
 });
+
+// The real `primary` variant classes from components/button/index.tsx.
+const PRIMARY =
+  "bg-linear-135 from-blue-600 via-brand-500 to-cyan-500 hover:from-blue-700 hover:via-brand-600 hover:to-cyan-600 text-white dark:bg-linear-135 dark:from-blue-600 dark:via-brand-500 dark:to-cyan-500";
+
+test("a background colour replaces the variant gradient (tinted Edit/Delete buttons)", () => {
+  const out = cn(
+    PRIMARY,
+    "h-8 text-theme-xs",
+    "border border-sky-200 bg-sky-50/90 text-[#0284c7] dark:bg-sky-950/50",
+  ).split(" ");
+  assert.ok(out.includes("bg-sky-50/90"));
+  for (const gone of [
+    "bg-linear-135",
+    "from-blue-600",
+    "via-brand-500",
+    "to-cyan-500",
+    "dark:bg-linear-135",
+    "dark:from-blue-600",
+    "dark:via-brand-500",
+    "dark:to-cyan-500",
+  ]) {
+    assert.ok(!out.includes(gone), `${gone} should have been replaced: ${out}`);
+  }
+  assert.ok(out.includes("text-[#0284c7]"), "label colour kept");
+  assert.ok(!out.includes("text-white"), "variant white label replaced");
+});
+
+test("a solid colour override works (green, red, white call-site buttons)", () => {
+  for (const bg of [
+    "bg-emerald-600",
+    "bg-red-600",
+    "bg-white",
+    "bg-[#1769F5]",
+  ]) {
+    const out = cn(PRIMARY, bg).split(" ");
+    assert.ok(out.includes(bg));
+    assert.ok(!out.includes("bg-linear-135"), `${bg} left the gradient`);
+  }
+});
+
+test("without a colour override the gradient and white label are untouched", () => {
+  const out = cn(PRIMARY, "h-8 text-theme-xs px-3").split(" ");
+  for (const keep of [
+    "bg-linear-135",
+    "from-blue-600",
+    "to-cyan-500",
+    "text-white",
+  ]) {
+    assert.ok(out.includes(keep), `${keep} lost: ${out}`);
+  }
+});
+
+test("hover and dark overrides stay scoped to their own modifier", () => {
+  // A hover-only colour must not delete the resting gradient.
+  const hoverOnly = cn(PRIMARY, "hover:bg-sky-100").split(" ");
+  assert.ok(hoverOnly.includes("bg-linear-135"));
+  assert.ok(hoverOnly.includes("hover:bg-sky-100"));
+  // A dark-only colour must not delete the light-mode gradient.
+  const darkOnly = cn(PRIMARY, "dark:bg-slate-800").split(" ");
+  assert.ok(darkOnly.includes("bg-linear-135"));
+  assert.ok(!darkOnly.includes("dark:bg-linear-135"));
+});
+
+test("a gradient passed later still wins over an earlier colour", () => {
+  const out = cn("bg-white", "bg-linear-135 from-blue-600 to-cyan-500").split(
+    " ",
+  );
+  assert.ok(out.includes("bg-linear-135"));
+});

@@ -458,8 +458,8 @@ function BatchDetailDialog({
 
   function handleExportReconExcel() {
     if (!batch) return;
-    exportBatchPaymentsExcel(batch, filteredPayments);
     setExportDropdownOpen(false);
+    void exportBatchPaymentsExcel(batch, filteredPayments);
   }
 
   return (
@@ -700,7 +700,7 @@ function BatchDetailDialog({
                             className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
                             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                            Reconciliation (.xls)
+                            Reconciliation (.xlsx)
                           </button>
                         </div>
                       </>
@@ -940,8 +940,8 @@ export function PaymentsPanel() {
   }
 
   function handleExportExcel() {
-    exportPaymentBatchesExcel(filteredBatches);
     setExportOpen(false);
+    void exportPaymentBatchesExcel(filteredBatches);
   }
 
   // Permission fallback
@@ -1174,7 +1174,7 @@ export function PaymentsPanel() {
                     className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Export Excel (.xls)
+                    Export Excel (.xlsx)
                   </button>
                 </div>
               </>

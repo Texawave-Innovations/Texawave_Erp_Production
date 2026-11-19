@@ -184,19 +184,19 @@ export function OrgChartView() {
         action={
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               onClick={handleExpandAll}
-              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+              className="gap-1 rounded-xl px-3 py-1.5 text-xs font-medium"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               <span>Expand All</span>
             </Button>
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               onClick={handleCollapseAll}
-              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+              className="gap-1 rounded-xl px-3 py-1.5 text-xs font-medium"
             >
               <ChevronsDownUp className="h-3.5 w-3.5" />
               <span>Collapse All</span>

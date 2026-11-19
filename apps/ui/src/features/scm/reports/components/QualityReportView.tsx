@@ -23,7 +23,7 @@ export function QualityReportView() {
       noun="inspections"
       query={query}
       getRowKey={(r) => r.inspectionNumber}
-      fileName="scm-quality-report.csv"
+      fileName="scm-quality-report.xlsx"
       emptyDescription="QC inspections will appear here once one is created."
       columns={[
         {
@@ -60,15 +60,23 @@ export function QualityReportView() {
         { header: "Defects", align: "right", cell: (r) => r.defects },
         { header: "Date", cell: (r) => formatDate(r.inspectionDate) },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Inspection Number", value: (r) => r.inspectionNumber },
         { header: "Type", value: (r) => r.type },
         { header: "Source", value: (r) => r.source },
         { header: "Status", value: (r) => r.status },
         { header: "Result", value: (r) => r.result },
-        { header: "Defects", value: (r) => r.defects },
-        { header: "Inspection Date", value: (r) => r.inspectionDate },
-        { header: "Completed At", value: (r) => r.completedAt },
+        { header: "Defects", value: (r) => r.defects, type: "integer" },
+        {
+          header: "Inspection Date",
+          value: (r) => r.inspectionDate,
+          type: "date",
+        },
+        {
+          header: "Completed At",
+          value: (r) => r.completedAt,
+          type: "datetime",
+        },
       ]}
     />
   );

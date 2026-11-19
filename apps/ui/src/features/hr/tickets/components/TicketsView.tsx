@@ -53,6 +53,7 @@ import { RaiseTicketDialog } from "./RaiseTicketDialog";
 import { TicketDetailDialog } from "./TicketDetailDialog";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 
+import { downloadWorkbook } from "@/lib/spreadsheet";
 const PAGE_SIZE = 10;
 
 type ViewMode = "feed" | "table";
@@ -334,46 +335,53 @@ export function TicketsView() {
   }
 
   // Export to Excel / CSV
-  function handleExport() {
+  async function handleExport() {
     if (allTickets.length === 0) {
       toast({ title: "No tickets to export", variant: "warning" });
       return;
     }
-    const headers = [
-      "Ticket ID",
-      "Subject",
-      "Category",
-      "Status",
-      "Employee Name",
-      "Employee Code",
-      "Raised By Admin",
-      "Created At",
-      "Resolved At",
-    ];
-    const rows = allTickets.map((t) => [
-      formatTicketId(t.id),
-      `"${(t.subject || "").replace(/"/g, '""')}"`,
-      t.category,
-      t.status,
-      `"${(t.employee?.fullName || "").replace(/"/g, '""')}"`,
-      employeeCodeMap.get(t.employee?.id) || "",
-      t.raisedByAdmin ? "Yes" : "No",
-      formatTicketDate(t.createdAt),
-      t.resolvedAt ? formatTicketDate(t.resolvedAt) : "",
-    ]);
-    const csvContent =
-      "\uFEFF" +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `texaone_tickets_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast({ title: "Tickets exported successfully", variant: "success" });
+    try {
+      await downloadWorkbook(
+        `texaone_tickets_${new Date().toISOString().slice(0, 10)}`,
+        [
+          {
+            name: "Tickets",
+            rows: allTickets,
+            columns: [
+              { header: "Ticket ID", value: (t) => formatTicketId(t.id) },
+              { header: "Subject", value: (t) => t.subject || "" },
+              { header: "Category", value: (t) => t.category },
+              { header: "Status", value: (t) => t.status },
+              {
+                header: "Employee Name",
+                value: (t) => t.employee?.fullName || "",
+              },
+              {
+                header: "Employee Code",
+                value: (t) => employeeCodeMap.get(t.employee?.id) || "",
+              },
+              {
+                header: "Raised By Admin",
+                value: (t) => (t.raisedByAdmin ? "Yes" : "No"),
+              },
+              {
+                header: "Created At",
+                value: (t) => t.createdAt,
+                type: "datetime",
+              },
+              {
+                header: "Resolved At",
+                value: (t) => t.resolvedAt,
+                type: "datetime",
+              },
+            ],
+          },
+        ],
+      );
+      toast({ title: "Tickets exported successfully", variant: "success" });
+    } catch {
+      toast({ title: "Could not export tickets", variant: "error" });
+    }
   }
 
   const activeTicket = useMemo(() => {
@@ -437,9 +445,9 @@ export function TicketsView() {
 
             {/* Export Excel Button */}
             <Button
-              variant="secondary"
+              variant="glass"
               onClick={handleExport}
-              className="gap-1.5 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3.5 py-2 font-medium text-xs"
+              className="gap-1.5 rounded-xl px-3.5 py-2 font-medium text-xs"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export Excel</span>
@@ -448,9 +456,9 @@ export function TicketsView() {
             {/* My Tickets */}
             {canSelfService ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => router.push("/portal/tickets")}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3.5 py-2 font-medium text-xs"
+                className="gap-2 rounded-xl px-3.5 py-2 font-medium text-xs"
               >
                 <span>My tickets</span>
               </Button>

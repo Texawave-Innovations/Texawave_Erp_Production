@@ -69,6 +69,7 @@ import { ExpenseClaimDetailsDialog } from "./ExpenseClaimDetailsDialog";
 import { ExpenseClaimStatusBadge } from "./ExpenseClaimStatusBadge";
 import { SubmitExpenseClaimDialog } from "./SubmitExpenseClaimDialog";
 
+import { downloadWorkbook } from "@/lib/spreadsheet";
 const PAGE_SIZE = 10;
 
 type TabKey = "mine" | "team";
@@ -445,58 +446,72 @@ export function ExpenseApprovalsView() {
   }
 
   // Export to Excel / CSV
-  function handleExport() {
+  async function handleExport() {
     const claimsToExport = activeTab === "mine" ? myClaimsAll : teamClaimsAll;
     if (claimsToExport.length === 0) {
       toast({ title: "No expense claims to export", variant: "warning" });
       return;
     }
-    const headers = [
-      "Claim ID",
-      "Employee Name",
-      "Employee Code",
-      "Expense Type",
-      "Amount (INR)",
-      "Expense Date",
-      "Description",
-      "Receipt Ref",
-      "Status",
-      "Decided By",
-      "Decided At",
-      "Decision Note",
-      "Submitted On",
-    ];
-    const rows = claimsToExport.map((c) => [
-      c.id,
-      `"${(c.employee?.fullName || "").replace(/"/g, '""')}"`,
-      employeeCodeMap.get(c.employee?.id) || "",
-      c.expenseType,
-      c.amount,
-      c.expenseDate,
-      `"${(c.description || "").replace(/"/g, '""')}"`,
-      c.receiptRef || "",
-      c.status,
-      `"${(c.decidedBy?.fullName || "").replace(/"/g, '""')}"`,
-      c.decidedAt ? formatExpenseDate(c.decidedAt) : "",
-      `"${(c.decisionNote || "").replace(/"/g, '""')}"`,
-      c.createdAt ? formatExpenseDate(c.createdAt) : "",
-    ]);
-    const csvContent =
-      "\uFEFF" +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `texaone_expense_claims_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast({
-      title: "Expense claims exported successfully",
-      variant: "success",
-    });
+    try {
+      await downloadWorkbook(
+        `texaone_expense_claims_${activeTab}_${new Date().toISOString().slice(0, 10)}`,
+        [
+          {
+            name: "Expense Claims",
+            rows: claimsToExport,
+            columns: [
+              { header: "Claim ID", value: (c) => c.id, type: "integer" },
+              {
+                header: "Employee Name",
+                value: (c) => c.employee?.fullName || "",
+              },
+              {
+                header: "Employee Code",
+                value: (c) => employeeCodeMap.get(c.employee?.id) || "",
+              },
+              { header: "Expense Type", value: (c) => c.expenseType },
+              {
+                header: "Amount (INR)",
+                value: (c) => c.amount,
+                type: "amount",
+              },
+              {
+                header: "Expense Date",
+                value: (c) => c.expenseDate,
+                type: "date",
+              },
+              { header: "Description", value: (c) => c.description || "" },
+              { header: "Receipt Ref", value: (c) => c.receiptRef || "" },
+              { header: "Status", value: (c) => c.status },
+              {
+                header: "Decided By",
+                value: (c) => c.decidedBy?.fullName || "",
+              },
+              {
+                header: "Decided At",
+                value: (c) => c.decidedAt,
+                type: "datetime",
+              },
+              {
+                header: "Decision Note",
+                value: (c) => c.decisionNote || "",
+              },
+              {
+                header: "Submitted On",
+                value: (c) => c.createdAt,
+                type: "datetime",
+              },
+            ],
+          },
+        ],
+      );
+      toast({
+        title: "Expense claims exported successfully",
+        variant: "success",
+      });
+    } catch {
+      toast({ title: "Could not export expense claims", variant: "error" });
+    }
   }
 
   if (!canReadMine && !canReadAny) {
@@ -551,9 +566,9 @@ export function ExpenseApprovalsView() {
 
             {/* Export Excel Button */}
             <Button
-              variant="secondary"
+              variant="glass"
               onClick={handleExport}
-              className="gap-1.5 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3.5 py-2 font-medium text-xs"
+              className="gap-1.5 rounded-xl px-3.5 py-2 font-medium text-xs"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Download Excel</span>

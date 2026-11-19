@@ -56,6 +56,7 @@ export class EmployeeLifecycleService {
       scope.organizationId,
       employee.userId,
       dto.password,
+      this.tenantContext.getUserId(),
     );
     return toDetail(employee);
   }

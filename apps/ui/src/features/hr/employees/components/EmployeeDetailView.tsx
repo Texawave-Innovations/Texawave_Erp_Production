@@ -534,7 +534,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 {canReadProfile ? (
                   <Link
                     href={`/hr/employees/${e.id}/profile`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-755"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-750"
                   >
                     <User className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
                     View Employee Profile
@@ -543,7 +543,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 {canRead ? (
                   <Link
                     href={`/hr/employees/${e.id}/onboarding`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-755"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-750"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
                     View Onboarding Checklist
@@ -693,7 +693,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                   ) : null}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Employee can update their profile after login
+                  Temporary password. The employee must change it at next login.
                 </p>
               </div>
             </div>

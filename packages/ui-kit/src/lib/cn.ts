@@ -28,6 +28,17 @@ const twMerge = extendTailwindMerge({
     classGroups: {
       "font-size": [{ text: [...CUSTOM_FONT_SIZES] }],
     },
+    /**
+     * `Button` variants paint a gradient (`bg-linear-135 from-* via-* to-*`),
+     * which is a background IMAGE. A call site that passes `bg-sky-50` or
+     * `bg-emerald-600` means "use this colour instead", but a colour does not
+     * replace an image, so the gradient kept showing underneath and the
+     * tinted label colours became unreadable. A later background colour now
+     * drops the earlier gradient (and its stops), for the same modifier.
+     */
+    conflictingClassGroups: {
+      "bg-color": ["bg-image", "gradient-from", "gradient-via", "gradient-to"],
+    },
   },
 });
 

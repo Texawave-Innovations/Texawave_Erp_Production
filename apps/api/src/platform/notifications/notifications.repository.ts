@@ -186,7 +186,11 @@ export class NotificationsRepository {
         return u.userRoles.some((ur) =>
           ur.role.rolePermissions.some(
             (rp) =>
-              rp.permission.code.startsWith("hr.") ||
+              // `hr.workspace.access` is held by HR staff only; a bare
+              // `hr.` prefix also matched the Employee/Team Lead roles
+              // (`hr.holiday.read`, `hr.*.read.team`, ...) and leaked ticket
+              // and task content to them.
+              rp.permission.code === "hr.workspace.access" ||
               rp.permission.code.startsWith("settings."),
           ),
         );

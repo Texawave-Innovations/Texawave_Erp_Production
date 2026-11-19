@@ -61,7 +61,7 @@ import { StatusPill, statusLabel } from "./PayrollStatusBadge";
 import { PeriodFilterSelect } from "./PeriodFilterSelect";
 import { QueryState } from "./QueryState";
 import {
-  exportComplianceCsv,
+  exportComplianceExcel,
   exportEsicReturnCsv,
   exportPfEcrText,
 } from "./compliance-export";
@@ -1211,13 +1211,13 @@ function ContributionsSection({ kind }: { kind: ComplianceKind }) {
             size="sm"
             variant="secondary"
             onClick={() =>
-              exportComplianceCsv(allRows, kind, currentPeriodName)
+              void exportComplianceExcel(allRows, kind, currentPeriodName)
             }
             disabled={allRows.length === 0}
             className="flex items-center gap-1.5 text-xs font-semibold"
           >
             <FileText className="h-3.5 w-3.5 text-slate-600" />
-            Export CSV
+            Export Excel
           </Button>
 
           <Button

@@ -103,7 +103,7 @@ export class UnlinkEmployeeUserDto {
 export class SetPortalPasswordDto {
   @ApiProperty({
     description:
-      "New portal login password for the linked user (6–72 chars). Set by HR on behalf of the employee.",
+      "Temporary portal login password for the linked user (6–72 chars). Set by HR on behalf of the employee; the employee must change it on next login.",
     minLength: 6,
     maxLength: 72,
   })

@@ -213,14 +213,17 @@ export class EmployeesController {
     return this.personalData.updateBank(id, dto);
   }
 
+  // Aadhaar/PAN are returned unmasked, so this is gated by the dedicated
+  // sensitive permission (same boundary as the profiles module), not the
+  // ordinary employee.read that Team Leads hold.
   @Get(":id/government-ids")
-  @RequireScopedPermission("hr.employee.read")
+  @RequirePermission("hr.employee_sensitive.read")
   getGovernmentIds(@Param("id", ParseIntPipe) id: number) {
     return this.personalData.getGovernmentIds(id);
   }
 
   @Put(":id/government-ids")
-  @RequireScopedPermission("hr.employee.write")
+  @RequirePermission("hr.employee_sensitive.write")
   putGovernmentIds(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: GovernmentIdsDto,
