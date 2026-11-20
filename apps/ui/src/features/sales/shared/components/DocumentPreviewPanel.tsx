@@ -32,7 +32,7 @@ export function DocumentPreviewPanel({
           Live preview
         </h2>
         <span className="rounded-full border border-gray-200 px-2.5 py-0.5 text-theme-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-          {loading ? "Updating…" : "A4"}
+          {loading ? "Updating…" : "A4 printable template"}
         </span>
       </div>
       {error ? (

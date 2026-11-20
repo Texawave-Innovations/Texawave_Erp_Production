@@ -31,6 +31,7 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SALES_PERMISSIONS } from "../../permissions";
+import { stateAbbreviation } from "../../shared/gst";
 import { useCustomers, useDeleteCustomer } from "../hooks";
 import type { Customer, CustomerStatus } from "../types";
 import { CustomerInvoiceHistoryDialog } from "./CustomerInvoiceHistoryDialog";
@@ -254,7 +255,7 @@ export function CustomersView() {
                   c.gstin ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pr-3 pl-1 text-theme-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-200">
                       <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                        {c.gstin.slice(0, 2)}
+                        {stateAbbreviation(c.gstin.slice(0, 2))}
                       </span>
                       {c.gstin}
                     </span>

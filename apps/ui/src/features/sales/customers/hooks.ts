@@ -21,12 +21,12 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useCustomers(query: CustomerListQuery) {
+export function useCustomers(query: CustomerListQuery, enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, SALES_KEY, "customers", "list", query),
     queryFn: () => listCustomers(query),
-    enabled: orgId > 0,
+    enabled: enabled && orgId > 0,
     placeholderData: keepPreviousData,
   });
 }

@@ -3,7 +3,6 @@
 import { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Receipt } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -14,6 +13,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { PricedDocumentForm } from "../../shared/components/PricedDocumentForm";
 import type { BankDetails } from "../../shared/documents";
 import { todayIst } from "../../shared/format";
@@ -43,17 +43,6 @@ function NoWriteAccess() {
   );
 }
 
-function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-    >
-      ← {label}
-    </Link>
-  );
-}
-
 export function InvoiceCreateView({
   invoiceType,
 }: {
@@ -73,12 +62,13 @@ export function InvoiceCreateView({
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={listPathOf(invoiceType)} label="Back to invoices" />
       <PageHeader
         variant="banner"
         title={`New ${INVOICE_LABEL[invoiceType].toLowerCase()}`}
         description="Taxes and totals are worked out by the server as you type."
-        icon={Receipt}
+        icon={
+          <BackArrow href={listPathOf(invoiceType)} label="Back to invoices" />
+        }
       />
       <PricedDocumentForm
         config={INVOICE_FORM}
@@ -139,12 +129,13 @@ export function InvoiceEditView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`/sales/invoices/${id}`} label="Back to invoice" />
       <PageHeader
         variant="banner"
         title={`Edit ${inv.invoiceNumber}`}
         description={inv.customerSnapshot.companyName}
-        icon={Receipt}
+        icon={
+          <BackArrow href={`/sales/invoices/${id}`} label="Back to invoice" />
+        }
       />
       {Number(inv.amountReceived) > 0 ? (
         <Alert variant="info" title="Payments already received">

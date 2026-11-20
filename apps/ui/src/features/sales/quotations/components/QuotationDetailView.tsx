@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Download,
-  FileText,
   Mail,
   MessageCircle,
   Pencil,
@@ -16,15 +15,16 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DeleteConfirmDialog,
   ErrorState,
   PageHeader,
+  SectionCard,
   Skeleton,
   StatusBadge,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
@@ -132,17 +132,11 @@ export function QuotationDetailView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link
-        href="/sales/quotations"
-        className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-      >
-        ← Back to quotations
-      </Link>
       <PageHeader
         variant="banner"
         title={q.quotationNumber}
         description={`${q.customerSnapshot.companyName} · ${formatDate(q.quotationDate)}`}
-        icon={FileText}
+        icon={<BackArrow href="/sales/quotations" label="Back to quotations" />}
         badge={<QuotationStatusBadge status={q.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -206,15 +200,19 @@ export function QuotationDetailView({ id }: { id: number }) {
       ) : null}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Card className="flex flex-col gap-3 xl:col-span-1">
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Summary
-          </h2>
-          <dl className="flex flex-col gap-2">
+        <SectionCard
+          title="Summary"
+          description={`${q.lines.length} ${q.lines.length === 1 ? "item" : "items"}`}
+          className="xl:col-span-1 xl:self-start"
+        >
+          <dl className="flex flex-col gap-2.5">
             <Fact label="Customer" value={q.customerSnapshot.companyName} />
             <Fact label="Validity" value={q.validity ?? "—"} />
             <Fact label="Delivery" value={q.deliveryTerms ?? "—"} />
-            <Fact label="Items" value={q.lines.length} />
+            <Fact label="Prepared by" value={q.preparedBy ?? "—"} />
+          </dl>
+          <hr className="border-gray-200 dark:border-gray-800" />
+          <dl className="flex flex-col gap-2.5">
             <Fact label="Taxable amount" value={formatInr(q.taxableAmount)} />
             {q.taxMode === "INTRA" ? (
               <>
@@ -233,13 +231,16 @@ export function QuotationDetailView({ id }: { id: number }) {
                 value={formatInr(q.igstAmount)}
               />
             )}
-            <Fact
-              label="Total"
-              value={<strong>{formatInr(q.totalAmount)}</strong>}
-            />
-            <Fact label="Prepared by" value={q.preparedBy ?? "—"} />
           </dl>
-        </Card>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-3 dark:bg-sky-500/10">
+            <span className="text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+              Total
+            </span>
+            <span className="text-theme-xl font-bold text-brand-700 dark:text-sky-300">
+              {formatInr(q.totalAmount)}
+            </span>
+          </div>
+        </SectionCard>
         <div className="xl:col-span-2">
           <DocumentPdfPanel
             path={`${base}/pdf`}
