@@ -31,6 +31,8 @@ export interface DataTableProps<T> {
   className?: string | undefined;
   tableClassName?: string | undefined;
   density?: "comfortable" | "compact" | undefined;
+  /** A thin border on every cell: a full grid of row and column lines. */
+  bordered?: boolean | undefined;
 
   // Loading, Empty & Error States
   loading?: boolean | undefined;
@@ -135,6 +137,7 @@ export function DataTable<T>({
   className,
   tableClassName,
   density = "comfortable",
+  bordered = false,
   loading = false,
   loadingRowsCount = 6,
   loadingSkeleton,
@@ -224,7 +227,16 @@ export function DataTable<T>({
         className,
       )}
     >
-      <table className={cn("w-full text-left text-theme-sm", tableClassName)}>
+      <table
+        className={cn(
+          "w-full text-left text-theme-sm",
+          // Collapsed single lines; the card's own border is the outer edge,
+          // so the cells' outer edges are dropped to avoid a doubled line.
+          bordered &&
+            "border-collapse [&_th]:border [&_th]:border-sky-300/80 [&_td]:border [&_td]:border-slate-300/80 [&_tr>*:first-child]:border-l-0 [&_tr>*:last-child]:border-r-0 [&_thead_th]:border-t-0 [&_tbody_tr:last-child>td]:border-b-0 dark:[&_th]:border-gray-700 dark:[&_td]:border-gray-700",
+          tableClassName,
+        )}
+      >
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead className="border-b border-sky-200/90 bg-linear-to-r from-sky-200/80 via-cyan-100/90 to-sky-100/80 dark:border-gray-800 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850">
           <tr>

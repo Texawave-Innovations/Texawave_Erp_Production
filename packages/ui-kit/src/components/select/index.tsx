@@ -35,6 +35,15 @@ export interface SelectProps extends Omit<
   triggerClassName?: string | undefined;
   menuClassName?: string | undefined;
   prefixIcon?: ReactNode | undefined;
+  /** Search box at the top of the open menu. Default: on. */
+  searchable?: boolean | undefined;
+  /**
+   * Server-side search: called as the user types in the menu's search box (and
+   * with "" when the menu closes). When given, the options are NOT filtered
+   * locally — the caller replaces `children` with the matching options.
+   */
+  onSearchChange?: ((query: string) => void) | undefined;
+  searchPlaceholder?: string | undefined;
 }
 
 function ChevronDownIcon({
@@ -77,6 +86,13 @@ function CheckIcon({
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
+}
+
+/** The text an option is searched by. */
+function optionText(o: SelectOptionItem): string {
+  return typeof o.label === "string" || typeof o.label === "number"
+    ? String(o.label)
+    : o.value;
 }
 
 /** Recursively parse <option> and <optgroup> children into structured options */
@@ -126,6 +142,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       triggerClassName,
       menuClassName,
       prefixIcon,
+      searchable = true,
+      onSearchChange,
+      searchPlaceholder = "Search...",
       children,
       value,
       defaultValue,
@@ -161,9 +180,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       openAbove: false,
     });
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const [query, setQuery] = useState("");
+    const searchRef = useRef<HTMLInputElement | null>(null);
 
     // Extract options from children
     const options = useMemo(() => extractOptions(children), [children]);
+
+    // Local filtering, unless the caller searches server-side.
+    const visibleOptions = useMemo(() => {
+      const q = query.trim().toLowerCase();
+      if (!searchable || !q || onSearchChange) return options;
+      return options.filter((o) => optionText(o).toLowerCase().includes(q));
+    }, [options, query, searchable, onSearchChange]);
 
     // Track internal value for uncontrolled mode
     const [internalValue, setInternalValue] = useState<string>(() => {
@@ -213,8 +241,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       const rect = triggerRef.current.getBoundingClientRect();
 
       const estimatedMenuHeight = Math.min(
-        Math.max(options.length * 36 + 16, 60),
-        280,
+        Math.max(options.length * 36 + 16, 60) + (searchable ? 52 : 0),
+        332,
       );
       const viewportHeight = window.innerHeight;
       const spaceBelow = viewportHeight - rect.bottom;
@@ -232,7 +260,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       );
 
       setCoords({ top, left, width, openAbove });
-    }, [options.length]);
+    }, [options.length, searchable]);
 
     // Handle outside clicks
     useEffect(() => {
@@ -270,10 +298,25 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     useEffect(() => {
       if (isOpen) {
         updatePosition();
-        const activeIdx = options.findIndex((opt) => opt.value === currentVal);
+        const activeIdx = visibleOptions.findIndex(
+          (opt) => opt.value === currentVal,
+        );
         setHighlightedIndex(activeIdx >= 0 ? activeIdx : 0);
       }
-    }, [isOpen, options, currentVal, updatePosition]);
+    }, [isOpen, visibleOptions, currentVal, updatePosition]);
+
+    // Focus the search box when the menu opens; clear the search when it closes.
+    useEffect(() => {
+      if (isOpen) {
+        if (searchable) {
+          const id = requestAnimationFrame(() => searchRef.current?.focus());
+          return () => cancelAnimationFrame(id);
+        }
+        return;
+      }
+      setQuery("");
+      onSearchChange?.("");
+    }, [isOpen]);
 
     // Selection handler that coordinates with the native <select>
     const handleSelectOption = useCallback(
@@ -347,15 +390,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           setHighlightedIndex((prev) => {
             const delta = e.key === "ArrowDown" ? 1 : -1;
             const next = prev + delta;
-            if (next < 0) return options.length - 1;
-            if (next >= options.length) return 0;
+            if (next < 0) return visibleOptions.length - 1;
+            if (next >= visibleOptions.length) return 0;
             return next;
           });
         }
       } else if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        if (isOpen && highlightedIndex >= 0 && options[highlightedIndex]) {
-          const opt = options[highlightedIndex];
+        if (
+          isOpen &&
+          highlightedIndex >= 0 &&
+          visibleOptions[highlightedIndex]
+        ) {
+          const opt = visibleOptions[highlightedIndex];
           if (!opt.disabled) {
             handleSelectOption(opt.value);
           }
@@ -370,24 +417,39 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     // Keyboard navigation within listbox
     const handleMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+      // In the search box, Space / Home / End are text editing keys.
+      if (
+        e.target instanceof HTMLInputElement &&
+        (e.key === " " || e.key === "Home" || e.key === "End")
+      ) {
+        return;
+      }
+      if (visibleOptions.length === 0) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setIsOpen(false);
+          triggerRef.current?.focus();
+        }
+        return;
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHighlightedIndex((prev) => (prev + 1) % options.length);
+        setHighlightedIndex((prev) => (prev + 1) % visibleOptions.length);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setHighlightedIndex(
-          (prev) => (prev - 1 + options.length) % options.length,
+          (prev) => (prev - 1 + visibleOptions.length) % visibleOptions.length,
         );
       } else if (e.key === "Home") {
         e.preventDefault();
         setHighlightedIndex(0);
       } else if (e.key === "End") {
         e.preventDefault();
-        setHighlightedIndex(options.length - 1);
+        setHighlightedIndex(visibleOptions.length - 1);
       } else if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        if (highlightedIndex >= 0 && options[highlightedIndex]) {
-          const opt = options[highlightedIndex];
+        if (highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+          const opt = visibleOptions[highlightedIndex];
           if (!opt.disabled) {
             handleSelectOption(opt.value);
           }
@@ -400,7 +462,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     };
 
     return (
-      <div className={cn("relative inline-block w-full text-left", className)}>
+      <div
+        data-select-root=""
+        className={cn("relative inline-block w-full text-left", className)}
+      >
         {/* Hidden native select for standard form and React hook form compatibility */}
         <select
           ref={setRef}
@@ -433,7 +498,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           onClick={toggleMenu}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            "group flex w-full items-center justify-between gap-2.5 rounded-xl border border-sky-100/90 bg-white/90 px-3.5 py-2 text-left text-theme-sm text-slate-800 shadow-2xs backdrop-blur-md transition-all duration-200 hover:border-sky-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-100 dark:hover:border-sky-700 cursor-pointer",
+            "group flex h-10 w-full items-center justify-between gap-2.5 rounded-xl border border-sky-100/90 bg-white/90 px-3.5 py-2 text-left text-theme-sm text-slate-800 shadow-2xs backdrop-blur-md transition-all duration-200 hover:border-sky-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-100 dark:hover:border-sky-700 cursor-pointer",
             invalid &&
               "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-500",
             disabled &&
@@ -478,6 +543,24 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 menuClassName,
               )}
             >
+              {searchable ? (
+                <div className="px-0.5 pb-1.5">
+                  <input
+                    ref={searchRef}
+                    type="search"
+                    role="searchbox"
+                    aria-label="Search options"
+                    aria-controls={listboxId}
+                    value={query}
+                    placeholder={searchPlaceholder}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      onSearchChange?.(e.target.value);
+                    }}
+                    className="h-9 w-full rounded-xl border border-sky-100/90 bg-white px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/25 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 [&::-webkit-search-cancel-button]:hidden"
+                  />
+                </div>
+              ) : null}
               <motion.div
                 initial={{
                   opacity: 0,
@@ -497,12 +580,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 }}
                 className="max-h-65 overflow-y-auto space-y-0.5 overscroll-contain pr-0.5"
               >
-                {options.length === 0 ? (
+                {visibleOptions.length === 0 ? (
                   <div className="py-3 px-3 text-center text-xs text-slate-400">
-                    No options available
+                    {query.trim() ? "No matches" : "No options available"}
                   </div>
                 ) : (
-                  options.map((opt, idx) => {
+                  visibleOptions.map((opt, idx) => {
                     const isSelected = String(currentVal) === String(opt.value);
                     const isHighlighted = highlightedIndex === idx;
 

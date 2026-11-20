@@ -718,6 +718,8 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `caption?: string` (Rendered with accessible `.sr-only` class)
   - `className?: string`
   - `tableClassName?: string`
+  - `density?: "comfortable" | "compact"`
+  - `bordered?: boolean` (Default `false`; a thin border on every cell, a full row-and-column grid)
   - **Loading, Empty & Error State Slots:**
     - `loading?: boolean` (Renders `TableSkeleton` or `loadingSkeleton` slot)
     - `loadingRowsCount?: number` (Default: `6`)
@@ -750,17 +752,18 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 - **Location:** `packages/ui-kit/src/components/table-toolbar/index.tsx`
 - **Public API:**
   - `search?: ReactNode | TableToolbarSearchConfig`
-    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="sm"`.
+    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="md"` (h-10, same height as `Select`).
   - `filters?: ReactNode` (Slot for select dropdowns, date pickers, or custom filter controls)
   - `chips?: ReactNode` (Slot for active filter chips rendered in dedicated bottom shelf)
   - `actions?: ReactNode` (Slot for primary/secondary buttons, e.g. "New Record")
   - `bulkActions?: ReactNode` (Slot for bulk actions when rows are selected)
-  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `12 results`)
+  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `1 result` / `12 results`; shown at the right end of the row)
   - `hasActiveFilters?: boolean` (Default: `false`)
   - `onClearFilters?: () => void` (Reset/clear callback)
   - `clearFiltersLabel?: string` (Default: `"Clear filters"`)
   - `className?: string`
   - `children?: ReactNode`
+- **Layout:** one row — search (grows, `max-w-sm`), `filters` inline, then count / "Clear filters" / `bulkActions` / `actions` at the right end. Any `Select` inside `filters` (even inside a wrapper div) defaults to `w-44` from `sm` up (`Select`'s root carries `data-select-root`); below `sm` search and filters stack at full width.
 - **Accessibility & Structure:**
   - Outer region declared with `role="region" aria-label="Table management toolbar"`.
   - Form controls inside toolbar feature high-contrast idle borders (`border-gray-500` / 4.76:1 contrast ratio) conforming to WCAG SC 1.4.11.
