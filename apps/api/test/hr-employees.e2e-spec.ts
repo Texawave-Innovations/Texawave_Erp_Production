@@ -46,6 +46,8 @@ const PERMS = [
   "hr.employee_status.write",
   "hr.employee_status.correct",
   "hr.employee_account.write",
+  "hr.employee_sensitive.read",
+  "hr.employee_sensitive.write",
   "employee_self_service.profile.read",
   "audit.log.read",
 ];
@@ -280,6 +282,14 @@ describe("HR employees (e2e)", () => {
       "hr.employee_account.write",
       "audit.log.read",
     ]);
+    // Holds the dedicated sensitive-data permissions (HR Manager has them by
+    // default); hrAll above deliberately does not.
+    await mkUser(orgA, "sensitiveHr", [
+      "hr.employee.read.all",
+      "hr.employee.write.all",
+      "hr.employee_sensitive.read",
+      "hr.employee_sensitive.write",
+    ]);
     await mkUser(orgA, "corrector", [
       "hr.employee.read.all",
       "hr.employee_status.correct",
@@ -420,7 +430,7 @@ describe("HR employees (e2e)", () => {
         reason: "abc",
       }).expect(403);
       await post("corrector", `/hr/employees/${e1.id}/link-user`, {
-        userId: userIds.linkable1,
+        userId: userIds.linkable1 as number,
       }).expect(403);
     });
 
@@ -544,6 +554,43 @@ describe("HR employees (e2e)", () => {
           },
         }),
       ).rejects.toThrow(/Unique constraint/);
+    });
+
+    it("EMP-12: a writer without hr.employee_account.write cannot link a login at creation", async () => {
+      const before = await prisma.employee.count({
+        where: { userId: userIds.linkable1 as number },
+      });
+      const res = await request(app.getHttpServer())
+        .post("/hr/employees")
+        .set(auth("writerT1"))
+        .send({
+          fullName: "Linked By Writer",
+          teamId: team1,
+          designationId: desig,
+          employmentTypeId: empType,
+          dateOfJoining: "2026-01-01",
+          userId: userIds.linkable1 as number,
+        });
+      expect(res.status).toBe(403);
+      expect(
+        await prisma.employee.count({
+          where: { userId: userIds.linkable1 as number },
+        }),
+      ).toBe(before);
+    });
+
+    it("EMP-12: the same writer can still create an employee without a userId", async () => {
+      const res = await request(app.getHttpServer())
+        .post("/hr/employees")
+        .set(auth("writerT1"))
+        .send({
+          fullName: "Plain Create By Writer",
+          teamId: team1,
+          designationId: desig,
+          employmentTypeId: empType,
+          dateOfJoining: "2026-01-01",
+        });
+      expect(res.status).toBe(201);
     });
 
     it("links an existing user at creation and audits the link", async () => {
@@ -1492,11 +1539,11 @@ describe("HR employees (e2e)", () => {
 
     it("links a login and the user then sees exactly their own record", async () => {
       const res = await post("hrAll", `/hr/employees/${emp.id}/link-user`, {
-        userId: userIds.linkable1,
+        userId: userIds.linkable1 as number,
         reason: "onboarding",
       }).expect(200);
       expect((res.body as Body<Emp>).data).toMatchObject({
-        userId: userIds.linkable1,
+        userId: userIds.linkable1 as number,
         hasLogin: true,
       });
       const mine = (
@@ -1539,7 +1586,7 @@ describe("HR employees (e2e)", () => {
 
     it("link is idempotent for the same user and audited once", async () => {
       await post("hrAll", `/hr/employees/${emp.id}/link-user`, {
-        userId: userIds.linkable1,
+        userId: userIds.linkable1 as number,
       }).expect(200);
       const n = await prisma.auditLog.count({
         where: {
@@ -1557,7 +1604,7 @@ describe("HR employees (e2e)", () => {
       }).expect(409);
       const other = await createEmp("hrAll");
       await post("hrAll", `/hr/employees/${other.id}/link-user`, {
-        userId: userIds.linkable1,
+        userId: userIds.linkable1 as number,
       }).expect(409);
       expect(
         (
@@ -1618,6 +1665,174 @@ describe("HR employees (e2e)", () => {
   });
 
   // ---------------------------------------------------------------------------
+  describe("EMP-1 / EMP-16: HR edits to personal, bank and government-ID data", () => {
+    const put = (who: string, path: string, body: object) =>
+      request(app.getHttpServer()).put(path).set(auth(who)).send(body);
+    const profileAudit = (action: string) =>
+      prisma.auditLog.findMany({
+        where: {
+          entityType: "employee_profile",
+          entityId: BigInt(e1.id),
+          action,
+        },
+        orderBy: { id: "asc" },
+      });
+    const metaOf = (rows: Awaited<ReturnType<typeof profileAudit>>) =>
+      JSON.stringify(rows.map((r) => [r.before, r.after, r.reason]));
+    const GOV = { aadhaarNumber: "123412341234", panNumber: "ABCDE1234F" };
+
+    it("EMP-1: government IDs need hr.employee_sensitive.*, not just employee read/write", async () => {
+      // Team lead (employee.read.team), and HR with employee.read/write.all but
+      // no sensitive permission: refused on both read and write.
+      await get("leadT1", `/hr/employees/${e1.id}/government-ids`).expect(403);
+      await get("hrAll", `/hr/employees/${e1.id}/government-ids`).expect(403);
+      await put("hrAll", `/hr/employees/${e1.id}/government-ids`, GOV).expect(
+        403,
+      );
+      expect(
+        await prisma.employeeGovernmentId.findUnique({
+          where: { employeeId: e1.id },
+        }),
+      ).toBeNull();
+
+      await put(
+        "sensitiveHr",
+        `/hr/employees/${e1.id}/government-ids`,
+        GOV,
+      ).expect(200);
+      const res = await get(
+        "sensitiveHr",
+        `/hr/employees/${e1.id}/government-ids`,
+      ).expect(200);
+      expect((res.body as Body<{ panNumber: string }>).data.panNumber).toBe(
+        "ABCDE1234F",
+      );
+    });
+
+    it("EMP-16: a government-ID edit is audited with field names only, and only changed fields are named", async () => {
+      const before = (await profileAudit("hr_update_government_ids")).length;
+      await put("sensitiveHr", `/hr/employees/${e1.id}/government-ids`, {
+        ...GOV,
+        panNumber: "ZYXWV9876U",
+      }).expect(200);
+      const rows = await profileAudit("hr_update_government_ids");
+      expect(rows.length).toBe(before + 1);
+      const last = rows[rows.length - 1];
+      expect(last?.actorUserId).toBe(userIds.sensitiveHr);
+      expect(last?.after).toEqual({
+        employeeId: e1.id,
+        changedFields: ["panNumber"],
+      });
+      const meta = metaOf(rows);
+      for (const value of ["123412341234", "ABCDE1234F", "ZYXWV9876U"]) {
+        expect(meta).not.toContain(value);
+      }
+    });
+
+    it("EMP-16: personal details, address and bank edits are audited without any value", async () => {
+      await put("hrAll", `/hr/employees/${e1.id}/personal-details`, {
+        dateOfBirth: "1998-04-12",
+        gender: "FEMALE",
+        emergencyContactName: "Rajesh Sharma",
+        emergencyContactRelation: "Father",
+        emergencyContactPhone: "9841055667",
+        fatherName: "Rajesh Sharma",
+        fatherPhone: "9841055667",
+        motherName: "Sunita Sharma",
+        motherPhone: "9841055668",
+      }).expect(200);
+      await put("hrAll", `/hr/employees/${e1.id}/address/PRESENT`, {
+        addressLine: "14, 3rd Cross",
+        district: "Bengaluru Urban",
+        city: "Bengaluru",
+        state: "Karnataka",
+        pincode: "560034",
+      }).expect(200);
+      await put("hrAll", `/hr/employees/${e1.id}/bank-details`, {
+        accountHolderName: "Asha Verma",
+        accountNumber: "50100987654321",
+        ifsc: "HDFC0001234",
+        bankName: "HDFC Bank",
+      }).expect(200);
+
+      const personal = await profileAudit("hr_update_personal");
+      const address = await profileAudit("hr_update_address");
+      const bank = await profileAudit("hr_update_bank");
+      expect(personal).toHaveLength(1);
+      expect(address).toHaveLength(1);
+      expect(bank).toHaveLength(1);
+      expect(address[0]?.after).toMatchObject({ addressType: "PRESENT" });
+      expect(
+        (bank[0]?.after as { changedFields: string[] }).changedFields,
+      ).toContain("accountNumber");
+      expect(
+        (personal[0]?.after as { changedFields: string[] }).changedFields,
+      ).toContain("dateOfBirth");
+
+      const meta = metaOf([...personal, ...address, ...bank]);
+      for (const value of [
+        "Rajesh",
+        "Sunita",
+        "9841055667",
+        "1998-04-12",
+        "14, 3rd Cross",
+        "560034",
+        "50100987654321",
+        "HDFC0001234",
+        "Asha Verma",
+      ]) {
+        expect(meta).not.toContain(value);
+      }
+    });
+
+    it("EMP-16: a refused or invalid edit writes no audit row", async () => {
+      const before = (await profileAudit("hr_update_bank")).length;
+      // Out of scope (no write permission) and invalid payload.
+      await put("leadT1", `/hr/employees/${e1.id}/bank-details`, {
+        accountHolderName: "X",
+        accountNumber: "123456789012",
+        ifsc: "HDFC0001234",
+        bankName: "HDFC",
+      }).expect(403);
+      await put("hrAll", `/hr/employees/${e1.id}/bank-details`, {
+        accountHolderName: "X",
+        accountNumber: "123456789012",
+        ifsc: "not-an-ifsc",
+        bankName: "HDFC",
+      }).expect(400);
+      expect((await profileAudit("hr_update_bank")).length).toBe(before);
+    });
+
+    it("EMP-16: uploading an onboarding document on the employee's behalf is audited without the file name", async () => {
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.from("fake-image-data"),
+      ]);
+      await request(app.getHttpServer())
+        .put(`/hr/employees/${e1.id}/documents/AADHAAR/file`)
+        .set(auth("hrAll"))
+        .attach("file", png, "private-scan-name.png")
+        .expect(200);
+      const doc = await prisma.employeeDocument.findFirst({
+        where: { employeeId: e1.id, documentType: "AADHAAR" },
+      });
+      const rows = await prisma.auditLog.findMany({
+        where: {
+          entityType: "employee_document",
+          entityId: BigInt(doc?.id as number),
+          action: "hr_upload_document",
+        },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.after).toMatchObject({
+        employeeId: e1.id,
+        documentType: "AADHAAR",
+        source: "ONBOARDING",
+      });
+      expect(JSON.stringify(rows[0]?.after)).not.toContain("private-scan-name");
+    });
+  });
+
   describe("database invariants (independent of the API)", () => {
     let e: Emp;
     beforeAll(async () => {

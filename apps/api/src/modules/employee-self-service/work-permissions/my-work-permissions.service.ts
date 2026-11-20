@@ -14,6 +14,7 @@ import type {
   QueryMyWorkPermissionsDto,
 } from "./dto/work-permission.dto.js";
 import { MyWorkPermissionsRepository } from "./my-work-permissions.repository.js";
+import { WorkPermissionSelfDecisionException } from "./my-work-permissions.exceptions.js";
 
 /** Work hours: 10:00–19:00 (10 AM – 7 PM). */
 const WORK_START = "10:00";
@@ -151,6 +152,9 @@ export class MyWorkPermissionsService {
 
     const existing = await this.repository.findOne(scope, id);
     if (!existing) throw new ResourceNotFoundException("Work permission", id);
+    if (existing.requestedBy === userId) {
+      throw new WorkPermissionSelfDecisionException();
+    }
     if (existing.status !== "PENDING") {
       throw new BusinessRuleViolationException(
         "Only PENDING requests can be decided",
@@ -158,11 +162,19 @@ export class MyWorkPermissionsService {
       );
     }
 
+    // The conditional update is the real guard; the checks above only give
+    // precise errors. Zero rows matched means another decider got there first.
     const updated = await this.repository.decide(scope, id, {
       status: dto.decision,
       ...(dto.hrNote !== undefined ? { hrNote: dto.hrNote } : {}),
       decidedBy: userId,
     });
+    if (!updated) {
+      throw new BusinessRuleViolationException(
+        "Only PENDING requests can be decided",
+        "ALREADY_DECIDED",
+      );
+    }
 
     void this.notifications.notifyUser(scope, existing.requestedBy, {
       type: "work_permission.decided",

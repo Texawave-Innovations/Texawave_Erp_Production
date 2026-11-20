@@ -112,23 +112,10 @@ describe("departments (e2e)", () => {
   });
 
   afterAll(async () => {
-    await prisma.userRole.deleteMany({
-      where: { user: { organizationId: { in: [orgA.id, orgB.id] } } },
-    });
-    await prisma.rolePermission.deleteMany({
-      where: { role: { organizationId: { in: [orgA.id, orgB.id] } } },
-    });
-    await prisma.role.deleteMany({
-      where: { organizationId: { in: [orgA.id, orgB.id] } },
-    });
-    await prisma.user.deleteMany({
-      where: { organizationId: { in: [orgA.id, orgB.id] } },
-    });
+    // Users and organizations stay: department writes now produce audit rows
+    // and audit_logs is append-only with an FK to the actor (test/README.md).
     await prisma.department.deleteMany({
       where: { organizationId: { in: [orgA.id, orgB.id] } },
-    });
-    await prisma.organization.deleteMany({
-      where: { id: { in: [orgA.id, orgB.id] } },
     });
     await app.close();
   });
@@ -198,5 +185,105 @@ describe("departments (e2e)", () => {
       .get(`/departments/${created.id}`)
       .set("Authorization", `Bearer ${tokenA}`)
       .expect(404);
+  });
+
+  describe("EMP-16: department changes are audited", () => {
+    const rows = (departmentId: number) =>
+      prisma.auditLog.findMany({
+        where: {
+          entityType: "department",
+          entityId: BigInt(departmentId),
+        },
+        orderBy: { id: "asc" },
+      });
+    const asA = (method: "post" | "patch" | "delete", path: string) =>
+      request(app.getHttpServer())
+        [method](path)
+        .set("Authorization", `Bearer ${tokenA}`);
+
+    it("create, update and delete each write one audit row naming only name and isActive", async () => {
+      const created = await asA("post", "/departments")
+        .send({
+          name: "Audited Dept",
+          customFields: { note: "secret-custom-value" },
+        })
+        .expect(201);
+      const id = (created.body as { data: { id: number } }).data.id;
+
+      await asA("patch", `/departments/${id}`)
+        .send({ name: "Audited Dept Renamed" })
+        .expect(200);
+      await asA("delete", `/departments/${id}`).expect(204);
+
+      const list = await rows(id);
+      expect(list.map((r) => r.action)).toEqual(["create", "update", "delete"]);
+      expect(list[0]?.after).toEqual({ name: "Audited Dept", isActive: true });
+      expect(list[1]?.before).toEqual({
+        name: "Audited Dept",
+        isActive: true,
+      });
+      expect(list[1]?.after).toEqual({
+        name: "Audited Dept Renamed",
+        isActive: true,
+      });
+      expect(list[2]?.before).toEqual({
+        name: "Audited Dept Renamed",
+        isActive: true,
+      });
+      for (const r of list) {
+        expect(r.actorUserId).not.toBeNull();
+        expect(r.organizationId).toBe(orgA.id);
+        expect(JSON.stringify([r.before, r.after, r.reason])).not.toContain(
+          "secret-custom-value",
+        );
+      }
+    });
+
+    it("a refused or failed change writes no audit row", async () => {
+      const created = await asA("post", "/departments")
+        .send({ name: "Refusal Dept" })
+        .expect(201);
+      const id = (created.body as { data: { id: number } }).data.id;
+      const before = (await rows(id)).length;
+
+      // Read-only user (403) and another organization (404) change nothing.
+      await request(app.getHttpServer())
+        .patch(`/departments/${id}`)
+        .set("Authorization", `Bearer ${readOnlyToken}`)
+        .send({ name: "Nope" })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/departments/${id}`)
+        .set("Authorization", `Bearer ${tokenB}`)
+        .send({ name: "Nope" })
+        .expect(404);
+      await request(app.getHttpServer())
+        .delete(`/departments/${id}`)
+        .set("Authorization", `Bearer ${tokenB}`)
+        .expect(404);
+      // A duplicate name is refused by the service before any write.
+      await asA("post", "/departments")
+        .send({ name: "Refusal Dept" })
+        .expect(409);
+
+      expect((await rows(id)).length).toBe(before);
+    });
+
+    it("re-creating a removed department revives the row and audits it as a create", async () => {
+      const first = await asA("post", "/departments")
+        .send({ name: "Revived Dept" })
+        .expect(201);
+      const id = (first.body as { data: { id: number } }).data.id;
+      await asA("delete", `/departments/${id}`).expect(204);
+      const again = await asA("post", "/departments")
+        .send({ name: "Revived Dept" })
+        .expect(201);
+      expect((again.body as { data: { id: number } }).data.id).toBe(id);
+      expect((await rows(id)).map((r) => r.action)).toEqual([
+        "create",
+        "delete",
+        "create",
+      ]);
+    });
   });
 });

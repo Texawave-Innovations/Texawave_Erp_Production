@@ -61,7 +61,7 @@ The **Payroll & Compliance** module is the single payroll engine of TexaWave ERP
    - A finalized month changes only through a **reopen** with a reason (§5.2), and only while no salary or PF/ESI of that month has been paid.
 6. **Audit:**
    - Every payroll write records its audit row in the same transaction (`AuditWriter`, fail-closed): settings, components, templates, salaries, runs, approvals, finalize/reset/cancel/reopen, payslip generation and regeneration, payment batches and payments, loans and their decisions, skips, prepayments, bonuses, tax setup and declarations.
-   - Reads of payroll data are logged by the `AuditInterceptor`.
+   - Ordinary payroll reads (lists, dashboards) are not audited. Sensitive downloads are: the bank-transfer file (`export_bank_file`, entity `payment_batch`), each statutory file and report (`export_pf_ecr`, `export_esi`, `export_professional_tax`, `export_tds`, `export_journal`, `export_salary_register`, entity `payroll_period`) and every payslip PDF download, HR or self-service (`download_pdf`, entity `payslip`). Each row is written through `AuditWriter` after the file is built and before it is returned, so a failed audit insert means no file leaves (fail-closed). Only ids, counts, the period-tagged file name and size are recorded, never account numbers, PAN, UAN, ESI numbers or amounts. (There is no global `AuditInterceptor` in the code.)
 
 ### Default roles (local dev seed, `packages/database/prisma/permissions/default-roles.ts`)
 

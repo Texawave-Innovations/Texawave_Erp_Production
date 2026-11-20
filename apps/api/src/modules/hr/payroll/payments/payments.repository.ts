@@ -413,4 +413,20 @@ export class PaymentsRepository {
     });
     return new Map(rows.map((r) => [r.employeeId, r.accountNumberEncrypted]));
   }
+
+  /** One row per bank-file download. The file carries full account numbers,
+   * so only the batch id and payment count are recorded, never any value
+   * from the file. Called after the file is built and before it is
+   * returned, so a failed audit insert means no file leaves (fail-closed). */
+  @OrgScoped()
+  recordBatchExport(scope: OrgScope, batchId: number, paymentCount: number) {
+    return this.prisma.$transaction((tx) =>
+      this.audit.write(tx, {
+        entityType: "payment_batch",
+        entityId: batchId,
+        action: "export_bank_file",
+        after: { paymentCount, organizationId: scope.organizationId },
+      }),
+    );
+  }
 }

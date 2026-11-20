@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
+import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 
 const INCLUDE = {
@@ -28,7 +29,10 @@ export interface NewWorkPermission {
 
 @Injectable()
 export class MyWorkPermissionsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   @OrgScoped()
   async create(scope: OrgScope, data: NewWorkPermission) {
@@ -125,21 +129,45 @@ export class MyWorkPermissionsRepository {
     });
   }
 
+  /** Decides a request only if it is still PENDING and was not raised by the
+   * decider, in ONE conditional UPDATE: two concurrent deciders cannot both
+   * win (the loser matches zero rows), and a self-decision cannot slip
+   * through a race. The audit row commits or rolls back with the update.
+   * Returns null when no row matched; the caller works out why. The HR note
+   * is free text and is deliberately not copied into the audit trail. */
   @OrgScoped()
   decide(
     scope: OrgScope,
     id: number,
     data: { status: string; hrNote?: string; decidedBy: number },
   ) {
-    return this.prisma.workPermission.update({
-      where: { id, organizationId: scope.organizationId },
-      data: {
-        status: data.status,
-        hrNote: data.hrNote ?? null,
-        decidedBy: data.decidedBy,
-        decidedAt: new Date(),
-      },
-      include: INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.workPermission.updateMany({
+        where: {
+          id,
+          organizationId: scope.organizationId,
+          status: "PENDING",
+          requestedBy: { not: data.decidedBy },
+        },
+        data: {
+          status: data.status,
+          hrNote: data.hrNote ?? null,
+          decidedBy: data.decidedBy,
+          decidedAt: new Date(),
+        },
+      });
+      if (count !== 1) return null;
+      await this.audit.write(tx, {
+        entityType: "work_permission",
+        entityId: id,
+        action: data.status === "APPROVED" ? "approve" : "reject",
+        before: { status: "PENDING" },
+        after: { status: data.status, decidedBy: data.decidedBy },
+      });
+      return tx.workPermission.findFirst({
+        where: { id, organizationId: scope.organizationId },
+        include: INCLUDE,
+      });
     });
   }
 }

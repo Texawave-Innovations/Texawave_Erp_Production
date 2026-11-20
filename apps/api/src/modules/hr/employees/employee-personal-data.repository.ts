@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import type { AddressDto } from "../../employee-self-service/profile/dto/address.dto.js";
 import type { BankDetailsDto } from "../../employee-self-service/profile/dto/bank-details.dto.js";
@@ -6,6 +7,27 @@ import type { GovernmentIdsDto } from "../../employee-self-service/profile/dto/g
 import type { PersonalDetailsDto } from "../../employee-self-service/profile/dto/personal-details.dto.js";
 
 export type AddressType = "PERMANENT" | "PRESENT";
+
+/** Same audit entity as self-service edits and HR's profile edits, so one
+ * employee's profile history reads as one trail; the `hr_` action tells an
+ * HR edit apart. Only field NAMES are ever recorded, never a value (PAN,
+ * Aadhaar, bank account, address and family details are all sensitive). */
+const PROFILE_ENTITY = "employee_profile";
+
+function comparable(value: unknown): string {
+  return JSON.stringify(value instanceof Date ? value.toISOString() : value);
+}
+
+/** Names of the fields in `next` whose value differs from `before`
+ * (everything when there is no previous row). */
+function changedFieldNames(
+  before: Record<string, unknown> | null,
+  next: Record<string, unknown>,
+): string[] {
+  return Object.keys(next).filter(
+    (key) => !before || comparable(before[key]) !== comparable(next[key]),
+  );
+}
 
 interface Identity {
   organizationId: number;
@@ -36,7 +58,10 @@ function addressData(dto: AddressDto) {
  */
 @Injectable()
 export class EmployeePersonalDataRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
 
   getPersonal(employeeId: number) {
     return this.prisma.employeePersonalDetail.findUnique({
@@ -58,15 +83,30 @@ export class EmployeePersonalDataRepository {
       motherName: dto.motherName,
       motherPhone: dto.motherPhone,
     };
-    return this.prisma.employeePersonalDetail.upsert({
-      where: { employeeId: identity.employeeId },
-      create: {
-        organizationId: identity.organizationId,
-        teamId: identity.teamId,
-        employeeId: identity.employeeId,
-        ...data,
-      },
-      update: data,
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.employeePersonalDetail.findUnique({
+        where: { employeeId: identity.employeeId },
+      });
+      const row = await tx.employeePersonalDetail.upsert({
+        where: { employeeId: identity.employeeId },
+        create: {
+          organizationId: identity.organizationId,
+          teamId: identity.teamId,
+          employeeId: identity.employeeId,
+          ...data,
+        },
+        update: data,
+      });
+      await this.audit.write(tx, {
+        entityType: PROFILE_ENTITY,
+        entityId: identity.employeeId,
+        action: "hr_update_personal",
+        after: {
+          employeeId: identity.employeeId,
+          changedFields: changedFieldNames(before, data),
+        },
+      });
+      return row;
     });
   }
 
@@ -78,21 +118,36 @@ export class EmployeePersonalDataRepository {
 
   upsertAddress(identity: Identity, addressType: AddressType, dto: AddressDto) {
     const data = addressData(dto);
-    return this.prisma.employeeAddress.upsert({
-      where: {
-        employeeId_addressType: {
-          employeeId: identity.employeeId,
-          addressType,
-        },
-      },
-      create: {
-        organizationId: identity.organizationId,
-        teamId: identity.teamId,
+    const key = {
+      employeeId_addressType: {
         employeeId: identity.employeeId,
         addressType,
-        ...data,
       },
-      update: data,
+    };
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.employeeAddress.findUnique({ where: key });
+      const row = await tx.employeeAddress.upsert({
+        where: key,
+        create: {
+          organizationId: identity.organizationId,
+          teamId: identity.teamId,
+          employeeId: identity.employeeId,
+          addressType,
+          ...data,
+        },
+        update: data,
+      });
+      await this.audit.write(tx, {
+        entityType: PROFILE_ENTITY,
+        entityId: identity.employeeId,
+        action: "hr_update_address",
+        after: {
+          employeeId: identity.employeeId,
+          addressType,
+          changedFields: changedFieldNames(before, data),
+        },
+      });
+      return row;
     });
   }
 
@@ -114,15 +169,46 @@ export class EmployeePersonalDataRepository {
       bankName: dto.bankName,
       branchName: dto.branchName ?? null,
     };
-    return this.prisma.employeeBankDetail.upsert({
-      where: { employeeId: identity.employeeId },
-      create: {
-        organizationId: identity.organizationId,
-        teamId: identity.teamId,
-        employeeId: identity.employeeId,
-        ...data,
-      },
-      update: data,
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.employeeBankDetail.findUnique({
+        where: { employeeId: identity.employeeId },
+      });
+      const row = await tx.employeeBankDetail.upsert({
+        where: { employeeId: identity.employeeId },
+        create: {
+          organizationId: identity.organizationId,
+          teamId: identity.teamId,
+          employeeId: identity.employeeId,
+          ...data,
+        },
+        update: data,
+      });
+      // The stored account number is encrypted with a fresh IV on every
+      // write, so it cannot be diffed; it is always listed as submitted.
+      // The masked/encrypted columns themselves are never named or logged.
+      const {
+        accountNumberEncrypted: _enc,
+        accountNumberMasked: _mask,
+        ...plain
+      } = data;
+      const {
+        accountNumberEncrypted: _beforeEnc,
+        accountNumberMasked: _beforeMask,
+        ...beforePlain
+      } = before ?? ({} as Record<string, unknown>);
+      await this.audit.write(tx, {
+        entityType: PROFILE_ENTITY,
+        entityId: identity.employeeId,
+        action: "hr_update_bank",
+        after: {
+          employeeId: identity.employeeId,
+          changedFields: [
+            ...changedFieldNames(before ? beforePlain : null, plain),
+            "accountNumber",
+          ],
+        },
+      });
+      return row;
     });
   }
 
@@ -139,15 +225,30 @@ export class EmployeePersonalDataRepository {
       esiNumber: dto.esiNumber ?? null,
       pfNumber: dto.pfNumber ?? null,
     };
-    return this.prisma.employeeGovernmentId.upsert({
-      where: { employeeId: identity.employeeId },
-      create: {
-        organizationId: identity.organizationId,
-        teamId: identity.teamId,
-        employeeId: identity.employeeId,
-        ...data,
-      },
-      update: data,
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.employeeGovernmentId.findUnique({
+        where: { employeeId: identity.employeeId },
+      });
+      const row = await tx.employeeGovernmentId.upsert({
+        where: { employeeId: identity.employeeId },
+        create: {
+          organizationId: identity.organizationId,
+          teamId: identity.teamId,
+          employeeId: identity.employeeId,
+          ...data,
+        },
+        update: data,
+      });
+      await this.audit.write(tx, {
+        entityType: PROFILE_ENTITY,
+        entityId: identity.employeeId,
+        action: "hr_update_government_ids",
+        after: {
+          employeeId: identity.employeeId,
+          changedFields: changedFieldNames(before, data),
+        },
+      });
+      return row;
     });
   }
 
@@ -168,22 +269,44 @@ export class EmployeePersonalDataRepository {
     },
   ) {
     const data = { ...file, uploadedAt: new Date(), deletedAt: null };
-    const existing = await this.getDocument(identity.employeeId, documentType);
-    if (existing) {
-      return this.prisma.employeeDocument.update({
-        where: { id: existing.id },
-        data,
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.employeeDocument.findFirst({
+        where: {
+          employeeId: identity.employeeId,
+          documentType,
+          source: "ONBOARDING",
+        },
       });
-    }
-    return this.prisma.employeeDocument.create({
-      data: {
-        organizationId: identity.organizationId,
-        teamId: identity.teamId,
-        employeeId: identity.employeeId,
-        documentType,
-        source: "ONBOARDING",
-        ...data,
-      },
+      const row = existing
+        ? await tx.employeeDocument.update({
+            where: { id: existing.id },
+            data,
+          })
+        : await tx.employeeDocument.create({
+            data: {
+              organizationId: identity.organizationId,
+              teamId: identity.teamId,
+              employeeId: identity.employeeId,
+              documentType,
+              source: "ONBOARDING",
+              ...data,
+            },
+          });
+      // Type and size class only: not the file name or contents.
+      await this.audit.write(tx, {
+        entityType: "employee_document",
+        entityId: row.id,
+        action: "hr_upload_document",
+        after: {
+          employeeId: identity.employeeId,
+          documentType,
+          source: "ONBOARDING",
+          replaced: existing !== null,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+        },
+      });
+      return row;
     });
   }
 }

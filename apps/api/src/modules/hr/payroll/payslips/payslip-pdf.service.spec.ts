@@ -37,6 +37,7 @@ function makeService(state: unknown) {
   const repository = {
     findPdfState: vi.fn().mockResolvedValue(state),
     storePdf: vi.fn().mockResolvedValue(undefined),
+    recordPdfDownload: vi.fn().mockResolvedValue(undefined),
   };
   const renderer = {
     render: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.7")),
@@ -116,5 +117,57 @@ describe("PayslipPdfService", () => {
       ResourceNotFoundException,
     );
     expect(renderer.render).not.toHaveBeenCalled();
+  });
+
+  describe("audit (PAY-8)", () => {
+    it("records an HR download with the version and no payslip content", async () => {
+      const { service, repository } = makeService({
+        pdfContent: new Uint8Array([1]),
+        snapshot: SNAPSHOT,
+        version: 3,
+      });
+      await service.forHr(5);
+      expect(repository.recordPdfDownload).toHaveBeenCalledTimes(1);
+      expect(repository.recordPdfDownload).toHaveBeenCalledWith(
+        { organizationId: 1 },
+        5,
+        { via: "hr", version: 3 },
+      );
+    });
+
+    it("records a self-service download as via=self", async () => {
+      const { service, repository } = makeService({
+        pdfContent: new Uint8Array([1]),
+        snapshot: SNAPSHOT,
+        version: 1,
+      });
+      await service.forSelf(5);
+      expect(repository.recordPdfDownload).toHaveBeenCalledWith(
+        { organizationId: 1 },
+        5,
+        { via: "self", version: 1 },
+      );
+    });
+
+    it("returns no file when the audit insert fails (fail-closed)", async () => {
+      const { service, repository } = makeService({
+        pdfContent: new Uint8Array([1]),
+        snapshot: SNAPSHOT,
+        version: 1,
+      });
+      repository.recordPdfDownload.mockRejectedValue(new Error("audit down"));
+      await expect(service.forHr(5)).rejects.toThrow("audit down");
+    });
+
+    it("writes no audit row when the payslip is not visible to the caller", async () => {
+      const { service, repository, payslips } = makeService({
+        pdfContent: new Uint8Array([1]),
+        snapshot: SNAPSHOT,
+        version: 1,
+      });
+      payslips.findById.mockRejectedValue(new Error("not found"));
+      await expect(service.forHr(5)).rejects.toThrow("not found");
+      expect(repository.recordPdfDownload).not.toHaveBeenCalled();
+    });
   });
 });
