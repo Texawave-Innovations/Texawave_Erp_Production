@@ -215,7 +215,8 @@ describe("Timesheet submit and review (e2e)", () => {
         "employee_self_service.timesheet.submit",
         "projects.timer.write",
       ],
-      manager: ["hr.timesheet.read.own", "hr.timesheet.approve.own"],
+      // the team lead level: first approval within their team(s)
+      manager: ["hr.timesheet.read.team", "hr.timesheet.approve.team"],
       hr: [
         "hr.timesheet.read.all",
         "hr.timesheet.approve.all",
@@ -254,24 +255,37 @@ describe("Timesheet submit and review (e2e)", () => {
     const empType = await prisma.employmentType.create({
       data: { organizationId: org.id, code: "PERM", name: "Permanent" },
     });
-    const team = await prisma.team.create({
-      data: {
-        organizationId: org.id,
-        code: `T-${suffix}`,
-        name: `Team ${suffix}`,
-      },
-    });
+    const mkTeam = (code: string) =>
+      prisma.team.create({
+        data: {
+          organizationId: org.id,
+          code: `${code}-${suffix}`,
+          name: `${code} ${suffix}`,
+        },
+      });
+    // Routing follows the TEAM: the lead of the employee's team approves first,
+    // then HR. `team` is led by the manager; `strangers` is led by the stranger
+    // (who leads nobody else here); `noLead` has no lead, so its people go to
+    // HR alone.
+    const team = await mkTeam("T");
+    const strangers = await mkTeam("S");
+    const noLead = await mkTeam("N");
+    const leadOf = (userId: number, teamId: number) =>
+      prisma.userTeamAccess.create({
+        data: { organizationId: org.id, userId, teamId, isLead: true },
+      });
     async function makeEmployee(
       userId: number,
       email: string,
       name: string,
       reportsToId?: number,
+      teamId: number = team.id,
     ) {
       return prisma.employee.create({
         data: {
           organization: { connect: { id: org.id } },
           user: { connect: { id: userId } },
-          team: { connect: { id: team.id } },
+          team: { connect: { id: teamId } },
           employeeCode: `EMP-${String(Math.floor(Math.random() * 1e9)).padStart(9, "0")}`,
           fullName: name,
           workEmail: email,
@@ -287,6 +301,7 @@ describe("Timesheet submit and review (e2e)", () => {
 
     const mgrU = await makeUser("manager", [...codes.self, ...codes.manager]);
     const mgrE = await makeEmployee(mgrU.user.id, mgrU.email, "Manager");
+    await leadOf(mgrU.user.id, team.id);
     const empU = await makeUser("emp", codes.self);
     const empE = await makeEmployee(empU.user.id, empU.email, "Emp", mgrE.id);
     const lonelyU = await makeUser("lonely", codes.self);
@@ -294,15 +309,30 @@ describe("Timesheet submit and review (e2e)", () => {
       lonelyU.user.id,
       lonelyU.email,
       "Lonely",
+      undefined,
+      noLead.id,
     );
-    // another manager's person: holds approve.own but manages nobody here
+    // another team's lead: holds approve.team but leads nobody here
     const strU = await makeUser("stranger", [...codes.self, ...codes.manager]);
-    const strE = await makeEmployee(strU.user.id, strU.email, "Stranger");
-    // HR, deliberately NOT anyone's reporting manager
+    const strE = await makeEmployee(
+      strU.user.id,
+      strU.email,
+      "Stranger",
+      undefined,
+      strangers.id,
+    );
+    await leadOf(strU.user.id, strangers.id);
+    // HR, deliberately nobody's team lead
     const hrU = await makeUser("hr", codes.hr);
     // an employee who is also an HR approver (for the self-decision rule)
     const hrEmpU = await makeUser("hrEmp", [...codes.self, ...codes.hr]);
-    const hrEmpE = await makeEmployee(hrEmpU.user.id, hrEmpU.email, "HR Emp");
+    const hrEmpE = await makeEmployee(
+      hrEmpU.user.id,
+      hrEmpU.email,
+      "HR Emp",
+      undefined,
+      noLead.id,
+    );
 
     projectId = (
       await prisma.project.create({
@@ -394,7 +424,7 @@ describe("Timesheet submit and review (e2e)", () => {
       await closeOpenSessions(empId());
     });
 
-    it("submits every row of the day, routes it to the reporting manager, and locks it", async () => {
+    it("submits every row of the day, routes it to the team lead, and locks it", async () => {
       const date = "2026-09-03";
       await work(empId(), date, 90);
       expect((await myDay("emp", date)).review).toMatchObject({
@@ -407,18 +437,19 @@ describe("Timesheet submit and review (e2e)", () => {
         date,
         rowCount: 1,
         approvalLevels: 2,
-        approverBasis: "REPORTING_MANAGER",
+        approverBasis: "TEAM",
       });
 
       const [row] = await rowsOf(empId(), date);
       expect(row).toMatchObject({
         status: "SUBMITTED",
         approvalLevels: 2,
-        approverBasis: "REPORTING_MANAGER",
+        approverBasis: "TEAM",
         submittedBy: people.emp.userId,
         attendanceStatusAtSubmit: "NOT_MARKED",
       });
-      expect(row?.approverEmployeeId).toBe(people.manager.employeeId);
+      // a team, not one named person, owes the first approval
+      expect(row?.approverEmployeeId).toBeNull();
       expect(await auditActions(row!.id)).toEqual(["submit"]);
 
       const day = await myDay("emp", date);
@@ -427,7 +458,7 @@ describe("Timesheet submit and review (e2e)", () => {
         stage: "MANAGER",
         canSubmit: false,
       });
-      // the manager is told; the employee is not
+      // the team lead is told; the employee is not
       expect(
         await noticesTo(people.manager.userId, "timesheet.submitted"),
       ).toHaveLength(1);
@@ -442,7 +473,7 @@ describe("Timesheet submit and review (e2e)", () => {
       );
     });
 
-    it("a person with no reporting manager is routed to HR alone", async () => {
+    it("a person whose team has no lead is routed to HR alone", async () => {
       const date = "2026-09-04";
       await work(lonelyId(), date);
       const res = await submit("lonely", date).expect(201);
@@ -451,6 +482,25 @@ describe("Timesheet submit and review (e2e)", () => {
         approverBasis: "HR",
       });
       expect((await myDay("lonely", date)).review.stage).toBe("HR");
+    });
+
+    it("a team lead's own day goes to HR alone, and HR is told", async () => {
+      const date = "2026-09-05";
+      await work(people.manager.employeeId!, date);
+      const res = await submit("manager", date).expect(201);
+      expect((res.body as { data: object }).data).toMatchObject({
+        approvalLevels: 1,
+        approverBasis: "HR",
+      });
+      expect((await myDay("manager", date)).review.stage).toBe("HR");
+      expect(
+        await noticesTo(people.hr.userId, "timesheet.submitted"),
+      ).not.toHaveLength(0);
+      // another team's lead cannot take it; HR decides it, finally
+      await approve("stranger", people.manager.employeeId!, date).expect(404);
+      await approve("hr", people.manager.employeeId!, date).expect(201);
+      const [row] = await rowsOf(people.manager.employeeId!, date);
+      expect(row?.status).toBe("APPROVED");
     });
 
     it("submit needs the submit permission (403) and a login (401)", async () => {
@@ -1387,10 +1437,13 @@ describe("Timesheet submit and review (e2e)", () => {
       const text = (res.text ?? "").replace(BOM_RE, "");
       const lines = text.trim().split("\r\n");
       expect(lines[0]).toBe(
-        "Employee Code,Employee,Team,Days Recorded,Task Hours,Other Activity Hours,Total Hours,Not Submitted,Submitted,Approved,Returned,Needs Attention",
+        "Employee Code,Employee,Team,Days Recorded,Task Hours,Other Activity Hours,Total Hours,Not Submitted,Submitted,Approved,Returned,Needs Attention,Target Hours (after permissions),Permission Hours,Attendance Hours",
       );
-      // 3 days recorded, 3.0 hours, 1 not submitted, 1 submitted, 1 approved
-      expect(lines[1]).toMatch(/,Emp,.*,3,3,0,3,1,1,1,0,0$/);
+      // 3 days recorded, 3.0 hours, 1 not submitted, 1 submitted, 1 approved,
+      // then the attendance columns (target after permissions, permission, worked)
+      expect(lines[1]).toMatch(
+        /,Emp,.*,3,3,0,3,1,1,1,0,0,\d+(\.\d+)?,\d+(\.\d+)?,\d+(\.\d+)?$/,
+      );
 
       const days = await call(
         "get",

@@ -542,7 +542,9 @@ Reserved-but-inert variants (seeded so the family is complete, granting nothing)
 longer inert: it is the reporting-manager level, HR_LEAVE.md §6.1.) Default dev roles (`default-roles.ts`, pinned by a
 test): **HR Manager** (everything except status correction; payroll prepared, not approved — approving runs/loans/bonuses,
 reopening and payroll settings write stay with Super Admin), **Team Lead — read-only** (`.team` reads + calendar/leave
-types; no pay data), **Employee** (self-service + calendar + own payslips, loans, tax declaration, Form 16). No default role holds any `.team` write/approve permission.
+types; no pay data) **except the first approval of its team's timesheets and leave** (`hr.timesheet.approve.team`,
+`hr.leave.approve.team`; decided 2026-11-20, HR gives the final approval), **Employee** (self-service + calendar + own
+payslips, loans, tax declaration, Form 16). No other default role holds a `.team` write/approve permission.
 
 ---
 

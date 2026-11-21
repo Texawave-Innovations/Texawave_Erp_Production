@@ -11,7 +11,7 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
 export const DAY_PORTIONS = ["FULL", "FIRST_HALF", "SECOND_HALF"] as const;
 export type DayPortion = (typeof DAY_PORTIONS)[number];
 
-/** FIRST = the reporting manager / a scoped approver; HR = the second
+/** FIRST = the team lead / a team lead's delegate / a scoped approver; HR = the second
  * approval of a two-level leave type (hr.leave.approve.all). */
 export type AwaitingStage = "FIRST" | "HR";
 

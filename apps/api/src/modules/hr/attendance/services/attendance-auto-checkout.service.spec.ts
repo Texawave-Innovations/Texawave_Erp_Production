@@ -157,6 +157,43 @@ describe("AttendanceAutoCheckoutService", () => {
     expect(entry).not.toHaveProperty("userId");
   });
 
+  it("an approved permission does not bring the auto check-out forward: it closes at check-in plus the full shift", async () => {
+    const { service, tx, dayContext } = makeService([dueRow]);
+    // A 2-hour approved permission excuses worked time from the day's target,
+    // but the shift still runs its full 8 hours from the check-in.
+    dayContext.load.mockResolvedValue({
+      holidays: [],
+      weeklyOffRules: [],
+      approvedLeaves: [],
+      shiftAssignments: [
+        {
+          employeeId: null,
+          teamId: 1,
+          effectiveFrom: "2026-01-01",
+          effectiveTo: null,
+          workingMinutes: 480,
+        },
+      ],
+      approvedPermissions: [
+        {
+          employeeId: 1,
+          date: "2026-10-04",
+          fromTime: "10:00",
+          toTime: "12:00",
+          minutes: 120,
+        },
+      ],
+    });
+
+    const result = await service.runForOrganization(ORG, ASOF);
+
+    expect(result).toEqual({ closed: 1, noTarget: 0, notDue: 0 });
+    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, checkOutAt: null },
+      data: { checkOutAt: at("2026-10-04T11:00:00Z") },
+    });
+  });
+
   it("repeated execution is idempotent: the conditional write matches nothing the second time", async () => {
     const first = makeService([dueRow]);
     await first.service.runForOrganization(ORG, ASOF);

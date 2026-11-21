@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarClock } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -20,6 +20,7 @@ import {
   formatDay,
   formatMinutes,
 } from "./MyTimesheetView";
+import { formatPermissionWindow } from "./format";
 import { ReopenPanel, SessionFix } from "./ReviewDayActions";
 import { ReviewStatusChip } from "./ReviewStatus";
 
@@ -47,12 +48,19 @@ export function ReviewDayDialog({
   employeeId,
   date,
   onClose,
+  includeDrafts = false,
 }: {
   employeeId: number;
   date: string;
   onClose: () => void;
+  /** Also open a day the employee has not submitted (read-only). */
+  includeDrafts?: boolean;
 }) {
-  const { data, isLoading, isError, refetch } = useReviewDay(employeeId, date);
+  const { data, isLoading, isError, refetch } = useReviewDay(
+    employeeId,
+    date,
+    includeDrafts,
+  );
   const decide = useDecideDay();
   const { toast } = useToast();
   const [mode, setMode] = useState<"approve" | "return" | null>(null);
@@ -127,6 +135,35 @@ export function ReviewDayDialog({
                 : ""}
             </span>
           </div>
+
+          {data.attendance && data.attendance.permissions.length > 0 ? (
+            <ul
+              aria-label="Approved permissions"
+              className="flex flex-col gap-2"
+            >
+              {data.attendance.permissions.map((p) => (
+                <li
+                  key={`${p.fromTime}-${p.toTime}`}
+                  className="flex flex-wrap items-center gap-2 rounded-xl bg-cyan-50 px-3 py-2 text-sm text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
+                >
+                  <CalendarClock className="h-4 w-4 shrink-0" />
+                  <span className="font-semibold">
+                    Permission {formatPermissionWindow(p)} (
+                    {formatMinutes(p.minutes)}, approved)
+                  </span>
+                  {data.attendance?.baseTargetMinutes != null &&
+                  data.attendance.targetMinutes !== null ? (
+                    <span>
+                      Target {formatMinutes(data.attendance.targetMinutes)} (
+                      {formatMinutes(data.attendance.baseTargetMinutes)} shift
+                      minus {formatMinutes(data.attendance.permissionMinutes)}{" "}
+                      permission).
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           {data.flags.length > 0 ? (
             <ul aria-label="Attendance checks" className="flex flex-col gap-2">

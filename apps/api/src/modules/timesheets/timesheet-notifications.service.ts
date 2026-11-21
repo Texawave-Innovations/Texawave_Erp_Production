@@ -17,7 +17,7 @@ export interface DayRef {
 }
 
 export type TimesheetEvent =
-  | { kind: "submitted"; managerUserId: number | null }
+  | { kind: "submitted"; leadUserIds: readonly number[] }
   | { kind: "first_approved"; firstDecidedBy: number }
   | { kind: "approved"; note: string | null }
   | { kind: "rejected"; note: string | null }
@@ -30,7 +30,7 @@ export type TimesheetEvent =
  * effort — a failed notification is logged and never undoes or fails the
  * change. Recipients never include the person who acted.
  *
- *  - submitted → the reporting manager (two-level day) or HR (one-level day).
+ *  - submitted → the team lead(s) (two-level day) or HR (one-level day).
  *  - first approval → the employee, and HR, who now owe the second approval.
  *  - approved / rejected → the employee (a rejection carries the reason).
  */
@@ -103,8 +103,8 @@ export class TimesheetNotificationsService {
     switch (event.kind) {
       case "submitted": {
         const recipients =
-          event.managerUserId !== null
-            ? [event.managerUserId]
+          event.leadUserIds.length > 0
+            ? event.leadUserIds
             : await this.workflow.hrApproverUserIds(
                 this.tenantContext.getOrgScope(),
               );

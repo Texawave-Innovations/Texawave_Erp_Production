@@ -21,6 +21,7 @@ const base: ApprovalFacts = {
   isManager: false,
   inScope: true,
   scopeLevel: "team",
+  hrOnly: false,
 };
 const firstDone = {
   approvalLevels: 2,
@@ -29,13 +30,46 @@ const firstDone = {
 };
 
 describe("approvalVerdict", () => {
-  it("hides a request from someone outside the reporting line and the scope", () => {
+  it("a team lead's own request, or a team with no lead, is HR's: a team approver is refused", () => {
+    expect(approvalVerdict({ ...base, hrOnly: true })).toEqual({
+      ok: false,
+      reason: "HR_ONLY",
+    });
+    // A team lead's delegate cannot take it either.
+    expect(approvalVerdict({ ...base, hrOnly: true, isManager: true })).toEqual(
+      { ok: false, reason: "HR_ONLY" },
+    );
+  });
+
+  it("HR (.all) decides an HR-only request once, and finally, even on a two-level type", () => {
+    expect(
+      approvalVerdict({ ...base, hrOnly: true, scopeLevel: "all" }),
+    ).toEqual({ ok: true, stage: 1, final: true });
+    expect(
+      approvalVerdict({
+        ...base,
+        hrOnly: true,
+        scopeLevel: "all",
+        approvalLevels: 2,
+      }),
+    ).toEqual({ ok: true, stage: 1, final: true });
+  });
+
+  it("a team lead (team scope over the employee) gives the first approval", () => {
+    expect(approvalVerdict({ ...base, approvalLevels: 2 })).toEqual({
+      ok: true,
+      stage: 1,
+      final: false,
+    });
+  });
+
+  it("hides a request from someone outside the team lead's reach and the scope", () => {
     expect(
       approvalVerdict({ ...base, inScope: false, isManager: false }),
     ).toEqual({ ok: false, reason: "NOT_VISIBLE" });
   });
 
-  it("lets the reporting manager decide with no scope over the employee", () => {
+  it("lets the team lead (or delegate) decide with no scope over the employee", () => {
     expect(
       approvalVerdict({
         ...base,

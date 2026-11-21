@@ -11,7 +11,7 @@ import {
   toRules,
 } from "../settings/attendance-settings.rules.js";
 import {
-  resolveTargetMinutes,
+  resolveBaseTargetMinutes,
   type EmployeeRef,
 } from "./attendance-day-resolver.js";
 
@@ -205,7 +205,7 @@ export class AttendanceAutoCheckoutService {
       const sessions: OpenSessionForCheckout[] = open.map((row) => ({
         id: row.id,
         checkInAt: row.checkInAt,
-        targetMinutes: resolveTargetMinutes(
+        targetMinutes: resolveBaseTargetMinutes(
           ctx,
           row.record.employee,
           formatDateOnly(row.record.attendanceDate),

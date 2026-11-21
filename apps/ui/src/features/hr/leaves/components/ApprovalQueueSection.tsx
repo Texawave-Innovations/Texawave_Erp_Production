@@ -29,7 +29,7 @@ const PAGE_SIZE = 10;
 
 /**
  * "Waiting for me" (GET /hr/leave-requests/approvals): exactly what the
- * caller may decide now — their direct reports and delegations, their
+ * caller may decide now — their team (as its team lead) and delegations, their
  * approve scope, and for HR (`.all`) the second approval of two-level types.
  * Never their own requests or ones they applied for (Docs/HR_LEAVE.md §6.1).
  */

@@ -26,9 +26,9 @@ export type LeaveEvent =
  * never undoes or fails the change. Recipients never include the person who
  * acted, and the employee only through their linked login.
  *
- *  - submitted → the first approvers: the reporting manager and their active
- *    delegates; when there is no reporting manager with a login, the
- *    team/all approvers of the employee's team. On behalf → also the employee.
+ *  - submitted → the first approvers: the leads of the employee's team and
+ *    their active delegates; HR (`.all` approvers) when the employee is a team
+ *    lead or the team has no lead. On behalf → also the employee.
  *  - first approval (two-level) → the employee, and HR (`.all` approvers).
  *  - approved / rejected → the employee.
  *  - cancelled by HR → the employee; withdrawn by the employee after
@@ -197,18 +197,18 @@ export class LeaveNotificationsService {
     }
   }
 
-  /** The reporting manager and their delegates today; when the employee has
-   * no reporting manager with a login, the approvers of the employee's team. */
+  /** The leads of the employee's team and their delegates today; HR when the
+   * employee is a team lead or the team has no lead who can approve. */
   private async firstApprovers(f: LeaveNotificationFacts): Promise<number[]> {
     const scope = this.tenantContext.getOrgScope();
-    if (f.managerUserId !== null) {
+    if (!f.hrOnly) {
       const delegates = await this.repository.activeDelegatesOf(
         scope,
-        [f.managerUserId],
+        f.leadUserIds,
         today(),
       );
-      return [f.managerUserId, ...delegates];
+      return [...f.leadUserIds, ...delegates];
     }
-    return this.repository.usersWithApprove(scope, ["team", "all"], f.teamId);
+    return this.repository.usersWithApprove(scope, ["all"], null);
   }
 }

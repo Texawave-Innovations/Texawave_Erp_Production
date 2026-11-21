@@ -4,10 +4,14 @@
  * `approvalVerdict` (hr/leave-requests/leave-domain.ts), so the two workflows
  * behave alike:
  *
- *  - Two-level day (the employee has a reporting manager with a login): the
- *    reporting manager, or a team/all approver whose scope covers the employee,
- *    gives the FIRST approval; HR (`.all`) gives the SECOND, which is final.
- *  - One-level day (no reporting manager): HR (`.all`) decides alone.
+ *  - Two-level day (the employee's team has a lead - a team-level approver
+ *    assigned to the team): the team lead (or another team/all approver whose
+ *    scope covers the employee) gives the FIRST approval; HR (`.all`) gives
+ *    the SECOND, which is final. A day submitted before team-lead routing
+ *    (basis REPORTING_MANAGER) can still take its first approval from the
+ *    reporting manager.
+ *  - One-level day (a team lead's own day, or a team with no lead): HR
+ *    (`.all`) decides alone.
  *  - HR may decide a two-level day that has no first approval yet directly (for
  *    example when the manager is away) — an override, recorded as such. Not when
  *    the HR approver is the employee's own manager: then they give the first

@@ -8,6 +8,7 @@ import type { OrgScope } from "../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../common/tenancy/team-scope.js";
 import { AuditWriter } from "../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../shared/prisma/prisma.service.js";
+import { isTeamLead, leadsOfTeam } from "../../shared/team-leads/team-leads.js";
 import { TimesheetDayService } from "./core/timesheet-day.service.js";
 import {
   approvalVerdict,
@@ -72,10 +73,14 @@ export interface SubmitFacts {
 export interface SubmitResult {
   rowCount: number;
   approvalLevels: 1 | 2;
-  approverBasis: "REPORTING_MANAGER" | "HR";
-  /** The reporting manager's login, to be told; null for a one-level day. */
-  managerUserId: number | null;
+  approverBasis: "TEAM" | "HR";
+  /** The team lead(s) who now owe the first approval, to be told; empty for a
+   * one-level day (it goes to HR). */
+  leadUserIds: number[];
 }
+
+/** The team-lead level of timesheet approval (the Team Lead role grants it). */
+const TEAM_APPROVE_CODE = "hr.timesheet.approve.team";
 
 export type DecideOutcome =
   | { kind: "not_found" }
@@ -196,27 +201,37 @@ export class TimesheetWorkflowRepository {
         );
       }
 
+      // Routing: the lead of the employee's team (a team-level approver
+      // assigned to the team) gives the first approval and HR the second. A
+      // team lead's own day, or a day from a team with no lead, goes to HR
+      // alone - never to someone who cannot act.
       const employee = await tx.employee.findFirstOrThrow({
         where: { id: employeeId, organizationId: scope.organizationId },
-        select: {
-          userId: true,
-          reportsTo: {
-            select: {
-              id: true,
-              userId: true,
-              user: { select: { isActive: true } },
-            },
-          },
-        },
+        select: { userId: true, teamId: true },
       });
-      const manager = employee.reportsTo;
-      const hasManager =
-        manager !== null &&
-        manager.userId !== null &&
-        manager.userId !== employee.userId &&
-        manager.user?.isActive === true;
-      const approvalLevels = hasManager ? 2 : 1;
-      const approverBasis = hasManager ? "REPORTING_MANAGER" : "HR";
+      const employeeIsLead =
+        employee.userId !== null &&
+        (await tx.user.count({
+          where: isTeamLead(
+            scope.organizationId,
+            employee.userId,
+            TEAM_APPROVE_CODE,
+          ),
+        })) > 0;
+      const leads = employeeIsLead
+        ? []
+        : await tx.userTeamAccess.findMany({
+            where: leadsOfTeam({
+              organizationId: scope.organizationId,
+              teamId: employee.teamId,
+              teamApproveCode: TEAM_APPROVE_CODE,
+              excludeUserId: employee.userId,
+            }),
+            select: { userId: true },
+          });
+      const hasLead = leads.length > 0;
+      const approvalLevels = hasLead ? 2 : 1;
+      const approverBasis = hasLead ? "TEAM" : "HR";
 
       const ids = submittable.map((r) => r.id);
       const wasReturned = submittable.some((r) => r.status === "REJECTED");
@@ -226,7 +241,7 @@ export class TimesheetWorkflowRepository {
           status: "SUBMITTED",
           submittedAt: new Date(),
           submittedBy: userId,
-          approverEmployeeId: hasManager ? manager.id : null,
+          approverEmployeeId: null,
           approverBasis,
           approvalLevels,
           attendanceStatusAtSubmit: facts.attendanceStatus,
@@ -258,7 +273,7 @@ export class TimesheetWorkflowRepository {
         rowCount: ids.length,
         approvalLevels,
         approverBasis,
-        managerUserId: hasManager ? manager.userId : null,
+        leadUserIds: leads.map((l) => l.userId),
       };
     });
   }
@@ -302,7 +317,11 @@ export class TimesheetWorkflowRepository {
         actorUserId: scope.userId,
         employeeUserId: employee.userId,
         submittedByUserId: lead.submittedBy,
-        isManager: employee.reportsTo?.userId === scope.userId,
+        // Only a day routed before team-lead routing still waits for the
+        // reporting manager; every newer day goes to the team lead (inScope).
+        isManager:
+          lead.approverBasis === "REPORTING_MANAGER" &&
+          employee.reportsTo?.userId === scope.userId,
         inScope:
           scope.level === "all" ||
           (scope.level === "team" && scope.teamIds.includes(employee.teamId)),
@@ -499,16 +518,56 @@ export class TimesheetWorkflowRepository {
     return rows;
   }
 
+  /** The employee, if they are in the caller's reach (never the caller). */
+  @TeamScoped()
+  findReviewableEmployee(scope: TeamScope, employeeId: number) {
+    return this.prisma.employee.findFirst({
+      where: {
+        AND: [
+          { id: employeeId, organizationId: scope.organizationId },
+          reviewableEmployees(scope),
+        ],
+      },
+      select: {
+        id: true,
+        employeeCode: true,
+        fullName: true,
+        teamId: true,
+        workLocationId: true,
+        team: { select: { name: true } },
+      },
+    });
+  }
+
+  /** The attendance references (team and location) of these employees. */
+  @OrgScoped()
+  findEmployeeRefs(scope: OrgScope, employeeIds: readonly number[]) {
+    return this.prisma.employee.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        id: { in: [...employeeIds] },
+      },
+      select: { id: true, teamId: true, workLocationId: true },
+    });
+  }
+
   /** Every row of one employee-day, if the employee is in the caller's reach. */
   @TeamScoped()
-  findReviewDay(scope: TeamScope, employeeId: number, date: string) {
+  findReviewDay(
+    scope: TeamScope,
+    employeeId: number,
+    date: string,
+    includeDrafts = false,
+  ) {
     return this.prisma.timesheet.findMany({
       where: {
         organizationId: scope.organizationId,
         employeeId,
         workDate: parseDateOnly(date),
         deletedAt: null,
-        status: { not: "DRAFT" },
+        // A reviewer's queue never shows a day the employee has not submitted;
+        // the employee drill-down asks for them explicitly (read-only).
+        ...(includeDrafts ? {} : { status: { not: "DRAFT" } }),
         employee: reviewableEmployees(scope),
       },
       select: {

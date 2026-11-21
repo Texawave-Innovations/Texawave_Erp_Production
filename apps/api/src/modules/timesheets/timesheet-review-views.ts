@@ -112,7 +112,12 @@ export function groupDays(rows: readonly ReviewRow[]): GroupedDay[] {
       },
       facts: {
         employeeUserId: lead.employee.userId,
-        managerUserId: lead.employee.reportsTo?.userId ?? null,
+        // Only a day routed to the reporting manager (before team-lead
+        // routing) is theirs to decide; newer days go to the team lead.
+        managerUserId:
+          lead.approverBasis === "REPORTING_MANAGER"
+            ? (lead.employee.reportsTo?.userId ?? null)
+            : null,
         teamId: lead.employee.teamId,
         submittedBy: lead.submittedBy,
         firstDecidedBy: lead.firstDecidedBy,

@@ -92,7 +92,7 @@ export class LeaveRequestsService {
     if (outcome.kind === "not_found") {
       if (scope.level === "own") {
         throw new ForbiddenException(
-          "You may approve or reject only the leave of people who report to you",
+          "You may approve or reject only the leave of your team, as its team lead or a team lead's delegate",
         );
       }
       throw new ResourceNotFoundException("Leave request", id);
@@ -108,7 +108,7 @@ export class LeaveRequestsService {
     return outcome.view;
   }
 
-  /** PENDING requests waiting for the caller (reporting line, delegation,
+  /** PENDING requests waiting for the caller (team lead, delegation,
    * scope, and HR's second approval). */
   async findAwaiting(query: QueryAwaitingLeaveDto) {
     const scope = await this.teamContext.resolveScope(APPROVE);

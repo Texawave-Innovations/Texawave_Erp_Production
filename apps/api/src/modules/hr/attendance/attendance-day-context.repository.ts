@@ -37,8 +37,26 @@ export class AttendanceDayContextRepository {
         weeklyOffRules: [],
         approvedLeaves: [],
         shiftAssignments: [],
+        approvedPermissions: [],
       };
     }
+
+    // Approved short-time permissions (hr.work_permissions, owned by Employee
+    // Self Service): read-only here, one query for every employee and day.
+    const permissionsQuery = this.prisma.workPermission.findMany({
+      where: tenantWhere(scope, {
+        status: "APPROVED",
+        employeeId: { in: employeeIds },
+        date: { gte: fromDate, lte: toDate },
+      }),
+      select: {
+        employeeId: true,
+        date: true,
+        fromTime: true,
+        toTime: true,
+        durationMins: true,
+      },
+    });
 
     const [holidays, weeklyOffRules, leaves, assignments] = await Promise.all([
       this.prisma.holiday.findMany({
@@ -113,8 +131,16 @@ export class AttendanceDayContextRepository {
         },
       }),
     ]);
+    const permissions = await permissionsQuery;
 
     return {
+      approvedPermissions: permissions.map((p) => ({
+        employeeId: p.employeeId,
+        date: formatDateOnly(p.date),
+        fromTime: p.fromTime,
+        toTime: p.toTime,
+        minutes: p.durationMins,
+      })),
       holidays: holidays.map((h) => ({
         date: formatDateOnly(h.holidayDate),
         workLocationId: h.workLocationId,

@@ -44,8 +44,9 @@ import { LeaveRequestsService } from "./leave-requests.service.js";
 import { LeaveTransferService } from "./leave-transfer.service.js";
 
 /** HR/approver surface (Docs/HR_LEAVE.md §6). Reads are own/team/all.
- * Deciding needs `hr.leave.approve`: any level decides for the caller's
- * direct reports (and delegations), `.team`/`.all` within scope, and only
+ * Deciding needs `hr.leave.approve`: the lead of the employee's team (or a
+ * lead's delegate today) decides first, `.team`/`.all` within scope; a team
+ * lead's own request, or one from a team with no lead, goes to HR; only
  * `.all` gives the second (HR) approval; nobody decides their own request or
  * one they submitted. Applying on someone's behalf (`hr.leave_request.create`)
  * and cancelling someone's leave (`hr.leave.cancel`) are team-scoped; `.own`
@@ -82,7 +83,7 @@ export class LeaveRequestsController {
   @RequireScopedPermission("hr.leave.approve")
   @ApiOperation({
     summary:
-      "PENDING requests waiting for YOUR decision: your direct reports (and delegations), your approve scope, and — for .all — HR's second approval",
+      "PENDING requests waiting for YOUR decision: your team's requests as its lead (or a lead you stand in for), your approve scope, and — for .all — HR's final approval",
   })
   findAwaiting(@Paginate(QueryAwaitingLeaveDto) query: QueryAwaitingLeaveDto) {
     return this.leave.findAwaiting(query);
@@ -271,7 +272,7 @@ export class LeaveDelegationsController {
   @RequireScopedPermission("hr.leave.approve")
   @ApiOperation({
     summary:
-      "Let another approver decide your direct reports' leave for a date range (at most 90 days; one at a time)",
+      "Let another approver decide your team's leave for a date range (at most 90 days; one at a time)",
   })
   create(@Body() dto: CreateLeaveDelegationDto) {
     return this.delegations.create(dto);

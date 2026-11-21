@@ -538,16 +538,16 @@ Per the mandatory constraint:
 
 All routes require authentication (`JwtAuthGuard`) and are governed by granular permission checks (`@RequirePermission`):
 
-| Permission String         | Description                                    | Default Roles Assigned                          |
-| :------------------------ | :--------------------------------------------- | :---------------------------------------------- |
-| `projects.project.read`   | View projects, dashboards, milestones, tasks   | Super Admin, HR Manager, Team Lead, Contributor |
-| `projects.project.write`  | Create and edit projects, assign members       | Super Admin, Project Manager                    |
-| `projects.project.delete` | Soft-delete projects and milestones            | Super Admin                                     |
-| `projects.task.write`     | Create, update, assign tasks and milestones    | Super Admin, Project Manager, Team Lead         |
-| `projects.timer.write`    | Start and stop stopwatch timers, log work      | All Employees                                   |
-| `projects.expenses.read`  | View project expenses and budget variance      | Super Admin, Project Manager, Finance Admin     |
-| `projects.expenses.write` | Log and approve project expenses               | Super Admin, Project Manager, Finance Admin     |
-| `projects.points.manage`  | Configure points master and gamification rules | Super Admin                                     |
+| Permission String         | Description                                    | Default Roles Assigned                                                                                |
+| :------------------------ | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| `projects.project.read`   | View projects, dashboards, milestones, tasks   | Super Admin, HR Manager, Team Lead, Contributor                                                       |
+| `projects.project.write`  | Create and edit projects, assign members       | Super Admin, Project Manager                                                                          |
+| `projects.project.delete` | Soft-delete projects and milestones            | Super Admin                                                                                           |
+| `projects.task.write`     | Create, update, assign tasks and milestones    | Super Admin, Project Manager, Team Lead                                                               |
+| `projects.timer.write`    | Start and stop stopwatch timers, log work      | Project roles (employees use `employee_self_service.work.write`, which opens the same My Work routes) |
+| `projects.expenses.read`  | View project expenses and budget variance      | Super Admin, Project Manager, Finance Admin                                                           |
+| `projects.expenses.write` | Log and approve project expenses               | Super Admin, Project Manager, Finance Admin                                                           |
+| `projects.points.manage`  | Configure points master and gamification rules | Super Admin                                                                                           |
 
 ---
 

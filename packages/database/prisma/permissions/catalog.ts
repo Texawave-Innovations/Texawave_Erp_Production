@@ -396,8 +396,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.attendance.read",
     description: "View my own attendance",
   },
+  // apps/api/src/modules/projects (My Work) — an employee working their own
+  // assigned tasks. The My Work routes accept this OR projects.timer.write
+  // (`@RequireAnyPermission`), so no existing grant stops working.
+  {
+    code: "employee_self_service.work.write",
+    description:
+      "Use My Work: see my assigned tasks, start, pause and finish timers, and log time on them",
+  },
   // apps/api/src/modules/timesheets — the employee's own timesheet (read side).
-  // Working a task uses the existing stopwatch permission (projects.timer.write).
+  // Working a task needs employee_self_service.work.write (or the older
+  // projects.timer.write).
   {
     code: "employee_self_service.timesheet.read",
     description: "View my own timesheet (daily work, hours and task history)",

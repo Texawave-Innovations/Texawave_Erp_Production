@@ -9,7 +9,11 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from "../../common/decorators/require-permission.decorator.js";
+import { MY_WORK_PERMISSIONS } from "./my-work.permissions.js";
 import { CreateTaskDto, UpdateTaskDto } from "./dto/create-task.dto.js";
 import { TasksService } from "./tasks.service.js";
 
@@ -27,9 +31,10 @@ export class TasksController {
   }
 
   // Own-data endpoint: gated like the My Work menu item and the stopwatch
-  // (projects.timer.write), so employees need no org-wide project read.
+  // (employee_self_service.work.write or projects.timer.write), so employees
+  // need no org-wide project read.
   @Get("tasks/my-work")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({ summary: "List tasks assigned to the current employee" })
   findMyWork() {
     return this.service.findMyWork();

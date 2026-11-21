@@ -5,7 +5,11 @@ import type { OrgScope } from "../../../../common/tenancy/org-scope.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
 import { AttendanceDayContextRepository } from "../attendance-day-context.repository.js";
 import type { EffectiveStatus } from "./attendance-calculation.service.js";
-import type { EmployeeRef } from "./attendance-day-resolver.js";
+import {
+  resolveBaseTargetMinutes,
+  resolvePermissions,
+  type EmployeeRef,
+} from "./attendance-day-resolver.js";
 import {
   AttendanceDayViewService,
   type StoredDay,
@@ -21,9 +25,20 @@ export interface AttendanceDayInfo {
   /** Minutes HR counts as worked (capped at the shift target, as in HR). */
   workedMinutes: number;
   overtimeMinutes: number;
-  /** Shift target for the day, null when no shift applies. */
+  /** Shift target for the day AFTER approved work permissions are excused,
+   * null when no shift applies. */
   targetMinutes: number | null;
+  /** The shift's full target before any permission is excused. */
+  baseTargetMinutes: number | null;
   hasOpenSession: boolean;
+  /** Approved short-time permissions on the day (earliest first). */
+  permissions: { fromTime: string; toTime: string; minutes: number }[];
+  /** Total of `permissions` — the minutes excused from the target. */
+  permissionMinutes: number;
+  /** First punch-in and last punch-out of the day; null when none. A day whose
+   * last session is still open has a null `checkOutAt`. */
+  checkInAt: Date | null;
+  checkOutAt: Date | null;
 }
 
 /**
@@ -53,17 +68,38 @@ export class AttendanceLookupService {
     from: string,
     to: string,
   ): Promise<Map<string, AttendanceDayInfo>> {
+    const byEmployee = await this.dayStatusesForMany(
+      scope,
+      [employee],
+      from,
+      to,
+    );
+    return byEmployee.get(employee.id) ?? new Map();
+  }
+
+  /**
+   * The same as `dayStatuses` for several employees at once (reports): one
+   * query per calendar fact and one for the punches, however many people.
+   */
+  async dayStatusesForMany(
+    scope: OrgScope,
+    employees: readonly EmployeeRef[],
+    from: string,
+    to: string,
+  ): Promise<Map<number, Map<string, AttendanceDayInfo>>> {
+    if (employees.length === 0) return new Map();
     const [ctx, records] = await Promise.all([
-      this.dayContext.load(scope, [employee], from, to),
+      this.dayContext.load(scope, employees, from, to),
       this.prisma.attendanceRecord.findMany({
         where: {
           organizationId: scope.organizationId,
-          employeeId: employee.id,
+          employeeId: { in: employees.map((e) => e.id) },
           deletedAt: null,
           attendanceDate: { gte: parseDateOnly(from), lte: parseDateOnly(to) },
         },
         select: {
           id: true,
+          employeeId: true,
           attendanceDate: true,
           status: true,
           sessions: {
@@ -80,39 +116,56 @@ export class AttendanceLookupService {
     ]);
 
     const stored = new Map(
-      records.map((r) => [r.attendanceDate.toISOString().slice(0, 10), r]),
-    );
-    const days: StoredDay[] = [];
-    for (let date = from; date <= to; date = addDays(date, 1)) {
-      const record = stored.get(date);
-      days.push({
-        recordId: record?.id ?? null,
-        employeeId: employee.id,
-        attendanceDate: date,
-        storedStatus: (record?.status as StoredDay["storedStatus"]) ?? null,
-        sessions: record?.sessions ?? [],
-      });
-    }
-
-    const views = this.dayViews.build(
-      ctx,
-      new Map([[employee.id, employee]]),
-      days,
-      new Date(),
-    );
-    return new Map(
-      views.map((v) => [
-        v.attendanceDate,
-        {
-          date: v.attendanceDate,
-          status: v.status,
-          workedMinutes: v.workedMinutes,
-          overtimeMinutes: v.overtimeMinutes,
-          targetMinutes: v.targetMinutes,
-          hasOpenSession: v.hasOpenSession,
-        },
+      records.map((r) => [
+        `${r.employeeId}|${r.attendanceDate.toISOString().slice(0, 10)}`,
+        r,
       ]),
     );
+    const days: StoredDay[] = [];
+    for (const employee of employees) {
+      for (let date = from; date <= to; date = addDays(date, 1)) {
+        const record = stored.get(`${employee.id}|${date}`);
+        days.push({
+          recordId: record?.id ?? null,
+          employeeId: employee.id,
+          attendanceDate: date,
+          storedStatus: (record?.status as StoredDay["storedStatus"]) ?? null,
+          sessions: record?.sessions ?? [],
+        });
+      }
+    }
+
+    const refs = new Map(employees.map((e) => [e.id, e]));
+    const views = this.dayViews.build(ctx, refs, days, new Date());
+    const result = new Map<number, Map<string, AttendanceDayInfo>>();
+    for (const v of views) {
+      const employee = refs.get(v.employeeId)!;
+      const permissions = resolvePermissions(ctx, employee, v.attendanceDate);
+      const last = v.sessions[v.sessions.length - 1];
+      let byDate = result.get(v.employeeId);
+      if (!byDate) {
+        byDate = new Map();
+        result.set(v.employeeId, byDate);
+      }
+      byDate.set(v.attendanceDate, {
+        date: v.attendanceDate,
+        status: v.status,
+        workedMinutes: v.workedMinutes,
+        overtimeMinutes: v.overtimeMinutes,
+        targetMinutes: v.targetMinutes,
+        baseTargetMinutes: resolveBaseTargetMinutes(
+          ctx,
+          employee,
+          v.attendanceDate,
+        ),
+        hasOpenSession: v.hasOpenSession,
+        permissions,
+        permissionMinutes: permissions.reduce((n, p) => n + p.minutes, 0),
+        checkInAt: v.sessions[0]?.checkInAt ?? null,
+        checkOutAt: last?.checkOutAt ?? null,
+      });
+    }
+    return result;
   }
 
   /**

@@ -9,7 +9,11 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from "../../common/decorators/require-permission.decorator.js";
+import { MY_WORK_PERMISSIONS } from "./my-work.permissions.js";
 import { CreateTimeEntryDto } from "./dto/create-time-entry.dto.js";
 import { StopTimerDto } from "./dto/stop-timer.dto.js";
 import { TimeEntriesService } from "./time-entries.service.js";
@@ -21,7 +25,7 @@ export class TimeEntriesController {
   constructor(private readonly service: TimeEntriesService) {}
 
   @Get("timer/active")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({
     summary: "Get currently running timer for the authenticated employee",
   })
@@ -30,7 +34,7 @@ export class TimeEntriesController {
   }
 
   @Get("attendance/me")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({
     summary:
       "Today's attendance status for the stopwatch gate (checked in / out)",
@@ -40,9 +44,10 @@ export class TimeEntriesController {
   }
 
   // Own-data endpoint: gated like the My Work menu item and the stopwatch
-  // (projects.timer.write), so employees need no org-wide project read.
+  // (employee_self_service.work.write or projects.timer.write), so employees
+  // need no org-wide project read.
   @Get("time-summary/me")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({
     summary: "Logged-today / this-week minutes for the authenticated employee",
   })
@@ -61,7 +66,7 @@ export class TimeEntriesController {
   }
 
   @Post(":taskId/timer/start")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({ summary: "Start live stopwatch timer for a task" })
   startTimer(@Param("taskId", ParseIntPipe) taskId: number) {
     return this.service.startTimer(taskId);
@@ -69,7 +74,7 @@ export class TimeEntriesController {
 
   @Post(":taskId/timer/stop")
   @HttpCode(HttpStatus.OK)
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({
     summary:
       "Stop the stopwatch and compute logged hours; optionally also pause or complete the task",
@@ -85,7 +90,7 @@ export class TimeEntriesController {
   }
 
   @Post(":taskId/time-entries")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({ summary: "Log manual work duration in minutes for a task" })
   createManualTimeEntry(
     @Param("taskId", ParseIntPipe) taskId: number,
@@ -95,7 +100,7 @@ export class TimeEntriesController {
   }
 
   @Get(":taskId/time-entries/mine")
-  @RequirePermission("projects.timer.write")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
   @ApiOperation({
     summary: "The caller's own time entries on a task assigned to them",
   })

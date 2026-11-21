@@ -34,13 +34,13 @@ Sign in as the seeded Super Admin (`admin@texawave.com` / `ChangeMe123!`, local 
 `permissions:sync` never gives anyone a permission, so grant them in **Settings → Roles** and attach the role to the
 user. Create these people (Employees, then a login for each) and set **Reports to** on the employee as shown:
 
-| Person       | Reports to  | Role / permissions                                                                                   |
-| ------------ | ----------- | ---------------------------------------------------------------------------------------------------- |
-| **Asha**     | **Manager** | the default **Employee** role, plus `projects.timer.write` (My Work needs it)                        |
-| **Ben**      | nobody      | the default **Employee** role, plus `projects.timer.write` (no manager: goes to HR alone)            |
-| **Manager**  | nobody      | Employee role + `hr.timesheet.read.own` + `hr.timesheet.approve.own` (the reporting-manager level)   |
-| **HR**       | nobody      | the default **HR Manager** role (has read, approve and export at `.all`)                             |
-| **Outsider** | nobody      | Employee role + `hr.timesheet.read.own` + `hr.timesheet.approve.own`, and **nobody reports to them** |
+| Person       | Reports to  | Role / permissions                                                                                       |
+| ------------ | ----------- | -------------------------------------------------------------------------------------------------------- |
+| **Asha**     | **Manager** | the default **Employee** role (it already holds `employee_self_service.work.write`, which My Work needs) |
+| **Ben**      | nobody      | the default **Employee** role (no manager: goes to HR alone)                                             |
+| **Manager**  | nobody      | Employee role + `hr.timesheet.read.own` + `hr.timesheet.approve.own` (the reporting-manager level)       |
+| **HR**       | nobody      | the default **HR Manager** role (has read, approve and export at `.all`)                                 |
+| **Outsider** | nobody      | Employee role + `hr.timesheet.read.own` + `hr.timesheet.approve.own`, and **nobody reports to them**     |
 
 Asha and Ben also need some work: create a project, add them as members, and assign each a task or two.
 

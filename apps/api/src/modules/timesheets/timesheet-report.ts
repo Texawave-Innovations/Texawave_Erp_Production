@@ -20,6 +20,12 @@ export interface EmployeeReportLine {
   returnedDays: number;
   /** Days with a session a reviewer should look at. */
   needsAttentionDays: number;
+  /** Over the range, from HR attendance (0 until the service fills them in):
+   * the shift targets AFTER approved permissions, the permission minutes, and
+   * the minutes HR counts as worked. */
+  targetMinutes: number;
+  permissionMinutes: number;
+  attendanceMinutes: number;
 }
 
 /** One line per employee, in name order. Migrated legacy drafts are never
@@ -42,6 +48,9 @@ export function buildEmployeeReport(
         approvedDays: 0,
         returnedDays: 0,
         needsAttentionDays: 0,
+        targetMinutes: 0,
+        permissionMinutes: 0,
+        attendanceMinutes: 0,
       };
       byEmployee.set(day.employee.id, line);
     }
@@ -88,6 +97,9 @@ export const EMPLOYEE_REPORT_HEADERS = [
   "Approved",
   "Returned",
   "Needs Attention",
+  "Target Hours (after permissions)",
+  "Permission Hours",
+  "Attendance Hours",
 ] as const;
 
 export function employeeReportRow(line: EmployeeReportLine): unknown[] {
@@ -104,6 +116,9 @@ export function employeeReportRow(line: EmployeeReportLine): unknown[] {
     line.approvedDays,
     line.returnedDays,
     line.needsAttentionDays,
+    hours(line.targetMinutes),
+    hours(line.permissionMinutes),
+    hours(line.attendanceMinutes),
   ];
 }
 
@@ -138,7 +153,7 @@ export function dayReportRow(day: DaySummary): unknown[] {
     day.employee.team,
     day.date,
     STATUS_LABEL[day.status],
-    day.stage === "MANAGER" ? "Manager" : day.stage === "HR" ? "HR" : "",
+    day.stage === "MANAGER" ? "Team lead" : day.stage === "HR" ? "HR" : "",
     hours(day.taskMinutes),
     hours(day.customMinutes),
     hours(day.totalMinutes),

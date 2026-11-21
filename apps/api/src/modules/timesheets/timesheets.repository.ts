@@ -45,6 +45,29 @@ export class TimesheetsRepository {
     });
   }
 
+  /** Every row of the employee over a date range (inclusive), drafts included,
+   * with the minimum the month view needs. */
+  @OrgScoped()
+  findRowsInRange(scope: OrgScope, employeeId: number, from: Date, to: Date) {
+    return this.prisma.timesheet.findMany({
+      where: {
+        organizationId: scope.organizationId,
+        employeeId,
+        workDate: { gte: from, lte: to },
+        deletedAt: null,
+      },
+      select: {
+        workDate: true,
+        status: true,
+        category: true,
+        durationMinutes: true,
+        endedAt: true,
+        sessions: { select: { endedAt: true, durationMinutes: true } },
+      },
+      orderBy: [{ workDate: "asc" }, { id: "asc" }],
+    });
+  }
+
   /** The employee's rows for one task over a date range (inclusive). */
   @OrgScoped()
   findTaskRows(

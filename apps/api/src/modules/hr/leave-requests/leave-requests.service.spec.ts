@@ -66,7 +66,7 @@ describe("LeaveRequestsService", () => {
     expect(notifier.leaveChanged).not.toHaveBeenCalled();
   });
 
-  it("approve() lets the repository decide for an `.own` holder (the reporting manager)", async () => {
+  it("approve() lets the repository decide for an `.own` holder (a team lead's delegate)", async () => {
     const { service, repository } = makeService("own");
     repository.decide.mockResolvedValue({
       kind: "decided",

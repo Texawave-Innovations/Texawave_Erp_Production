@@ -249,6 +249,14 @@ Precedence, decided: **Holiday > Weekly Off > Leave > stored status.**
 - Weekly-off days cap worked at target and report no overtime (legacy Sunday rule, generalised).
 - Target: an employee-level shift assignment overrides a team-level one. With neither, target is
   null, and only punched time is reported (no OT, no shortfall).
+- **Approved work permissions reduce the target.** An APPROVED `WorkPermission` (Employee Self Service,
+  `hr.work_permissions`) on the day takes its `duration_mins` off the shift's working minutes, never below
+  zero (8 h shift − 2 h permission = 6 h target; worked, overtime and shortfall then follow the normal rules
+  against the reduced target). PENDING and REJECTED permissions change nothing. With no shift there is no
+  target to reduce. This lives in `resolveTargetMinutes` (the day-context loader reads the permissions in
+  one query), so the attendance screens, reports, month close and timesheet all agree. The **full** shift is
+  still available as `resolveBaseTargetMinutes`: auto check-out closes at check-in + the full shift, because a
+  permission excuses worked time, it does not shorten the shift.
 - An open session counts time up to the server's `asOf`.
 - Timezone: Asia/Kolkata. A punch belongs to the IST date it starts on.
 

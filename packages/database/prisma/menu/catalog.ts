@@ -274,7 +274,7 @@ export const MENU_CATALOG: readonly MenuItemDef[] = [
     path: "/portal/work",
     order: 16,
     parentCode: "portal",
-    permission: "projects.timer.write",
+    permission: "employee_self_service.work.write",
   },
   {
     code: "portal-tickets",
