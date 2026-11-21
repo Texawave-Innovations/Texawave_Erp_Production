@@ -9,7 +9,8 @@ const facts: LeaveNotificationFacts = {
   employeeCode: "E1",
   employeeUserId: 20,
   teamId: 3,
-  managerUserId: 30,
+  leadUserIds: [30],
+  hrOnly: false,
   leaveTypeName: "Casual",
   startDate: "2026-10-05",
   endDate: "2026-10-06",
@@ -47,7 +48,7 @@ function make(over: Partial<LeaveNotificationFacts> = {}, actorId = 20) {
 }
 
 describe("LeaveNotificationsService", () => {
-  it("tells the reporting manager and their delegates about a new request, not the employee who acted", async () => {
+  it("tells the team lead and their delegates about a new request, not the employee who acted", async () => {
     const { service, sent } = make();
     await service.leaveChanged(7, {
       kind: "submitted",
@@ -60,8 +61,11 @@ describe("LeaveNotificationsService", () => {
     ]);
   });
 
-  it("falls back to the team's approvers when there is no reporting manager", async () => {
-    const { service, repository, sent } = make({ managerUserId: null });
+  it("goes to HR when the employee is a team lead or the team has no lead", async () => {
+    const { service, repository, sent } = make({
+      leadUserIds: [],
+      hrOnly: true,
+    });
     await service.leaveChanged(7, {
       kind: "submitted",
       onBehalf: false,
@@ -69,15 +73,16 @@ describe("LeaveNotificationsService", () => {
     });
     expect(repository.usersWithApprove).toHaveBeenCalledWith(
       { organizationId: 1 },
-      ["team", "all"],
-      3,
+      ["all"],
+      null,
     );
+    expect(repository.activeDelegatesOf).not.toHaveBeenCalled();
     expect(sent().map((n) => n.userId)).toEqual([40, 41]);
   });
 
   it("on behalf: tells the approvers and the employee, never HR who applied", async () => {
     const { service, sent } = make(
-      { requestedBy: 40, managerUserId: null },
+      { requestedBy: 40, leadUserIds: [], hrOnly: true },
       40,
     );
     await service.leaveChanged(7, {

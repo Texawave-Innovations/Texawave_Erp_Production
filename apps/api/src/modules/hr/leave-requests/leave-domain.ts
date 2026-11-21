@@ -209,8 +209,9 @@ export function covers(balance: YearBalance, days: number): boolean {
 export const APPROVAL_LEVELS = [1, 2] as const;
 export type ApprovalLevels = (typeof APPROVAL_LEVELS)[number];
 
-/** Who a PENDING request waits for: the first approver (the reporting
- * manager, a delegate, or a team/all approver) or, on a two-level request
+/** Who a PENDING request waits for: the first approver (the employee's team
+ * lead, a team lead's delegate, or a team/all approver - HR alone for a team
+ * lead's own request or a team with no lead) or, on a two-level request
  * already approved once, HR. */
 export type AwaitingStage = "FIRST" | "HR";
 
@@ -232,17 +233,25 @@ export interface ApprovalFacts {
   actorId: number;
   employeeUserId: number | null;
   requestedBy: number;
-  /** The actor is the employee's reporting manager, or that manager's active
-   * delegate today. */
+  /** The actor is the active delegate today of a lead of the employee's team
+   * (the lead themself is covered by their team scope, `inScope`). */
   isManager: boolean;
   /** The actor's `hr.leave.approve` scope is team/all and covers the employee. */
   inScope: boolean;
   /** The actor's resolved `hr.leave.approve` level. */
   scopeLevel: "own" | "team" | "all";
+  /** Only HR (`.all`) may give the first decision: the employee is a team lead,
+   * or their team has no lead who can approve. */
+  hrOnly: boolean;
 }
 
 export type ApprovalRefusal =
-  "NOT_VISIBLE" | "SELF" | "REQUESTER" | "AWAITING_HR" | "SAME_APPROVER";
+  | "NOT_VISIBLE"
+  | "SELF"
+  | "REQUESTER"
+  | "HR_ONLY"
+  | "AWAITING_HR"
+  | "SAME_APPROVER";
 
 export type ApprovalVerdict =
   | { ok: true; stage: 1 | 2; final: boolean }
@@ -251,11 +260,13 @@ export type ApprovalVerdict =
 /**
  * Whether the actor may decide this PENDING request now, and at which stage.
  *
- *  - Nobody outside the reporting line and outside their approve scope sees
- *    the request at all (NOT_VISIBLE → 404).
+ *  - Nobody who is not the team's lead (or a lead's delegate) and outside
+ *    their approve scope sees the request at all (NOT_VISIBLE → 404).
  *  - Nobody decides their own request, nor one they submitted on someone's
  *    behalf (maker-checker).
- *  - Stage 1: the reporting manager (or delegate) or a team/all approver.
+ *  - Stage 1: the employee's team lead (or a lead's delegate) or a team/all
+ *    approver; HR (`.all`) alone - and finally - when the employee is a team
+ *    lead or their team has no lead who can approve.
  *  - Stage 2 (two-level only): an `.all` approver who did not give stage 1.
  */
 export function approvalVerdict(f: ApprovalFacts): ApprovalVerdict {
@@ -266,6 +277,12 @@ export function approvalVerdict(f: ApprovalFacts): ApprovalVerdict {
     return { ok: false, reason: "SELF" };
   if (f.requestedBy === f.actorId) return { ok: false, reason: "REQUESTER" };
   if (!firstDone) {
+    // No team-lead step exists here, so HR's one decision is the whole review.
+    if (f.hrOnly) {
+      return hrInScope
+        ? { ok: true, stage: 1, final: true }
+        : { ok: false, reason: "HR_ONLY" };
+    }
     return { ok: true, stage: 1, final: f.approvalLevels !== 2 };
   }
   if (!hrInScope) return { ok: false, reason: "AWAITING_HR" };

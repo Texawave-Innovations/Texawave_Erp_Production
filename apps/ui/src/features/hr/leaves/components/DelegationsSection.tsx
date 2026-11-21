@@ -173,7 +173,7 @@ function NewDelegationDialog({ onClose }: { onClose: () => void }) {
 /**
  * A leave approver's stand-ins (GET/POST /hr/leave-delegations): the
  * delegations the caller gave (revocable) and received. A delegate decides
- * only what the delegator could as reporting manager (Docs/HR_LEAVE.md §6.2).
+ * only what the delegator could as team lead (Docs/HR_LEAVE.md §6.2).
  */
 export function DelegationsSection() {
   const userId = useAuthStore((s) => s.user?.userId ?? 0);

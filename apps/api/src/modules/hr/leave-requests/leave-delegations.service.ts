@@ -21,7 +21,7 @@ import { today } from "./leave-requests.repository.js";
 export const MAX_DELEGATION_DAYS = 90;
 
 /**
- * A reporting manager names a stand-in for leave approval (Docs/HR_LEAVE.md
+ * A team lead (or any leave approver) names a stand-in for leave approval (Docs/HR_LEAVE.md
  * §6.2). Self-service for the caller: they create and revoke only their own
  * delegations and see only delegations they gave or received. Gated by
  * `hr.leave.approve` (any level) at the controller — only someone who

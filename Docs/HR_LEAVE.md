@@ -166,7 +166,7 @@ Balances are derived from the facts, not stored as counters, so they cannot drif
 - Maker-checker: nobody decides their own request, nor one they submitted on someone's behalf
   (`403 SELF_APPROVAL_FORBIDDEN`), even with `.all`.
 - Out of scope is `404`, not `403`, so existence is not leaked. The one exception: an `.own`-only
-  approver gets `403` for a request outside their reporting line (it was always `403` for `.own`).
+  approver gets `403` for a request they don't stand in for as a delegate (it was always `403` for `.own`).
 - Organization isolation: every query carries `organizationId`. An entitlement or
   decision that names another organization's employee or leave type is `422` or `404`.
 - Service-level enforcement: the repository loads through `teamWhere`/`tenantWhere`,
@@ -174,22 +174,29 @@ Balances are derived from the facts, not stored as counters, so they cannot drif
 
 ### 6.1 Approval routing (Decision)
 
-Authority over a PENDING request comes from two independent sources:
+**Team lead first, then HR** (decided 2026-11-20; replaces reporting-manager routing — the same rule as
+timesheets). A **team lead** is a user who holds `hr.leave.approve.team` (the default Team Lead role grants it) and is
+assigned to the employee's team (Settings → Users → teams). Authority over a PENDING request:
 
-- **Reporting line:** the caller is the employee's reporting manager (`Employee.reportsTo`, through
-  its linked login) or that manager's active delegate today (§6.2). Any `hr.leave.approve` level
-  gives this. `hr.leave.approve.own` gives **only** this — it is the reporting-manager level.
-- **Scope:** the caller's `hr.leave.approve` level is `.team` (the employee's team) or `.all`.
+- **Team lead:** a team lead of the employee's team decides through their team scope, or a team lead's active
+  delegate today (§6.2). `hr.leave.approve.own` now gives **only** the delegate path.
+- **HR:** `hr.leave.approve.all` decides anything in the organization.
+- **HR only:** when the employee is a team lead themself, or their team has no team lead, only `.all` may decide —
+  and that one decision is **final** even on a two-level type (there is no team-lead step to check).
+  Routing is read live at decision time, so assigning or removing a team lead applies to pending requests.
+  `Employee.reportsTo` no longer routes leave.
 
 Each leave type has `approvalLevels`:
 
-| Levels | Stage 1                                                        | Stage 2                                             |
-| ------ | -------------------------------------------------------------- | --------------------------------------------------- |
-| 1      | reporting line **or** scope → final                            | —                                                   |
-| 2      | reporting line **or** scope → still PENDING (`awaiting: "HR"`) | an `.all` approver who did not give stage 1 → final |
+| Levels  | Stage 1                                                    | Stage 2                                             |
+| ------- | ---------------------------------------------------------- | --------------------------------------------------- |
+| 1       | team lead (or delegate) **or** HR → final                  | —                                                   |
+| 2       | team lead (or delegate) → still PENDING (`awaiting: "HR"`) | an `.all` approver who did not give stage 1 → final |
+| HR only | HR → final (any type)                                      | —                                                   |
 
-Refusals: `403 LEAVE_AWAITING_HR` (stage 2 by someone without `.all`), `403 LEAVE_SAME_APPROVER`
-(the stage-1 approver again; also a CHECK in the database). A rejection at either stage is final.
+Refusals: `403 LEAVE_HR_ONLY` (a team lead's own request, or a team with no lead, by someone without `.all`),
+`403 LEAVE_AWAITING_HR` (stage 2 by someone without `.all`), `403 LEAVE_SAME_APPROVER` (the stage-1 approver again;
+also a CHECK in the database). A rejection at either stage is final.
 The pure rule is `approvalVerdict()` in `leave-domain.ts`. `GET /hr/leave-requests/approvals` lists
 exactly what the caller may decide now.
 
@@ -197,7 +204,7 @@ exactly what the caller may decide now.
 
 A user with any `hr.leave.approve` level may name a stand-in for a date range (at most 90 days,
 ending today or later, one active delegation at a time). During the range the delegate decides
-what the delegator could decide **as reporting manager** — never more: scope-based authority still
+what the delegator could decide **as team lead** — never more: scope-based authority still
 comes only from the delegate's own roles. The delegate must hold some `hr.leave.approve` level
 (`422 DELEGATE_CANNOT_APPROVE`), because the route guard would refuse them otherwise. Delegations
 are revoked, never edited, and audited (`leave_delegation`). Only the delegator lists, creates and
@@ -208,15 +215,15 @@ revokes their own; the delegate sees the ones they received.
 In-app (`platform/notifications`), sent after the change commits; a failure is logged and never
 fails the change. The person who acted is never notified.
 
-| Event                    | Recipients                                                                                                         | Type                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Submitted / resubmitted  | reporting manager + active delegates; no manager with a login → the team's approvers (`.team` with access, `.all`) | `leave.submitted`                           |
-| Submitted on behalf      | the above, plus the employee                                                                                       | `leave.submitted_on_behalf`                 |
-| First of two approvals   | the employee; `.all` approvers except the first approver                                                           | `leave.first_approved`, `leave.awaiting_hr` |
-| Approved / rejected      | the employee                                                                                                       | `leave.approved`, `leave.rejected`          |
-| Cancelled by HR          | the employee                                                                                                       | `leave.cancelled_by_hr`                     |
-| Approved leave withdrawn | whoever approved it (both approvers on two-level)                                                                  | `leave.withdrawn`                           |
-| Delegation created       | the delegate                                                                                                       | `leave.delegation_created`                  |
+| Event                    | Recipients                                                                                                | Type                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Submitted / resubmitted  | the team's leads + their active delegates; a team lead's own request or a team with no lead → HR (`.all`) | `leave.submitted`                           |
+| Submitted on behalf      | the above, plus the employee                                                                              | `leave.submitted_on_behalf`                 |
+| First of two approvals   | the employee; `.all` approvers except the first approver                                                  | `leave.first_approved`, `leave.awaiting_hr` |
+| Approved / rejected      | the employee                                                                                              | `leave.approved`, `leave.rejected`          |
+| Cancelled by HR          | the employee                                                                                              | `leave.cancelled_by_hr`                     |
+| Approved leave withdrawn | whoever approved it (both approvers on two-level)                                                         | `leave.withdrawn`                           |
+| Delegation created       | the delegate                                                                                              | `leave.delegation_created`                  |
 
 ### 6.4 HR actions on someone else's leave (Decision)
 
@@ -258,27 +265,27 @@ the commit.
 
 ### 9.1 Decisions made for this module (not in legacy)
 
-| #   | Decision                                                                                      | Why                                                        |
-| --- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| D1  | Balance is enforced at submission and approval; paid leave cannot go negative                 | Requested. Legacy only gated the UI.                       |
-| D2  | Entitlement = type default, overridable per employee per year                                 | Mirrors legacy's defaults and HR overrides.                |
-| D3  | Accrual = 1/12 per credited month; joining and exit months credited as in §5.1                | Accrual was requested; the schedule is a choice.           |
-| D4  | Carry-forward capped per leave type; excess forfeited                                         | Carry-forward was requested; the cap is a choice.          |
-| D5  | Working days (not calendar days) consume the balance                                          | Requested. Legacy counted calendar days.                   |
-| D6  | Half-days: single date, 0.5 day, FIRST/SECOND portions                                        | Requested. Legacy had no half-days.                        |
-| D7  | Cancel approved leave only before its start (UTC date)                                        | Requested. Legacy had no cancellation.                     |
-| D8  | Resubmit only if the start date is not past; same id, re-validated                            | Requested. Avoids duplicate requests.                      |
-| D9  | No request may span two calendar years                                                        | Keeps per-year accounting unambiguous.                     |
-| D10 | Accrual counted through the request's end month                                               | Lets planned leave be requested ahead.                     |
-| D11 | Entitlement administration reuses `hr.leave_type.write`; no new permission                    | Avoids a second permission family for one admin action.    |
-| D12 | Balance is computed, not stored                                                               | Prevents drift; cost is one query per employee and type.   |
-| D13 | Reporting manager (or delegate) or scoped approver decides; `approve.own` = reporting manager | Legacy routed nothing; a manager needs no team scope.      |
-| D14 | Optional second approval per leave type, by a different `.all` approver                       | "Reporting manager → HR" without forcing it on every type. |
-| D15 | Delegation: reporting-line authority only, ≤ 90 days, one at a time                           | Cover for absent managers without widening scope.          |
-| D16 | HR may apply on behalf (still needs someone else's approval)                                  | Phone-in sick leave; maker-checker kept.                   |
-| D17 | HR may cancel approved leave at any time, whole request only                                  | Corrections after the start; no partial curtailment yet.   |
-| D18 | Approval / cancellation of approved leave refused in a closed attendance month                | A closed month must not change silently.                   |
-| D19 | CSV (not .xlsx) for export and import                                                         | Excel opens and saves CSV; no new dependency.              |
+| #   | Decision                                                                                                             | Why                                                                            |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| D1  | Balance is enforced at submission and approval; paid leave cannot go negative                                        | Requested. Legacy only gated the UI.                                           |
+| D2  | Entitlement = type default, overridable per employee per year                                                        | Mirrors legacy's defaults and HR overrides.                                    |
+| D3  | Accrual = 1/12 per credited month; joining and exit months credited as in §5.1                                       | Accrual was requested; the schedule is a choice.                               |
+| D4  | Carry-forward capped per leave type; excess forfeited                                                                | Carry-forward was requested; the cap is a choice.                              |
+| D5  | Working days (not calendar days) consume the balance                                                                 | Requested. Legacy counted calendar days.                                       |
+| D6  | Half-days: single date, 0.5 day, FIRST/SECOND portions                                                               | Requested. Legacy had no half-days.                                            |
+| D7  | Cancel approved leave only before its start (UTC date)                                                               | Requested. Legacy had no cancellation.                                         |
+| D8  | Resubmit only if the start date is not past; same id, re-validated                                                   | Requested. Avoids duplicate requests.                                          |
+| D9  | No request may span two calendar years                                                                               | Keeps per-year accounting unambiguous.                                         |
+| D10 | Accrual counted through the request's end month                                                                      | Lets planned leave be requested ahead.                                         |
+| D11 | Entitlement administration reuses `hr.leave_type.write`; no new permission                                           | Avoids a second permission family for one admin action.                        |
+| D12 | Balance is computed, not stored                                                                                      | Prevents drift; cost is one query per employee and type.                       |
+| D13 | Team lead (or delegate) decides first, then HR; a team lead's own leave → HR (2026-11-20; was the reporting manager) | Teams are the real boundary here; the Team Lead role is assigned deliberately. |
+| D14 | Optional second approval per leave type, by a different `.all` approver                                              | "Reporting manager → HR" without forcing it on every type.                     |
+| D15 | Delegation: reporting-line authority only, ≤ 90 days, one at a time                                                  | Cover for absent managers without widening scope.                              |
+| D16 | HR may apply on behalf (still needs someone else's approval)                                                         | Phone-in sick leave; maker-checker kept.                                       |
+| D17 | HR may cancel approved leave at any time, whole request only                                                         | Corrections after the start; no partial curtailment yet.                       |
+| D18 | Approval / cancellation of approved leave refused in a closed attendance month                                       | A closed month must not change silently.                                       |
+| D19 | CSV (not .xlsx) for export and import                                                                                | Excel opens and saves CSV; no new dependency.                                  |
 
 ### 9.2 Legacy behaviour that was not adopted
 

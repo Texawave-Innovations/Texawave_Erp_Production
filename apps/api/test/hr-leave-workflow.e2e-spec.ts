@@ -265,8 +265,23 @@ describe("HR leave workflow (e2e)", () => {
       })
     ).id;
 
-    // Reporting line: mgr (a manager with only approve.own) ← empA, empB.
-    const mgr = await mkUser(org, "mgr", [...SELF, "hr.leave.approve.own"]);
+    // Team line: mgr is the LEAD of team1 (approve.team), so empA and empB's
+    // leave goes to mgr first; team2 (empC, hr2) has no lead, so its leave
+    // goes to HR alone. A team lead's own leave goes to HR too.
+    const mgr = await mkUser(
+      org,
+      "mgr",
+      [...SELF, "hr.leave.approve.team"],
+      [],
+    );
+    await prisma.userTeamAccess.create({
+      data: {
+        organizationId: org.id,
+        userId: mgr.id,
+        teamId: team1,
+        isLead: true,
+      },
+    });
     const a = await mkUser(org, "empA", SELF);
     const b = await mkUser(org, "empB", SELF);
     const c = await mkUser(org, "empC", SELF); // team2, no manager
@@ -311,8 +326,8 @@ describe("HR leave workflow (e2e)", () => {
     ]);
 
     await mkEmp(org, "mgr", team1, { userId: mgr.id });
-    await mkEmp(org, "A", team1, { userId: a.id, reportsToId: emp.mgr });
-    await mkEmp(org, "B", team1, { userId: b.id, reportsToId: emp.mgr });
+    await mkEmp(org, "A", team1, { userId: a.id });
+    await mkEmp(org, "B", team1, { userId: b.id });
     await mkEmp(org, "C", team2, { userId: c.id });
     await mkEmp(org, "hr2", team2, { userId: hr2.id });
     await mkEmp(orgB, "X", teamB);
@@ -331,8 +346,8 @@ describe("HR leave workflow (e2e)", () => {
   });
 
   // ---------------------------------------------------------------------------
-  describe("reporting-manager approval", () => {
-    it("the manager (approve.own) decides a direct report's leave", async () => {
+  describe("team-lead approval", () => {
+    it("the team lead decides their team's leave", async () => {
       const l = await submit("empA", casual, `${nextYear()}-01-05`);
       expect(l.awaiting).toBe("FIRST");
       const r = await approve("mgr", l.id).expect(200);
@@ -342,11 +357,20 @@ describe("HR leave workflow (e2e)", () => {
       });
     });
 
-    it("approve.own grants nothing over someone who does not report to you (403); no approve permission at all is 403", async () => {
+    it("a team lead reaches only their own team (404 elsewhere); no approve permission at all is 403", async () => {
       const l = await submit("empC", casual, `${nextYear()}-01-05`);
-      await approve("mgr", l.id).expect(403);
+      await approve("mgr", l.id).expect(404);
       await approve("noApprove", l.id).expect(403);
       expect(await status(l.id)).toBe("PENDING");
+    });
+
+    it("a team lead's own leave goes to HR: another team approver is refused, HR decides", async () => {
+      const l = await submit("mgr", casual, `${nextYear()}-01-05`);
+      expect(errorOf(await approve("lead1", l.id).expect(403))).toBe(
+        "LEAVE_HR_ONLY",
+      );
+      await approve("hr1", l.id).expect(200);
+      expect(await status(l.id)).toBe("APPROVED");
     });
 
     it("a team approver still decides within scope; another organization never sees the request", async () => {
@@ -369,8 +393,12 @@ describe("HR leave workflow (e2e)", () => {
       expect(forMgr).not.toContain(c.id);
       expect(forMgr).not.toContain(mine.id);
       const forLead = await ids("lead1");
-      expect(forLead).toEqual(expect.arrayContaining([a.id, mine.id]));
+      expect(forLead).toContain(a.id);
+      // the team lead's own request, and a team with no lead, are HR's
+      expect(forLead).not.toContain(mine.id);
       expect(forLead).not.toContain(c.id);
+      const forHr = await ids("hr1");
+      expect(forHr).toEqual(expect.arrayContaining([a.id, c.id, mine.id]));
       await get("noApprove", "/hr/leave-requests/approvals").expect(403);
     });
   });
@@ -406,13 +434,23 @@ describe("HR leave workflow (e2e)", () => {
     });
 
     it("the same HR approver cannot give both approvals", async () => {
-      const l = await submit("empC", twoLevel, `${nextYear()}-02-02`);
+      const l = await submit("empB", twoLevel, `${nextYear()}-02-02`);
       await approve("hr1", l.id).expect(200);
       expect(errorOf(await approve("hr1", l.id).expect(403))).toBe(
         "LEAVE_SAME_APPROVER",
       );
       await approve("hr2", l.id).expect(200);
       expect(await status(l.id)).toBe("APPROVED");
+    });
+
+    it("HR-only requests (team lead's own, or a team with no lead) take ONE final HR decision, even on a two-level type", async () => {
+      const own = await submit("mgr", twoLevel, `${nextYear()}-02-02`);
+      expect(
+        dataOf<Leave>(await approve("hr1", own.id).expect(200)),
+      ).toMatchObject({ status: "APPROVED", decidedBy: { id: userIds.hr1 } });
+      const noLead = await submit("empC", twoLevel, `${nextYear()}-02-02`);
+      await approve("hr2", noLead.id).expect(200);
+      expect(await status(noLead.id)).toBe("APPROVED");
     });
 
     it("a rejection at the HR stage is final", async () => {
@@ -449,7 +487,7 @@ describe("HR leave workflow (e2e)", () => {
 
   // ---------------------------------------------------------------------------
   describe("delegation", () => {
-    it("a delegate decides the delegator's direct reports while the delegation is active, and not after revocation", async () => {
+    it("a team lead's delegate decides that team's leave while the delegation is active, and not after revocation", async () => {
       const today = new Date().toISOString().slice(0, 10);
       const created = await post("mgr", "/hr/leave-delegations", {
         delegateUserId: userIds.deputy,
@@ -690,7 +728,10 @@ describe("HR leave workflow (e2e)", () => {
 
   // ---------------------------------------------------------------------------
   describe("notifications", () => {
-    it("the manager hears about a new request and the employee about the decision", async () => {
+    it("the team lead hears about a new request and the employee about the decision", async () => {
+      const ownBefore = await prisma.notification.count({
+        where: { userId: userIds.mgr, type: "leave.approved" },
+      });
       const l = await submit("empB", casual, `${nextYear()}-06-01`);
       const toManager = await prisma.notification.findMany({
         where: { userId: userIds.mgr, type: "leave.submitted" },
@@ -701,12 +742,13 @@ describe("HR leave workflow (e2e)", () => {
         where: { userId: userIds.empB, type: "leave.approved" },
       });
       expect(toEmployee.length).toBeGreaterThan(0);
-      // Nobody is told about their own action.
+      // Nobody is told about their own action (the lead's earlier own leave,
+      // approved by HR, is not this one).
       expect(
         await prisma.notification.count({
           where: { userId: userIds.mgr, type: "leave.approved" },
         }),
-      ).toBe(0);
+      ).toBe(ownBefore);
     });
   });
 
