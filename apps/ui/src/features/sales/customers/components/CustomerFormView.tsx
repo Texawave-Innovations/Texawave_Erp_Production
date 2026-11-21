@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -31,13 +31,15 @@ function NoWriteAccess() {
   );
 }
 
-function BackLink({ href, label }: { href: string; label: string }) {
+/** The banner's leading tile: a back arrow instead of a decorative icon. */
+export function BackArrow({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+      aria-label={label}
+      className="flex h-full w-full items-center justify-center rounded-2xl transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-white/10"
     >
-      ← {label}
+      <ArrowLeft className="h-6 w-6" aria-hidden="true" />
     </Link>
   );
 }
@@ -64,12 +66,11 @@ export function CustomerCreateView() {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href="/sales/customers" label="Back to customers" />
       <PageHeader
         variant="banner"
         title="New customer"
         description="Company, tax, bank and address details."
-        icon={Building2}
+        icon={<BackArrow href="/sales/customers" label="Back to customers" />}
       />
       <CustomerForm
         mode="create"
@@ -115,12 +116,13 @@ export function CustomerEditView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`/sales/customers/${id}`} label="Back to customer" />
       <PageHeader
         variant="banner"
         title={`Edit ${customer.companyName}`}
         description={customer.customerCode}
-        icon={Building2}
+        icon={
+          <BackArrow href={`/sales/customers/${id}`} label="Back to customer" />
+        }
       />
       <CustomerForm
         // Re-mount with fresh values when the stored customer changes.

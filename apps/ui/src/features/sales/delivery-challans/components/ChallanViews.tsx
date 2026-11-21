@@ -16,14 +16,14 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DataTable,
-  DatePicker,
+  DateRangePicker,
   DeleteConfirmDialog,
   EmptyState,
   ErrorState,
   PageHeader,
   Pagination,
+  SectionCard,
   Select,
   Skeleton,
   StatusBadge,
@@ -33,6 +33,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
@@ -148,16 +149,19 @@ export function ChallansView() {
               <option value="DRAFT">Draft</option>
               <option value="DISPATCHED">Dispatched</option>
             </Select>
-            <DatePicker
-              aria-label="From date"
-              value={from}
-              onChange={(e) => reset(() => setFrom(e.target.value))}
-            />
-            <DatePicker
-              aria-label="To date"
-              value={to}
-              min={from || undefined}
-              onChange={(e) => reset(() => setTo(e.target.value))}
+            <DateRangePicker
+              value={{ from, to }}
+              fromAriaLabel="From date"
+              toAriaLabel="To date"
+              placeholder="Date range"
+              showPresets
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setFrom(r.from);
+                  setTo(r.to);
+                })
+              }
             />
           </div>
         }
@@ -313,6 +317,15 @@ export function ChallanEditView({ id }: { id: number }) {
   );
 }
 
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 text-theme-sm">
+      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className="text-right text-gray-900 dark:text-white/90">{value}</dd>
+    </div>
+  );
+}
+
 export function ChallanDetailView({ id }: { id: number }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -367,12 +380,11 @@ export function ChallanDetailView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={LIST} label="Back to delivery challans" />
       <PageHeader
         variant="banner"
         title={dc.dcNumber}
         description={`${dc.customerSnapshot.companyName} · ${formatDate(dc.dcDate)}`}
-        icon={Truck}
+        icon={<BackArrow href={LIST} label="Back to delivery challans" />}
         badge={<ChallanStatusBadge status={dc.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -422,21 +434,27 @@ export function ChallanDetailView({ id }: { id: number }) {
         }
       />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Card className="flex flex-col gap-2 text-theme-sm">
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Summary
-          </h2>
-          <p>Items: {dc.itemsCount}</p>
-          {dc.sourceInvoice ? (
-            <p>
-              From invoice{" "}
-              <Link href={`/sales/invoices/${dc.sourceInvoice.id}`}>
-                {dc.sourceInvoice.invoiceNumber}
-              </Link>
-            </p>
-          ) : null}
-          <p>Prepared by: {dc.preparedBy ?? "—"}</p>
-        </Card>
+        <SectionCard
+          title="Summary"
+          description={`${dc.itemsCount} ${dc.itemsCount === 1 ? "item" : "items"}`}
+          className="xl:self-start"
+        >
+          <dl className="flex flex-col gap-2.5">
+            <Fact label="Customer" value={dc.customerSnapshot.companyName} />
+            {dc.sourceInvoice ? (
+              <Fact
+                label="From invoice"
+                value={
+                  <Link href={`/sales/invoices/${dc.sourceInvoice.id}`}>
+                    {dc.sourceInvoice.invoiceNumber}
+                  </Link>
+                }
+              />
+            ) : null}
+            <Fact label="Items" value={dc.itemsCount} />
+            <Fact label="Prepared by" value={dc.preparedBy ?? "—"} />
+          </dl>
+        </SectionCard>
         <div className="xl:col-span-2">
           <DocumentPdfPanel
             path={`${base}/pdf`}

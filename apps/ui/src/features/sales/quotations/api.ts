@@ -10,6 +10,7 @@ export interface QuotationListQuery {
   limit: number;
   search?: string;
   status?: QuotationStatus;
+  customerId?: number;
   from?: string;
   to?: string;
 }

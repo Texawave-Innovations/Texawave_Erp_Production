@@ -415,7 +415,7 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 | `DataTable`                             | `columns`, `rows`, `getRowKey`, `caption`, `loading`, `loadingRowsCount`, `loadingSkeleton`, `emptyState`, `errorState`, `sortColumn`, `sortDirection`, `onSort`, `selectable`, `selectedRowKeys`, `onSelectRow`, `onSelectAll`, `selectRowAriaLabel`, `selectAllAriaLabel`, `onRowClick` | Generic tabular data grid with accessible column sorting (`aria-sort`), row selection (accessible checkboxes + indeterminate state), interactive row clicks, horizontal overflow wrapper, and integrated loading/empty/error states |
 | `Pagination`                            | `page`, `totalPages`, `onPageChange`, `totalItems`, `pageSize`, `onPageSizeChange`, `pageSizeOptions`                                                                                                                                                                                     | Accessible pagination navigation with result count display (`Showing X–Y of Z results`) and items-per-page dropdown                                                                                                                 |
 | `TableToolbar`                          | `search`, `filters`, `chips`, `actions`, `bulkActions`, `resultCount`, `hasActiveFilters`, `onClearFilters`, `clearFiltersLabel`                                                                                                                                                          | Standardized table management toolbar with SearchInput integration, filter control slots, active filter chips row, and clear-all-filters action                                                                                     |
-| `ActionMenu`                            | `items` (`label`, `onClick`, `variant`, `icon`, `disabled`, `separator`), `ariaLabel`, `triggerIcon` (`vertical`, `horizontal`)                                                                                                                                                           | Zero-dependency accessible dropdown, `aria-haspopup="menu"`, Escape dismissal, click-outside                                                                                                                                        |
+| `ActionMenu`                            | `items` (`label`, `onClick`, `variant`, `icon`, `disabled`, `separator`), `ariaLabel`, `triggerIcon` (`vertical`, `horizontal`), `layout` (`list` default = labelled dropdown with `listTitle` header; `radial` = circular fan-out)                                                       | Zero-dependency accessible dropdown, `aria-haspopup="menu"`, Escape dismissal, click-outside                                                                                                                                        |
 | `ConfirmDialog` / `DeleteConfirmDialog` | `open`, `onClose`, `onConfirm`, `title`, `description`, `itemName`, `variant`, `confirmText`, `cancelText`, `loading`, `disabled`, `size`                                                                                                                                                 | Accessible native `<dialog>` modal, focus trap, backdrop blur, Escape dismissal, destructive deletion wrapper                                                                                                                       |
 | `FilterChip` / `FilterChips`            | `label`, `value`, `onRemove`, `disabled`, `icon` (chip); `chips`, `onClearAll`, `clearAllLabel`, `activeFiltersLabel` (group)                                                                                                                                                             | Removable filter token pills with accessible dismiss buttons (`aria-label`) and group "Clear all" action                                                                                                                            |
 | `SearchInput`                           | `value`, `onChange`, `onChangeValue`, `onClear`, `clearable`, `invalid`, `sizeVariant` (`sm`, `md`, `lg`), `clearButtonAriaLabel`                                                                                                                                                         | Accessible search control with leading magnifying glass, clear button (`type="button"`), `role="searchbox"`                                                                                                                         |
@@ -728,6 +728,8 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `caption?: string` (Rendered with accessible `.sr-only` class)
   - `className?: string`
   - `tableClassName?: string`
+  - `density?: "comfortable" | "compact"`
+  - `bordered?: boolean` (Default `false`; a thin border on every cell, a full row-and-column grid)
   - **Loading, Empty & Error State Slots:**
     - `loading?: boolean` (Renders `TableSkeleton` or `loadingSkeleton` slot)
     - `loadingRowsCount?: number` (Default: `6`)
@@ -760,17 +762,18 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 - **Location:** `packages/ui-kit/src/components/table-toolbar/index.tsx`
 - **Public API:**
   - `search?: ReactNode | TableToolbarSearchConfig`
-    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="sm"`.
+    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="md"` (h-10, same height as `Select`).
   - `filters?: ReactNode` (Slot for select dropdowns, date pickers, or custom filter controls)
   - `chips?: ReactNode` (Slot for active filter chips rendered in dedicated bottom shelf)
   - `actions?: ReactNode` (Slot for primary/secondary buttons, e.g. "New Record")
   - `bulkActions?: ReactNode` (Slot for bulk actions when rows are selected)
-  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `12 results`)
+  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `1 result` / `12 results`; shown at the right end of the row)
   - `hasActiveFilters?: boolean` (Default: `false`)
   - `onClearFilters?: () => void` (Reset/clear callback)
   - `clearFiltersLabel?: string` (Default: `"Clear filters"`)
   - `className?: string`
   - `children?: ReactNode`
+- **Layout:** one row — search (grows, `max-w-sm`), `filters` inline, then count / "Clear filters" / `bulkActions` / `actions` at the right end. Any `Select` inside `filters` (even inside a wrapper div) defaults to `w-44` from `sm` up (`Select`'s root carries `data-select-root`); below `sm` search and filters stack at full width.
 - **Accessibility & Structure:**
   - Outer region declared with `role="region" aria-label="Table management toolbar"`.
   - Form controls inside toolbar feature high-contrast idle borders (`border-gray-500` / 4.76:1 contrast ratio) conforming to WCAG SC 1.4.11.

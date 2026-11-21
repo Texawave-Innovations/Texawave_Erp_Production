@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError, CALLING_CODES, mobileMaxLength } from "@texawave-erp/core";
 import {
+  AddressDialog,
   Alert,
   Button,
-  Card,
-  Checkbox,
+  EmptyState,
   FormField,
   Input,
+  SectionCard,
   Select,
+  StatusBadge,
+  Tabs,
   Textarea,
 } from "@texawave-erp/ui-kit";
 import { fromGstin, GST_STATES } from "../../shared/gst";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { useNextCustomerCode } from "../hooks";
 import {
+  addressSchema,
   customerFormSchema,
   emptyAddress,
   type AddressFormValues,
@@ -32,6 +36,18 @@ const FIELD_OF_ERROR: Record<string, string> = {
   MULTIPLE_DEFAULT_ADDRESSES: "addresses",
 };
 
+const ADDRESS_FIELDS = [
+  "label",
+  "street",
+  "area",
+  "city",
+  "stateCode",
+  "pincode",
+  "country",
+] as const;
+
+type AddressTab = AddressFormValues["addressType"];
+
 function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
@@ -45,6 +61,19 @@ function describeError(error: unknown): string {
   return "Could not save the customer. Check the fields and try again.";
 }
 
+/** The address dialog's field errors, from the same schema the form uses. */
+function validateAddress(a: AddressFormValues): Record<string, string> {
+  const result = addressSchema.safeParse(a);
+  const errors: Record<string, string> = {};
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      const key = String(issue.path[0] ?? "");
+      if (key) errors[key] ??= issue.message;
+    }
+  }
+  return errors;
+}
+
 export interface CustomerFormProps {
   mode: "create" | "edit";
   initialValues: CustomerFormValues;
@@ -54,32 +83,6 @@ export interface CustomerFormProps {
   maskedAccount?: string | null;
   onSubmit: (values: CustomerFormValues) => Promise<void>;
   onCancel: () => void;
-}
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-          {title}
-        </h2>
-        {description ? (
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      {children}
-    </Card>
-  );
 }
 
 export function CustomerForm({
@@ -92,6 +95,12 @@ export function CustomerForm({
 }: CustomerFormProps) {
   const [values, setValues] = useState<CustomerFormValues>(initialValues);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [tab, setTab] = useState<AddressTab>("BILLING");
+  /** The address being added (`index: null`) or edited. */
+  const [editing, setEditing] = useState<{
+    index: number | null;
+    value: AddressFormValues;
+  } | null>(null);
   const schema = useMemo(
     () =>
       customerFormSchema({ mode, hasStoredAccount: Boolean(maskedAccount) }),
@@ -137,31 +146,48 @@ export function CustomerForm({
     }));
   }
 
-  function setAddress(index: number, patch: Partial<AddressFormValues>) {
-    for (const k of Object.keys(patch)) changed(`addresses.${index}.${k}`);
-    setValues((v) => ({
-      ...v,
-      addresses: v.addresses.map((a, i) =>
-        i === index ? { ...a, ...patch } : a,
-      ),
-    }));
+  function openAddAddress() {
+    const fresh = emptyAddress(tab);
+    setEditing({
+      index: null,
+      // The first address of a type becomes its default.
+      value: {
+        ...fresh,
+        isDefault: !values.addresses.some((a) => a.addressType === tab),
+      },
+    });
   }
 
-  function setDefaultAddress(index: number, isDefault: boolean) {
+  function saveAddress(saved: AddressFormValues) {
+    if (!editing) return;
+    changed("addresses");
     setValues((v) => {
-      const type = v.addresses[index]?.addressType;
+      const list =
+        editing.index === null
+          ? [...v.addresses, saved]
+          : v.addresses.map((a, i) => (i === editing.index ? saved : a));
       return {
         ...v,
-        addresses: v.addresses.map((a, i) =>
-          i === index
-            ? { ...a, isDefault }
-            : // One default per type: choosing one clears the others.
-              isDefault && a.addressType === type
-              ? { ...a, isDefault: false }
-              : a,
+        // One default per type: choosing one clears the others.
+        addresses: list.map((a, i) =>
+          saved.isDefault &&
+          a.addressType === saved.addressType &&
+          i !== (editing.index ?? list.length - 1)
+            ? { ...a, isDefault: false }
+            : a,
         ),
       };
     });
+    setTab(saved.addressType);
+    setEditing(null);
+  }
+
+  function removeAddress(index: number) {
+    changed("addresses");
+    setValues((v) => ({
+      ...v,
+      addresses: v.addresses.filter((_, j) => j !== index),
+    }));
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -221,6 +247,11 @@ export function CustomerForm({
     </FormField>
   );
 
+  const countOf = (type: AddressTab) =>
+    values.addresses.filter((a) => a.addressType === type).length;
+  const kindWord = tab === "BILLING" ? "billing" : "shipping";
+  const codeShown = mode === "create" ? nextCode.data : customerCode;
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -234,17 +265,22 @@ export function CustomerForm({
         </Alert>
       ) : null}
 
-      <Section
-        title="Company"
+      <SectionCard
+        title="Basic & tax information"
         description={
           mode === "create"
-            ? `The customer code is issued on save${
-                nextCode.data ? ` — next: ${nextCode.data}` : ""
-              }. Its country comes from the mobile country code.`
-            : `Customer code ${customerCode ?? ""} (never changes).`
+            ? "The customer code is issued on save; its country comes from the mobile country code."
+            : "The customer code never changes."
+        }
+        action={
+          codeShown ? (
+            <span className="rounded-full bg-white/20 px-3 py-1 text-theme-xs font-semibold text-white">
+              {mode === "create" ? "Next code" : "Customer code"}: {codeShown}
+            </span>
+          ) : undefined
         }
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {text("companyName", "Company name", {
             maxLength: 200,
             required: true,
@@ -259,7 +295,7 @@ export function CustomerForm({
             type: "email",
             maxLength: 254,
           })}
-          <div className="grid grid-cols-[minmax(0,9rem)_1fr] gap-2">
+          <div className="grid grid-cols-[minmax(0,8rem)_1fr] gap-2">
             <FormField
               errorVariant="bubble"
               label="Country code"
@@ -289,35 +325,9 @@ export function CustomerForm({
           </div>
           <FormField
             errorVariant="bubble"
-            label="Status"
-            error={errorFor("status")}
-          >
-            {(f) => (
-              <Select
-                {...f}
-                value={values.status}
-                disabled={submitting}
-                onChange={(e) =>
-                  set("status", e.target.value as CustomerFormValues["status"])
-                }
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </Select>
-            )}
-          </FormField>
-        </div>
-      </Section>
-
-      <Section
-        title="Tax details"
-        description="A full GSTIN fills in the state and PAN. GST rates are optional and have no defaults."
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            errorVariant="bubble"
             label="GSTIN"
             error={errorFor("gstin")}
+            hint="State and PAN are filled from the GSTIN."
           >
             {(f) => (
               <Input
@@ -335,6 +345,7 @@ export function CustomerForm({
             errorVariant="bubble"
             label="State"
             error={errorFor("stateCode")}
+            hint="Auto-detected from the GSTIN; you can change it."
           >
             {(f) => (
               <Select
@@ -353,21 +364,155 @@ export function CustomerForm({
               </Select>
             )}
           </FormField>
+          {text("cgstRate", "CGST rate (%)", {
+            inputMode: "decimal",
+            maxLength: 6,
+          })}
+          {text("sgstRate", "SGST rate (%)", {
+            inputMode: "decimal",
+            maxLength: 6,
+          })}
+          {text("igstRate", "IGST rate (%)", {
+            inputMode: "decimal",
+            maxLength: 6,
+          })}
           {text("pan", "PAN", { placeholder: "ABCDE1234F", maxLength: 10 })}
           {text("cin", "CIN", {
             placeholder: "L12345MH2020PLC123456",
             maxLength: 21,
           })}
+          <FormField
+            errorVariant="bubble"
+            label="Status"
+            error={errorFor("status")}
+          >
+            {(f) => (
+              <Select
+                {...f}
+                value={values.status}
+                disabled={submitting}
+                onChange={(e) =>
+                  set("status", e.target.value as CustomerFormValues["status"])
+                }
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </Select>
+            )}
+          </FormField>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {text("cgstRate", "CGST %", { inputMode: "decimal", maxLength: 6 })}
-          {text("sgstRate", "SGST %", { inputMode: "decimal", maxLength: 6 })}
-          {text("igstRate", "IGST %", { inputMode: "decimal", maxLength: 6 })}
-        </div>
-      </Section>
+      </SectionCard>
 
-      <Section
-        title="Bank details"
+      <SectionCard
+        title="Billing & shipping addresses"
+        description="One default billing and one default shipping address."
+      >
+        {errorFor("addresses") ? (
+          <p role="alert" className="text-theme-sm text-error-600">
+            {errorFor("addresses")}
+          </p>
+        ) : null}
+        <Tabs<AddressTab>
+          label="Address type"
+          idPrefix="customer-address"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: "BILLING", label: `Billing (${countOf("BILLING")})` },
+            { id: "SHIPPING", label: `Shipping (${countOf("SHIPPING")})` },
+          ]}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                disabled={submitting || values.addresses.length >= 50}
+                onClick={openAddAddress}
+              >
+                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                Add {kindWord} address
+              </Button>
+            </div>
+            {countOf(tab) === 0 ? (
+              <div className="flex flex-col items-center rounded-xl border border-dashed border-gray-300 pt-6 dark:border-gray-700">
+                <MapPin
+                  className="h-8 w-8 text-gray-500 dark:text-gray-400"
+                  aria-hidden="true"
+                />
+                <EmptyState title={`No ${kindWord} addresses added yet`} />
+              </div>
+            ) : (
+              values.addresses.map((a, i) => {
+                if (a.addressType !== tab) return null;
+                const invalid = ADDRESS_FIELDS.some((f) =>
+                  errorFor(`addresses.${i}.${f}`),
+                );
+                const state = GST_STATES.find((s) => s.code === a.stateCode);
+                return (
+                  <div
+                    key={i}
+                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-gray-900 dark:text-white/90">
+                          {a.label}
+                        </p>
+                        {a.isDefault ? (
+                          <StatusBadge label="Default" colorToken="success" />
+                        ) : null}
+                      </div>
+                      <p className="text-theme-sm text-gray-600 dark:text-gray-300">
+                        {[a.street, a.area, a.city, state?.name, a.pincode]
+                          .filter(Boolean)
+                          .join(", ")}{" "}
+                        · {a.country}
+                      </p>
+                      {invalid ? (
+                        <p
+                          role="alert"
+                          className="text-theme-sm text-error-600"
+                        >
+                          Some details are invalid. Edit this address to fix
+                          them.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={submitting}
+                        aria-label={`Edit address ${a.label}`}
+                        onClick={() => setEditing({ index: i, value: a })}
+                      >
+                        <Pencil className="mr-1 h-4 w-4" aria-hidden="true" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={submitting}
+                        aria-label={`Remove address ${a.label}`}
+                        onClick={() => removeAddress(i)}
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Tabs>
+      </SectionCard>
+
+      <SectionCard
+        title="Bank details (optional)"
         description="The account number is stored encrypted; only its last digits are shown afterwards."
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -383,7 +528,7 @@ export function CustomerForm({
                 }
               : {}),
           })}
-          {text("bankIfsc", "IFSC", {
+          {text("bankIfsc", "IFSC code", {
             placeholder: "HDFC0001234",
             maxLength: 11,
           })}
@@ -398,7 +543,7 @@ export function CustomerForm({
             <Textarea
               {...f}
               rows={2}
-              placeholder="e.g. UPI: abc@hdfcbank"
+              placeholder="Additional payment notes, UPI ID, etc."
               value={values.paymentNotes}
               disabled={submitting}
               onBlur={() => touch("paymentNotes")}
@@ -406,236 +551,7 @@ export function CustomerForm({
             />
           )}
         </FormField>
-      </Section>
-
-      <Section
-        title="Addresses"
-        description="One default billing and one default shipping address."
-      >
-        {errorFor("addresses") ? (
-          <p role="alert" className="text-theme-sm text-error-600">
-            {errorFor("addresses")}
-          </p>
-        ) : null}
-        {values.addresses.length === 0 ? (
-          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            No addresses yet.
-          </p>
-        ) : null}
-        {values.addresses.map((a, i) => {
-          const err = (field: string) => errorFor(`addresses.${i}.${field}`);
-          return (
-            <fieldset
-              key={i}
-              className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
-            >
-              <legend className="px-1 text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
-                Address {i + 1}
-              </legend>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <FormField errorVariant="bubble" label="Type">
-                  {(f) => (
-                    <Select
-                      {...f}
-                      value={a.addressType}
-                      disabled={submitting}
-                      onChange={(e) =>
-                        setAddress(i, {
-                          addressType: e.target
-                            .value as AddressFormValues["addressType"],
-                          isDefault: false,
-                        })
-                      }
-                    >
-                      <option value="BILLING">Billing</option>
-                      <option value="SHIPPING">Shipping</option>
-                    </Select>
-                  )}
-                </FormField>
-                <FormField
-                  errorVariant="bubble"
-                  label="Label"
-                  required
-                  error={err("label")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      value={a.label}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.label`)}
-                      onChange={(e) => setAddress(i, { label: e.target.value })}
-                    />
-                  )}
-                </FormField>
-                <FormField
-                  errorVariant="bubble"
-                  label="City"
-                  required
-                  error={err("city")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      value={a.city}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.city`)}
-                      onChange={(e) => setAddress(i, { city: e.target.value })}
-                    />
-                  )}
-                </FormField>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FormField
-                  errorVariant="bubble"
-                  label="Street"
-                  required
-                  error={err("street")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      value={a.street}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.street`)}
-                      onChange={(e) =>
-                        setAddress(i, { street: e.target.value })
-                      }
-                    />
-                  )}
-                </FormField>
-                <FormField
-                  errorVariant="bubble"
-                  label="Area"
-                  error={err("area")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      value={a.area}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.area`)}
-                      onChange={(e) => setAddress(i, { area: e.target.value })}
-                    />
-                  )}
-                </FormField>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <FormField
-                  errorVariant="bubble"
-                  label="State"
-                  required
-                  error={err("stateCode")}
-                >
-                  {(f) => (
-                    <Select
-                      {...f}
-                      value={a.stateCode}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.stateCode`)}
-                      onChange={(e) =>
-                        setAddress(i, { stateCode: e.target.value })
-                      }
-                    >
-                      <option value="">Choose a state</option>
-                      {GST_STATES.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                </FormField>
-                <FormField
-                  errorVariant="bubble"
-                  label="Pincode"
-                  required
-                  error={err("pincode")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={a.pincode}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.pincode`)}
-                      onChange={(e) =>
-                        setAddress(i, { pincode: e.target.value })
-                      }
-                    />
-                  )}
-                </FormField>
-                <FormField
-                  errorVariant="bubble"
-                  label="Country"
-                  required
-                  error={err("country")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      value={a.country}
-                      disabled={submitting}
-                      onBlur={() => touch(`addresses.${i}.country`)}
-                      onChange={(e) =>
-                        setAddress(i, { country: e.target.value })
-                      }
-                    />
-                  )}
-                </FormField>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300">
-                  <Checkbox
-                    checked={a.isDefault}
-                    disabled={submitting}
-                    onChange={(e) => setDefaultAddress(i, e.target.checked)}
-                  />
-                  Default {a.addressType === "BILLING" ? "billing" : "shipping"}{" "}
-                  address
-                </label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={submitting}
-                  aria-label={`Remove address ${i + 1}`}
-                  onClick={() =>
-                    setValues((v) => ({
-                      ...v,
-                      addresses: v.addresses.filter((_, j) => j !== i),
-                    }))
-                  }
-                >
-                  <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />
-                  Remove
-                </Button>
-              </div>
-            </fieldset>
-          );
-        })}
-        <div className="flex flex-wrap gap-2">
-          {(["BILLING", "SHIPPING"] as const).map((type) => (
-            <Button
-              key={type}
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={submitting || values.addresses.length >= 50}
-              onClick={() =>
-                setValues((v) => ({
-                  ...v,
-                  addresses: [...v.addresses, emptyAddress(type)],
-                }))
-              }
-            >
-              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
-              Add {type === "BILLING" ? "billing" : "shipping"} address
-            </Button>
-          ))}
-        </div>
-      </Section>
+      </SectionCard>
 
       <div className="flex justify-end gap-2">
         <Button
@@ -650,6 +566,16 @@ export function CustomerForm({
           {mode === "create" ? "Create customer" : "Save changes"}
         </Button>
       </div>
+
+      <AddressDialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        mode={editing?.index === null ? "add" : "edit"}
+        value={editing?.value ?? emptyAddress(tab)}
+        states={GST_STATES}
+        validate={validateAddress}
+        onSave={saveAddress}
+      />
     </form>
   );
 }

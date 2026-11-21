@@ -7,6 +7,8 @@ export * from "./components/select/index";
 export * from "./components/checkbox/index";
 export * from "./components/form-field/index";
 export * from "./components/card/index";
+export * from "./components/section-card/index";
+export * from "./components/address-dialog/index";
 export * from "./components/stat-card/index";
 export * from "./components/table-skeleton/index";
 export * from "./components/alert/index";

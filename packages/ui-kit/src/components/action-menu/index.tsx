@@ -28,6 +28,10 @@ export interface ActionMenuProps {
   buttonClassName?: string | undefined;
   className?: string | undefined;
   menuClassName?: string | undefined;
+  /** "list" (default) opens a labelled dropdown; "radial" fans the actions in a circle. */
+  layout?: "radial" | "list" | undefined;
+  /** Heading of the "list" layout. */
+  listTitle?: string | undefined;
 }
 
 function MoreVerticalIcon({
@@ -204,7 +208,7 @@ const CONSTANTS = {
  *    that items never overflow off-screen even on the extreme edges of data tables.
  * 4. Rich framer-motion spring physics, rotational morphing, and accessible keyboard escape dismissal.
  */
-export function ActionMenu({
+function RadialActionMenu({
   items,
   ariaLabel,
   triggerIcon = "vertical",
@@ -501,5 +505,187 @@ export function ActionMenu({
             document.body,
         )}
     </div>
+  );
+}
+
+const LIST_WIDTH = 224;
+const LIST_ROW = 40;
+const LIST_HEADER = 44;
+
+/** Labelled dropdown layout: header, icon + text rows, separators, and a
+ * red destructive row. Portalled so table overflow can't clip it. */
+function ListActionMenu({
+  items,
+  ariaLabel,
+  triggerIcon = "horizontal",
+  buttonClassName,
+  className,
+  menuClassName,
+  listTitle = "Actions",
+}: ActionMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+  }>({ top: 0, left: 0 });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const place = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const height = LIST_HEADER + items.length * LIST_ROW + 16;
+    const left = Math.max(
+      8,
+      Math.min(window.innerWidth - LIST_WIDTH - 8, rect.right - LIST_WIDTH),
+    );
+    const below = rect.bottom + 6;
+    // Not enough room below: anchor the menu's bottom edge just above the
+    // trigger, so it hugs the button whatever its real height is.
+    setPos(
+      below + height > window.innerHeight - 8
+        ? { bottom: window.innerHeight - rect.top + 6, left }
+        : { top: below, left },
+    );
+  }, [items.length]);
+
+  const close = useCallback(() => setIsOpen(false), []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        close();
+        triggerRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [isOpen, place, close]);
+
+  return (
+    <div
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        className,
+      )}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label={ariaLabel}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isOpen) {
+            close();
+          } else {
+            place();
+            setIsOpen(true);
+          }
+        }}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-sky-500/10 hover:text-brand-600 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors cursor-pointer",
+          buttonClassName,
+        )}
+      >
+        {triggerIcon === "vertical" ? (
+          <MoreVerticalIcon className="h-4 w-4" />
+        ) : (
+          <MoreHorizontalIcon className="h-4 w-4" />
+        )}
+      </button>
+
+      {mounted &&
+        isOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-9999 isolate">
+            <div
+              className="fixed inset-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                close();
+              }}
+            />
+            <div
+              role="menu"
+              aria-label={ariaLabel}
+              style={{
+                top: pos.top,
+                bottom: pos.bottom,
+                left: pos.left,
+                width: LIST_WIDTH,
+              }}
+              className={cn(
+                "fixed rounded-2xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-900",
+                menuClassName,
+              )}
+            >
+              <p className="px-3 pb-1 pt-2 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {listTitle}
+              </p>
+              {items.map((item, index) => (
+                <div key={`${item.label}-${index}`}>
+                  {item.separator ? (
+                    <div
+                      role="separator"
+                      className="my-1 border-t border-gray-200 dark:border-gray-700"
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={item.disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.disabled) return;
+                      close();
+                      item.onClick();
+                    }}
+                    className={cn(
+                      "group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-theme-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                      item.variant === "destructive"
+                        ? "text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10"
+                        : "text-gray-700 hover:bg-brand-50 hover:text-brand-700 dark:text-gray-200 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <span className="flex h-4 w-4 items-center justify-center transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-6 group-disabled:transform-none motion-reduce:transform-none">
+                      {item.icon ?? null}
+                    </span>
+                    {item.label}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>,
+          (triggerRef.current?.closest("dialog") as HTMLElement | null) ??
+            document.body,
+        )}
+    </div>
+  );
+}
+
+/**
+ * Universal row/card action menu. `layout="list"` (default) is a labelled
+ * dropdown; `layout="radial"` is the circular fan-out.
+ */
+export function ActionMenu(props: ActionMenuProps) {
+  const { layout = "list", triggerIcon = "vertical", ...rest } = props;
+  return layout === "radial" ? (
+    <RadialActionMenu {...rest} triggerIcon={triggerIcon} />
+  ) : (
+    <ListActionMenu {...rest} triggerIcon={triggerIcon} />
   );
 }

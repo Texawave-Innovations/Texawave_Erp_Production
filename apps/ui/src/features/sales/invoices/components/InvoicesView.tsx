@@ -7,7 +7,7 @@ import {
   Alert,
   Button,
   DataTable,
-  DatePicker,
+  DateRangePicker,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -134,16 +134,19 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
                 <option value="CONVERTED">Moved to tax invoice</option>
               ) : null}
             </Select>
-            <DatePicker
-              aria-label="From date"
-              value={from}
-              onChange={(e) => reset(() => setFrom(e.target.value))}
-            />
-            <DatePicker
-              aria-label="To date"
-              value={to}
-              min={from || undefined}
-              onChange={(e) => reset(() => setTo(e.target.value))}
+            <DateRangePicker
+              value={{ from, to }}
+              fromAriaLabel="From date"
+              toAriaLabel="To date"
+              placeholder="Date range"
+              showPresets
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setFrom(r.from);
+                  setTo(r.to);
+                })
+              }
             />
           </div>
         }

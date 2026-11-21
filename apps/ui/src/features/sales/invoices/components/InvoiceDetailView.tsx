@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Pencil,
   Plus,
-  Receipt,
   Trash2,
   Truck,
 } from "lucide-react";
@@ -23,10 +22,12 @@ import {
   DeleteConfirmDialog,
   ErrorState,
   PageHeader,
+  SectionCard,
   Skeleton,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DateActionDialog } from "../../shared/components/DateActionDialog";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
@@ -155,17 +156,16 @@ export function InvoiceDetailView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link
-        href={listPathOf(inv.invoiceType)}
-        className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-      >
-        ← Back to {inv.invoiceType === "PROFORMA" ? "proforma" : "tax"} invoices
-      </Link>
       <PageHeader
         variant="banner"
         title={inv.invoiceNumber}
         description={`${label} · ${inv.customerSnapshot.companyName} · ${formatDate(inv.invoiceDate)}`}
-        icon={Receipt}
+        icon={
+          <BackArrow
+            href={listPathOf(inv.invoiceType)}
+            label={`Back to ${inv.invoiceType === "PROFORMA" ? "proforma" : "tax"} invoices`}
+          />
+        }
         badge={<InvoiceStatusBadge status={inv.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -240,11 +240,11 @@ export function InvoiceDetailView({ id }: { id: number }) {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="flex flex-col gap-5">
-          <Card className="flex flex-col gap-3">
-            <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-              Summary
-            </h2>
-            <dl className="flex flex-col gap-2">
+          <SectionCard
+            title="Summary"
+            description={`${inv.lines.length} ${inv.lines.length === 1 ? "item" : "items"}`}
+          >
+            <dl className="flex flex-col gap-2.5">
               <Fact label="Customer" value={inv.customerSnapshot.companyName} />
               <Fact label="Due date" value={formatDate(inv.dueDate)} />
               <Fact label="Payment terms" value={inv.paymentTerms ?? "—"} />
@@ -268,6 +268,9 @@ export function InvoiceDetailView({ id }: { id: number }) {
                   }
                 />
               ) : null}
+            </dl>
+            <hr className="border-gray-200 dark:border-gray-800" />
+            <dl className="flex flex-col gap-2.5">
               <Fact
                 label="Taxable amount"
                 value={formatInr(inv.taxableAmount)}
@@ -289,17 +292,23 @@ export function InvoiceDetailView({ id }: { id: number }) {
                   value={formatInr(inv.igstAmount)}
                 />
               )}
-              <Fact
-                label="Total"
-                value={<strong>{formatInr(inv.totalAmount)}</strong>}
-              />
+            </dl>
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-3 dark:bg-sky-500/10">
+              <span className="text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+                Total
+              </span>
+              <span className="text-theme-xl font-bold text-brand-700 dark:text-sky-300">
+                {formatInr(inv.totalAmount)}
+              </span>
+            </div>
+            <dl className="flex flex-col gap-2.5">
               <Fact label="Received" value={formatInr(inv.amountReceived)} />
               <Fact
                 label="Balance"
                 value={<strong>{formatInr(inv.balance)}</strong>}
               />
             </dl>
-          </Card>
+          </SectionCard>
 
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Select, SearchInput } from "@texawave-erp/ui-kit";
+import { Select } from "@texawave-erp/ui-kit";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useCustomers } from "../../customers/hooks";
 
 /**
- * Pick an active customer for a Sales document: type to search (code,
- * company, contact, GSTIN, city), then choose. The chosen customer stays in
- * the list even when a search no longer matches it.
+ * Pick an active customer for a Sales document: one bar that opens a menu
+ * with a search box (code, company, contact, GSTIN, city) over the matches.
+ * The chosen customer stays shown even when a later search no longer lists it.
  */
 export function CustomerPicker({
   id,
@@ -31,6 +31,9 @@ export function CustomerPicker({
   describedBy?: string | undefined;
 }) {
   const [search, setSearch] = useState("");
+  // Label of a customer picked in this session (create forms have no
+  // `selectedLabel`), so the bar keeps showing it after the list changes.
+  const [pickedLabel, setPickedLabel] = useState<string | undefined>();
   const debounced = useDebouncedValue(search.trim(), 300);
   const query = useCustomers({
     page: 1,
@@ -39,45 +42,41 @@ export function CustomerPicker({
     ...(debounced ? { search: debounced } : {}),
   });
   const rows = query.data?.data ?? [];
+  const keptLabel = pickedLabel ?? selectedLabel;
   const showSelected =
-    value !== null && !rows.some((c) => c.id === value) && selectedLabel;
+    value !== null && !rows.some((c) => c.id === value) && keptLabel;
 
   return (
-    <div className="flex flex-col gap-2">
-      <SearchInput
-        value={search}
-        onChangeValue={setSearch}
-        placeholder="Search customer…"
-        aria-label="Search customers"
-        disabled={disabled}
-        sizeVariant="sm"
-      />
-      <Select
-        id={id}
-        aria-describedby={describedBy}
-        invalid={invalid ?? false}
-        disabled={disabled}
-        value={value === null ? "" : String(value)}
-        onBlur={onBlur}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? null : Number(e.target.value))
-        }
-      >
+    <Select
+      id={id}
+      aria-describedby={describedBy}
+      invalid={invalid ?? false}
+      disabled={disabled}
+      placeholder="Select a customer"
+      searchPlaceholder="Search customer…"
+      onSearchChange={setSearch}
+      value={value === null ? "" : String(value)}
+      onBlur={onBlur}
+      onChange={(e) => {
+        const next = e.target.value === "" ? null : Number(e.target.value);
+        const row = rows.find((c) => c.id === next);
+        setPickedLabel(
+          row ? `${row.customerCode} — ${row.companyName}` : undefined,
+        );
+        onChange(next);
+      }}
+    >
+      {debounced ? null : (
         <option value="">
           {query.isPending ? "Loading customers…" : "Select a customer"}
         </option>
-        {showSelected ? <option value={value}>{selectedLabel}</option> : null}
-        {rows.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.customerCode} — {c.companyName}
-          </option>
-        ))}
-      </Select>
-      {debounced && !query.isPending && rows.length === 0 ? (
-        <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-          No active customer matches “{debounced}”.
-        </p>
-      ) : null}
-    </div>
+      )}
+      {showSelected ? <option value={value}>{keptLabel}</option> : null}
+      {rows.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.customerCode} — {c.companyName}
+        </option>
+      ))}
+    </Select>
   );
 }

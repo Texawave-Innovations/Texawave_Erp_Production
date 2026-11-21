@@ -3,17 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, FileText, MapPin, Pencil, Receipt, Trash2 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DeleteConfirmDialog,
+  EmptyState,
   ErrorState,
   PageHeader,
+  SectionCard,
   Skeleton,
   StatusBadge,
+  Tabs,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
@@ -21,7 +23,10 @@ import { SALES_PERMISSIONS } from "../../permissions";
 import { formatDate } from "../../shared/format";
 import { revealBankAccount } from "../api";
 import { useCustomer, useDeleteCustomer } from "../hooks";
-import type { Customer, CustomerAddress } from "../types";
+import type { AddressType, Customer, CustomerAddress } from "../types";
+import { BackArrow } from "./CustomerFormView";
+import { CustomerInvoiceHistoryDialog } from "./CustomerInvoiceHistoryDialog";
+import { CustomerStatementDialog } from "./CustomerStatementDialog";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -33,23 +38,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
         {value === null || value === undefined || value === "" ? "—" : value}
       </dd>
     </div>
-  );
-}
-
-function Panel({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="flex flex-col gap-4">
-      <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-        {title}
-      </h2>
-      {children}
-    </Card>
   );
 }
 
@@ -100,9 +88,7 @@ function BankAccount({ customer }: { customer: Customer }) {
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <span className="font-mono">
-        {full ?? customer.bankAccountNumberMasked}
-      </span>
+      <span>{full ?? customer.bankAccountNumberMasked}</span>
       {canReveal && full === null ? (
         <Button
           variant="ghost"
@@ -127,7 +113,11 @@ export function CustomerDetailView({ id }: { id: number }) {
   const canDelete = usePermission(SALES_PERMISSIONS.customerDelete);
   const query = useCustomer(canRead ? id : null);
   const remove = useDeleteCustomer();
+  const canSeeInvoices = usePermission(SALES_PERMISSIONS.invoiceRead);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [tab, setTab] = useState<AddressType>("BILLING");
 
   if (!canRead) {
     return (
@@ -168,19 +158,18 @@ export function CustomerDetailView({ id }: { id: number }) {
     }
   }
 
+  const inTab = c.addresses.filter((a) => a.addressType === tab);
+  const countOf = (t: AddressType) =>
+    c.addresses.filter((a) => a.addressType === t).length;
+  const kindWord = tab === "BILLING" ? "billing" : "shipping";
+
   return (
     <div className="flex flex-col gap-5">
-      <Link
-        href="/sales/customers"
-        className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-      >
-        ← Back to customers
-      </Link>
       <PageHeader
         variant="banner"
         title={c.companyName}
         description={`${c.customerCode} · added ${formatDate(c.createdAt)}`}
-        icon={Building2}
+        icon={<BackArrow href="/sales/customers" label="Back to customers" />}
         badge={
           <StatusBadge
             label={c.status === "ACTIVE" ? "Active" : "Inactive"}
@@ -189,6 +178,24 @@ export function CustomerDetailView({ id }: { id: number }) {
         }
         action={
           <div className="flex flex-wrap gap-2">
+            {canSeeInvoices ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => setHistoryOpen(true)}
+                >
+                  <Receipt className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Invoice history
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setStatementOpen(true)}
+                >
+                  <FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Statement
+                </Button>
+              </>
+            ) : null}
             {canWrite ? (
               <Button
                 variant="secondary"
@@ -211,18 +218,18 @@ export function CustomerDetailView({ id }: { id: number }) {
         }
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Panel title="Contact">
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <SectionCard title="Contact">
+          <dl className="grid grid-cols-1 gap-4">
             <Field label="Contact person" value={c.contactPerson} />
-            <Field label="Email" value={c.email} />
             <Field
               label="Mobile"
               value={`${c.mobileCountryCode} ${c.mobileNumber}`}
             />
+            <Field label="Email" value={c.email} />
           </dl>
-        </Panel>
-        <Panel title="Tax details">
+        </SectionCard>
+        <SectionCard title="Tax details">
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="GSTIN" value={c.gstin} />
             <Field
@@ -237,8 +244,8 @@ export function CustomerDetailView({ id }: { id: number }) {
             <Field label="SGST" value={rate(c.sgstRate)} />
             <Field label="IGST" value={rate(c.igstRate)} />
           </dl>
-        </Panel>
-        <Panel title="Bank details">
+        </SectionCard>
+        <SectionCard title="Bank details">
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Bank" value={c.bankName} />
             <Field
@@ -249,21 +256,54 @@ export function CustomerDetailView({ id }: { id: number }) {
             <Field label="Branch" value={c.bankBranch} />
             <Field label="Payment notes" value={c.paymentNotes} />
           </dl>
-        </Panel>
-        <Panel title="Addresses">
-          {c.addresses.length === 0 ? (
-            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              No addresses.
-            </p>
+        </SectionCard>
+      </div>
+
+      <SectionCard
+        title="Billing & shipping addresses"
+        description="One default billing and one default shipping address."
+      >
+        <Tabs<AddressType>
+          label="Address type"
+          idPrefix="customer-detail-address"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: "BILLING", label: `Billing (${countOf("BILLING")})` },
+            { id: "SHIPPING", label: `Shipping (${countOf("SHIPPING")})` },
+          ]}
+        >
+          {inTab.length === 0 ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-gray-300 pt-6 dark:border-gray-700">
+              <MapPin
+                className="h-8 w-8 text-gray-500 dark:text-gray-400"
+                aria-hidden="true"
+              />
+              <EmptyState title={`No ${kindWord} addresses`} />
+            </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {c.addresses.map((a) => (
+            <div className="grid gap-3 md:grid-cols-2">
+              {inTab.map((a) => (
                 <AddressCard key={a.id} a={a} />
               ))}
             </div>
           )}
-        </Panel>
-      </div>
+        </Tabs>
+      </SectionCard>
+
+      {canSeeInvoices ? (
+        <>
+          <CustomerInvoiceHistoryDialog
+            customer={historyOpen ? c : null}
+            onClose={() => setHistoryOpen(false)}
+            onOpenStatement={() => setStatementOpen(true)}
+          />
+          <CustomerStatementDialog
+            customer={statementOpen ? c : null}
+            onClose={() => setStatementOpen(false)}
+          />
+        </>
+      ) : null}
 
       {canDelete ? (
         <DeleteConfirmDialog

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
@@ -12,6 +11,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { todayIst } from "../../shared/format";
 import { useCreateQuotation, useQuotation, useUpdateQuotation } from "../hooks";
@@ -25,17 +25,6 @@ function NoWriteAccess() {
       Ask an administrator for the <code>sales.quotation.write</code>{" "}
       permission.
     </Alert>
-  );
-}
-
-function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-    >
-      ← {label}
-    </Link>
   );
 }
 
@@ -58,12 +47,11 @@ export function QuotationCreateView() {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href="/sales/quotations" label="Back to quotations" />
       <PageHeader
         variant="banner"
         title="New quotation"
         description="Taxes and totals are worked out by the server as you type."
-        icon={FileText}
+        icon={<BackArrow href="/sales/quotations" label="Back to quotations" />}
       />
       <QuotationForm
         mode="create"
@@ -118,12 +106,16 @@ export function QuotationEditView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`/sales/quotations/${id}`} label="Back to quotation" />
       <PageHeader
         variant="banner"
         title={`Edit ${q.quotationNumber}`}
         description={q.customerSnapshot.companyName}
-        icon={FileText}
+        icon={
+          <BackArrow
+            href={`/sales/quotations/${id}`}
+            label="Back to quotation"
+          />
+        }
       />
       <QuotationForm
         key={q.updatedAt}
