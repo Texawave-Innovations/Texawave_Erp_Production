@@ -347,7 +347,7 @@ UI Typography Scale (Labels, controls, data cells):
   - Range ribbon: `bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200`
   - Today indicator: `ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40`
 - **Standardized Implementations Across the Application:**
-  1. **Single DatePicker (`packages/ui-kit/src/components/date-picker/index.tsx`):** Custom animated `.glass-calendar-surface` popover with squircle cells, month/year navigation, today quick action, clear button, and full ISO date formatting.
+  1. **Single DatePicker (`packages/ui-kit/src/components/date-picker/index.tsx`):** Custom animated `.glass-calendar-surface` popover with squircle cells, month/year navigation, today quick action, clear button, and full ISO date formatting. Compact size: popup 272px wide (date), 224px (month), 288px (date and time); 28px day cells. The CRM `legacy-ui/DatePicker` and `DateTimePicker` are thin adapters over it, so the CRM uses the same calendar.
   2. **Month Picker Mode (`DatePicker mode="month"`):** Dedicated 12-month squircle grid and year navigation bar for `type="month"` forms.
   3. **Universal Input Delegation (`packages/ui-kit/src/components/input/index.tsx`):** `<Input type="date">` and `<Input type="month">` automatically render the themed `DatePicker`, eliminating default OS calendar popups globally.
   4. **DateRangePicker (`packages/ui-kit/src/components/date-range-picker/index.tsx`):** Glassmorphic range selector with enterprise presets sidebar and dual date boundaries.
@@ -541,6 +541,14 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - Keyboard handling: Dismisses on `Escape` key and returns keyboard focus to the trigger button.
   - Dismisses on click-outside.
 - **Backward Compatibility:** `apps/ui/src/components/ActionMenu.tsx` re-exports `ActionMenu`, `ActionMenuItem`, and `ActionMenuProps` from `@texawave-erp/ui-kit`.
+
+#### 1a. `Dialog` banner header
+
+- **Location:** `packages/ui-kit/src/components/dialog/index.tsx` (every dialog, `ConfirmDialog` and `AddressDialog` included).
+- **Look:** every dialog opens with a banner header in the same sky-to-teal gradient as `PageHeader variant="banner"` (dark mode: the dark banner), a white title, an optional white subtitle and a white close button. A dialog without a title has no header and keeps a thin brand accent bar.
+- **Header props (all optional):** `title` (a string gets the standard bold title; a node is rendered as given), `subtitle` (a muted line under the title: a code, a contact, a date range), `icon` (a white tile before the title; without one a small white dot), `badge` (chips beside the title), `actions` (buttons on the right, given the glass style of page-banner actions), `tone` (`"brand"` by default, `"danger"` for a red gradient; `ConfirmDialog` uses it for destructive confirmations).
+- **Do not** build a custom title block with its own heading inside `title`, or put the main shortcuts in a row at the top of the body: use `title` + `subtitle` + `badge` + `actions` so every dialog header looks the same.
+- **Behaviour:** the header and footer stay put while the body scrolls, and the header gets a soft shadow once the body has scrolled. The title element id comes from `useId` and is wired to `aria-labelledby`, so stacked dialogs do not collide. Open/close animation respects `prefers-reduced-motion` (`theme.css`).
 
 #### 2. `ConfirmDialog` & `DeleteConfirmDialog`
 
@@ -983,6 +991,7 @@ Every domain screen fetching or mutating data must handle these discrete states:
 - **Form Value Retention on Failure:** Form state remains in component state on failed submit and is only cleared upon success. Verified by Playwright test: `rejects a bad login and lets the user retry without losing the organization field`.
 - **Table & Pagination Conventions:** Generic dumb `DataTable` + `Pagination`, driven strictly by `PaginationMeta` returned in the API envelope. Never re-derive `totalPages` client-side when the server already computed it.
 - **Dialog Conventions:** Controlled via a single open/close boolean state in the parent component; backed by native `<dialog>` element (`showModal()`, focus trapping, Esc-to-close). Never build a manual custom `fixed` div modal.
+- **Unlock / reopen actions:** an action that undoes a locked state (e.g. reopening a returned DC, a converted quotation or a converted proforma) asks for a mandatory reason first. In Sales use `ReasonActionDialog` (`apps/ui/src/features/sales/shared/components/`): the confirm button stays disabled until a non-blank reason is typed, and the reason is sent to the API, which records it on the document and in its audit entry. Hide the document's Edit action while it is locked.
 - **Toast Notifications:** Fired fire-and-forget via `useToast().toast(...)` for action outcomes (created, updated, deleted, failed), never for field validation errors (which belong inline via `FormField`).
 
 ---
