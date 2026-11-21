@@ -1,6 +1,8 @@
 import {
   EMPTY_DAY_CONTEXT,
+  resolveBaseTargetMinutes,
   resolveCalendar,
+  resolvePermissions,
   resolveTargetMinutes,
   type DayContext,
   type EmployeeRef,
@@ -155,5 +157,82 @@ describe("resolveTargetMinutes", () => {
       ],
     });
     expect(resolveTargetMinutes(c, EMP, MONDAY)).toBeNull();
+  });
+});
+
+describe("approved work permissions reduce the target", () => {
+  const shift = {
+    employeeId: null,
+    teamId: EMP.teamId,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    workingMinutes: 480,
+  };
+  const permission = (over: {
+    employeeId?: number;
+    date?: string;
+    fromTime?: string;
+    toTime?: string;
+    minutes?: number;
+  }) => ({
+    employeeId: EMP.id,
+    date: MONDAY,
+    fromTime: "10:00",
+    toTime: "12:00",
+    minutes: 120,
+    ...over,
+  });
+
+  it("an 8h shift with a 2h approved permission has a 6h target", () => {
+    const c = ctx({
+      shiftAssignments: [shift],
+      approvedPermissions: [permission({})],
+    });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBe(360);
+    expect(resolveBaseTargetMinutes(c, EMP, MONDAY)).toBe(480);
+  });
+
+  it("several permissions on the day are all excused", () => {
+    const c = ctx({
+      shiftAssignments: [shift],
+      approvedPermissions: [
+        permission({ minutes: 60, fromTime: "10:00", toTime: "11:00" }),
+        permission({ minutes: 30, fromTime: "15:00", toTime: "15:30" }),
+      ],
+    });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBe(390);
+  });
+
+  it("never goes below zero", () => {
+    const c = ctx({
+      shiftAssignments: [{ ...shift, workingMinutes: 60 }],
+      approvedPermissions: [permission({ minutes: 120 })],
+    });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBe(0);
+  });
+
+  it("another employee's, or another day's, permission is ignored", () => {
+    const c = ctx({
+      shiftAssignments: [shift],
+      approvedPermissions: [
+        permission({ employeeId: 999 }),
+        permission({ date: "2026-10-06" }),
+      ],
+    });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBe(480);
+    expect(resolvePermissions(c, EMP, MONDAY)).toEqual([]);
+  });
+
+  it("with no shift there is no target to reduce", () => {
+    const c = ctx({ approvedPermissions: [permission({})] });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBeNull();
+    expect(resolvePermissions(c, EMP, MONDAY)).toEqual([
+      { fromTime: "10:00", toTime: "12:00", minutes: 120 },
+    ]);
+  });
+
+  it("a context without the field behaves as before", () => {
+    const c = ctx({ shiftAssignments: [shift] });
+    expect(resolveTargetMinutes(c, EMP, MONDAY)).toBe(480);
   });
 });

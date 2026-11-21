@@ -57,6 +57,17 @@ export interface DayContext {
     endTime?: string;
     isOvernight?: boolean;
   }[];
+  /** APPROVED short-time work permissions (Employee Self Service). Each one
+   * excuses `minutes` of the day's target. Optional so callers that only need
+   * the calendar (and existing fixtures) need not supply it. */
+  approvedPermissions?: {
+    employeeId: number;
+    date: string;
+    /** Wall-clock "HH:mm" within the day. */
+    fromTime: string;
+    toTime: string;
+    minutes: number;
+  }[];
 }
 
 export const EMPTY_DAY_CONTEXT: DayContext = {
@@ -131,12 +142,42 @@ function isWeeklyOff(
     .some((rule) => rule.daysOfWeek.includes(isoWeekdayOf(date)));
 }
 
-export function resolveTargetMinutes(
+/** The employee's approved work permissions on `date` (earliest first). */
+export function resolvePermissions(
+  ctx: DayContext,
+  employee: EmployeeRef,
+  date: string,
+): { fromTime: string; toTime: string; minutes: number }[] {
+  return (ctx.approvedPermissions ?? [])
+    .filter((p) => p.employeeId === employee.id && p.date === date)
+    .map(({ fromTime, toTime, minutes }) => ({ fromTime, toTime, minutes }))
+    .sort((a, b) => a.fromTime.localeCompare(b.fromTime));
+}
+
+/** The shift's full target before any permission is excused; null = no shift. */
+export function resolveBaseTargetMinutes(
   ctx: DayContext,
   employee: EmployeeRef,
   date: string,
 ): number | null {
   return resolveShiftAssignment(ctx, employee, date)?.workingMinutes ?? null;
+}
+
+/** The day's target: the shift's working minutes minus every approved
+ * permission on that day, never below zero. With no shift there is no target
+ * to reduce, so it stays null. */
+export function resolveTargetMinutes(
+  ctx: DayContext,
+  employee: EmployeeRef,
+  date: string,
+): number | null {
+  const base = resolveBaseTargetMinutes(ctx, employee, date);
+  if (base === null) return null;
+  const excused = resolvePermissions(ctx, employee, date).reduce(
+    (sum, p) => sum + p.minutes,
+    0,
+  );
+  return Math.max(base - excused, 0);
 }
 
 /** The shift assignment that applies on `date` (same precedence as the
