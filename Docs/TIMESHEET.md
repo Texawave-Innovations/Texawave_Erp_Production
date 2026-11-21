@@ -45,7 +45,8 @@ app.allow_timesheet_correction = 'on'`).
 ## Working a task — the existing stopwatch endpoints
 
 There are **no separate task-action routes**. Employees work through the Projects stopwatch (permission
-`projects.timer.write`), which now also writes the day row:
+`employee_self_service.work.write`, or the older `projects.timer.write` — either is enough), which now also
+writes the day row:
 
 | Call                                            | Effect                                                                                                                                                                                                                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,10 +62,11 @@ the task's status history. Points are paid once per task and employee, ever.
 
 ## Reading it back
 
-| Call                                            | Permission                             | Returns                                                                                                                                                                                                                                          |
-| ----------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /timesheets/my/:date`                      | `employee_self_service.timesheet.read` | The signed-in employee's rows for the day with their sessions, totals (closed sessions only), HR's effective attendance status for the day and its worked time, the day's **flags** (below), and — for today only — open tasks with no work yet. |
-| `GET /timesheets/tasks/:taskId/history?from&to` | same                                   | One task day by day (≤ 62 days): worked days from stored rows; the days in between **derived** (0 minutes) with the task status at the end of that day and HR's status for it.                                                                   |
+| Call                                            | Permission                             | Returns                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /timesheets/my/:date`                      | `employee_self_service.timesheet.read` | The signed-in employee's rows for the day with their sessions, totals (closed sessions only), HR's effective attendance status for the day and its worked time, the day's **flags** (below), and — for today only — open tasks with no work yet.                                                             |
+| `GET /timesheets/my-month?month=YYYY-MM`        | same                                   | The employee's **month**: one line per day with HR's status, check-in/out, hours HR counts, the day's target (after approved permissions) and the permission window, the logged timesheet minutes and the day's review state; plus the month's counts (present, absent, leave, holiday, logged, permission). |
+| `GET /timesheets/tasks/:taskId/history?from&to` | same                                   | One task day by day (≤ 62 days): worked days from stored rows; the days in between **derived** (0 minutes) with the task status at the end of that day and HR's status for it.                                                                                                                               |
 
 The employee always comes from the signed-in user; another employee's task is a 404. Example, the spec's
 scenario: Mon 2h → `In Progress`; Tue `On Hold (no work)` 0h; Wed (HR: absent) `Not worked` 0h; Thu 3h →
@@ -78,7 +80,15 @@ attendance screens would not. **Every** date has a status — Present, Absent, H
 Weekly off, or Not marked when HR has nothing for it (a holiday, weekly off or approved leave is known without an
 attendance row). A day with no record is never read as an absence.
 
-`GET /timesheets/my/:date` also returns `attendance` (status, worked/overtime/target minutes) and `flags`.
+`GET /timesheets/my/:date` also returns `attendance` (status, worked/overtime/target minutes, plus the
+shift's `baseTargetMinutes` and the day's approved `permissions`) and `flags`.
+
+**Approved permissions.** A short-time permission (`WorkPermission`, up to 2 h inside 10:00–19:00, approved by
+HR) is taken off the day's target — an 8 h shift with a 2 h permission has a 6 h target — so the day is not
+short-hours for time the company excused. This happens in HR attendance's one calculation (see
+`ATTENDANCE_ARCHITECTURE.md` §7), and the timesheet only shows it: the day view lists the permission window and
+"target 6h (8h shift minus 2h permission)", the month table has a Permission column, and a reviewer sees the same.
+Pending and rejected permissions change nothing.
 Flags compare the recorded work with HR's status, are **derived on every read** (nothing is stored, so nothing can
 go stale when HR edits attendance later), and never change hours or attendance or block recording work:
 
@@ -103,21 +113,25 @@ The design copies leave's two-level approval (`hr.leave.approve.*`, `approvalVer
 alike. No new table — three columns and two CHECKs on `hr.timesheets` (migration
 `20261117100000_timesheets_review_levels`): `approval_levels` (1 or 2), `first_decided_by/_at/_note`.
 
-**Flow.** Employee submits a day → the **reporting manager** (or a team approver whose scope covers the employee)
-gives the **first approval** → **HR** (`hr.timesheet.approve.all`) gives the **second**, which is final. An employee
-with no reporting manager (with a login) goes to **HR alone** (`approval_levels = 1`). The status stays `SUBMITTED`
+**Flow (team lead first, then HR — decided 2026-11-20, same as leave).** Employee submits a day → the **team lead**
+of their team gives the **first approval** → **HR** (`hr.timesheet.approve.all`) gives the **second**, which is final.
+A team lead is a user who holds `hr.timesheet.approve.team` (the default Team Lead role grants it) and is assigned to
+the employee's team. A **team lead's own day**, or a day from a **team with no lead**, goes to **HR alone**
+(`approval_levels = 1`, `approver_basis = 'HR'`); others are stored with `approver_basis = 'TEAM'`. Routing is fixed
+at submit. `Employee.reportsTo` no longer routes timesheets; a day submitted before this change
+(`approver_basis = 'REPORTING_MANAGER'`) can still take its first approval from that reporting manager. The status stays `SUBMITTED`
 between the two approvals (like leave), so the status CHECK and the submitted-row immutability triggers are unchanged.
 Either approver may **return** a day with a required reason; it goes back to the employee as `REJECTED`, the first
 approval is void, and a resubmit starts the review over.
 
-| Rule (pure, `timesheet-approval.ts`)                                                                                      | Result                                |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Not the employee's reporting manager and not in the caller's team/all scope                                               | 404 (the day is never revealed)       |
-| Deciding your own day, or one you submitted                                                                               | 403                                   |
-| One-level day and the caller is not HR                                                                                    | 403 "only HR can decide it"           |
-| Two-level, first approval pending: manager / team approver → first approval; HR who is **not** the manager → **override** | first approval, or final (`override`) |
-| Two-level, first approval done: only HR; not the person who gave the first approval                                       | 403 `AWAITING_HR` / `SAME_APPROVER`   |
-| A day already decided                                                                                                     | 422                                   |
+| Rule (pure, `timesheet-approval.ts`)                                                             | Result                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| Not in the caller's team/all scope (and not the reporting manager of a pre-change day)           | 404 (the day is never revealed)       |
+| Deciding your own day, or one you submitted                                                      | 403                                   |
+| One-level day and the caller is not HR                                                           | 403 "only HR can decide it"           |
+| Two-level, first approval pending: team lead / team approver → first approval; HR → **override** | first approval, or final (`override`) |
+| Two-level, first approval done: only HR; not the person who gave the first approval              | 403 `AWAITING_HR` / `SAME_APPROVER`   |
+| A day already decided                                                                            | 422                                   |
 
 | Call                                                | Permission                               | Effect                                                                                                         |
 | --------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -131,29 +145,32 @@ approval is void, and a resubmit starts the review over.
 
 `GET /timesheets/my/:date` now carries `review` (status, who it waits for, the decision note, `canSubmit`).
 
-**Permissions.** `hr.timesheet.read.{own,team,all}` lists and opens a day; `hr.timesheet.approve.{own,team,all}`
-decides (`.own` = the reporting manager level, direct reports only). **An approver also holds `read` at the same
-scope.** Defaults: Employee gets `submit`; Team Lead gets `read.team` (read-only, as always); HR Manager gets
-`read.all` + `approve.all`. `approve.own/.team` are granted to **no** role by default (the repo's open decision, same
-as leave) — an admin grants `approve.own` to reporting managers in Settings → Roles; production roles are org data and
-`permissions:sync` never grants.
+**Permissions.** `hr.timesheet.read.{own,team,all}` lists and opens a day; `hr.timesheet.approve.{team,all}`
+decides (`.own` only reaches pre-change days routed to a reporting manager). **An approver also holds `read` at the
+same scope.** Defaults: Employee gets `submit`; **Team Lead gets `read.team` + `approve.team`** (its one approval
+exception to "read-only", with `hr.leave.approve.team`, pinned in `default-roles.test.ts`); HR Manager gets
+`read.all` + `approve.all`. Production roles are org data and `permissions:sync` never grants: after deploying, grant
+`hr.timesheet.approve.team` and `hr.leave.approve.team` to the Team Lead role in Settings → Roles, and make sure each
+team lead is assigned to their team.
 
 **Attendance drift.** The day's HR status is stored on the rows at submit (`attendance_status_at_submit`). If HR
 later edits attendance, the reviewer sees `ATTENDANCE_CHANGED_AFTER_SUBMIT`; the submitted hours are never rewritten.
 
-**Notifications** (best effort, after commit, never the person who acted): submit → the reporting manager (or HR when
+**Notifications** (best effort, after commit, never the person who acted): submit → the team lead(s) (or HR when
 one-level); first approval → the employee and HR; approved / returned → the employee, with the reason.
 
 ## Reopen, correction, counts and reports (PR5b)
 
-| Call                                                | Permission                      | Effect                                                                                                                                                    |
-| --------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /timesheets/review/:employeeId/:date/reopen`  | `hr.timesheet.approve.all` (HR) | An approved day goes back to the employee as `REJECTED` with a required reason; review restarts. Never your own.                                          |
-| `POST /timesheets/sessions/:sessionId/correct`      | `hr.timesheet.approve.all` (HR) | HR confirms the real end (IST `HH:mm`) of a flagged timer; minutes, task hours and audit follow.                                                          |
-| `GET /timesheets/review/summary`                    | `hr.timesheet.read.*`           | Counts for the review screen: awaiting me, submitted, needs a look, returned, approved this month.                                                        |
-| `GET /timesheets/reports/employees?from&to`         | `hr.timesheet.read.*`           | Per employee: hours and days in each review state (range ≤ 62 days, ≤ 50,000 rows).                                                                       |
-| `GET /timesheets/reports/days?from&to`              | `hr.timesheet.read.*`           | One line per employee per day with work, **drafts included** (hours, task/other split, review state); feeds the Week grid. Same reach, range and row cap. |
-| `GET /timesheets/reports/employees.csv`, `days.csv` | `hr.timesheet.export.*`         | The same, as CSV (spreadsheet formulas in names or notes are neutralised).                                                                                |
+| Call                                                   | Permission                      | Effect                                                                                                                                                                              |
+| ------------------------------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /timesheets/review/:employeeId/:date/reopen`     | `hr.timesheet.approve.all` (HR) | An approved day goes back to the employee as `REJECTED` with a required reason; review restarts. Never your own.                                                                    |
+| `POST /timesheets/sessions/:sessionId/correct`         | `hr.timesheet.approve.all` (HR) | HR confirms the real end (IST `HH:mm`) of a flagged timer; minutes, task hours and audit follow.                                                                                    |
+| `GET /timesheets/review/summary`                       | `hr.timesheet.read.*`           | Counts for the review screen: awaiting me, submitted, needs a look, returned, approved this month.                                                                                  |
+| `GET /timesheets/reports/employees?from&to`            | `hr.timesheet.read.*`           | Per employee: hours and days in each review state, plus the shift target **after permissions**, the permission minutes and the attendance minutes (range ≤ 62 days, ≤ 50,000 rows). |
+| `GET /timesheets/employees/:employeeId/month?month`    | `hr.timesheet.read.*`           | One employee's month for a reviewer (same body as `my-month`, plus the employee). Only people in the caller's reach; anyone else is a 404.                                          |
+| `GET /timesheets/review/:employeeId/:date?drafts=true` | `hr.timesheet.read.*`           | `drafts=true` also opens a day the employee has not submitted (read-only: `canDecide` is false). Without it a draft day is a 404, as before.                                        |
+| `GET /timesheets/reports/days?from&to`                 | `hr.timesheet.read.*`           | One line per employee per day with work, **drafts included** (hours, task/other split, review state); feeds the Week grid. Same reach, range and row cap.                           |
+| `GET /timesheets/reports/employees.csv`, `days.csv`    | `hr.timesheet.export.*`         | The same, as CSV (spreadsheet formulas in names or notes are neutralised).                                                                                                          |
 
 **Correcting a timer.** The employee never edits a task session, so this is the only way hours are added to one after
 the fact. Only a session flagged for review (`STALE_UNRESOLVED`, or `REVIEW_REQUIRED`) and already closed can be
@@ -272,9 +289,16 @@ links, constraints and triggers. Never against a shared database. **Run a read-o
 
 ## Screens
 
-- **My Timesheet** (`/portal/timesheet`, menu `portal-timesheet`, `employee_self_service.timesheet.read`): day
-  navigation, totals, each row with its sessions (IST clock times), HR's attendance status, and today's open
-  tasks. Read-only; work is started and stopped in **My Work**.
+- **My Timesheet** (`/portal/timesheet`, menu `portal-timesheet`, `employee_self_service.timesheet.read`): two
+  tabs. **Log Work** is the day view: day navigation, totals, each row with its sessions (IST clock times),
+  HR's attendance status, the approved permission window and the reduced target, and today's open tasks.
+  **Attendance** is the month: Present / Absent / Leave / Holiday / Permission / Hrs Logged cards and a table
+  (Date, Day, Status, Check In, Check Out, Hours, Target, Permission, Logged, Timesheet); a day with work has an
+  Open link back to Log Work. Work is started and stopped in **My Work**.
+- **Team Timesheets / HR Timesheets** (`/portal/team-timesheets`, `/hr/timesheets`) **Report** tab: team filter
+  with a totals row, the Target / Permission / Attendance columns, and an employee drill-down (click a name or
+  use the Employee picker) that shows that person's month exactly as they see it; a day opens the day review,
+  including days not yet submitted (read-only). The report lists people with recorded work in the range.
 - **Add custom activity** (on My Timesheet, `employee_self_service.timesheet.write`): a dialog with category,
   title, date, IST start/end (live duration preview), optional project, description and remarks, and a required
   reason for a late entry. Draft activities show Edit and Delete.
@@ -295,9 +319,14 @@ links, constraints and triggers. Never against a shared database. **Run a read-o
   `REVIEW_REQUIRED` flag for it is not applied yet.
 - Custom activities are **not** gated by attendance: a meeting can be recorded whether or not the employee has
   checked in (attendance is shown beside the day, never used to block work).
-- `projects.timer.write` is **not** in the default Employee role (the seeded-role test forbids mutating codes
-  outside `employee_self_service.*`); an admin grants it in Settings → Roles, as today. Production roles are
-  org data and `permissions:sync` never grants.
+- **My Work** is an employee self-service feature: the portal tab (`portal-work`) and the My Work routes use
+  `employee_self_service.work.write`, which the default Employee role holds. The routes use
+  `@RequireAnyPermission("employee_self_service.work.write", "projects.timer.write")`, so a role that already
+  held `projects.timer.write` keeps working (the Projects workspace entry `projects-my-work` still uses it).
+  Production roles are org data and `permissions:sync` never grants: after deploying, run
+  `permissions:sync` and `menu:sync`, then grant `employee_self_service.work.write` to the Employee role **and
+  to Super Admin** (which holds permissions as explicit grants) in Settings → Roles — until then the portal tab
+  is hidden for anyone who does not hold it.
 - An employee with timesheet history cannot be hard-deleted (409, "deactivate instead"); HR's code documents
   hard delete as "must always work" — this is a deliberate, reviewed exception.
 

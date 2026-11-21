@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CalendarClock,
   CalendarDays,
   CheckSquare,
   ChevronLeft,
@@ -23,6 +24,8 @@ import {
   ErrorState,
   Input,
   Skeleton,
+  Tabs,
+  type TabItem,
   StatCard,
   useToast,
 } from "@texawave-erp/ui-kit";
@@ -31,11 +34,22 @@ import {
   useActivityCategories,
   useDeleteCustomActivity,
   useMyDay,
+  useMyMonth,
   useSubmitDay,
   useSubmitWeek,
 } from "../hooks";
 import { TIMESHEET_SUBMIT, TIMESHEET_WRITE } from "../permissions";
+import { AttendanceMonthView, currentMonth } from "./AttendanceMonthView";
 import { CustomActivityDialog } from "./CustomActivityDialog";
+import {
+  ATTENDANCE_CLASS,
+  ATTENDANCE_DEFAULT_CLASS,
+  ATTENDANCE_LABEL,
+  formatClock,
+  formatDay,
+  formatMinutes,
+  formatPermissionWindow,
+} from "./format";
 import { ReviewStatusChip } from "./ReviewStatus";
 import type {
   CarriedTask,
@@ -43,6 +57,21 @@ import type {
   TimesheetRow,
   TimesheetSession,
 } from "../types";
+
+// Re-exported so the reviewer and report views keep importing them from here.
+export {
+  ATTENDANCE_CLASS,
+  ATTENDANCE_DEFAULT_CLASS,
+  ATTENDANCE_LABEL,
+  formatClock,
+  formatDay,
+  formatMinutes,
+};
+
+const SECTION_TABS: TabItem<"log" | "attendance">[] = [
+  { id: "log", label: "Log Work" },
+  { id: "attendance", label: "Attendance" },
+];
 
 const DAILY_STATUS_LABEL: Record<DailyStatus, string> = {
   IN_PROGRESS: "In progress",
@@ -58,26 +87,6 @@ const DAILY_STATUS_CLASS: Record<DailyStatus, string> = {
   ON_HOLD:
     "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
 };
-
-export const ATTENDANCE_LABEL: Record<string, string> = {
-  PRESENT: "Present",
-  ABSENT: "Absent",
-  HALF_DAY: "Half day",
-  ON_LEAVE: "On leave",
-  HOLIDAY: "Holiday",
-  WEEKLY_OFF: "Weekly off",
-  NOT_MARKED: "Not marked",
-};
-
-export const ATTENDANCE_CLASS: Record<string, string> = {
-  PRESENT:
-    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  ABSENT: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",
-  HALF_DAY:
-    "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-};
-export const ATTENDANCE_DEFAULT_CLASS =
-  "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
 
 const CLOSED_REASON_LABEL: Record<string, string> = {
   STOPPED: "Stopped",
@@ -96,34 +105,6 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   not_started: "Not started",
   completed: "Completed",
 };
-
-/** `135` -> `2h 15m`; `45` -> `45m`; `0` -> `0m`. */
-export function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `${h}h` : `${h}h ${String(m).padStart(2, "0")}m`;
-}
-
-/** Clock time in the business timezone (IST) — the same day boundary the API uses. */
-export function formatClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-export function formatDay(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-IN", {
-    timeZone: "UTC",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function SessionLine({ session }: { session: TimesheetSession }) {
   const running = session.endedAt === null;
@@ -299,7 +280,10 @@ function CarriedCard({ task }: { task: CarriedTask }) {
 export function MyTimesheetView() {
   const today = businessToday();
   const [date, setDate] = useState(today);
+  const [tab, setTab] = useState<"log" | "attendance">("log");
+  const [month, setMonth] = useState(currentMonth());
   const { data, isLoading, isError, refetch } = useMyDay(date);
+  const monthQuery = useMyMonth(month);
   const { toast } = useToast();
   const canWrite = usePermission(TIMESHEET_WRITE);
   const canSubmit = usePermission(TIMESHEET_SUBMIT);
@@ -331,7 +315,7 @@ export function MyTimesheetView() {
             My Timesheet
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            What you worked on, day by day. Start and stop work in{" "}
+            Track attendance and log daily work. Start and stop work in{" "}
             <Link
               href="/portal/work"
               className="font-semibold text-brand-700 underline-offset-2 hover:underline dark:text-cyan-300"
@@ -341,227 +325,291 @@ export function MyTimesheetView() {
             .
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setDate(addBusinessDays(date, -1))}
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Input
-            type="date"
-            aria-label="Choose a date"
-            value={date}
-            onChange={(e) => {
-              if (e.target.value) setDate(e.target.value);
-            }}
-            className="w-44"
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setDate(addBusinessDays(date, 1))}
-            aria-label="Next day"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setDate(today)}
-            disabled={isToday}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Today
-          </Button>
-          {canWrite ? (
-            <Button
-              size="sm"
-              onClick={() => setDialog({ open: true, editing: null })}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add custom activity
-            </Button>
-          ) : null}
-          {canSubmit && data?.review.canSubmit ? (
-            <Button size="sm" onClick={() => setConfirmSubmit("day")}>
-              <Send className="h-3.5 w-3.5" />
-              Submit day
-            </Button>
-          ) : null}
-          {canSubmit ? (
+        {tab === "log" ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setConfirmSubmit("week")}
+              onClick={() => setDate(addBusinessDays(date, -1))}
+              aria-label="Previous day"
             >
-              <Send className="h-3.5 w-3.5" />
-              Submit week
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-          ) : null}
-        </div>
+            <Input
+              type="date"
+              aria-label="Choose a date"
+              value={date}
+              onChange={(e) => {
+                if (e.target.value) setDate(e.target.value);
+              }}
+              className="w-44"
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setDate(addBusinessDays(date, 1))}
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setDate(today)}
+              disabled={isToday}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Today
+            </Button>
+            {canWrite ? (
+              <Button
+                size="sm"
+                onClick={() => setDialog({ open: true, editing: null })}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add custom activity
+              </Button>
+            ) : null}
+            {canSubmit && data?.review.canSubmit ? (
+              <Button size="sm" onClick={() => setConfirmSubmit("day")}>
+                <Send className="h-3.5 w-3.5" />
+                Submit day
+              </Button>
+            ) : null}
+            {canSubmit ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setConfirmSubmit("week")}
+              >
+                <Send className="h-3.5 w-3.5" />
+                Submit week
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-base font-bold text-gray-900 dark:text-white">
-          {formatDay(date)}
-        </h2>
-        <span
-          className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-            attendance
-              ? (ATTENDANCE_CLASS[attendance] ?? ATTENDANCE_DEFAULT_CLASS)
-              : ATTENDANCE_DEFAULT_CLASS
-          }`}
-          title="Attendance status from HR for this day"
-        >
-          {attendance
-            ? (ATTENDANCE_LABEL[attendance] ?? attendance)
-            : "No attendance record"}
-        </span>
-        {data ? (
-          <ReviewStatusChip
-            status={data.review.status}
-            stage={data.review.stage}
+      <Tabs
+        label="Timesheet sections"
+        idPrefix="my-timesheet"
+        tabs={SECTION_TABS}
+        value={tab}
+        onChange={setTab}
+      >
+        {tab === "attendance" ? (
+          <AttendanceMonthView
+            month={month}
+            onMonthChange={setMonth}
+            data={monthQuery.data}
+            isLoading={monthQuery.isLoading}
+            isError={monthQuery.isError}
+            onRetry={() => void monthQuery.refetch()}
+            onOpenDay={(d) => {
+              setDate(d);
+              setTab("log");
+            }}
           />
         ) : null}
-        {data?.attendance && data.attendance.workedMinutes > 0 ? (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            HR counts {formatMinutes(data.attendance.workedMinutes)} worked
-            {data.attendance.targetMinutes !== null
-              ? ` of ${formatMinutes(data.attendance.targetMinutes)}`
-              : ""}
-          </span>
-        ) : null}
-      </div>
 
-      {data?.review.status === "REJECTED" ? (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            This day was returned
-            {data.review.decisionNote
-              ? `: ${data.review.decisionNote}`
-              : "."}{" "}
-            Fix it and submit it again.
-          </span>
-        </div>
-      ) : null}
-
-      {data && data.flags.length > 0 ? (
-        <ul aria-label="Attendance checks" className="flex flex-col gap-2">
-          {data.flags.map((flag) => (
-            <li
-              key={flag.code}
-              className={`flex items-start gap-2 rounded-xl px-3 py-2 text-sm ${
-                flag.severity === "warning"
-                  ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                  : "bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
-              }`}
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{flag.message}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {isLoading ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
-        </div>
-      ) : isError ? (
-        <ErrorState
-          title="Could not load your timesheet"
-          onRetry={() => void refetch()}
-        />
-      ) : data ? (
-        <>
-          <section
-            aria-label="Day summary"
-            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
-          >
-            <StatCard
-              headingId="ts-total"
-              label="Total time"
-              value={formatMinutes(data.totals.totalMinutes)}
-              note="Stopped and paused work counts; a running timer does not yet"
-              tone="brand"
-              icon={Clock}
-            />
-            <StatCard
-              headingId="ts-tasks"
-              label="Task time"
-              value={formatMinutes(data.totals.taskMinutes)}
-              note="From your task timers"
-              tone="blue"
-              icon={Timer}
-            />
-            <StatCard
-              headingId="ts-rows"
-              label="Activities"
-              value={data.totals.rowCount}
-              note={
-                data.totals.customMinutes > 0
-                  ? `${formatMinutes(data.totals.customMinutes)} other activity time`
-                  : "Tasks worked on this day"
-              }
-              tone="info"
-              icon={CheckSquare}
-            />
-          </section>
-
-          {data.rows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-6 dark:border-gray-800 dark:bg-gray-900">
-              <EmptyState
-                title="No work recorded for this day"
-                description={
-                  attendance === "ABSENT" ||
-                  attendance === "ON_LEAVE" ||
-                  attendance === "HOLIDAY" ||
-                  attendance === "WEEKLY_OFF"
-                    ? "No work is expected on this day."
-                    : "Nothing was started or logged. This is not an absence — attendance is recorded by HR."
-                }
-              />
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {data.rows.map((row) => (
-                <RowCard
-                  key={row.id}
-                  row={row}
-                  categoryLabel={
-                    categoryLabels.get(row.category) ??
-                    row.category.replace(/_/g, " ").toLowerCase()
-                  }
-                  canWrite={canWrite}
-                  onEdit={(r) => setDialog({ open: true, editing: r })}
-                  onDelete={setToDelete}
+        {tab === "log" ? (
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                {formatDay(date)}
+              </h2>
+              <span
+                className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                  attendance
+                    ? (ATTENDANCE_CLASS[attendance] ?? ATTENDANCE_DEFAULT_CLASS)
+                    : ATTENDANCE_DEFAULT_CLASS
+                }`}
+                title="Attendance status from HR for this day"
+              >
+                {attendance
+                  ? (ATTENDANCE_LABEL[attendance] ?? attendance)
+                  : "No attendance record"}
+              </span>
+              {data ? (
+                <ReviewStatusChip
+                  status={data.review.status}
+                  stage={data.review.stage}
                 />
-              ))}
-            </ul>
-          )}
+              ) : null}
+              {data?.attendance && data.attendance.workedMinutes > 0 ? (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  HR counts {formatMinutes(data.attendance.workedMinutes)}{" "}
+                  worked
+                  {data.attendance.targetMinutes !== null
+                    ? ` of ${formatMinutes(data.attendance.targetMinutes)}`
+                    : ""}
+                </span>
+              ) : null}
+            </div>
 
-          {isToday && data.carried.length > 0 ? (
-            <section aria-label="Open tasks with no work today">
-              <h3 className="mb-2 text-xs font-extrabold uppercase text-gray-400">
-                Open on your plate — no work yet today
-              </h3>
-              <ul className="flex flex-col gap-2">
-                {data.carried.map((task) => (
-                  <CarriedCard key={task.taskId} task={task} />
+            {data?.attendance && data.attendance.permissions.length > 0 ? (
+              <ul
+                aria-label="Approved permissions"
+                className="flex flex-col gap-2"
+                data-testid="day-permissions"
+              >
+                {data.attendance.permissions.map((p) => (
+                  <li
+                    key={`${p.fromTime}-${p.toTime}`}
+                    className="flex flex-wrap items-center gap-2 rounded-xl bg-cyan-50 px-3 py-2 text-sm text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
+                  >
+                    <CalendarClock className="h-4 w-4 shrink-0" />
+                    <span className="font-semibold">
+                      Permission {formatPermissionWindow(p)} (
+                      {formatMinutes(p.minutes)}, approved)
+                    </span>
+                    {data.attendance?.baseTargetMinutes != null &&
+                    data.attendance.targetMinutes !== null ? (
+                      <span>
+                        Today&apos;s target is{" "}
+                        {formatMinutes(data.attendance.targetMinutes)} (
+                        {formatMinutes(data.attendance.baseTargetMinutes)} shift
+                        minus {formatMinutes(data.attendance.permissionMinutes)}{" "}
+                        permission).
+                      </span>
+                    ) : null}
+                  </li>
                 ))}
               </ul>
-            </section>
-          ) : null}
-        </>
-      ) : null}
+            ) : null}
+
+            {data?.review.status === "REJECTED" ? (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  This day was returned
+                  {data.review.decisionNote
+                    ? `: ${data.review.decisionNote}`
+                    : "."}{" "}
+                  Fix it and submit it again.
+                </span>
+              </div>
+            ) : null}
+
+            {data && data.flags.length > 0 ? (
+              <ul
+                aria-label="Attendance checks"
+                className="flex flex-col gap-2"
+              >
+                {data.flags.map((flag) => (
+                  <li
+                    key={flag.code}
+                    className={`flex items-start gap-2 rounded-xl px-3 py-2 text-sm ${
+                      flag.severity === "warning"
+                        ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                        : "bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+                    }`}
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{flag.message}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {isLoading ? (
+              <div className="flex flex-col gap-3">
+                <Skeleton className="h-24 w-full rounded-2xl" />
+                <Skeleton className="h-32 w-full rounded-2xl" />
+              </div>
+            ) : isError ? (
+              <ErrorState
+                title="Could not load your timesheet"
+                onRetry={() => void refetch()}
+              />
+            ) : data ? (
+              <>
+                <section
+                  aria-label="Day summary"
+                  className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+                >
+                  <StatCard
+                    headingId="ts-total"
+                    label="Total time"
+                    value={formatMinutes(data.totals.totalMinutes)}
+                    note="Stopped and paused work counts; a running timer does not yet"
+                    tone="brand"
+                    icon={Clock}
+                  />
+                  <StatCard
+                    headingId="ts-tasks"
+                    label="Task time"
+                    value={formatMinutes(data.totals.taskMinutes)}
+                    note="From your task timers"
+                    tone="blue"
+                    icon={Timer}
+                  />
+                  <StatCard
+                    headingId="ts-rows"
+                    label="Activities"
+                    value={data.totals.rowCount}
+                    note={
+                      data.totals.customMinutes > 0
+                        ? `${formatMinutes(data.totals.customMinutes)} other activity time`
+                        : "Tasks worked on this day"
+                    }
+                    tone="info"
+                    icon={CheckSquare}
+                  />
+                </section>
+
+                {data.rows.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-6 dark:border-gray-800 dark:bg-gray-900">
+                    <EmptyState
+                      title="No work recorded for this day"
+                      description={
+                        attendance === "ABSENT" ||
+                        attendance === "ON_LEAVE" ||
+                        attendance === "HOLIDAY" ||
+                        attendance === "WEEKLY_OFF"
+                          ? "No work is expected on this day."
+                          : "Nothing was started or logged. This is not an absence — attendance is recorded by HR."
+                      }
+                    />
+                  </div>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {data.rows.map((row) => (
+                      <RowCard
+                        key={row.id}
+                        row={row}
+                        categoryLabel={
+                          categoryLabels.get(row.category) ??
+                          row.category.replace(/_/g, " ").toLowerCase()
+                        }
+                        canWrite={canWrite}
+                        onEdit={(r) => setDialog({ open: true, editing: r })}
+                        onDelete={setToDelete}
+                      />
+                    ))}
+                  </ul>
+                )}
+
+                {isToday && data.carried.length > 0 ? (
+                  <section aria-label="Open tasks with no work today">
+                    <h3 className="mb-2 text-xs font-extrabold uppercase text-gray-400">
+                      Open on your plate — no work yet today
+                    </h3>
+                    <ul className="flex flex-col gap-2">
+                      {data.carried.map((task) => (
+                        <CarriedCard key={task.taskId} task={task} />
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </Tabs>
 
       {dialog.open ? (
         <CustomActivityDialog

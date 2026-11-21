@@ -8,8 +8,8 @@ import {
   ErrorState,
   Select,
   Skeleton,
-  SpringGlideSegmentedControl,
   StatCard,
+  Tabs,
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useAwaitingDays, useReviewDays, useReviewSummary } from "../hooks";
@@ -91,7 +91,7 @@ function DayRow({
 
 /**
  * Submitted timesheet days for the people the caller reviews: "Awaiting me"
- * (what the caller can decide now — the reporting manager's first approval, or
+ * (what the caller can decide now — the team lead's first approval, or
  * HR's second) and "All" (submitted, approved and returned days in their
  * reach). The API scopes every row to the caller's `hr.timesheet` permission;
  * the buttons here only follow it.
@@ -105,6 +105,8 @@ export function TeamTimesheetsView() {
   const [selected, setSelected] = useState<{
     employeeId: number;
     date: string;
+    /** Opened from an employee's month: a day not yet submitted is readable. */
+    includeDrafts?: boolean;
   } | null>(null);
 
   const awaiting = useAwaitingDays(
@@ -141,8 +143,8 @@ export function TeamTimesheetsView() {
             Team Timesheets
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Days submitted by the people you review. The reporting manager gives
-            the first approval and HR the second.
+            Days submitted by the people you review. The team lead gives the
+            first approval and HR the second.
           </p>
         </div>
         {tab === "all" ? (
@@ -164,133 +166,139 @@ export function TeamTimesheetsView() {
         ) : null}
       </header>
 
-      {tabs.length > 1 ? (
-        <SpringGlideSegmentedControl
-          options={tabs}
-          value={tab}
-          onChange={(next) => {
-            setTab(next);
-            setPage(1);
-          }}
-          ariaLabel="Timesheet review lists"
-        />
-      ) : null}
+      <Tabs
+        label="Timesheet review lists"
+        idPrefix="team-timesheets"
+        tabs={tabs}
+        value={tab}
+        onChange={(next) => {
+          setTab(next);
+          setPage(1);
+        }}
+      >
+        <div className="flex flex-col gap-6">
+          {summary.data ? (
+            <section
+              aria-label="Review summary"
+              className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+            >
+              <StatCard
+                headingId="tr-await"
+                label="Waiting for me"
+                value={summary.data.awaitingMe ?? "-"}
+                note={
+                  summary.data.awaitingMe === null
+                    ? "You do not decide timesheets"
+                    : "Days you can approve or return now"
+                }
+                tone="brand"
+              />
+              <StatCard
+                headingId="tr-submitted"
+                label="Submitted"
+                value={summary.data.submitted}
+                note="In your reach, not yet approved"
+                tone="blue"
+              />
+              <StatCard
+                headingId="tr-attention"
+                label="Needs a look"
+                value={summary.data.needsAttention}
+                note="A timer needs checking"
+                tone="amber"
+              />
+              <StatCard
+                headingId="tr-approved"
+                label="Approved this month"
+                value={summary.data.approvedThisMonth}
+                note={`${summary.data.returned} returned and waiting for the employee`}
+                tone="emerald"
+              />
+            </section>
+          ) : null}
 
-      {summary.data ? (
-        <section
-          aria-label="Review summary"
-          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-        >
-          <StatCard
-            headingId="tr-await"
-            label="Waiting for me"
-            value={summary.data.awaitingMe ?? "-"}
-            note={
-              summary.data.awaitingMe === null
-                ? "You do not decide timesheets"
-                : "Days you can approve or return now"
-            }
-            tone="brand"
-          />
-          <StatCard
-            headingId="tr-submitted"
-            label="Submitted"
-            value={summary.data.submitted}
-            note="In your reach, not yet approved"
-            tone="blue"
-          />
-          <StatCard
-            headingId="tr-attention"
-            label="Needs a look"
-            value={summary.data.needsAttention}
-            note="A timer needs checking"
-            tone="amber"
-          />
-          <StatCard
-            headingId="tr-approved"
-            label="Approved this month"
-            value={summary.data.approvedThisMonth}
-            note={`${summary.data.returned} returned and waiting for the employee`}
-            tone="emerald"
-          />
-        </section>
-      ) : null}
-
-      {tab === "week" ? (
-        <TimesheetWeekGrid
-          onOpen={(d) =>
-            setSelected({ employeeId: d.employee.id, date: d.date })
-          }
-        />
-      ) : tab === "report" ? (
-        <TimesheetReport />
-      ) : active.isLoading ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-20 w-full rounded-2xl" />
-          <Skeleton className="h-20 w-full rounded-2xl" />
-        </div>
-      ) : active.isError ? (
-        <ErrorState
-          title="Could not load timesheets"
-          onRetry={() => void active.refetch()}
-        />
-      ) : days.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-6 dark:border-gray-800 dark:bg-gray-900">
-          <EmptyState
-            title={
-              tab === "awaiting"
-                ? "Nothing is waiting for your decision"
-                : "No submitted timesheets"
-            }
-            description={
-              tab === "awaiting"
-                ? "Days submitted by the people you review appear here."
-                : "Submitted, approved and returned days appear here."
-            }
-          />
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {days.map((day) => (
-            <DayRow
-              key={`${day.employee.id}-${day.date}`}
-              day={day}
+          {tab === "week" ? (
+            <TimesheetWeekGrid
               onOpen={(d) =>
                 setSelected({ employeeId: d.employee.id, date: d.date })
               }
             />
-          ))}
-        </ul>
-      )}
+          ) : tab === "report" ? (
+            <TimesheetReport
+              onOpenDay={(employeeId, date) =>
+                setSelected({ employeeId, date, includeDrafts: true })
+              }
+            />
+          ) : active.isLoading ? (
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-20 w-full rounded-2xl" />
+            </div>
+          ) : active.isError ? (
+            <ErrorState
+              title="Could not load timesheets"
+              onRetry={() => void active.refetch()}
+            />
+          ) : days.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-6 dark:border-gray-800 dark:bg-gray-900">
+              <EmptyState
+                title={
+                  tab === "awaiting"
+                    ? "Nothing is waiting for your decision"
+                    : "No submitted timesheets"
+                }
+                description={
+                  tab === "awaiting"
+                    ? "Days submitted by the people you review appear here."
+                    : "Submitted, approved and returned days appear here."
+                }
+              />
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {days.map((day) => (
+                <DayRow
+                  key={`${day.employee.id}-${day.date}`}
+                  day={day}
+                  onOpen={(d) =>
+                    setSelected({ employeeId: d.employee.id, date: d.date })
+                  }
+                />
+              ))}
+            </ul>
+          )}
 
-      {totalPages > 1 ? (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </Tabs>
 
       {selected ? (
         <ReviewDayDialog
           employeeId={selected.employeeId}
           date={selected.date}
+          includeDrafts={selected.includeDrafts === true}
           onClose={() => setSelected(null)}
         />
       ) : null}

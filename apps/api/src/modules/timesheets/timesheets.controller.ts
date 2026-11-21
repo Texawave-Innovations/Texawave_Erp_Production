@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
 import {
   DayParamDto,
+  MonthQueryDto,
   TaskHistoryQueryDto,
 } from "./dto/timesheet-queries.dto.js";
 import { TimesheetsService } from "./timesheets.service.js";
@@ -26,6 +27,16 @@ export class TimesheetsController {
   })
   getMyDay(@Param() params: DayParamDto) {
     return this.service.getMyDay(params.date);
+  }
+
+  @Get("my-month")
+  @RequirePermission("employee_self_service.timesheet.read")
+  @ApiOperation({
+    summary:
+      "My month: attendance, check-in/out, hours and approved permissions per day, with the month's counts",
+  })
+  getMyMonth(@Query() query: MonthQueryDto) {
+    return this.service.getMyMonth(query.month);
   }
 
   @Get("tasks/:taskId/history")

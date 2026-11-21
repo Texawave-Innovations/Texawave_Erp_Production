@@ -13,12 +13,17 @@ import {
   RequirePermission,
   RequireScopedPermission,
 } from "../../common/decorators/require-permission.decorator.js";
-import { DayParamDto } from "./dto/timesheet-queries.dto.js";
+import {
+  DayParamDto,
+  EmployeeParamDto,
+  MonthQueryDto,
+} from "./dto/timesheet-queries.dto.js";
 import {
   AwaitingQueryDto,
   CorrectSessionDto,
   ReportQueryDto,
   ReviewDayParamDto,
+  ReviewDayQueryDto,
   ReviewDecisionDto,
   ReviewListQueryDto,
   SessionParamDto,
@@ -95,13 +100,33 @@ export class TimesheetWorkflowController {
     return this.service.findAll(query);
   }
 
+  @Get("employees/:employeeId/month")
+  @RequireScopedPermission("hr.timesheet.read")
+  @ApiOperation({
+    summary:
+      "One employee's month for a reviewer: attendance, check-in/out, hours, approved permissions and logged time per day",
+  })
+  employeeMonth(
+    @Param() params: EmployeeParamDto,
+    @Query() query: MonthQueryDto,
+  ) {
+    return this.service.findEmployeeMonth(params.employeeId, query.month);
+  }
+
   @Get("review/:employeeId/:date")
   @RequireScopedPermission("hr.timesheet.read")
   @ApiOperation({
     summary: "One employee's submitted day, with attendance and flags",
   })
-  detail(@Param() params: ReviewDayParamDto) {
-    return this.service.findDay(params.employeeId, params.date);
+  detail(
+    @Param() params: ReviewDayParamDto,
+    @Query() query: ReviewDayQueryDto,
+  ) {
+    return this.service.findDay(
+      params.employeeId,
+      params.date,
+      query.drafts === true,
+    );
   }
 
   @Post("review/:employeeId/:date/approve")

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -39,6 +40,17 @@ export class ReviewDayParamDto {
   @ApiProperty({ example: "2026-11-16" })
   @IsDateOnly()
   date!: string;
+}
+
+/** `drafts=true` also returns a day the employee has not submitted (read-only). */
+export class ReviewDayQueryDto {
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @Transform(
+    ({ value }: { value: unknown }) => value === "true" || value === true,
+  )
+  @IsBoolean()
+  drafts?: boolean;
 }
 
 export const REVIEW_LIST_STATUSES = [

@@ -27,16 +27,16 @@ test.describe("Team Timesheets", () => {
     ).toBeVisible();
     // Super Admin can both decide and read, so both lists are offered.
     await expect(
-      page.getByRole("button", { name: "Awaiting my decision" }),
+      page.getByRole("tab", { name: "Awaiting my decision" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "All submitted" }),
+      page.getByRole("tab", { name: "All submitted" }),
     ).toBeVisible();
   });
 
   test("the all-submitted list can be filtered by status", async ({ page }) => {
     await page.goto("/portal/team-timesheets");
-    await page.getByRole("button", { name: "All submitted" }).click();
+    await page.getByRole("tab", { name: "All submitted" }).click();
     // the ui-kit Select is a combobox (a hidden native select sits beside it)
     const filter = page.getByRole("combobox", { name: "Filter by status" });
     await expect(filter).toBeVisible();
@@ -59,7 +59,7 @@ test.describe("Team Timesheets", () => {
     page,
   }) => {
     await page.goto("/portal/team-timesheets");
-    await page.getByRole("button", { name: "Report" }).click();
+    await page.getByRole("tab", { name: "Report" }).click();
     const report = page.getByRole("region", { name: "Timesheet report" });
     await expect(report).toBeVisible();
     await expect(report.getByLabel("Report from")).toBeVisible();
@@ -81,7 +81,7 @@ test.describe("Team Timesheets", () => {
 
   test("the CSV by employee downloads a file", async ({ page }) => {
     await page.goto("/portal/team-timesheets");
-    await page.getByRole("button", { name: "Report" }).click();
+    await page.getByRole("tab", { name: "Report" }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "CSV by employee" }).click();
     expect((await download).suggestedFilename()).toMatch(
@@ -93,7 +93,7 @@ test.describe("Team Timesheets", () => {
     page,
   }) => {
     await page.goto("/portal/team-timesheets");
-    await page.getByRole("button", { name: "Week" }).click();
+    await page.getByRole("tab", { name: "Week" }).click();
     const grid = page.getByRole("region", { name: "Weekly timesheet grid" });
     await expect(grid).toBeVisible();
 
@@ -130,7 +130,7 @@ test.describe("Team Timesheets", () => {
 
   test("the Week grid jumps to the week of a chosen date", async ({ page }) => {
     await page.goto("/portal/team-timesheets");
-    await page.getByRole("button", { name: "Week" }).click();
+    await page.getByRole("tab", { name: "Week" }).click();
     const grid = page.getByRole("region", { name: "Weekly timesheet grid" });
     // 18 Nov 2026 is a Wednesday: the week is Monday 16 to Sunday 22 Nov
     await grid.getByLabel("Jump to the week of").fill("2026-11-18");

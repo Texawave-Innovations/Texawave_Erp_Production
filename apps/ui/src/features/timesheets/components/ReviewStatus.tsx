@@ -8,7 +8,7 @@ export function reviewLabel(
   switch (status) {
     case "SUBMITTED":
       return stage === "MANAGER"
-        ? "Waiting for manager approval"
+        ? "Waiting for team lead approval"
         : "Waiting for HR approval";
     case "APPROVED":
       return "Approved";

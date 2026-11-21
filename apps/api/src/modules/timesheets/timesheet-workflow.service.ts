@@ -26,6 +26,7 @@ import type {
 import { requireTimesheetEmployee } from "./employee-ref.js";
 import { approvalVerdict } from "./timesheet-approval.js";
 import { flagsForDay } from "./timesheet-flags.js";
+import { TimesheetMonthService } from "./timesheet-month.service.js";
 import { TimesheetNotificationsService } from "./timesheet-notifications.service.js";
 import {
   buildEmployeeReport,
@@ -33,6 +34,7 @@ import {
   DAY_REPORT_HEADERS,
   EMPLOYEE_REPORT_HEADERS,
   employeeReportRow,
+  type EmployeeReportLine,
 } from "./timesheet-report.js";
 import { groupDays, type GroupedDay } from "./timesheet-review-views.js";
 import {
@@ -83,6 +85,7 @@ export class TimesheetWorkflowService {
     private readonly attendance: AttendanceLookupService,
     private readonly notifier: TimesheetNotificationsService,
     private readonly lifecycle: TaskLifecycleService,
+    private readonly months: TimesheetMonthService,
   ) {}
 
   // ---- employee ---------------------------------------------------------------
@@ -109,7 +112,7 @@ export class TimesheetWorkflowService {
         employeeUserId: employee.userId,
         date,
       },
-      { kind: "submitted", managerUserId: result.managerUserId },
+      { kind: "submitted", leadUserIds: result.leadUserIds },
     );
     return {
       date,
@@ -205,9 +208,14 @@ export class TimesheetWorkflowService {
 
   /** One day for a reviewer: the rows, sessions, totals, HR's attendance now,
    * and the flags (including a change of attendance since it was submitted). */
-  async findDay(employeeId: number, date: string) {
+  async findDay(employeeId: number, date: string, includeDrafts = false) {
     const scope = await this.teamContext.resolveScope(READ);
-    const rows = await this.repository.findReviewDay(scope, employeeId, date);
+    const rows = await this.repository.findReviewDay(
+      scope,
+      employeeId,
+      date,
+      includeDrafts,
+    );
     const lead = rows[0];
     if (!lead) {
       throw new ResourceNotFoundException("Timesheet", `${employeeId}/${date}`);
@@ -240,8 +248,11 @@ export class TimesheetWorkflowService {
 
     // The caller may be allowed to read but not decide: ask the approve scope.
     const approveScope = await this.approveScopeOrNull();
+    // A day the employee has not submitted is read-only for a reviewer.
     const canDecide =
-      approveScope !== null && this.canDecide(approveScope, grouped);
+      approveScope !== null &&
+      grouped.summary.status !== "DRAFT" &&
+      this.canDecide(approveScope, grouped);
     // Only HR (.all) reopens an approved day or confirms a timer's end, and
     // never for themselves.
     const isHr =
@@ -259,6 +270,9 @@ export class TimesheetWorkflowService {
             workedMinutes: attendance.workedMinutes,
             overtimeMinutes: attendance.overtimeMinutes,
             targetMinutes: attendance.targetMinutes,
+            baseTargetMinutes: attendance.baseTargetMinutes,
+            permissions: attendance.permissions,
+            permissionMinutes: attendance.permissionMinutes,
           }
         : null,
       attendanceStatusAtSubmit: lead.attendanceStatusAtSubmit,
@@ -285,6 +299,35 @@ export class TimesheetWorkflowService {
             : (r.durationMinutes ?? 0),
         sessions: r.sessions,
       })),
+    };
+  }
+
+  /** One employee's month for a reviewer: attendance, punches, approved
+   * permissions and what was logged, drafts included. The employee must be in
+   * the caller's `hr.timesheet.read` reach (404 outside it). */
+  async findEmployeeMonth(employeeId: number, month: string) {
+    const scope = await this.teamContext.resolveScope(READ);
+    const employee = await this.repository.findReviewableEmployee(
+      scope,
+      employeeId,
+    );
+    if (!employee) throw new ResourceNotFoundException("Employee", employeeId);
+    const data = await this.months.forEmployee(
+      {
+        id: employee.id,
+        teamId: employee.teamId,
+        workLocationId: employee.workLocationId,
+      },
+      month,
+    );
+    return {
+      employee: {
+        id: employee.id,
+        code: employee.employeeCode,
+        name: employee.fullName,
+        team: employee.team.name,
+      },
+      ...data,
     };
   }
 
@@ -454,8 +497,40 @@ export class TimesheetWorkflowService {
     return {
       from: query.from,
       to: query.to,
-      lines: buildEmployeeReport(days),
+      lines: await this.withAttendance(buildEmployeeReport(days), query),
     };
+  }
+
+  /** Adds each employee's attendance over the range: the target after approved
+   * permissions, the permission minutes and the minutes HR counts as worked.
+   * One batched read for everyone, however many people the report covers. */
+  private async withAttendance(
+    lines: readonly EmployeeReportLine[],
+    query: ReportQueryDto,
+  ): Promise<EmployeeReportLine[]> {
+    if (lines.length === 0) return [];
+    const scope = this.tenantContext.getOrgScope();
+    const refs = await this.repository.findEmployeeRefs(
+      scope,
+      lines.map((l) => l.employee.id),
+    );
+    const byEmployee = await this.attendance.dayStatusesForMany(
+      scope,
+      refs,
+      query.from,
+      query.to,
+    );
+    return lines.map((line) => {
+      let targetMinutes = 0;
+      let permissionMinutes = 0;
+      let attendanceMinutes = 0;
+      for (const day of byEmployee.get(line.employee.id)?.values() ?? []) {
+        targetMinutes += day.targetMinutes ?? 0;
+        permissionMinutes += day.permissionMinutes;
+        attendanceMinutes += day.workedMinutes;
+      }
+      return { ...line, targetMinutes, permissionMinutes, attendanceMinutes };
+    });
   }
 
   /** One line per employee per day with work (drafts included): what the Week
@@ -467,10 +542,8 @@ export class TimesheetWorkflowService {
 
   async employeeReportCsv(query: ReportQueryDto): Promise<string> {
     const days = await this.reportDays(EXPORT, query);
-    return toCsv(
-      EMPLOYEE_REPORT_HEADERS,
-      buildEmployeeReport(days).map(employeeReportRow),
-    );
+    const lines = await this.withAttendance(buildEmployeeReport(days), query);
+    return toCsv(EMPLOYEE_REPORT_HEADERS, lines.map(employeeReportRow));
   }
 
   async dayReportCsv(query: ReportQueryDto): Promise<string> {

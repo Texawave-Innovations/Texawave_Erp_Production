@@ -21,6 +21,7 @@ import {
 import { requireTimesheetEmployee } from "./employee-ref.js";
 import { dayWorkflowStatus, reviewStage } from "./timesheet-approval.js";
 import { flagsForDay } from "./timesheet-flags.js";
+import { TimesheetMonthService } from "./timesheet-month.service.js";
 import { TimesheetsRepository } from "./timesheets.repository.js";
 import type { DailyStatus } from "./timesheets.rules.js";
 
@@ -49,6 +50,7 @@ export class TimesheetsService {
     private readonly employeeQuery: EmployeeQueryService,
     private readonly attendance: AttendanceLookupService,
     private readonly tasks: TasksService,
+    private readonly months: TimesheetMonthService,
   ) {}
 
   private requireEmployee() {
@@ -164,6 +166,9 @@ export class TimesheetsService {
             workedMinutes: attendanceDay.workedMinutes,
             overtimeMinutes: attendanceDay.overtimeMinutes,
             targetMinutes: attendanceDay.targetMinutes,
+            baseTargetMinutes: attendanceDay.baseTargetMinutes,
+            permissions: attendanceDay.permissions,
+            permissionMinutes: attendanceDay.permissionMinutes,
             hasOpenSession: attendanceDay.hasOpenSession,
           }
         : null,
@@ -198,6 +203,12 @@ export class TimesheetsService {
       })),
       carried,
     };
+  }
+
+  /** The employee's own month: attendance (status, check-in/out, hours,
+   * approved permissions) beside what was logged, day by day. */
+  async getMyMonth(month: string) {
+    return this.months.forEmployee(await this.requireEmployee(), month);
   }
 
   /** One task, day by day: the days it was worked on (stored rows) and the
