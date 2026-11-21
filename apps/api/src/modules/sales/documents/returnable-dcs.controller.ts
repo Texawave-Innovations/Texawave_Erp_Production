@@ -17,6 +17,7 @@ import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import {
+  DraftPreviewQueryDto,
   NextNumberQueryDto,
   SendDocumentEmailDto,
 } from "./dto/document-parts.dto.js";
@@ -24,6 +25,7 @@ import {
   CreateReturnableDcDto,
   MarkReturnedDto,
   QueryReturnableDcDto,
+  ReopenReturnableDcDto,
   UpdateReturnableDcDto,
 } from "./dto/returnable-dc.dto.js";
 import { ReturnableDcsService } from "./returnable-dcs.service.js";
@@ -53,6 +55,16 @@ export class ReturnableDcsController {
   @ApiOperation({ summary: "Preview the next RDC number (not reserved)" })
   nextNumber(@Query() query: NextNumberQueryDto) {
     return this.rdcs.nextNumber(query.date);
+  }
+
+  @Get("template")
+  @RequirePermission(WRITE)
+  @ApiOperation({
+    summary:
+      "The empty returnable DC (letterhead, next number) for a form's default preview",
+  })
+  template(@Query() query: DraftPreviewQueryDto) {
+    return this.rdcs.template(query);
   }
 
   @Get(":id")
@@ -127,9 +139,14 @@ export class ReturnableDcsController {
   @Post(":id/reopen")
   @RequirePermission(WRITE)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Undo 'returned' (back to pending return)" })
-  reopen(@Param("id", ParseIntPipe) id: number) {
-    return this.rdcs.reopen(id);
+  @ApiOperation({
+    summary: "Undo 'returned' (back to pending return) with a reason",
+  })
+  reopen(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ReopenReturnableDcDto,
+  ) {
+    return this.rdcs.reopen(id, dto);
   }
 
   @Delete(":id")

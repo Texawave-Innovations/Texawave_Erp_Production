@@ -7,15 +7,12 @@ import {
   IsOptional,
   IsString,
   Length,
-  Matches,
   Max,
   Min,
 } from "class-validator";
 import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { QueryBoolean, Trim } from "../../../../common/dto/transforms.js";
-
-const MONTH = /^[0-9]{4}-(0[1-9]|1[0-2])$/;
 
 /** A payment's own fields — "Record Payment" on an invoice, and the
  * Payments Received form (which also names the invoice). */
@@ -110,15 +107,37 @@ export class QueryPaymentDto extends PaginationDto {
   @Min(1)
   invoiceId?: number;
 
-  @ApiPropertyOptional({ example: "2026-10", description: "Payment month" })
+  @ApiPropertyOptional({
+    example: "2026-10-01",
+    description: "Paid from, inclusive",
+  })
   @IsOptional()
-  @Matches(MONTH, { message: "paymentMonth must be YYYY-MM" })
-  paymentMonth?: string;
+  @IsDateOnly()
+  paymentFrom?: string;
 
-  @ApiPropertyOptional({ example: "2026-11", description: "Due month" })
+  @ApiPropertyOptional({
+    example: "2026-10-31",
+    description: "Paid to, inclusive",
+  })
   @IsOptional()
-  @Matches(MONTH, { message: "dueMonth must be YYYY-MM" })
-  dueMonth?: string;
+  @IsDateOnly()
+  paymentTo?: string;
+
+  @ApiPropertyOptional({
+    example: "2026-11-01",
+    description: "Due from, inclusive",
+  })
+  @IsOptional()
+  @IsDateOnly()
+  dueFrom?: string;
+
+  @ApiPropertyOptional({
+    example: "2026-11-30",
+    description: "Due to, inclusive",
+  })
+  @IsOptional()
+  @IsDateOnly()
+  dueTo?: string;
 
   @ApiPropertyOptional({ description: "Only overdue payments" })
   @IsOptional()

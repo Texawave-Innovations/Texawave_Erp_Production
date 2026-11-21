@@ -444,12 +444,12 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
         },
       });
       const due = await http()
-        .get("/sales/payments?dueMonth=2020-01")
+        .get("/sales/payments?dueFrom=2020-01-01&dueTo=2020-01-31")
         .set(auth("exec"))
         .expect(200);
       expect((due.body as Body<Payment[]>).meta?.total).toBe(1);
       const paidIn = await http()
-        .get("/sales/payments?paymentMonth=2026-08")
+        .get("/sales/payments?paymentFrom=2026-08-01&paymentTo=2026-08-31")
         .set(auth("exec"))
         .expect(200);
       expect((paidIn.body as Body<Payment[]>).meta?.total).toBe(2);
@@ -461,7 +461,7 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
         .expect(200);
       expect((search.body as Body<Payment[]>).meta?.total).toBe(2);
       await http()
-        .get("/sales/payments?paymentMonth=2026-13")
+        .get("/sales/payments?paymentFrom=2026-13-01")
         .set(auth("exec"))
         .expect(400);
     });
@@ -821,17 +821,31 @@ describe("Sales — payments received and returnable DCs (e2e)", () => {
         .set(auth("exec"))
         .send({})
         .expect(409);
+      // A reason is mandatory, and a blank one does not count.
+      await http()
+        .post(`/sales/returnable-dcs/${rdc.id}/reopen`)
+        .set(auth("exec"))
+        .send({})
+        .expect(400);
+      await http()
+        .post(`/sales/returnable-dcs/${rdc.id}/reopen`)
+        .set(auth("exec"))
+        .send({ reason: "   " })
+        .expect(400);
       const reopened = await http()
         .post(`/sales/returnable-dcs/${rdc.id}/reopen`)
         .set(auth("exec"))
+        .send({ reason: "Marked returned by mistake" })
         .expect(200);
       expect((reopened.body as Body<Rdc>).data).toMatchObject({
         status: "ISSUED",
         returnedDate: null,
+        reopenReason: "Marked returned by mistake",
       });
       const again = await http()
         .post(`/sales/returnable-dcs/${rdc.id}/reopen`)
         .set(auth("exec"))
+        .send({ reason: "Again" })
         .expect(409);
       expect((again.body as ErrorBody).error).toBe("RDC_NOT_RETURNED");
     });

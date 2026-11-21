@@ -5,6 +5,11 @@ import { MailerService } from "../../../shared/mailer/mailer.service.js";
 import { CompanyProfileService } from "../master-list/company-profile.service.js";
 import { DocumentFieldsService } from "../master-list/document-fields.service.js";
 import {
+  type BlankDocumentKind,
+  type BlankDraft,
+  blankDocument,
+} from "./blank-template.js";
+import {
   type DocumentEntity,
   DocumentDeliveryRepository,
 } from "./document-delivery.repository.js";
@@ -61,6 +66,22 @@ export class DocumentDeliveryService {
    * previews of unsaved forms. */
   html(doc: PrintableDocument): string {
     return renderSalesDocumentHtml(doc);
+  }
+
+  /** The empty template a form shows before anything valid is entered:
+   * the letterhead, the next number and the date, nothing stored. */
+  async blankTemplate(
+    kind: BlankDocumentKind,
+    number: string,
+    date: Date,
+    draft?: BlankDraft,
+  ) {
+    const company = await this.companyProfile.require();
+    const doc = await this.withImages(
+      blankDocument(kind, company, number, date, draft),
+      { sealItemId: null, signatureItemId: null },
+    );
+    return { number, html: this.html(doc) };
   }
 
   async pdf(doc: PrintableDocument): Promise<PdfFile> {

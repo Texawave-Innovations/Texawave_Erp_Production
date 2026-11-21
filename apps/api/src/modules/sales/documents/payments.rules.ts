@@ -28,12 +28,21 @@ export function modeLabel(mode: string): string {
 /** Statuses with a balance left to pay. */
 export const OPEN_INVOICE_STATUSES = ["UNPAID", "PARTIALLY_PAID"] as const;
 
-/** `2026-02` → 1 Feb … 28 Feb 2026 (inclusive, date-only). */
-export function monthRange(month: string): { from: Date; to: Date } {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const from = parseDateOnly(`${month}-01`);
-  const to = new Date(Date.UTC(y, m, 0));
-  return { from, to };
+export interface DateRange {
+  from?: Date | undefined;
+  to?: Date | undefined;
+}
+
+/** An inclusive date-only range; either end may be open. Undefined when both are. */
+export function dateRange(
+  from: string | undefined,
+  to: string | undefined,
+): DateRange | undefined {
+  if (!from && !to) return undefined;
+  return {
+    from: from ? parseDateOnly(from) : undefined,
+    to: to ? parseDateOnly(to) : undefined,
+  };
 }
 
 export function effectiveDueDate(

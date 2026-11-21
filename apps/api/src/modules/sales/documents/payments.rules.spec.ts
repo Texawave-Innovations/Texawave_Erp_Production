@@ -1,8 +1,8 @@
 import { parseDateOnly } from "../../../common/dates/date-only.js";
 import {
+  dateRange,
   effectiveDueDate,
   modeLabel,
-  monthRange,
   overdueDays,
 } from "./payments.rules.js";
 
@@ -15,13 +15,17 @@ describe("payments received rules", () => {
     expect(modeLabel(" NEFT ")).toBe("NEFT");
   });
 
-  it("a month is its first to last day", () => {
-    expect(monthRange("2026-02")).toEqual({
-      from: d("2026-02-01"),
-      to: d("2026-02-28"),
+  it("a date range may be open at either end, and is absent when both are", () => {
+    expect(dateRange(undefined, undefined)).toBeUndefined();
+    expect(dateRange("2026-10-01", "2026-10-31")).toEqual({
+      from: d("2026-10-01"),
+      to: d("2026-10-31"),
     });
-    expect(monthRange("2028-02").to).toEqual(d("2028-02-29"));
-    expect(monthRange("2026-12").to).toEqual(d("2026-12-31"));
+    expect(dateRange("2026-10-01", undefined)).toEqual({
+      from: d("2026-10-01"),
+      to: undefined,
+    });
+    expect(dateRange(undefined, "2026-10-31")?.from).toBeUndefined();
   });
 
   it("the payment's due date wins over the invoice's", () => {

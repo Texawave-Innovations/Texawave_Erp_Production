@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "@texawave-erp/database";
+import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import { CustomersService } from "../customers/customers.service.js";
 import {
@@ -18,6 +19,7 @@ import type {
 import {
   assertCustomerActive,
   type CustomerForDocument,
+  type CustomerSnapshot,
   customerSnapshot,
   placeOfSupplyFor,
   pickDefined,
@@ -157,6 +159,20 @@ export class DocumentPricingService {
       customFields: draft.customFields,
       lines,
     };
+  }
+
+  /** The customer a half-filled form has picked, for its draft preview:
+   * any customer (active or not), or null when none or not found. */
+  async draftCustomer(
+    id: number | undefined,
+  ): Promise<CustomerSnapshot | null> {
+    if (id === undefined) return null;
+    try {
+      return customerSnapshot(await this.customers.findOne(id));
+    } catch (error) {
+      if (error instanceof ResourceNotFoundException) return null;
+      throw error;
+    }
   }
 
   /** Preview of the number a new document dated `date` will get. */

@@ -275,6 +275,9 @@ export class ReturnableDcsRepository {
       rdcNumber: string;
       issueDate: Date;
     }) => void,
+    /** Why it is being reopened; kept on the row and in the audit entry.
+     * Marking returned clears it. */
+    reopenReason: string | null = null,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const before = await this.lockLive(tx, scope, id);
@@ -282,7 +285,7 @@ export class ReturnableDcsRepository {
       check(before);
       await tx.salesReturnableDc.update({
         where: { id },
-        data: { status, returnedDate, updatedBy: actorId },
+        data: { status, returnedDate, reopenReason, updatedBy: actorId },
       });
       return this.finish(
         tx,
@@ -290,6 +293,7 @@ export class ReturnableDcsRepository {
         before,
         status === "RETURNED" ? "mark_returned" : "reopen",
         today,
+        reopenReason ?? undefined,
       );
     });
   }
@@ -324,6 +328,7 @@ export class ReturnableDcsRepository {
     before: RdcRow,
     action: string,
     today: Date,
+    reason?: string,
   ) {
     const after = await tx.salesReturnableDc.findUniqueOrThrow({
       where: { id },
@@ -335,6 +340,7 @@ export class ReturnableDcsRepository {
       action,
       before: snapshot(before),
       after: snapshot(after),
+      reason,
     });
     return toView(after, today);
   }

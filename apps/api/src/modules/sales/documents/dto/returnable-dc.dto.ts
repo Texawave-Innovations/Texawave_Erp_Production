@@ -11,7 +11,6 @@ import {
   IsOptional,
   IsString,
   Length,
-  Matches,
   Max,
   Min,
   ValidateNested,
@@ -147,6 +146,20 @@ export class MarkReturnedDto {
   returnedDate?: string;
 }
 
+/** Reopening a returned RDC always says why (kept on the RDC and in the
+ * audit log). */
+export class ReopenReturnableDcDto {
+  @ApiProperty({
+    example: "Marked returned by mistake",
+    description: "Why the RDC is being reopened",
+    maxLength: 500,
+  })
+  @Trim()
+  @IsString()
+  @Length(1, 500)
+  reason!: string;
+}
+
 export class QueryReturnableDcDto extends PaginationDto {
   @ApiPropertyOptional({
     description:
@@ -175,8 +188,19 @@ export class QueryReturnableDcDto extends PaginationDto {
   @IsDateOnly()
   date?: string;
 
-  @ApiPropertyOptional({ example: "2026-10", description: "Issue month" })
+  @ApiPropertyOptional({
+    example: "2026-10-01",
+    description: "Issued from, inclusive",
+  })
   @IsOptional()
-  @Matches(/^[0-9]{4}-(0[1-9]|1[0-2])$/, { message: "month must be YYYY-MM" })
-  month?: string;
+  @IsDateOnly()
+  from?: string;
+
+  @ApiPropertyOptional({
+    example: "2026-10-31",
+    description: "Issued to, inclusive",
+  })
+  @IsOptional()
+  @IsDateOnly()
+  to?: string;
 }

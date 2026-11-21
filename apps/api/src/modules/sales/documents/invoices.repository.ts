@@ -206,6 +206,7 @@ export class InvoicesRepository {
         data: {
           status: "CONVERTED",
           convertedAt: new Date(),
+          reopenReason: null,
           updatedBy: actorId,
         },
       });
@@ -277,6 +278,7 @@ export class InvoicesRepository {
           status: "CONVERTED",
           convertedAt: new Date(),
           amountReceived: 0,
+          reopenReason: null,
           updatedBy: actorId,
         },
       });
@@ -297,6 +299,106 @@ export class InvoicesRepository {
         include: INCLUDE,
       });
       return toView(row);
+    });
+  }
+
+  /** "Mark as tax invoiced": the tax invoice was raised outside the system,
+   * so the proforma is locked without generating one. Payments stay on it. */
+  @OrgScoped()
+  async markProformaConverted(scope: OrgScope, id: number, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.lockLive(tx, scope, id);
+      if (!before) return null;
+      if (before.invoiceType !== "PROFORMA") {
+        throw new BusinessRuleViolationException(
+          `${before.invoiceNumber} is already a tax invoice`,
+          "NOT_A_PROFORMA",
+        );
+      }
+      if (before.status === "CONVERTED") {
+        throw new BusinessRuleConflictException(
+          `Proforma invoice ${before.invoiceNumber} has already been moved to a tax invoice`,
+          "ALREADY_CONVERTED",
+        );
+      }
+      await tx.salesInvoice.update({
+        where: { id },
+        data: {
+          status: "CONVERTED",
+          convertedAt: new Date(),
+          reopenReason: null,
+          updatedBy: actorId,
+        },
+      });
+      const after = await tx.salesInvoice.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "mark_converted",
+        before: { status: before.status },
+        after: { status: "CONVERTED" },
+      });
+      return toView(after);
+    });
+  }
+
+  /** Proforma back to UNPAID / PARTIALLY_PAID / PAID (from what it has
+   * received), with the reason on the row and in the audit entry. Refused
+   * while a live tax invoice was generated from it. */
+  @OrgScoped()
+  async reopenProforma(
+    scope: OrgScope,
+    id: number,
+    reason: string,
+    actorId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.lockLive(tx, scope, id);
+      if (!before) return null;
+      if (before.invoiceType !== "PROFORMA") {
+        throw new BusinessRuleViolationException(
+          `${before.invoiceNumber} is a tax invoice and cannot be reopened`,
+          "NOT_A_PROFORMA",
+        );
+      }
+      if (before.status !== "CONVERTED") {
+        throw new BusinessRuleConflictException(
+          `Proforma invoice ${before.invoiceNumber} is not converted`,
+          "NOT_CONVERTED",
+        );
+      }
+      const linked = before.convertedTo[0];
+      if (linked) {
+        throw new BusinessRuleConflictException(
+          `Proforma invoice ${before.invoiceNumber} has tax invoice ${linked.invoiceNumber}; delete it first`,
+          "HAS_LINKED_INVOICE",
+        );
+      }
+      await tx.salesInvoice.update({
+        where: { id },
+        data: {
+          status: paymentStatus(before.totalAmount, before.amountReceived),
+          convertedAt: null,
+          reopenReason: reason,
+          updatedBy: actorId,
+        },
+      });
+      const after = await tx.salesInvoice.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "reopen",
+        before: { status: before.status },
+        after: { status: after.status },
+        reason,
+      });
+      return toView(after);
     });
   }
 

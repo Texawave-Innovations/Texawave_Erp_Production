@@ -27,6 +27,7 @@ import type {
 } from "./dto/delivery-challan.dto.js";
 import type {
   DispatchLineDto,
+  DraftPreviewQueryDto,
   SendDocumentEmailDto,
 } from "./dto/document-parts.dto.js";
 import type { ConvertToDeliveryChallanDto } from "./dto/invoice.dto.js";
@@ -116,6 +117,19 @@ export class DeliveryChallansService {
       await this.pricing.numberFor("delivery_challan", dcDate),
       this.tenantContext.getUserId(),
     );
+  }
+
+  /** The empty challan the form previews before anything valid is typed. */
+  async template(query: DraftPreviewQueryDto) {
+    const day = parseDateOnly(query.date ?? todayDateOnly());
+    const { number } = await this.pricing.previewNumber(
+      "delivery_challan",
+      day,
+    );
+    return this.delivery.blankTemplate("delivery-challan", number, day, {
+      customer: await this.pricing.draftCustomer(query.customerId),
+      preparedBy: query.preparedBy,
+    });
   }
 
   /** Live preview of an unsaved delivery challan (nothing stored; the

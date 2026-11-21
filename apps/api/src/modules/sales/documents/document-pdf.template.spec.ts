@@ -139,7 +139,9 @@ describe("sales document template", () => {
     );
     expect(html).toContain("<th>Description of Goods</th><th>Quantity</th>");
     expect(html).not.toContain("HSN Code");
-    expect(html).toContain("<h4>Returnable Terms</h4>Return by &lt;date&gt;");
+    expect(html).toContain(
+      "<h4>Returnable Terms</h4><div>Return by &lt;date&gt;</div>",
+    );
   });
 
   it("a summary box and no items table (payment receipt)", () => {
