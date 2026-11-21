@@ -3,6 +3,7 @@ import { TEAM_ACCESS_LEVELS } from "../tenancy/team-scope.js";
 
 export const PERMISSION_KEY = "requiredPermission";
 export const SCOPED_PERMISSION_KEY = "requiredScopedPermission";
+export const ANY_PERMISSION_KEY = "requiredAnyPermission";
 
 /** `<module>.<entity>.<action>` — lower-case segments, `_` allowed inside a
  * segment (`employee_self_service`), exactly three of them. */
@@ -16,6 +17,28 @@ const SCOPE_PREFIX_PATTERN =
  * `@RequireScopedPermission()` instead. */
 export const RequirePermission = (permission: string) =>
   SetMetadata(PERMISSION_KEY, permission);
+
+/**
+ * Admits a caller holding ANY ONE of the listed exact permissions. For a route
+ * that two audiences legitimately reach through different permissions — e.g.
+ * My Work, reached by an employee through `employee_self_service.work.write`
+ * and by the Projects workspace through `projects.timer.write` — so adding the
+ * newer permission never takes access away from holders of the older one.
+ *
+ * At least two are required (one is just `@RequirePermission()`), and each must
+ * be a full permission code. Like the other decorators this only decides "may
+ * this caller reach the route at all"; whose data they see is decided inside.
+ */
+export const RequireAnyPermission = (
+  ...permissions: [string, string, ...string[]]
+) => {
+  if (permissions.length < 2 || permissions.some((p) => p.trim() === "")) {
+    throw new Error(
+      "@RequireAnyPermission() needs at least two non-empty permission codes; use @RequirePermission() for one",
+    );
+  }
+  return SetMetadata(ANY_PERMISSION_KEY, permissions);
+};
 
 /**
  * For team-scoped data (Docs/CODING_STANDARDS.md §10a): admits a caller

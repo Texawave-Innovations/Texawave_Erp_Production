@@ -11,6 +11,14 @@ const role = (name: string) => {
 };
 
 /** Anything that changes data or decides something, as opposed to reading. */
+/** The one decided exception to "Team Lead is read-only": the employee's team
+ * lead gives the FIRST approval of timesheets and leave; HR gives the final
+ * one (a team lead's own request goes to HR alone). */
+const TEAM_LEAD_FIRST_APPROVALS = [
+  "hr.timesheet.approve.team",
+  "hr.leave.approve.team",
+];
+
 const isMutating = (code: string) =>
   /\.(write|approve|correct)(\.|$)/.test(code) ||
   code.includes("_status.") ||
@@ -39,8 +47,20 @@ describe("default roles", () => {
   });
 
   it("Team Lead is READ-ONLY: no write, approve, status or account permission of any scope", () => {
-    const mutating = role("Team Lead").permissions.filter(isMutating);
+    // The single, documented exception: Team Lead gives the FIRST approval of
+    // its team's timesheets and leave (HR gives the final one). Anything else
+    // mutating on Team Lead still fails here.
+    const allowedApprovals = TEAM_LEAD_FIRST_APPROVALS;
+    const mutating = role("Team Lead")
+      .permissions.filter(isMutating)
+      .filter((c) => !allowedApprovals.includes(c));
     assert.deepEqual(mutating, []);
+    for (const code of allowedApprovals) {
+      assert.ok(
+        role("Team Lead").permissions.includes(code),
+        `Team Lead gives the first approval: ${code}`,
+      );
+    }
     assert.ok(
       role("Team Lead").permissions.includes("hr.employee.read.team"),
       "but can read their own team",
@@ -70,6 +90,12 @@ describe("default roles", () => {
     );
   });
 
+  it("Employee can use My Work through the self-service code, not the Projects one", () => {
+    const perms = role("Employee").permissions;
+    assert.ok(perms.includes("employee_self_service.work.write"));
+    assert.ok(!perms.includes("projects.timer.write"));
+  });
+
   it("Employee and Team Lead work in the portal, HR Manager in the HR workspace", () => {
     assert.ok(!role("Employee").permissions.includes("hr.workspace.access"));
     assert.ok(!role("Team Lead").permissions.includes("hr.workspace.access"));
@@ -85,11 +111,14 @@ describe("default roles", () => {
     }
   });
 
-  it("no default role holds a .team write/approve permission (open decisions)", () => {
+  it("no default role holds a .team write/approve permission, except Team Lead's decided first approvals", () => {
     for (const r of DEFAULT_ROLES) {
-      const teamMutating = r.permissions.filter(
-        (c) => c.endsWith(".team") && isMutating(c),
-      );
+      const teamMutating = r.permissions
+        .filter((c) => c.endsWith(".team") && isMutating(c))
+        .filter(
+          (c) =>
+            !(r.name === "Team Lead" && TEAM_LEAD_FIRST_APPROVALS.includes(c)),
+        );
       assert.deepEqual(teamMutating, [], `${r.name}`);
     }
   });
