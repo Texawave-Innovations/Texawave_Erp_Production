@@ -37,6 +37,19 @@ export async function getInvoice(id: number): Promise<Invoice> {
   return data;
 }
 
+/** The empty PI / tax invoice (letterhead, next number) for the form's default preview. */
+export async function getInvoiceTemplate(
+  invoiceType: InvoiceType,
+  params: Record<string, string | number>,
+): Promise<{ html: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ html: string }>(`${INVOICES}/template`, {
+      query: { ...params, invoiceType },
+    }),
+  );
+  return data;
+}
+
 /** Server pricing + the PDF's HTML (nothing stored). */
 export async function previewInvoice(
   body: InvoiceBody | InvoiceUpdateBody,
@@ -81,6 +94,24 @@ export async function convertToTax(
     apiClient.post<Invoice>(`${INVOICES}/${id}/convert-to-tax`, {
       invoiceDate,
     }),
+  );
+  return data;
+}
+
+/** "Mark as tax invoiced": the tax invoice was raised outside the system. */
+export async function markProformaConverted(id: number): Promise<Invoice> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Invoice>(`${INVOICES}/${id}/mark-converted`, {}),
+  );
+  return data;
+}
+
+export async function reopenProforma(
+  id: number,
+  reason: string,
+): Promise<Invoice> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Invoice>(`${INVOICES}/${id}/reopen`, { reason }),
   );
   return data;
 }

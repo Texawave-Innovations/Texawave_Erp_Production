@@ -6,27 +6,29 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Download,
+  Eye,
   Mail,
   MessageCircle,
   PackageCheck,
   Pencil,
   Plus,
+  Share2,
   Trash2,
   Undo2,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
-  Card,
-  ConfirmDialog,
   DataTable,
+  DateRangePicker,
   DeleteConfirmDialog,
   EmptyState,
   ErrorState,
-  Input,
   PageHeader,
   Pagination,
+  SectionCard,
   Select,
   Skeleton,
   StatusBadge,
@@ -36,9 +38,12 @@ import {
 } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { BackArrow } from "../../customers/components/CustomerFormView";
+import { useCustomers } from "../../customers/hooks";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DateActionDialog } from "../../shared/components/DateActionDialog";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
+import { ReasonActionDialog } from "../../shared/components/ReasonActionDialog";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
 import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, todayIst } from "../../shared/format";
@@ -90,22 +95,40 @@ function BackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+type RowDialog = "email" | "delete" | "return" | "reopen";
+
 export function RdcsView() {
   const router = useRouter();
+  const { toast } = useToast();
   const canRead = usePermission(SALES_PERMISSIONS.returnableDcRead);
   const canWrite = usePermission(SALES_PERMISSIONS.returnableDcWrite);
+  const canDelete = usePermission(SALES_PERMISSIONS.returnableDcDelete);
+  const canSend = usePermission(SALES_PERMISSIONS.returnableDcSend);
+  const canPickCustomer = usePermission(SALES_PERMISSIONS.customerRead);
+  const remove = useDeleteRdc();
+  const markReturned = useMarkRdcReturned();
+  const reopen = useReopenRdc();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | RdcStatus>("");
-  const [month, setMonth] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [target, setTarget] = useState<{
+    rdc: ReturnableDc;
+    dialog: RowDialog;
+  } | null>(null);
   const debounced = useDebouncedValue(search.trim(), 300);
+  const customers = useCustomers({ page: 1, limit: 100 }, canPickCustomer);
   const query = useRdcs(
     {
       page,
       limit: PAGE_SIZE,
       ...(debounced ? { search: debounced } : {}),
       ...(status ? { status } : {}),
-      ...(month ? { month } : {}),
+      ...(customerId ? { customerId: Number(customerId) } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
     },
     canRead,
   );
@@ -113,11 +136,57 @@ export function RdcsView() {
   if (!canRead) {
     return <NoAccess code="sales.returnable_dc.read" what="returnable DCs" />;
   }
-  const filtered = Boolean(debounced || status || month);
+  const filtered = Boolean(debounced || status || customerId || from || to);
   const reset = (fn: () => void) => {
     fn();
     setPage(1);
   };
+
+  async function runPdf(r: ReturnableDc) {
+    try {
+      await downloadPdf(`${RDCS}/${r.id}/pdf`, pdfFileName(r.rdcNumber));
+    } catch (e) {
+      toast({
+        title: e instanceof ApiError ? e.message : "Could not download the PDF",
+        variant: "error",
+      });
+    }
+  }
+
+  async function runWhatsapp(r: ReturnableDc) {
+    try {
+      window.open(
+        await whatsappLink(`${RDCS}/${r.id}/whatsapp`),
+        "_blank",
+        "noopener",
+      );
+    } catch (e) {
+      toast({
+        title: e instanceof ApiError ? e.message : "Could not open WhatsApp",
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleDelete() {
+    if (!target) return;
+    const r = target.rdc;
+    try {
+      await remove.mutateAsync(r.id);
+      toast({ title: `${r.rdcNumber} deleted`, variant: "success" });
+    } catch (e) {
+      toast({
+        title: e instanceof ApiError ? e.message : "Could not delete",
+        variant: "error",
+      });
+    } finally {
+      setTarget(null);
+    }
+  }
+
+  const closeDialog = () => setTarget(null);
+  const current = target?.rdc;
+  const cls = "h-4 w-4";
   const newButton = canWrite ? (
     <Button onClick={() => router.push(`${LIST}/new`)}>
       <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -132,6 +201,13 @@ export function RdcsView() {
         title="Returnable DCs"
         description="Goods lent for demos, trials or repair, and when they come back."
         icon={PackageCheck}
+        badge={
+          query.data ? (
+            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+              {query.data.meta.total} returnable DCs
+            </span>
+          ) : undefined
+        }
         action={newButton}
       />
       <TableToolbar
@@ -154,11 +230,33 @@ export function RdcsView() {
               <option value="ISSUED">Pending return</option>
               <option value="RETURNED">Returned</option>
             </Select>
-            <Input
-              type="month"
-              aria-label="Issue month"
-              value={month}
-              onChange={(e) => reset(() => setMonth(e.target.value))}
+            {canPickCustomer && customers.data ? (
+              <Select
+                aria-label="Filter by customer"
+                value={customerId}
+                onChange={(e) => reset(() => setCustomerId(e.target.value))}
+              >
+                <option value="">All customers</option>
+                {customers.data.data.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.companyName}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <DateRangePicker
+              value={{ from, to }}
+              fromAriaLabel="Issued from"
+              toAriaLabel="Issued to"
+              placeholder="Issue date range"
+              showPresets
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setFrom(r.from);
+                  setTo(r.to);
+                })
+              }
             />
           </div>
         }
@@ -167,13 +265,15 @@ export function RdcsView() {
           reset(() => {
             setSearch("");
             setStatus("");
-            setMonth("");
+            setCustomerId("");
+            setFrom("");
+            setTo("");
           })
         }
         resultCount={query.data?.meta.total}
       />
       {query.isPending ? (
-        <TableSkeleton rowsCount={6} columnsCount={7} />
+        <TableSkeleton rowsCount={6} columnsCount={9} />
       ) : query.isError ? (
         <ErrorState onRetry={() => void query.refetch()} />
       ) : query.data.data.length === 0 ? (
@@ -196,12 +296,11 @@ export function RdcsView() {
             caption="Returnable DCs"
             rows={query.data.data}
             getRowKey={(r) => String(r.id)}
-            onRowClick={(r) => router.push(`${LIST}/${r.id}`)}
             columns={[
               {
                 header: "RDC number",
                 cell: (r) => (
-                  <span className="font-mono text-theme-sm font-medium text-gray-900 dark:text-white/90">
+                  <span className="text-theme-sm font-semibold text-brand-700 dark:text-brand-400">
                     {r.rdcNumber}
                   </span>
                 ),
@@ -209,10 +308,25 @@ export function RdcsView() {
               { header: "Issued", cell: (r) => formatDate(r.issueDate) },
               {
                 header: "Recipient",
-                cell: (r) => r.customerSnapshot.companyName,
+                cell: (r) => (
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-gray-900 dark:text-white/90">
+                      {r.customerSnapshot.companyName}
+                    </span>
+                    <span className="text-theme-xs text-gray-500 dark:text-gray-400">
+                      {r.customerSnapshot.customerCode}
+                    </span>
+                  </div>
+                ),
               },
               { header: "Purpose", cell: (r) => r.purpose },
-              { header: "Items", align: "right", cell: (r) => r.itemsCount },
+              {
+                header: "Items",
+                align: "right",
+                cell: (r) =>
+                  `${r.itemsCount} ${r.itemsCount === 1 ? "item" : "items"}`,
+              },
+              { header: "Prepared by", cell: (r) => r.preparedBy ?? "—" },
               {
                 header: "Expected return",
                 cell: (r) => (
@@ -228,6 +342,99 @@ export function RdcsView() {
                 ),
               },
               { header: "Status", cell: (r) => <RdcStatusBadge rdc={r} /> },
+              {
+                header: "Actions",
+                align: "center",
+                cell: (r) => (
+                  <ActionMenu
+                    triggerIcon="horizontal"
+                    ariaLabel={`Actions for ${r.rdcNumber}`}
+                    items={[
+                      {
+                        label: "View details",
+                        icon: <Eye className={cls} aria-hidden="true" />,
+                        onClick: () => router.push(`${LIST}/${r.id}`),
+                      },
+                      {
+                        label: "Download PDF",
+                        icon: <Download className={cls} aria-hidden="true" />,
+                        onClick: () => void runPdf(r),
+                      },
+                      ...(canSend
+                        ? [
+                            {
+                              label: "Send mail",
+                              icon: <Mail className={cls} aria-hidden="true" />,
+                              onClick: () =>
+                                setTarget({ rdc: r, dialog: "email" }),
+                            },
+                            {
+                              label: "Share WhatsApp",
+                              icon: (
+                                <Share2 className={cls} aria-hidden="true" />
+                              ),
+                              onClick: () => void runWhatsapp(r),
+                            },
+                          ]
+                        : []),
+                      ...(canWrite && r.status === "ISSUED"
+                        ? [
+                            {
+                              label: "Mark returned",
+                              icon: (
+                                <CheckCircle2
+                                  className={cls}
+                                  aria-hidden="true"
+                                />
+                              ),
+                              onClick: () =>
+                                setTarget({ rdc: r, dialog: "return" }),
+                            },
+                          ]
+                        : []),
+                      ...(canWrite && r.status === "RETURNED"
+                        ? [
+                            {
+                              label: "Reopen",
+                              icon: (
+                                <Undo2 className={cls} aria-hidden="true" />
+                              ),
+                              onClick: () =>
+                                setTarget({ rdc: r, dialog: "reopen" }),
+                            },
+                          ]
+                        : []),
+                      ...(canWrite && r.status === "ISSUED"
+                        ? [
+                            {
+                              label: "Edit RDC",
+                              icon: (
+                                <Pencil className={cls} aria-hidden="true" />
+                              ),
+                              separator: true,
+                              onClick: () =>
+                                router.push(`${LIST}/${r.id}/edit`),
+                            },
+                          ]
+                        : []),
+                      ...(canDelete
+                        ? [
+                            {
+                              label: "Delete RDC",
+                              icon: (
+                                <Trash2 className={cls} aria-hidden="true" />
+                              ),
+                              variant: "destructive" as const,
+                              separator: !(canWrite && r.status === "ISSUED"),
+                              onClick: () =>
+                                setTarget({ rdc: r, dialog: "delete" }),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                ),
+              },
             ]}
           />
           <Pagination
@@ -239,6 +446,66 @@ export function RdcsView() {
           />
         </>
       )}
+      {current && target?.dialog === "return" ? (
+        <DateActionDialog
+          open
+          onClose={closeDialog}
+          title={`Mark ${current.rdcNumber} returned`}
+          dateLabel="Returned on"
+          description="The goods are back. A returned DC is locked; reopen it to edit."
+          confirmLabel="Mark returned"
+          onConfirm={async (date) => {
+            await markReturned.mutateAsync({
+              id: current.id,
+              returnedDate: date,
+            });
+            toast({
+              title: `${current.rdcNumber} returned`,
+              variant: "success",
+            });
+            closeDialog();
+          }}
+        />
+      ) : null}
+      {current && target?.dialog === "reopen" ? (
+        <ReasonActionDialog
+          open
+          onClose={closeDialog}
+          title="Reopen returnable DC"
+          description={`${current.rdcNumber} goes back to pending return and its returned date is cleared.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the RDC and in its history."
+          placeholder="e.g. Marked returned by mistake"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: current.id, reason });
+            toast({
+              title: `${current.rdcNumber} is pending return again`,
+              variant: "success",
+            });
+            closeDialog();
+          }}
+        />
+      ) : null}
+      {current && canSend ? (
+        <SendEmailDialog
+          open={target?.dialog === "email"}
+          onClose={closeDialog}
+          path={`${RDCS}/${current.id}/email`}
+          documentLabel={`Returnable DC ${current.rdcNumber}`}
+          customerEmail={current.customerSnapshot.email}
+        />
+      ) : null}
+      {canDelete ? (
+        <DeleteConfirmDialog
+          open={target?.dialog === "delete"}
+          onClose={closeDialog}
+          onConfirm={handleDelete}
+          title="Delete returnable DC"
+          itemName={current?.rdcNumber ?? ""}
+          loading={remove.isPending}
+        />
+      ) : null}
     </div>
   );
 }
@@ -255,11 +522,11 @@ export function RdcCreateView() {
   }
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={LIST} label="Back to returnable DCs" />
       <PageHeader
         variant="banner"
         title="New returnable DC"
-        icon={PackageCheck}
+        description="Goods lent out and expected back. The preview updates as you type."
+        icon={<BackArrow href={LIST} label="Back to returnable DCs" />}
       />
       <RdcForm
         mode="create"
@@ -304,12 +571,13 @@ export function RdcEditView({ id }: { id: number }) {
   }
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`${LIST}/${id}`} label="Back to returnable DC" />
       <PageHeader
         variant="banner"
         title={`Edit ${rdc.rdcNumber}`}
         description={rdc.customerSnapshot.companyName}
-        icon={PackageCheck}
+        icon={
+          <BackArrow href={`${LIST}/${id}`} label="Back to returnable DC" />
+        }
       />
       <RdcForm
         key={rdc.updatedAt}
@@ -325,6 +593,15 @@ export function RdcEditView({ id }: { id: number }) {
         }}
         onCancel={() => router.push(`${LIST}/${id}`)}
       />
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 text-theme-sm">
+      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className="text-right text-gray-900 dark:text-white/90">{value}</dd>
     </div>
   );
 }
@@ -386,12 +663,11 @@ export function RdcDetailView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={LIST} label="Back to returnable DCs" />
       <PageHeader
         variant="banner"
         title={rdc.rdcNumber}
         description={`${rdc.customerSnapshot.companyName} · ${formatDate(rdc.issueDate)}`}
-        icon={PackageCheck}
+        icon={<BackArrow href={LIST} label="Back to returnable DCs" />}
         badge={<RdcStatusBadge rdc={rdc} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -459,19 +735,29 @@ export function RdcDetailView({ id }: { id: number }) {
         </Alert>
       ) : null}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Card className="flex flex-col gap-2 text-theme-sm">
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Summary
-          </h2>
-          <p>Purpose: {rdc.purpose}</p>
-          <p>Expected return: {formatDate(rdc.expectedReturnDate)}</p>
-          {rdc.returnedDate ? (
-            <p>Returned on: {formatDate(rdc.returnedDate)}</p>
-          ) : null}
-          <p>Taken by: {rdc.takenBy ?? "—"}</p>
-          <p>Items: {rdc.itemsCount}</p>
-          <p>Prepared by: {rdc.preparedBy ?? "—"}</p>
-        </Card>
+        <SectionCard
+          title="Summary"
+          description={`${rdc.itemsCount} ${rdc.itemsCount === 1 ? "item" : "items"}`}
+          className="xl:self-start"
+        >
+          <dl className="flex flex-col gap-2.5">
+            <Fact label="Recipient" value={rdc.customerSnapshot.companyName} />
+            <Fact label="Purpose" value={rdc.purpose} />
+            <Fact
+              label="Expected return"
+              value={formatDate(rdc.expectedReturnDate)}
+            />
+            {rdc.returnedDate ? (
+              <Fact label="Returned on" value={formatDate(rdc.returnedDate)} />
+            ) : null}
+            <Fact label="Taken by" value={rdc.takenBy ?? "—"} />
+            <Fact label="Items" value={rdc.itemsCount} />
+            <Fact label="Prepared by" value={rdc.preparedBy ?? "—"} />
+            {rdc.reopenReason ? (
+              <Fact label="Reopened because" value={rdc.reopenReason} />
+            ) : null}
+          </dl>
+        </SectionCard>
         <div className="xl:col-span-2">
           <DocumentPdfPanel
             path={`${base}/pdf`}
@@ -495,30 +781,26 @@ export function RdcDetailView({ id }: { id: number }) {
           }}
         />
       ) : null}
-      <ConfirmDialog
-        open={dialog === "reopen"}
-        onClose={() => setDialog(null)}
-        onConfirm={async () => {
-          try {
-            await reopen.mutateAsync(rdc.id);
+      {dialog === "reopen" ? (
+        <ReasonActionDialog
+          open
+          onClose={() => setDialog(null)}
+          title="Reopen returnable DC"
+          description={`${rdc.rdcNumber} goes back to pending return and its returned date is cleared.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the RDC and in its history."
+          placeholder="e.g. Marked returned by mistake"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: rdc.id, reason });
             toast({
               title: `${rdc.rdcNumber} is pending return again`,
               variant: "success",
             });
-          } catch (e) {
-            toast({
-              title: e instanceof ApiError ? e.message : "Could not reopen",
-              variant: "error",
-            });
-          } finally {
             setDialog(null);
-          }
-        }}
-        title="Reopen returnable DC"
-        description={`${rdc.rdcNumber} goes back to pending return and its returned date is cleared.`}
-        confirmText="Reopen"
-        loading={reopen.isPending}
-      />
+          }}
+        />
+      ) : null}
       {canSend ? (
         <SendEmailDialog
           open={dialog === "email"}

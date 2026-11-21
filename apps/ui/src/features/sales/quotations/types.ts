@@ -49,6 +49,8 @@ export interface Quotation {
   terms: string | null;
   status: QuotationStatus;
   convertedAt: string | null;
+  /** Why it was last reopened; present while it is open again. */
+  reopenReason: string | null;
   lines: QuotationLine[];
   createdAt: string;
   updatedAt: string;

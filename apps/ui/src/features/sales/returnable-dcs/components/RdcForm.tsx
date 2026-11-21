@@ -6,10 +6,10 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DatePicker,
   FormField,
   Input,
+  SectionCard,
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
@@ -18,7 +18,8 @@ import { CustomerPicker } from "../../shared/components/CustomerPicker";
 import { DocumentPreviewPanel } from "../../shared/components/DocumentPreviewPanel";
 import { useMasterOptions } from "../../shared/hooks";
 import { useLivePreview } from "../../shared/useLivePreview";
-import { previewRdc } from "../api";
+import { useTemplateHtml } from "../../shared/useTemplateHtml";
+import { getRdcTemplate, previewRdc } from "../api";
 import {
   emptyRdcLine,
   RDC_PURPOSES,
@@ -36,14 +37,7 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
-  return (
-    <Card className="flex flex-col gap-4">
-      <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-        {title}
-      </h2>
-      {children}
-    </Card>
-  );
+  return <SectionCard title={title}>{children}</SectionCard>;
 }
 
 /**
@@ -115,6 +109,18 @@ export function RdcForm({
     loading: previewing,
     error: previewError,
   } = useLivePreview(values, isValid, request);
+  // The empty template, shown until the first valid preview (new RDCs).
+  const templateHtml = useTemplateHtml(
+    mode === "create" && !preview ? getRdcTemplate : undefined,
+    {
+      customerId: values.customerId,
+      date: values.issueDate,
+      purpose: values.purpose,
+      expectedReturnDate: values.expectedReturnDate,
+      takenBy: values.takenBy,
+      preparedBy: values.preparedBy,
+    },
+  );
 
   function set<K extends keyof RdcFormValues>(k: K, v: RdcFormValues[K]) {
     changed(String(k));
@@ -290,9 +296,9 @@ export function RdcForm({
             return (
               <fieldset
                 key={i}
-                className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-white/[0.03]"
               >
-                <legend className="px-1 text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+                <legend className="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                   Item {i + 1}
                 </legend>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem]">
@@ -417,22 +423,31 @@ export function RdcForm({
               error={errorFor("preparedBy")}
             >
               {(f) => (
-                <Input
+                <Select
                   {...f}
-                  maxLength={150}
-                  list="rdc-prepared-by"
                   value={values.preparedBy}
                   disabled={submitting}
                   onBlur={() => touch("preparedBy")}
                   onChange={(e) => set("preparedBy", e.target.value)}
-                />
+                >
+                  <option value="">Select…</option>
+                  {options.byField("PREPARED_BY").map((o) => (
+                    <option key={o.id} value={o.label}>
+                      {o.label}
+                    </option>
+                  ))}
+                  {/* A saved name that is no longer in the master list stays selectable. */}
+                  {values.preparedBy &&
+                  !options
+                    .byField("PREPARED_BY")
+                    .some((o) => o.label === values.preparedBy) ? (
+                    <option value={values.preparedBy}>
+                      {values.preparedBy}
+                    </option>
+                  ) : null}
+                </Select>
               )}
             </FormField>
-            <datalist id="rdc-prepared-by">
-              {options.byField("PREPARED_BY").map((o) => (
-                <option key={o.id} value={o.label} />
-              ))}
-            </datalist>
           </div>
           <FormField
             label="Returnable terms"
@@ -470,9 +485,10 @@ export function RdcForm({
       <div className="xl:sticky xl:top-4 xl:self-start">
         <DocumentPreviewPanel
           title="Returnable DC preview"
-          html={preview?.html ?? null}
+          html={preview?.html ?? templateHtml}
+          sample={!preview && templateHtml !== null}
           loading={previewing}
-          stale={!fresh}
+          stale={preview !== null && !fresh}
           error={previewError}
           emptyMessage="Choose a recipient and fill in at least one item to see the returnable DC."
         />

@@ -6,10 +6,10 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DatePicker,
   FormField,
   Input,
+  SectionCard,
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
@@ -18,7 +18,8 @@ import { CustomerPicker } from "../../shared/components/CustomerPicker";
 import { DocumentPreviewPanel } from "../../shared/components/DocumentPreviewPanel";
 import { useMasterOptions } from "../../shared/hooks";
 import { useLivePreview } from "../../shared/useLivePreview";
-import { previewChallan } from "../api";
+import { useTemplateHtml } from "../../shared/useTemplateHtml";
+import { getChallanTemplate, previewChallan } from "../api";
 import {
   challanSchema,
   challanToBody,
@@ -35,14 +36,7 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
-  return (
-    <Card className="flex flex-col gap-4">
-      <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-        {title}
-      </h2>
-      {children}
-    </Card>
-  );
+  return <SectionCard title={title}>{children}</SectionCard>;
 }
 
 /**
@@ -72,6 +66,10 @@ export function ChallanForm({
   const { errorFor, touch, changed, validateAll, setServerErrors } =
     useFormValidation(challanSchema, values);
   const options = useMasterOptions("DELIVERY_CHALLAN");
+  const hsnCodes = options
+    .byField("HSN_CODE")
+    .map((o) => o.value ?? "")
+    .filter(Boolean);
 
   const defaultsApplied = useRef(mode === "edit");
   useEffect(() => {
@@ -113,6 +111,15 @@ export function ChallanForm({
     loading: previewing,
     error: previewError,
   } = useLivePreview(values, isValid, request);
+  // The empty template, shown until the first valid preview (new challans).
+  const templateHtml = useTemplateHtml(
+    mode === "create" && !preview ? getChallanTemplate : undefined,
+    {
+      customerId: values.customerId,
+      date: values.dcDate,
+      preparedBy: values.preparedBy,
+    },
+  );
 
   function set<K extends keyof ChallanFormValues>(
     k: K,
@@ -234,23 +241,14 @@ export function ChallanForm({
               {errorFor("lines")}
             </p>
           ) : null}
-          <datalist id="challan-hsn">
-            {options
-              .byField("HSN_CODE")
-              .map((o) => o.value ?? "")
-              .filter(Boolean)
-              .map((v) => (
-                <option key={v} value={v} />
-              ))}
-          </datalist>
           {values.lines.map((l, i) => {
             const err = (k: string) => errorFor(`lines.${i}.${k}`);
             return (
               <fieldset
                 key={i}
-                className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-white/[0.03]"
               >
-                <legend className="px-1 text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+                <legend className="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                   Item {i + 1}
                 </legend>
                 <FormField
@@ -279,18 +277,26 @@ export function ChallanForm({
                     error={err("hsnCode")}
                   >
                     {(f) => (
-                      <Input
+                      <Select
                         {...f}
-                        inputMode="numeric"
-                        maxLength={8}
-                        list="challan-hsn"
                         value={l.hsnCode}
                         disabled={submitting}
                         onBlur={() => touch(`lines.${i}.hsnCode`)}
                         onChange={(e) =>
                           setLine(i, { hsnCode: e.target.value })
                         }
-                      />
+                      >
+                        <option value="">Select…</option>
+                        {hsnCodes.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                        {/* A saved code that is no longer in the master list stays selectable. */}
+                        {l.hsnCode && !hsnCodes.includes(l.hsnCode) ? (
+                          <option value={l.hsnCode}>{l.hsnCode}</option>
+                        ) : null}
+                      </Select>
                     )}
                   </FormField>
                   <FormField
@@ -395,22 +401,31 @@ export function ChallanForm({
               error={errorFor("preparedBy")}
             >
               {(f) => (
-                <Input
+                <Select
                   {...f}
-                  maxLength={150}
-                  list="challan-prepared-by"
                   value={values.preparedBy}
                   disabled={submitting}
                   onBlur={() => touch("preparedBy")}
                   onChange={(e) => set("preparedBy", e.target.value)}
-                />
+                >
+                  <option value="">Select…</option>
+                  {options.byField("PREPARED_BY").map((o) => (
+                    <option key={o.id} value={o.label}>
+                      {o.label}
+                    </option>
+                  ))}
+                  {/* A saved name that is no longer in the master list stays selectable. */}
+                  {values.preparedBy &&
+                  !options
+                    .byField("PREPARED_BY")
+                    .some((o) => o.label === values.preparedBy) ? (
+                    <option value={values.preparedBy}>
+                      {values.preparedBy}
+                    </option>
+                  ) : null}
+                </Select>
               )}
             </FormField>
-            <datalist id="challan-prepared-by">
-              {options.byField("PREPARED_BY").map((o) => (
-                <option key={o.id} value={o.label} />
-              ))}
-            </datalist>
           </div>
           <FormField
             label="Note"
@@ -448,9 +463,10 @@ export function ChallanForm({
       <div className="xl:sticky xl:top-4 xl:self-start">
         <DocumentPreviewPanel
           title="Delivery challan preview"
-          html={preview?.html ?? null}
+          html={preview?.html ?? templateHtml}
+          sample={!preview && templateHtml !== null}
           loading={previewing}
-          stale={!fresh}
+          stale={preview !== null && !fresh}
           error={previewError}
           emptyMessage="Choose a customer and fill in at least one item to see the challan."
         />

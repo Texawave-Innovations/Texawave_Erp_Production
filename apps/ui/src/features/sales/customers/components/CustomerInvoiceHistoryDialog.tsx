@@ -2,8 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, IndianRupee, Pencil, Receipt, Wallet } from "lucide-react";
 import {
+  Eye,
+  FileText,
+  IndianRupee,
+  Pencil,
+  Receipt,
+  Wallet,
+} from "lucide-react";
+import {
+  ActionMenu,
   Button,
   Card,
   DataTable,
@@ -114,31 +122,17 @@ export function CustomerInvoiceHistoryDialog({
     <Dialog
       open={customer !== null}
       onClose={onClose}
-      title={
+      title={customer?.companyName ?? ""}
+      badge={
         customer ? (
-          <div className="flex min-w-0 flex-col gap-1.5 pr-2">
-            <h2
-              id="dialog-title"
-              className="truncate text-xl font-bold tracking-tight text-gray-900 dark:text-white/90"
-            >
-              {customer.companyName}
-            </h2>
-            <div className="flex flex-wrap items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
-              <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                {customer.customerCode}
-              </span>
-              <span aria-hidden="true">•</span>
-              <span>Contact: {customer.contactPerson}</span>
-            </div>
-          </div>
-        ) : (
-          ""
-        )
+          <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+            {customer.customerCode}
+          </span>
+        ) : null
       }
-      size="5xl"
-    >
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      subtitle={customer ? `Contact: ${customer.contactPerson}` : null}
+      actions={
+        <>
           <Button variant="secondary" onClick={onOpenStatement}>
             <FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Statement
@@ -154,8 +148,11 @@ export function CustomerInvoiceHistoryDialog({
               Edit customer
             </Button>
           ) : null}
-        </div>
-
+        </>
+      }
+      size="5xl"
+    >
+      <div className="flex flex-col gap-5">
         {customer ? (
           <div className="grid gap-3 md:grid-cols-3">
             <InfoCard heading="Contact information">
@@ -300,7 +297,6 @@ export function CustomerInvoiceHistoryDialog({
             caption="Customer invoices"
             rows={rows}
             getRowKey={(i) => String(i.id)}
-            onRowClick={(i) => router.push(`/sales/invoices/${i.id}`)}
             columns={[
               { header: "Number", cell: (i) => i.invoiceNumber },
               { header: "Date", cell: (i) => formatDate(i.invoiceDate) },
@@ -323,6 +319,23 @@ export function CustomerInvoiceHistoryDialog({
               {
                 header: "Status",
                 cell: (i) => <InvoiceStatusBadge status={i.status} />,
+              },
+              {
+                header: "Actions",
+                align: "center",
+                cell: (i) => (
+                  <ActionMenu
+                    triggerIcon="horizontal"
+                    ariaLabel={`Actions for ${i.invoiceNumber}`}
+                    items={[
+                      {
+                        label: "View details",
+                        icon: <Eye className="h-4 w-4" aria-hidden="true" />,
+                        onClick: () => router.push(`/sales/invoices/${i.id}`),
+                      },
+                    ]}
+                  />
+                ),
               },
             ]}
           />

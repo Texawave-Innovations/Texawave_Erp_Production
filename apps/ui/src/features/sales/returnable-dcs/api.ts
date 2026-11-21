@@ -9,8 +9,10 @@ export interface RdcListQuery {
   limit: number;
   search?: string;
   status?: RdcStatus;
-  /** Issue month, YYYY-MM. */
-  month?: string;
+  customerId?: number;
+  /** Issue date range, YYYY-MM-DD, inclusive. */
+  from?: string;
+  to?: string;
 }
 
 export function listRdcs(
@@ -24,6 +26,16 @@ export function listRdcs(
 export async function getRdc(id: number): Promise<ReturnableDc> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<ReturnableDc>(`${RDCS}/${id}`),
+  );
+  return data;
+}
+
+/** The empty returnable DC (letterhead, next number) for the form's default preview. */
+export async function getRdcTemplate(
+  params: Record<string, string | number>,
+): Promise<{ html: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ html: string }>(`${RDCS}/template`, { query: params }),
   );
   return data;
 }
@@ -69,9 +81,12 @@ export async function markRdcReturned(
   return data;
 }
 
-export async function reopenRdc(id: number): Promise<ReturnableDc> {
+export async function reopenRdc(
+  id: number,
+  reason: string,
+): Promise<ReturnableDc> {
   const { data } = await withAuthRetry(() =>
-    apiClient.post<ReturnableDc>(`${RDCS}/${id}/reopen`),
+    apiClient.post<ReturnableDc>(`${RDCS}/${id}/reopen`, { reason }),
   );
   return data;
 }

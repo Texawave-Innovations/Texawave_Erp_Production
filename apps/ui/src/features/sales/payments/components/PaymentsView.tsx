@@ -9,11 +9,11 @@ import {
   Alert,
   Button,
   DataTable,
+  DateRangePicker,
   DeleteConfirmDialog,
   Dialog,
   EmptyState,
   ErrorState,
-  Input,
   PageHeader,
   Pagination,
   StatusBadge,
@@ -72,8 +72,10 @@ export function PaymentsView() {
   const canWrite = usePermission(SALES_PERMISSIONS.invoicePaymentWrite);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [paymentMonth, setPaymentMonth] = useState("");
-  const [dueMonth, setDueMonth] = useState("");
+  const [paymentFrom, setPaymentFrom] = useState("");
+  const [paymentTo, setPaymentTo] = useState("");
+  const [dueFrom, setDueFrom] = useState("");
+  const [dueTo, setDueTo] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [recording, setRecording] = useState(false);
   const [editing, setEditing] = useState<Payment | null>(null);
@@ -88,8 +90,10 @@ export function PaymentsView() {
       page,
       limit: PAGE_SIZE,
       ...(debounced ? { search: debounced } : {}),
-      ...(paymentMonth ? { paymentMonth } : {}),
-      ...(dueMonth ? { dueMonth } : {}),
+      ...(paymentFrom ? { paymentFrom } : {}),
+      ...(paymentTo ? { paymentTo } : {}),
+      ...(dueFrom ? { dueFrom } : {}),
+      ...(dueTo ? { dueTo } : {}),
       ...(overdueOnly ? { overdueOnly: true } : {}),
     },
     canRead,
@@ -104,7 +108,7 @@ export function PaymentsView() {
   }
 
   const filtered = Boolean(
-    debounced || paymentMonth || dueMonth || overdueOnly,
+    debounced || paymentFrom || paymentTo || dueFrom || dueTo || overdueOnly,
   );
   const reset = (fn: () => void) => {
     fn();
@@ -184,17 +188,33 @@ export function PaymentsView() {
         }}
         filters={
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="month"
-              aria-label="Payment month"
-              value={paymentMonth}
-              onChange={(e) => reset(() => setPaymentMonth(e.target.value))}
+            <DateRangePicker
+              value={{ from: paymentFrom, to: paymentTo }}
+              fromAriaLabel="Paid from"
+              toAriaLabel="Paid to"
+              placeholder="Payment date range"
+              showPresets
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setPaymentFrom(r.from);
+                  setPaymentTo(r.to);
+                })
+              }
             />
-            <Input
-              type="month"
-              aria-label="Due month"
-              value={dueMonth}
-              onChange={(e) => reset(() => setDueMonth(e.target.value))}
+            <DateRangePicker
+              value={{ from: dueFrom, to: dueTo }}
+              fromAriaLabel="Due from"
+              toAriaLabel="Due to"
+              placeholder="Due date range"
+              showPresets
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setDueFrom(r.from);
+                  setDueTo(r.to);
+                })
+              }
             />
           </div>
         }
@@ -202,8 +222,10 @@ export function PaymentsView() {
         onClearFilters={() =>
           reset(() => {
             setSearch("");
-            setPaymentMonth("");
-            setDueMonth("");
+            setPaymentFrom("");
+            setPaymentTo("");
+            setDueFrom("");
+            setDueTo("");
             setOverdueOnly(false);
           })
         }

@@ -49,6 +49,7 @@ export function ConfirmDialog({
       open={open}
       onClose={onClose}
       title={title}
+      tone={variant === "destructive" ? "danger" : "brand"}
       size={size}
       className={className}
     >

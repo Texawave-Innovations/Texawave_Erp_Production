@@ -20,6 +20,7 @@ import { formatInr } from "../format";
 import { GST_STATES } from "../gst";
 import { useMasterOptions } from "../hooks";
 import { useLivePreview } from "../useLivePreview";
+import { type DraftParams, useTemplateHtml } from "../useTemplateHtml";
 import {
   emptyLine,
   type HeaderField,
@@ -81,6 +82,12 @@ export interface PricedDocumentFormProps {
   customerLabel?: string | undefined;
   /** Server pricing and HTML for the current values. */
   preview: (values: V, bank: Bank) => Promise<DocumentPreview>;
+  /** New documents: the draft shown until the first valid preview. */
+  template?:
+    | ((params: Record<string, string | number>) => Promise<{ html: string }>)
+    | undefined;
+  /** What the draft preview shows of the values so far (customer, date, …). */
+  templateParams?: ((values: V) => DraftParams) | undefined;
   onSubmit: (values: V, bank: Bank) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -102,6 +109,8 @@ export function PricedDocumentForm({
   savedBank = null,
   customerLabel,
   preview: runPreview,
+  template: loadTemplate,
+  templateParams,
   onSubmit,
   onCancel,
   submitLabel,
@@ -171,6 +180,13 @@ export function PricedDocumentForm({
   } = useLivePreview(values, isValid, request);
   /** The preview of exactly the values on screen (else null). */
   const shown = fresh ? preview : null;
+
+  // The empty template, so the panel is never blank before the first
+  // valid preview (best effort: without it the empty message shows).
+  const templateHtml = useTemplateHtml(
+    mode === "create" && !preview ? loadTemplate : undefined,
+    templateParams ? templateParams(values) : {},
+  );
 
   function set<K extends keyof V>(key: K, value: V[K]) {
     changed(String(key));
@@ -792,9 +808,10 @@ export function PricedDocumentForm({
       <div className="xl:sticky xl:top-4 xl:self-start">
         <DocumentPreviewPanel
           title={`${capitalize(config.noun)} preview`}
-          html={preview?.html ?? null}
+          html={preview?.html ?? templateHtml}
+          sample={!preview && templateHtml !== null}
           loading={previewing}
-          stale={!fresh}
+          stale={preview !== null && !fresh}
           error={previewError}
           emptyMessage={`Choose a customer and fill in at least one item to see the ${config.noun}.`}
         />

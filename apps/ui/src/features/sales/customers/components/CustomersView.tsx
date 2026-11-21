@@ -107,12 +107,15 @@ export function CustomersView() {
       <PageHeader
         variant="banner"
         title="Customers"
-        description={
-          query.data
-            ? `Clients you quote, invoice and deliver to • Total: ${query.data.meta.total}`
-            : "Clients you quote, invoice and deliver to"
-        }
+        description="Clients you quote, invoice and deliver to"
         icon={Building2}
+        badge={
+          query.data ? (
+            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+              {query.data.meta.total} customers
+            </span>
+          ) : undefined
+        }
         action={newButton}
       />
 
@@ -178,7 +181,6 @@ export function CustomersView() {
             caption="Customers"
             rows={query.data.data}
             getRowKey={(c) => String(c.id)}
-            onRowClick={(c) => router.push(`/sales/customers/${c.id}`)}
             columns={[
               {
                 header: "Code",
