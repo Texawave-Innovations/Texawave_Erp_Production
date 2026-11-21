@@ -7695,6 +7695,8 @@ model SalesQuotation {
   terms                String?
   status               String    @default("OPEN")
   convertedAt          DateTime? @map("converted_at") @db.Timestamptz(6)
+  /// Why it was last reopened; set on reopen, cleared when converted again.
+  reopenReason         String?   @map("reopen_reason") @db.VarChar(500)
   customFields         Json      @default("{}") @map("custom_fields")
   isActive             Boolean   @default(true) @map("is_active")
   createdBy            Int?      @map("created_by")
@@ -7790,6 +7792,8 @@ model SalesInvoice {
   terms                String?
   status               String    @default("UNPAID")
   convertedAt          DateTime? @map("converted_at") @db.Timestamptz(6)
+  /// Proforma only: why it was last reopened; cleared when converted again.
+  reopenReason         String?   @map("reopen_reason") @db.VarChar(500)
   customFields         Json      @default("{}") @map("custom_fields")
   isActive             Boolean   @default(true) @map("is_active")
   createdBy            Int?      @map("created_by")
@@ -8003,6 +8007,8 @@ model SalesReturnableDc {
   takenBy            String?   @map("taken_by") @db.VarChar(150)
   status             String    @default("ISSUED")
   returnedDate       DateTime? @map("returned_date") @db.Date
+  /// Why it was last reopened; set on reopen, cleared when marked returned again.
+  reopenReason       String?   @map("reopen_reason") @db.VarChar(500)
   sealName           String?   @map("seal_name") @db.VarChar(150)
   signatureName      String?   @map("signature_name") @db.VarChar(150)
   sealItemId         Int?      @map("seal_item_id")
