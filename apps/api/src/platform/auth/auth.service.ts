@@ -283,19 +283,21 @@ export class AuthService {
     await this.permissions.invalidate(userId);
   }
 
-  /** HR-initiated password override for a linked employee account.
-   * Sets the hash and revokes existing sessions so the new password takes
-   * effect immediately on the next login. */
+  /** HR-initiated temporary password for a linked employee account.
+   * Audited, forces a password change on next login (HR must never end up
+   * knowing a permanent password), and revokes existing sessions. */
   async adminSetPassword(
     organizationId: number,
     userId: number,
     newPassword: string,
+    performedBy: number,
   ): Promise<void> {
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await this.users.updatePasswordHash(
+    await this.users.resetPasswordByAdmin(
       { organizationId },
       userId,
       passwordHash,
+      performedBy,
     );
     await this.revokeAllRefreshTokens(userId);
     await this.permissions.invalidate(userId);

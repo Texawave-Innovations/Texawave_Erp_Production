@@ -611,6 +611,63 @@ describe("Payroll statutory engine (e2e)", () => {
     }
   });
 
+  it("7b. PAY-8: every payslip PDF and statutory/report download is audited, refusals are not, and no file content is logged", async () => {
+    const rowsFor = (entityType: string, entityId: number, action?: string) =>
+      prisma.auditLog.findMany({
+        where: {
+          entityType,
+          entityId: BigInt(entityId),
+          ...(action ? { action } : {}),
+        },
+        orderBy: { id: "asc" },
+      });
+
+    // Test 6 downloaded the payslip once as the employee and once as HR.
+    const pdfRows = await rowsFor("payslip", payslipId, "download_pdf");
+    expect(pdfRows).toHaveLength(2);
+    expect(pdfRows.map((r) => (r.after as { via: string }).via).sort()).toEqual(
+      ["hr", "self"],
+    );
+    for (const r of pdfRows) {
+      expect(r.actorUserId).not.toBeNull();
+      expect(Object.keys(r.after as object).sort()).toEqual([
+        "organizationId",
+        "version",
+        "via",
+      ]);
+    }
+
+    // Test 7 downloaded each report once as admin; the two 403s wrote nothing.
+    const reportRows = (await rowsFor("payroll_period", periodId)).filter((r) =>
+      r.action.startsWith("export_"),
+    );
+    expect(reportRows.map((r) => r.action).sort()).toEqual([
+      "export_esi",
+      "export_journal",
+      "export_pf_ecr",
+      "export_professional_tax",
+      "export_salary_register",
+      "export_tds",
+    ]);
+    const meta = JSON.stringify(reportRows.map((r) => r.after));
+    for (const r of reportRows) {
+      expect(Object.keys(r.after as object).sort()).toEqual([
+        "bytes",
+        "fileName",
+      ]);
+    }
+    // Nothing from the files: not the UAN, not a PAN-shaped value.
+    expect(meta).not.toContain("100200300400");
+    expect(meta).not.toMatch(/[A-Z]{5}[0-9]{4}[A-Z]/);
+
+    // A refused download writes no row.
+    const before = (await rowsFor("payroll_period", periodId)).length;
+    await get("lead", `/hr/payroll/periods/${periodId}/reports/tds`).expect(
+      403,
+    );
+    expect((await rowsFor("payroll_period", periodId)).length).toBe(before);
+  });
+
   it("8. reopen: org-wide with a reason; re-approval needed; a changed payslip becomes version 2", async () => {
     await post("lead", `/hr/payroll/periods/${periodId}/reopen`, {
       reason: "Overtime was entered wrongly",

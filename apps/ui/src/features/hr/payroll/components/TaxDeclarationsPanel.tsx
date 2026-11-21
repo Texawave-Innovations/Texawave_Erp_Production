@@ -556,8 +556,8 @@ export function TaxDeclarationsPanel() {
   }
 
   function handleExportExcel() {
-    exportTaxDeclarationsExcel(filteredRows, financialYear);
     setExportOpen(false);
+    void exportTaxDeclarationsExcel(filteredRows, financialYear);
   }
 
   return (
@@ -623,7 +623,7 @@ export function TaxDeclarationsPanel() {
                     className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Export Excel (.xls)
+                    Export Excel (.xlsx)
                   </button>
                   <button
                     type="button"

@@ -34,6 +34,7 @@ import { BONUS_WRITE_ALL } from "../permissions";
 import type { StatutoryBonusResult } from "../types";
 import { ServerError } from "./DialogParts";
 
+import { downloadWorkbook } from "@/lib/spreadsheet";
 const MONTHS = [
   "JAN",
   "FEB",
@@ -149,60 +150,66 @@ export function YearlyBonusMatrix() {
     };
   }, [result]);
 
-  // CSV Export
-  function handleExportCsv() {
+  // Excel export
+  async function handleExportExcel() {
     if (!result || filteredEmployees.length === 0) return;
-    const headers = [
-      "SL",
-      "Employee Code",
-      "Employee Name",
-      "Monthly Basic + DA",
-      "Annual CTC",
-      "Worked Days",
-      "Total Leaves",
-      "Attendance %",
-      "Calculated Bonus",
-      "Actual Bonus",
-      "Status",
-    ];
-
-    const rows = filteredEmployees.map((e, idx) => {
-      const standardDays = 355;
-      const leaves = Math.max(0, standardDays - (e.workedDays || 0));
-      const attRate = ((e.workedDays / standardDays) * 100).toFixed(1) + "%";
-      const statusText = e.alreadyRaised
+    const standardDays = 355;
+    const rows = filteredEmployees.map((e, idx) => ({
+      sl: idx + 1,
+      code: e.employee.employeeCode,
+      name: e.employee.fullName,
+      monthlyBasicDa: e.monthlyBasicDa,
+      annualCtc: e.monthlyBasicDa * 12,
+      workedDays: e.workedDays,
+      leaves: Math.max(0, standardDays - (e.workedDays || 0)),
+      attendancePct: Math.round((e.workedDays / standardDays) * 1000) / 10,
+      calculatedBonus: e.amount,
+      actualBonus: e.eligible ? e.amount : 0,
+      status: e.alreadyRaised
         ? "Already Raised"
         : e.eligible
           ? "Eligible"
-          : (e.reason ?? "Not Eligible");
-
-      return [
-        idx + 1,
-        `"${e.employee.employeeCode}"`,
-        `"${e.employee.fullName}"`,
-        e.monthlyBasicDa,
-        e.monthlyBasicDa * 12,
-        e.workedDays,
-        leaves,
-        attRate,
-        e.amount,
-        e.eligible ? e.amount : 0,
-        `"${statusText}"`,
-      ].join(",");
-    });
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Yearly_Bonus_Calculation_${financialYear}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+          : (e.reason ?? "Not Eligible"),
+    }));
+    await downloadWorkbook(`Yearly_Bonus_Calculation_${financialYear}`, [
+      {
+        name: `Bonus FY ${financialYear}`,
+        rows,
+        columns: [
+          { header: "SL", value: (r) => r.sl, type: "integer" },
+          { header: "Employee Code", value: (r) => r.code },
+          { header: "Employee Name", value: (r) => r.name },
+          {
+            header: "Monthly Basic + DA",
+            value: (r) => r.monthlyBasicDa,
+            type: "amount",
+          },
+          { header: "Annual CTC", value: (r) => r.annualCtc, type: "amount" },
+          {
+            header: "Worked Days",
+            value: (r) => r.workedDays,
+            type: "integer",
+          },
+          { header: "Total Leaves", value: (r) => r.leaves, type: "integer" },
+          {
+            header: "Attendance %",
+            value: (r) => r.attendancePct,
+            type: "percent",
+          },
+          {
+            header: "Calculated Bonus",
+            value: (r) => r.calculatedBonus,
+            type: "amount",
+          },
+          {
+            header: "Actual Bonus",
+            value: (r) => r.actualBonus,
+            type: "amount",
+          },
+          { header: "Status", value: (r) => r.status },
+        ],
+      },
+    ]);
   }
 
   return (
@@ -240,11 +247,11 @@ export function YearlyBonusMatrix() {
             {result && filteredEmployees.length > 0 ? (
               <Button
                 variant="secondary"
-                onClick={handleExportCsv}
+                onClick={() => void handleExportExcel()}
                 className="rounded-xl bg-white/80 hover:bg-white text-xs font-bold text-[#0a3271] shadow-xs"
               >
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Export CSV
+                Export Excel
               </Button>
             ) : null}
 

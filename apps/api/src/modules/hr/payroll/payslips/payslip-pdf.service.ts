@@ -36,11 +36,28 @@ export class PayslipPdfService {
   ) {}
 
   async forHr(id: number): Promise<PayslipPdfFile> {
-    return this.toPdf(id, await this.payslips.findById(id));
+    return this.audited(id, "hr", await this.payslips.findById(id));
   }
 
   async forSelf(id: number): Promise<PayslipPdfFile> {
-    return this.toPdf(id, await this.payslips.findMineById(id));
+    return this.audited(id, "self", await this.payslips.findMineById(id));
+  }
+
+  /** The audit row is written only once the PDF exists (a failed render or an
+   * out-of-scope payslip leaves none) and before it is returned. */
+  private async audited(
+    id: number,
+    via: "hr" | "self",
+    live: PayslipPdfView,
+  ): Promise<PayslipPdfFile> {
+    const file = await this.toPdf(id, live);
+    const scope = this.tenantContext.getOrgScope();
+    const state = await this.repository.findPdfState(scope, id);
+    await this.repository.recordPdfDownload(scope, id, {
+      via,
+      version: state?.version ?? null,
+    });
+    return file;
   }
 
   private async toPdf(

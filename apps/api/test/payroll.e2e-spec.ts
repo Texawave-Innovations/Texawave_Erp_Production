@@ -758,6 +758,25 @@ describe("Payroll & Compliance (e2e)", () => {
     expect(expData.content).toContain("HDFC0001234");
     // The bank needs the full account number; PAN is not part of the file
     expect(expData.content).toContain("50100123456789");
+
+    // PAY-8: the export is audited with the batch id and a count only, never
+    // an account number, IFSC or amount.
+    const exportAudit = await prisma.auditLog.findMany({
+      where: {
+        entityType: "payment_batch",
+        entityId: BigInt(batchId),
+        action: "export_bank_file",
+      },
+    });
+    expect(exportAudit).toHaveLength(1);
+    expect(exportAudit[0]?.actorUserId).not.toBeNull();
+    const exportMeta = JSON.stringify(exportAudit[0]?.after);
+    expect(Object.keys(exportAudit[0]?.after as object).sort()).toEqual([
+      "organizationId",
+      "paymentCount",
+    ]);
+    expect(exportMeta).not.toContain("50100123456789");
+    expect(exportMeta).not.toContain("HDFC0001234");
     expect(expData.content).not.toContain("ABCDE1234F");
     expect(expData.content).toContain("52200");
 

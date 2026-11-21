@@ -156,10 +156,10 @@ export function SalaryReportPanel() {
     setExportOpen(false);
   }
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     if (!meta || filteredRows.length === 0) return;
-    exportSalaryReportExcel(meta, filteredRows);
     setExportOpen(false);
+    await exportSalaryReportExcel(meta, filteredRows);
   }
 
   if (periods.isPending || periods.isError) {
@@ -213,11 +213,11 @@ export function SalaryReportPanel() {
               <div className="absolute right-0 mt-2 w-52 rounded-xl border border-sky-100 bg-white py-1.5 shadow-xl ring-1 ring-black/5 z-50 dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95">
                 <button
                   type="button"
-                  onClick={handleExportExcel}
+                  onClick={() => void handleExportExcel()}
                   className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                  Export Excel (.xls)
+                  Export Excel (.xlsx)
                 </button>
                 <button
                   type="button"

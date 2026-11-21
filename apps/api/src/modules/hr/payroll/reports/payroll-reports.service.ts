@@ -3,6 +3,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../../common/exceptions/business.exception.js";
+import { AuditWriter } from "../../../../platform/audit/audit-writer.js";
 import { TeamContextService } from "../../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../../platform/tenancy/tenant-context.service.js";
 import { PrismaService } from "../../../../shared/prisma/prisma.service.js";
@@ -31,7 +32,61 @@ export class PayrollReportsService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
+    private readonly audit: AuditWriter,
   ) {}
+
+  /** Every download is audited: the files carry PAN, UAN, ESI numbers and
+   * per-employee pay. The row is written after the file is built and before
+   * it is returned, so a failed audit insert means no file leaves
+   * (fail-closed). Only the period id, file name (period tag) and size are
+   * recorded, never anything from the file. */
+  private async audited(
+    payrollPeriodId: number,
+    action: string,
+    build: () => Promise<ReportFile>,
+  ): Promise<ReportFile> {
+    const file = await build();
+    await this.prisma.$transaction((tx) =>
+      this.audit.write(tx, {
+        entityType: "payroll_period",
+        entityId: payrollPeriodId,
+        action,
+        after: {
+          fileName: file.fileName,
+          bytes: Buffer.byteLength(file.content, "utf8"),
+        },
+      }),
+    );
+    return file;
+  }
+
+  pfEcr(id: number) {
+    return this.audited(id, "export_pf_ecr", () => this.buildPfEcr(id));
+  }
+
+  esiUpload(id: number) {
+    return this.audited(id, "export_esi", () => this.buildEsiUpload(id));
+  }
+
+  professionalTax(id: number) {
+    return this.audited(id, "export_professional_tax", () =>
+      this.buildProfessionalTax(id),
+    );
+  }
+
+  tds(id: number) {
+    return this.audited(id, "export_tds", () => this.buildTds(id));
+  }
+
+  journal(id: number) {
+    return this.audited(id, "export_journal", () => this.buildJournal(id));
+  }
+
+  salaryRegister(id: number) {
+    return this.audited(id, "export_salary_register", () =>
+      this.buildSalaryRegister(id),
+    );
+  }
 
   private async load(payrollPeriodId: number, requireFinalized: boolean) {
     const scope = await this.teamContext.resolveScope(EXPORT);
@@ -99,7 +154,7 @@ export class PayrollReportsService {
   }
 
   /** EPFO ECR v2 text file. Members without a UAN are refused by name. */
-  async pfEcr(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildPfEcr(payrollPeriodId: number): Promise<ReportFile> {
     const { entries, tag } = await this.load(payrollPeriodId, true);
     const members = entries.filter((e) => e.pfContributions.length > 0);
     const missing = members
@@ -135,7 +190,7 @@ export class PayrollReportsService {
   }
 
   /** ESIC monthly contribution upload (CSV of the portal's columns). */
-  async esiUpload(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildEsiUpload(payrollPeriodId: number): Promise<ReportFile> {
     const { entries, tag, period } = await this.load(payrollPeriodId, true);
     const rows = entries
       .filter((e) => e.esiContributions.length > 0)
@@ -172,7 +227,9 @@ export class PayrollReportsService {
     };
   }
 
-  async professionalTax(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildProfessionalTax(
+    payrollPeriodId: number,
+  ): Promise<ReportFile> {
     const { entries, tag } = await this.load(payrollPeriodId, true);
     const rows = entries
       .map((e) => ({
@@ -200,7 +257,7 @@ export class PayrollReportsService {
 
   /** Monthly TDS working (the basis for the 24Q return): full PAN, as the
    * return needs it — hence `.all` only. */
-  async tds(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildTds(payrollPeriodId: number): Promise<ReportFile> {
     const { entries, tag } = await this.load(payrollPeriodId, true);
     const rows = entries
       .map((e) => ({
@@ -231,7 +288,7 @@ export class PayrollReportsService {
   }
 
   /** The month's salary journal for Finance (balanced debit/credit). */
-  async journal(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildJournal(payrollPeriodId: number): Promise<ReportFile> {
     const { entries, tag } = await this.load(payrollPeriodId, false);
     const earnings = new Map<
       string,
@@ -296,7 +353,9 @@ export class PayrollReportsService {
 
   /** Salary register: one row per employee, one column per earning and
    * deduction code that occurs in the run (opens in a spreadsheet). */
-  async salaryRegister(payrollPeriodId: number): Promise<ReportFile> {
+  private async buildSalaryRegister(
+    payrollPeriodId: number,
+  ): Promise<ReportFile> {
     const { entries, tag } = await this.load(payrollPeriodId, false);
     const earningCodes = [
       ...new Set(entries.flatMap((e) => e.earnings.map((x) => x.code))),

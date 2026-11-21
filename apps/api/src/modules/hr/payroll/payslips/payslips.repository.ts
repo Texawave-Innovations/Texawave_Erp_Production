@@ -338,4 +338,28 @@ export class PayslipsRepository {
       data: { pdfContent: new Uint8Array(pdf), pdfRenderedAt: new Date() },
     });
   }
+
+  /** One row per successful payslip PDF download, from the HR route or the
+   * employee's own. Only identifiers are recorded (never amounts or the
+   * document), and it is written before the bytes are returned so a failed
+   * audit insert means no download (fail-closed). */
+  @OrgScoped()
+  recordPdfDownload(
+    scope: OrgScope,
+    payslipId: number,
+    detail: { via: "hr" | "self"; version: number | null },
+  ) {
+    return this.prisma.$transaction((tx) =>
+      this.audit.write(tx, {
+        entityType: "payslip",
+        entityId: payslipId,
+        action: "download_pdf",
+        after: {
+          via: detail.via,
+          version: detail.version,
+          organizationId: scope.organizationId,
+        },
+      }),
+    );
+  }
 }

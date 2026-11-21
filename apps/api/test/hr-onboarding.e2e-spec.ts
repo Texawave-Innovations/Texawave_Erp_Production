@@ -26,6 +26,9 @@ const PERMS = [
   "users.user.write",
   "hr.employee.read.all",
   "hr.employee.write.all",
+  // Linking the new login at creation needs the same permission as
+  // POST /hr/employees/:id/link-user (EMP-12); the default HR Manager role holds it.
+  "hr.employee_account.write",
   "employee_self_service.profile.read",
   "employee_self_service.profile.write",
 ];

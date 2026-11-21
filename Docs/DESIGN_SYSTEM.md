@@ -263,6 +263,8 @@ Dark mode is activated via `@custom-variant dark (&:is(.dark *))` in `theme.css`
 | `bg-{semantic}-50`    | `dark:bg-{semantic}-950`                | Status badge background        |
 | `text-{semantic}-700` | `dark:text-{semantic}-300`              | Status badge foreground        |
 
+**Undefined shades fail silently.** Tailwind's palette has 50, 100–900 and 950. A class such as `dark:bg-slate-850` or `dark:to-gray-850` for a shade that does not exist generates _no CSS_, so the element keeps its light-mode colour in dark mode (the dark table header faded to light grey on its right edge for exactly this reason). The in-between dark surfaces `gray-750`, `gray-850`, `slate-750` and `slate-850` are declared in `theme.css`. Any other non-standard shade must be declared there before it is used; `apps/ui/src/lib/theme-shades.test.ts` fails when a class points at an undefined shade.
+
 ### 3.5 Typography Scale (Preserved)
 
 - **Primary Body/UI Font:** **Nunito Sans** (`--font-sans: var(--font-nunito-sans)`). Wired in `apps/ui/src/app/layout.tsx`.
@@ -365,6 +367,7 @@ UI Typography Scale (Labels, controls, data cells):
 - It is applied by class, not by element: there is no `*`, `html` or `body` rule. The selector sits in `:where()` (zero specificity), so a component's own scrollbar rule wins.
 - Opt out with `scrollbar-none` (slim 6px style used by nav flyouts) or `no-scrollbar` (hidden). CRM's `.crm-module` scrollbar rules keep their own look.
 - Every shell scroller must be `relative` (dashboard `<main>`, employee-portal content area). `sr-only` and tooltips are `position: absolute`; with no positioned ancestor they escape the shell's `overflow-hidden`, make the whole document scroll, and show the browser's default scrollbar on both axes (`w-screen` then also overflows).
+- A rounded card or `DataTable` that contains a tinted header must clip its contents (`overflow-hidden` or the `overflow-x-auto` that `DataTable` already sets). Never override it with `overflow-visible` / `lg:overflow-x-visible`: the square header background then sticks out past the rounded corners. Row menus do not need the overflow, because `ActionMenu` and `DropdownMenu` render through a portal.
 - A scroll area built without a Tailwind overflow utility (e.g. an inline `style={{ overflow: "auto" }}`) shows the browser default; use the utility class.
 
 ### 3.14 Class Merging (`cn`) and Custom Font-Size Tokens
@@ -373,6 +376,13 @@ UI Typography Scale (Labels, controls, data cells):
 - `tailwind-merge` only knows Tailwind's built-in font sizes. An unregistered `text-*` class is treated as a text **colour**, so `cn("text-white", "text-theme-xs")` silently drops `text-white` and the label inherits its parent's colour (dark text on a blue gradient button).
 - Every `--text-<name>` token added to `theme.css` (§3.5) must also be added to `CUSTOM_FONT_SIZES` in `cn.ts`. `pnpm --filter @texawave-erp/ui-kit test` (`packages/ui-kit/test/cn.test.ts`) reads `theme.css` and fails if a token is missing, and asserts `text-white` survives next to every registered size.
 - Do not work around a missing label colour by adding `text-white` to the call site or to child `<span>`s; fix the registration instead.
+- `Button` variants paint a gradient, which is a background _image_. `cn()` treats a later background colour (`bg-sky-50`, `bg-emerald-600`, `bg-white`, `bg-[#1769F5]`) as replacing that gradient and its `from-/via-/to-` stops, per modifier (`hover:`/`dark:` only affect their own state). Without this the gradient kept showing underneath the colour and tinted labels became unreadable. So a one-off tinted or solid button may pass its colour through `className`, but prefer an existing variant (`secondary`, `outline`, `destructive`, `success`) when one fits. The tests in `cn.test.ts` cover this.
+
+### 3.15 Banner (page-header) action buttons
+
+- Buttons in a `PageHeader variant="banner"` / `HrPageHeader` `action` slot sit on a coloured gradient, so they use a **Button variant**: `variant="glass"` for the frosted white look (blue label), or `primary` for the single main call-to-action. Never hand-write a translucent look (`bg-white/20 hover:bg-white/30 text-white border-white/30`).
+- Why it matters: `theme.css` restyles every `.banner-actions button` into the frosted white style, but skips any button whose class list contains `from-` (every `primary` Button does, because of its gradient). A hand-written translucent button therefore looked solid white on some screens (secondary buttons got restyled) and see-through on others (primary buttons were skipped).
+- `apps/ui/src/lib/banner-actions.test.ts` scans every page-header `action` slot and fails if a Button there uses `bg-white/N` or `border-white/N`.
 
 ---
 

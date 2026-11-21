@@ -593,17 +593,21 @@ function HrPayslipsSection() {
     toast({ title: "CSV export generated successfully", variant: "success" });
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (allPayslips.length === 0) {
       toast({ title: "No payslips available to export", variant: "warning" });
       return;
     }
-    exportPayslipsExcel(allPayslips, activePeriodTitle);
     setExportOpen(false);
-    toast({
-      title: "Excel (.xls) export generated successfully",
-      variant: "success",
-    });
+    try {
+      await exportPayslipsExcel(allPayslips, activePeriodTitle);
+      toast({
+        title: "Excel (.xlsx) export generated successfully",
+        variant: "success",
+      });
+    } catch {
+      toast({ title: "Could not generate the Excel export", variant: "error" });
+    }
   };
 
   if (!canRead) return null;
@@ -837,7 +841,7 @@ function HrPayslipsSection() {
                     className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Export Excel (.xls)
+                    Export Excel (.xlsx)
                   </button>
                 </div>
               </>

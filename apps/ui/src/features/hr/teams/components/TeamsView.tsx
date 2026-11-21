@@ -230,10 +230,11 @@ export function TeamsView() {
         }
         action={
           <Button
+            variant="glass"
             type="button"
             size="sm"
             onClick={handleCreateClick}
-            className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium cursor-pointer"
+            className="gap-2 rounded-xl px-4 py-2.5 font-medium cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>New Team</span>

@@ -23,7 +23,7 @@ export function ProcurementReportView() {
       noun="purchase orders"
       query={query}
       getRowKey={(r) => r.poNumber}
-      fileName="scm-procurement-report.csv"
+      fileName="scm-procurement-report.xlsx"
       emptyDescription="Purchase orders will appear here once they're raised."
       columns={[
         {
@@ -49,16 +49,20 @@ export function ProcurementReportView() {
         { header: "GRNs", align: "right", cell: (r) => r.goodsReceipts },
         { header: "Total", align: "right", cell: (r) => formatMoney(r.total) },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "PO Number", value: (r) => r.poNumber },
         { header: "Supplier", value: (r) => r.supplier },
-        { header: "Date", value: (r) => r.poDate },
+        { header: "Date", value: (r) => r.poDate, type: "date" },
         { header: "Status", value: (r) => r.status },
-        { header: "Lines", value: (r) => r.lines },
-        { header: "Ordered Qty", value: (r) => r.orderedQty },
-        { header: "Received Qty", value: (r) => r.receivedQty },
-        { header: "Goods Receipts", value: (r) => r.goodsReceipts },
-        { header: "Total", value: (r) => r.total },
+        { header: "Lines", value: (r) => r.lines, type: "integer" },
+        { header: "Ordered Qty", value: (r) => r.orderedQty, type: "number" },
+        { header: "Received Qty", value: (r) => r.receivedQty, type: "number" },
+        {
+          header: "Goods Receipts",
+          value: (r) => r.goodsReceipts,
+          type: "integer",
+        },
+        { header: "Total", value: (r) => r.total, type: "amount" },
       ]}
     />
   );

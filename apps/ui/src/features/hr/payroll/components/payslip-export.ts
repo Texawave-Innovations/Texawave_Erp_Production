@@ -1,4 +1,5 @@
-import { downloadBlob, downloadText } from "../download";
+import { downloadWorkbook } from "@/lib/spreadsheet";
+import { downloadText } from "../download";
 import { days, isoDate, periodLabel } from "../format";
 import type { Payslip } from "../types";
 
@@ -118,178 +119,91 @@ export function exportPayslipsCsv(
 }
 
 /**
- * Exports payslips list to Microsoft Excel XML Spreadsheet format (.xls)
- * Includes bold headers, styled grid borders, right-aligned currency, and formula summary totals.
+ * Exports the payslips list to a real `.xlsx` workbook: typed amounts and
+ * dates, fitted columns, brand header and a totals row.
  */
-export function exportPayslipsExcel(
+export async function exportPayslipsExcel(
   payslips: Payslip[],
   periodTitle = "All_Periods",
-): void {
-  let totalGross = 0;
-  let totalDeductions = 0;
-  let totalNet = 0;
-
-  const rowXml = payslips
-    .map((p) => {
-      const gross = parseMoney(p.payrollEntry.totalGrossEarnings);
-      const deductions = parseMoney(p.payrollEntry.totalDeductions);
-      const net = parseMoney(p.netPayable);
-
-      totalGross += gross;
-      totalDeductions += deductions;
-      totalNet += net;
-
-      return `
-      <Row ss:Height="20">
-        <Cell><Data ss:Type="String">${escapeXml(p.payslipNumber)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.employeeCode)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.fullName)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.department?.name || p.employee.team?.name || "General")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.designation?.name || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(periodLabel(p.payrollPeriod))}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(days(p.payrollEntry.payableDays))}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(days(p.payrollEntry.lopDays))}</Data></Cell>
-        <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${gross.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${deductions.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${net.toFixed(2)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.bankDetails?.bankName || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.bankDetails?.accountNumber || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.bankDetails?.panNumber || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.pfProfile?.uan || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.employee.esiProfile?.insuranceNumber || "—")}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(isoDate(p.generatedAt))}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(p.version ? `v${p.version}` : "v1")}</Data></Cell>
-      </Row>`;
-    })
-    .join("");
-
-  const summaryRowXml = `
-      <Row ss:Height="22" ss:StyleID="sSummary">
-        <Cell><Data ss:Type="String">TOTALS</Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String">${payslips.length} Employees</Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="sSummaryCurrency"><Data ss:Type="Number">${totalGross.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="sSummaryCurrency"><Data ss:Type="Number">${totalDeductions.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="sSummaryCurrency"><Data ss:Type="Number">${totalNet.toFixed(2)}</Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-        <Cell><Data ss:Type="String"></Data></Cell>
-      </Row>`;
-
-  const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Borders/>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
-  </Style>
-  <Style ss:ID="sHeader">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B0C4DE"/>
-   </Borders>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
-   <Interior ss:Color="#0a3271" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCurrency">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-  </Style>
-  <Style ss:ID="sSummary">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#0a3271" ss:Bold="1"/>
-   <Interior ss:Color="#F0F8FF" ss:Pattern="Solid"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B0C4DE"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0a3271"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="sSummaryCurrency">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#0a3271" ss:Bold="1"/>
-   <Interior ss:Color="#F0F8FF" ss:Pattern="Solid"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#B0C4DE"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0a3271"/>
-   </Borders>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Employee Payslips">
-  <Table ss:DefaultRowHeight="18">
-   <Column ss:Width="110"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="160"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="85"/>
-   <Column ss:Width="70"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="70"/>
-   <Row ss:Height="24" ss:StyleID="sHeader">
-    <Cell><Data ss:Type="String">Payslip #</Data></Cell>
-    <Cell><Data ss:Type="String">Employee Code</Data></Cell>
-    <Cell><Data ss:Type="String">Employee Name</Data></Cell>
-    <Cell><Data ss:Type="String">Department</Data></Cell>
-    <Cell><Data ss:Type="String">Designation</Data></Cell>
-    <Cell><Data ss:Type="String">Payroll Period</Data></Cell>
-    <Cell><Data ss:Type="String">Payable Days</Data></Cell>
-    <Cell><Data ss:Type="String">LOP Days</Data></Cell>
-    <Cell><Data ss:Type="String">Gross Earnings (₹)</Data></Cell>
-    <Cell><Data ss:Type="String">Total Deductions (₹)</Data></Cell>
-    <Cell><Data ss:Type="String">Net Payable (₹)</Data></Cell>
-    <Cell><Data ss:Type="String">Bank Name</Data></Cell>
-    <Cell><Data ss:Type="String">Account Number</Data></Cell>
-    <Cell><Data ss:Type="String">PAN Number</Data></Cell>
-    <Cell><Data ss:Type="String">PF UAN</Data></Cell>
-    <Cell><Data ss:Type="String">ESI Number</Data></Cell>
-    <Cell><Data ss:Type="String">Generated Date</Data></Cell>
-    <Cell><Data ss:Type="String">Version</Data></Cell>
-   </Row>
-   ${rowXml}
-   ${summaryRowXml}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-  const blob = new Blob([xmlContent], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
+): Promise<void> {
   const sanitizedPeriod = periodTitle.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const fileName = `TexaOne_Payslips_${sanitizedPeriod}_${new Date().toISOString().slice(0, 10)}.xls`;
-
-  downloadBlob(fileName, blob);
-}
-
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+  await downloadWorkbook(
+    `TexaOne_Payslips_${sanitizedPeriod}_${new Date().toISOString().slice(0, 10)}`,
+    [
+      {
+        name: "Employee Payslips",
+        totals: `TOTALS — ${payslips.length} employees`,
+        rows: payslips,
+        columns: [
+          { header: "Payslip #", value: (p) => p.payslipNumber },
+          { header: "Employee Code", value: (p) => p.employee.employeeCode },
+          { header: "Employee Name", value: (p) => p.employee.fullName },
+          {
+            header: "Department",
+            value: (p) =>
+              p.employee.department?.name || p.employee.team?.name || "General",
+          },
+          {
+            header: "Designation",
+            value: (p) => p.employee.designation?.name || "—",
+          },
+          {
+            header: "Payroll Period",
+            value: (p) => periodLabel(p.payrollPeriod),
+          },
+          {
+            header: "Payable Days",
+            value: (p) => p.payrollEntry.payableDays,
+            type: "number",
+          },
+          {
+            header: "LOP Days",
+            value: (p) => p.payrollEntry.lopDays,
+            type: "number",
+          },
+          {
+            header: "Gross Earnings (₹)",
+            value: (p) => parseMoney(p.payrollEntry.totalGrossEarnings),
+            type: "amount",
+          },
+          {
+            header: "Total Deductions (₹)",
+            value: (p) => parseMoney(p.payrollEntry.totalDeductions),
+            type: "amount",
+          },
+          {
+            header: "Net Payable (₹)",
+            value: (p) => parseMoney(p.netPayable),
+            type: "amount",
+          },
+          {
+            header: "Bank Name",
+            value: (p) => p.employee.bankDetails?.bankName || "—",
+          },
+          {
+            header: "Account Number",
+            value: (p) => p.employee.bankDetails?.accountNumber || "—",
+          },
+          {
+            header: "PAN Number",
+            value: (p) => p.employee.bankDetails?.panNumber || "—",
+          },
+          { header: "PF UAN", value: (p) => p.employee.pfProfile?.uan || "—" },
+          {
+            header: "ESI Number",
+            value: (p) => p.employee.esiProfile?.insuranceNumber || "—",
+          },
+          {
+            header: "Generated Date",
+            value: (p) => p.generatedAt,
+            type: "date",
+          },
+          {
+            header: "Version",
+            value: (p) => (p.version ? `v${p.version}` : "v1"),
+          },
+        ],
+      },
+    ],
+  );
 }

@@ -1,4 +1,5 @@
-import { downloadBlob, downloadText } from "../download";
+import { downloadWorkbook } from "@/lib/spreadsheet";
+import { downloadText } from "../download";
 import { isoDate, periodLabel } from "../format";
 import type { PaymentBatch, PayrollPayment } from "../types";
 
@@ -14,16 +15,6 @@ function safeCell(value: string | number | null | undefined): string {
 
 function parseMoney(val: string | number | null | undefined): number {
   return Number(val ?? 0) || 0;
-}
-
-function escapeXml(unsafe: string | number | null | undefined): string {
-  if (unsafe === null || unsafe === undefined) return "";
-  return String(unsafe)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -79,143 +70,54 @@ export function exportPaymentBatchesCsv(batches: PaymentBatch[]): void {
 }
 
 /**
- * Exports payment batches overview list to formatted Excel XML Spreadsheet (.xls).
+ * Exports the payment batches overview to a real `.xlsx` workbook.
  */
-export function exportPaymentBatchesExcel(batches: PaymentBatch[]): void {
-  let totalAmount = 0;
-  let totalEmployees = 0;
-
-  batches.forEach((b) => {
-    totalAmount += parseMoney(b.totalAmount);
-    totalEmployees += b.totalEmployees;
-  });
-
-  const rowsXml = batches
-    .map((b) => {
-      const amt = parseMoney(b.totalAmount);
-      return `      <Row>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(b.batchNumber)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(periodLabel(b.payrollPeriod))}</Data></Cell>
-        <Cell ss:StyleID="CellNum"><Data ss:Type="Number">${b.totalEmployees}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${amt.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(b.status)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(isoDate(b.generatedAt))}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(b.generator?.fullName || "System")}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(b.processedAt ? isoDate(b.processedAt) : "—")}</Data></Cell>
-      </Row>`;
-    })
-    .join("\n");
-
-  const totalRowXml = `      <Row>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">TOTALS</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">${batches.length} Batches</Data></Cell>
-        <Cell ss:StyleID="TotalNum"><Data ss:Type="Number">${totalEmployees}</Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="Number">${totalAmount.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-      </Row>`;
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Color="#1e293b"/>
-  </Style>
-  <Style ss:ID="Title">
-   <Font ss:FontName="Nunito Sans" ss:Size="14" ss:Bold="1" ss:Color="#0a3271"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="Header">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#1769F5" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="CellText">
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="CellNum">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="#,##0"/>
-  </Style>
-  <Style ss:ID="CellCurrency">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-  </Style>
-  <Style ss:ID="TotalText">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalNum">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="#,##0"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalCurrency">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Payment_Batches">
-  <Table>
-   <Column ss:Width="130"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="110"/>
-   <Row ss:Height="26">
-    <Cell ss:MergeAcross="7" ss:StyleID="Title"><Data ss:Type="String">TexaOne ERP — Payment Batches Summary</Data></Cell>
-   </Row>
-   <Row ss:Height="22">
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Batch Number</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Payroll Period</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Employees</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Total Amount (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Status</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Generated Date</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Generated By</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Processed Date</Data></Cell>
-   </Row>
-${rowsXml}
-${totalRowXml}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-  const fileName = `Payment_Batches_Summary_${new Date().toISOString().slice(0, 10)}.xls`;
-  const blob = new Blob([xml], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  downloadBlob(fileName, blob);
+export async function exportPaymentBatchesExcel(
+  batches: PaymentBatch[],
+): Promise<void> {
+  await downloadWorkbook(
+    `Payment_Batches_Summary_${new Date().toISOString().slice(0, 10)}`,
+    [
+      {
+        name: "Payment Batches",
+        title: "TexaOne ERP — Payment Batches Summary",
+        totals: `TOTALS — ${batches.length} batches`,
+        rows: batches,
+        columns: [
+          { header: "Batch Number", value: (b) => b.batchNumber },
+          {
+            header: "Payroll Period",
+            value: (b) => periodLabel(b.payrollPeriod),
+          },
+          {
+            header: "Employees",
+            value: (b) => b.totalEmployees,
+            type: "integer",
+          },
+          {
+            header: "Total Amount (₹)",
+            value: (b) => parseMoney(b.totalAmount),
+            type: "amount",
+          },
+          { header: "Status", value: (b) => b.status },
+          {
+            header: "Generated Date",
+            value: (b) => b.generatedAt,
+            type: "date",
+          },
+          {
+            header: "Generated By",
+            value: (b) => b.generator?.fullName || "System",
+          },
+          {
+            header: "Processed Date",
+            value: (b) => b.processedAt,
+            type: "date",
+          },
+        ],
+      },
+    ],
+  );
 }
 
 /**
@@ -278,135 +180,43 @@ export function exportBatchPaymentsCsv(
 }
 
 /**
- * Exports individual batch's payments to Excel XML Spreadsheet (.xls).
+ * Exports one batch's payments (bank reconciliation) to a real `.xlsx`.
  */
-export function exportBatchPaymentsExcel(
+export async function exportBatchPaymentsExcel(
   batch: PaymentBatch,
   payments: PayrollPayment[],
-): void {
-  let totalAmount = 0;
-  payments.forEach((p) => {
-    totalAmount += parseMoney(p.amount);
-  });
-
-  const rowsXml = payments
-    .map((p) => {
-      const amt = parseMoney(p.amount);
-      return `      <Row>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(batch.batchNumber)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.employee.employeeCode)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.employee.fullName)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.employee.bankDetails?.bankName || "—")}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.employee.bankDetails?.accountNumber || "—")}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${amt.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.paymentMethod)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.status)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.bankReference || "—")}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.creditedAt ? isoDate(p.creditedAt) : "—")}</Data></Cell>
-      </Row>`;
-    })
-    .join("\n");
-
-  const totalRowXml = `      <Row>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">TOTAL</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">${payments.length} Payments</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="Number">${totalAmount.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-      </Row>`;
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Color="#1e293b"/>
-  </Style>
-  <Style ss:ID="Title">
-   <Font ss:FontName="Nunito Sans" ss:Size="13" ss:Bold="1" ss:Color="#0a3271"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="Header">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#1769F5" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="CellText">
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="CellCurrency">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-  </Style>
-  <Style ss:ID="TotalText">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalCurrency">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Batch_Reconciliation">
-  <Table>
-   <Column ss:Width="110"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="150"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="140"/>
-   <Column ss:Width="100"/>
-   <Row ss:Height="24">
-    <Cell ss:MergeAcross="9" ss:StyleID="Title"><Data ss:Type="String">TexaOne ERP — Payment Batch ${escapeXml(batch.batchNumber)} Reconciliation</Data></Cell>
-   </Row>
-   <Row ss:Height="22">
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Batch #</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Employee Code</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Employee Name</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Bank Name</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Account Number</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Net Amount (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Payment Method</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Payment Status</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Bank Reference / UTR</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Credited Date</Data></Cell>
-   </Row>
-${rowsXml}
-${totalRowXml}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-  const fileName = `Payment_Batch_${batch.batchNumber}_Reconciliation.xls`;
-  const blob = new Blob([xml], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  downloadBlob(fileName, blob);
+): Promise<void> {
+  await downloadWorkbook(`Payment_Batch_${batch.batchNumber}_Reconciliation`, [
+    {
+      name: "Batch Reconciliation",
+      title: `TexaOne ERP — Payment Batch ${batch.batchNumber} Reconciliation`,
+      totals: `TOTAL — ${payments.length} payments`,
+      rows: payments,
+      columns: [
+        { header: "Batch #", value: () => batch.batchNumber },
+        { header: "Employee Code", value: (p) => p.employee.employeeCode },
+        { header: "Employee Name", value: (p) => p.employee.fullName },
+        {
+          header: "Bank Name",
+          value: (p) => p.employee.bankDetails?.bankName || "—",
+        },
+        {
+          header: "Account Number",
+          value: (p) => p.employee.bankDetails?.accountNumber || "—",
+        },
+        {
+          header: "Net Amount (₹)",
+          value: (p) => parseMoney(p.amount),
+          type: "amount",
+        },
+        { header: "Payment Method", value: (p) => p.paymentMethod },
+        { header: "Payment Status", value: (p) => p.status },
+        {
+          header: "Bank Reference / UTR",
+          value: (p) => p.bankReference || "—",
+        },
+        { header: "Credited Date", value: (p) => p.creditedAt, type: "date" },
+      ],
+    },
+  ]);
 }

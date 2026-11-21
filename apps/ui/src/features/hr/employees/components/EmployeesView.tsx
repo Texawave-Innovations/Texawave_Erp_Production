@@ -463,10 +463,10 @@ export function EmployeesView() {
           <div className="flex flex-wrap items-center gap-2">
             {canExport ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => void handleExport()}
                 loading={exporting}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-medium"
               >
                 <Semantic3DIcon name="export" size={18} />
                 <span>Export CSV</span>
@@ -474,9 +474,9 @@ export function EmployeesView() {
             ) : null}
             {canWrite ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => setImportOpen(true)}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-medium"
               >
                 <Semantic3DIcon name="import" size={18} />
                 <span>Import CSV</span>
@@ -851,7 +851,7 @@ export function EmployeesView() {
               caption="Employees"
               tableClassName="w-full text-left text-theme-xs"
               density="compact"
-              className="overflow-x-auto lg:overflow-x-visible scrollbar-none [&::-webkit-scrollbar]:hidden"
+              className="scrollbar-none [&::-webkit-scrollbar]:hidden"
               rows={list.data.data}
               getRowKey={(e) => String(e.id)}
               columns={[

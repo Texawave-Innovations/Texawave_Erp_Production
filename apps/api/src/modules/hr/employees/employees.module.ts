@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../../platform/auth/auth.module.js";
+import { RolesPermissionsModule } from "../../../platform/roles-permissions/roles-permissions.module.js";
 import { EmployeeLifecycleController } from "./employee-lifecycle.controller.js";
 import { EmployeeLifecycleRepository } from "./employee-lifecycle.repository.js";
 import { EmployeeLifecycleService } from "./employee-lifecycle.service.js";
@@ -11,7 +12,7 @@ import { EmployeesRepository } from "./employees.repository.js";
 import { EmployeesService } from "./employees.service.js";
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, RolesPermissionsModule],
   controllers: [EmployeesController, EmployeeLifecycleController],
   providers: [
     EmployeesRepository,

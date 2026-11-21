@@ -10,6 +10,7 @@ import {
   BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
+import { PermissionsService } from "../../../platform/roles-permissions/permissions.service.js";
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type { CreateEmployeeDto } from "./dto/create-employee.dto.js";
@@ -32,6 +33,7 @@ import {
 import type { ReviewDecision } from "./onboarding-review.policy.js";
 
 const READ = "hr.employee.read";
+const LINK_ACCOUNT_PERMISSION = "hr.employee_account.write";
 const WRITE = "hr.employee.write";
 const EXPORT = "hr.employee.export";
 const APPROVE_ONBOARDING = "hr.employee_onboarding.approve";
@@ -83,6 +85,7 @@ export class EmployeesService {
     private readonly repository: EmployeesRepository,
     private readonly tenantContext: TenantContextService,
     private readonly teamContext: TeamContextService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async findAll(query: QueryEmployeeDto) {
@@ -118,6 +121,19 @@ export class EmployeesService {
       throw new ForbiddenException(
         "You may create employees only in your own team(s)",
       );
+    }
+    // Linking a login at creation is the same act as POST :id/link-user, which
+    // needs its own permission. `hr.employee.write` alone must not be a way
+    // around it.
+    if (dto.userId !== undefined) {
+      const granted = await this.permissions.getPermissionsForUser(
+        this.tenantContext.getUserId(),
+      );
+      if (!granted.includes(LINK_ACCOUNT_PERMISSION)) {
+        throw new ForbiddenException(
+          `Linking a login account needs ${LINK_ACCOUNT_PERMISSION}`,
+        );
+      }
     }
     const row = await this.repository.create(
       this.tenantContext.getOrgScope(),

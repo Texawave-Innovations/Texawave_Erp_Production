@@ -1,4 +1,5 @@
-import { downloadBlob, downloadText } from "../download";
+import { downloadWorkbook } from "@/lib/spreadsheet";
+import { downloadText } from "../download";
 import { isoDate } from "../format";
 import type { TaxDeclaration } from "../types";
 
@@ -13,16 +14,6 @@ function safeCell(value: string | number | null | undefined): string {
 
 function parseMoney(val: string | number | null | undefined): number {
   return Number(val ?? 0) || 0;
-}
-
-function escapeXml(unsafe: string | number | null | undefined): string {
-  if (unsafe === null || unsafe === undefined) return "";
-  return String(unsafe)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -140,198 +131,79 @@ export function exportTaxDeclarationsCsv(
 }
 
 /**
- * Exports tax declarations to formatted Excel XML Spreadsheet (.xls).
+ * Exports tax declarations to a real `.xlsx` workbook. The totals row adds up
+ * the verified figures and the total deductions, not the declared ones.
  */
-export function exportTaxDeclarationsExcel(
+export async function exportTaxDeclarationsExcel(
   declarations: TaxDeclaration[],
   financialYear: string,
-): void {
-  let total80c = 0;
-  let total80d = 0;
-  let totalHra = 0;
-  let totalDeductionsSum = 0;
+): Promise<void> {
+  const verified = (
+    verifiedValue: string | number | null | undefined,
+    declared: string | number | null | undefined,
+  ) => parseMoney(verifiedValue ?? declared);
+  const totalDeclared = (d: TaxDeclaration) =>
+    parseMoney(d.section80c) +
+    parseMoney(d.section80d) +
+    parseMoney(d.hraExemption) +
+    parseMoney(d.homeLoanInterest) +
+    parseMoney(d.otherDeductions);
 
-  declarations.forEach((d) => {
-    total80c += parseMoney(d.verifiedSection80c ?? d.section80c);
-    total80d += parseMoney(d.verifiedSection80d ?? d.section80d);
-    totalHra += parseMoney(d.verifiedHraExemption ?? d.hraExemption);
-    totalDeductionsSum +=
-      parseMoney(d.section80c) +
-      parseMoney(d.section80d) +
-      parseMoney(d.hraExemption) +
-      parseMoney(d.homeLoanInterest) +
-      parseMoney(d.otherDeductions);
-  });
-
-  const rowsXml = declarations
-    .map((d) => {
-      const dec80c = parseMoney(d.section80c);
-      const ver80c = parseMoney(d.verifiedSection80c ?? d.section80c);
-      const dec80d = parseMoney(d.section80d);
-      const ver80d = parseMoney(d.verifiedSection80d ?? d.section80d);
-      const decHra = parseMoney(d.hraExemption);
-      const verHra = parseMoney(d.verifiedHraExemption ?? d.hraExemption);
-      const totalDec =
-        dec80c +
-        dec80d +
-        decHra +
-        parseMoney(d.homeLoanInterest) +
-        parseMoney(d.otherDeductions);
-
-      return `      <Row>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(d.employee.employeeCode)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(d.employee.fullName)}</Data></Cell>
-        <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(d.regime)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${dec80c.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${ver80c.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${dec80d.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${ver80d.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${decHra.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${verHra.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellCurrencyBold"><Data ss:Type="Number">${totalDec.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(d.status)}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(d.verifier?.fullName || "—")}</Data></Cell>
-        <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(d.verifiedAt ? isoDate(d.verifiedAt) : "—")}</Data></Cell>
-      </Row>`;
-    })
-    .join("\n");
-
-  const totalRowXml = `      <Row>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">TOTALS</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String">${declarations.length} Declarations</Data></Cell>
-        <Cell ss:StyleID="TotalCenter"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="Number">${total80c.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="Number">${total80d.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalCurrency"><Data ss:Type="Number">${totalHra.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalCurrencyBold"><Data ss:Type="Number">${totalDeductionsSum.toFixed(2)}</Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-        <Cell ss:StyleID="TotalText"><Data ss:Type="String"></Data></Cell>
-      </Row>`;
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Color="#1e293b"/>
-  </Style>
-  <Style ss:ID="Title">
-   <Font ss:FontName="Nunito Sans" ss:Size="14" ss:Bold="1" ss:Color="#0a3271"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="Header">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#1769F5" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="CellText">
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="CellCenter">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-  </Style>
-  <Style ss:ID="CellCurrency">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-  </Style>
-  <Style ss:ID="CellCurrencyBold">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#059669"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-  </Style>
-  <Style ss:ID="TotalText">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalCenter">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalCurrency">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#0a3271"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
-  <Style ss:ID="TotalCurrencyBold">
-   <Font ss:FontName="Nunito Sans" ss:Size="10" ss:Bold="1" ss:Color="#059669"/>
-   <Interior ss:Color="#e0f2fe" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="₹#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#38bdf8"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="2" ss:Color="#0284c7"/>
-   </Borders>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Tax_Declarations">
-  <Table>
-   <Column ss:Width="110"/>
-   <Column ss:Width="160"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="110"/>
-   <Row ss:Height="26">
-    <Cell ss:MergeAcross="12" ss:StyleID="Title"><Data ss:Type="String">TexaOne ERP — Tax Declarations Audit FY ${escapeXml(financialYear)}</Data></Cell>
-   </Row>
-   <Row ss:Height="22">
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Emp Code</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Employee Name</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Regime</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Declared 80C (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Verified 80C (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Declared 80D (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Verified 80D (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Declared HRA (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Verified HRA (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Total Deductions (₹)</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Status</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Verifier</Data></Cell>
-    <Cell ss:StyleID="Header"><Data ss:Type="String">Verified Date</Data></Cell>
-   </Row>
-${rowsXml}
-${totalRowXml}
-  </Table>
- </Worksheet>
-</Workbook>`;
-
-  const fileName = `Tax_Declarations_FY${financialYear}_${new Date().toISOString().slice(0, 10)}.xls`;
-  const blob = new Blob([xml], {
-    type: "application/vnd.ms-excel;charset=utf-8",
-  });
-  downloadBlob(fileName, blob);
+  await downloadWorkbook(
+    `Tax_Declarations_FY${financialYear}_${new Date().toISOString().slice(0, 10)}`,
+    [
+      {
+        name: "Tax Declarations",
+        title: `TexaOne ERP — Tax Declarations Audit FY ${financialYear}`,
+        totals: `TOTALS — ${declarations.length} declarations`,
+        rows: declarations,
+        columns: [
+          { header: "Emp Code", value: (d) => d.employee.employeeCode },
+          { header: "Employee Name", value: (d) => d.employee.fullName },
+          { header: "Regime", value: (d) => d.regime },
+          {
+            header: "Declared 80C (₹)",
+            value: (d) => parseMoney(d.section80c),
+            type: "amount",
+            total: false,
+          },
+          {
+            header: "Verified 80C (₹)",
+            value: (d) => verified(d.verifiedSection80c, d.section80c),
+            type: "amount",
+          },
+          {
+            header: "Declared 80D (₹)",
+            value: (d) => parseMoney(d.section80d),
+            type: "amount",
+            total: false,
+          },
+          {
+            header: "Verified 80D (₹)",
+            value: (d) => verified(d.verifiedSection80d, d.section80d),
+            type: "amount",
+          },
+          {
+            header: "Declared HRA (₹)",
+            value: (d) => parseMoney(d.hraExemption),
+            type: "amount",
+            total: false,
+          },
+          {
+            header: "Verified HRA (₹)",
+            value: (d) => verified(d.verifiedHraExemption, d.hraExemption),
+            type: "amount",
+          },
+          {
+            header: "Total Deductions (₹)",
+            value: totalDeclared,
+            type: "amount",
+          },
+          { header: "Status", value: (d) => d.status },
+          { header: "Verifier", value: (d) => d.verifier?.fullName || "—" },
+          { header: "Verified Date", value: (d) => d.verifiedAt, type: "date" },
+        ],
+      },
+    ],
+  );
 }

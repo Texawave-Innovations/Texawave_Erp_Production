@@ -24,7 +24,7 @@ export function FulfillmentReportView() {
       noun="fulfillments"
       query={query}
       getRowKey={(r) => r.fulfillmentNumber}
-      fileName="scm-fulfillment-report.csv"
+      fileName="scm-fulfillment-report.xlsx"
       emptyDescription="Fulfillments will appear here once sales orders are claimed."
       columns={[
         {
@@ -62,16 +62,20 @@ export function FulfillmentReportView() {
         },
         { header: "Created", cell: (r) => formatDateTime(r.createdAt) },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Fulfillment Number", value: (r) => r.fulfillmentNumber },
         { header: "Sales Order", value: (r) => r.salesOrder },
         { header: "Customer", value: (r) => r.customer },
         { header: "Status", value: (r) => r.status },
-        { header: "Ordered Qty", value: (r) => r.orderedQty },
-        { header: "Issued Qty", value: (r) => r.issuedQty },
+        { header: "Ordered Qty", value: (r) => r.orderedQty, type: "number" },
+        { header: "Issued Qty", value: (r) => r.issuedQty, type: "number" },
         { header: "Delivery Status", value: (r) => r.deliveryStatus },
-        { header: "Created At", value: (r) => r.createdAt },
-        { header: "Delivered At", value: (r) => r.deliveredAt },
+        { header: "Created At", value: (r) => r.createdAt, type: "datetime" },
+        {
+          header: "Delivered At",
+          value: (r) => r.deliveredAt,
+          type: "datetime",
+        },
       ]}
     />
   );

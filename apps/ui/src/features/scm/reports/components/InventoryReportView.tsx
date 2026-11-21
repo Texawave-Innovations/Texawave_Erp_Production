@@ -19,7 +19,7 @@ export function InventoryReportView() {
       noun="stock rows"
       query={query}
       getRowKey={(r) => `${r.productCode}-${r.warehouse}`}
-      fileName="scm-inventory-report.csv"
+      fileName="scm-inventory-report.xlsx"
       emptyDescription="Stock balances will appear here once products have inventory."
       columns={[
         {
@@ -58,17 +58,17 @@ export function InventoryReportView() {
           ),
         },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Product Code", value: (r) => r.productCode },
         { header: "Product Name", value: (r) => r.productName },
         { header: "Warehouse", value: (r) => r.warehouse },
-        { header: "On Hand", value: (r) => r.onHand },
-        { header: "Reserved", value: (r) => r.reserved },
-        { header: "Available", value: (r) => r.available },
-        { header: "Incoming", value: (r) => r.incoming },
-        { header: "Damaged", value: (r) => r.damaged },
-        { header: "Quarantine", value: (r) => r.quarantine },
-        { header: "Valuation", value: (r) => r.valuation },
+        { header: "On Hand", value: (r) => r.onHand, type: "number" },
+        { header: "Reserved", value: (r) => r.reserved, type: "number" },
+        { header: "Available", value: (r) => r.available, type: "number" },
+        { header: "Incoming", value: (r) => r.incoming, type: "number" },
+        { header: "Damaged", value: (r) => r.damaged, type: "number" },
+        { header: "Quarantine", value: (r) => r.quarantine, type: "number" },
+        { header: "Valuation", value: (r) => r.valuation, type: "amount" },
         { header: "Status", value: (r) => r.status },
       ]}
     />
