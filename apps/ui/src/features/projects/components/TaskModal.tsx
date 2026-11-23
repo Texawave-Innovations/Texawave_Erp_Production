@@ -12,6 +12,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { useEmployees } from "@/features/hr/employees/hooks";
+import { usePermission } from "@/hooks/usePermission";
 import { useCreateTask, usePointsConfig, useUpdateTask } from "../hooks";
 import { errorMessage, formatDate, toDateInput, todayInput } from "../format";
 import type { Project, ProjectTask, TaskPriority, TaskStatus } from "../types";
@@ -34,10 +35,9 @@ const DEFAULT_POINTS: Record<TaskPriority, number> = {
   urgent: 30,
 };
 
-/** Mon–Fri × 8h between two calendar days, inclusive — mirrors the backend's
- * `calculateBusinessHours` so the "Auto" hours preview matches what the API
- * will store when no override is sent. */
-function businessHours(start: string, end: string): number {
+/** Working hours the dates allow (Mon–Fri × 8h, inclusive). Only a hint next
+ * to the ETA: the ETA is typed by hand and never derived from the dates. */
+function windowHours(start: string, end: string): number {
   if (!start || !end || end < start) return 0;
   const cur = new Date(`${start}T00:00:00Z`);
   const last = new Date(`${end}T00:00:00Z`);
@@ -48,6 +48,14 @@ function businessHours(start: string, end: string): number {
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return days * 8;
+}
+
+/** 2 -> "2h", 2.5 -> "2h 30m". */
+function formatHours(h: number): string {
+  const whole = Math.floor(h);
+  const mins = Math.round((h - whole) * 60);
+  if (mins === 0) return `${whole}h`;
+  return whole === 0 ? `${mins}m` : `${whole}h ${mins}m`;
 }
 
 function inferDependencyKind(task: ProjectTask): DependencyKind {
@@ -66,10 +74,10 @@ export interface TaskModalProps {
   taskToEdit?: ProjectTask | null;
 }
 
-/** Legacy `components/TaskModal.tsx` — create/edit a task with milestone,
- * assignee, auto business-hours, priority-driven reward points and the
- * four-way dependency category (none / employee / client / prerequisite
- * task). Rendered with ui-kit primitives against the real task DTO. */
+/** Create/edit a task with milestone, assignee, a hand-entered ETA (hours),
+ * reward points and the four-way dependency category (none / employee /
+ * client / prerequisite task). Rendered with ui-kit primitives against the
+ * real task DTO. */
 export function TaskModal(props: TaskModalProps) {
   const { open, onClose, taskToEdit } = props;
   return (
@@ -87,8 +95,7 @@ export function TaskModal(props: TaskModalProps) {
               {taskToEdit ? "Edit Task" : "Create New Task"}
             </span>
             <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Assign deliverables, calculate business hours &amp; configure
-              reward points
+              Assign deliverables, set the ETA &amp; see the reward points
             </span>
           </span>
         </span>
@@ -133,17 +140,13 @@ function TaskForm({
   const [endDate, setEndDate] = useState(
     edit ? toDateInput(edit.endDate) : todayInput(),
   );
-  // Only treat stored hours as a manual override when they differ from the
-  // auto business-hours value for the stored dates.
-  const [hoursOverride, setHoursOverride] = useState<string>(() => {
-    if (!edit) return "";
-    const stored = Number(edit.hoursToComplete) || 0;
-    const auto = businessHours(
-      toDateInput(edit.startDate),
-      toDateInput(edit.endDate),
-    );
-    return stored !== auto ? String(stored) : "";
-  });
+  // The ETA: hours entered by hand, required. Empty until the person types it
+  // (a new task has no default; the dates never imply any hours).
+  const [hours, setHours] = useState<string>(() =>
+    edit ? String(Number(edit.hoursToComplete) || "") : "",
+  );
+  // Why the ETA changed; required once work on the task has started.
+  const [hoursReason, setHoursReason] = useState("");
   const [priority, setPriority] = useState<TaskPriority>(
     edit?.priority ?? "medium",
   );
@@ -179,7 +182,13 @@ function TaskForm({
       ? { low: cfg.low, medium: cfg.medium, high: cfg.high, urgent: cfg.urgent }
       : DEFAULT_POINTS;
   }, [pointsConfig.data]);
-  const points = pointsOverride ?? configPoints[priority];
+  const timeBased = pointsConfig.data?.timeBasedEnabled === true;
+  // With time-based points on, every task is worth the configured value.
+  const points = timeBased
+    ? (pointsConfig.data?.defaultTaskPoints ?? 10)
+    : (pointsOverride ?? configPoints[priority]);
+  // A Team Lead (team-scoped writer) may only assign to their own team.
+  const teamScoped = !usePermission("projects.task.write");
 
   // Assignee options: project members (+ client handling lead), like legacy
   // which restricted the picker to the project's resources/members/lead.
@@ -197,7 +206,10 @@ function TaskForm({
       const p = project.clientHandlingPerson;
       map.set(p.id, { id: p.id, name: p.fullName, code: p.employeeCode });
     }
-    if (map.size === 0) {
+    if (map.size === 0 || teamScoped) {
+      // The employee directory is already limited to the caller's scope, so a
+      // team lead only ever sees their own team here.
+      if (teamScoped) map.clear();
       for (const e of employeesQuery.data?.data ?? []) {
         map.set(e.id, { id: e.id, name: e.fullName, code: e.employeeCode });
       }
@@ -205,7 +217,12 @@ function TaskForm({
     return Array.from(map.values()).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-  }, [project.members, project.clientHandlingPerson, employeesQuery.data]);
+  }, [
+    project.members,
+    project.clientHandlingPerson,
+    employeesQuery.data,
+    teamScoped,
+  ]);
 
   const allEmployees = employeesQuery.data?.data ?? [];
   const dependencyTasks = (project.tasks ?? []).filter(
@@ -216,7 +233,33 @@ function TaskForm({
     project.salesCustomer?.companyName ||
     "Project Client";
   const clientLead = project.clientHandlingPerson?.fullName ?? "";
-  const autoHours = businessHours(startDate, endDate);
+  const windowCap = windowHours(startDate, endDate);
+  const etaHours = Number(hours);
+  const etaValid =
+    hours.trim() !== "" &&
+    Number.isFinite(etaHours) &&
+    etaHours >= 0.25 &&
+    etaHours <= 500 &&
+    etaHours % 0.25 === 0;
+  const etaChanged =
+    Boolean(edit) && etaValid && etaHours !== Number(edit?.hoursToComplete);
+  const workStarted =
+    Boolean(edit) &&
+    (edit?.status !== "not_started" || Number(edit?.loggedHours) > 0);
+  const needsHoursReason = etaChanged && workStarted;
+  const etaLocked = edit?.status === "completed";
+  const hoursHint = etaLocked
+    ? "The ETA of a completed task is locked."
+    : etaValid && windowCap > 0 && etaHours > windowCap
+      ? `More than the dates allow (${windowCap}h of working time). Extend the end date or reduce the ETA.`
+      : windowCap > 0
+        ? `The dates allow up to ${windowCap}h of working time.`
+        : "Enter the hours this task should take.";
+  const rewardPreview = timeBased
+    ? etaValid
+      ? `${points} pts. +${pointsConfig.data?.onTimeBonus ?? 1} if done within ${formatHours(etaHours)}; fewer the longer it takes; 0 at ${formatHours(etaHours * 2)}.`
+      : "Enter the ETA to see how the reward is earned."
+    : "Defaults from the Points Master for the selected priority.";
 
   function handlePriorityChange(next: TaskPriority) {
     // Legacy re-defaults reward points from the master on priority change.
@@ -251,6 +294,20 @@ function TaskForm({
     }
     if (endDate < startDate) {
       setFormError("Planned end date cannot be earlier than the start date.");
+      return;
+    }
+    if (!etaValid) {
+      setFormError(
+        "Enter the ETA in hours: at least 0.25, in steps of 0.25 (up to 500).",
+      );
+      return;
+    }
+    if (needsHoursReason && hoursReason.trim().length < 3) {
+      setFormError("Work has started: give a reason for changing the ETA.");
+      return;
+    }
+    if (teamScoped && !assignedToId) {
+      setFormError("Choose an employee from your team to assign this task to.");
       return;
     }
     if ((depKind === "task" || depKind === "employee") && !depTarget) {
@@ -289,10 +346,10 @@ function TaskForm({
       startDate,
       endDate,
       priority,
-      points: Number(points) || 0,
-      ...(hoursOverride !== ""
-        ? { hoursToComplete: Number(hoursOverride) || 0 }
-        : {}),
+      // With time-based points the server fixes every task's points.
+      ...(timeBased ? {} : { points: Number(points) || 0 }),
+      hoursToComplete: etaHours,
+      ...(needsHoursReason ? { hoursChangeReason: hoursReason.trim() } : {}),
     };
 
     try {
@@ -441,10 +498,13 @@ function TaskForm({
           {(field) => (
             <Select
               {...field}
+              aria-label="Assignee"
               value={assignedToId}
               onChange={(e) => setAssignedToId(e.target.value)}
             >
-              <option value="">Unassigned</option>
+              <option value="">
+                {teamScoped ? "Select a team member" : "Unassigned"}
+              </option>
               {assigneeOptions.map((a) => (
                 <option key={a.id} value={String(a.id)}>
                   {a.name} ({a.code})
@@ -476,41 +536,40 @@ function TaskForm({
             />
           )}
         </FormField>
-        <FormField
-          label="Hours to Complete"
-          hint={
-            hoursOverride === ""
-              ? `Auto: ${autoHours}h (${Math.round(autoHours / 8)} business days)`
-              : `Manual override (auto would be ${autoHours}h)`
-          }
-          labelAction={
-            hoursOverride !== "" ? (
-              <button
-                type="button"
-                onClick={() => setHoursOverride("")}
-                className="text-[10px] font-bold text-brand-600 hover:underline dark:text-cyan-400"
-              >
-                Reset to auto
-              </button>
-            ) : (
-              <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-extrabold text-brand-700 dark:bg-sky-950/40 dark:text-cyan-300">
-                Auto
-              </span>
-            )
-          }
-        >
+        <FormField label="Estimated hours (ETA)" required hint={hoursHint}>
           {(field) => (
             <Input
               {...field}
               type="number"
-              min="0"
-              step="0.5"
-              value={hoursOverride === "" ? String(autoHours) : hoursOverride}
-              onChange={(e) => setHoursOverride(e.target.value)}
+              min="0.25"
+              max="500"
+              step="0.25"
+              inputMode="decimal"
+              placeholder="e.g. 2"
+              disabled={etaLocked}
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
             />
           )}
         </FormField>
       </div>
+
+      {needsHoursReason ? (
+        <FormField
+          label="Reason for changing the ETA"
+          required
+          hint="Work has started, so the change is recorded in the audit log."
+        >
+          {(field) => (
+            <Input
+              {...field}
+              value={hoursReason}
+              maxLength={500}
+              onChange={(e) => setHoursReason(e.target.value)}
+            />
+          )}
+        </FormField>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label="Priority">
@@ -532,7 +591,7 @@ function TaskForm({
         <FormField
           label="Reward Points"
           labelAction={<Award className="h-3.5 w-3.5 text-amber-500" />}
-          hint="Defaults from the Points Master for the selected priority."
+          hint={rewardPreview}
         >
           {(field) => (
             <Input
@@ -540,6 +599,7 @@ function TaskForm({
               type="number"
               min="0"
               value={points}
+              disabled={timeBased}
               onChange={(e) =>
                 setPointsOverride(Math.max(0, Number(e.target.value) || 0))
               }

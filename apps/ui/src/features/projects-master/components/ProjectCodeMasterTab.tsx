@@ -172,8 +172,7 @@ function ProjectCodeMasterForm({ initial }: { initial: ProjectCodeMaster }) {
 
 /** Tab 2: Project Code Master — configures
  * `[Prefix]/[Category]/[Project Code]/[Year]/[Sequence]`. One row per org,
- * saved via a single PUT (mirrors
- * apps/ui/src/features/sales-settings/components/DocumentNumberingPanel.tsx). */
+ * saved via a single PUT. */
 export function ProjectCodeMasterTab() {
   const canRead = usePermission(PROJECT_CODE_MASTER_READ);
   const query = useProjectCodeMaster();

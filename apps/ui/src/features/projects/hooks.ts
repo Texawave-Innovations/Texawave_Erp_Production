@@ -18,6 +18,7 @@ import {
   getActiveTimer,
   getDashboardMetrics,
   getDepartmentBreakdown,
+  getMyPoints,
   getPointsConfig,
   getPointsLeaderboard,
   getProject,
@@ -530,6 +531,15 @@ export function usePointsLeaderboard() {
     queryKey: baseKey(orgId, "points", "leaderboard"),
     queryFn: () => getPointsLeaderboard(),
     enabled: Boolean(orgId),
+  });
+}
+
+export function useMyPoints(enabled = true) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "points", "mine"),
+    queryFn: () => getMyPoints(),
+    enabled: Boolean(orgId) && enabled,
   });
 }
 

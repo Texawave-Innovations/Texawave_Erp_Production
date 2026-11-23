@@ -6,6 +6,7 @@ import type {
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
+  PageHeader,
   Alert,
   Button,
   Card,
@@ -358,81 +359,74 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg lg:flex-row lg:items-center">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Link
-              href="/projects/proposals"
-              aria-label="Back to proposals"
-              className="rounded-xl bg-white/20 p-1.5 hover:bg-white/30"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <span className="rounded-xl border border-white/30 bg-white/20 px-2.5 py-0.5 text-theme-xs font-bold">
+      <PageHeader
+        variant="banner"
+        icon={
+          <Link
+            href="/projects/proposals"
+            aria-label="Back to proposals"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        }
+        title={title || "Untitled Proposal"}
+        badge={
+          <>
+            <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-theme-xs font-semibold text-white">
               {proposal.proposalNumber}
             </span>
-            <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-theme-xs font-bold text-brand-800">
+            <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-800">
               {statusMeta.label}
             </span>
-            <span className="rounded-full border border-white/30 px-2.5 py-0.5 text-theme-xs font-semibold text-sky-50">
+            <span className="rounded-full border border-white/30 px-2.5 py-0.5 text-theme-xs font-semibold text-white">
               Template: {proposal.templateTitle ?? "Standard"}
               {proposal.templateVersion
                 ? ` (V${proposal.templateVersion})`
                 : ""}
             </span>
-          </div>
-          <h1 className="truncate text-2xl font-extrabold tracking-tight">
-            {title || "Untitled Proposal"}
-          </h1>
-          <p className="text-theme-sm text-sky-50/90">
+          </>
+        }
+        description={
+          <>
             Client: <strong className="text-white">{clientName || "—"}</strong>{" "}
             · Project:{" "}
             <strong className="text-white">
               {proposal.projectName ?? "Independent"}
             </strong>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {canWrite ? (
-            <span className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-theme-xs font-bold text-white shadow-xs backdrop-blur-md">
-              {savedLabel()}
-            </span>
-          ) : null}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
-            onClick={() => setPreviewOpen(true)}
-          >
-            <Eye className="h-4 w-4" />
-            Preview & PDF
-          </Button>
-          {canWrite ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={duplicateMutation.isPending}
-              className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
-              onClick={() => void handleDuplicate()}
-            >
-              <Copy className="h-4 w-4" />
-              Duplicate
+          </>
+        }
+        action={
+          <>
+            {canWrite ? (
+              <span className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-theme-xs font-semibold text-white">
+                {savedLabel()}
+              </span>
+            ) : null}
+            <Button variant="glass" onClick={() => setPreviewOpen(true)}>
+              <Eye className="h-4 w-4" /> Preview & PDF
             </Button>
-          ) : null}
-          {canWrite && proposal.status !== "archived" ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={updateMutation.isPending}
-              className="border-white/40 bg-white text-brand-700 shadow-md hover:bg-sky-50 hover:text-brand-800 focus-visible:ring-white dark:bg-gray-900 dark:text-cyan-300 dark:border-gray-700 dark:hover:bg-gray-800 disabled:bg-white/40 disabled:text-white/60 disabled:border-white/20"
-              onClick={() => void save(false, true)}
-            >
-              <Save className="h-4 w-4" />
-              Save
-            </Button>
-          ) : null}
-        </div>
-      </div>
+            {canWrite ? (
+              <Button
+                variant="glass"
+                loading={duplicateMutation.isPending}
+                onClick={() => void handleDuplicate()}
+              >
+                <Copy className="h-4 w-4" /> Duplicate
+              </Button>
+            ) : null}
+            {canWrite && proposal.status !== "archived" ? (
+              <Button
+                variant="glass"
+                loading={updateMutation.isPending}
+                onClick={() => void save(false, true)}
+              >
+                <Save className="h-4 w-4" /> Save
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {!editable && proposal.status !== "archived" ? (
         <Alert variant="info" title={`Content locked — ${statusMeta.label}`}>

@@ -3,6 +3,8 @@
 import type { ProposalTemplate } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
+  PageHeader,
+  Button,
   ActionMenu,
   type ActionMenuItem,
   Alert,
@@ -227,39 +229,27 @@ export function ProposalTemplatesView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg sm:p-8 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
+      <PageHeader
+        variant="banner"
+        icon={
           <Link
             href="/projects/proposals"
             aria-label="Back to proposals"
-            className="rounded-xl bg-white/20 p-2 hover:bg-white/30"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-              Template Library
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Proposal Templates
-            </h1>
-            <p className="max-w-xl text-theme-sm text-sky-50/90">
-              Published versions are locked; issued proposals keep the exact
-              snapshot they were created from.
-            </p>
-          </div>
-        </div>
-        {canManage ? (
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-md transition-all hover:bg-cyan-50 hover:shadow-lg active:scale-95 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-800"
-          >
-            <Plus className="h-4 w-4 stroke-[2.5]" />
-            New Template
-          </button>
-        ) : null}
-      </div>
+        }
+        title="Proposal Templates"
+        description="Published versions are locked; issued proposals keep the exact snapshot they were created from."
+        action={
+          canManage ? (
+            <Button variant="glass" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" /> New Template
+            </Button>
+          ) : null
+        }
+      />
 
       <Card>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -9,13 +9,16 @@ import {
   Flag,
   IndianRupee,
   TrendingUp,
-  Users2,
 } from "lucide-react";
 import {
+  DataTable,
+  EmptyState,
   ErrorState,
+  SectionCard,
   Skeleton,
   StatCard,
-  TableSkeleton,
+  StatusBadge,
+  type DataTableColumn,
 } from "@texawave-erp/ui-kit";
 import {
   useDashboardMetrics,
@@ -23,6 +26,7 @@ import {
 } from "@/features/projects/hooks";
 import { formatCurrency, percent } from "@/features/projects/format";
 import { PageBanner } from "@/features/projects/components/PageBanner";
+import { ProjectMeter } from "@/features/projects/components/ProjectMeter";
 
 export default function AnalyticsPage() {
   const metricsQuery = useDashboardMetrics();
@@ -62,6 +66,66 @@ export default function AnalyticsPage() {
   const totalExpHours = Number(metrics?.hours.totalExpectedHours ?? 0);
   const totalLogged = Number(metrics?.hours.totalLoggedHours ?? 0);
   const projectCount = metrics?.totalProjects ?? 0;
+
+  type WorkloadRow = (typeof workload)[number];
+
+  const workloadColumns: DataTableColumn<WorkloadRow>[] = [
+    {
+      header: "Employee",
+      cell: (r) => (
+        <div>
+          <span className="font-semibold text-gray-900 dark:text-white/90">
+            {r.employeeName}
+          </span>
+          <span className="ml-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+            {r.employeeCode}
+          </span>
+          {r.designation ? (
+            <span className="block text-theme-xs text-gray-500 dark:text-gray-400">
+              {r.designation}
+            </span>
+          ) : null}
+        </div>
+      ),
+    },
+    { header: "Department", cell: (r) => r.department ?? "—" },
+    {
+      header: "Assigned Projects",
+      cell: (r) =>
+        r.projectNames.length === 0 ? (
+          <span className="text-gray-500 dark:text-gray-400">
+            {r.assignedProjectsCount}
+          </span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {r.projectNames.map((pn) => (
+              <StatusBadge key={pn} label={pn} colorToken="gray" />
+            ))}
+          </div>
+        ),
+    },
+    {
+      header: "Expected Hours",
+      cell: (r) => `${Number(r.estimatedHours).toFixed(1)}h`,
+    },
+    {
+      header: "Utilization",
+      cell: (r) =>
+        Number(r.estimatedHours) > 0 ? (
+          <ProjectMeter
+            label={`Hours used by ${r.employeeName}`}
+            used={`${Number(r.loggedHours).toFixed(1)}h`}
+            total={`/ ${Number(r.estimatedHours).toFixed(1)}h`}
+            pct={r.expectedPct}
+            className="min-w-44"
+          />
+        ) : (
+          <span className="text-gray-500 dark:text-gray-400">
+            {Number(r.loggedHours).toFixed(1)}h logged
+          </span>
+        ),
+    },
+  ];
 
   if (metricsQuery.isError) {
     return (
@@ -131,175 +195,65 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Milestone Health & Delivery Diagnostics — legacy card */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
-          <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
-            <Flag className="h-5 w-5 text-brand-600 dark:text-cyan-400" />
-            Milestone Health &amp; Delivery Diagnostics
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Real-time audit of on-time milestones vs overdue / delayed
-            deliverable goals
-          </p>
+      {/* Milestone Health & Delivery Diagnostics */}
+      <SectionCard
+        title="Milestone Health & Delivery Diagnostics"
+        description="Real-time audit of on-time milestones vs overdue / delayed deliverable goals"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard
+            headingId="an-ms-ontrack"
+            label="On-Track / Completed"
+            value={milestoneHealth.onTrack + milestoneHealth.completed}
+            note="Milestones meeting schedule targets"
+            tone="success"
+            icon={CheckCircle2}
+          />
+          <StatCard
+            headingId="an-ms-delayed"
+            label="Delayed / Overdue"
+            value={milestoneHealth.delayed}
+            note="Target date passed & pending completion"
+            tone={milestoneHealth.delayed > 0 ? "error" : "success"}
+            icon={Flag}
+          />
+          <StatCard
+            headingId="an-ms-total"
+            label="Total Active Goals"
+            value={milestoneHealth.total}
+            note={`${milestoneHealth.completed} milestones already closed`}
+            tone="blue"
+            icon={BarChart3}
+          />
         </div>
-        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              On-Track / Completed
-            </span>
-            <p className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              {milestoneHealth.onTrack + milestoneHealth.completed}
-            </p>
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Milestones meeting schedule targets
-            </p>
-          </div>
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900/40 dark:bg-rose-950/20">
-            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-rose-800 dark:text-rose-300">
-              <Flag className="h-3.5 w-3.5" />
-              Delayed / Overdue
-            </span>
-            <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-400">
-              {milestoneHealth.delayed}
-            </p>
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Target date passed &amp; pending completion
-            </p>
-          </div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-800 dark:text-cyan-300">
-              <BarChart3 className="h-3.5 w-3.5" />
-              Total Active Goals
-            </span>
-            <p className="mt-1 text-2xl font-black text-blue-700 dark:text-cyan-400">
-              {milestoneHealth.total}
-            </p>
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              {milestoneHealth.completed} milestones already closed
-            </p>
-          </div>
-        </div>
-      </div>
+      </SectionCard>
 
-      {/* Real Team Workload — legacy `ProjectAnalytics.tsx` table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 p-5 dark:border-gray-800">
-          <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
-            <Users2 className="h-5 w-5 text-brand-600 dark:text-cyan-400" />
-            Real Team Workload (From Tasks)
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Actual logged and estimated hours derived dynamically from active
-            Task records
-          </p>
-        </div>
-        {trackingQuery.isPending ? (
-          <div className="p-4">
-            <TableSkeleton rowsCount={4} columnsCount={6} />
-          </div>
-        ) : trackingQuery.isError ? (
-          <div className="p-6">
-            <ErrorState
-              title="Could not load workload data"
-              onRetry={() => trackingQuery.refetch()}
-            />
-          </div>
+      {/* Real Team Workload */}
+      <SectionCard
+        title="Real Team Workload (From Tasks)"
+        description="Actual logged and estimated hours derived dynamically from active Task records"
+      >
+        {trackingQuery.isError ? (
+          <ErrorState
+            title="Could not load workload data"
+            onRetry={() => trackingQuery.refetch()}
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
-                  <th className="py-3 pl-4 pr-3 font-bold">Employee</th>
-                  <th className="px-3 py-3 font-bold">Department</th>
-                  <th className="px-3 py-3 font-bold">Assigned Projects</th>
-                  <th className="px-3 py-3 font-bold">Expected Hours</th>
-                  <th className="px-3 py-3 font-bold">Logged Task Hours</th>
-                  <th className="min-w-[160px] px-3 py-3 font-bold">
-                    Utilization
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {workload.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-gray-400">
-                      <Users2 className="mx-auto mb-2 h-7 w-7 opacity-30" />
-                      No task hours logged for team members yet.
-                    </td>
-                  </tr>
-                ) : (
-                  workload.map((r) => (
-                    <tr
-                      key={r.employeeId}
-                      className="hover:bg-gray-50/50 dark:hover:bg-gray-800/40"
-                    >
-                      <td className="py-3 pl-4 pr-3 font-semibold text-gray-900 dark:text-white">
-                        {r.employeeName}
-                        <span className="ml-1.5 text-[11px] font-normal text-gray-400">
-                          {r.employeeCode}
-                        </span>
-                        {r.designation ? (
-                          <span className="block text-[11px] font-normal text-gray-500 dark:text-gray-400">
-                            {r.designation}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
-                        {r.department ?? "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        {r.projectNames.length === 0 ? (
-                          <span className="text-gray-400">
-                            {r.assignedProjectsCount}
-                          </span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {r.projectNames.map((pn) => (
-                              <span
-                                key={pn}
-                                className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                              >
-                                {pn}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
-                        {Number(r.estimatedHours).toFixed(1)}h
-                      </td>
-                      <td className="px-3 py-3 font-bold text-brand-700 dark:text-cyan-400">
-                        {Number(r.loggedHours).toFixed(1)}h
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                            <div
-                              className={`h-full rounded-full ${
-                                r.expectedPct >= 100
-                                  ? "bg-rose-500"
-                                  : "bg-gradient-to-r from-blue-600 to-cyan-500"
-                              }`}
-                              style={{ width: `${r.expectedPct}%` }}
-                            />
-                          </div>
-                          <span className="w-9 text-right text-[11px] font-bold text-gray-600 dark:text-gray-400">
-                            {Number(r.estimatedHours) > 0
-                              ? `${r.expectedPct}%`
-                              : "—"}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={workloadColumns}
+            rows={workload}
+            getRowKey={(r) => String(r.employeeId)}
+            caption="Team workload"
+            loading={trackingQuery.isPending}
+            loadingRowsCount={4}
+            emptyState={
+              <div className="py-8">
+                <EmptyState title="No task hours logged for team members yet." />
+              </div>
+            }
+          />
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

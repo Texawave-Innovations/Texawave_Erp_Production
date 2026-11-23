@@ -12,16 +12,20 @@ import {
   ListTodo,
   Star,
   TrendingUp,
-  Trophy,
   Users2,
 } from "lucide-react";
 import {
+  Button,
+  DataTable,
   Dialog,
+  EmptyState,
   ErrorState,
-  SearchInput,
+  SectionCard,
   Select,
   StatCard,
-  TableSkeleton,
+  StatusBadge as KitStatusBadge,
+  TableToolbar,
+  type DataTableColumn,
 } from "@texawave-erp/ui-kit";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -36,6 +40,7 @@ import {
 } from "@/features/projects/components/HealthBadge";
 import { formatDate } from "@/features/projects/format";
 import { PageBanner } from "@/features/projects/components/PageBanner";
+import { ProjectMeter } from "@/features/projects/components/ProjectMeter";
 import type { ProjectTask, ResourceItem } from "@/features/projects/types";
 
 const RANK_BADGE: Record<number, string> = {
@@ -158,28 +163,125 @@ export default function ResourcesPage() {
     [resources],
   );
 
+  const columns: DataTableColumn<ResourceItem>[] = [
+    {
+      header: "Team Member",
+      cell: (res) => (
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-theme-xs font-semibold text-brand-700 dark:bg-blue-950 dark:text-cyan-300">
+            {res.employeeName.slice(0, 1).toUpperCase()}
+          </span>
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-white/90">
+              {res.employeeName}
+            </p>
+            <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+              {res.employeeCode}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Department",
+      cell: (res) => (
+        <div>
+          {res.department ?? "—"}
+          {res.designation ? (
+            <span className="block text-theme-xs text-gray-500 dark:text-gray-400">
+              {res.designation}
+            </span>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      header: "Projects",
+      cell: (res) => (
+        <span className="inline-flex items-center gap-1.5">
+          <FolderKanban className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
+          {res.assignedProjectsCount}
+        </span>
+      ),
+    },
+    {
+      header: "Active Tasks",
+      cell: (res) => (
+        <span className="inline-flex items-center gap-1.5">
+          <ListTodo className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
+          {res.activeTasksCount}
+        </span>
+      ),
+    },
+    {
+      header: "Points",
+      cell: (res) => (
+        <span className="inline-flex items-center gap-1.5">
+          <Star className="h-3.5 w-3.5 text-amber-500" />
+          {res.totalPoints}
+        </span>
+      ),
+    },
+    {
+      header: "Monthly Capacity (160h Base)",
+      cell: (res) => {
+        const logged = Number(res.loggedHours) || 0;
+        const base = res.baseCapacityHours || 160;
+        return (
+          <ProjectMeter
+            label={`Monthly capacity used by ${res.employeeName}`}
+            used={`${logged.toFixed(1)}h`}
+            total={`/ ${base}h`}
+            pct={Math.round((logged / base) * 100)}
+            className="min-w-44"
+          />
+        );
+      },
+    },
+    {
+      header: "Workload",
+      cell: (res) =>
+        res.status === "OVER_CAPACITY" ? (
+          <KitStatusBadge label="High Workload" colorToken="error" />
+        ) : res.status === "NORMAL" ? (
+          <KitStatusBadge label="Optimal Load" colorToken="success" />
+        ) : (
+          <KitStatusBadge label="Available Capacity" colorToken="brand" />
+        ),
+    },
+    {
+      header: "Action",
+      align: "right",
+      cell: (res) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`View ${res.employeeName} details`}
+          onClick={() => setDrilldownResource(res)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Header — legacy `ResourceTracking.tsx` title + My Work shortcut */}
       <PageBanner
         icon={Users2}
         title="Resource Tracking & Capacity"
         description="Real-time team workload allocation, active task metrics, 160h monthly capacity & points leaderboard."
         actions={
           <>
-            <Link
-              href="/projects/points-master"
-              className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/25"
-            >
-              <Award className="h-4 w-4 text-amber-300" />
-              View Points Leaderboard
+            <Link href="/projects/points-master">
+              <Button variant="glass">
+                <Award className="h-4 w-4" /> View Points Leaderboard
+              </Button>
             </Link>
-            <Link
-              href="/projects/my-work"
-              className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-md transition-colors hover:bg-cyan-50"
-            >
-              <Clock className="h-4 w-4" />
-              Open My Work Workspace
+            <Link href="/projects/my-work">
+              <Button variant="glass">
+                <Clock className="h-4 w-4" /> Open My Work Workspace
+              </Button>
             </Link>
           </>
         }
@@ -222,62 +324,66 @@ export default function ResourcesPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Team Resources & Allocations table */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
-          <div className="flex flex-col gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+        {/* Team Resources & Allocations */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark lg:col-span-2">
+          <div className="flex flex-col gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
             <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+              <h2 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
                 Team Resources &amp; Allocations
               </h2>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Click on any row to drill into employee projects &amp; tasks
+              <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                Select the eye icon to see an employee&apos;s projects and tasks
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-full sm:w-56">
-                <SearchInput
-                  sizeVariant="sm"
-                  value={search}
-                  onChangeValue={setSearch}
-                  onClear={() => setSearch("")}
-                  placeholder="Search member, code or department..."
-                  aria-label="Search team members"
-                />
-              </div>
-              <div className="w-44">
-                <Select
-                  aria-label="Department filter"
-                  value={deptFilter}
-                  onChange={(e) => setDeptFilter(e.target.value)}
-                >
-                  <option value="all">All Departments</option>
-                  {departmentOptions.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="w-44">
-                <Select
-                  aria-label="Workload filter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">All Workloads</option>
-                  <option value="NORMAL">Normal Load</option>
-                  <option value="OVER_CAPACITY">Over Capacity</option>
-                  <option value="UNDER_UTILIZED">Available Capacity</option>
-                </Select>
-              </div>
-            </div>
+            <TableToolbar
+              search={{
+                value: search,
+                onChange: setSearch,
+                onClear: () => setSearch(""),
+                placeholder: "Search member, code or department...",
+                ariaLabel: "Search team members",
+              }}
+              resultCount={
+                trackingQuery.isSuccess ? filteredResources.length : undefined
+              }
+              hasActiveFilters={
+                search !== "" || deptFilter !== "all" || statusFilter !== "all"
+              }
+              onClearFilters={() => {
+                setSearch("");
+                setDeptFilter("all");
+                setStatusFilter("all");
+              }}
+              filters={
+                <>
+                  <Select
+                    aria-label="Department filter"
+                    value={deptFilter}
+                    onChange={(e) => setDeptFilter(e.target.value)}
+                  >
+                    <option value="all">All Departments</option>
+                    {departmentOptions.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    aria-label="Workload filter"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All Workloads</option>
+                    <option value="NORMAL">Normal Load</option>
+                    <option value="OVER_CAPACITY">Over Capacity</option>
+                    <option value="UNDER_UTILIZED">Available Capacity</option>
+                  </Select>
+                </>
+              }
+            />
           </div>
 
-          {trackingQuery.isPending ? (
-            <div className="p-4">
-              <TableSkeleton rowsCount={5} columnsCount={7} />
-            </div>
-          ) : trackingQuery.isError ? (
+          {trackingQuery.isError ? (
             <div className="p-6">
               <ErrorState
                 title="Could not load resource tracking"
@@ -285,208 +391,77 @@ export default function ResourcesPage() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60 text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
-                    <th className="py-3 pl-4 pr-3 font-bold">Team Member</th>
-                    <th className="px-3 py-3 font-bold">Code</th>
-                    <th className="px-3 py-3 font-bold">Department</th>
-                    <th className="px-3 py-3 font-bold">Projects</th>
-                    <th className="px-3 py-3 font-bold">Active Tasks</th>
-                    <th className="px-3 py-3 font-bold">Points</th>
-                    <th className="min-w-[170px] px-3 py-3 font-bold">
-                      Monthly Capacity (160h Base)
-                    </th>
-                    <th className="px-3 py-3 font-bold">Workload Status</th>
-                    <th className="py-3 pl-3 pr-4 text-right font-bold">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {filteredResources.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="py-12 text-center text-gray-400"
-                      >
-                        {resources.length === 0
-                          ? "No resource records found."
-                          : "No team members found matching your search."}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredResources.map((res) => {
-                      const logged = Number(res.loggedHours) || 0;
-                      const base = res.baseCapacityHours || 160;
-                      const capacityPct = Math.min(
-                        100,
-                        Math.round((logged / base) * 100),
-                      );
-                      const isOver = res.status === "OVER_CAPACITY";
-                      const isOptimal = res.status === "NORMAL";
-
-                      return (
-                        <tr
-                          key={res.employeeId}
-                          onClick={() => setDrilldownResource(res)}
-                          className="cursor-pointer hover:bg-sky-50/40 dark:hover:bg-gray-800/40"
-                        >
-                          <td className="py-3 pl-4 pr-3 font-semibold text-gray-900 dark:text-white">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-cyan-300">
-                                {res.employeeName.slice(0, 1).toUpperCase()}
-                              </div>
-                              <span>{res.employeeName}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 text-gray-500 dark:text-gray-400">
-                            {res.employeeCode}
-                          </td>
-                          <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
-                            {res.department ?? "—"}
-                            {res.designation ? (
-                              <span className="block text-[10px] text-gray-400">
-                                {res.designation}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 font-bold text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300">
-                              <FolderKanban className="h-3 w-3" />
-                              {res.assignedProjectsCount} projects
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-cyan-300">
-                              <ListTodo className="h-3 w-3" />
-                              {res.activeTasksCount} tasks
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400">
-                              <Star className="h-3 w-3" />
-                              {res.totalPoints}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-300 motion-reduce:transition-none ${
-                                    isOver
-                                      ? "bg-rose-500"
-                                      : isOptimal
-                                        ? "bg-gradient-to-r from-blue-600 to-cyan-500"
-                                        : "bg-blue-400"
-                                  }`}
-                                  style={{ width: `${capacityPct}%` }}
-                                />
-                              </div>
-                              <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">
-                                {logged.toFixed(1)}/{base}h
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3">
-                            {isOver ? (
-                              <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
-                                High Workload
-                              </span>
-                            ) : isOptimal ? (
-                              <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                                Optimal Load
-                              </span>
-                            ) : (
-                              <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-cyan-400">
-                                Available Capacity
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 pl-3 pr-4 text-right">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDrilldownResource(res);
-                              }}
-                              aria-label={`View ${res.employeeName} details`}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-blue-600 transition-colors hover:bg-sky-100 dark:text-cyan-400 dark:hover:bg-gray-800"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={columns}
+              rows={filteredResources}
+              getRowKey={(res) => String(res.employeeId)}
+              caption="Team resources and allocations"
+              loading={trackingQuery.isPending}
+              loadingRowsCount={5}
+              onRowClick={(res) => setDrilldownResource(res)}
+              emptyState={
+                <div className="py-10">
+                  <EmptyState
+                    title={
+                      resources.length === 0
+                        ? "No resource records found."
+                        : "No team members found matching your search."
+                    }
+                  />
+                </div>
+              }
+            />
           )}
         </div>
 
-        {/* Points Leaderboard side panel — legacy "Top 5 point earners" */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center gap-2.5 border-b border-gray-100 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent p-4 dark:border-gray-800">
-            <div className="rounded-xl bg-amber-500/15 p-2 text-amber-600 dark:text-amber-400">
-              <Trophy className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-                Points Leaderboard
-              </h2>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Top 5 gamification point earners this period
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 p-3">
-            {!leaderboard || leaderboard.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-gray-400">
-                No gamification activity recorded yet.
-              </p>
-            ) : (
-              leaderboard.slice(0, 5).map((entry, idx) => (
-                <div
+        {/* Points Leaderboard: top 5 point earners */}
+        <SectionCard
+          title="Points Leaderboard"
+          description="Top 5 gamification point earners this period"
+        >
+          {!leaderboard || leaderboard.length === 0 ? (
+            <EmptyState title="No gamification activity recorded yet." />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {leaderboard.slice(0, 5).map((entry, idx) => (
+                <li
                   key={entry.employeeId}
-                  className="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/80 p-3 transition-colors hover:bg-sky-50/60 dark:border-gray-800 dark:bg-gray-800/40 dark:hover:bg-gray-800"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3 dark:border-gray-800"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-theme-xs font-semibold ${
                         RANK_BADGE[idx] ??
                         "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
                       }`}
                     >
                       #{idx + 1}
                     </span>
-                    <div>
-                      <p className="text-xs font-bold text-gray-900 dark:text-white">
+                    <div className="min-w-0">
+                      <p className="truncate text-theme-sm font-semibold text-gray-900 dark:text-white/90">
                         {entry.employee?.fullName ||
                           `Employee #${entry.employeeId}`}
                       </p>
-                      <p className="text-[10px] font-semibold text-gray-400">
+                      <p className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
                         {entry.employee?.designation?.name || "Engineering"} •{" "}
                         {entry.tasksCompletedCount} tasks done
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-black text-amber-700 dark:text-amber-400">
+                    <span className="text-theme-sm font-semibold text-amber-700 dark:text-amber-400">
                       {entry.totalPoints} pts
                     </span>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-theme-xs text-gray-500 dark:text-gray-400">
                       {(loggedByEmployee.get(entry.employeeId) ?? 0).toFixed(1)}
                       h logged
                     </p>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
       </div>
 
       {/* Per-employee drilldown — legacy row-click dialog */}

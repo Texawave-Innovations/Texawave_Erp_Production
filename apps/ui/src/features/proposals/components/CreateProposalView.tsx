@@ -2,6 +2,7 @@
 
 import type { ProposalTemplate } from "@texawave-erp/api-types";
 import {
+  PageHeader,
   Alert,
   Button,
   Card,
@@ -122,27 +123,20 @@ export function CreateProposalView() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div className="relative flex items-center gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg">
-        <Link
-          href="/projects/proposals"
-          aria-label="Back to proposals"
-          className="rounded-xl bg-white/20 p-2 hover:bg-white/30"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-            New Document
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            Create Client Proposal
-          </h1>
-          <p className="text-theme-sm text-sky-50/90">
-            The proposal number is assigned automatically from your Proposal
-            Settings.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={
+          <Link
+            href="/projects/proposals"
+            aria-label="Back to proposals"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        }
+        title="Create Client Proposal"
+        description="The proposal number is assigned automatically from your Proposal Settings."
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">

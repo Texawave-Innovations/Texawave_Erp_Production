@@ -8,6 +8,7 @@ import type {
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
+  PageHeader,
   ActionMenu,
   type ActionMenuItem,
   Alert,
@@ -276,54 +277,37 @@ export function ProposalsListView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg sm:p-8 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-md">
-            <FileText className="h-7 w-7 text-white" />
-          </div>
-          <div>
-            <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-              Proposal Pipeline
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Proposal Documents
-            </h1>
-            <p className="max-w-xl text-theme-sm text-sky-50/90">
-              Client proposals from versioned templates — internal review,
-              client delivery, follow-ups and a full audit trail.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canSettings ? (
-            <Link
-              href="/projects/proposals/settings"
-              className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-theme-sm font-semibold text-white hover:bg-white/25"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
-          ) : null}
-          {canTemplates ? (
-            <Link
-              href="/projects/proposals/templates"
-              className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-theme-sm font-semibold text-white hover:bg-white/25"
-            >
-              <Layers className="h-4 w-4" />
-              Templates
-            </Link>
-          ) : null}
-          {canWrite ? (
-            <Link
-              href="/projects/proposals/create"
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-theme-sm font-bold text-brand-700 shadow-md hover:bg-sky-50"
-            >
-              <Plus className="h-4 w-4" />
-              Create Proposal
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={FileText}
+        title="Proposal Documents"
+        description="Client proposals from versioned templates — internal review, client delivery, follow-ups and a full audit trail."
+        action={
+          <>
+            {canSettings ? (
+              <Link href="/projects/proposals/settings">
+                <Button variant="glass">
+                  <Settings className="h-4 w-4" /> Settings
+                </Button>
+              </Link>
+            ) : null}
+            {canTemplates ? (
+              <Link href="/projects/proposals/templates">
+                <Button variant="glass">
+                  <Layers className="h-4 w-4" /> Templates
+                </Button>
+              </Link>
+            ) : null}
+            {canWrite ? (
+              <Link href="/projects/proposals/create">
+                <Button variant="glass">
+                  <Plus className="h-4 w-4" /> Create Proposal
+                </Button>
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard

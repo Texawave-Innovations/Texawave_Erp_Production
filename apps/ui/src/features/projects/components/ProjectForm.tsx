@@ -2,23 +2,35 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FolderKanban, IndianRupee } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import {
   Button,
   FormField,
   Input,
+  PageHeader,
+  SectionCard,
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
-import { useProjects as useProjectCategories } from "@/features/projects-master/hooks";
+import {
+  useProjectCodeMaster,
+  useProjects as useProjectCategories,
+} from "@/features/projects-master/hooks";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { DepartmentMultiSelect } from "./DepartmentMultiSelect";
 import {
   ProjectResourcesGrid,
   filterEmployeesByDepartments,
 } from "./ProjectResourcesGrid";
+import {
+  ProjectSummaryCard,
+  type SummaryCheck,
+  type SummaryRow,
+} from "./ProjectSummaryCard";
 import { useProjectCustomers } from "../hooks";
-import { toDateInput, todayInput } from "../format";
+import { formatCurrency, toDateInput, todayInput } from "../format";
+import { projectCodePreview } from "../project-code-preview";
 import type { Project, ProjectStatus } from "../types";
 
 function plusDays(days: number): string {
@@ -37,12 +49,9 @@ export interface ProjectFormProps {
   onSubmit: (payload: Record<string, unknown>) => void | Promise<void>;
 }
 
-/** Legacy `ProjectForm.tsx` — one form for create and edit: a gradient
- * header with the project code badge, a "Project Details & Client" card
- * (project type, code, name, customer, scope, multi-department chips,
- * status) and a "Budget, Timelines & Team Resources" card (hours, price,
- * three dates, client handling person and the department-filtered resource
- * grid). */
+/** One form for create and edit: a banner header, four sections (Basics,
+ * Client, Scope & Team, Budget & Schedule), a sticky live summary (code
+ * preview, key figures, what is still missing) and a sticky action bar. */
 export function ProjectForm({
   project,
   submitting,
@@ -51,6 +60,7 @@ export function ProjectForm({
   onSubmit,
 }: ProjectFormProps) {
   const isEdit = Boolean(project);
+  const router = useRouter();
 
   const [projectType, setProjectType] = useState(project?.projectType ?? "");
   const [name, setName] = useState(project?.name ?? "");
@@ -186,34 +196,105 @@ export function ProjectForm({
   const deptLabel =
     departments.length > 0 ? departments.join(", ") : "all departments";
 
+  // ---- Live summary (read-only view of the values above) ----
+  const codeMasterQuery = useProjectCodeMaster();
+  const codePreview =
+    project?.projectCode ??
+    projectCodePreview(codeMasterQuery.data, projectType, startDate);
+  const category = (categoriesQuery.data?.data ?? []).find(
+    (c) => c.code === projectType,
+  );
+  const customerLabel =
+    customerOptions.find((c) => String(c.id) === salesCustomerId)
+      ?.companyName ??
+    project?.customerName ??
+    "—";
+  const hoursNumber = Number(expectedHours) || 0;
+  const priceNumber = Number(projectPrice) || 0;
+  const plannedEndError =
+    startDate && plannedEndDate && plannedEndDate < startDate
+      ? "Planned end date cannot be earlier than the start date."
+      : undefined;
+  const durationDays =
+    startDate && plannedEndDate && !plannedEndError
+      ? Math.round(
+          (Date.parse(`${plannedEndDate}T00:00:00Z`) -
+            Date.parse(`${startDate}T00:00:00Z`)) /
+            86_400_000,
+        )
+      : null;
+  const nameOk = name.trim().length >= 2;
+
+  const summaryRows: SummaryRow[] = [
+    {
+      label: "Category",
+      value: category ? `${category.code} — ${category.name}` : "—",
+    },
+    { label: "Customer", value: customerLabel },
+    {
+      label: "Departments",
+      value: departments.length > 0 ? departments.join(", ") : "—",
+    },
+    {
+      label: "Duration",
+      value: durationDays === null ? "—" : `${durationDays} days`,
+    },
+    {
+      label: "Expected hours",
+      value: hoursNumber > 0 ? `${hoursNumber}h` : "—",
+    },
+    {
+      label: "Contract price",
+      value: priceNumber > 0 ? formatCurrency(priceNumber) : "—",
+    },
+    {
+      label: "Price per hour",
+      value:
+        hoursNumber > 0 && priceNumber > 0
+          ? formatCurrency(priceNumber / hoursNumber)
+          : "—",
+    },
+    { label: "Team members", value: String(resourceNames.length) },
+  ];
+  const summaryChecks: SummaryCheck[] = [
+    { label: "Project name", done: nameOk, required: true },
+    { label: "Start date", done: Boolean(startDate), required: true },
+    { label: "Project category", done: Boolean(projectType), required: false },
+    { label: "Customer", done: Boolean(salesCustomerId), required: false },
+    { label: "Departments", done: departments.length > 0, required: false },
+    { label: "Expected hours", done: hoursNumber > 0, required: false },
+    { label: "Contract price", done: priceNumber > 0, required: false },
+    {
+      label: "Planned end date",
+      done: Boolean(plannedEndDate),
+      required: false,
+    },
+  ];
+  const missingRequired = summaryChecks.filter(
+    (c) => c.required && !c.done,
+  ).length;
+
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      {/* Header banner */}
-      <div className="flex items-center justify-between gap-4 rounded-3xl bg-gradient-to-r from-blue-700 via-sky-600 to-cyan-500 p-6 text-white shadow-lg shadow-blue-500/15 sm:p-8">
-        <div className="flex items-center gap-4">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+      <PageHeader
+        variant="banner"
+        icon={
           <Link
             href={cancelHref}
             aria-label="Back"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white transition-colors hover:bg-white/30"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-lg bg-white/20 px-2.5 py-0.5 text-xs font-black text-cyan-50">
-                {project?.projectCode ?? "New project"}
-              </span>
-              <h1 className="text-2xl font-black">
-                {isEdit ? "Edit Project" : "New Project Setup"}
-              </h1>
-            </div>
-            <p className="mt-1 text-xs text-cyan-50/80">
-              Configure project client, team resources, milestones scope &amp;
-              contract budgets
-            </p>
-          </div>
-        </div>
-      </div>
+        }
+        badge={
+          <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-theme-xs font-semibold text-white">
+            {project?.projectCode ?? "New project"}
+          </span>
+        }
+        title={isEdit ? "Edit Project" : "New Project Setup"}
+        description="Configure project client, team resources, milestones scope & contract budgets"
+      />
 
       {shownError ? (
         <p
@@ -224,26 +305,32 @@ export function ProjectForm({
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        {/* Card 1: Project identity & customer */}
-        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
-            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
-              <FolderKanban className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-              Project Details &amp; Client
-            </h2>
-          </header>
-          <div className="flex flex-col gap-4 p-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-              <div className="sm:col-span-3">
-                <FormField label="Project *">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-6">
+            {/* 1. Basics */}
+            <SectionCard
+              title="Basics"
+              description="What the project is and how it is numbered"
+              className="relative focus-within:z-30"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  label="Project Category"
+                  hint={
+                    isEdit
+                      ? undefined
+                      : `The category is part of the code: ${codePreview}`
+                  }
+                >
                   {(field) => (
                     <Select
                       {...field}
+                      aria-label="Project Category"
                       value={projectType}
                       onChange={(e) => setProjectType(e.target.value)}
                     >
-                      <option value="">Select Project</option>
+                      <option value="">Select category</option>
                       {(categoriesQuery.data?.data ?? []).map((c) => (
                         <option key={c.id} value={c.code}>
                           {c.code} — {c.name}
@@ -252,30 +339,6 @@ export function ProjectForm({
                     </Select>
                   )}
                 </FormField>
-              </div>
-              <div className="sm:col-span-4">
-                <FormField
-                  label="Project Code"
-                  labelAction={
-                    <span className="text-[10px] font-normal text-gray-400">
-                      Auto-Generated
-                    </span>
-                  }
-                >
-                  {(field) => (
-                    <Input
-                      {...field}
-                      disabled
-                      value={
-                        project?.projectCode ??
-                        "Generated on save (e.g. TXW/PRJ/ME/26-27/001)"
-                      }
-                      readOnly
-                    />
-                  )}
-                </FormField>
-              </div>
-              <div className="sm:col-span-5">
                 <FormField label="Project Name" required>
                   {(field) => (
                     <Input
@@ -287,58 +350,92 @@ export function ProjectForm({
                   )}
                 </FormField>
               </div>
-            </div>
+              <FormField label="Project Scope Description">
+                {(field) => (
+                  <Textarea
+                    {...field}
+                    rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Brief summary of requirements, deliverables and goals..."
+                  />
+                )}
+              </FormField>
+              <div className="sm:max-w-xs">
+                <FormField
+                  label="Project Status"
+                  hint={
+                    status === "completed" && !actualEndDate
+                      ? "Actual end date will be set to today on save."
+                      : undefined
+                  }
+                >
+                  {(field) => (
+                    <Select
+                      {...field}
+                      aria-label="Project Status"
+                      value={status}
+                      onChange={(e) =>
+                        setStatus(e.target.value as ProjectStatus)
+                      }
+                    >
+                      <option value="active">Active</option>
+                      <option value="on_hold">On Hold</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </Select>
+                  )}
+                </FormField>
+              </div>
+            </SectionCard>
 
-            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
-              <p className="mb-2 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Customer Assignment
-              </p>
-              <Input
-                aria-label="Search customers"
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="Search customers by name or code"
-                className="mb-2"
-              />
-              <Select
-                aria-label="Customer / Company"
-                value={salesCustomerId}
-                onChange={(e) => setSalesCustomerId(e.target.value)}
-              >
-                <option value="">Select customer / company (optional)</option>
-                {customerOptions.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.companyName} ({c.customerCode})
-                  </option>
-                ))}
-              </Select>
+            {/* 2. Client */}
+            <SectionCard
+              title="Client"
+              description="The Sales customer this project is delivered for"
+              className="relative focus-within:z-30"
+            >
+              <FormField label="Customer / Company">
+                {(field) => (
+                  <Select
+                    {...field}
+                    aria-label="Customer / Company"
+                    value={salesCustomerId}
+                    onChange={(e) => setSalesCustomerId(e.target.value)}
+                    onSearchChange={setCustomerSearch}
+                    searchPlaceholder="Search customers by name or code"
+                  >
+                    <option value="">
+                      Select customer / company (optional)
+                    </option>
+                    {customerOptions.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.companyName} ({c.customerCode})
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </FormField>
               {!salesCustomerId && project?.customerName ? (
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-theme-xs text-gray-500 dark:text-gray-400">
                   Current client: {project.customerName} (not linked to a Sales
                   customer)
                 </p>
               ) : null}
-            </div>
+            </SectionCard>
 
-            <FormField label="Project Scope Description">
-              {(field) => (
-                <Textarea
-                  {...field}
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief summary of requirements, deliverables and goals..."
-                />
-              )}
-            </FormField>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* 3. Scope & team */}
+            <SectionCard
+              title="Scope & Team"
+              description="Departments involved, the lead contact and the project team"
+              className="relative focus-within:z-30"
+            >
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-theme-sm font-medium text-gray-700 dark:text-white/90">
                     Departments (Multi-Select)
                   </span>
-                  <span className="text-[10px] font-semibold text-brand-700 dark:text-cyan-300">
+                  <span className="text-theme-xs font-medium text-brand-700 dark:text-cyan-300">
                     {departments.length} selected
                   </span>
                 </div>
@@ -348,191 +445,197 @@ export function ProjectForm({
                     onChange={setDepartments}
                   />
                 </div>
-                <p className="text-[10px] text-gray-400">
-                  Selected departments filter available Client Handling Person
-                  &amp; Team Resources below.
+                <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                  Selected departments filter the lead contact and team
+                  resources below.
                 </p>
               </div>
+
               <FormField
-                label="Project Status"
-                hint={
-                  status === "completed" && !actualEndDate
-                    ? "Actual end date will be set to today on save."
-                    : undefined
+                label="Client Handling Person (Lead Contact)"
+                labelAction={
+                  <span className="text-theme-xs font-normal text-gray-500 dark:text-gray-400">
+                    Filtered by {deptLabel}
+                  </span>
                 }
               >
                 {(field) => (
                   <Select
                     {...field}
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                    aria-label="Client Handling Person (Lead Contact)"
+                    value={clientHandlingPersonId}
+                    onChange={(e) => setClientHandlingPersonId(e.target.value)}
                   >
-                    <option value="active">Active</option>
-                    <option value="on_hold">On Hold</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="">
+                      {departmentEmployees.length === 0
+                        ? `No employees found in ${deptLabel}`
+                        : "Select team lead / manager (optional)"}
+                    </option>
+                    {departmentEmployees.map((emp) => (
+                      <option key={emp.id} value={String(emp.id)}>
+                        {emp.fullName} ({emp.team.name})
+                      </option>
+                    ))}
+                    {/* Keep a lead from another department selectable. */}
+                    {project?.clientHandlingPerson &&
+                    !departmentEmployees.some(
+                      (emp) => emp.id === project.clientHandlingPerson?.id,
+                    ) ? (
+                      <option value={String(project.clientHandlingPerson.id)}>
+                        {project.clientHandlingPerson.fullName} (current)
+                      </option>
+                    ) : null}
                   </Select>
                 )}
               </FormField>
-            </div>
-          </div>
-        </section>
 
-        {/* Card 2: Financials, timelines & resources */}
-        <section className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <header className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
-            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
-              <IndianRupee className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-              Budget, Timelines &amp; Team Resources
-            </h2>
-          </header>
-          <div className="flex flex-col gap-5 p-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Expected Hours">
-                {(field) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={expectedHours}
-                    onChange={(e) => setExpectedHours(e.target.value)}
-                    placeholder="e.g. 200"
-                  />
-                )}
-              </FormField>
-              <FormField label="Project Contract Price (₹)">
-                {(field) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={projectPrice}
-                    onChange={(e) => setProjectPrice(e.target.value)}
-                    placeholder="e.g. 500000"
-                  />
-                )}
-              </FormField>
-            </div>
-
-            <div className="relative focus-within:z-30 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <FormField label="Start Date" required>
-                {(field) => (
-                  <Input
-                    {...field}
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                )}
-              </FormField>
-              <FormField label="Planned End Date">
-                {(field) => (
-                  <Input
-                    {...field}
-                    type="date"
-                    value={plannedEndDate}
-                    onChange={(e) => setPlannedEndDate(e.target.value)}
-                  />
-                )}
-              </FormField>
-              <FormField label="Actual End Date">
-                {(field) => (
-                  <Input
-                    {...field}
-                    type="date"
-                    value={actualEndDate}
-                    onChange={(e) => setActualEndDate(e.target.value)}
-                  />
-                )}
-              </FormField>
-            </div>
-
-            <FormField
-              label="Client Handling Person (Lead Contact)"
-              labelAction={
-                <span className="text-[10px] font-medium text-gray-400">
-                  Filtered by {deptLabel}
-                </span>
-              }
-            >
-              {(field) => (
-                <Select
-                  {...field}
-                  value={clientHandlingPersonId}
-                  onChange={(e) => setClientHandlingPersonId(e.target.value)}
-                >
-                  <option value="">
-                    {departmentEmployees.length === 0
-                      ? `No employees found in ${deptLabel}`
-                      : "Select team lead / manager (optional)"}
-                  </option>
-                  {departmentEmployees.map((emp) => (
-                    <option key={emp.id} value={String(emp.id)}>
-                      {emp.fullName} ({emp.team.name})
-                    </option>
-                  ))}
-                  {/* Keep a lead from another department selectable. */}
-                  {project?.clientHandlingPerson &&
-                  !departmentEmployees.some(
-                    (emp) => emp.id === project.clientHandlingPerson?.id,
-                  ) ? (
-                    <option value={String(project.clientHandlingPerson.id)}>
-                      {project.clientHandlingPerson.fullName} (current)
-                    </option>
-                  ) : null}
-                </Select>
-              )}
-            </FormField>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-theme-sm font-medium text-gray-700 dark:text-white/90">
-                  Project Resources (Team Members)
-                </span>
-                <span className="text-[10px] font-semibold text-brand-700 dark:text-cyan-300">
-                  {resourceNames.length} selected ({departmentEmployees.length}{" "}
-                  available in {deptLabel})
-                </span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-theme-sm font-medium text-gray-700 dark:text-white/90">
+                    Project Resources (Team Members)
+                  </span>
+                  <span className="text-theme-xs font-medium text-brand-700 dark:text-cyan-300">
+                    {resourceNames.length} selected (
+                    {departmentEmployees.length} available in {deptLabel})
+                  </span>
+                </div>
+                <ProjectResourcesGrid
+                  employees={departmentEmployees}
+                  selectedIds={selectedIds}
+                  onChange={handleResourceIdsChange}
+                />
+                {resourceNames.some(
+                  (n) => !departmentEmployees.some((e) => e.fullName === n),
+                ) ? (
+                  <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                    Also assigned (outside current department filter):{" "}
+                    {resourceNames
+                      .filter(
+                        (n) =>
+                          !departmentEmployees.some((e) => e.fullName === n),
+                      )
+                      .join(", ")}
+                  </p>
+                ) : null}
+                {isEdit ? (
+                  <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                    Resources are the display roster; hours-tracking team
+                    members are managed in the Team Members section below.
+                  </p>
+                ) : null}
               </div>
-              <ProjectResourcesGrid
-                employees={departmentEmployees}
-                selectedIds={selectedIds}
-                onChange={handleResourceIdsChange}
-              />
-              {resourceNames.some(
-                (n) => !departmentEmployees.some((e) => e.fullName === n),
-              ) ? (
-                <p className="text-[10px] text-gray-400">
-                  Also assigned (outside current department filter):{" "}
-                  {resourceNames
-                    .filter(
-                      (n) => !departmentEmployees.some((e) => e.fullName === n),
-                    )
-                    .join(", ")}
-                </p>
-              ) : null}
-              {isEdit ? (
-                <p className="text-[10px] text-gray-400">
-                  Resources are the display roster; hours-tracking team members
-                  are managed in the Team Members section below.
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
+            </SectionCard>
 
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <Link
-            href={cancelHref}
-            className="rounded-xl border border-gray-200 px-6 py-2.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            {/* 4. Budget & schedule */}
+            <SectionCard
+              title="Budget & Schedule"
+              description="Contract value, planned effort and the project timeline"
+              className="relative focus-within:z-30"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Expected Hours">
+                  {(field) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={expectedHours}
+                      onChange={(e) => setExpectedHours(e.target.value)}
+                      placeholder="e.g. 200"
+                    />
+                  )}
+                </FormField>
+                <FormField label="Project Contract Price (₹)">
+                  {(field) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={projectPrice}
+                      onChange={(e) => setProjectPrice(e.target.value)}
+                      placeholder="e.g. 500000"
+                    />
+                  )}
+                </FormField>
+              </div>
+
+              <div className="relative grid grid-cols-1 gap-4 focus-within:z-30 sm:grid-cols-3">
+                <FormField label="Start Date" required>
+                  {(field) => (
+                    <Input
+                      {...field}
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  )}
+                </FormField>
+                <FormField
+                  label="Planned End Date"
+                  error={plannedEndError}
+                  hint={
+                    durationDays !== null
+                      ? `${durationDays} days from the start date`
+                      : undefined
+                  }
+                >
+                  {(field) => (
+                    <Input
+                      {...field}
+                      type="date"
+                      value={plannedEndDate}
+                      onChange={(e) => setPlannedEndDate(e.target.value)}
+                    />
+                  )}
+                </FormField>
+                <FormField label="Actual End Date">
+                  {(field) => (
+                    <Input
+                      {...field}
+                      type="date"
+                      value={actualEndDate}
+                      onChange={(e) => setActualEndDate(e.target.value)}
+                    />
+                  )}
+                </FormField>
+              </div>
+            </SectionCard>
+          </div>
+
+          <aside
+            aria-label="Project summary"
+            className="min-w-0 lg:sticky lg:top-24"
           >
-            Cancel
-          </Link>
-          <Button type="submit" loading={submitting}>
-            {isEdit ? "Update Project" : "Create Project"}
-          </Button>
+            <ProjectSummaryCard
+              code={codePreview}
+              codeIsFinal={isEdit}
+              rows={summaryRows}
+              checks={summaryChecks}
+            />
+          </aside>
+        </div>
+
+        {/* Sticky action bar: always in reach, however long the form is. */}
+        <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white/90 px-5 py-3 shadow-theme-sm backdrop-blur dark:border-gray-800 dark:bg-gray-dark/90">
+          <p className="hidden text-theme-xs text-gray-500 dark:text-gray-400 sm:block">
+            {missingRequired === 0
+              ? "Required fields are filled."
+              : `${missingRequired} required ${missingRequired === 1 ? "field is" : "fields are"} still missing.`}
+          </p>
+          <div className="ml-auto flex items-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push(cancelHref)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={submitting}>
+              {isEdit ? "Update Project" : "Create Project"}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

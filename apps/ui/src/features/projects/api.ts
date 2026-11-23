@@ -7,6 +7,7 @@ import type {
   ActiveTimer,
   DashboardMetrics,
   DepartmentSpendItem,
+  PointsAward,
   PointsConfig,
   PointsLeaderboardEntry,
   Project,
@@ -384,6 +385,14 @@ export async function getPointsLeaderboard(): Promise<
 > {
   const { data } = await withAuthRetry(() =>
     apiClient.get<PointsLeaderboardEntry[]>("/projects/points/leaderboard"),
+  );
+  return data;
+}
+
+/** The current employee's own awards, newest first, with their breakdown. */
+export async function getMyPoints(): Promise<PointsAward[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<PointsAward[]>("/projects/points/my"),
   );
   return data;
 }

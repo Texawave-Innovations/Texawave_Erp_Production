@@ -3,33 +3,33 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Briefcase,
   CheckCircle2,
   Clock,
   Edit2,
-  Filter,
   IndianRupee,
   Plus,
   Receipt,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   Button,
+  DataTable,
   DeleteConfirmDialog,
   Dialog,
   EmptyState,
   ErrorState,
   FormField,
   Input,
-  SearchInput,
+  PageHeader,
   Select,
-  TableSkeleton,
+  StatCard,
+  StatusBadge,
+  TableToolbar,
   Textarea,
   useToast,
+  type DataTableColumn,
+  type StatusColorToken,
 } from "@texawave-erp/ui-kit";
 import {
   useCreateExpense,
@@ -52,12 +52,10 @@ import type { ExpenseStatus, ProjectExpense } from "@/features/projects/types";
 type SortField = "expenseDate" | "amount";
 type SortDirection = "asc" | "desc";
 
-const STATUS_STYLES: Record<ExpenseStatus, string> = {
-  paid: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300",
-  unpaid:
-    "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300",
-  cancelled:
-    "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300",
+const STATUS_TOKENS: Record<ExpenseStatus, StatusColorToken> = {
+  paid: "success",
+  unpaid: "warning",
+  cancelled: "gray",
 };
 
 const STATUS_LABELS: Record<ExpenseStatus, string> = {
@@ -192,15 +190,6 @@ export default function ExpensesPage() {
     setDepartmentFilter("all");
     setDateFrom("");
     setDateTo("");
-  }
-
-  function toggleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
   }
 
   // `GET /projects/expenses` takes no query params — all filtering is
@@ -407,164 +396,232 @@ export default function ExpensesPage() {
   const saving =
     createExpenseMutation.isPending || updateExpenseMutation.isPending;
 
-  const sortIcon = (field: SortField) =>
-    sortField === field ? (
-      sortDirection === "asc" ? (
-        <ArrowUp className="h-3 w-3" />
-      ) : (
-        <ArrowDown className="h-3 w-3" />
-      )
-    ) : (
-      <ArrowUpDown className="h-3 w-3 opacity-40" />
-    );
-
-  const selectClass =
-    "rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+  const columns: DataTableColumn<ProjectExpense>[] = [
+    {
+      header: "Client",
+      cell: (exp) => (
+        <span className="font-semibold text-gray-900 dark:text-white/90">
+          {clientOf(exp) || "—"}
+        </span>
+      ),
+    },
+    {
+      header: "Project",
+      cell: (exp) => (
+        <div>
+          <Link
+            href={`/projects/${exp.projectId}`}
+            className="font-semibold text-brand-600 hover:underline dark:text-cyan-400"
+          >
+            {exp.project?.name || `Project #${exp.projectId}`}
+          </Link>
+          {exp.project?.projectCode ? (
+            <span className="block text-theme-xs text-gray-500 dark:text-gray-400">
+              {exp.project.projectCode}
+            </span>
+          ) : null}
+        </div>
+      ),
+    },
+    { header: "Department", cell: (exp) => exp.department || "—" },
+    {
+      header: "Amount",
+      sortable: true,
+      sortKey: "amount",
+      cell: (exp) => (
+        <span className="whitespace-nowrap font-semibold text-gray-900 dark:text-white/90">
+          {formatCurrency(exp.amount)}
+        </span>
+      ),
+    },
+    {
+      header: "Date",
+      sortable: true,
+      sortKey: "expenseDate",
+      cell: (exp) => (
+        <span className="whitespace-nowrap">{formatDate(exp.expenseDate)}</span>
+      ),
+    },
+    {
+      header: "Vendor",
+      cell: (exp) => (
+        <div>
+          {exp.vendor || "—"}
+          {exp.supplier ? (
+            <span className="block text-theme-xs text-brand-700 dark:text-cyan-300">
+              {exp.supplier.supplierCode} · supplier master
+            </span>
+          ) : null}
+        </div>
+      ),
+    },
+    { header: "Reference", cell: (exp) => exp.referenceNo || "—" },
+    {
+      header: "Status",
+      cell: (exp) => (
+        <button
+          type="button"
+          onClick={() => handleToggleStatus(exp)}
+          disabled={exp.status === "cancelled"}
+          title={
+            exp.status === "cancelled"
+              ? "Cancelled"
+              : "Click to toggle Paid / Unpaid"
+          }
+          className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed"
+        >
+          <StatusBadge
+            label={STATUS_LABELS[exp.status]}
+            colorToken={STATUS_TOKENS[exp.status]}
+          />
+        </button>
+      ),
+    },
+    {
+      header: "Notes",
+      cell: (exp) => (
+        <span
+          className="block max-w-40 truncate text-gray-500 dark:text-gray-400"
+          title={exp.notes ?? undefined}
+        >
+          {exp.notes || "—"}
+        </span>
+      ),
+    },
+    {
+      header: "Actions",
+      align: "right",
+      cell: (exp) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Edit expense"
+            title="Edit Expense"
+            onClick={() => openEditModal(exp)}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete expense"
+            title="Delete Expense"
+            onClick={() => setDeleteTarget(exp)}
+          >
+            <Trash2 className="h-4 w-4 text-error-600 dark:text-rose-400" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header banner — legacy "Project Expenses" hero */}
-      <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-3xl border border-sky-200/60 bg-gradient-to-r from-[#0a3271] via-[#1769F5] to-[#12CFE3] p-6 text-white shadow-lg shadow-blue-500/10 dark:border-sky-900/40">
-        <div>
-          <div className="mb-1.5 flex items-center gap-3">
-            <span className="rounded-2xl border border-white/20 bg-white/15 p-2.5 backdrop-blur-md">
-              <Receipt className="h-6 w-6" />
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Project Expenses
-            </h1>
-          </div>
-          <p className="pl-1 text-xs text-cyan-50/90 sm:text-sm">
-            Track and manage all project-related expenditures, vendor invoices
-            &amp; department allocations
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => openCreateModal()}
-          disabled={projects.length === 0}
-          className="flex shrink-0 items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-xs font-bold text-brand-700 shadow-md transition-colors hover:bg-sky-50 disabled:opacity-60 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-800"
-        >
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </button>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={Receipt}
+        title="Project Expenses"
+        description="Track and manage all project-related expenditures, vendor invoices & department allocations"
+        action={
+          <Button
+            variant="glass"
+            onClick={() => openCreateModal()}
+            disabled={projects.length === 0}
+          >
+            <Plus className="h-4 w-4" /> Add Expense
+          </Button>
+        }
+      />
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Total Expenses
-            </span>
-            <div className="rounded-xl bg-sky-50 p-2 text-brand-600 dark:bg-sky-950/40 dark:text-cyan-400">
-              <IndianRupee className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-gray-900 dark:text-white">
-            {formatCurrency(summary.total)}
-          </div>
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-            Across {summary.count} logged vouchers (excl. cancelled)
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Paid Amount
-            </span>
-            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
-            {formatCurrency(summary.paid)}
-          </div>
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-            Vendor payments cleared
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-              Unpaid Amount
-            </span>
-            <div className="rounded-xl bg-amber-50 p-2 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
-              <Clock className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-amber-700 dark:text-amber-400">
-            {formatCurrency(summary.unpaid)}
-          </div>
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-            Pending treasury disbursement
-          </p>
-        </div>
+        <StatCard
+          headingId="prj-exp-total"
+          label="Total Expenses"
+          value={formatCurrency(summary.total)}
+          note={`Across ${summary.count} logged vouchers (excl. cancelled)`}
+          tone="blue"
+          icon={IndianRupee}
+        />
+        <StatCard
+          headingId="prj-exp-paid"
+          label="Paid Amount"
+          value={formatCurrency(summary.paid)}
+          note="Vendor payments cleared"
+          tone="success"
+          icon={CheckCircle2}
+        />
+        <StatCard
+          headingId="prj-exp-unpaid"
+          label="Unpaid Amount"
+          value={formatCurrency(summary.unpaid)}
+          note="Pending treasury disbursement"
+          tone="amber"
+          icon={Clock}
+        />
       </div>
 
-      {/* Filter & Search card */}
-      <div className="relative focus-within:z-30 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-4 py-3 text-xs font-bold text-gray-700 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-300">
-          <Filter className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
-          Filter &amp; Search Expenses
-        </div>
-        <div className="flex flex-col gap-3 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-[240px] flex-1">
-              <SearchInput
-                value={search}
-                onChangeValue={setSearch}
-                onClear={() => setSearch("")}
-                clearable
-                sizeVariant="sm"
-                placeholder="Search project, client, vendor, reference, notes..."
-                aria-label="Search expenses"
-              />
-            </div>
-            <select
-              aria-label="Filter by status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={selectClass}
-            >
-              <option value="all">All Statuses</option>
-              <option value="paid">Paid</option>
-              <option value="unpaid">Unpaid</option>
-            </select>
-            <select
-              aria-label="Filter by vendor"
-              value={vendorFilter}
-              onChange={(e) => setVendorFilter(e.target.value)}
-              className={selectClass}
-            >
-              <option value="all">All Vendors</option>
-              {vendors.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter by department"
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className={selectClass}
-            >
-              <option value="all">All Departments</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+      {/* Expenses: toolbar + table */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
+        <div className="flex flex-col gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
+          <TableToolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              onClear: () => setSearch(""),
+              placeholder:
+                "Search project, client, vendor, reference, notes...",
+              ariaLabel: "Search expenses",
+            }}
+            resultCount={
+              expensesQuery.isSuccess ? filteredExpenses.length : undefined
+            }
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            filters={
+              <>
+                <Select
+                  aria-label="Filter by status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="paid">Paid</option>
+                  <option value="unpaid">Unpaid</option>
+                </Select>
+                <Select
+                  aria-label="Filter by vendor"
+                  value={vendorFilter}
+                  onChange={(e) => setVendorFilter(e.target.value)}
+                >
+                  <option value="all">All Vendors</option>
+                  {vendors.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  aria-label="Filter by department"
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              </>
+            }
+          />
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <label
                 htmlFor="expense-date-from"
-                className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap"
+                className="whitespace-nowrap text-theme-xs font-medium text-gray-600 dark:text-gray-400"
               >
                 Date From:
               </label>
@@ -581,7 +638,7 @@ export default function ExpensesPage() {
             <div className="flex items-center gap-2">
               <label
                 htmlFor="expense-date-to"
-                className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap"
+                className="whitespace-nowrap text-theme-xs font-medium text-gray-600 dark:text-gray-400"
               >
                 Date To:
               </label>
@@ -596,181 +653,54 @@ export default function ExpensesPage() {
                 />
               </div>
             </div>
-            {hasActiveFilters ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear Filters
-              </Button>
-            ) : null}
           </div>
         </div>
-      </div>
 
-      {/* Expenses Table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">
-            Project Expense Records ({filteredExpenses.length})
-          </h2>
-        </div>
-        {expensesQuery.isPending ? (
-          <TableSkeleton rowsCount={6} columnsCount={10} className="p-4" />
-        ) : expensesQuery.isError ? (
-          <ErrorState
-            title="Could not load project expenses"
-            onRetry={() => expensesQuery.refetch()}
-          />
-        ) : filteredExpenses.length === 0 ? (
-          <EmptyState
-            title="No project expenses found"
-            description={
-              hasActiveFilters
-                ? "Try clearing your filters."
-                : 'Click "Add Expense" to record a new project expense.'
-            }
-            action={
-              hasActiveFilters ? (
-                <Button variant="secondary" size="sm" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60 text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
-                  <th className="py-3 pl-4 pr-3 font-bold">Client</th>
-                  <th className="px-3 py-3 font-bold">Project</th>
-                  <th className="px-3 py-3 font-bold">Department</th>
-                  <th className="px-3 py-3 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("amount")}
-                      className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
-                    >
-                      Amount {sortIcon("amount")}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("expenseDate")}
-                      className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white"
-                    >
-                      Date {sortIcon("expenseDate")}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 font-bold">Vendor</th>
-                  <th className="px-3 py-3 font-bold">Reference</th>
-                  <th className="px-3 py-3 font-bold">Status</th>
-                  <th className="px-3 py-3 font-bold">Notes</th>
-                  <th className="py-3 pl-3 pr-4 text-right font-bold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {filteredExpenses.map((exp) => (
-                  <tr
-                    key={exp.id}
-                    className="hover:bg-sky-50/40 dark:hover:bg-gray-800/40"
-                  >
-                    <td className="py-3 pl-4 pr-3 font-bold text-gray-900 dark:text-white">
-                      {clientOf(exp) || "—"}
-                    </td>
-                    <td className="px-3 py-3">
-                      <Link
-                        href={`/projects/${exp.projectId}`}
-                        className="font-semibold text-brand-600 hover:underline dark:text-cyan-400"
-                      >
-                        {exp.project?.name || `Project #${exp.projectId}`}
-                      </Link>
-                      {exp.project?.projectCode ? (
-                        <span className="block text-[10px] text-gray-400">
-                          {exp.project.projectCode}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                      {exp.department || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 font-extrabold text-gray-900 dark:text-white">
-                      {formatCurrency(exp.amount)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 font-semibold text-gray-700 dark:text-gray-300">
-                      {formatDate(exp.expenseDate)}
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-gray-800 dark:text-gray-200">
-                      {exp.vendor || "—"}
-                      {exp.supplier ? (
-                        <span className="block text-[10px] font-medium text-sky-700 dark:text-sky-300">
-                          {exp.supplier.supplierCode} · supplier master
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                      {exp.referenceNo || "—"}
-                    </td>
-                    <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(exp)}
-                        disabled={exp.status === "cancelled"}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold transition-colors ${STATUS_STYLES[exp.status]}`}
-                        title={
-                          exp.status === "cancelled"
-                            ? "Cancelled"
-                            : "Click to toggle Paid / Unpaid"
-                        }
-                      >
-                        {exp.status === "paid" ? (
-                          <CheckCircle2 className="h-3 w-3" />
-                        ) : (
-                          <Clock className="h-3 w-3" />
-                        )}
-                        {STATUS_LABELS[exp.status]}
-                      </button>
-                    </td>
-                    <td
-                      className="max-w-[160px] truncate px-3 py-3 text-gray-500 dark:text-gray-400"
-                      title={exp.notes ?? undefined}
-                    >
-                      {exp.notes || "—"}
-                    </td>
-                    <td className="whitespace-nowrap py-3 pl-3 pr-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(exp)}
-                          title="Edit Expense"
-                          aria-label="Edit expense"
-                          className="rounded-lg border border-gray-200 p-1.5 text-amber-600 transition-colors hover:bg-amber-50 dark:border-gray-700 dark:hover:bg-amber-950/30"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(exp)}
-                          title="Delete Expense"
-                          aria-label="Delete expense"
-                          className="rounded-lg border border-gray-200 p-1.5 text-rose-500 transition-colors hover:bg-rose-50 dark:border-gray-700 dark:hover:bg-rose-950/40"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {expensesQuery.isError ? (
+          <div className="p-6">
+            <ErrorState
+              title="Could not load project expenses"
+              onRetry={() => expensesQuery.refetch()}
+            />
           </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={filteredExpenses}
+            getRowKey={(exp) => String(exp.id)}
+            caption="Project expense records"
+            loading={expensesQuery.isPending}
+            loadingRowsCount={6}
+            sortColumn={sortField}
+            sortDirection={sortDirection}
+            onSort={(key, dir) => {
+              setSortField(key as SortField);
+              setSortDirection(dir);
+            }}
+            emptyState={
+              <div className="py-10">
+                <EmptyState
+                  title="No project expenses found"
+                  description={
+                    hasActiveFilters
+                      ? "Try clearing your filters."
+                      : 'Click "Add Expense" to record a new project expense.'
+                  }
+                  action={
+                    hasActiveFilters ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={clearFilters}
+                      >
+                        Clear Filters
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              </div>
+            }
+          />
         )}
       </div>
 

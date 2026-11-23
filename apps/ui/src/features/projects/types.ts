@@ -331,4 +331,28 @@ export interface PointsConfig {
   high: number;
   urgent: number;
   customRules: Record<string, unknown>;
+  /** Time-based points: when on, points come from the ETA and the timer. */
+  timeBasedEnabled: boolean;
+  /** Points of a finished task, the same for every task. */
+  defaultTaskPoints: number;
+  /** Extra points for finishing within the ETA. */
+  onTimeBonus: number;
+  /** Minutes over the ETA that cost nothing. */
+  graceMinutes: number;
+}
+
+/** One points award with the breakdown stored by the time-based rule (the
+ * breakdown fields are null on older awards). */
+export interface PointsAward {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  points: number;
+  awardedAt: string;
+  etaMinutes: number | null;
+  workedMinutes: number | null;
+  basePoints: number | null;
+  bonusPoints: number | null;
+  overrunMinutes: number | null;
+  rule: string | null;
 }
