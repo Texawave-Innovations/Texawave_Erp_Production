@@ -480,9 +480,11 @@ model ProjectPointsConfig {
 
 All computational logic documented in `project_arch(1).md` is preserved and implemented in shared pure functions (`apps/api/src/modules/projects/calculations/project-calculations.ts` and `@texawave-erp/core`):
 
-### 3.1 Business Days & Hours Calculation
+### 3.1 Business Days & Hours Calculation (a capacity hint, not the ETA)
 
-Calculates standard working hours strictly across business weekdays (Monday through Friday), excluding Saturdays and Sundays at 8 working hours per day:
+A task's **ETA is the hours the team lead types in** (`hoursToComplete`: required, at least 0.25, in steps of 0.25, at most 500). It is never derived from the dates, and moving the dates never rewrites it. The business-days figure below is only a hint shown next to the field ("the dates allow up to Nh of working time") and a warning when the ETA is longer than that. Once a task is completed its ETA is locked; once work has started, changing it needs a reason, and every change is written to the audit log (`eta_change`).
+
+`calculateBusinessHours` calculates working hours across business weekdays (Monday through Friday), excluding Saturdays and Sundays at 8 working hours per day:
 
 $$\text{BusinessDays}(S, E) = \sum_{d=S}^{E} [d \notin \{\text{Saturday}, \text{Sunday}\}]$$
 $$\text{HoursToComplete} = \text{BusinessDays}(S, E) \times 8$$
@@ -520,6 +522,18 @@ Before assigning `task.dependencyTaskId = candidateDependencyId`, a Depth-First 
 
 ---
 
+### 3.7 Time-Based Task Points
+
+Switched on in the Points Master (`timeBasedEnabled`, off by default; it applies to tasks completed after it is switched on, and points already awarded never change). Every task is worth the same configured points (`defaultTaskPoints`, default 10): priority and a typed value no longer decide it. The result is measured against the ETA by the assignee's own **timer** minutes (`project_time_entries` with `source = 'TIMER'`; manual and correction entries do not count), separately for each employee a task passes through. Each employee is measured against the full ETA.
+
+- Within the ETA: base + `onTimeBonus` (default 1).
+- Over the ETA by no more than `graceMinutes` (default 5): base (no bonus, no deduction).
+- Over by more: $\lfloor \text{base} \times (1 - \text{overrun} / \text{ETA}) \rfloor$, never below 0, reaching 0 when the task took twice its ETA.
+
+Example, ETA 2h and 10 points: 1h 50m earns 11, 2h 30m earns 7, 3h earns 5, 3h 30m earns 2, 4h earns 0. The calendar due date plays no part; only the hours overrun counts.
+
+One pure function (`calculateTaskPoints`) holds the rule and `awardTaskPoints` (`points-award.ts`) pays it, for both completion paths (the manager `PATCH` and the employee Complete flow). Points are awarded once per task and employee, ever (a reopened task keeps its first award). While the switch is on, completing a task with no timer time logged is refused (`NO_TIMER_TIME_LOGGED`), because it would earn the bonus for free. The ledger row stores the breakdown (`eta_minutes`, `worked_minutes`, `base_points`, `bonus_points`, `overrun_minutes`, `rule` = `time_v1`); rows from before the rule keep these columns null.
+
 ## 4. Master Lists & Document Numbering Integration
 
 Per the mandatory constraint:
@@ -538,16 +552,19 @@ Per the mandatory constraint:
 
 All routes require authentication (`JwtAuthGuard`) and are governed by granular permission checks (`@RequirePermission`):
 
-| Permission String         | Description                                    | Default Roles Assigned                                                                                |
-| :------------------------ | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| `projects.project.read`   | View projects, dashboards, milestones, tasks   | Super Admin, HR Manager, Team Lead, Contributor                                                       |
-| `projects.project.write`  | Create and edit projects, assign members       | Super Admin, Project Manager                                                                          |
-| `projects.project.delete` | Soft-delete projects and milestones            | Super Admin                                                                                           |
-| `projects.task.write`     | Create, update, assign tasks and milestones    | Super Admin, Project Manager, Team Lead                                                               |
-| `projects.timer.write`    | Start and stop stopwatch timers, log work      | Project roles (employees use `employee_self_service.work.write`, which opens the same My Work routes) |
-| `projects.expenses.read`  | View project expenses and budget variance      | Super Admin, Project Manager, Finance Admin                                                           |
-| `projects.expenses.write` | Log and approve project expenses               | Super Admin, Project Manager, Finance Admin                                                           |
-| `projects.points.manage`  | Configure points master and gamification rules | Super Admin                                                                                           |
+| Permission String                     | Description                                                                                                                                            | Default Roles Assigned                                                                                |
+| :------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| `projects.project.read`               | View projects, dashboards, milestones, tasks                                                                                                           | Super Admin, HR Manager, Team Lead, Contributor                                                       |
+| `projects.project.write`              | Create and edit projects, assign members                                                                                                               | Super Admin, Project Manager                                                                          |
+| `projects.project.delete`             | Soft-delete projects and milestones                                                                                                                    | Super Admin                                                                                           |
+| `projects.task.write`                 | Create, update, assign tasks and milestones, for any team                                                                                              | Super Admin, Project Manager                                                                          |
+| `projects.task_assignment.write.team` | Create, update, assign tasks and milestones for employees of the caller's own team (`.own`/`.all` variants exist; `.all` equals `projects.task.write`) | Team Lead                                                                                             |
+| `projects.timer.write`                | Start and stop stopwatch timers, log work                                                                                                              | Project roles (employees use `employee_self_service.work.write`, which opens the same My Work routes) |
+| `projects.expenses.read`              | View project expenses and budget variance                                                                                                              | Super Admin, Project Manager, Finance Admin                                                           |
+| `projects.expenses.write`             | Log and approve project expenses                                                                                                                       | Super Admin, Project Manager, Finance Admin                                                           |
+| `projects.points.manage`              | Configure points master and gamification rules                                                                                                         | Super Admin                                                                                           |
+
+A Team Lead (`projects.task_assignment.write.team`) is limited by `ProjectsWriteAccessService`: a task can only be created for, assigned to, edited on or deleted from an employee of their own team(s) (never unassigned, never handed to another team), and a milestone only on a project that already has a member from their team. A Team Lead also holds `projects.project.read` so they can open projects, which are not owned by a team. This is the second documented exception to "Team Lead is read-only" (the first is the first approval of timesheets and leave).
 
 ---
 
@@ -576,9 +593,10 @@ The API is exposed under `/api/v1/projects` (or `/projects` in NestJS controller
 
 - `GET /projects/:id/tasks` — List tasks for a project.
 - `GET /projects/tasks/my-work` — List tasks assigned to the authenticated employee.
-- `POST /projects/:id/tasks` — Create task with auto-generated `TSK-XXXXXX`, business hours calculation, and cycle validation.
+- `POST /projects/:id/tasks` — Create task with auto-generated `TSK-XXXXXX`, the **required manual ETA** (`hoursToComplete`), and cycle validation. Team Leads are limited to their own team's employees.
 - `GET /projects/tasks/:taskId` — Task detail with dependency chain and time entries.
-- `PATCH /projects/tasks/:taskId` — Update task (`status`, `completionPercent`, `priority`, `assignedToId`). Auto-triggers gamification points when marked completed.
+- `PATCH /projects/tasks/:taskId` — Update task (`status`, `completionPercent`, `priority`, `assignedToId`, `hoursToComplete` with `hoursChangeReason` once work has started). Auto-triggers gamification points when marked completed (§3.7).
+- `GET /projects/points/my` — The authenticated employee's own awards (newest first) with their breakdown (My Work permissions).
 - `DELETE /projects/tasks/:taskId` — Soft-delete task.
 
 ### 6.4 Stopwatch & Time Tracking (`/projects/time-entries`)
@@ -604,7 +622,7 @@ The API is exposed under `/api/v1/projects` (or `/projects` in NestJS controller
 - `GET /projects/analytics/resources` — Resource capacity tracking over every live project, per employee incl. HR `department`/`designation` and assigned `projects[]`; plus the distinct `departments` list for filtering.
 - `GET /projects/analytics/department-breakdown` — Projects and hours segmented by department.
 - `GET /projects/points/config` — Get gamification points configuration.
-- `PATCH /projects/points/config` — Update points assigned to low/medium/high/urgent priorities.
+- `PATCH /projects/points/config` — Update points assigned to low/medium/high/urgent priorities and the time-based rule (`timeBasedEnabled`, `defaultTaskPoints`, `onTimeBonus`, `graceMinutes`).
 - `GET /projects/points/leaderboard` — Lifetime points awarded to team members with recent ledger transactions.
 
 ### 6.7 My Work, stopwatch & attendance (`/projects/tasks`)

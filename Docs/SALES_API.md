@@ -158,8 +158,8 @@ returns each field with `hasImage` and its `documentTypes`.
 | `POST /sales/{quotations,invoices,delivery-challans}/preview`, `POST /:id/preview` | `sales.<doc>.write`            |
 | `POST /sales/quotations/:id/convert` (to proforma or tax)                          | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/convert-to-tax`                                          | `sales.invoice.write`          |
-| `POST /sales/quotations/:id/mark-invoiced`, `POST /:id/reopen` `{ reason }`        | `sales.quotation.write`        |
-| `POST /sales/invoices/:id/mark-converted`, `POST /:id/reopen` `{ reason }`         | `sales.invoice.write`          |
+| `POST /sales/quotations/:id/reopen` `{ reason }`                                   | `sales.quotation.write`        |
+| `POST /sales/invoices/:id/reopen` `{ reason }` (proformas only)                    | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/delivery-challan`                                        | `sales.delivery_challan.write` |
 | `POST /sales/invoices/:id/payments`, `DELETE /:id/payments/:paymentId`             | `sales.invoice_payment.write`  |
 
@@ -176,18 +176,15 @@ returns each field with `hasImage` and its `documentTypes`.
   deleted — is printed. The choice carries through conversions.
 - **Conversions** (quotation → proforma/tax, proforma → tax with its payments, tax → DC) run in one
   transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
-- **Manual mark and reopen** (quotations and proformas only; tax invoices keep their
-  payment-driven status):
-  - `mark-invoiced` (quotation) and `mark-converted` (proforma) lock the document as `CONVERTED`
-    without generating anything, for an invoice raised outside the system. A proforma keeps its
-    payments. Marking an already converted document is 409 `ALREADY_CONVERTED`; `mark-converted`
-    on a tax invoice is 422 `NOT_A_PROFORMA`.
-  - `reopen` undoes either (a converted document, however it got converted) and **requires a
-    `reason`** (1–500 characters, else 400). The reason is kept on the document (`reopenReason`,
-    cleared when it is converted again) and in the `reopen` audit entry. A quotation returns to
-    `OPEN`; a proforma returns to `UNPAID` / `PARTIALLY_PAID` / `PAID` from what it has received.
-  - `reopen` is 409 `NOT_CONVERTED` on a live document, and 409 `HAS_LINKED_INVOICE` while a live
-    invoice generated from it exists (delete that invoice first, which also reopens the source).
+- **Reopen** (quotations and proformas only; tax invoices keep their payment-driven status). A
+  document is locked only by its real conversion above; there is no manual "mark as invoiced".
+  - `reopen` undoes a conversion and **requires a `reason`** (1–500 characters, else 400). The
+    reason is kept on the document (`reopenReason`, cleared when it is converted again) and in the
+    `reopen` audit entry. A quotation returns to `OPEN`; a proforma returns to `UNPAID` /
+    `PARTIALLY_PAID` / `PAID` from what it holds (its payments moved to the tax invoice).
+  - The invoice already generated from the document is **left as it is**; reopening does not
+    delete or change it. `reopen` is 409 `NOT_CONVERTED` on a live document and 422
+    `NOT_A_PROFORMA` on a tax invoice.
 - **Payments** — see §8; the invoice payment routes above go through the same rules.
 - **Live preview** (quotations, invoices, delivery challans): `POST /preview` takes the create
   body, and `POST /:id/preview` takes the update body merged over the saved document.
@@ -306,10 +303,10 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     typing stops, with server totals and line amounts. Master-list defaults are pre-filled
     (validity, delivery terms, bank, seal, signature, prepared by). Field errors show in bubbles.
   - `/sales/quotations/[id]`: the saved PDF inline, with Download PDF, Email, WhatsApp, Edit,
-    Convert to invoice, Mark as invoiced and Delete, each shown only with its permission. A
-    converted quotation is locked and offers **Reopen** (mandatory reason) instead; the reason
-    shows as "Reopened because". Proformas offer **Mark as tax invoiced** and **Reopen** the same
-    way, on the list's row menu and on the detail page.
+    Convert to invoice and Delete, each shown only with its permission. A converted quotation is
+    locked and offers **Reopen** (mandatory reason) instead; the reason shows as "Reopened
+    because". Converted proformas offer **Reopen** the same way, on the list's row menu and on
+    the detail page.
   - `/sales/proforma-invoices` and `/sales/tax-invoices`: one list filtered by type, with
     search, status and date filters.
   - `/sales/invoices/new/{proforma,tax}` and `/sales/invoices/[id]/edit`: the same priced form
@@ -338,7 +335,7 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
       Seal, signature and prepared-by defaults come from the master list (RETURNABLE_DC);
     - the detail has the PDF and **Mark returned** (with a date) or **Reopen**, plus Email,
       WhatsApp, Edit and Delete. A returned RDC is not editable.
-  - `/sales/master-list` (navbar **Setup → Master List**), three tabs:
+  - `/sales/master-list` (navbar **Master List → Sales Master**; it is not in the Sales menu), three tabs:
     - **Numbering:** each code's format and its last and next number for this financial year.
       **Format** edits the prefix and width (`sales.master.write`); **Number** sets the last
       number used (`sales.running_number.write`).
