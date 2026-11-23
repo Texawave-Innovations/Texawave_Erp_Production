@@ -14,6 +14,7 @@ import {
   RequirePermission,
 } from "../../common/decorators/require-permission.decorator.js";
 import { MY_WORK_PERMISSIONS } from "./my-work.permissions.js";
+import { PROJECT_TASK_WRITE_PERMISSIONS } from "./project-task-write.permissions.js";
 import { CreateTaskDto, UpdateTaskDto } from "./dto/create-task.dto.js";
 import { TasksService } from "./tasks.service.js";
 
@@ -40,6 +41,17 @@ export class TasksController {
     return this.service.findMyWork();
   }
 
+  // Own-data endpoint, gated like My Work: the employee's points awards and
+  // how each was calculated.
+  @Get("points/my")
+  @RequireAnyPermission(...MY_WORK_PERMISSIONS)
+  @ApiOperation({
+    summary: "The current employee's points awards with their breakdown",
+  })
+  findMyPoints() {
+    return this.service.findMyPoints();
+  }
+
   @Get("tasks/:taskId")
   @RequirePermission("projects.project.read")
   @ApiOperation({ summary: "Get task detail by ID" })
@@ -48,7 +60,7 @@ export class TasksController {
   }
 
   @Post(":id/tasks")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({
     summary: "Create task under a project with auto-generated TSK-XXXXXX code",
   })
@@ -60,7 +72,7 @@ export class TasksController {
   }
 
   @Patch("tasks/:taskId")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({
     summary: "Update task status, completion percent, or priority",
   })
@@ -72,7 +84,7 @@ export class TasksController {
   }
 
   @Delete("tasks/:taskId")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({ summary: "Soft delete a task" })
   deleteTask(@Param("taskId", ParseIntPipe) taskId: number) {
     return this.service.softDeleteTask(taskId);

@@ -8,10 +8,7 @@ import {
 import { businessToday } from "../../common/dates/business-date.js";
 import { TenantContextService } from "../../platform/tenancy/tenant-context.service.js";
 import { EmployeeQueryService } from "../hr/employees/employee-query.service.js";
-import {
-  calculateBusinessHours,
-  hasCircularDependency,
-} from "./calculations/project-calculations.js";
+import { hasCircularDependency } from "./calculations/project-calculations.js";
 import type { CreateTaskDto, UpdateTaskDto } from "./dto/create-task.dto.js";
 import {
   assertManagerStatusChange,
@@ -19,6 +16,7 @@ import {
   type TaskStatus as LifecycleTaskStatus,
 } from "../timesheets/timesheets.rules.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { ProjectsWriteAccessService } from "./projects-write-access.service.js";
 import { TaskRunningNumberMasterService } from "../projects-master/task-running-number-master.service.js";
 
 @Injectable()
@@ -28,6 +26,7 @@ export class TasksService {
     private readonly tenantContext: TenantContextService,
     private readonly employeeQuery: EmployeeQueryService,
     private readonly taskNumberMaster: TaskRunningNumberMasterService,
+    private readonly writeAccess: ProjectsWriteAccessService,
   ) {}
 
   async findTasks(projectId: number) {
@@ -63,12 +62,26 @@ export class TasksService {
     return this.repository.findMyTasks(scope, employee.id);
   }
 
+  /** The current employee's own awards (newest first) with the breakdown
+   * of each, for the My Work points panel. */
+  async findMyPoints() {
+    const scope = this.tenantContext.getOrgScope();
+    const employee = await this.employeeQuery.findCurrentEmployeeOrNull();
+    if (!employee) return [];
+    return this.repository.findEmployeePointsAwards(scope, employee.id);
+  }
+
   async createTask(projectId: number, dto: CreateTaskDto) {
     const scope = this.tenantContext.getOrgScope();
     const project = await this.repository.findOne(scope, projectId);
     if (!project) {
       throw new ResourceNotFoundException("Project", projectId);
     }
+    // A team lead may only create tasks for an employee of their own team.
+    await this.writeAccess.assertAssignee(
+      await this.writeAccess.resolve(),
+      dto.assignedToId,
+    );
 
     if (new Date(dto.endDate) < new Date(dto.startDate)) {
       throw new BusinessRuleViolationException(
@@ -95,16 +108,18 @@ export class TasksService {
       }
     }
 
-    // Compute business hours if not manually overridden
-    const hoursToComplete =
-      dto.hoursToComplete !== undefined
-        ? dto.hoursToComplete
-        : calculateBusinessHours(dto.startDate, dto.endDate);
+    // The ETA is a manual entry (validated by the DTO), never derived from the
+    // dates: reward points are measured against it.
+    const hoursToComplete = dto.hoursToComplete;
 
-    // Compute default points from config if not passed
+    // Points of the task. With time-based points on, every task is worth the
+    // same configured value (priority and a typed value do not decide it);
+    // otherwise the legacy rule: typed, else the priority value.
+    const config = await this.repository.getPointsConfig(scope);
     let points = dto.points;
-    if (points === undefined) {
-      const config = await this.repository.getPointsConfig(scope);
+    if (config.timeBasedEnabled) {
+      points = config.defaultTaskPoints;
+    } else if (points === undefined) {
       const priority = dto.priority ?? "medium";
       const configPoints = (config as Record<string, unknown>)[priority];
       points = typeof configPoints === "number" ? configPoints : 10;
@@ -135,6 +150,13 @@ export class TasksService {
     const existing = await this.repository.findTaskById(scope, taskId);
     if (!existing) {
       throw new ResourceNotFoundException("Task", taskId);
+    }
+    // A team lead may only edit tasks of their own team, and only hand a task
+    // to another employee of that team.
+    const access = await this.writeAccess.resolve();
+    await this.writeAccess.assertAssignee(access, existing.assignedToId);
+    if (dto.assignedToId !== undefined) {
+      await this.writeAccess.assertAssignee(access, dto.assignedToId);
     }
 
     // Check date bounds
@@ -191,12 +213,34 @@ export class TasksService {
       );
     }
 
-    // Recompute business hours if dates changed and hours not explicitly specified
+    // The ETA only changes when it is entered: moving the dates never
+    // rewrites it. Because points are measured against it, a finished task's
+    // ETA is frozen and a started task's needs a reason (audited).
     let computedHours: number | undefined;
-    if ((dto.startDate || dto.endDate) && dto.hoursToComplete === undefined) {
-      computedHours = calculateBusinessHours(startDate, endDate);
-    } else if (dto.hoursToComplete !== undefined) {
-      computedHours = dto.hoursToComplete;
+    let etaAudit:
+      { before: number; after: number; reason: string | null } | undefined;
+    if (dto.hoursToComplete !== undefined) {
+      const before = Number(existing.hoursToComplete);
+      if (dto.hoursToComplete !== before) {
+        if (existing.status === TaskStatus.completed) {
+          throw new BusinessRuleViolationException(
+            "The ETA of a completed task cannot be changed.",
+            "ETA_LOCKED",
+          );
+        }
+        const started =
+          existing.status !== TaskStatus.not_started ||
+          Number(existing.loggedHours) > 0;
+        const reason = dto.hoursChangeReason?.trim() || null;
+        if (started && (reason?.length ?? 0) < 3) {
+          throw new BusinessRuleViolationException(
+            "Work on this task has started: give a reason for changing its ETA.",
+            "ETA_CHANGE_REASON_REQUIRED",
+          );
+        }
+        computedHours = dto.hoursToComplete;
+        etaAudit = { before, after: dto.hoursToComplete, reason };
+      }
     }
 
     // The task BECOMES complete when its status is set to completed or its
@@ -211,6 +255,23 @@ export class TasksService {
         completionPercent: dto.completionPercent,
       },
     );
+
+    // With time-based points on, a task is measured by the assignee's timer:
+    // completing one with no timer time would earn the on-time bonus for free.
+    const completingFor = dto.assignedToId ?? existing.assignedToId;
+    if (completionNow && completingFor) {
+      const gate = await this.repository.findPointsGate(
+        scope,
+        taskId,
+        completingFor,
+      );
+      if (gate.enabled && gate.workedMinutes === 0) {
+        throw new BusinessRuleViolationException(
+          "No timer time is logged on this task yet. The assignee must start the timer before it can be completed.",
+          "NO_TIMER_TIME_LOGGED",
+        );
+      }
+    }
 
     const payload: UpdateTaskDto = { ...dto };
     if (completionNow) {
@@ -242,6 +303,7 @@ export class TasksService {
               (completionNow ? "task completed" : "status updated"),
           }
         : undefined,
+      etaAudit,
     );
     if (!updated) {
       throw new ResourceNotFoundException("Task", taskId);
@@ -251,13 +313,17 @@ export class TasksService {
     // a repeat), and only after the update itself succeeded.
     const targetEmpId = payload.assignedToId ?? existing.assignedToId;
     if (completionNow && targetEmpId) {
-      await this.repository.awardPoints(
+      await this.repository.awardTaskCompletion(
         scope,
+        {
+          id: taskId,
+          title: payload.title ?? existing.title,
+          taskCode: existing.taskCode,
+          priority: existing.priority,
+          points: payload.points ?? existing.points,
+          hoursToComplete: computedHours ?? existing.hoursToComplete,
+        },
         targetEmpId,
-        taskId,
-        payload.title ?? existing.title,
-        payload.points ?? existing.points,
-        `Completed ${existing.taskCode} (${existing.priority} priority)`,
       );
     }
     return updated;
@@ -269,6 +335,10 @@ export class TasksService {
     if (!existing) {
       throw new ResourceNotFoundException("Task", taskId);
     }
+    await this.writeAccess.assertAssignee(
+      await this.writeAccess.resolve(),
+      existing.assignedToId,
+    );
     if (await this.repository.hasOpenSession(scope, taskId)) {
       throw new BusinessRuleConflictException(
         "This task has a running timer. Ask the assignee to stop or pause it before deleting the task.",

@@ -14,6 +14,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { IsQuarterHours } from "./is-quarter-hours.js";
 
 export class CreateTaskDto {
   @ApiProperty({ example: "Firmware sensor polling loop" })
@@ -92,15 +93,19 @@ export class CreateTaskDto {
   @Min(0)
   points?: number;
 
-  @ApiPropertyOptional({
-    example: 80,
-    description: "Override automatic business hours",
+  @ApiProperty({
+    example: 2,
+    minimum: 0.25,
+    maximum: 500,
+    description:
+      "ETA in hours, entered by hand when the task is assigned (steps of 0.25). Reward points are measured against it.",
   })
-  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(0)
-  hoursToComplete?: number;
+  @Min(0.25)
+  @Max(500)
+  @IsQuarterHours()
+  hoursToComplete!: number;
 
   @ApiPropertyOptional({ description: "Arbitrary custom fields" })
   @IsOptional()
@@ -214,12 +219,24 @@ export class UpdateTaskDto {
   @Min(0)
   points?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ minimum: 0.25, maximum: 500 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(0)
+  @Min(0.25)
+  @Max(500)
+  @IsQuarterHours()
   hoursToComplete?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Why the ETA changed. Required once work on the task has started; recorded in the audit log.",
+    maxLength: 500,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  hoursChangeReason?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

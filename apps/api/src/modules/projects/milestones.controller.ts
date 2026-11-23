@@ -9,7 +9,11 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from "../../common/decorators/require-permission.decorator.js";
+import { PROJECT_TASK_WRITE_PERMISSIONS } from "./project-task-write.permissions.js";
 import { CreateMilestoneDto } from "./dto/create-milestone.dto.js";
 import { UpdateMilestoneDto } from "./dto/update-milestone.dto.js";
 import { MilestonesService } from "./milestones.service.js";
@@ -28,7 +32,7 @@ export class MilestonesController {
   }
 
   @Post(":id/milestones")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({ summary: "Create milestone for a project" })
   createMilestone(
     @Param("id", ParseIntPipe) projectId: number,
@@ -38,7 +42,7 @@ export class MilestonesController {
   }
 
   @Patch("milestones/:milestoneId")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({ summary: "Update milestone status or target date" })
   updateMilestone(
     @Param("milestoneId", ParseIntPipe) milestoneId: number,
@@ -48,7 +52,7 @@ export class MilestonesController {
   }
 
   @Delete("milestones/:milestoneId")
-  @RequirePermission("projects.task.write")
+  @RequireAnyPermission(...PROJECT_TASK_WRITE_PERMISSIONS)
   @ApiOperation({ summary: "Delete a milestone" })
   deleteMilestone(@Param("milestoneId", ParseIntPipe) milestoneId: number) {
     return this.service.deleteMilestone(milestoneId);

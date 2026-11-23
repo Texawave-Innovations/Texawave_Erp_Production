@@ -419,7 +419,7 @@ describe("Projects Module (e2e)", () => {
       createdMilestoneId = body.id;
     });
 
-    it("creates a task with an auto-issued <projectCode>-T01 taskCode and computed hours", async () => {
+    it("creates a task with an auto-issued <projectCode>-T01 taskCode and the manual ETA", async () => {
       const res = await request(app.getHttpServer())
         .post(`/projects/${createdProjectId}/tasks`)
         .set("Authorization", `Bearer ${tokenA}`)
@@ -431,6 +431,7 @@ describe("Projects Module (e2e)", () => {
           startDate: "2026-10-05",
           endDate: "2026-10-06",
           priority: "high",
+          hoursToComplete: 3.5,
         })
         .expect(201);
 
@@ -439,7 +440,8 @@ describe("Projects Module (e2e)", () => {
       createdTaskId = body.id;
       expect(body.title).toBe("Setup PostgreSQL Schemas");
       expect(body.taskCode).toMatch(/-T\d{2,}$/);
-      expect(Number(body.hoursToComplete)).toBe(16); // 2 business days * 8 hours
+      // The ETA is what was entered, not business days x 8 (which would be 16).
+      expect(Number(body.hoursToComplete)).toBe(3.5);
       expect(body.points).toBe(20); // Default points for high priority
     });
 
@@ -452,6 +454,7 @@ describe("Projects Module (e2e)", () => {
           title: "Dependent API Controllers",
           startDate: "2026-10-07",
           endDate: "2026-10-08",
+          hoursToComplete: 2,
           dependencyTaskId: createdTaskId,
         })
         .expect(201);

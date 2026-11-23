@@ -16,6 +16,12 @@ import { businessToday } from "../../common/dates/business-date.js";
 import { parseDateOnly } from "../../common/dates/date-only.js";
 import { AuditWriter } from "../../platform/audit/audit-writer.js";
 import { TaskLifecycleRepository } from "./task-lifecycle.repository.js";
+import {
+  awardTaskPoints,
+  isTimeBasedPointsEnabled,
+  sumTimerMinutes,
+  type AwardableTask,
+} from "./points-award.js";
 import type { AddProjectMemberDto } from "./dto/add-project-member.dto.js";
 import type { CreateExpenseDto } from "./dto/create-expense.dto.js";
 import type { CreateMilestoneDto } from "./dto/create-milestone.dto.js";
@@ -738,6 +744,9 @@ export class ProjectsRepository {
     /** Present when the status changes: written to the audit log in the SAME
      * transaction, so the task's status history never misses a change. */
     statusAudit?: { before: TaskStatus; after: TaskStatus; reason: string },
+    /** Present when the ETA (hoursToComplete) changes: it decides the
+     * reward points, so every change is audited with its reason. */
+    etaAudit?: { before: number; after: number; reason: string | null },
   ) {
     const {
       customFields,
@@ -822,6 +831,16 @@ export class ProjectsRepository {
           before: { status: statusAudit.before },
           after: { status: statusAudit.after },
           reason: statusAudit.reason,
+        });
+      }
+      if (updated.count > 0 && etaAudit) {
+        await this.audit.write(tx, {
+          entityType: "project_task",
+          entityId: taskId,
+          action: "eta_change",
+          before: { hoursToComplete: etaAudit.before },
+          after: { hoursToComplete: etaAudit.after },
+          ...(etaAudit.reason ? { reason: etaAudit.reason } : {}),
         });
       }
       return updated;
@@ -967,6 +986,48 @@ export class ProjectsRepository {
         designation: { select: { name: true } },
       },
     });
+  }
+
+  /** The team an employee belongs to, or null when the employee is not in
+   * this organization (or is deleted). Used to scope a Team Lead's task and
+   * milestone writes to their own team(s). */
+  @OrgScoped()
+  async findEmployeeTeamId(
+    scope: OrgScope,
+    employeeId: number,
+  ): Promise<number | null> {
+    const row = await this.prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      },
+      select: { teamId: true },
+    });
+    return row?.teamId ?? null;
+  }
+
+  /** True when the project has at least one member from one of `teamIds`. */
+  @OrgScoped()
+  async projectHasMemberInTeams(
+    scope: OrgScope,
+    projectId: number,
+    teamIds: readonly number[],
+  ): Promise<boolean> {
+    if (teamIds.length === 0) return false;
+    const found = await this.prisma.projectMember.findFirst({
+      where: {
+        organizationId: scope.organizationId,
+        projectId,
+        employee: {
+          organizationId: scope.organizationId,
+          deletedAt: null,
+          teamId: { in: [...teamIds] },
+        },
+      },
+      select: { id: true },
+    });
+    return found !== null;
   }
 
   @OrgScoped()
@@ -1282,6 +1343,18 @@ export class ProjectsRepository {
         high: dto.high ?? 20,
         urgent: dto.urgent ?? 30,
         customRules: (dto.customRules ?? {}) as Prisma.InputJsonValue,
+        ...(dto.timeBasedEnabled !== undefined
+          ? { timeBasedEnabled: dto.timeBasedEnabled }
+          : {}),
+        ...(dto.defaultTaskPoints !== undefined
+          ? { defaultTaskPoints: dto.defaultTaskPoints }
+          : {}),
+        ...(dto.onTimeBonus !== undefined
+          ? { onTimeBonus: dto.onTimeBonus }
+          : {}),
+        ...(dto.graceMinutes !== undefined
+          ? { graceMinutes: dto.graceMinutes }
+          : {}),
       },
       update: {
         ...(dto.low !== undefined ? { low: dto.low } : {}),
@@ -1291,33 +1364,73 @@ export class ProjectsRepository {
         ...(dto.customRules !== undefined
           ? { customRules: dto.customRules as Prisma.InputJsonValue }
           : {}),
+        ...(dto.timeBasedEnabled !== undefined
+          ? { timeBasedEnabled: dto.timeBasedEnabled }
+          : {}),
+        ...(dto.defaultTaskPoints !== undefined
+          ? { defaultTaskPoints: dto.defaultTaskPoints }
+          : {}),
+        ...(dto.onTimeBonus !== undefined
+          ? { onTimeBonus: dto.onTimeBonus }
+          : {}),
+        ...(dto.graceMinutes !== undefined
+          ? { graceMinutes: dto.graceMinutes }
+          : {}),
       },
     });
   }
 
+  /** Pays a finished task to its assignee through the shared
+   * `awardTaskPoints` (once per task and employee; fixed or time-based
+   * depending on the config switch). */
   @OrgScoped()
-  async awardPoints(
+  async awardTaskCompletion(
     scope: OrgScope,
+    task: AwardableTask,
     employeeId: number,
-    taskId: number,
-    taskTitle: string,
-    points: number,
-    note?: string,
   ) {
-    // Once per task and employee, ever: a re-opened task that is completed
-    // again, a retry, or a second request never pays twice.
-    const existing = await this.prisma.projectPointsLedger.findFirst({
-      where: { organizationId: scope.organizationId, taskId, employeeId },
-    });
-    if (existing) return existing;
-    return this.prisma.projectPointsLedger.create({
-      data: {
-        organizationId: scope.organizationId,
-        employeeId,
-        taskId,
-        taskTitle,
-        points,
-        note: note ?? null,
+    return awardTaskPoints(this.prisma, scope.organizationId, task, employeeId);
+  }
+
+  /** What the manager Complete path needs to know before it completes a
+   * task: whether time-based points are on, and the assignee's timer minutes. */
+  @OrgScoped()
+  async findPointsGate(scope: OrgScope, taskId: number, employeeId: number) {
+    const enabled = await isTimeBasedPointsEnabled(
+      this.prisma,
+      scope.organizationId,
+    );
+    const workedMinutes = enabled
+      ? await sumTimerMinutes(
+          this.prisma,
+          scope.organizationId,
+          taskId,
+          employeeId,
+        )
+      : 0;
+    return { enabled, workedMinutes };
+  }
+
+  /** The employee's own awards, newest first, with the breakdown the
+   * time-based rule stored (null fields on older rows). */
+  @OrgScoped()
+  findEmployeePointsAwards(scope: OrgScope, employeeId: number, take = 50) {
+    return this.prisma.projectPointsLedger.findMany({
+      where: { organizationId: scope.organizationId, employeeId },
+      orderBy: { awardedAt: "desc" },
+      take,
+      select: {
+        id: true,
+        taskId: true,
+        taskTitle: true,
+        points: true,
+        awardedAt: true,
+        etaMinutes: true,
+        workedMinutes: true,
+        basePoints: true,
+        bonusPoints: true,
+        overrunMinutes: true,
+        rule: true,
       },
     });
   }
