@@ -30,6 +30,21 @@ export function hasWorkspaceAccess(permissions: readonly string[]): boolean {
 }
 
 /**
+ * The dashboard-shell home these permissions open, or null for a portal-only
+ * employee. Shared by the login redirect and the post-onboarding redirect so
+ * an HR/Sales hire who finishes onboarding lands in their workspace, not the
+ * portal.
+ */
+export function workspaceHomeFor(
+  permissions: readonly string[],
+): string | null {
+  if (hasHrWorkspace(permissions)) return "/hr";
+  if (permissions.includes(SALES_WORKSPACE_PERMISSION))
+    return "/sales/dashboard";
+  return null;
+}
+
+/**
  * Where a freshly signed-in user should land.
  * - Holders of `hr.workspace.access` (HR staff) and role administrators go to
  *   the HR workspace (/hr).
@@ -45,12 +60,8 @@ export function hasWorkspaceAccess(permissions: readonly string[]): boolean {
 export async function landingPathAfterLogin(): Promise<string> {
   try {
     const me = await apiClient.get<MeUser>("/auth/me").then((res) => res.data);
-    if (hasHrWorkspace(me.permissions)) {
-      return "/hr";
-    }
-    if (me.permissions.includes(SALES_WORKSPACE_PERMISSION)) {
-      return "/sales/dashboard";
-    }
+    const workspaceHome = workspaceHomeFor(me.permissions);
+    if (workspaceHome) return workspaceHome;
 
     const employee = await getMyEmployee();
     return employee.onboardingStatus === "COMPLETE" ? "/portal" : "/onboarding";

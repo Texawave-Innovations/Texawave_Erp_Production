@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@texawave-erp/ui-kit";
-
-type MasterTabId = "sales-document" | "hr" | "finance" | "projects" | "scm";
+import { useAuthStore } from "@/stores/auth-store";
+import { canSeeMasterTab, type MasterTabId } from "./master-permissions";
 
 interface MasterTab {
   id: MasterTabId;
@@ -66,12 +66,18 @@ export interface MastersTabBarProps {
  * "paused, not removed" per CLAUDE.md. This is a secondary nav specific to
  * the Masters area, distinct from the main app's HorizontalNavbar. */
 export function MastersTabBar({ active }: MastersTabBarProps) {
+  const permissions = useAuthStore((s) => s.permissions);
+  // Only the masters this user can read (master-permissions.ts); the current
+  // page's own tab always stays, so a deep link never shows an empty bar.
+  const tabs = TABS.filter(
+    (tab) => tab.id === active || canSeeMasterTab(tab.id, permissions),
+  );
   return (
     <nav
       aria-label="Masters sections"
       className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-800"
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.id === active;
         const isDisabled = !tab.path;

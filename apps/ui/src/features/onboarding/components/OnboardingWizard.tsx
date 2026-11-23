@@ -51,6 +51,7 @@ import {
   submitOnboarding,
   uploadDocument,
 } from "../api";
+import { landingPathAfterLogin } from "@/features/auth/landing";
 import { useMyDocuments, useMyEmployee } from "../hooks";
 import { FamilyExperienceStep } from "./FamilyExperienceStep";
 
@@ -361,7 +362,9 @@ export function OnboardingWizard() {
         setMissing(result.missing);
       } else {
         await queryClient.invalidateQueries();
-        router.replace("/portal");
+        // Same rule as sign-in: HR/Sales staff go to their workspace, other
+        // employees to the portal.
+        router.replace(await landingPathAfterLogin());
       }
     } catch (error) {
       setSaveError(apiMessage(error));
