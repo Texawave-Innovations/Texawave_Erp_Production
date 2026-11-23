@@ -6757,6 +6757,16 @@ model ProjectPointsLedger {
   points         Int
   awardedAt      DateTime @default(now()) @map("awarded_at") @db.Timestamptz(6)
   note           String?
+  /// Breakdown of a time-based award (null on rows awarded before the rule
+  /// existed, and on awards made while it was switched off): the ETA and the
+  /// timer minutes it was measured against, the base and bonus, the overrun.
+  etaMinutes     Int?     @map("eta_minutes")
+  workedMinutes  Int?     @map("worked_minutes")
+  basePoints     Int?     @map("base_points")
+  bonusPoints    Int?     @map("bonus_points")
+  overrunMinutes Int?     @map("overrun_minutes")
+  /// Which rule produced the number, e.g. time_v1.
+  rule           String?
 
   organization Organization @relation(fields: [organizationId], references: [id])
   employee     Employee     @relation(fields: [employeeId], references: [id])
@@ -6775,6 +6785,15 @@ model ProjectPointsConfig {
   high           Int      @default(20)
   urgent         Int      @default(30)
   customRules    Json     @default("{}") @map("custom_rules")
+  /// Time-based points (see calculateTaskPoints). Off until switched on; the
+  /// priority values above then no longer decide a task points.
+  timeBasedEnabled  Boolean @default(false) @map("time_based_enabled")
+  /// Points of a finished task, the same for every task.
+  defaultTaskPoints Int     @default(10) @map("default_task_points")
+  /// Extra points for finishing within the ETA.
+  onTimeBonus       Int     @default(1) @map("on_time_bonus")
+  /// Minutes over the ETA that cost nothing.
+  graceMinutes      Int     @default(5) @map("grace_minutes")
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id])

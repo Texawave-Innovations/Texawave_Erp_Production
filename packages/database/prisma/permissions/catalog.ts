@@ -1291,6 +1291,13 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "projects.task.write",
     description: "Create, update, and assign tasks and milestones",
   },
+  // Team-scoped task assignment (the Team Lead's grant): `projects.task.write`
+  // above stays the org-wide one. `.team` limits the holder to employees of
+  // their own team(s); the API checks the assignee's team.
+  ...scopedPermission(
+    "projects.task_assignment.write",
+    "Create, update, and assign project tasks and milestones",
+  ),
   {
     code: "projects.timer.write",
     description: "Start and stop stopwatch timers, log time entries",

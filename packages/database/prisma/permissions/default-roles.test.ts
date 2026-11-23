@@ -19,6 +19,15 @@ const TEAM_LEAD_FIRST_APPROVALS = [
   "hr.leave.approve.team",
 ];
 
+/** The second decided exception: the team lead assigns project tasks and
+ * milestones to their own team's employees (the API checks the assignee's team). */
+const TEAM_LEAD_TASK_ASSIGNMENT = ["projects.task_assignment.write.team"];
+
+const TEAM_LEAD_EXCEPTIONS = [
+  ...TEAM_LEAD_FIRST_APPROVALS,
+  ...TEAM_LEAD_TASK_ASSIGNMENT,
+];
+
 const isMutating = (code: string) =>
   /\.(write|approve|correct)(\.|$)/.test(code) ||
   code.includes("_status.") ||
@@ -50,12 +59,11 @@ describe("default roles", () => {
     // The single, documented exception: Team Lead gives the FIRST approval of
     // its team's timesheets and leave (HR gives the final one). Anything else
     // mutating on Team Lead still fails here.
-    const allowedApprovals = TEAM_LEAD_FIRST_APPROVALS;
     const mutating = role("Team Lead")
       .permissions.filter(isMutating)
-      .filter((c) => !allowedApprovals.includes(c));
+      .filter((c) => !TEAM_LEAD_EXCEPTIONS.includes(c));
     assert.deepEqual(mutating, []);
-    for (const code of allowedApprovals) {
+    for (const code of TEAM_LEAD_EXCEPTIONS) {
       assert.ok(
         role("Team Lead").permissions.includes(code),
         `Team Lead gives the first approval: ${code}`,
@@ -116,8 +124,7 @@ describe("default roles", () => {
       const teamMutating = r.permissions
         .filter((c) => c.endsWith(".team") && isMutating(c))
         .filter(
-          (c) =>
-            !(r.name === "Team Lead" && TEAM_LEAD_FIRST_APPROVALS.includes(c)),
+          (c) => !(r.name === "Team Lead" && TEAM_LEAD_EXCEPTIONS.includes(c)),
         );
       assert.deepEqual(teamMutating, [], `${r.name}`);
     }

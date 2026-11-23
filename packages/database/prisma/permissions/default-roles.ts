@@ -211,6 +211,11 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       // The one approval exception (see the header): first approval only.
       "hr.timesheet.approve.team",
       "hr.leave.approve.team",
+      // The second approval-style exception: assign project tasks and
+      // milestones to the team's own employees (read access is needed to pick
+      // the project).
+      "projects.task_assignment.write.team",
+      "projects.project.read",
       "hr.employee.read.team",
       "hr.employee_document.read.team",
       "hr.shift_assignment.read.team",
