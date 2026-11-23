@@ -120,7 +120,7 @@ export function EmployeeDashboardView() {
   ];
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="w-full space-y-5">
       {/* Greeting banner */}
       <div className="relative overflow-hidden rounded-2xl bg-linear-135 from-brand-600 via-brand-500 to-brand-cyan p-5 text-white shadow-lg">
         <div

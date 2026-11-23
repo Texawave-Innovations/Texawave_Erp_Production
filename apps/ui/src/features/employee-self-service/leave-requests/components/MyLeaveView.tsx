@@ -419,7 +419,7 @@ export function MyLeaveView() {
   );
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="w-full space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">

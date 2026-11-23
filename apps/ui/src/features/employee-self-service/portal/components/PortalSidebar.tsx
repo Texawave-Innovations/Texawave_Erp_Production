@@ -30,11 +30,14 @@ export function PortalSidebar({
   return (
     <aside
       id="app-sidebar"
-      className={`w-52 shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 ${
+      className={`w-52 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 ${
         open ? "fixed inset-y-0 left-0 z-40 flex shadow-2xl" : "hidden lg:flex"
       }`}
     >
-      <nav aria-label="My Portal Navigation" className="flex-1 py-3">
+      <nav
+        aria-label="My Portal Navigation"
+        className="min-h-0 flex-1 overflow-y-auto py-3"
+      >
         {isPending ? (
           <div className="flex flex-col gap-3 p-3">
             <Skeleton className="h-6 w-full" />

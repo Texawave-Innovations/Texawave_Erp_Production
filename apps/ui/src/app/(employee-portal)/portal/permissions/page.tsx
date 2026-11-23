@@ -19,7 +19,6 @@ import {
   Card,
   EmptyState,
   TableSkeleton,
-  Tabs,
   useToast,
 } from "@texawave-erp/ui-kit";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
@@ -617,8 +616,6 @@ function MyPermissionsSection() {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const TABS = [{ id: "mine" as const, label: "My Permissions" }];
-
 export default function PortalPermissionsPage() {
   return (
     <div className="flex flex-col gap-6">
@@ -628,15 +625,7 @@ export default function PortalPermissionsPage() {
         icon={ShieldCheck}
       />
 
-      <Tabs
-        label="Permission sections"
-        idPrefix="permissions"
-        tabs={TABS}
-        value="mine"
-        onChange={() => {}}
-      >
-        <MyPermissionsSection />
-      </Tabs>
+      <MyPermissionsSection />
     </div>
   );
 }
