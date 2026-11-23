@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { BellRing, Plus, Wallet } from "lucide-react";
+import {
+  BellRing,
+  Download,
+  Eye,
+  Pencil,
+  Plus,
+  Trash2,
+  Wallet,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
@@ -16,7 +23,6 @@ import {
   ErrorState,
   PageHeader,
   Pagination,
-  StatusBadge,
   TableSkeleton,
   TableToolbar,
   useToast,
@@ -26,45 +32,14 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
 import { downloadPdf, pdfFileName } from "../../shared/documents";
-import { formatDate, formatInr } from "../../shared/format";
+import { formatInr } from "../../shared/format";
 import { receiptPath } from "../api";
 import { useDeletePayment, usePaymentAlerts, usePayments } from "../hooks";
 import type { Payment } from "../types";
+import { BalanceBadge, DateBox, DueCell, InvoiceRefPill } from "./PaymentCells";
 import { PaymentFormDialog } from "./PaymentFormDialog";
 
 const PAGE_SIZE = 20;
-
-function BalanceBadge({ p }: { p: Payment }) {
-  const balance = Number(p.invoice.balance);
-  return balance <= 0 ? (
-    <StatusBadge label={`${formatInr(0)} (Paid)`} colorToken="success" />
-  ) : (
-    <StatusBadge
-      label={formatInr(p.invoice.balance)}
-      colorToken={p.overdueDays ? "error" : "warning"}
-    />
-  );
-}
-
-function DueCell({ p }: { p: Payment }) {
-  if (!p.effectiveDueDate) return <>—</>;
-  return (
-    <div className="flex flex-col gap-1">
-      <span
-        className={
-          p.overdueDays
-            ? "font-semibold text-error-700 dark:text-error-400"
-            : undefined
-        }
-      >
-        {formatDate(p.effectiveDueDate)}
-      </span>
-      {p.overdueDays ? (
-        <StatusBadge label={`Overdue (${p.overdueDays}d)`} colorToken="error" />
-      ) : null}
-    </div>
-  );
-}
 
 export function PaymentsView() {
   const { toast } = useToast();
@@ -193,7 +168,6 @@ export function PaymentsView() {
               fromAriaLabel="Paid from"
               toAriaLabel="Paid to"
               placeholder="Payment date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {
@@ -207,7 +181,6 @@ export function PaymentsView() {
               fromAriaLabel="Due from"
               toAriaLabel="Due to"
               placeholder="Due date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {
@@ -233,7 +206,7 @@ export function PaymentsView() {
       />
 
       {query.isPending ? (
-        <TableSkeleton rowsCount={6} columnsCount={8} />
+        <TableSkeleton rowsCount={6} columnsCount={11} />
       ) : query.isError ? (
         <ErrorState onRetry={() => void query.refetch()} />
       ) : query.data.data.length === 0 ? (
@@ -256,74 +229,114 @@ export function PaymentsView() {
             columns={[
               {
                 header: "Payment no",
+                align: "center",
                 cell: (p) => (
-                  <span className="font-mono text-theme-sm font-medium text-gray-900 dark:text-white/90">
+                  <span className="text-theme-sm font-bold text-gray-900 dark:text-white/90">
                     {p.paymentNumber}
                   </span>
                 ),
               },
-              { header: "Customer", cell: (p) => p.customer.companyName },
               {
-                header: "Invoice",
+                header: "Customer",
+                align: "center",
                 cell: (p) => (
-                  <Link
-                    href={`/sales/invoices/${p.invoice.id}`}
-                    className="font-mono text-theme-sm text-brand-700 hover:underline dark:text-brand-400"
-                    title="Open the invoice"
-                  >
-                    {p.invoice.invoiceNumber}
-                  </Link>
+                  <span className="font-bold text-gray-900 dark:text-white/90">
+                    {p.customer.companyName}
+                  </span>
                 ),
+              },
+              {
+                header: "Invoice ref",
+                align: "center",
+                cell: (p) => <InvoiceRefPill p={p} />,
               },
               {
                 header: "Payment date",
-                cell: (p) => formatDate(p.paymentDate),
-              },
-              { header: "Due date", cell: (p) => <DueCell p={p} /> },
-              {
-                header: "Invoice total",
-                align: "right",
-                cell: (p) => formatInr(p.invoice.totalAmount),
+                align: "center",
+                cell: (p) => <DateBox value={p.paymentDate} />,
               },
               {
-                header: "Received",
-                align: "right",
+                header: "Due date",
+                align: "center",
+                cell: (p) => <DueCell p={p} />,
+              },
+              {
+                header: "Total amount",
+                align: "center",
                 cell: (p) => (
-                  <span className="font-semibold">{formatInr(p.amount)}</span>
+                  <span className="font-bold">
+                    {formatInr(p.invoice.totalAmount)}
+                  </span>
                 ),
               },
-              { header: "Balance", cell: (p) => <BalanceBadge p={p} /> },
-              { header: "Mode", cell: (p) => p.mode },
-              { header: "Reference", cell: (p) => p.reference ?? "—" },
+              {
+                header: "Amount received",
+                align: "center",
+                cell: (p) => (
+                  <span className="font-bold text-success-700 dark:text-emerald-300">
+                    {formatInr(p.amount)}
+                  </span>
+                ),
+              },
+              {
+                header: "Balance",
+                align: "center",
+                cell: (p) => <BalanceBadge p={p} />,
+              },
+              {
+                header: "Mode",
+                align: "center",
+                cell: (p) => <span className="font-medium">{p.mode}</span>,
+              },
+              {
+                header: "Reference",
+                align: "center",
+                cell: (p) => p.reference ?? "—",
+              },
               {
                 header: "Actions",
-                align: "right",
-                cell: (p) => (
-                  <ActionMenu
-                    ariaLabel={`Actions for ${p.paymentNumber}`}
-                    items={[
-                      { label: "View receipt", onClick: () => setViewing(p) },
-                      {
-                        label: "Download receipt PDF",
-                        onClick: () => void download(p),
-                      },
-                      ...(canWrite
-                        ? [
-                            {
-                              label: "Edit payment",
-                              onClick: () => setEditing(p),
-                              separator: true,
-                            },
-                            {
-                              label: "Delete payment",
-                              variant: "destructive" as const,
-                              onClick: () => setDeleting(p),
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                ),
+                align: "center",
+                cell: (p) => {
+                  const cls = "h-4 w-4";
+                  return (
+                    <ActionMenu
+                      triggerIcon="horizontal"
+                      ariaLabel={`Actions for ${p.paymentNumber}`}
+                      items={[
+                        {
+                          label: "View receipt",
+                          icon: <Eye className={cls} aria-hidden="true" />,
+                          onClick: () => setViewing(p),
+                        },
+                        {
+                          label: "Download receipt PDF",
+                          icon: <Download className={cls} aria-hidden="true" />,
+                          onClick: () => void download(p),
+                        },
+                        ...(canWrite
+                          ? [
+                              {
+                                label: "Edit payment",
+                                icon: (
+                                  <Pencil className={cls} aria-hidden="true" />
+                                ),
+                                onClick: () => setEditing(p),
+                                separator: true,
+                              },
+                              {
+                                label: "Delete payment",
+                                icon: (
+                                  <Trash2 className={cls} aria-hidden="true" />
+                                ),
+                                variant: "destructive" as const,
+                                onClick: () => setDeleting(p),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  );
+                },
               },
             ]}
           />

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Download,
-  FileCheck,
   Mail,
   MessageCircle,
   Pencil,
@@ -17,7 +16,6 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  ConfirmDialog,
   DeleteConfirmDialog,
   ErrorState,
   PageHeader,
@@ -35,12 +33,7 @@ import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
 import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, formatInr } from "../../shared/format";
 import { QUOTATIONS } from "../api";
-import {
-  useDeleteQuotation,
-  useMarkQuotationInvoiced,
-  useQuotation,
-  useReopenQuotation,
-} from "../hooks";
+import { useDeleteQuotation, useQuotation, useReopenQuotation } from "../hooks";
 import { ConvertQuotationDialog } from "./ConvertQuotationDialog";
 
 export function QuotationStatusBadge({ status }: { status: string }) {
@@ -70,10 +63,9 @@ export function QuotationDetailView({ id }: { id: number }) {
   const canConvert = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const query = useQuotation(canRead ? id : null);
   const remove = useDeleteQuotation();
-  const markInvoiced = useMarkQuotationInvoiced();
   const reopen = useReopenQuotation();
   const [dialog, setDialog] = useState<
-    "email" | "convert" | "invoiced" | "reopen" | "delete" | null
+    "email" | "convert" | "reopen" | "delete" | null
   >(null);
   const [busy, setBusy] = useState<"pdf" | "whatsapp" | null>(null);
 
@@ -193,12 +185,6 @@ export function QuotationDetailView({ id }: { id: number }) {
                 Convert to invoice
               </Button>
             ) : null}
-            {canWrite && open ? (
-              <Button variant="secondary" onClick={() => setDialog("invoiced")}>
-                <FileCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Mark as invoiced
-              </Button>
-            ) : null}
             {canWrite && !open ? (
               <Button variant="secondary" onClick={() => setDialog("reopen")}>
                 <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -293,39 +279,12 @@ export function QuotationDetailView({ id }: { id: number }) {
           quotationNumber={q.quotationNumber}
         />
       ) : null}
-      {canWrite && open ? (
-        <ConfirmDialog
-          open={dialog === "invoiced"}
-          onClose={() => setDialog(null)}
-          onConfirm={async () => {
-            try {
-              await markInvoiced.mutateAsync(q.id);
-              toast({
-                title: `${q.quotationNumber} marked as invoiced`,
-                variant: "success",
-              });
-            } catch (e) {
-              toast({
-                title:
-                  e instanceof ApiError ? e.message : "Could not mark invoiced",
-                variant: "error",
-              });
-            } finally {
-              setDialog(null);
-            }
-          }}
-          title="Mark as invoiced"
-          description={`${q.quotationNumber} is locked as converted, without creating an invoice here. Use this when the invoice was raised outside the system.`}
-          confirmText="Mark as invoiced"
-          loading={markInvoiced.isPending}
-        />
-      ) : null}
       {canWrite && !open ? (
         <ReasonActionDialog
           open={dialog === "reopen"}
           onClose={() => setDialog(null)}
           title="Reopen quotation"
-          description={`${q.quotationNumber} becomes open again and can be edited or converted.`}
+          description={`${q.quotationNumber} becomes open again and can be edited or converted. The invoice already created from it is not changed.`}
           reasonLabel="Reason for reopening"
           reasonHint="Recorded on the quotation and in its history."
           placeholder="e.g. Customer asked for a revised quote"

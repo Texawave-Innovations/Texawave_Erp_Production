@@ -20,10 +20,8 @@ interface CategoryCardProps {
 }
 
 /** One category's add/delete chip card, wiring the shared `MasterListCard`
- * to this feature's finance-settings-master-list-items endpoint. Mirrors
- * apps/ui/src/features/sales-settings/components/TermsInventoryTab.tsx's
- * `CategoryCard` — values are not unique per category, an unstructured
- * value list. */
+ * to this feature's finance-settings-master-list-items endpoint.
+ * Values are not unique per category: an unstructured value list. */
 function CategoryCard({ category, title }: CategoryCardProps) {
   const canRead = usePermission(MASTER_LIST_ITEM_READ);
   const canWrite = usePermission(MASTER_LIST_ITEM_WRITE);

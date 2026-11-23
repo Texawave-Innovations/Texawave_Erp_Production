@@ -1,11 +1,10 @@
 import * as financeSettings from "@/features/finance-settings/permissions";
 import * as hrMaster from "@/features/hr-master/permissions";
 import * as projectsMaster from "@/features/projects-master/permissions";
-import * as salesSettings from "@/features/sales-settings/permissions";
+import { SALES_PERMISSIONS } from "@/features/sales/permissions";
 import * as scmMaster from "@/features/scm/master-list-items/permissions";
 
-export type MasterTabId =
-  "sales-document" | "hr" | "finance" | "projects" | "scm";
+export type MasterTabId = "sales" | "hr" | "finance" | "projects" | "scm";
 
 /**
  * The read permissions behind each Master List screen — the same codes the
@@ -15,15 +14,7 @@ export type MasterTabId =
  * enough: each screen gates its own cards individually.
  */
 export const MASTER_READ_PERMISSIONS: Record<MasterTabId, readonly string[]> = {
-  "sales-document": [
-    salesSettings.COMPANY_DETAIL_READ,
-    salesSettings.DOCUMENT_NUMBERING_READ,
-    salesSettings.BANK_ACCOUNT_READ,
-    salesSettings.AUTHORIZED_SIGNATORY_READ,
-    salesSettings.SALESPERSON_READ,
-    salesSettings.SEAL_SIGNATURE_READ,
-    salesSettings.MASTER_LIST_ITEM_READ,
-  ],
+  sales: [SALES_PERMISSIONS.masterRead],
   hr: [
     hrMaster.DEPARTMENT_READ,
     hrMaster.DESIGNATION_READ,

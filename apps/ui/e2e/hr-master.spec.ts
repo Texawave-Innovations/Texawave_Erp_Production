@@ -166,9 +166,9 @@ async function openHrMaster(page: Page, extraPermissions: string[] = []) {
     permissions: ["hr.workspace.access", ...READ, ...extraPermissions],
     menu: [
       {
-        code: "sales-settings",
-        label: "Sales Settings",
-        path: "/settings/sales-settings",
+        code: "sales-master-list",
+        label: "Master List",
+        path: "/sales/master-list",
       },
     ],
     handler,
@@ -200,8 +200,8 @@ test("shows the Masters tab bar with HR Master active and the other master tabs 
   }
 
   await expect(
-    page.getByRole("link", { name: "Sales & Document Masters" }),
-  ).toHaveAttribute("href", "/settings/sales-settings");
+    page.getByRole("link", { name: "Sales Master" }),
+  ).toHaveAttribute("href", "/sales/master-list");
 });
 
 test("renders all five HR Master cards", async ({ page }) => {

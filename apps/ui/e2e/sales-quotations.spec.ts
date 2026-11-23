@@ -227,9 +227,6 @@ function answer(req: MockRequest, quotation: typeof QUOTATION) {
       },
     };
   }
-  if (method === "POST" && pathname === "/sales/quotations/3/mark-invoiced") {
-    return { body: { data: { ...quotation, status: "CONVERTED" } } };
-  }
   if (method === "POST" && pathname === "/sales/quotations/3/reopen") {
     return {
       body: {
@@ -507,8 +504,10 @@ test.describe("Sales quotations", () => {
     await expect(page.getByRole("button", { name: "Email" })).toBeVisible();
   });
 
-  test("mark as invoiced locks without an invoice", async ({ page }) => {
-    const { calls } = await signInWithMockedApi(page, {
+  test("an open quotation can be converted but not manually locked or reopened", async ({
+    page,
+  }) => {
+    await signInWithMockedApi(page, {
       permissions: MANAGER,
       workspace: "sales",
       menu: MENU,
@@ -518,18 +517,13 @@ test.describe("Sales quotations", () => {
     await page
       .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
       .click();
-    await page.getByRole("menuitem", { name: "View details" }).click();
-    await page.getByRole("button", { name: "Mark as invoiced" }).click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Mark as invoiced" })
-      .click();
     await expect(
-      page.getByText("TW/QUO/26-27/0007 marked as invoiced"),
+      page.getByRole("menuitem", { name: "Convert to invoice" }),
     ).toBeVisible();
-    expect(
-      calls.some((c) => c.startsWith("POST /sales/quotations/3/mark-invoiced")),
-    ).toBe(true);
+    await expect(
+      page.getByRole("menuitem", { name: "Mark as invoiced" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Reopen" })).toHaveCount(0);
   });
 
   test("reopening a converted quotation needs a reason", async ({ page }) => {

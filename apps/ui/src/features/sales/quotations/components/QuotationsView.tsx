@@ -6,7 +6,6 @@ import {
   ArrowRightLeft,
   Download,
   Eye,
-  FileCheck,
   FileText,
   Mail,
   Pencil,
@@ -20,7 +19,6 @@ import {
   ActionMenu,
   Alert,
   Button,
-  ConfirmDialog,
   DataTable,
   DateRangePicker,
   DeleteConfirmDialog,
@@ -44,7 +42,6 @@ import { formatDate, formatInr } from "../../shared/format";
 import { QUOTATIONS } from "../api";
 import {
   useDeleteQuotation,
-  useMarkQuotationInvoiced,
   useQuotations,
   useReopenQuotation,
 } from "../hooks";
@@ -54,7 +51,7 @@ import { QuotationStatusBadge } from "./QuotationDetailView";
 
 const PAGE_SIZE = 20;
 
-type RowDialog = "email" | "convert" | "invoiced" | "reopen" | "delete";
+type RowDialog = "email" | "convert" | "reopen" | "delete";
 
 export function QuotationsView() {
   const router = useRouter();
@@ -66,7 +63,6 @@ export function QuotationsView() {
   const canConvert = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const canPickCustomer = usePermission(SALES_PERMISSIONS.customerRead);
   const remove = useDeleteQuotation();
-  const markInvoiced = useMarkQuotationInvoiced();
   const reopen = useReopenQuotation();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -218,7 +214,6 @@ export function QuotationsView() {
               fromAriaLabel="From date"
               toAriaLabel="To date"
               placeholder="Date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {
@@ -362,24 +357,6 @@ export function QuotationsView() {
                               },
                             ]
                           : []),
-                        ...(canWrite && open
-                          ? [
-                              {
-                                label: "Mark as invoiced",
-                                icon: (
-                                  <FileCheck
-                                    className={cls}
-                                    aria-hidden="true"
-                                  />
-                                ),
-                                onClick: () =>
-                                  setTarget({
-                                    quotation: q,
-                                    dialog: "invoiced",
-                                  }),
-                              },
-                            ]
-                          : []),
                         ...(canWrite && !open
                           ? [
                               {
@@ -464,40 +441,12 @@ export function QuotationsView() {
           quotationNumber={target.quotation.quotationNumber}
         />
       ) : null}
-      {target && canWrite && target.dialog === "invoiced" ? (
-        <ConfirmDialog
-          open
-          onClose={closeDialog}
-          onConfirm={async () => {
-            const q = target.quotation;
-            try {
-              await markInvoiced.mutateAsync(q.id);
-              toast({
-                title: `${q.quotationNumber} marked as invoiced`,
-                variant: "success",
-              });
-            } catch (e) {
-              toast({
-                title:
-                  e instanceof ApiError ? e.message : "Could not mark invoiced",
-                variant: "error",
-              });
-            } finally {
-              closeDialog();
-            }
-          }}
-          title="Mark as invoiced"
-          description={`${target.quotation.quotationNumber} is locked as converted, without creating an invoice here. Use this when the invoice was raised outside the system.`}
-          confirmText="Mark as invoiced"
-          loading={markInvoiced.isPending}
-        />
-      ) : null}
       {target && canWrite && target.dialog === "reopen" ? (
         <ReasonActionDialog
           open
           onClose={closeDialog}
           title="Reopen quotation"
-          description={`${target.quotation.quotationNumber} becomes open again and can be edited or converted.`}
+          description={`${target.quotation.quotationNumber} becomes open again and can be edited or converted. The invoice already created from it is not changed.`}
           reasonLabel="Reason for reopening"
           reasonHint="Recorded on the quotation and in its history."
           placeholder="e.g. Customer asked for a revised quote"

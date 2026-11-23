@@ -98,14 +98,6 @@ export async function convertToTax(
   return data;
 }
 
-/** "Mark as tax invoiced": the tax invoice was raised outside the system. */
-export async function markProformaConverted(id: number): Promise<Invoice> {
-  const { data } = await withAuthRetry(() =>
-    apiClient.post<Invoice>(`${INVOICES}/${id}/mark-converted`, {}),
-  );
-  return data;
-}
-
 export async function reopenProforma(
   id: number,
   reason: string,

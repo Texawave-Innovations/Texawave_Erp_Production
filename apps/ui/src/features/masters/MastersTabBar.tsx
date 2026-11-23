@@ -21,10 +21,10 @@ interface MasterTab {
 
 const TABS: MasterTab[] = [
   {
-    id: "sales-document",
-    label: "Sales & Document Masters",
+    id: "sales",
+    label: "Sales Master",
     icon: ShoppingCart,
-    path: "/settings/sales-settings",
+    path: "/sales/master-list",
   },
   { id: "hr", label: "HR Master", icon: Users, path: "/settings/masters/hr" },
   {
@@ -49,12 +49,12 @@ const TABS: MasterTab[] = [
 
 export interface MastersTabBarProps {
   /** Which tab to render as active — the caller's own page, not derived
-   * from the URL, since both sales-settings and HR Master live at
-   * unrelated paths. */
+   * from the URL, since Sales Master and HR Master live at unrelated
+   * paths. */
   active: MasterTabId;
 }
 
-/** Secondary nav shown above the Sales & Document Masters, HR Master,
+/** Secondary nav shown above the Sales Master, HR Master,
  * Finance Master, Projects Master, and SCM Master screens, letting a user
  * jump between master-data areas. Finance Master is just the master-list
  * foundation (Expense Types/Payment Modes) ahead of the rest of that

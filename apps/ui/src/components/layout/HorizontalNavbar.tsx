@@ -54,7 +54,6 @@ import {
   CheckCircle2,
   Truck,
   PackageCheck,
-  ListChecks,
   Wallet,
   UserCheck,
   ClipboardList,
@@ -493,23 +492,6 @@ const SALES_CATEGORIES: NavCategory[] = [
         icon: Wallet,
         icon3d: "payroll",
         menuCode: "sales-payments",
-      },
-    ],
-  },
-  {
-    id: "sales-setup",
-    label: "Setup",
-    icon: ListChecks,
-    icon3d: "operations",
-    iconColor: "text-gray-600",
-    children: [
-      {
-        id: "sales-master-list",
-        label: "Master List",
-        path: "/sales/master-list",
-        icon: ListChecks,
-        icon3d: "master-list",
-        menuCode: "sales-master-list",
       },
     ],
   },
@@ -1833,8 +1815,8 @@ export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
 
 /**
  * Master List top-nav dropdown — the same five sections as
- * features/masters/MastersTabBar.tsx's secondary nav (Sales & Document,
- * HR, Finance, Projects, SCM masters), surfaced from the top nav instead of
+ * features/masters/MastersTabBar.tsx's secondary nav (Sales, HR, Finance,
+ * Projects, SCM masters), surfaced from the top nav instead of
  * only being reachable once already on one of those pages. No menuCode: none
  * of these five routes have one in the menu catalog yet, matching the
  * module's existing unfiltered (no RBAC gating) access.
@@ -1842,12 +1824,12 @@ export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
 const MASTER_LIST_CATEGORIES: NavCategory[] = [
   {
     id: "master-list-sales",
-    label: "Sales & Document Masters",
+    label: "Sales Master",
     icon: ShoppingCart,
     icon3d: "sales",
     iconColor: "text-blue-600",
-    path: "/settings/sales-settings",
-    anyPermission: MASTER_READ_PERMISSIONS["sales-document"],
+    path: "/sales/master-list",
+    anyPermission: MASTER_READ_PERMISSIONS.sales,
   },
   {
     id: "master-list-hr",
@@ -2052,7 +2034,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Master List",
     icon: ClipboardList,
     icon3d: "master-list",
-    path: "/settings/sales-settings",
+    path: "/sales/master-list",
     available: true,
     categories: MASTER_LIST_CATEGORIES,
   },
@@ -2153,9 +2135,6 @@ function findRouteNavigationState(pathname: string) {
     pathname === "/admin/dashboard/"
   ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
-  }
-  if (pathname.startsWith("/settings/sales-settings")) {
-    return { moduleId: "master-list", categoryId: null, leafId: null };
   }
   if (pathname.startsWith("/admin/users")) {
     return {

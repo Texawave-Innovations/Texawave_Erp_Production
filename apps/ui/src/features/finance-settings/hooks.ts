@@ -17,8 +17,7 @@ import {
 } from "./api";
 
 /**
- * React Query hooks — mirrors
- * apps/ui/src/features/sales-settings/hooks.ts's master-list-items section.
+ * React Query hooks for the master-list-items endpoint.
  * Query keys are org-scoped via `orgScopedKey`; mutations invalidate every
  * query under the resource's key prefix via `useOrgScopedMutation`.
  */

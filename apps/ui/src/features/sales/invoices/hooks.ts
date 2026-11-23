@@ -12,7 +12,6 @@ import {
   deleteInvoice,
   getInvoice,
   listInvoices,
-  markProformaConverted,
   reopenProforma,
   updateInvoice,
   type InvoiceListQuery,
@@ -65,12 +64,6 @@ export function useConvertToTax() {
     [SALES_KEY],
     ({ id, invoiceDate }: { id: number; invoiceDate: string }) =>
       convertToTax(id, invoiceDate),
-  );
-}
-
-export function useMarkProformaConverted() {
-  return useOrgScopedMutation([SALES_KEY], (id: number) =>
-    markProformaConverted(id),
   );
 }
 

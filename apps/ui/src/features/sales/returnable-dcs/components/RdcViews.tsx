@@ -249,7 +249,6 @@ export function RdcsView() {
               fromAriaLabel="Issued from"
               toAriaLabel="Issued to"
               placeholder="Issue date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {

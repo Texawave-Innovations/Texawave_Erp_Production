@@ -7,7 +7,6 @@ import {
   CreditCard,
   Download,
   Eye,
-  FileCheck,
   Mail,
   Pencil,
   Plus,
@@ -22,7 +21,6 @@ import {
   ActionMenu,
   Alert,
   Button,
-  ConfirmDialog,
   DataTable,
   DateRangePicker,
   DeleteConfirmDialog,
@@ -52,7 +50,6 @@ import {
   useCreateChallanFromInvoice,
   useDeleteInvoice,
   useInvoices,
-  useMarkProformaConverted,
   useReopenProforma,
 } from "../hooks";
 import {
@@ -65,8 +62,7 @@ import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 
 const PAGE_SIZE = 20;
 
-type RowDialog =
-  "email" | "payment" | "tax" | "markTax" | "reopen" | "challan" | "delete";
+type RowDialog = "email" | "payment" | "tax" | "reopen" | "challan" | "delete";
 
 const TITLE: Record<
   InvoiceType,
@@ -97,7 +93,6 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
   const canPickCustomer = usePermission(SALES_PERMISSIONS.customerRead);
   const remove = useDeleteInvoice();
   const toTax = useConvertToTax();
-  const markTax = useMarkProformaConverted();
   const reopen = useReopenProforma();
   const toChallan = useCreateChallanFromInvoice();
   const [page, setPage] = useState(1);
@@ -261,7 +256,6 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
               fromAriaLabel="From date"
               toAriaLabel="To date"
               placeholder="Date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {
@@ -435,21 +429,6 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
                               },
                             ]
                           : []),
-                        ...(canWrite && live && i.invoiceType === "PROFORMA"
-                          ? [
-                              {
-                                label: "Mark as tax invoiced",
-                                icon: (
-                                  <FileCheck
-                                    className={cls}
-                                    aria-hidden="true"
-                                  />
-                                ),
-                                onClick: () =>
-                                  setTarget({ invoice: i, dialog: "markTax" }),
-                              },
-                            ]
-                          : []),
                         ...(canWrite && !live
                           ? [
                               {
@@ -564,42 +543,15 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
           }}
         />
       ) : null}
-      {current && target?.dialog === "markTax" ? (
-        <ConfirmDialog
-          open
-          onClose={closeDialog}
-          onConfirm={async () => {
-            try {
-              await markTax.mutateAsync(current.id);
-              toast({
-                title: `${current.invoiceNumber} marked as tax invoiced`,
-                variant: "success",
-              });
-            } catch (e) {
-              toast({
-                title:
-                  e instanceof ApiError ? e.message : "Could not mark as done",
-                variant: "error",
-              });
-            } finally {
-              closeDialog();
-            }
-          }}
-          title="Mark as tax invoiced"
-          description={`${current.invoiceNumber} is locked as moved to a tax invoice, without creating one here. Use this when the tax invoice was raised outside the system.`}
-          confirmText="Mark as tax invoiced"
-          loading={markTax.isPending}
-        />
-      ) : null}
       {current && target?.dialog === "reopen" ? (
         <ReasonActionDialog
           open
           onClose={closeDialog}
           title="Reopen proforma invoice"
-          description={`${current.invoiceNumber} becomes live again and can be edited, paid or moved to a tax invoice.`}
+          description={`${current.invoiceNumber} becomes live again and can be edited or paid. The tax invoice already created from it is not changed.`}
           reasonLabel="Reason for reopening"
           reasonHint="Recorded on the proforma and in its history."
-          placeholder="e.g. Marked as tax invoiced by mistake"
+          placeholder="e.g. Customer asked for changes before billing"
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: current.id, reason });

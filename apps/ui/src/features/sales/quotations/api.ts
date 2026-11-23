@@ -88,14 +88,6 @@ export async function deleteQuotation(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete(`${QUOTATIONS}/${id}`));
 }
 
-/** "Mark as invoiced": the invoice was raised outside the system. */
-export async function markQuotationInvoiced(id: number): Promise<Quotation> {
-  const { data } = await withAuthRetry(() =>
-    apiClient.post<Quotation>(`${QUOTATIONS}/${id}/mark-invoiced`, {}),
-  );
-  return data;
-}
-
 export async function reopenQuotation(
   id: number,
   reason: string,

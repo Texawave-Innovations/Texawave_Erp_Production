@@ -228,7 +228,6 @@ export function ChallansView() {
               fromAriaLabel="From date"
               toAriaLabel="To date"
               placeholder="Date range"
-              showPresets
               className="sm:w-64"
               onChange={(r) =>
                 reset(() => {

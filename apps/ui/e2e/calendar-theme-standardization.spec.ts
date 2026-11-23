@@ -74,9 +74,11 @@ test.describe("TexaOne Global Calendar Theme Standardization (Ark UI Glass Theme
     }
 
     // Locate DateRangePicker trigger
-    const rangePickerTrigger = page.getByRole("button", {
-      name: /Select date range|From \d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2} - \d{4}-\d{2}-\d{2}/i,
-    }).first();
+    const rangePickerTrigger = page
+      .getByRole("button", {
+        name: /Select date range|From \d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2} - \d{4}-\d{2}-\d{2}/i,
+      })
+      .first();
     await expect(rangePickerTrigger).toBeVisible();
 
     // Open DateRangePicker popover
@@ -89,12 +91,11 @@ test.describe("TexaOne Global Calendar Theme Standardization (Ark UI Glass Theme
     await expect(rangePopover).toBeVisible();
     await expect(rangePopover).toHaveClass(/glass-calendar-surface/);
 
-    // Verify Presets sidebar
-    await expect(rangePopover.getByText("Presets")).toBeVisible();
-    const thisMonthPreset = rangePopover.getByRole("button", {
-      name: "This Month",
-    });
-    await expect(thisMonthPreset).toBeVisible();
+    // No presets sidebar: the range popover is the compact calendar only
+    await expect(rangePopover.getByText("Presets")).toHaveCount(0);
+    await expect(
+      rangePopover.getByRole("button", { name: "This Month" }),
+    ).toHaveCount(0);
 
     // Verify squircle nav controls and year select
     const prevMonthBtn = rangePopover.getByRole("button", {
@@ -105,10 +106,13 @@ test.describe("TexaOne Global Calendar Theme Standardization (Ark UI Glass Theme
     });
     await expect(prevMonthBtn).toBeVisible();
     await expect(nextMonthBtn).toBeVisible();
-    await expect(rangePopover.getByRole("combobox", { name: "Select year" })).toBeVisible();
+    await expect(
+      rangePopover.getByRole("combobox", { name: "Select year" }),
+    ).toBeVisible();
 
-    // Click This Month preset
-    await thisMonthPreset.click();
+    // Pick a range by clicking two days
+    await rangePopover.getByRole("button", { name: "10", exact: true }).click();
+    await rangePopover.getByRole("button", { name: "15", exact: true }).click();
 
     // Capture screenshot of standardized DateRangePicker
     await page.screenshot({
@@ -154,8 +158,12 @@ test.describe("TexaOne Global Calendar Theme Standardization (Ark UI Glass Theme
     await expect(popover).toHaveClass(/glass-calendar-surface/);
 
     // Verify navigation buttons
-    await expect(popover.getByRole("button", { name: "Previous month" })).toBeVisible();
-    await expect(popover.getByRole("button", { name: "Next month" })).toBeVisible();
+    await expect(
+      popover.getByRole("button", { name: "Previous month" }),
+    ).toBeVisible();
+    await expect(
+      popover.getByRole("button", { name: "Next month" }),
+    ).toBeVisible();
 
     // Capture screenshot of single DatePicker popover
     await page.screenshot({
@@ -256,8 +264,12 @@ test.describe("TexaOne Global Calendar Theme Standardization (Ark UI Glass Theme
     await expect(popover).toHaveClass(/glass-calendar-surface/);
 
     // Verify month short names are visible
-    await expect(popover.getByRole("button", { name: "Jan", exact: true })).toBeVisible();
-    await expect(popover.getByRole("button", { name: "Dec", exact: true })).toBeVisible();
+    await expect(
+      popover.getByRole("button", { name: "Jan", exact: true }),
+    ).toBeVisible();
+    await expect(
+      popover.getByRole("button", { name: "Dec", exact: true }),
+    ).toBeVisible();
 
     // Capture screenshot of Month picker
     await page.screenshot({

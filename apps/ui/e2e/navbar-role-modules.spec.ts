@@ -170,7 +170,7 @@ test("an HR Manager sees only Dashboard, Human Resources and Master List (HR Mas
   const masters = page.getByRole("menu", { name: "Master List categories" });
   await expect(masters.getByText("HR Master")).toBeVisible();
   for (const other of [
-    "Sales & Document Masters",
+    "Sales Master",
     "Finance Master",
     "Projects Master",
     "SCM Master",

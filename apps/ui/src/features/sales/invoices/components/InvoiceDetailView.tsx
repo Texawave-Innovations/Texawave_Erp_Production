@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Download,
-  FileCheck,
   Mail,
   MessageCircle,
   Pencil,
@@ -20,7 +19,6 @@ import {
   Alert,
   Button,
   Card,
-  ConfirmDialog,
   DataTable,
   DeleteConfirmDialog,
   ErrorState,
@@ -46,7 +44,6 @@ import {
   useCreateChallanFromInvoice,
   useDeleteInvoice,
   useInvoice,
-  useMarkProformaConverted,
   useReopenProforma,
 } from "../hooks";
 import { INVOICE_LABEL, type InvoicePayment } from "../types";
@@ -65,7 +62,6 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 type DialogKind =
   | "email"
   | "tax"
-  | "markTax"
   | "reopen"
   | "challan"
   | "delete"
@@ -84,7 +80,6 @@ export function InvoiceDetailView({ id }: { id: number }) {
   const query = useInvoice(canRead ? id : null);
   const remove = useDeleteInvoice();
   const toTax = useConvertToTax();
-  const markTax = useMarkProformaConverted();
   const reopen = useReopenProforma();
   const toChallan = useCreateChallanFromInvoice();
   const removePayment = useDeletePayment();
@@ -219,12 +214,6 @@ export function InvoiceDetailView({ id }: { id: number }) {
               <Button onClick={() => setDialog("tax")}>
                 <ArrowRightLeft className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 Move to tax invoice
-              </Button>
-            ) : null}
-            {canWrite && live && inv.invoiceType === "PROFORMA" ? (
-              <Button variant="secondary" onClick={() => setDialog("markTax")}>
-                <FileCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Mark as tax invoiced
               </Button>
             ) : null}
             {canWrite && !live ? (
@@ -432,42 +421,15 @@ export function InvoiceDetailView({ id }: { id: number }) {
           }}
         />
       ) : null}
-      {dialog === "markTax" ? (
-        <ConfirmDialog
-          open
-          onClose={() => setDialog(null)}
-          onConfirm={async () => {
-            try {
-              await markTax.mutateAsync(inv.id);
-              toast({
-                title: `${inv.invoiceNumber} marked as tax invoiced`,
-                variant: "success",
-              });
-            } catch (e) {
-              toast({
-                title:
-                  e instanceof ApiError ? e.message : "Could not mark as done",
-                variant: "error",
-              });
-            } finally {
-              setDialog(null);
-            }
-          }}
-          title="Mark as tax invoiced"
-          description={`${inv.invoiceNumber} is locked as moved to a tax invoice, without creating one here. Use this when the tax invoice was raised outside the system.`}
-          confirmText="Mark as tax invoiced"
-          loading={markTax.isPending}
-        />
-      ) : null}
       {dialog === "reopen" ? (
         <ReasonActionDialog
           open
           onClose={() => setDialog(null)}
           title="Reopen proforma invoice"
-          description={`${inv.invoiceNumber} becomes live again and can be edited, paid or moved to a tax invoice.`}
+          description={`${inv.invoiceNumber} becomes live again and can be edited or paid. The tax invoice already created from it is not changed.`}
           reasonLabel="Reason for reopening"
           reasonHint="Recorded on the proforma and in its history."
-          placeholder="e.g. Marked as tax invoiced by mistake"
+          placeholder="e.g. Customer asked for changes before billing"
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: inv.id, reason });

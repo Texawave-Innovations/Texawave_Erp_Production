@@ -181,7 +181,7 @@ const MODES = [
   },
 ];
 
-// The proforma (id 22) flips to CONVERTED when marked as tax invoiced and
+// The proforma (id 22) is CONVERTED once moved to a tax invoice and flips
 // back when reopened with a reason.
 let proformaConverted = false;
 let proformaReason: string | null = null;
@@ -209,11 +209,6 @@ function answer(req: MockRequest) {
   if (method === "GET" && pathname === "/sales/invoices/21")
     return { body: { data: invoice() } };
   if (method === "GET" && pathname === "/sales/invoices/22") {
-    return { body: { data: proforma() } };
-  }
-  if (method === "POST" && pathname === "/sales/invoices/22/mark-converted") {
-    proformaConverted = true;
-    proformaReason = null;
     return { body: { data: proforma() } };
   }
   if (method === "POST" && pathname === "/sales/invoices/22/reopen") {
@@ -478,26 +473,33 @@ test.describe("Sales invoices, payments and challans", () => {
     ).toBe(true);
   });
 
-  test("proforma: mark as tax invoiced, then reopen needs a reason", async ({
+  test("a live proforma offers no Reopen and no manual mark", async ({
     page,
   }) => {
+    await signIn(page);
+    await open(page, "Documents", "Proforma Invoices");
+    await page
+      .getByRole("button", { name: "Actions for TW/PI/26-27/0003" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Move to tax invoice" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Mark as tax invoiced" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Reopen" })).toHaveCount(0);
+  });
+
+  test("a converted proforma is locked; reopening needs a reason", async ({
+    page,
+  }) => {
+    proformaConverted = true;
     const { calls } = await signIn(page);
     await open(page, "Documents", "Proforma Invoices");
     await page
       .getByRole("button", { name: "Actions for TW/PI/26-27/0003" })
       .click();
     await page.getByRole("menuitem", { name: "View details" }).click();
-    await page.getByRole("button", { name: "Mark as tax invoiced" }).click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Mark as tax invoiced" })
-      .click();
-    await expect(
-      page.getByText("TW/PI/26-27/0003 marked as tax invoiced"),
-    ).toBeVisible();
-    expect(
-      calls.some((c) => c.startsWith("POST /sales/invoices/22/mark-converted")),
-    ).toBe(true);
 
     // Locked: no Edit, and Reopen is offered instead.
     await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
@@ -507,7 +509,9 @@ test.describe("Sales invoices, payments and challans", () => {
     await expect(confirm).toBeDisabled();
     await dialog.getByLabel("Reason for reopening").fill("   ");
     await expect(confirm).toBeDisabled();
-    await dialog.getByLabel("Reason for reopening").fill("Marked by mistake");
+    await dialog
+      .getByLabel("Reason for reopening")
+      .fill("Customer asked for changes");
     await expect(confirm).toBeEnabled();
     await confirm.click();
     await expect(
@@ -516,11 +520,11 @@ test.describe("Sales invoices, payments and challans", () => {
     expect(
       calls.some((c) =>
         c.startsWith(
-          'POST /sales/invoices/22/reopen {"reason":"Marked by mistake"}',
+          'POST /sales/invoices/22/reopen {"reason":"Customer asked for changes"}',
         ),
       ),
     ).toBe(true);
-    await expect(page.getByText("Marked by mistake")).toBeVisible();
+    await expect(page.getByText("Customer asked for changes")).toBeVisible();
   });
 
   test("new tax invoice: server preview, due-date bubble, save", async ({

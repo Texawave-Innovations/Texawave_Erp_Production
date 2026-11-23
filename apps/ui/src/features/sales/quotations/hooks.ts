@@ -11,7 +11,6 @@ import {
   deleteQuotation,
   getQuotation,
   listQuotations,
-  markQuotationInvoiced,
   reopenQuotation,
   updateQuotation,
   type QuotationListQuery,
@@ -57,12 +56,6 @@ export function useUpdateQuotation() {
 
 export function useDeleteQuotation() {
   return useOrgScopedMutation([SALES_KEY], (id: number) => deleteQuotation(id));
-}
-
-export function useMarkQuotationInvoiced() {
-  return useOrgScopedMutation([SALES_KEY], (id: number) =>
-    markQuotationInvoiced(id),
-  );
 }
 
 export function useReopenQuotation() {
