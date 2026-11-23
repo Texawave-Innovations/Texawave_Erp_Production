@@ -18,6 +18,10 @@ const KIND_BANNER: Partial<Record<DayKind, { label: string; cls: string }>> = {
     label: "Absent",
     cls: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
   },
+  unmarked: {
+    label: "Not Marked",
+    cls: "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+  },
   half: {
     label: "Half Day",
     cls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
@@ -242,6 +246,15 @@ export function DayDetailPanel({
         </div>
 
         <div className="space-y-3 border-t border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+          {kind === "unmarked" ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              {sessions.length > 0
+                ? "This day is waiting for HR to confirm it (for example, a missing check-out)."
+                : "No check-in was recorded for this day."}{" "}
+              If you worked, raise a regularization request from the Regularize
+              button or the Regularization tab.
+            </p>
+          ) : null}
           {banner ? (
             <div
               className={`flex items-center justify-between rounded-lg border px-3 py-2 font-bold ${banner.cls}`}

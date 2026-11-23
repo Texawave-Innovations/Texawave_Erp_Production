@@ -342,7 +342,8 @@ fewer than `limit` rows when a type is requested.
 ### 7.7 Auto-checkout: scheduled in the ERP API
 
 **Mechanism.** `services/attendance-auto-checkout.scheduler.ts` is the ERP's single scheduler for this
-job: one in-process `setInterval`, every 5 minutes (`AUTO_CHECKOUT_INTERVAL_MS`), started in
+job: one in-process `setInterval`, every minute (`AUTO_CHECKOUT_INTERVAL_MS`; was 5 minutes until
+2026-11-21 — shortened so an HR-master cut-off takes effect within a minute), started in
 `onModuleInit`, cleared in `onModuleDestroy`, unref'd so it never holds the process open, and guarded
 against overlapping runs. A failed run is logged and retried on the next tick.
 

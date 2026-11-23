@@ -82,12 +82,27 @@ export function useAttendanceRecord(id: number | null) {
   });
 }
 
-export function useMyAttendance(query: AttendanceRangeQuery, enabled = true) {
+/** While a session is open, re-check every minute — the same cadence as the
+ * API's auto-checkout job — so a system check-out shows without a reload. */
+const OPEN_SESSION_POLL_MS = 60_000;
+
+export function useMyAttendance(
+  query: AttendanceRangeQuery,
+  enabled = true,
+  options: { pollWhileCheckedIn?: boolean } = {},
+) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: orgScopedKey(orgId, KEY, "mine", query),
     queryFn: () => listMyAttendance(query),
     enabled: orgId > 0 && enabled,
+    // Polls only while a session is open; stops once it is closed.
+    refetchInterval: options.pollWhileCheckedIn
+      ? (q) =>
+          q.state.data?.data.some((row) => row.hasOpenSession)
+            ? OPEN_SESSION_POLL_MS
+            : false
+      : false,
   });
 }
 

@@ -36,12 +36,12 @@ describe("AttendanceAutoCheckoutScheduler (lifecycle and logging)", () => {
     vi.restoreAllMocks();
   });
 
-  it("runs every five minutes once the module starts", async () => {
+  it("runs every minute once the module starts", async () => {
     const { scheduler, job } = makeScheduler();
     scheduler.onModuleInit();
-    expect(AUTO_CHECKOUT_INTERVAL_MS).toBe(300_000);
+    expect(AUTO_CHECKOUT_INTERVAL_MS).toBe(60_000);
     expect(log).toHaveBeenCalledWith(
-      "attendance auto-checkout scheduled every 5 minutes",
+      "attendance auto-checkout scheduled every 1 minute",
     );
     expect(job.runForAllOrganizations).not.toHaveBeenCalled();
 

@@ -7,8 +7,10 @@ import {
 import { AttendanceAutoCheckoutService } from "./attendance-auto-checkout.service.js";
 
 /** How often the in-process job checks for due sessions. Closing is idempotent,
- * so a shorter interval only lowers the lag between "due" and "closed". */
-export const AUTO_CHECKOUT_INTERVAL_MS = 5 * 60_000;
+ * so a shorter interval only lowers the lag between "due" and "closed". One
+ * minute keeps that lag small enough that HR and employees see the HR-master
+ * cut-off take effect almost immediately (one cheap query per minute). */
+export const AUTO_CHECKOUT_INTERVAL_MS = 60_000;
 
 /**
  * The ERP's ONE scheduler for attendance auto-checkout: a single in-process
@@ -35,8 +37,9 @@ export class AttendanceAutoCheckoutScheduler
   onModuleInit(): void {
     this.timer = setInterval(() => void this.tick(), AUTO_CHECKOUT_INTERVAL_MS);
     this.timer.unref();
+    const minutes = AUTO_CHECKOUT_INTERVAL_MS / 60_000;
     this.logger.log(
-      `attendance auto-checkout scheduled every ${AUTO_CHECKOUT_INTERVAL_MS / 60_000} minutes`,
+      `attendance auto-checkout scheduled every ${minutes} minute${minutes === 1 ? "" : "s"}`,
     );
   }
 

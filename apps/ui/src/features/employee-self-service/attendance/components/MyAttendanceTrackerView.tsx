@@ -71,13 +71,15 @@ import { DayDetailPanel } from "./DayDetailPanel";
 import { TimelineBar } from "./TimelineBar";
 
 type ViewMode = "daily" | "week" | "month";
-type StatusFilter = "all" | "Present" | "Absent" | "Leave" | "Holiday";
+type StatusFilter =
+  "all" | "Present" | "Absent" | "NotMarked" | "Leave" | "Holiday";
 type Tab = "summary" | "regularization";
 
 function passesFilter(kind: DayKind, filter: StatusFilter): boolean {
   if (filter === "all") return true;
   if (filter === "Present") return kind === "present" || kind === "half";
   if (filter === "Absent") return kind === "absent";
+  if (filter === "NotMarked") return kind === "unmarked";
   if (filter === "Leave") return kind === "leave";
   return kind === "holiday";
 }
@@ -230,7 +232,12 @@ export function MyAttendanceTrackerView() {
   const requestedDates = new Set(requests.map((r) => r.attendanceDate));
   const pendingCount = requests.filter((r) => r.status === "SUBMITTED").length;
 
-  const ctx = { today, holidays, leaveDays };
+  const ctx = {
+    today,
+    holidays,
+    leaveDays,
+    joinedOn: employee.data?.dateOfJoining?.slice(0, 10) ?? null,
+  };
   const kindOf = (ds: string) => classifyDay(ds, rows.get(ds) ?? null, ctx);
 
   const visibleDays =
@@ -360,6 +367,7 @@ export function MyAttendanceTrackerView() {
               <option value="all">All Status</option>
               <option value="Present">Present</option>
               <option value="Absent">Absent</option>
+              <option value="NotMarked">Not marked</option>
               <option value="Leave">Leave</option>
               <option value="Holiday">Holiday</option>
             </Select>
@@ -668,6 +676,7 @@ export function MyAttendanceTrackerView() {
               {(() => {
                 let present = 0;
                 let absent = 0;
+                let unmarked = 0;
                 let leaveHoli = 0;
                 let monthMs = 0;
                 for (const d of visibleDays) {
@@ -676,6 +685,7 @@ export function MyAttendanceTrackerView() {
                   monthMs += workedMs(rows.get(ds) ?? null, now);
                   if (k === "present" || k === "half") present++;
                   else if (k === "absent") absent++;
+                  else if (k === "unmarked") unmarked++;
                   else if (k === "leave" || k === "holiday") leaveHoli++;
                 }
                 const tiles = [
@@ -695,13 +705,18 @@ export function MyAttendanceTrackerView() {
                     cls: "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300",
                   },
                   {
+                    label: "Not Marked",
+                    value: `${unmarked} Days`,
+                    cls: "border-amber-300 bg-amber-50/70 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
+                  },
+                  {
                     label: "Leave / Holidays",
                     value: `${leaveHoli} Days`,
-                    cls: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
+                    cls: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300",
                   },
                 ];
                 return (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {tiles.map((t) => (
                       <div
                         key={t.label}
@@ -756,7 +771,9 @@ export function MyAttendanceTrackerView() {
                             ? "bg-brand-50/30 border-brand-200/60 dark:border-brand-900"
                             : kind === "absent"
                               ? "bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900"
-                              : "bg-white border-gray-200 hover:bg-slate-50 dark:bg-gray-900 dark:border-gray-800";
+                              : kind === "unmarked"
+                                ? "bg-amber-50/40 border-amber-200 border-dashed dark:bg-amber-950/10 dark:border-amber-900"
+                                : "bg-white border-gray-200 hover:bg-slate-50 dark:bg-gray-900 dark:border-gray-800";
                   const tag: Partial<Record<DayKind, [string, string]>> = {
                     holiday: ["Holi", "text-purple-600 bg-purple-100"],
                     leave: ["Leave", "text-amber-600 bg-amber-100"],
@@ -764,6 +781,7 @@ export function MyAttendanceTrackerView() {
                     present: ["P", "text-brand-700 bg-brand-100"],
                     half: ["HD", "text-amber-700 bg-amber-100"],
                     absent: ["A", "text-red-600 bg-red-100"],
+                    unmarked: ["NM", "text-amber-700 bg-amber-100"],
                   };
                   const t = tag[kind];
                   return (
@@ -879,7 +897,9 @@ export function MyAttendanceTrackerView() {
                                   ? "bg-gray-200 text-gray-600"
                                   : kind === "absent"
                                     ? "bg-red-100 text-red-700"
-                                    : "text-gray-900 dark:text-white"
+                                    : kind === "unmarked"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "text-gray-900 dark:text-white"
                         }`}
                       >
                         {day.getDate()}
@@ -903,6 +923,10 @@ export function MyAttendanceTrackerView() {
                       ) : kind === "absent" ? (
                         <span className="text-[10px] font-semibold text-red-600">
                           ❌ Absent
+                        </span>
+                      ) : kind === "unmarked" && !firstIn ? (
+                        <span className="text-[10px] font-semibold text-amber-700">
+                          Not marked
                         </span>
                       ) : !isWknd && firstIn ? (
                         <>
@@ -956,6 +980,12 @@ export function MyAttendanceTrackerView() {
                           "Absent",
                           "bg-red-200",
                           "border-red-200 bg-red-100 text-red-500",
+                        )
+                      ) : kind === "unmarked" && sessions.length === 0 ? (
+                        offLine(
+                          "Not marked — no check-in recorded",
+                          "bg-amber-200",
+                          "border-amber-200 bg-amber-50 text-amber-700",
                         )
                       ) : (
                         <TimelineBar

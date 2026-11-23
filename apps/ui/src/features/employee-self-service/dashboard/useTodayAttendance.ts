@@ -84,6 +84,9 @@ export function useTodayAttendance() {
   const month = useMyAttendance(
     { page: 1, limit: 31, from: monthStartIso(), to: today },
     canRead,
+    // So the card flips to "checked out" when the auto-checkout job closes
+    // the session (within about a minute), without the employee reloading.
+    { pollWhileCheckedIn: true },
   );
 
   const rows: AttendanceDayView[] = useMemo(

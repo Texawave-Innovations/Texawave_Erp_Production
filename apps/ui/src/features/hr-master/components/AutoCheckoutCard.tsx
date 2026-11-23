@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Checkbox,
-  FormField,
-  Input,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Card, Checkbox, Input, useToast } from "@texawave-erp/ui-kit";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useAttendanceSettings,
@@ -61,55 +55,45 @@ function AutoCheckoutForm({
     }
   }
 
+  // Compact, like the other HR Master cards: one toggle line, then the time
+  // and Save on one row (same shape as their "Add value" + "Add" row).
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+    <div className="flex flex-col gap-3">
+      <label
+        className="flex cursor-pointer items-center gap-2 text-theme-xs text-gray-700 dark:text-gray-300"
+        title="When off, a session closes after the employee's shift hours. Auto-closed days stay pending until HR regularizes them."
+      >
         <Checkbox
           checked={enabled}
           disabled={!canWrite}
           onChange={(e) => setEnabled(e.target.checked)}
-          className="mt-0.5"
         />
-        <div className="flex flex-col">
-          <span className="text-xs font-bold text-slate-900 dark:text-white">
-            Automatically check out everyone at a fixed time
-          </span>
-          <span className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            Anyone still checked in at the cut-off is checked out at that time,
-            on the day they checked in. Those days stay pending until HR
-            regularizes them. When off, a session closes after the employee's
-            shift hours instead.
-          </span>
-        </div>
-      </div>
+        Check out everyone at a fixed time (IST)
+      </label>
 
-      <FormField
-        label="Cut-off time (IST)"
-        hint="24-hour time, e.g. 20:00. Never later than midnight of the same day."
-        {...(!timeValid ? { error: "Enter a time as HH:mm, e.g. 20:00" } : {})}
-      >
-        {(fp) => (
-          <Input
-            {...fp}
-            type="time"
-            value={time}
-            disabled={!canWrite || !enabled}
-            onChange={(e) => setTime(e.target.value)}
-            className="max-w-[10rem]"
-          />
-        )}
-      </FormField>
-
-      {canWrite ? (
-        <div>
+      <div className="flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+        <Input
+          type="time"
+          aria-label="Cut-off time (IST)"
+          value={time}
+          invalid={!timeValid}
+          disabled={!canWrite || !enabled}
+          onChange={(e) => setTime(e.target.value)}
+          className="flex-1"
+        />
+        {canWrite ? (
           <Button
             onClick={() => void handleSave()}
             disabled={!dirty || !timeValid || update.isPending}
-            className="rounded-xl px-4 py-2 font-bold"
           >
             {update.isPending ? "Saving…" : "Save"}
           </Button>
-        </div>
+        ) : null}
+      </div>
+      {!timeValid ? (
+        <p className="text-theme-xs text-error-600 dark:text-error-400">
+          Enter a time as HH:mm, e.g. 20:00
+        </p>
       ) : null}
     </div>
   );
@@ -121,34 +105,35 @@ export function AutoCheckoutCard() {
   const canWrite = usePermission(SETTINGS_WRITE);
   const query = useAttendanceSettings(canRead);
 
+  // Same shell as the other HR Master cards (ui-kit MasterListCard: Card p-4,
+  // text-theme-sm heading), as one regular grid cell — it sits beside Shifts.
   return (
-    <section
-      aria-label="Auto check-out"
-      className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 sm:col-span-2 lg:col-span-3 dark:border-slate-800 dark:bg-slate-900"
-    >
-      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-        Auto Check-out
-      </h3>
-      {!canRead ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          You need the {SETTINGS_READ} permission to view this setting.
-        </p>
-      ) : query.isPending ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">Loading…</p>
-      ) : query.isError || !query.data ? (
-        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-          <span>Could not load the auto check-out setting.</span>
-          <Button variant="glass" onClick={() => void query.refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : (
-        <AutoCheckoutForm
-          key={query.data.version}
-          settings={query.data}
-          canWrite={canWrite}
-        />
-      )}
-    </section>
+    <Card className="p-4">
+      <section aria-label="Auto check-out" className="flex flex-col gap-3">
+        <h3 className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+          Auto Check-out
+        </h3>
+        {!canRead ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            You need the {SETTINGS_READ} permission to view this setting.
+          </p>
+        ) : query.isPending ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading…</p>
+        ) : query.isError || !query.data ? (
+          <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <span>Could not load the auto check-out setting.</span>
+            <Button variant="glass" onClick={() => void query.refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <AutoCheckoutForm
+            key={query.data.version}
+            settings={query.data}
+            canWrite={canWrite}
+          />
+        )}
+      </section>
+    </Card>
   );
 }
