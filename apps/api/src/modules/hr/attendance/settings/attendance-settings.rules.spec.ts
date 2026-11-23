@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_CHECKOUT_TIME_PATTERN,
   DEFAULT_RULES,
+  effectiveCutoffTime,
+  END_OF_DAY_CUTOFF,
   fixedCloseAt,
   planFixedCheckouts,
   toRules,
@@ -55,23 +57,62 @@ describe("fixedCloseAt", () => {
     );
   });
 
-  it("closes a check-in after the cut-off at the last minute of the day", () => {
+  it("closes a check-in after the cut-off at the last instant of the day", () => {
     // 21:00 IST check-in on 14 Nov.
     const out = fixedCloseAt(
       "2026-11-14",
       "20:00",
       at("2026-11-14T15:30:00.000Z"),
     );
-    expect(out?.toISOString()).toBe("2026-11-14T18:29:00.000Z"); // 23:59 IST
+    expect(out?.toISOString()).toBe("2026-11-14T18:29:59.999Z"); // 23:59:59.999 IST
   });
 
-  it("leaves a check-in in the last minute of the day open", () => {
+  it("still closes a check-in in the last minute of the day, inside the day", () => {
     const out = fixedCloseAt(
       "2026-11-14",
-      "20:00",
+      END_OF_DAY_CUTOFF,
       at("2026-11-14T18:29:30.000Z"), // 23:59:30 IST
     );
+    expect(out?.toISOString()).toBe("2026-11-14T18:29:59.999Z");
+  });
+
+  it("has no later instant for a check-in at the very last millisecond", () => {
+    const out = fixedCloseAt(
+      "2026-11-14",
+      END_OF_DAY_CUTOFF,
+      at("2026-11-14T18:29:59.999Z"),
+    );
     expect(out).toBeNull();
+  });
+
+  it("end of day is IST midnight's eve, not UTC's", () => {
+    // Checked in 09:00 IST on 14 Nov; the 23:59 IST cut-off is 18:29 UTC.
+    const out = fixedCloseAt(
+      "2026-11-14",
+      END_OF_DAY_CUTOFF,
+      at("2026-11-14T03:30:00.000Z"),
+    );
+    expect(out?.toISOString()).toBe("2026-11-14T18:29:00.000Z");
+  });
+});
+
+describe("effectiveCutoffTime", () => {
+  it("is the end of the day when the HR master's cut-off is off", () => {
+    expect(effectiveCutoffTime(DEFAULT_RULES)).toBe("23:59");
+    expect(
+      effectiveCutoffTime({
+        autoCheckoutEnabled: false,
+        autoCheckoutTime: "19:30",
+      }),
+    ).toBe(END_OF_DAY_CUTOFF);
+  });
+  it("is the HR master's earlier time when switched on", () => {
+    expect(
+      effectiveCutoffTime({
+        autoCheckoutEnabled: true,
+        autoCheckoutTime: "19:30",
+      }),
+    ).toBe("19:30");
   });
 });
 
@@ -126,7 +167,7 @@ describe("planFixedCheckouts", () => {
 
   it("counts sessions that cannot be closed inside their day", () => {
     const plan = planFixedCheckouts(
-      [{ ...stale, checkInAt: at("2026-11-14T18:29:30.000Z") }],
+      [{ ...stale, checkInAt: at("2026-11-14T18:29:59.999Z") }],
       "20:00",
       at("2026-11-16T03:10:00.000Z"),
     );

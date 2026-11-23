@@ -19,6 +19,7 @@ import type { TeamScope } from "../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
+import { UsersRepository } from "../../../platform/users/users.repository.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 import { issueEmployeeCode } from "./employee-code.js";
 import { lockEmployee } from "./employee-lock.js";
@@ -209,6 +210,7 @@ export class EmployeesRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
+    private readonly users: UsersRepository,
   ) {}
 
   // ---- reads ---------------------------------------------------------------
@@ -570,6 +572,49 @@ export class EmployeesRepository {
     } catch (error) {
       throw this.asConflict(error);
     }
+  }
+
+  /**
+   * A new hire: the login (with `roleIds`) and the employee record linked to
+   * it, in ONE transaction — either both exist afterwards or neither does
+   * (no stranded login when the employee fails validation). Both writes are
+   * audited; a duplicate login e-mail is a 409.
+   */
+  async createWithLogin(
+    scope: OrgScope,
+    input: Omit<NewEmployee, "userId">,
+    actorId: number,
+    login: {
+      email: string;
+      fullName: string;
+      passwordHash: string;
+      roleIds: readonly number[];
+    },
+  ): Promise<EmployeeRow> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await this.users.createLoginInTx(
+          tx,
+          scope,
+          {
+            email: login.email,
+            fullName: login.fullName,
+            passwordHash: login.passwordHash,
+            mustChangePassword: true,
+          },
+          login.roleIds,
+          actorId,
+        );
+        return this.insert(tx, scope, { ...input, userId: user.id }, actorId);
+      });
+    } catch (error) {
+      throw this.asConflict(error);
+    }
+  }
+
+  /** Roles of the organization by name (a new hire's Employee / Team Lead). */
+  findRolesByName(scope: OrgScope, names: readonly string[]) {
+    return this.users.findRolesByName(scope, names);
   }
 
   /**

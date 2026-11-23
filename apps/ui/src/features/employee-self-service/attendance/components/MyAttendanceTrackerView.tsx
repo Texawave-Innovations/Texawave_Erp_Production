@@ -41,6 +41,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMyAttendance } from "@/features/hr/attendance/hooks";
 import { SELF_SERVICE_READ } from "@/features/hr/attendance/permissions";
+import { verifiedCheckOutAt } from "@/features/hr/attendance/status";
 import type { AttendanceDayView } from "@/features/hr/attendance/types";
 import { useHolidays } from "@/features/hr/holidays/hooks";
 import { READ as HOLIDAY_READ } from "@/features/hr/holidays/permissions";
@@ -834,9 +835,10 @@ export function MyAttendanceTrackerView() {
                 const sessions = row?.sessions ?? [];
                 const ms = workedMs(row, now);
                 const firstIn = sessions[0];
+                // An auto-closed session has no verified check-out to show.
                 const lastClosed = [...sessions]
                   .reverse()
-                  .find((s) => s.checkOutAt);
+                  .find((s) => verifiedCheckOutAt(s));
                 const hasActive = row?.hasOpenSession ?? false;
                 const regularized = sessions.some(
                   (s) => s.source === "CORRECTION" || s.source === "HR",

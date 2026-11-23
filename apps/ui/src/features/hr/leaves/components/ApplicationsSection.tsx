@@ -118,45 +118,55 @@ const STATUS_CARDS: StatusCardConfig[] = [
     label: "Total Requests",
     icon: FileText,
     borderStyle: "border-sky-200/80 dark:border-sky-900/40",
-    bgGradient: "bg-gradient-to-r from-[#f0f9ff] to-[#e0f2fe] dark:from-slate-900 dark:to-slate-800",
+    bgGradient:
+      "bg-gradient-to-r from-[#f0f9ff] to-[#e0f2fe] dark:from-slate-900 dark:to-slate-800",
     countColor: "text-sky-900 dark:text-white",
-    iconContainerStyle: "border-sky-300/80 bg-white text-[#1769F5] dark:border-sky-800 dark:bg-slate-800 dark:text-sky-300",
+    iconContainerStyle:
+      "border-sky-300/80 bg-white text-[#1769F5] dark:border-sky-800 dark:bg-slate-800 dark:text-sky-300",
   },
   {
     id: "PENDING",
     label: "Pending",
     icon: Clock,
     borderStyle: "border-amber-200/80 dark:border-amber-900/40",
-    bgGradient: "bg-gradient-to-r from-[#fffbeb] to-[#fef3c7] dark:from-slate-900 dark:to-slate-800",
+    bgGradient:
+      "bg-gradient-to-r from-[#fffbeb] to-[#fef3c7] dark:from-slate-900 dark:to-slate-800",
     countColor: "text-amber-800 dark:text-amber-300",
-    iconContainerStyle: "border-amber-300/80 bg-white text-amber-600 dark:border-amber-800 dark:bg-slate-800 dark:text-amber-300",
+    iconContainerStyle:
+      "border-amber-300/80 bg-white text-amber-600 dark:border-amber-800 dark:bg-slate-800 dark:text-amber-300",
   },
   {
     id: "APPROVED",
     label: "Approved",
     icon: CheckCircle2,
     borderStyle: "border-emerald-200/80 dark:border-emerald-900/40",
-    bgGradient: "bg-gradient-to-r from-[#f0fdf4] to-[#ecfdf5] dark:from-slate-900 dark:to-slate-800",
+    bgGradient:
+      "bg-gradient-to-r from-[#f0fdf4] to-[#ecfdf5] dark:from-slate-900 dark:to-slate-800",
     countColor: "text-emerald-800 dark:text-emerald-300",
-    iconContainerStyle: "border-emerald-300/80 bg-white text-emerald-600 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300",
+    iconContainerStyle:
+      "border-emerald-300/80 bg-white text-emerald-600 dark:border-emerald-800 dark:bg-slate-800 dark:text-emerald-300",
   },
   {
     id: "REJECTED",
     label: "Rejected",
     icon: XCircle,
     borderStyle: "border-rose-200/80 dark:border-rose-900/40",
-    bgGradient: "bg-gradient-to-r from-[#fff1f2] to-[#ffe4e6] dark:from-slate-900 dark:to-slate-800",
+    bgGradient:
+      "bg-gradient-to-r from-[#fff1f2] to-[#ffe4e6] dark:from-slate-900 dark:to-slate-800",
     countColor: "text-rose-800 dark:text-rose-300",
-    iconContainerStyle: "border-rose-300/80 bg-white text-rose-600 dark:border-rose-800 dark:bg-slate-800 dark:text-rose-300",
+    iconContainerStyle:
+      "border-rose-300/80 bg-white text-rose-600 dark:border-rose-800 dark:bg-slate-800 dark:text-rose-300",
   },
   {
     id: "CANCELLED",
     label: "Cancelled",
     icon: Ban,
     borderStyle: "border-slate-200/80 dark:border-slate-800",
-    bgGradient: "bg-gradient-to-r from-slate-50 to-slate-100/70 dark:from-slate-900 dark:to-slate-800",
+    bgGradient:
+      "bg-gradient-to-r from-slate-50 to-slate-100/70 dark:from-slate-900 dark:to-slate-800",
     countColor: "text-slate-800 dark:text-slate-300",
-    iconContainerStyle: "border-slate-300/80 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300",
+    iconContainerStyle:
+      "border-slate-300/80 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300",
   },
 ];
 
@@ -203,6 +213,10 @@ function SearchableEmployeeDropdown({
   }, [isOpen]);
 
   const results = query.data?.data ?? [];
+  // Without employee read access the picker has nothing to list (its query is
+  // disabled and would otherwise read as "loading" forever).
+  if (!canRead) return null;
+
   const options =
     value && !results.some((e) => e.id === value.id)
       ? [value, ...results]
@@ -220,7 +234,9 @@ function SearchableEmployeeDropdown({
             <User className="h-3 w-3" />
           </div>
           <span className="truncate">
-            {value ? `${value.fullName} (${value.employeeCode})` : "All Employees"}
+            {value
+              ? `${value.fullName} (${value.employeeCode})`
+              : "All Employees"}
           </span>
         </div>
         {value ? (
@@ -272,9 +288,13 @@ function SearchableEmployeeDropdown({
             </button>
 
             {query.isPending ? (
-              <div className="py-4 text-center text-xs text-slate-400">Loading employees…</div>
+              <div className="py-4 text-center text-xs text-slate-400">
+                Loading employees…
+              </div>
             ) : options.length === 0 ? (
-              <div className="py-4 text-center text-xs text-slate-400">No matching employees</div>
+              <div className="py-4 text-center text-xs text-slate-400">
+                No matching employees
+              </div>
             ) : (
               options.map((opt) => {
                 const isSelected = value?.id === opt.id;
@@ -297,9 +317,13 @@ function SearchableEmployeeDropdown({
                         {opt.fullName.slice(0, 1).toUpperCase()}
                       </div>
                       <span className="truncate">{opt.fullName}</span>
-                      <span className="text-[10px] text-slate-400">({opt.employeeCode})</span>
+                      <span className="text-[10px] text-slate-400">
+                        ({opt.employeeCode})
+                      </span>
                     </div>
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-500" />}
+                    {isSelected && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+                    )}
                   </button>
                 );
               })
@@ -405,7 +429,9 @@ export function ApplicationsSection() {
               className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer shadow-xs ${
                 c.borderStyle
               } ${c.bgGradient} ${
-                selected ? "ring-2 ring-[#1769F5] shadow-xs scale-[1.02]" : "hover:shadow-xs"
+                selected
+                  ? "ring-2 ring-[#1769F5] shadow-xs scale-[1.02]"
+                  : "hover:shadow-xs"
               }`}
             >
               <div>
@@ -536,7 +562,10 @@ export function ApplicationsSection() {
               </Button>
             ) : null}
             {canCreate ? (
-              <Button onClick={() => setApplyOpen(true)} className="gap-2 text-xs">
+              <Button
+                onClick={() => setApplyOpen(true)}
+                className="gap-2 text-xs"
+              >
                 <Plus className="h-4 w-4" />
                 <span>Apply for an employee</span>
               </Button>
@@ -678,7 +707,11 @@ export function ApplicationsSection() {
                       className: "text-right",
                       cell: (r: LeaveRequestItem) => (
                         <div className="flex items-center justify-end gap-1.5">
-                          {canApprove && r.status === "PENDING" ? (
+                          {/* Only where the server says the caller decides now
+                              (yourStep), so the dialog shows the real step. */}
+                          {canApprove &&
+                          r.status === "PENDING" &&
+                          r.yourStep ? (
                             <>
                               <Button
                                 size="sm"
@@ -737,10 +770,7 @@ export function ApplicationsSection() {
 
       {/* Dialogs */}
       {applyOpen ? (
-        <ApplyOnBehalfDialog
-          open
-          onClose={() => setApplyOpen(false)}
-        />
+        <ApplyOnBehalfDialog open onClose={() => setApplyOpen(false)} />
       ) : null}
 
       {decision ? (

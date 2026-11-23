@@ -31,6 +31,7 @@ import {
   type PunchSession,
 } from "./services/attendance-calculation.service.js";
 import type { EmployeeRef } from "./services/attendance-day-resolver.js";
+import { effectiveCutoffTime } from "./settings/attendance-settings.rules.js";
 import { AttendanceSettingsService } from "./settings/attendance-settings.service.js";
 import {
   AttendanceDayViewService,
@@ -74,7 +75,7 @@ export class AttendanceService {
       attendanceDate,
       now,
       this.tenantContext.getUserId(),
-      rules.autoCheckoutEnabled ? rules.autoCheckoutTime : null,
+      effectiveCutoffTime(rules),
     );
 
     const timeFormatted = now.toLocaleTimeString("en-US", {

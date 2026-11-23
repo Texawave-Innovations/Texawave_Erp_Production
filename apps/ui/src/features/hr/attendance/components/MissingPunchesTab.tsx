@@ -192,7 +192,7 @@ export function MissingPunchesTab() {
                         : r.sessions
                             .map(
                               (s) =>
-                                `${formatTime(s.checkInAt)}–${s.checkOutAt ? formatTime(s.checkOutAt) : "?"}`,
+                                `${formatTime(s.checkInAt)}–${s.checkOutAt && !s.autoClosed ? formatTime(s.checkOutAt) : "?"}`,
                             )
                             .join(", ")}
                     </span>

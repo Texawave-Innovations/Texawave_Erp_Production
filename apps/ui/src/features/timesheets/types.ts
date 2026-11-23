@@ -85,6 +85,10 @@ export interface DayAttendance {
   permissions: DayPermission[];
   permissionMinutes: number;
   hasOpenSession: boolean;
+  /** First punch-in of the day; null when none. */
+  checkInAt: string | null;
+  /** Last verified punch-out; null while open or pending regularization. */
+  checkOutAt: string | null;
 }
 
 /** An approved work permission (a window inside the day, IST `HH:mm`). */

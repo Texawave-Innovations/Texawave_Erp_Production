@@ -34,41 +34,92 @@ function run(overrides: Partial<AttendanceDayInput>) {
 }
 
 describe("AttendanceCalculationService", () => {
-  describe("auto-closed day pending HR regularization", () => {
-    it("is not marked, with nothing worked and the full target as shortfall", () => {
-      const r = run({
-        sessions: [session("10:00", "20:00")],
-        autoClosedPending: true,
-      });
+  describe("auto-closed (unverified) sessions pending HR regularization", () => {
+    const autoClosed = (inHhmm: string, outHhmm: string) => ({
+      ...session(inHhmm, outHhmm),
+      autoClosed: true,
+    });
+
+    it("forgotten check-out closed at 23:59: not marked, nothing worked, no overtime (not 15 h)", () => {
+      const r = run({ sessions: [autoClosed("09:00", "23:59")] });
       expect(r).toMatchObject({
         status: "NOT_MARKED",
         workedMinutes: 0,
         overtimeMinutes: 0,
         shortfallMinutes: 480,
+        hasOpenSession: false,
       });
+    });
+
+    it("after regularization (flag cleared, real 18:00 check-out) the normal rules and OT formula apply", () => {
+      // 09:00–18:00 = 540 min against an 8 h target: 60 min overtime.
+      const r = run({ sessions: [session("09:00", "18:00")] });
+      expect(r).toMatchObject({
+        status: "PRESENT",
+        workedMinutes: 480,
+        overtimeMinutes: 60,
+        shortfallMinutes: 0,
+      });
+    });
+
+    it("multiple sessions: the verified session counts, the pending one counts nothing", () => {
+      // 09:00–13:00 verified; 14:00 forgotten, auto-closed at 23:59.
+      const r = run({
+        sessions: [session("09:00", "13:00"), autoClosed("14:00", "23:59")],
+      });
+      expect(r).toMatchObject({
+        status: "PRESENT",
+        workedMinutes: 240,
+        overtimeMinutes: 0,
+        shortfallMinutes: 240,
+      });
+    });
+
+    it("approved permission: auto-closure never turns the excused time into overtime", () => {
+      // 8 h shift − 2 h permission = 6 h target; the only session is pending.
+      const r = run({
+        sessions: [autoClosed("09:00", "23:59")],
+        targetMinutes: 360,
+      });
+      expect(r.overtimeMinutes).toBe(0);
+      expect(r.workedMinutes).toBe(0);
     });
 
     it("an explicit stored status set by HR still wins", () => {
       const r = run({
-        sessions: [session("10:00", "20:00")],
+        sessions: [autoClosed("10:00", "20:00")],
         storedStatus: "HALF_DAY",
-        autoClosedPending: true,
       });
       expect(r.status).toBe("HALF_DAY");
     });
 
-    it("a holiday keeps its calendar status", () => {
+    it("stored PRESENT stands but credits no unverified time", () => {
       const r = run({
-        sessions: [session("10:00", "20:00")],
-        calendar: { ...NO_CALENDAR, holiday: true },
-        autoClosedPending: true,
+        sessions: [autoClosed("10:00", "23:59")],
+        storedStatus: "PRESENT",
       });
-      expect(r.status).toBe("HOLIDAY");
+      expect(r).toMatchObject({
+        status: "PRESENT",
+        workedMinutes: 0,
+        overtimeMinutes: 0,
+      });
     });
 
-    it("without the flag the same punches count as present", () => {
+    it("a holiday keeps its calendar status and credits no unverified time", () => {
+      const r = run({
+        sessions: [autoClosed("10:00", "20:00")],
+        calendar: { ...NO_CALENDAR, holiday: true },
+      });
+      expect(r).toMatchObject({ status: "HOLIDAY", workedMinutes: 0 });
+    });
+
+    it("without the flag the same punches count as present (manual checkout unchanged)", () => {
       const r = run({ sessions: [session("10:00", "20:00")] });
-      expect(r.status).toBe("PRESENT");
+      expect(r).toMatchObject({
+        status: "PRESENT",
+        workedMinutes: 480,
+        overtimeMinutes: 120,
+      });
     });
   });
 

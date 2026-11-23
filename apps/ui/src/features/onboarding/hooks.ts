@@ -17,7 +17,6 @@ import {
   listDepartments,
   listDesignations,
   listEmploymentTypes,
-  listRoles,
   listTeams,
 } from "./api";
 
@@ -37,7 +36,6 @@ export const useEmploymentTypeOptions = () =>
   useOrgQuery("employment-types", listEmploymentTypes);
 export const useDepartmentOptions = () =>
   useOrgQuery("departments", listDepartments);
-export const useRoleOptions = () => useOrgQuery("roles", listRoles);
 
 export function useMyEmployee() {
   const organizationId = useAuthStore((s) => s.organizationId);

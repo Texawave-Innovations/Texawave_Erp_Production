@@ -17,6 +17,8 @@ interface DayBody {
       status: string;
       workedMinutes: number;
       targetMinutes: number | null;
+      checkInAt: string | null;
+      checkOutAt: string | null;
     } | null;
     flags: { code: string; severity: string; message: string }[];
     totals: { totalMinutes: number };
@@ -302,6 +304,9 @@ describe("Timesheet attendance integration (e2e)", () => {
     const d = await day("2026-11-05");
     expect(d.attendanceStatus).toBe("PRESENT");
     expect(d.attendance?.workedMinutes).toBe(540);
+    // The punches the day timeline draws.
+    expect(d.attendance?.checkInAt).toBe("2026-11-05T03:30:00.000Z");
+    expect(d.attendance?.checkOutAt).toBe("2026-11-05T12:30:00.000Z");
     expect(d.flags).toEqual([]);
   });
 

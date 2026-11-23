@@ -162,7 +162,14 @@ function BalanceCard({
       </div>
       <div className="mb-2 flex items-end justify-between">
         <div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+          <p
+            className="text-2xl font-bold text-gray-900 dark:text-white"
+            title={
+              balance.available === null
+                ? undefined
+                : "Rounded down to a half day: leave is booked in half days. Accrued days keep adding up."
+            }
+          >
             {balance.available ?? "—"}
           </p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400">

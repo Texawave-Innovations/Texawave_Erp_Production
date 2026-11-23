@@ -43,7 +43,11 @@ export interface ExportDay {
   workedMinutes: number;
   overtimeMinutes: number;
   shortfallMinutes: number;
-  sessions: readonly { checkInAt: Date; checkOutAt: Date | null }[];
+  sessions: readonly {
+    checkInAt: Date;
+    checkOutAt: Date | null;
+    autoClosed?: boolean;
+  }[];
 }
 
 const hours = (minutes: number) => (minutes / 60).toFixed(2);
@@ -63,7 +67,10 @@ export function toExportRow(
     WEEKDAY[weekday],
     day.status,
     first ? IST_TIME.format(first.checkInAt) : "",
-    last?.checkOutAt ? IST_TIME.format(last.checkOutAt) : "",
+    // An auto-closed session's close time is the system's, not a check-out.
+    last?.checkOutAt && !last.autoClosed
+      ? IST_TIME.format(last.checkOutAt)
+      : "",
     day.sessions.length,
     hours(day.workedMinutes),
     hours(day.overtimeMinutes),

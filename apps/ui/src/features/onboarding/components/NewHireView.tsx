@@ -31,16 +31,11 @@ import {
   Skeleton,
   Semantic3DIcon,
 } from "@texawave-erp/ui-kit";
-import {
-  createNewHire,
-  PartialNewHireError,
-  type CreatedEmployee,
-} from "../api";
+import { createNewHire, type CreatedEmployee } from "../api";
 import {
   useDepartmentOptions,
   useDesignationOptions,
   useEmploymentTypeOptions,
-  useRoleOptions,
   useTeamOptions,
 } from "../hooks";
 import { FormSection } from "@/features/hr/components";
@@ -64,7 +59,7 @@ interface FormState {
   lastName: string;
   mobile: string;
   email: string;
-  roleId: string;
+  additionalRole: "" | "TEAM_LEAD";
   departmentId: string;
   teamId: string;
   designationId: string;
@@ -78,7 +73,7 @@ const EMPTY: FormState = {
   lastName: "",
   mobile: "",
   email: "",
-  roleId: "",
+  additionalRole: "",
   departmentId: "",
   teamId: "",
   designationId: "",
@@ -104,7 +99,6 @@ export function NewHireView() {
   const [values, setValues] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [partialUserId, setPartialUserId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
@@ -113,8 +107,7 @@ export function NewHireView() {
   const designations = useDesignationOptions();
   const employmentTypes = useEmploymentTypeOptions();
   const departments = useDepartmentOptions();
-  const roles = useRoleOptions();
-  const lists = [teams, designations, employmentTypes, departments, roles];
+  const lists = [teams, designations, employmentTypes, departments];
   const listsLoading = lists.some((q) => q.isPending);
   const listFailed = lists.some((q) => q.isError);
 
@@ -133,14 +126,13 @@ export function NewHireView() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitError(null);
-    setPartialUserId(null);
 
     const result = newHireSchema.safeParse({
       firstName: values.firstName,
       lastName: values.lastName,
       mobile: values.mobile,
       email: values.email,
-      roleId: values.roleId ? Number(values.roleId) : undefined,
+      additionalRole: values.additionalRole || undefined,
       departmentId: Number(values.departmentId),
       teamId: Number(values.teamId),
       designationId: Number(values.designationId),
@@ -161,18 +153,10 @@ export function NewHireView() {
       return;
     }
 
-    const employeeRole = roles.data?.find((r) => r.name === "Employee");
-    if (!employeeRole) {
-      setSubmitError(
-        "The 'Employee' role is missing from Settings → Roles. Every new hire needs it for self-service onboarding — ask an administrator to restore it before creating new hires.",
-      );
-      return;
-    }
-
     setErrors({});
     setSubmitting(true);
     try {
-      const employee = await createNewHire(result.data, employeeRole.id);
+      const employee = await createNewHire(result.data);
       setCreated({
         employee,
         email: result.data.email,
@@ -180,15 +164,17 @@ export function NewHireView() {
       });
       setValues(EMPTY);
     } catch (error) {
-      if (error instanceof PartialNewHireError) {
-        setPartialUserId(error.userId);
-        setSubmitError(error.message);
-      } else if (error instanceof ApiError && error.isPermissionError) {
+      if (error instanceof ApiError && error.isPermissionError) {
         setSubmitError(
           "You don't have permission to create employees. Ask an administrator for access.",
         );
       } else if (error instanceof ApiError && error.statusCode === 409) {
         setSubmitError("An account with this email already exists.");
+      } else if (
+        error instanceof ApiError &&
+        error.errorCode === "NEW_HIRE_ROLE_MISSING"
+      ) {
+        setSubmitError(error.message);
       } else {
         setSubmitError(
           "Could not create the new hire. Check the fields and try again.",
@@ -308,7 +294,7 @@ export function NewHireView() {
       <div className="mx-auto max-w-3xl pb-12">
         <ErrorState
           title="Could not load the form options"
-          description="Teams, departments, designations, employment types, or roles failed to load."
+          description="Teams, departments, designations or employment types failed to load."
           onRetry={() => lists.forEach((q) => void q.refetch())}
         />
       </div>
@@ -392,19 +378,6 @@ export function NewHireView() {
           {submitError && (
             <Alert variant="error" title="Could not create the new hire">
               {submitError}
-              {partialUserId !== null && (
-                <span className="block mt-1">
-                  The sign-in (user #{partialUserId}) was created. Remove it
-                  from{" "}
-                  <Link
-                    href="/admin/users"
-                    className="underline font-semibold hover:opacity-80"
-                  >
-                    Users
-                  </Link>{" "}
-                  before retrying, so the email is free again.
-                </span>
-              )}
             </Alert>
           )}
 
@@ -580,24 +553,23 @@ export function NewHireView() {
 
                 <FormField
                   label="Additional role"
-                  error={errors.roleId}
-                  hint="Every new hire gets the Employee self-service role automatically. Optionally add another role (e.g. Team Lead) on top of that."
+                  error={errors.additionalRole}
+                  hint="Every new hire gets the Employee self-service role automatically. HR may also make them a Team Lead; any other role is given in Settings → Users."
                 >
                   {(p) => (
                     <Select
                       {...p}
-                      value={values.roleId}
+                      value={values.additionalRole}
                       disabled={submitting}
-                      onChange={(e) => set("roleId", e.target.value)}
+                      onChange={(e) =>
+                        set(
+                          "additionalRole",
+                          e.target.value === "TEAM_LEAD" ? "TEAM_LEAD" : "",
+                        )
+                      }
                     >
-                      <option value="">Select a role</option>
-                      {roles.data
-                        ?.filter((r) => r.name !== "Employee")
-                        .map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
+                      <option value="">None</option>
+                      <option value="TEAM_LEAD">Team Lead</option>
                     </Select>
                   )}
                 </FormField>

@@ -1,3 +1,4 @@
+import * as bcrypt from "bcrypt";
 import {
   BadRequestException,
   ForbiddenException,
@@ -14,6 +15,7 @@ import { PermissionsService } from "../../../platform/roles-permissions/permissi
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import { TenantContextService } from "../../../platform/tenancy/tenant-context.service.js";
 import type { CreateEmployeeDto } from "./dto/create-employee.dto.js";
+import type { CreateNewHireDto } from "./dto/create-new-hire.dto.js";
 import type { QueryEmployeeDto } from "./dto/query-employee.dto.js";
 import type { UpdateEmployeeDto } from "./dto/update-employee.dto.js";
 import {
@@ -34,6 +36,13 @@ import type { ReviewDecision } from "./onboarding-review.policy.js";
 
 const READ = "hr.employee.read";
 const LINK_ACCOUNT_PERMISSION = "hr.employee_account.write";
+
+/** The roles a new hire's login gets, by name (Settings → Roles). */
+const NEW_HIRE_ROLE_NAMES = {
+  EMPLOYEE: "Employee",
+  TEAM_LEAD: "Team Lead",
+} as const;
+const BCRYPT_ROUNDS = 10;
 const WRITE = "hr.employee.write";
 const EXPORT = "hr.employee.export";
 const APPROVE_ONBOARDING = "hr.employee_onboarding.approve";
@@ -139,6 +148,66 @@ export class EmployeesService {
       this.tenantContext.getOrgScope(),
       dto,
       this.tenantContext.getUserId(),
+    );
+    return toDetail(row);
+  }
+
+  /**
+   * HR creates a new hire's employee record and login together (one
+   * transaction, `EmployeesRepository.createWithLogin`). Needs the same
+   * `hr.employee.write` scope as `create` AND `hr.employee_account.write`
+   * (creating a login is linking one). The login always gets the Employee
+   * role, plus Team Lead when asked — never anything else; arbitrary roles
+   * stay with `users.user.write`. The temporary password must be changed at
+   * first sign-in.
+   */
+  async createNewHire(dto: CreateNewHireDto) {
+    const scope = await this.teamContext.resolveScope(WRITE);
+    if (scope.level === "own") {
+      throw new ForbiddenException("You may not create employees");
+    }
+    if (scope.level === "team" && !scope.teamIds.includes(dto.teamId)) {
+      throw new ForbiddenException(
+        "You may create employees only in your own team(s)",
+      );
+    }
+    const actorId = this.tenantContext.getUserId();
+    const granted = await this.permissions.getPermissionsForUser(actorId);
+    if (!granted.includes(LINK_ACCOUNT_PERMISSION)) {
+      throw new ForbiddenException(
+        `Creating a new hire's login needs ${LINK_ACCOUNT_PERMISSION}`,
+      );
+    }
+
+    const orgScope = this.tenantContext.getOrgScope();
+    const wanted = [
+      NEW_HIRE_ROLE_NAMES.EMPLOYEE,
+      ...(dto.additionalRole === "TEAM_LEAD"
+        ? [NEW_HIRE_ROLE_NAMES.TEAM_LEAD]
+        : []),
+    ];
+    const roles = await this.repository.findRolesByName(orgScope, wanted);
+    const missing = wanted.filter(
+      (name) => !roles.some((r) => r.name === name),
+    );
+    if (missing.length > 0) {
+      throw new BusinessRuleViolationException(
+        `The role ${missing.map((m) => `"${m}"`).join(" and ")} is missing or inactive in Settings → Roles. Ask an administrator to restore it before creating new hires.`,
+        "NEW_HIRE_ROLE_MISSING",
+      );
+    }
+
+    const { email, tempPassword, additionalRole: _role, ...employee } = dto;
+    const row = await this.repository.createWithLogin(
+      orgScope,
+      { ...employee, workEmail: email },
+      actorId,
+      {
+        email,
+        fullName: employee.fullName,
+        passwordHash: await bcrypt.hash(tempPassword, BCRYPT_ROUNDS),
+        roleIds: roles.map((r) => r.id),
+      },
     );
     return toDetail(row);
   }

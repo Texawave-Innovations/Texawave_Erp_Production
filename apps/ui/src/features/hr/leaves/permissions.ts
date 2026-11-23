@@ -21,6 +21,8 @@ export const APPROVE_ANY_SCOPE = [
 
 /** Only `.all` gives the second (HR) approval of a two-level leave type. */
 export const APPROVE_ALL = "hr.leave.approve.all";
+/** Admin: decide at HR's step in HR's place (reason required, audited). */
+export const LEAVE_OVERRIDE = "hr.leave.override";
 
 /** Apply on an employee's behalf / cancel someone's leave. `.own` of both is
  * reserved and grants nothing, so only `.team`/`.all` show the actions. */

@@ -71,13 +71,14 @@ export class AttendanceDayViewService {
         day.attendanceDate,
       );
       const pendingRegularization = day.sessions.some((s) => s.autoClosed);
+      // Each session carries its own `autoClosed` flag; the calculation leaves
+      // the unverified ones out, so verified sessions of the day still count.
       const result = this.calculation.calculate({
         storedStatus: day.storedStatus,
         sessions: day.sessions,
         targetMinutes,
         calendar: resolveCalendar(ctx, employee, day.attendanceDate),
         asOf,
-        autoClosedPending: pendingRegularization,
       });
       return {
         recordId: day.recordId,

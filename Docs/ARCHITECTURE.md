@@ -329,12 +329,24 @@ HR creates a new hire's login and employee record; the new hire changes a
 temporary password, fills in their own profile, and only then reaches the
 real employee portal.
 
-**Creation is two existing calls composed, never one combined endpoint.**
-`CreateEmployeeDto` deliberately carries no password field — "a login is a
-separate `users` row linked by `userId` — never stored here." So onboarding
-is: `POST /users` (temp password, `mustChangePassword: true`, the employee's
-self-service role), then `POST /hr/employees` with that new `userId`. No
-change to either endpoint's shape was needed.
+**Creation is one HR endpoint, one transaction** (changed 2026-11-23; it was
+two composed client calls, `POST /users` then `POST /hr/employees`, which only
+Super Admin could make — HR holds neither `users.user.write` nor
+`settings.role.read` — and which could strand a login when the second call
+failed). `POST /hr/employees/new-hire` (`hr.employee.write` scope **and**
+`hr.employee_account.write`) creates the login (temp password hashed,
+`mustChangePassword: true`) and the employee record linked to it inside ONE
+database transaction: `EmployeesRepository.createWithLogin` runs
+`UsersRepository.createLoginInTx` (platform/users, exported for this) and the
+employee insert on the same `tx`, so either both exist or neither does; both
+writes are audited (`user` create + assign_roles, `employee` create). Roles:
+always the organization's **Employee** role, plus **Team Lead** when asked —
+by name, nothing else. The body has no `roleIds`/`userId` (unknown fields are
+refused by the whitelist `ValidationPipe`), so HR cannot hand out admin or any
+other role; that stays with `users.user.write` in Settings → Users. A missing
+Employee/Team Lead role is `422 NEW_HIRE_ROLE_MISSING`. `CreateEmployeeDto`
+still carries no password field, and `POST /users` / `POST /hr/employees` are
+unchanged.
 
 **Two independent flags, not one stored state machine.** `onboardingStatus`
 on `Employee` only ever holds `PENDING_ACTIVATION` or `COMPLETE` — it is NOT

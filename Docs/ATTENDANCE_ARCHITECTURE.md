@@ -255,9 +255,12 @@ Precedence, decided: **Holiday > Weekly Off > Leave > stored status.**
   against the reduced target). PENDING and REJECTED permissions change nothing. With no shift there is no
   target to reduce. This lives in `resolveTargetMinutes` (the day-context loader reads the permissions in
   one query), so the attendance screens, reports, month close and timesheet all agree. The **full** shift is
-  still available as `resolveBaseTargetMinutes`: auto check-out closes at check-in + the full shift, because a
-  permission excuses worked time, it does not shorten the shift.
+  still available as `resolveBaseTargetMinutes` (the timesheet reads it).
 - An open session counts time up to the server's `asOf`.
+- **Auto-closed sessions are unverified** (§7.7): a session with `auto_closed = true` is left out before any
+  rule above runs. Only such a session → `NOT_MARKED`, nothing worked, no overtime; a verified session as
+  well → `PRESENT` on the verified time only. Holiday, weekly-off, leave and HR-stored statuses still win,
+  and none of them credits the unverified time.
 - Timezone: Asia/Kolkata. A punch belongs to the IST date it starts on.
 
 ### 7.5 Corrections
@@ -356,37 +359,58 @@ process that already owns the database connection. No new package was added.
 **Multiple instances.** Each instance may run the job. That is safe: every write is conditional on
 `check_out_at IS NULL`, so one instance wins each session, and only the winner writes its audit row.
 
-**Authoritative rule (the ERP's own).** `closeAt = checkInAt + targetMinutes`, where the target is the
-shift for the record's IST business date (employee assignment over team assignment, §7.4). A session is
-closed AT `closeAt` (the instant it became due), not at the time the job happened to run.
+**Authoritative rule (the ERP's own, decided 2026-11-23).** A forgotten check-out is closed at a
+cut-off on the session's **own IST business date**: the HR master's time when "Auto check-out" is
+switched on (`attendance-settings.rules.ts` → `effectiveCutoffTime`), otherwise **23:59 IST**
+(`END_OF_DAY_CUTOFF`). A session is closed AT that instant, not at the time the job happened to run, and
+never runs past IST midnight, so a forgotten check-out cannot credit hours to the next day. A session
+started after the cut-off closes at the last instant of its day (23:59:59.999).
+
+**The close time is technical, not a check-out.** Every session the system closes is flagged
+`auto_closed = true`. The calculation (§7.4) leaves such a session out of every figure until HR
+regularizes it, so it yields no worked time and **no overtime**; other, verified sessions of the same day
+still count. The technical close time stays in `check_out_at` (and in the `auto_checkout` audit row
+after regularization); "verified check-out" means `check_out_at` of a session with `auto_closed = false`.
+No schema change was needed.
+
+**Regularization** (the only ways the flag is cleared, each with a real time):
+
+- an approved correction — `MISSED_CHECK_OUT` now also applies to an auto-closed last session, as do
+  `EARLY_DEPARTURE` / `INCORRECT_TIME`; approval writes the requested time and clears the flag;
+- an HR manual edit whose `sessions` give the session a different check-out. A session sent back with the
+  auto-closed check-in and close time unchanged (to the minute) **stays pending**, and a status-only edit
+  never clears the flag — the system's close time can never become verified time by accident.
+
+**Month close** skips an employee with `PENDING_REGULARIZATION_IN_MONTH` while any session in the month is
+auto-closed (HR_API.md → Attendance month locks), so an unregularized day is never frozen as not marked
+(and, with `unmarkedDaysAsAbsent`, paid as LOP).
 
 Eligibility and outcomes:
 
-- Only sessions with no check-out are considered.
-- A session whose target has not elapsed by `asOf` stays open (`notDue`).
-- A session with no resolvable shift target stays open (`noTarget`). Closing it would mean inventing a
-  duration.
-- A close time at or before check-in is refused, never written.
+- Only sessions with no check-out are considered; the write is conditional on `check_out_at IS NULL`,
+  so a manual check-out that lands first is never overwritten and a repeated run changes nothing.
+- A session whose cut-off has not passed by `asOf` stays open (`notDue`).
+- A session checked in at the very last millisecond of its day cannot be closed inside it (`noTarget`
+  in the job's counters; unreachable in practice).
 - At most 500 open sessions per organization per run. The rest are picked up on later runs, which is
   safe because the rule is idempotent.
+- A check-in is never blocked by a session left open on an earlier day once that day's cut-off has passed:
+  the check-in transaction closes it first, by the same rule and with the same flag.
 
-**Legacy evidence, and why this rule.** Legacy has two implementations that DISAGREE:
+**Why not the former "check-in + shift target" rule.** Until 2026-11-23, with the HR master's cut-off off,
+a session closed at `checkInAt + targetMinutes` and was not flagged. That (1) closed a session at exactly
+the target, so time worked past the shift was never recorded, and (2) restarted the full target for every
+session of a day and ignored approved permissions, so a forgotten second session, or a permission day,
+produced overtime that was never worked. Sessions closed under the former rule are **not** backfilled.
 
-- Firebase `autoCheckoutAt7pm` (`functions/src/index.ts`): a fixed 19:00 IST.
-- Vercel `api/auto-checkout.ts`: each session closed after its own shift target. Its header says this
-  replaced the fixed cutoff because the fixed cutoff "silently truncated any late-starting shift".
-
-The Vercel comment is the later, more specific decision, and the ERP has real shift targets, so the
-shift-relative rule is used. This is a choice made for the new ERP, not a resolution of legacy
-production authority. Legacy's duplication is recorded, not silently resolved. Legacy's Vercel
-caveat (runs once a day, so detection lag up to 24 h) does not apply here: the ERP runs every 5 minutes.
+**Legacy evidence.** Legacy has two implementations that DISAGREE: Firebase `autoCheckoutAt7pm`
+(`functions/src/index.ts`, a fixed 19:00 IST) and Vercel `api/auto-checkout.ts` (each session after its
+own shift target). The ERP now follows neither literally: a fixed cut-off (HR master, or end of day)
+whose close time is never treated as worked time.
 
 **Audit.** Each close writes one `attendance_session` / `auto_checkout` row as a SYSTEM actor
-(`actorType = system`, no user), in the same transaction as the change. Its reason is "Closed
-automatically at check-in plus the shift target". Already-closed sessions are never audited.
-
-**Deviation from legacy.** Legacy's Firebase job closed at a fixed time, and the Vercel job closed at
-shift target but only once a day. The ERP closes at shift target, checked every 5 minutes.
+(`actorType = system`, no user), in the same transaction as the change. Its reason names the cut-off and
+that the check-out was not recorded. Already-closed sessions are never audited.
 
 ### 7.8 Unresolved business rules (not implemented; evidence recorded)
 
@@ -418,7 +442,11 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 - **Overnight shifts.** The HR `Shift` model supports `is_overnight`, and legacy computes overnight
   sessions by time-of-day (`functions/src/attendanceMath.ts`). Punches are attributed to their check-in
   IST date. Manual edit and corrections still require every punch on the record's date. **Partially
-  supported; the cross-midnight edit and correction rules are open.**
+  supported; the cross-midnight edit and correction rules are open.** The auto check-out closes every
+  session at its own day's cut-off (end of day at the latest), so a session on an overnight shift would
+  be closed at 23:59 and left pending. **Known limitation, accepted 2026-11-23** on the condition that no
+  overnight shift is assigned (none was in the dev database at that date; verify in production before
+  assigning one).
 - **Overtime on holiday, weekly-off and leave days.** Legacy sets pending to 0 and does not state
   overtime. The ERP reports 0. **Decided by the user; not legacy-verified.**
 - **Half-day shortfall.** **Resolved from evidence in this round.** Legacy sets `pendingHrs = target ÷ 2`
@@ -440,8 +468,9 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
   check, not a DB constraint. The DB enforces one open session per record (partial unique index).
 - Hard-coded Sunday is replaced by weekly-off rules. A day is off only if a rule says so.
 - Half Day shortfall now equals legacy `pendingHrs` (target − worked). An earlier round reported 0.
-- Auto-checkout closes at shift target, every 5 minutes. Legacy used a fixed 19:00 IST (Firebase) or
-  a once-a-day shift-relative job (Vercel).
+- Auto-checkout closes at a cut-off of the session's own day (HR master's time, else 23:59 IST), every
+  minute, and the close is never counted as worked time until regularized (§7.7). Legacy used a fixed
+  19:00 IST (Firebase) or a once-a-day shift-relative job (Vercel).
 - Self check-in and check-out are **not** audited (not in the brief's audit list). Manual edit,
   correction submit, approve, reject and auto-checkout are.
 - Attendance reads Holiday, WeeklyOffRule, LeaveRequest and ShiftAssignment through Prisma directly
@@ -456,6 +485,9 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 - Maximum range is 62 days for lists and reports.
 - Sessions crossing IST midnight are rejected by manual edit and by corrections.
 - Auto-checkout processes 500 open sessions per organization per run.
+- Overnight shifts: a session is auto-closed at its own day's end and left pending (§7.8).
+- An HR edit that sets a session's check-out to exactly the auto-closed minute (e.g. 23:59) keeps it
+  pending; enter any other minute, or approve a correction.
 - Each process runs its own timer; with several instances, runs overlap harmlessly.
 
 ### 7.11 Test coverage (actual, this round)
@@ -466,9 +498,15 @@ Each item was searched in the legacy repo, the current HR and Attendance code, a
 - E2E, punches and corrections: `hr-attendance.e2e-spec.ts`, 25.
 - E2E, reports: `hr-attendance-reports.e2e-spec.ts`, missing punches and overtime, including
   authorization, scope, cross-org denial, and holiday, weekly-off, leave and half-day exclusions.
-- E2E, auto-checkout: `hr-attendance-auto-checkout.e2e-spec.ts`, open session closed, closed session
-  unchanged, idempotency, multiple employees, not-due, no shift target, audit as system actor, no HTTP
-  endpoint, multiple organizations.
+- E2E, auto-checkout: `hr-attendance-auto-checkout.e2e-spec.ts`, forgotten session closed at 23:59 IST
+  and flagged, HR-master earlier cut-off, closed session unchanged, idempotency, multiple employees,
+  not-due, no shift target still closed, audit as system actor, no HTTP endpoint, multiple organizations.
+- E2E, regularization (2026-11-23): `hr-attendance-regularization.e2e-spec.ts` — a forgotten check-out
+  counts 0 worked / 0 OT in the HR view, self view and reports and is a `MISSING_CHECKOUT`; status-only
+  and unchanged-time HR edits keep it pending; month close is refused; an approved `MISSED_CHECK_OUT`
+  restores the verified hours and OT; the month then freezes only verified figures; a verified session
+  beside a pending one keeps its hours; check-in closes yesterday's forgotten session; a manual check-out
+  is never overwritten.
 - Whole backend E2E: 620/620 (567 baseline + 53 Attendance).
 - No separate integration suite. DB CHECKs, the partial unique index and FK behaviour are covered
   only indirectly through E2E.

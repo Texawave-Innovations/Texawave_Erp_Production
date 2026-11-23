@@ -57,7 +57,10 @@ export function msToHM(ms: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** Punched time of one session. An auto-closed session counts nothing: its
+ * close time is the system's cut-off, not a verified check-out. */
 export function sessionMs(s: AttendanceSession, now: number): number {
+  if (s.autoClosed) return 0;
   const end = s.checkOutAt ? Date.parse(s.checkOutAt) : now;
   return Math.max(0, end - Date.parse(s.checkInAt));
 }
@@ -72,7 +75,7 @@ export function workedMs(row: AttendanceDayView | null, now: number): number {
 export function breakMs(sessions: readonly AttendanceSession[]): number {
   let total = 0;
   for (let i = 0; i < sessions.length - 1; i++) {
-    const out = sessions[i]!.checkOutAt;
+    const out = sessions[i]!.autoClosed ? null : sessions[i]!.checkOutAt;
     const nextIn = sessions[i + 1]!.checkInAt;
     if (out) total += Math.max(0, Date.parse(nextIn) - Date.parse(out));
   }

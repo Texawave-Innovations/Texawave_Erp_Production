@@ -64,7 +64,7 @@ the task's status history. Points are paid once per task and employee, ever.
 
 | Call                                            | Permission                             | Returns                                                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /timesheets/my/:date`                      | `employee_self_service.timesheet.read` | The signed-in employee's rows for the day with their sessions, totals (closed sessions only), HR's effective attendance status for the day and its worked time, the day's **flags** (below), and — for today only — open tasks with no work yet.                                                             |
+| `GET /timesheets/my/:date`                      | `employee_self_service.timesheet.read` | The signed-in employee's rows for the day with their sessions, totals (closed sessions only), HR's effective attendance status for the day, its worked time and the day's first check-in / last verified check-out, the day's **flags** (below), and — for today only — open tasks with no work yet.         |
 | `GET /timesheets/my-month?month=YYYY-MM`        | same                                   | The employee's **month**: one line per day with HR's status, check-in/out, hours HR counts, the day's target (after approved permissions) and the permission window, the logged timesheet minutes and the day's review state; plus the month's counts (present, absent, leave, holiday, logged, permission). |
 | `GET /timesheets/tasks/:taskId/history?from&to` | same                                   | One task day by day (≤ 62 days): worked days from stored rows; the days in between **derived** (0 minutes) with the task status at the end of that day and HR's status for it.                                                                                                                               |
 
@@ -292,9 +292,24 @@ links, constraints and triggers. Never against a shared database. **Run a read-o
 - **My Timesheet** (`/portal/timesheet`, menu `portal-timesheet`, `employee_self_service.timesheet.read`): two
   tabs. **Log Work** is the day view: day navigation, totals, each row with its sessions (IST clock times),
   HR's attendance status, the approved permission window and the reduced target, and today's open tasks.
+  A **Timeline** card draws the day as one horizontal bar in IST (at least the shift plus an hour): check-in and
+  check-out markers, each task's or activity's work in its own colour, the approved permission window in amber, and
+  the gaps while checked in, striped: **Paused** (light blue) right after a task was paused, otherwise **No active
+  task** (grey, no task timer and no permission running). Tasks are labelled by title (the code is in the tooltip);
+  today has a dashed **Now** line with the rest of the day faded. HR's status for the day is a band across the
+  whole bar (**Holiday**, **Weekly off**, **On leave**, **Absent**; work recorded on it is drawn on top) or a
+  **Half day** chip; the week also loads future days so a planned holiday, weekly off or leave shows ahead (the
+  same rule as the month table — no other status is shown before the day). Its **Week** switch shows
+  the week as a worksheet, one bar per day on a shared time scale, with day and week totals; a day opens in the day
+  view. Durations logged without clock times and timers left running (0 min counted) are not drawn. Each task row
+  has a **History** button: that task's minutes for the 14 days up to the selected day against an 8-hour day, with
+  the task's progress and HR's status on days with no work (`GET /timesheets/tasks/:taskId/history`). The bar rules
+  are pure and unit-tested in `features/timesheets/day-timeline.test.ts` (`tsx --test`).
   **Attendance** is the month: Present / Absent / Leave / Holiday / Permission / Hrs Logged cards and a table
   (Date, Day, Status, Check In, Check Out, Hours, Target, Permission, Logged, Timesheet); a day with work has an
-  Open link back to Log Work. Work is started and stopped in **My Work**.
+  Open link back to Log Work. A future day's Status shows only what HR's calendar already knows (Holiday, Weekly
+  Off, On Leave); any other future status is a dash, since the day has no verdict yet. The rule is in
+  `features/timesheets/month-status.ts` (unit-tested in `month-status.test.ts`, run with `tsx --test`). Work is started and stopped in **My Work**.
 - **Team Timesheets / HR Timesheets** (`/portal/team-timesheets`, `/hr/timesheets`) **Report** tab: team filter
   with a totals row, the Target / Permission / Attendance columns, and an employee drill-down (click a name or
   use the Employee picker) that shows that person's month exactly as they see it; a day opens the day review,
@@ -315,8 +330,10 @@ links, constraints and triggers. Never against a shared database. **Run a read-o
 - Review lists are in-memory over a capped, date-windowed set of rows rather than paged in SQL; fine at this scale,
   revisit if one reviewer's reach grows to many thousands of days.
 - Approving a day does not lock attendance; HR editing attendance afterwards only raises a flag.
-- An **auto-checkout** is not distinguishable from a real punch in HR's data, so the `AUTO_CHECKOUT` /
-  `REVIEW_REQUIRED` flag for it is not applied yet.
+- An **auto-checkout** is now distinguishable (`auto_closed`, ATTENDANCE_ARCHITECTURE.md §7.7): the attendance
+  the timesheet reads already counts no worked time or overtime from it and reports its check-out as null
+  (not recorded) until HR regularizes it. A timesheet `AUTO_CHECKOUT` / `REVIEW_REQUIRED` flag for it is still
+  not applied.
 - Custom activities are **not** gated by attendance: a meeting can be recorded whether or not the employee has
   checked in (attendance is shown beside the day, never used to block work).
 - **My Work** is an employee self-service feature: the portal tab (`portal-work`) and the My Work routes use

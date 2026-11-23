@@ -26,6 +26,13 @@ interface Leave {
   status: string;
   approvalLevels: number;
   awaiting: "FIRST" | "HR" | null;
+  yourStep?: {
+    step: "TEAM_LEAD" | "HR";
+    final: boolean;
+    override: boolean;
+    escalated: boolean;
+  };
+  decisionNote?: string | null;
   requestedBy: { id: number };
   firstDecidedBy: { id: number } | null;
   decidedBy: { id: number } | null;
@@ -39,6 +46,7 @@ const PERMS = [
   "hr.leave.approve.own",
   "hr.leave.approve.team",
   "hr.leave.approve.all",
+  "hr.leave.override",
   "hr.leave_request.create.own",
   "hr.leave_request.create.team",
   "hr.leave_request.create.all",
@@ -64,6 +72,7 @@ type UserKey =
   | "hr2"
   | "hrTeam1"
   | "ownOnly"
+  | "admin"
   | "hrB";
 type EmpKey = "mgr" | "A" | "B" | "C" | "hr2" | "X";
 
@@ -296,6 +305,12 @@ describe("HR leave workflow (e2e)", () => {
       "hr.leave_request.export.all",
       "hr.leave_type.write",
     ]);
+    // Admin: stands in for HR (override), never part of the normal chain.
+    await mkUser(org, "admin", [
+      "hr.leave_request.read.all",
+      "hr.leave.approve.all",
+      "hr.leave.override",
+    ]);
     const hr2 = await mkUser(org, "hr2", [
       ...SELF,
       "hr.leave_request.read.all",
@@ -397,8 +412,11 @@ describe("HR leave workflow (e2e)", () => {
       // the team lead's own request, and a team with no lead, are HR's
       expect(forLead).not.toContain(mine.id);
       expect(forLead).not.toContain(c.id);
+      // HR gets what is HR's from the start; not the team lead's step while
+      // the team lead still has time.
       const forHr = await ids("hr1");
-      expect(forHr).toEqual(expect.arrayContaining([a.id, c.id, mine.id]));
+      expect(forHr).toEqual(expect.arrayContaining([c.id, mine.id]));
+      expect(forHr).not.toContain(a.id);
       await get("noApprove", "/hr/leave-requests/approvals").expect(403);
     });
   });
@@ -433,12 +451,13 @@ describe("HR leave workflow (e2e)", () => {
       });
     });
 
-    it("the same HR approver cannot give both approvals", async () => {
+    it("HR cannot take the team lead's step; after the team lead, HR gives the final approval", async () => {
       const l = await submit("empB", twoLevel, `${nextYear()}-02-02`);
-      await approve("hr1", l.id).expect(200);
       expect(errorOf(await approve("hr1", l.id).expect(403))).toBe(
-        "LEAVE_SAME_APPROVER",
+        "LEAVE_AWAITING_TEAM_LEAD",
       );
+      expect(await status(l.id)).toBe("PENDING");
+      await approve("mgr", l.id).expect(200);
       await approve("hr2", l.id).expect(200);
       expect(await status(l.id)).toBe("APPROVED");
     });
@@ -482,6 +501,168 @@ describe("HR leave workflow (e2e)", () => {
           data: { approvalLevels: 1 },
         }),
       ).rejects.toThrow(/approval levels change only on resubmission/);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  describe("team lead's waiting time and Admin in HR's place", () => {
+    const queueOf = (who: UserKey) =>
+      get(who, "/hr/leave-requests/approvals?limit=100")
+        .expect(200)
+        .then((r) => dataOf<Leave[]>(r));
+    /** Moves a request's creation back by `days` (this org has no holidays
+     * or weekly offs, so every day is a working day). */
+    const ageBy = (id: number, days: number) =>
+      prisma.leaveRequest.update({
+        where: { id },
+        data: { createdAt: new Date(Date.now() - days * 24 * 3600 * 1000) },
+      });
+
+    it("after 2 working days without the team lead, HR's one decision is final", async () => {
+      const recent = await submit("empA", twoLevel, `${nextYear()}-03-02`);
+      await ageBy(recent.id, 1);
+      expect(errorOf(await approve("hr1", recent.id).expect(403))).toBe(
+        "LEAVE_AWAITING_TEAM_LEAD",
+      );
+      expect((await queueOf("hr1")).map((q) => q.id)).not.toContain(recent.id);
+
+      const stale = await submit("empA", twoLevel, `${nextYear()}-03-02`);
+      await ageBy(stale.id, 3);
+      const queued = (await queueOf("hr1")).find((q) => q.id === stale.id);
+      expect(queued?.yourStep).toEqual({
+        step: "HR",
+        final: true,
+        override: false,
+        escalated: true,
+      });
+      // The team lead still sees it as theirs.
+      expect(
+        (await queueOf("mgr")).find((q) => q.id === stale.id)?.yourStep,
+      ).toMatchObject({ step: "TEAM_LEAD", final: false });
+      const done = dataOf<Leave>(await approve("hr1", stale.id).expect(200));
+      expect(done).toMatchObject({
+        status: "APPROVED",
+        firstDecidedBy: null,
+        decidedBy: { id: userIds.hr1 },
+      });
+    });
+
+    it("the applications list and the detail carry the caller's step, exactly where they may decide", async () => {
+      const year = nextYear();
+      // A team lead's own two-level request: HR's one decision is final.
+      const own = await submit("mgr", twoLevel, `${year}-04-06`);
+      // A team member's request: the team lead's step, not HR's yet.
+      const member = await submit("empA", twoLevel, `${year}-04-06`);
+      const list = dataOf<Leave[]>(
+        await get(
+          "hr1",
+          `/hr/leave-requests?from=${year}-04-01&to=${year}-04-30&limit=100`,
+        ).expect(200),
+      );
+      expect(list.find((l) => l.id === own.id)?.yourStep).toEqual({
+        step: "HR",
+        final: true,
+        override: false,
+        escalated: false,
+      });
+      expect(list.find((l) => l.id === member.id)?.yourStep).toBeUndefined();
+      const detail = dataOf<Leave>(
+        await get("hr1", `/hr/leave-requests/${own.id}`).expect(200),
+      );
+      expect(detail.yourStep).toMatchObject({ step: "HR", final: true });
+      // The team lead's queue: the member's request, first of two.
+      const forLead = dataOf<Leave[]>(
+        await get("mgr", "/hr/leave-requests/approvals?limit=100").expect(200),
+      );
+      expect(forLead.find((l) => l.id === member.id)?.yourStep).toMatchObject({
+        step: "TEAM_LEAD",
+        final: false,
+      });
+    });
+
+    it("Admin cannot take the team lead's step either", async () => {
+      const l = await submit("empA", casual, `${nextYear()}-03-02`);
+      expect(
+        errorOf(
+          await post("admin", `/hr/leave-requests/${l.id}/approve`, {
+            note: "urgent",
+          }).expect(403),
+        ),
+      ).toBe("LEAVE_AWAITING_TEAM_LEAD");
+    });
+
+    it("Admin decides at HR's step with a reason: audited as an override, and HR is told", async () => {
+      const l = await submit("empB", twoLevel, `${nextYear()}-03-02`);
+      await approve("mgr", l.id).expect(200);
+      const queued = (await queueOf("admin")).find((q) => q.id === l.id);
+      expect(queued?.yourStep).toMatchObject({ step: "HR", override: true });
+
+      const hrBefore = await prisma.notification.count({
+        where: { userId: userIds.hr1, type: "leave.decided_by_admin" },
+      });
+      expect(
+        errorOf(
+          await post("admin", `/hr/leave-requests/${l.id}/approve`, {}).expect(
+            400,
+          ),
+        ),
+      ).toBe("LEAVE_OVERRIDE_REASON_REQUIRED");
+      expect(await status(l.id)).toBe("PENDING");
+
+      const done = dataOf<Leave>(
+        await post("admin", `/hr/leave-requests/${l.id}/approve`, {
+          note: "HR team on leave this week",
+        }).expect(200),
+      );
+      expect(done).toMatchObject({
+        status: "APPROVED",
+        decidedBy: { id: userIds.admin },
+        decisionNote: "HR team on leave this week",
+      });
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: {
+          entityType: "leave_request",
+          entityId: BigInt(l.id),
+          action: "approve_override",
+        },
+      });
+      expect(audit).toMatchObject({
+        actorUserId: userIds.admin,
+        reason: "HR team on leave this week",
+      });
+      expect(
+        await prisma.notification.count({
+          where: { userId: userIds.hr1, type: "leave.decided_by_admin" },
+        }),
+      ).toBe(hrBefore + 1);
+    });
+
+    it("Admin rejects an HR-only request with a reason, audited as an override; HR's own decision is not one", async () => {
+      const l = await submit("empC", casual, `${nextYear()}-03-02`);
+      await post("admin", `/hr/leave-requests/${l.id}/reject`, {
+        note: "Payroll freeze this month",
+      }).expect(200);
+      expect(
+        await prisma.auditLog.count({
+          where: {
+            entityType: "leave_request",
+            entityId: BigInt(l.id),
+            action: "reject_override",
+          },
+        }),
+      ).toBe(1);
+
+      const byHr = await submit("empC", casual, `${nextYear()}-03-02`);
+      await approve("hr1", byHr.id).expect(200);
+      expect(
+        await prisma.auditLog.count({
+          where: {
+            entityType: "leave_request",
+            entityId: BigInt(byHr.id),
+            action: "approve",
+          },
+        }),
+      ).toBe(1);
     });
   });
 

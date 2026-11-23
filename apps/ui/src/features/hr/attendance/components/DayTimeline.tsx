@@ -40,7 +40,7 @@ export function DayTimeline({
       : sessions
           .map(
             (s) =>
-              `${formatTime(s.checkInAt)}–${s.checkOutAt ? formatTime(s.checkOutAt) : "open"}`,
+              `${formatTime(s.checkInAt)}–${s.autoClosed ? "not recorded" : s.checkOutAt ? formatTime(s.checkOutAt) : "open"}`,
           )
           .join(", ");
   return (
@@ -57,7 +57,7 @@ export function DayTimeline({
         return (
           <span
             key={s.id}
-            className={`absolute inset-y-0 rounded-full ${s.checkOutAt ? "bg-success-500" : "bg-brand-500 motion-safe:animate-pulse"}`}
+            className={`absolute inset-y-0 rounded-full ${s.autoClosed ? "bg-warning-300" : s.checkOutAt ? "bg-success-500" : "bg-brand-500 motion-safe:animate-pulse"}`}
             style={{
               left: `${(from / SPAN_MIN) * 100}%`,
               width: `${(width / SPAN_MIN) * 100}%`,

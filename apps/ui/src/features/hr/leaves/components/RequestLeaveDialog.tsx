@@ -12,6 +12,7 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { leaveErrorMessage } from "../errors";
 import { useCreateMyLeaveRequest, useMyLeaveBalances } from "../hooks";
 import { EMPTY_REQUEST_FORM, requestLeaveSchema } from "../schema";
 import { DAY_PORTION_LABELS } from "../status";
@@ -26,17 +27,14 @@ export interface RequestLeaveDialogProps {
   initialLeaveTypeId?: number;
 }
 
-/** Maps the backend error codes in Docs/HR_LEAVE.md §2-5 to a clear message. */
+/** The employee's own wording for a few codes; everything else (overlap,
+ * field validation details, ...) comes from the shared `leaveErrorMessage`. */
 function describeSubmitError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
       return "You don't have permission to request leave.";
     }
     switch (error.errorCode) {
-      case "LEAVE_NO_WORKING_DAYS":
-        return "This range has no working day — it falls entirely on holidays or weekly offs.";
-      case "LEAVE_SPANS_YEAR":
-        return "A leave request cannot span two calendar years. Split it into two requests.";
       case "LEAVE_BALANCE_INSUFFICIENT":
         return "This request exceeds your available balance for this leave type.";
       case "INVALID_STATE_TRANSITION":
@@ -44,12 +42,11 @@ function describeSubmitError(error: unknown): string {
       default:
         break;
     }
-    if (error.isValidationError) {
-      return "The server rejected some values. Check the dates and reason and try again.";
-    }
-    return error.message;
   }
-  return "Something went wrong. Try again.";
+  return leaveErrorMessage(
+    error,
+    "You don't have permission to request leave.",
+  );
 }
 
 /** Submits leave for the authenticated user's own employee. There is

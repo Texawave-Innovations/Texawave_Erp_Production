@@ -51,6 +51,17 @@ export interface LeaveRequestItem {
   approvalLevels: number;
   /** Who a PENDING request waits for; null once decided. */
   awaiting: AwaitingStage | null;
+  /** Only in the approval queue ("Waiting for me"): the step the caller
+   * decides. TEAM_LEAD = first approval (final on a one-level type); HR = the
+   * final decision. `override`: the caller decides as Admin in HR's place
+   * (reason required, audited). `escalated`: the team lead did not decide in
+   * time, so HR's decision replaces both steps. */
+  yourStep?: {
+    step: "TEAM_LEAD" | "HR";
+    final: boolean;
+    override: boolean;
+    escalated: boolean;
+  };
   /** The employee, or HR who applied on the employee's behalf. */
   requestedBy: DeciderRef;
   firstDecidedBy: DeciderRef | null;

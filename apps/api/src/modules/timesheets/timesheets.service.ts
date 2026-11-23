@@ -170,6 +170,10 @@ export class TimesheetsService {
             permissions: attendanceDay.permissions,
             permissionMinutes: attendanceDay.permissionMinutes,
             hasOpenSession: attendanceDay.hasOpenSession,
+            // First punch-in and last verified punch-out (null while open or
+            // auto-closed and pending regularization), for the day timeline.
+            checkInAt: attendanceDay.checkInAt,
+            checkOutAt: attendanceDay.checkOutAt,
           }
         : null,
       flags,
