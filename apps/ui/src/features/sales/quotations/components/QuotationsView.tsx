@@ -6,10 +6,12 @@ import {
   ArrowRightLeft,
   Download,
   Eye,
+  FileCheck,
   FileText,
   Mail,
   Pencil,
   Plus,
+  RotateCcw,
   Share2,
   Trash2,
 } from "lucide-react";
@@ -18,6 +20,7 @@ import {
   ActionMenu,
   Alert,
   Button,
+  ConfirmDialog,
   DataTable,
   DateRangePicker,
   DeleteConfirmDialog,
@@ -34,18 +37,24 @@ import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useCustomers } from "../../customers/hooks";
 import { SALES_PERMISSIONS } from "../../permissions";
+import { ReasonActionDialog } from "../../shared/components/ReasonActionDialog";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
 import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, formatInr } from "../../shared/format";
 import { QUOTATIONS } from "../api";
-import { useDeleteQuotation, useQuotations } from "../hooks";
+import {
+  useDeleteQuotation,
+  useMarkQuotationInvoiced,
+  useQuotations,
+  useReopenQuotation,
+} from "../hooks";
 import type { Quotation, QuotationStatus } from "../types";
 import { ConvertQuotationDialog } from "./ConvertQuotationDialog";
 import { QuotationStatusBadge } from "./QuotationDetailView";
 
 const PAGE_SIZE = 20;
 
-type RowDialog = "email" | "convert" | "delete";
+type RowDialog = "email" | "convert" | "invoiced" | "reopen" | "delete";
 
 export function QuotationsView() {
   const router = useRouter();
@@ -57,6 +66,8 @@ export function QuotationsView() {
   const canConvert = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const canPickCustomer = usePermission(SALES_PERMISSIONS.customerRead);
   const remove = useDeleteQuotation();
+  const markInvoiced = useMarkQuotationInvoiced();
+  const reopen = useReopenQuotation();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | QuotationStatus>("");
@@ -156,12 +167,15 @@ export function QuotationsView() {
       <PageHeader
         variant="banner"
         title="Quotations"
-        description={
-          query.data
-            ? `Quotes to customers; convert one to a proforma or tax invoice • Total: ${query.data.meta.total}`
-            : "Quotes to customers; convert one to a proforma or tax invoice"
-        }
+        description="Quotes to customers; convert one to a proforma or tax invoice"
         icon={FileText}
+        badge={
+          query.data ? (
+            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+              {query.data.meta.total} quotations
+            </span>
+          ) : undefined
+        }
         action={newButton}
       />
 
@@ -257,7 +271,6 @@ export function QuotationsView() {
             caption="Quotations"
             rows={query.data.data}
             getRowKey={(q) => String(q.id)}
-            onRowClick={(q) => router.push(`/sales/quotations/${q.id}`)}
             columns={[
               {
                 header: "Number",
@@ -349,6 +362,42 @@ export function QuotationsView() {
                               },
                             ]
                           : []),
+                        ...(canWrite && open
+                          ? [
+                              {
+                                label: "Mark as invoiced",
+                                icon: (
+                                  <FileCheck
+                                    className={cls}
+                                    aria-hidden="true"
+                                  />
+                                ),
+                                onClick: () =>
+                                  setTarget({
+                                    quotation: q,
+                                    dialog: "invoiced",
+                                  }),
+                              },
+                            ]
+                          : []),
+                        ...(canWrite && !open
+                          ? [
+                              {
+                                label: "Reopen",
+                                icon: (
+                                  <RotateCcw
+                                    className={cls}
+                                    aria-hidden="true"
+                                  />
+                                ),
+                                onClick: () =>
+                                  setTarget({
+                                    quotation: q,
+                                    dialog: "reopen",
+                                  }),
+                              },
+                            ]
+                          : []),
                         {
                           label: "Export PDF",
                           icon: <Download className={cls} aria-hidden="true" />,
@@ -413,6 +462,54 @@ export function QuotationsView() {
           onClose={closeDialog}
           quotationId={target.quotation.id}
           quotationNumber={target.quotation.quotationNumber}
+        />
+      ) : null}
+      {target && canWrite && target.dialog === "invoiced" ? (
+        <ConfirmDialog
+          open
+          onClose={closeDialog}
+          onConfirm={async () => {
+            const q = target.quotation;
+            try {
+              await markInvoiced.mutateAsync(q.id);
+              toast({
+                title: `${q.quotationNumber} marked as invoiced`,
+                variant: "success",
+              });
+            } catch (e) {
+              toast({
+                title:
+                  e instanceof ApiError ? e.message : "Could not mark invoiced",
+                variant: "error",
+              });
+            } finally {
+              closeDialog();
+            }
+          }}
+          title="Mark as invoiced"
+          description={`${target.quotation.quotationNumber} is locked as converted, without creating an invoice here. Use this when the invoice was raised outside the system.`}
+          confirmText="Mark as invoiced"
+          loading={markInvoiced.isPending}
+        />
+      ) : null}
+      {target && canWrite && target.dialog === "reopen" ? (
+        <ReasonActionDialog
+          open
+          onClose={closeDialog}
+          title="Reopen quotation"
+          description={`${target.quotation.quotationNumber} becomes open again and can be edited or converted.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the quotation and in its history."
+          placeholder="e.g. Customer asked for a revised quote"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: target.quotation.id, reason });
+            toast({
+              title: `${target.quotation.quotationNumber} is open again`,
+              variant: "success",
+            });
+            closeDialog();
+          }}
         />
       ) : null}
       {canDelete ? (

@@ -17,7 +17,9 @@ import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import {
+  DraftPreviewQueryDto,
   NextNumberQueryDto,
+  ReopenDocumentDto,
   SendDocumentEmailDto,
 } from "./dto/document-parts.dto.js";
 import { ConvertQuotationDto } from "./dto/invoice.dto.js";
@@ -55,6 +57,16 @@ export class QuotationsController {
   @ApiOperation({ summary: "Preview the next quotation number (not reserved)" })
   nextNumber(@Query() query: NextNumberQueryDto) {
     return this.quotations.nextNumber(query.date);
+  }
+
+  @Get("template")
+  @RequirePermission(WRITE)
+  @ApiOperation({
+    summary:
+      "The empty quotation (letterhead, next number) for a form's default preview",
+  })
+  template(@Query() query: DraftPreviewQueryDto) {
+    return this.quotations.template(query);
   }
 
   @Get(":id")
@@ -134,6 +146,31 @@ export class QuotationsController {
     @Body() dto: ConvertQuotationDto,
   ) {
     return this.invoices.createFromQuotation(id, dto);
+  }
+
+  @Post(":id/mark-invoiced")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Mark as invoiced (invoice raised outside the system); locks the quotation",
+  })
+  markInvoiced(@Param("id", ParseIntPipe) id: number) {
+    return this.quotations.markInvoiced(id);
+  }
+
+  @Post(":id/reopen")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Reopen a converted quotation; a reason is required; refused while a generated invoice exists",
+  })
+  reopen(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ReopenDocumentDto,
+  ) {
+    return this.quotations.reopen(id, dto);
   }
 
   @Post(":id/email")

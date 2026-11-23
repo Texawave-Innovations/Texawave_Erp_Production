@@ -39,6 +39,18 @@ export async function getNextQuotationNumber(date: string): Promise<string> {
   return data.number;
 }
 
+/** The empty quotation (letterhead, next number) for the form's default preview. */
+export async function getQuotationTemplate(
+  params: Record<string, string | number>,
+): Promise<{ html: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ html: string }>(`${QUOTATIONS}/template`, {
+      query: params,
+    }),
+  );
+  return data;
+}
+
 /** Server pricing + the PDF's HTML for unsaved values (nothing stored). */
 export async function previewQuotation(
   body: QuotationBody,
@@ -74,6 +86,24 @@ export async function updateQuotation(
 
 export async function deleteQuotation(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete(`${QUOTATIONS}/${id}`));
+}
+
+/** "Mark as invoiced": the invoice was raised outside the system. */
+export async function markQuotationInvoiced(id: number): Promise<Quotation> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Quotation>(`${QUOTATIONS}/${id}/mark-invoiced`, {}),
+  );
+  return data;
+}
+
+export async function reopenQuotation(
+  id: number,
+  reason: string,
+): Promise<Quotation> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Quotation>(`${QUOTATIONS}/${id}/reopen`, { reason }),
+  );
+  return data;
 }
 
 export interface ConvertedInvoice {

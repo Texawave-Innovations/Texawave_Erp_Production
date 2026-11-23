@@ -63,7 +63,10 @@ export function useMarkRdcReturned() {
 }
 
 export function useReopenRdc() {
-  return useOrgScopedMutation([SALES_KEY], (id: number) => reopenRdc(id));
+  return useOrgScopedMutation(
+    [SALES_KEY],
+    ({ id, reason }: { id: number; reason: string }) => reopenRdc(id, reason),
+  );
 }
 
 export function useDeleteRdc() {

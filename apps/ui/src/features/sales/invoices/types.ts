@@ -60,6 +60,8 @@ export interface Invoice {
   terms: string | null;
   status: InvoiceStatus;
   convertedAt: string | null;
+  /** Proforma only: why it was last reopened; present while it is live again. */
+  reopenReason: string | null;
   lines: Array<{
     lineNo: number;
     description: string;

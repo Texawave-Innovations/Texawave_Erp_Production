@@ -17,11 +17,15 @@ import {
   mergeDraft,
 } from "./document-pricing.service.js";
 import { pickDefined, storedRates, todayDateOnly } from "./documents.rules.js";
-import type { SendDocumentEmailDto } from "./dto/document-parts.dto.js";
+import type {
+  ReopenDocumentDto,
+  SendDocumentEmailDto,
+} from "./dto/document-parts.dto.js";
 import type {
   ConvertQuotationDto,
   ConvertToTaxInvoiceDto,
   CreateInvoiceDto,
+  InvoiceDraftPreviewQueryDto,
   InvoiceType,
   QueryInvoiceDto,
   UpdateInvoiceDto,
@@ -145,6 +149,25 @@ export class InvoicesService {
     );
     if (!updated) throw new ResourceNotFoundException("Invoice", id);
     return updated;
+  }
+
+  /** The empty invoice the form previews before anything valid is typed. */
+  async template(query: InvoiceDraftPreviewQueryDto) {
+    const day = parseDateOnly(query.date ?? todayDateOnly());
+    const { number } = await this.pricing.previewNumber(
+      codeType(query.invoiceType),
+      day,
+    );
+    return this.delivery.blankTemplate(
+      query.invoiceType === "PROFORMA" ? "proforma" : "tax-invoice",
+      number,
+      day,
+      {
+        customer: await this.pricing.draftCustomer(query.customerId),
+        dueDate: query.dueDate ? parseDateOnly(query.dueDate) : null,
+        preparedBy: query.preparedBy,
+      },
+    );
   }
 
   /**
@@ -282,6 +305,29 @@ export class InvoicesService {
     );
     if (!created) throw new ResourceNotFoundException("Invoice", proformaId);
     return created;
+  }
+
+  /** "Mark as tax invoiced": locks a proforma whose tax invoice was raised
+   * outside the system; nothing is generated. */
+  async markConverted(proformaId: number) {
+    const row = await this.repository.markProformaConverted(
+      this.tenantContext.getOrgScope(),
+      proformaId,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Invoice", proformaId);
+    return row;
+  }
+
+  async reopen(proformaId: number, dto: ReopenDocumentDto) {
+    const row = await this.repository.reopenProforma(
+      this.tenantContext.getOrgScope(),
+      proformaId,
+      dto.reason,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Invoice", proformaId);
+    return row;
   }
 
   /** "Record Payment" on an invoice; returns the invoice. */

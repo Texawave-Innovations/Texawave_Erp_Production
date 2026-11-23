@@ -16,6 +16,7 @@ export function DocumentPreviewPanel({
   error,
   emptyMessage,
   title,
+  sample = false,
 }: {
   html: string | null;
   loading: boolean;
@@ -23,6 +24,8 @@ export function DocumentPreviewPanel({
   error: string | null;
   emptyMessage: string;
   title: string;
+  /** `html` is the empty default template, not a rendering of the form. */
+  sample?: boolean;
 }) {
   return (
     <Card className="flex flex-col gap-3">
@@ -32,7 +35,11 @@ export function DocumentPreviewPanel({
           Live preview
         </h2>
         <span className="rounded-full border border-gray-200 px-2.5 py-0.5 text-theme-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-          {loading ? "Updating…" : "A4 printable template"}
+          {loading
+            ? "Updating…"
+            : sample
+              ? "Blank template"
+              : "A4 printable template"}
         </span>
       </div>
       {error ? (

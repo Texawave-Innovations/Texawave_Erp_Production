@@ -125,7 +125,7 @@ function partyBlock(doc: PrintableDocument): string {
     ${c.billingAddress ? `<div>${esc(c.billingAddress)}</div>` : ""}
     ${c.gstin ? `<div>GSTIN: ${esc(c.gstin)}</div>` : ""}
     ${c.stateName ? `<div>State: ${esc(c.stateName)} (${esc(c.stateCode)})</div>` : ""}
-    <div>${esc(c.contactPerson)} · ${esc(c.mobile)} · ${esc(c.email)}</div>
+    <div>${[c.contactPerson, c.mobile, c.email].filter(Boolean).map(esc).join(" · ")}</div>
   </div>`;
 }
 
@@ -217,7 +217,7 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
   <div class="foot">
   ${doc.pricing ? totalsBlock(doc.pricing) : ""}
   ${doc.summary?.length ? summaryBlock(doc.summary) : ""}
-  ${doc.note ? `<div class="box note"><h4>${esc(doc.noteTitle ?? "Note")}</h4>${nl(doc.note)}</div>` : ""}
+  ${doc.note ? `<div class="box note"><h4>${esc(doc.noteTitle ?? "Note")}</h4><div>${nl(doc.note)}</div></div>` : ""}
   <div class="bottom">
     ${doc.pricing ? bankBlock(doc.bank) : `<div class="bank">${doc.preparedBy ? `<strong>Prepared By:</strong> ${esc(doc.preparedBy)}` : ""}</div>`}
     <div class="sign"><strong>For ${esc(co.legalName)}</strong>

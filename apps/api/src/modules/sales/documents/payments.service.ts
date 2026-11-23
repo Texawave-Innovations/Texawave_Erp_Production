@@ -26,7 +26,7 @@ import {
   type PaymentView,
   PaymentsRepository,
 } from "./payments.repository.js";
-import { modeLabel, monthRange } from "./payments.rules.js";
+import { dateRange, modeLabel } from "./payments.rules.js";
 import { printablePaymentReceipt } from "./printable.js";
 
 const optionalDate = (v: string | null | undefined) =>
@@ -56,8 +56,8 @@ export class PaymentsService {
         search: query.search,
         customerId: query.customerId,
         invoiceId: query.invoiceId,
-        paid: query.paymentMonth ? monthRange(query.paymentMonth) : undefined,
-        due: query.dueMonth ? monthRange(query.dueMonth) : undefined,
+        paid: dateRange(query.paymentFrom, query.paymentTo),
+        due: dateRange(query.dueFrom, query.dueTo),
         overdueOnly: query.overdueOnly,
       },
       query,

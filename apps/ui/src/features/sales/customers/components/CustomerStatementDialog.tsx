@@ -12,7 +12,7 @@ import {
   ErrorState,
   Skeleton,
 } from "@texawave-erp/ui-kit";
-import { downloadCsv, toCsv } from "../../../finance/shared/csv";
+import { downloadWorkbook } from "@/lib/spreadsheet";
 import { formatDate, formatInr } from "../../shared/format";
 import { useCustomerStatement } from "../hooks";
 import type { StatementEntry } from "../types";
@@ -65,24 +65,43 @@ export function CustomerStatementDialog({
 
   function exportCsv() {
     if (!s || !customer) return;
-    const csv = toCsv<StatementEntry>(
+    void downloadWorkbook(
+      `statement-${customer.companyName.replace(/[^A-Za-z0-9]+/g, "-")}-${range.from}-to-${range.to}`,
       [
-        { header: "Date", value: (e) => e.date },
         {
-          header: "Type",
-          value: (e) => (e.type === "INVOICE" ? "Invoice" : "Payment"),
+          name: "Statement",
+          rows: s.entries,
+          columns: [
+            { header: "Date", value: (e: StatementEntry) => e.date },
+            {
+              header: "Type",
+              value: (e: StatementEntry) =>
+                e.type === "INVOICE" ? "Invoice" : "Payment",
+            },
+            { header: "Number", value: (e: StatementEntry) => e.number },
+            {
+              header: "Description",
+              value: (e: StatementEntry) => e.description,
+            },
+            {
+              header: "Debit",
+              value: (e: StatementEntry) => e.debit,
+              type: "amount",
+            },
+            {
+              header: "Credit",
+              value: (e: StatementEntry) => e.credit,
+              type: "amount",
+            },
+            {
+              header: "Balance",
+              value: (e: StatementEntry) => e.balance,
+              type: "amount",
+              total: false,
+            },
+          ],
         },
-        { header: "Number", value: (e) => e.number },
-        { header: "Description", value: (e) => e.description },
-        { header: "Debit", value: (e) => e.debit },
-        { header: "Credit", value: (e) => e.credit },
-        { header: "Balance", value: (e) => e.balance },
       ],
-      s.entries,
-    );
-    downloadCsv(
-      `statement-${customer.companyName.replace(/[^A-Za-z0-9]+/g, "-")}-${range.from}-to-${range.to}.csv`,
-      csv,
     );
   }
 
@@ -90,7 +109,8 @@ export function CustomerStatementDialog({
     <Dialog
       open={customer !== null}
       onClose={onClose}
-      title={`Customer statement — ${customer?.companyName ?? ""}`}
+      title="Customer statement"
+      subtitle={customer?.companyName ?? ""}
       size="4xl"
     >
       <div className="flex flex-col gap-4">

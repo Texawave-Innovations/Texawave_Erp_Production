@@ -151,7 +151,10 @@ test.describe("Sales customers", () => {
     expect(calls.some((c) => c.includes("search=zzz"))).toBe(true);
     await page.getByRole("searchbox", { name: "Search customers" }).fill("");
 
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for Global Enterprises Pvt Ltd" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page).toHaveURL(/\/sales\/customers\/7$/);
     await expect(page.getByText("Head Office")).toBeVisible();
     await expect(page.getByText("XXXXXXXX7890")).toBeVisible();
@@ -312,7 +315,10 @@ test.describe("Sales customers", () => {
     page,
   }) => {
     await openCustomers(page, MANAGER);
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for Global Enterprises Pvt Ltd" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await page
       .getByRole("button", { name: "Reveal full account number" })
       .click();
@@ -336,7 +342,10 @@ test.describe("Sales customers", () => {
     await expect(
       page.getByRole("button", { name: "New customer" }),
     ).toHaveCount(0);
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for Global Enterprises Pvt Ltd" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByText("XXXXXXXX7890")).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);

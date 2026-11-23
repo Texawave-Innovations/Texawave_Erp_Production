@@ -761,6 +761,96 @@ describe("Sales — quotations, invoices & delivery challans (e2e)", () => {
       expect((after.body as Body<Doc>).data.status).toBe("OPEN");
     });
 
+    it("mark as invoiced / tax invoiced lock without generating anything; reopen needs a reason", async () => {
+      // Quotation: mark as invoiced (no invoice created) → locked → reopen.
+      const q = await createQuotation("manager", tnCustomer);
+      const marked = await http()
+        .post(`/sales/quotations/${q.id}/mark-invoiced`)
+        .set(auth("manager"))
+        .expect(200);
+      expect((marked.body as Body<Doc>).data.status).toBe("CONVERTED");
+      await http()
+        .post(`/sales/quotations/${q.id}/mark-invoiced`)
+        .set(auth("manager"))
+        .expect(409);
+      await http()
+        .patch(`/sales/quotations/${q.id}`)
+        .set(auth("manager"))
+        .send({ validity: "10 Days" })
+        .expect(409);
+      for (const body of [{}, { reason: "   " }]) {
+        await http()
+          .post(`/sales/quotations/${q.id}/reopen`)
+          .set(auth("manager"))
+          .send(body)
+          .expect(400);
+      }
+      const reopened = await http()
+        .post(`/sales/quotations/${q.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Customer asked for a revision" })
+        .expect(200);
+      expect((reopened.body as Body<Doc>).data).toMatchObject({
+        status: "OPEN",
+        reopenReason: "Customer asked for a revision",
+      });
+      const again = await http()
+        .post(`/sales/quotations/${q.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Again" })
+        .expect(409);
+      expect((again.body as ErrorBody).error).toBe("NOT_CONVERTED");
+
+      // A quotation that has a live invoice cannot be reopened.
+      const q2 = await createQuotation("manager", tnCustomer);
+      const pi = await http()
+        .post(`/sales/quotations/${q2.id}/convert`)
+        .set(auth("manager"))
+        .send({})
+        .expect(201);
+      const blocked = await http()
+        .post(`/sales/quotations/${q2.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Try" })
+        .expect(409);
+      expect((blocked.body as ErrorBody).error).toBe("HAS_LINKED_INVOICE");
+
+      // Proforma: mark as tax invoiced (no tax invoice) → reopen.
+      const piId = (pi.body as Body<Doc>).data.id;
+      const piMarked = await http()
+        .post(`/sales/invoices/${piId}/mark-converted`)
+        .set(auth("manager"))
+        .expect(200);
+      expect((piMarked.body as Body<Doc>).data.status).toBe("CONVERTED");
+      await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({})
+        .expect(400);
+      const piReopened = await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Marked by mistake" })
+        .expect(200);
+      expect((piReopened.body as Body<Doc>).data).toMatchObject({
+        status: "UNPAID",
+        reopenReason: "Marked by mistake",
+      });
+
+      // A proforma that has a live tax invoice cannot be reopened.
+      await http()
+        .post(`/sales/invoices/${piId}/convert-to-tax`)
+        .set(auth("manager"))
+        .send({})
+        .expect(201);
+      const piBlocked = await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Try" })
+        .expect(409);
+      expect((piBlocked.body as ErrorBody).error).toBe("HAS_LINKED_INVOICE");
+    });
+
     it("payments can be deleted, restoring the balance", async () => {
       const inv = await http()
         .post("/sales/invoices")

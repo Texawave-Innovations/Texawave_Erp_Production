@@ -15,9 +15,11 @@ export interface PaymentListQuery {
   search?: string;
   customerId?: number;
   invoiceId?: number;
-  /** YYYY-MM */
-  paymentMonth?: string;
-  dueMonth?: string;
+  /** YYYY-MM-DD, inclusive. */
+  paymentFrom?: string;
+  paymentTo?: string;
+  dueFrom?: string;
+  dueTo?: string;
   overdueOnly?: boolean;
 }
 

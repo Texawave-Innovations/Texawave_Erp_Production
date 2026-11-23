@@ -16,15 +16,19 @@ import {
   pickDefined,
   todayDateOnly,
 } from "./documents.rules.js";
-import type { SendDocumentEmailDto } from "./dto/document-parts.dto.js";
+import type {
+  DraftPreviewQueryDto,
+  SendDocumentEmailDto,
+} from "./dto/document-parts.dto.js";
 import type {
   CreateReturnableDcDto,
   MarkReturnedDto,
+  ReopenReturnableDcDto,
   QueryReturnableDcDto,
   ReturnableLineDto,
   UpdateReturnableDcDto,
 } from "./dto/returnable-dc.dto.js";
-import { monthRange } from "./payments.rules.js";
+import { dateRange } from "./payments.rules.js";
 import { printableReturnableDc } from "./printable.js";
 import {
   type RdcLine,
@@ -80,11 +84,11 @@ export class ReturnableDcsService {
   ) {}
 
   async findAll(query: QueryReturnableDcDto) {
-    const range = query.month
-      ? monthRange(query.month)
-      : query.date
+    const range =
+      dateRange(query.from, query.to) ??
+      (query.date
         ? { from: parseDateOnly(query.date), to: parseDateOnly(query.date) }
-        : undefined;
+        : undefined);
     const { items, total } = await this.repository.findMany(
       this.tenantContext.getOrgScope(),
       {
@@ -208,6 +212,21 @@ export class ReturnableDcsService {
     return updated;
   }
 
+  /** The empty returnable DC the form previews before anything valid is typed. */
+  async template(query: DraftPreviewQueryDto) {
+    const day = parseDateOnly(query.date ?? todayDateOnly());
+    const { number } = await this.pricing.previewNumber("returnable_dc", day);
+    return this.delivery.blankTemplate("returnable-dc", number, day, {
+      customer: await this.pricing.draftCustomer(query.customerId),
+      purpose: query.purpose,
+      expectedReturnDate: query.expectedReturnDate
+        ? parseDateOnly(query.expectedReturnDate)
+        : undefined,
+      takenBy: query.takenBy,
+      preparedBy: query.preparedBy,
+    });
+  }
+
   /** Live preview of an unsaved returnable DC (nothing stored; the number
    * shown is the next one). */
   async preview(dto: CreateReturnableDcDto) {
@@ -317,7 +336,7 @@ export class ReturnableDcsService {
   }
 
   /** Undo "Returned" (marked by mistake): back to Issued (Pending Return). */
-  async reopen(id: number) {
+  async reopen(id: number, dto: ReopenReturnableDcDto) {
     const updated = await this.repository.setStatus(
       this.tenantContext.getOrgScope(),
       id,
@@ -333,6 +352,7 @@ export class ReturnableDcsService {
           );
         }
       },
+      dto.reason,
     );
     if (!updated) throw new ResourceNotFoundException("Returnable DC", id);
     return updated;

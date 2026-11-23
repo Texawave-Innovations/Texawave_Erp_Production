@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { PricedDocumentForm } from "../../shared/components/PricedDocumentForm";
 import type { BankDetails } from "../../shared/documents";
-import { previewQuotation } from "../api";
+import { getQuotationTemplate, previewQuotation } from "../api";
 import {
   formToBody,
   QUOTATION_FORM,
@@ -51,6 +51,13 @@ export function QuotationForm({
       savedBank={savedBank}
       customerLabel={customerLabel}
       preview={preview}
+      template={getQuotationTemplate}
+      templateParams={(v) => ({
+        customerId: v.customerId,
+        date: v.header.quotationDate,
+        validity: v.header.validity,
+        preparedBy: v.preparedBy,
+      })}
       onSubmit={(v, bank) => onSubmit(formToBody(v, bank))}
       onCancel={onCancel}
       submitLabel={mode === "create" ? "Save quotation" : "Save changes"}

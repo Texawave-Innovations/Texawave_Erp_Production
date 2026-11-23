@@ -17,7 +17,7 @@ import { BackArrow } from "../../customers/components/CustomerFormView";
 import { PricedDocumentForm } from "../../shared/components/PricedDocumentForm";
 import type { BankDetails } from "../../shared/documents";
 import { todayIst } from "../../shared/format";
-import { previewInvoice } from "../api";
+import { getInvoiceTemplate, previewInvoice } from "../api";
 import { useCreateInvoice, useInvoice, useUpdateInvoice } from "../hooks";
 import {
   emptyInvoiceForm,
@@ -57,6 +57,11 @@ export function InvoiceCreateView({
       previewInvoice(formToCreateBody(v, bank)),
     [],
   );
+  const template = useCallback(
+    (params: Record<string, string | number>) =>
+      getInvoiceTemplate(invoiceType, params),
+    [invoiceType],
+  );
 
   if (!canWrite) return <NoWriteAccess />;
 
@@ -76,6 +81,13 @@ export function InvoiceCreateView({
         mode="create"
         initialValues={emptyInvoiceForm(invoiceType, todayIst())}
         preview={preview}
+        template={template}
+        templateParams={(v) => ({
+          customerId: v.customerId,
+          date: v.header.invoiceDate,
+          dueDate: v.header.dueDate,
+          preparedBy: v.preparedBy,
+        })}
         onSubmit={async (v, bank) => {
           const created = await create.mutateAsync(formToCreateBody(v, bank));
           toast({
