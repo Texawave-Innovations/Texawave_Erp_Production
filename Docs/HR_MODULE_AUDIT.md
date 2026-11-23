@@ -57,7 +57,7 @@ Main weaknesses:
   PENDING_ACTIVATION, NOT_SUBMITTED; code issued under counter lock) → link-user → forced password change → wizard →
   submit (COMPLETE/PENDING_REVIEW) → HR approve (not self) or send back. **Approval gates nothing** — employee is ACTIVE
   from creation; the portal opens at COMPLETE.
-- **Lifecycle:** ACTIVE ↔ INACTIVE; → RESIGNED/TERMINATED (terminal; deactivates user + logout). Exit-request approval
+- **Lifecycle:** ACTIVE ↔ INACTIVE (INACTIVE deactivates the user + logout; back to ACTIVE re-enables it); → RESIGNED/TERMINATED (terminal; deactivates user + logout). Exit-request approval
   does **not** trigger this.
 - **Leave:** PENDING→APPROVED (not self, reporting line/scope, balance re-check, 2-level optional) / REJECTED /
   CANCELLED; APPROVED→CANCELLED (employee only if start > today; HR any time with reason); resubmit from

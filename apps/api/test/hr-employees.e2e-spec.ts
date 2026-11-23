@@ -1499,7 +1499,13 @@ describe("HR employees (e2e)", () => {
         ).toBe(201);
       });
 
-      it("INACTIVE alone does not disable the login", async () => {
+      it("INACTIVE disables the login and revokes sessions; back to ACTIVE re-enables it", async () => {
+        const signIn = await login(orgA.slug, "leaver@" + orgA.slug + ".test");
+        expect(signIn.status).toBe(201);
+        const sessionRefresh = (
+          signIn.body as { data: { refreshToken: string } }
+        ).data.refreshToken;
+
         await change(
           "hrAll",
           emp.id,
@@ -1507,13 +1513,45 @@ describe("HR employees (e2e)", () => {
           "2026-09-10",
           "leave of absence",
         ).expect(200);
+        const userRow = () =>
+          prisma.user.findUniqueOrThrow({
+            where: { id: userIds.leaver as number },
+          });
+        expect((await userRow()).isActive).toBe(false);
         expect(
-          (
-            await prisma.user.findUniqueOrThrow({
-              where: { id: userIds.leaver as number },
-            })
-          ).isActive,
-        ).toBe(true);
+          (await login(orgA.slug, "leaver@" + orgA.slug + ".test")).status,
+        ).toBe(401);
+        await request(app.getHttpServer())
+          .post("/auth/refresh")
+          .send({ refreshToken: sessionRefresh })
+          .expect(401);
+        // Inactive is a break, not an exit: no exit fields are recorded.
+        const inactive = await prisma.employee.findUniqueOrThrow({
+          where: { id: emp.id },
+        });
+        expect(inactive).toMatchObject({ dateOfExit: null, exitReason: null });
+
+        await change(
+          "hrAll",
+          emp.id,
+          "ACTIVE",
+          "2026-10-01",
+          "back from leave",
+        ).expect(200);
+        expect((await userRow()).isActive).toBe(true);
+        expect(
+          (await login(orgA.slug, "leaver@" + orgA.slug + ".test")).status,
+        ).toBe(201);
+        const reactivated = await prisma.auditLog.findFirstOrThrow({
+          where: {
+            entityType: "user",
+            entityId: BigInt(userIds.leaver as number),
+            action: "activate",
+          },
+          orderBy: { id: "desc" },
+        });
+        expect(reactivated.reason).toContain("reactivated");
+
         await post("hrAll", `/hr/employees/${emp.id}/unlink-user`, {}).expect(
           200,
         );
@@ -1635,6 +1673,19 @@ describe("HR employees (e2e)", () => {
         userId: userIds.linkable2,
       }).expect(422);
       expect((res.body as { error: string }).error).toBe("EMPLOYEE_HAS_LEFT");
+    });
+
+    it("refuses to link a login to an INACTIVE employee", async () => {
+      const onBreak = await createEmp("hrAll");
+      await post("hrAll", `/hr/employees/${onBreak.id}/status`, {
+        status: "INACTIVE",
+        effectiveDate: "2026-06-01",
+        reason: "sabbatical",
+      }).expect(200);
+      const res = await post("hrAll", `/hr/employees/${onBreak.id}/link-user`, {
+        userId: userIds.linkable2,
+      }).expect(422);
+      expect((res.body as { error: string }).error).toBe("EMPLOYEE_INACTIVE");
     });
 
     it("unlinking detaches the login, is idempotent, is audited, and ends self-service access", async () => {

@@ -18,6 +18,7 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  RefreshCw,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -54,9 +55,12 @@ import { STATUS_LABELS, isExitStatus } from "../status";
 import {
   ACCOUNT_WRITE,
   READ_ANY_SCOPE,
+  STATUS_CORRECT,
+  STATUS_WRITE,
   WRITE_TEAM_OR_ALL,
 } from "../permissions";
 import type { EmployeeDetail } from "../types";
+import { ChangeStatusDialog } from "./ChangeStatusDialog";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 
 const HISTORY_PAGE_SIZE = 10;
@@ -93,6 +97,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const canReadProfile = usePermission(PROFILE_READ_ANY_SCOPE);
   const canAccount = usePermission(ACCOUNT_WRITE);
+  const canWriteStatus = usePermission(STATUS_WRITE);
+  const canCorrectStatus = usePermission(STATUS_CORRECT);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   const query = useEmployee(id);
   const [historyPage, setHistoryPage] = useState(1);
@@ -178,6 +185,10 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   const e: EmployeeDetail = query.data;
   const exit = isExitStatus(e.status);
+  // Active/Inactive employees get the normal lifecycle (Inactive, Resigned,
+  // Terminated — the API disables the login on an exit). Once Resigned or
+  // Terminated, only the audited correction (Super Admin) can change it.
+  const canChangeStatus = exit ? canCorrectStatus : canWriteStatus;
 
   async function handleAccountAction() {
     if (!canAccount && !canWrite) {
@@ -302,7 +313,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
 
-          {/* Action Toolbar - Cleaned with change status & unlink buttons removed */}
+          {/* Action Toolbar */}
           <div className="flex flex-wrap items-center gap-2 border-t border-sky-200/80 pt-4 dark:border-slate-700/80 lg:border-t-0 lg:pt-0">
             {canReadProfile ? (
               <Link
@@ -346,9 +357,31 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 Edit
               </Link>
             ) : null}
+
+            {canChangeStatus ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setStatusDialogOpen(true)}
+                className="rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-white"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-brand-500 dark:text-cyan-400" />
+                {exit ? "Correct status" : "Change status"}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {/* Mounted only while open so it starts from the current status. */}
+      {statusDialogOpen ? (
+        <ChangeStatusDialog
+          open
+          onClose={() => setStatusDialogOpen(false)}
+          employee={e}
+          correction={exit}
+        />
+      ) : null}
 
       <OnboardingReviewPanel employee={e} />
 

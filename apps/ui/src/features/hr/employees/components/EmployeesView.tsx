@@ -236,7 +236,13 @@ export function EmployeesView() {
       });
       toast({
         title: `Status changed to ${STATUS_LABELS[nextStatus]}`,
-        description: `${emp.fullName} is now ${STATUS_LABELS[nextStatus].toLowerCase()}.`,
+        // Only an ACTIVE employee can sign in (Docs/HR_API.md): say what
+        // happened to their portal login, since the quick action has no dialog.
+        description: emp.hasLogin
+          ? nextStatus === "INACTIVE"
+            ? `${emp.fullName} is now inactive — their portal login is paused until they're made active again.`
+            : `${emp.fullName} is active again and can sign in to the portal.`
+          : `${emp.fullName} is now ${STATUS_LABELS[nextStatus].toLowerCase()}.`,
         variant: "success",
       });
     } catch (error) {

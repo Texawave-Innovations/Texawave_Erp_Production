@@ -178,6 +178,30 @@ export function ChangeStatusDialog({
               />
             )}
           </FormField>
+          {!correction &&
+          (values.status === "RESIGNED" || values.status === "TERMINATED") ? (
+            <Alert variant="warning" title="Portal access ends when you save">
+              {employee.fullName}&apos;s login is disabled and signed out as
+              soon as this is saved, whatever the last working day. Save it on
+              or after their last day. Only a Super Admin can undo it.
+            </Alert>
+          ) : null}
+          {!correction && values.status === "INACTIVE" ? (
+            <Alert
+              variant="warning"
+              title="Portal access pauses while inactive"
+            >
+              {employee.fullName}&apos;s login is disabled and signed out when
+              you save. It comes back automatically when you set them to Active
+              again — same password.
+            </Alert>
+          ) : null}
+          {!correction && values.status === "ACTIVE" ? (
+            <Alert variant="info" title="Portal access is restored">
+              {employee.fullName} can sign in again with their existing password
+              once you save.
+            </Alert>
+          ) : null}
           {serverError ? (
             <p
               role="alert"
