@@ -148,23 +148,12 @@ export class QuotationsController {
     return this.invoices.createFromQuotation(id, dto);
   }
 
-  @Post(":id/mark-invoiced")
-  @RequirePermission(WRITE)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      "Mark as invoiced (invoice raised outside the system); locks the quotation",
-  })
-  markInvoiced(@Param("id", ParseIntPipe) id: number) {
-    return this.quotations.markInvoiced(id);
-  }
-
   @Post(":id/reopen")
   @RequirePermission(WRITE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      "Reopen a converted quotation; a reason is required; refused while a generated invoice exists",
+      "Reopen a converted quotation; a reason is required; the generated invoice is left as it is",
   })
   reopen(
     @Param("id", ParseIntPipe) id: number,

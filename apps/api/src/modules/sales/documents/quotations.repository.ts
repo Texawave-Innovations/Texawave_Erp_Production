@@ -235,45 +235,8 @@ export class QuotationsRepository {
     });
   }
 
-  /** "Mark as invoiced": the invoice was raised outside the system, so the
-   * quotation is locked without generating one. null when not in scope. */
-  @OrgScoped()
-  async markInvoiced(scope: OrgScope, id: number, actorId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const before = await this.lockLive(tx, scope, id);
-      if (!before) return null;
-      if (before.status === "CONVERTED") {
-        throw new BusinessRuleConflictException(
-          `Quotation ${before.quotationNumber} has already been converted`,
-          "ALREADY_CONVERTED",
-        );
-      }
-      await tx.salesQuotation.update({
-        where: { id },
-        data: {
-          status: "CONVERTED",
-          convertedAt: new Date(),
-          reopenReason: null,
-          updatedBy: actorId,
-        },
-      });
-      const after = await tx.salesQuotation.findUniqueOrThrow({
-        where: { id },
-        include: INCLUDE,
-      });
-      await this.audit.write(tx, {
-        entityType: ENTITY_TYPE,
-        entityId: id,
-        action: "mark_invoiced",
-        before: { status: before.status },
-        after: { status: "CONVERTED" },
-      });
-      return toView(after);
-    });
-  }
-
-  /** Back to OPEN, with the reason on the row and in the audit entry.
-   * Refused while a live invoice was generated from it (delete that first). */
+  /** A converted quotation back to OPEN, with the reason on the row and in
+   * the audit entry. Any invoice already generated from it is left as it is. */
   @OrgScoped()
   async reopen(scope: OrgScope, id: number, reason: string, actorId: number) {
     return this.prisma.$transaction(async (tx) => {
@@ -283,16 +246,6 @@ export class QuotationsRepository {
         throw new BusinessRuleConflictException(
           `Quotation ${before.quotationNumber} is not converted`,
           "NOT_CONVERTED",
-        );
-      }
-      const linked = await tx.salesInvoice.findFirst({
-        where: { sourceQuotationId: id, deletedAt: null },
-        select: { invoiceNumber: true },
-      });
-      if (linked) {
-        throw new BusinessRuleConflictException(
-          `Quotation ${before.quotationNumber} has invoice ${linked.invoiceNumber}; delete it first`,
-          "HAS_LINKED_INVOICE",
         );
       }
       await tx.salesQuotation.update({

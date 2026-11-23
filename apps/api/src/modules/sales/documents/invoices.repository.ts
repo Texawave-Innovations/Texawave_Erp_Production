@@ -302,52 +302,10 @@ export class InvoicesRepository {
     });
   }
 
-  /** "Mark as tax invoiced": the tax invoice was raised outside the system,
-   * so the proforma is locked without generating one. Payments stay on it. */
-  @OrgScoped()
-  async markProformaConverted(scope: OrgScope, id: number, actorId: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const before = await this.lockLive(tx, scope, id);
-      if (!before) return null;
-      if (before.invoiceType !== "PROFORMA") {
-        throw new BusinessRuleViolationException(
-          `${before.invoiceNumber} is already a tax invoice`,
-          "NOT_A_PROFORMA",
-        );
-      }
-      if (before.status === "CONVERTED") {
-        throw new BusinessRuleConflictException(
-          `Proforma invoice ${before.invoiceNumber} has already been moved to a tax invoice`,
-          "ALREADY_CONVERTED",
-        );
-      }
-      await tx.salesInvoice.update({
-        where: { id },
-        data: {
-          status: "CONVERTED",
-          convertedAt: new Date(),
-          reopenReason: null,
-          updatedBy: actorId,
-        },
-      });
-      const after = await tx.salesInvoice.findUniqueOrThrow({
-        where: { id },
-        include: INCLUDE,
-      });
-      await this.audit.write(tx, {
-        entityType: ENTITY_TYPE,
-        entityId: id,
-        action: "mark_converted",
-        before: { status: before.status },
-        after: { status: "CONVERTED" },
-      });
-      return toView(after);
-    });
-  }
-
-  /** Proforma back to UNPAID / PARTIALLY_PAID / PAID (from what it has
-   * received), with the reason on the row and in the audit entry. Refused
-   * while a live tax invoice was generated from it. */
+  /** A converted proforma back to UNPAID / PARTIALLY_PAID / PAID (from what
+   * it holds; its payments moved to the tax invoice), with the reason on the
+   * row and in the audit entry. The tax invoice already generated from it is
+   * left as it is. */
   @OrgScoped()
   async reopenProforma(
     scope: OrgScope,
@@ -368,13 +326,6 @@ export class InvoicesRepository {
         throw new BusinessRuleConflictException(
           `Proforma invoice ${before.invoiceNumber} is not converted`,
           "NOT_CONVERTED",
-        );
-      }
-      const linked = before.convertedTo[0];
-      if (linked) {
-        throw new BusinessRuleConflictException(
-          `Proforma invoice ${before.invoiceNumber} has tax invoice ${linked.invoiceNumber}; delete it first`,
-          "HAS_LINKED_INVOICE",
         );
       }
       await tx.salesInvoice.update({

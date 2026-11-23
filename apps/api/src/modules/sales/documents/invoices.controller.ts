@@ -149,23 +149,12 @@ export class InvoicesController {
     return this.invoices.convertToTax(id, dto);
   }
 
-  @Post(":id/mark-converted")
-  @RequirePermission(WRITE)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      "Mark a proforma as tax invoiced (raised outside the system); locks it",
-  })
-  markConverted(@Param("id", ParseIntPipe) id: number) {
-    return this.invoices.markConverted(id);
-  }
-
   @Post(":id/reopen")
   @RequirePermission(WRITE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      "Reopen a converted proforma; a reason is required; refused while a generated tax invoice exists",
+      "Reopen a converted proforma; a reason is required; the generated tax invoice is left as it is",
   })
   reopen(
     @Param("id", ParseIntPipe) id: number,

@@ -203,17 +203,6 @@ export class QuotationsService {
     if (!deleted) throw new ResourceNotFoundException("Quotation", id);
   }
 
-  /** "Mark as invoiced": locks the quotation without generating an invoice. */
-  async markInvoiced(id: number) {
-    const row = await this.repository.markInvoiced(
-      this.tenantContext.getOrgScope(),
-      id,
-      this.tenantContext.getUserId(),
-    );
-    if (!row) throw new ResourceNotFoundException("Quotation", id);
-    return row;
-  }
-
   async reopen(id: number, dto: ReopenDocumentDto) {
     const row = await this.repository.reopen(
       this.tenantContext.getOrgScope(),

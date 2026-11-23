@@ -307,18 +307,6 @@ export class InvoicesService {
     return created;
   }
 
-  /** "Mark as tax invoiced": locks a proforma whose tax invoice was raised
-   * outside the system; nothing is generated. */
-  async markConverted(proformaId: number) {
-    const row = await this.repository.markProformaConverted(
-      this.tenantContext.getOrgScope(),
-      proformaId,
-      this.tenantContext.getUserId(),
-    );
-    if (!row) throw new ResourceNotFoundException("Invoice", proformaId);
-    return row;
-  }
-
   async reopen(proformaId: number, dto: ReopenDocumentDto) {
     const row = await this.repository.reopenProforma(
       this.tenantContext.getOrgScope(),
