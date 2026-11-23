@@ -113,12 +113,26 @@ export function Dialog({
     };
   }, [open]);
 
+  /**
+   * Whether the current press began on the backdrop. A drag that starts in a
+   * field (selecting text) and ends over the backdrop fires its `click` on the
+   * dialog element, so the release point alone can't tell it from a real
+   * backdrop click.
+   */
+  const pressStartedOnBackdrop = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDialogElement>) => {
+    pressStartedOnBackdrop.current = e.target === ref.current;
+  };
+
   // Click outside modal backdrop to close safely
   const handleClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     const dialog = ref.current;
     if (!dialog) return;
-    // Clicks on backdrop target the dialog itself
-    if (e.target !== dialog) return;
+    const startedOnBackdrop = pressStartedOnBackdrop.current;
+    pressStartedOnBackdrop.current = false;
+    // Clicks on backdrop target the dialog itself, and must also have started there
+    if (e.target !== dialog || !startedOnBackdrop) return;
 
     const rect = dialog.getBoundingClientRect();
     const isInsideDialog =
@@ -142,6 +156,7 @@ export function Dialog({
       ref={ref}
       onClose={onClose}
       onCancel={onClose}
+      onMouseDown={handleMouseDown}
       onClick={handleClick}
       aria-labelledby={shouldRenderHeader ? titleId : undefined}
       className={cn(
