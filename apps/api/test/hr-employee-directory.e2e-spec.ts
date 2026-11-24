@@ -187,6 +187,7 @@ describe("HR employee directory (e2e)", () => {
         ...owner,
         addressType: "PERMANENT",
         addressLine: "1 Road",
+        areaLocality: "Anna Nagar",
         district: "Chennai",
         city: "Chennai",
         state: "Tamil Nadu",

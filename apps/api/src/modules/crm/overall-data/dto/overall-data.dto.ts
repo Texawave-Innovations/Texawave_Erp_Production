@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { Type } from "class-transformer";
 import { IsIn, IsInt, Matches, Max, Min } from "class-validator";
 import { OVERALL_ROWS } from "../overall-data.derive.js";
@@ -21,6 +22,6 @@ export class QueryOverallDataRecordsDto extends QueryOverallDataDto {
   @IsIn(OVERALL_ROWS.map((r) => r.key))
   row!: (typeof OVERALL_ROWS)[number]["key"];
 
-  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @Matches(FIELD_FORMAT.isoDate)
   day!: string;
 }

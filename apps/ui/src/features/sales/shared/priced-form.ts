@@ -1,4 +1,4 @@
-import { requiredText } from "@texawave-erp/core";
+import { ISO_DATE_PATTERN, requiredText } from "@texawave-erp/core";
 import { z } from "zod";
 import type { BankDetails, MasterDocumentType, MasterField } from "./documents";
 import { GST_STATES } from "./gst";
@@ -14,7 +14,7 @@ import { GST_STATES } from "./gst";
 
 const STATE_CODES = new Set(GST_STATES.map((s) => s.code));
 const HSN = /^[0-9]{4,8}$/;
-export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const ISO_DATE = ISO_DATE_PATTERN;
 
 export const optionalText = (max: number) =>
   z.string().trim().max(max, `Must be at most ${max} characters.`);

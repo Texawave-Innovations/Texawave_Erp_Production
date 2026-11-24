@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN as ISO_DATE } from "@texawave-erp/core";
 import { z } from "zod";
 import { SETTLEMENT_STATUSES } from "./types";
 
@@ -7,7 +8,6 @@ import { SETTLEMENT_STATUSES } from "./types";
  * (CreateExitRequestDto). The backend remains authoritative — this only
  * catches obviously malformed input before a round trip.
  */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const todayStr = () => new Intl.DateTimeFormat("en-CA").format(new Date());
 
 export const submitExitRequestSchema = z.object({

@@ -1,4 +1,9 @@
 import {
+  GSTIN_PATTERN,
+  ISO_DATE_PATTERN,
+  MONTH_PATTERN,
+} from "@texawave-erp/core";
+import {
   FINANCE_GST_ENTRY_TYPES,
   FINANCE_GST_SOURCE_TYPES,
 } from "@texawave-erp/api-types";
@@ -8,13 +13,12 @@ import { z } from "zod";
  * Standard 15-character Indian Goods and Services Tax Identification Number (GSTIN) regex:
  * 2 state digits + 5 PAN uppercase letters + 4 PAN digits + 1 PAN letter + 1 entity code + 'Z' + 1 checksum digit/char.
  */
-export const INDIAN_GSTIN_REGEX =
-  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+export const INDIAN_GSTIN_REGEX = GSTIN_PATTERN;
 
 /**
  * Standard GST tax period regex in YYYY-MM format.
  */
-export const GST_PERIOD_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const GST_PERIOD_REGEX = MONTH_PATTERN;
 
 export const createGstEntrySchema = z.object({
   gstin: z
@@ -72,7 +76,7 @@ export const counterpartGstEntrySchema = z.object({
     .max(100),
   invoiceDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invoice date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Invoice date must be in YYYY-MM-DD format")
     .optional(),
   taxableAmount: z.number().min(0, "Taxable amount must be 0 or positive"),
   cgstAmount: z.number().min(0).optional(),

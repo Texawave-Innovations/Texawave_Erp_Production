@@ -1,6 +1,11 @@
 "use client";
 
-import { ApiError, familyMemberSchema } from "@texawave-erp/core";
+import {
+  ApiError,
+  familyMemberSchema,
+  sanitizeMobile,
+  sanitizeName,
+} from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -39,9 +44,6 @@ function apiMessage(error: unknown): string {
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
-
-const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
-const sanitizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
 
 /** Exposed by each sub-section so Continue can auto-save pending input or report validation */
 interface SectionHandle {
@@ -217,7 +219,7 @@ const FamilySection = forwardRef(function FamilySection(
   const members = family.data ?? [];
 
   return (
-    <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+    <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
       <div className="flex items-center justify-between pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
@@ -344,7 +346,7 @@ const FamilySection = forwardRef(function FamilySection(
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    contactPhone: sanitizePhone(e.target.value),
+                    contactPhone: sanitizeMobile(e.target.value),
                   })
                 }
               />
@@ -460,7 +462,7 @@ const ExperienceSection = forwardRef(function ExperienceSection(
   const entries = experience.data ?? [];
 
   return (
-    <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+    <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
       <div className="flex items-center justify-between pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
         <div className="flex items-center gap-2">
           <Briefcase className="h-4 w-4 text-brand-600 dark:text-cyan-400" />

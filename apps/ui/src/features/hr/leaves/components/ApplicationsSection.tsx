@@ -20,7 +20,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, MONTH_PATTERN } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -69,7 +69,7 @@ const thisMonth = () =>
   new Intl.DateTimeFormat("en-CA").format(new Date()).slice(0, 7);
 
 function monthRange(month: string): { from: string; to: string } | null {
-  if (!/^\d{4}-\d{2}$/.test(month)) return null;
+  if (!MONTH_PATTERN.test(month)) return null;
   const parts = month.split("-").map(Number);
   const y = parts[0] ?? new Date().getFullYear();
   const m = parts[1] ?? 1;

@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../../common/dto/field-formats.js";
 import { Type } from "class-transformer";
 import {
   IsIn,
@@ -95,7 +96,7 @@ export class QueryBonusDto extends PaginationDto {
 /** Works out the statutory bonus of every employee for a financial year
  * from its finalized payroll; `create` raises them as PENDING bonuses. */
 export class StatutoryBonusDto {
-  @Matches(/^[0-9]{4}-[0-9]{2}$/)
+  @Matches(FIELD_FORMAT.financialYear)
   financialYear!: string;
 
   @IsOptional()

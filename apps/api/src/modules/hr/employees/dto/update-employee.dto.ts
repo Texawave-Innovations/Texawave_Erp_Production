@@ -1,3 +1,4 @@
+import { FIELD_MESSAGE } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
@@ -52,9 +53,7 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @BlankToNull()
   @Trim()
-  @Matches(PHONE_PATTERN, {
-    message: "phone must be 6-20 digits/+()- characters",
-  })
+  @Matches(PHONE_PATTERN, { message: FIELD_MESSAGE.phone })
   phone?: string | null;
 
   @ApiPropertyOptional()

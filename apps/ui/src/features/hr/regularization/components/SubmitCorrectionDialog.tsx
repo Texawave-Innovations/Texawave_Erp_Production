@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Calendar, Info, LogIn, LogOut } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, ISO_DATE_PATTERN } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -58,7 +58,7 @@ function describeSubmitError(error: unknown): string {
 /** Formats an ISO YYYY-MM-DD date into a human-readable label (e.g. 'Mon, 05 Oct 2026')
  * without local timezone skew. */
 function formatFriendlyDate(isoDate: string): string {
-  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return "";
+  if (!isoDate || !ISO_DATE_PATTERN.test(isoDate)) return "";
   const parts = isoDate.split("-");
   const y = Number(parts[0]);
   const m = Number(parts[1]);

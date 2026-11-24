@@ -1794,6 +1794,7 @@ describe("HR employees (e2e)", () => {
       }).expect(200);
       await put("hrAll", `/hr/employees/${e1.id}/address/PRESENT`, {
         addressLine: "14, 3rd Cross",
+        areaLocality: "Indiranagar",
         district: "Bengaluru Urban",
         city: "Bengaluru",
         state: "Karnataka",

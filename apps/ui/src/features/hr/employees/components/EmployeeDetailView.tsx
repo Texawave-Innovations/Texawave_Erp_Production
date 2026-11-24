@@ -24,7 +24,7 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, strongPasswordSchema } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -110,6 +110,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const [copiedCredentials, setCopiedCredentials] = useState(false);
   const [portalPassword, setPortalPassword] = useState("");
   const [portalPasswordSaved, setPortalPasswordSaved] = useState(false);
+  const portalPasswordCheck = strongPasswordSchema.safeParse(portalPassword);
   const setPortalPasswordMutation = useSetPortalPassword();
   const unlinkMutation = useUnlinkEmployeeUser();
   const resetPasswordMutation = useResetUserPassword();
@@ -406,7 +407,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
           <div className="p-6">
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DetailField label="Date of joining" icon={Calendar}>
                   {dateOnly(e.dateOfJoining)}
@@ -485,7 +486,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
           <div className="p-6 space-y-5">
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DetailField label="Work e-mail" icon={Mail}>
                   {e.workEmail ? (
@@ -688,7 +689,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                       </button>
                     ) : null}
                   </div>
-                  {e.hasLogin && portalPassword.length >= 6 ? (
+                  {e.hasLogin && portalPasswordCheck.success ? (
                     <button
                       type="button"
                       disabled={setPortalPasswordMutation.isPending}
@@ -726,7 +727,10 @@ export function EmployeeDetailView({ id }: { id: number }) {
                   ) : null}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Temporary password. The employee must change it at next login.
+                  {portalPassword && !portalPasswordCheck.success
+                    ? (portalPasswordCheck.error.issues[0]?.message ??
+                      "Enter a stronger password.")
+                    : "Temporary password. The employee must change it at next login."}
                 </p>
               </div>
             </div>

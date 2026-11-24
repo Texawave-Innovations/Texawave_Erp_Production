@@ -13,6 +13,21 @@ export const FIELD_FORMAT = {
   pan: /^[A-Z]{5}\d{4}[A-Z]$/,
   /** Letters, spaces, and . ' - (e.g. "Mary Jane O'Brien-Smith"). */
   name: /^[A-Za-z][A-Za-z .'-]*$/,
+  /** Loose contact number: 6–20 of digits, + ( ) - and space. */
+  phone: /^[0-9+ ()-]{6,20}$/,
+  gstin: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
+  aadhaar: /^\d{12}$/,
+  /** PF / UAN number. */
+  uan: /^\d{12}$/,
+  esi: /^\d{17}$/,
+  /** YYYY-MM-DD (shape only). */
+  isoDate: /^\d{4}-\d{2}-\d{2}$/,
+  /** YYYY-MM. */
+  month: /^\d{4}-(0[1-9]|1[0-2])$/,
+  /** Financial year, e.g. 2025-26. */
+  financialYear: /^[0-9]{4}-[0-9]{2}$/,
+  /** 24-hour HH:MM. */
+  time: /^([01]\d|2[0-3]):[0-5]\d$/,
 } as const;
 
 export const FIELD_MESSAGE = {
@@ -22,6 +37,15 @@ export const FIELD_MESSAGE = {
   ifsc: "Enter a valid IFSC code (4 letters, 0, then 6 letters or digits).",
   pan: "PAN must be 5 letters, 4 digits, then 1 letter (for example ABCDE1234F).",
   name: "Enter a valid name (letters only).",
+  phone: "phone must be 6-20 digits/+()- characters",
+  gstin: "Invalid GSTIN format. Expected standard 15-character Indian GSTIN.",
+  aadhaar: "Aadhaar number must be exactly 12 digits.",
+  uan: "PF (UAN) number must be exactly 12 digits.",
+  esi: "ESI number must be exactly 17 digits.",
+  isoDate: "must be YYYY-MM-DD",
+  month: "must be YYYY-MM",
+  financialYear: "must be a financial year like 2025-26",
+  time: "must be HH:MM (24-hour)",
 } as const;
 
 /** The default (and Indian) mobile country code. */

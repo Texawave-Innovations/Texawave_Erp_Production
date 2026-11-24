@@ -1,3 +1,4 @@
+import { emailField, INDIAN_MOBILE_PATTERN } from "@texawave-erp/core";
 /**
  * Field-type validation, input filtering, and formatting for Proposal Templates and Documents.
  * Enforces text, number, currency (INR), date (DD/MM/YYYY), email, and phone rules.
@@ -94,7 +95,7 @@ export function isValidCurrency(val: string): boolean {
 export function isValidEmail(val: string): boolean {
   if (!val || typeof val !== "string") return false;
   const trimmed = val.trim();
-  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed);
+  return emailField.safeParse(trimmed).success;
 }
 
 /**
@@ -133,7 +134,7 @@ export function isValidPhone(val: string): boolean {
   if (/[a-zA-Z]/.test(trimmed)) return false;
   if (!/^(\+?[0-9\s\-()]+)$/.test(trimmed)) return false;
   const nationalDigits = getPhoneNationalDigits(trimmed);
-  return nationalDigits.length === 10;
+  return INDIAN_MOBILE_PATTERN.test(nationalDigits);
 }
 
 /**

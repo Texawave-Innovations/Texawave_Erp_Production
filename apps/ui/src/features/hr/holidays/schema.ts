@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN as ISO_DATE } from "@texawave-erp/core";
 import { z } from "zod";
 
 /**
@@ -5,7 +6,6 @@ import { z } from "zod";
  * apps/api/src/modules/hr/holidays/dto/holiday.dto.ts so the form fails the
  * way the API would, before a round trip. The backend remains authoritative.
  */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const createHolidaySchema = z.object({
   holidayDate: z.string().refine((v) => ISO_DATE.test(v), {

@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsDateString, IsIn, IsOptional, Matches } from "class-validator";
 import {
@@ -11,7 +12,7 @@ export class QueryHsnSummaryDto {
     description: "Tax period in YYYY-MM format",
   })
   @IsOptional()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+  @Matches(FIELD_FORMAT.month, {
     message: "Period must be in YYYY-MM format (e.g. 2026-10)",
   })
   period?: string;

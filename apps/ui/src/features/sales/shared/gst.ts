@@ -1,3 +1,4 @@
+import { GSTIN_PATTERN } from "@texawave-erp/core";
 /**
  * GST reference data and formats for Sales forms (PAN, IFSC, pincode,
  * mobile and name formats are shared: packages/core/src/schemas/fields.ts). Mirrors
@@ -46,7 +47,7 @@ export const GST_STATES: ReadonlyArray<{ code: string; name: string }> = [
   { code: "97", name: "Other Territory" },
 ];
 
-export const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+export { GSTIN_PATTERN };
 export const CIN_PATTERN = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
 
 /** The state and PAN a GSTIN carries ("33ABCDE1234F1Z5" → 33, ABCDE1234F);

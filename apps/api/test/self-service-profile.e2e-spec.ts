@@ -272,6 +272,7 @@ describe("self-service profile (e2e)", () => {
 
   const validAddress = {
     addressLine: "14, 3rd Cross",
+    areaLocality: "Indiranagar",
     district: "Bengaluru Urban",
     city: "Bengaluru",
     state: "Karnataka",

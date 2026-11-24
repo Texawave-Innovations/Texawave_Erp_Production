@@ -75,8 +75,8 @@ const FULL_PROFILE = {
 const SENSITIVE = {
   panNumber: "ABCDE1234F",
   aadhaarNumber: "123412341234",
-  esiNumber: "1234567890",
-  pfNumber: "TN/MAS/12345/001",
+  esiNumber: "12345678901234567",
+  pfNumber: "987654321098",
   bankName: "State Bank of India",
   bankBranch: "Adyar",
   bankAccountNo: "123456789012",
@@ -539,6 +539,9 @@ describe("HR profiles (e2e)", () => {
       ["Aadhaar with eleven digits", { aadhaarNumber: "12341234123" }],
       ["IFSC with a non-zero fifth character", { bankIfsc: "SBIN1001234" }],
       ["bank account with three digits", { bankAccountNo: "123" }],
+      ["bank account with eight digits", { bankAccountNo: "12345678" }],
+      ["ESI with ten digits", { esiNumber: "1234567890" }],
+      ["PF that is not a 12-digit UAN", { pfNumber: "TN/MAS/12345/001" }],
       ["unknown field: a bank balance", { bankBalance: 10 }],
     ])("400 for sensitive data: %s", async (_label, body) => {
       await patch("hrAll", sensitivePath(emp.a2), body).expect(400);

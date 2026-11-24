@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
@@ -90,7 +91,7 @@ export class ReconcileGstDto {
     description: "GST tax period to reconcile (YYYY-MM)",
   })
   @IsNotEmpty()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+  @Matches(FIELD_FORMAT.month, {
     message: "Period must be in YYYY-MM format (e.g. 2026-10)",
   })
   period!: string;

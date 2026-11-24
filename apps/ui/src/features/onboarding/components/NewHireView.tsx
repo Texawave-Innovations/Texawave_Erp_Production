@@ -16,6 +16,8 @@ import {
 import {
   ApiError,
   newHireSchema,
+  sanitizeMobile,
+  sanitizeName,
   type NewHireFormValues,
 } from "@texawave-erp/core";
 import {
@@ -47,8 +49,6 @@ import { usePermission } from "@/hooks/usePermission";
 
 type FieldKey = keyof NewHireFormValues;
 
-const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
-const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
 const generateSecurePassword = () => {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
@@ -410,7 +410,7 @@ export function NewHireView() {
             description="Basic identity and contact details for the employee"
             icon3d="user"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="First name" required error={errors.firstName}>
                   {(p) => (
@@ -487,7 +487,7 @@ export function NewHireView() {
             description="Departmental assignment, reporting team, and employment terms"
             icon3d="departments"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   label="Department"
@@ -623,7 +623,7 @@ export function NewHireView() {
             description="Initial security credentials for first-time login"
             icon3d="access-control"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30 space-y-4">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30 space-y-4">
               <div className="max-w-xl">
                 <FormField
                   label="Temporary password"

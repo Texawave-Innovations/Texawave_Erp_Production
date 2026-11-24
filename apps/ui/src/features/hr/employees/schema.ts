@@ -1,3 +1,10 @@
+import {
+  EMAIL_MESSAGE,
+  emailField,
+  ISO_DATE_PATTERN as ISO_DATE,
+  PHONE_MESSAGE,
+  PHONE_PATTERN,
+} from "@texawave-erp/core";
 import { z } from "zod";
 import type { EmployeeDetail, EmployeeStatus } from "./types";
 
@@ -6,8 +13,6 @@ import type { EmployeeDetail, EmployeeStatus } from "./types";
  * dto/*.ts so the form fails the way the API would, before a round trip. The
  * backend remains authoritative.
  */
-const PHONE_PATTERN = /^[0-9+()\-\s]{6,20}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const optionalId = z
   .string()
@@ -37,14 +42,14 @@ export const employeeFormSchema = z
       .string()
       .trim()
       .max(254)
-      .refine((v) => v === "" || z.email().safeParse(v).success, {
-        message: "Enter a valid work email",
+      .refine((v) => v === "" || emailField.safeParse(v).success, {
+        message: EMAIL_MESSAGE,
       }),
     phone: z
       .string()
       .trim()
       .refine((v) => v === "" || PHONE_PATTERN.test(v), {
-        message: "Phone must be 6–20 digits, spaces, + ( ) or -",
+        message: PHONE_MESSAGE,
       }),
     teamId: requiredId,
     departmentId: optionalId,

@@ -1,8 +1,9 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsOptional, Matches } from "class-validator";
 import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY = FIELD_FORMAT.isoDate;
 
 /** Extends PaginationDto only so the shared `@Paginate()` decorator can
  * validate it; the feed itself is not paginated. */

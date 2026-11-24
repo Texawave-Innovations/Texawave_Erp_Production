@@ -123,3 +123,82 @@ export function mobileFieldFor(callingCode: string) {
 export function mobileMaxLength(callingCode: string): number {
   return callingCode === INDIA_CALLING_CODE ? 10 : 15;
 }
+
+/* ------------------------------------------------------------------ *
+ * Further shared formats (the strictest rule that already existed for
+ * each). The API mirrors these in apps/api/src/common/dto/field-formats.ts.
+ * ------------------------------------------------------------------ */
+
+/** Loose contact number (landline / international): 6–20 of digits, + ( ) - and space. */
+export const PHONE_PATTERN = /^[0-9+ ()-]{6,20}$/;
+export const PHONE_MESSAGE = "Phone must be 6–20 digits, spaces, + ( ) or -.";
+
+export const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+export const GSTIN_MESSAGE = "Enter a valid 15-character GSTIN.";
+
+export const AADHAAR_PATTERN = /^\d{12}$/;
+export const AADHAAR_MESSAGE = "Aadhaar number must be exactly 12 digits.";
+
+/** PF / UAN number. */
+export const UAN_PATTERN = /^\d{12}$/;
+export const UAN_MESSAGE = "PF (UAN) number must be exactly 12 digits.";
+
+export const ESI_PATTERN = /^\d{17}$/;
+export const ESI_MESSAGE = "ESI number must be exactly 17 digits.";
+
+/** The shape every master-data / entity code must have (mirrored by a DB CHECK). */
+export const ENTITY_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,29}$/;
+export const ENTITY_CODE_MESSAGE =
+  "Code must be 2-30 characters: upper-case letters, digits or underscore, starting with a letter.";
+
+export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const ISO_DATE_MESSAGE = "Use a valid date (YYYY-MM-DD).";
+
+export const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const MONTH_MESSAGE = "Use a valid month (YYYY-MM).";
+
+/** Indian financial year, e.g. 2025-26. */
+export const FINANCIAL_YEAR_PATTERN = /^[0-9]{4}-[0-9]{2}$/;
+export const FINANCIAL_YEAR_MESSAGE = "Use a financial year like 2025-26.";
+
+/** 24-hour HH:MM. */
+export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const TIME_MESSAGE = "Use a valid 24-hour time (HH:MM).";
+
+export const EMAIL_MESSAGE = "Enter a valid email address.";
+export const REQUIRED_MESSAGE = "This field is required.";
+
+export const phoneField = z.string().trim().regex(PHONE_PATTERN, PHONE_MESSAGE);
+export const gstinField = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(GSTIN_PATTERN, GSTIN_MESSAGE);
+export const aadhaarField = z
+  .string()
+  .trim()
+  .regex(AADHAAR_PATTERN, AADHAAR_MESSAGE);
+export const uanField = z.string().trim().regex(UAN_PATTERN, UAN_MESSAGE);
+export const esiField = z.string().trim().regex(ESI_PATTERN, ESI_MESSAGE);
+export const isoDateField = z
+  .string()
+  .trim()
+  .regex(ISO_DATE_PATTERN, ISO_DATE_MESSAGE);
+
+/** The one email rule: trimmed, at most 254 characters, valid address. */
+export const emailField = z
+  .string()
+  .trim()
+  .max(254, "Must be at most 254 characters.")
+  .email(EMAIL_MESSAGE);
+/** Same rule, but absent/empty is fine. */
+export const optionalEmail = emailField.or(z.literal("")).optional();
+
+/* Input masks — strip characters the matching pattern would reject, so a
+ * field's filter and its validator cannot drift apart. */
+export const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
+export const sanitizeDigits = (raw: string, max?: number) => {
+  const digits = raw.replace(/\D/g, "");
+  return max === undefined ? digits : digits.slice(0, max);
+};
+export const sanitizeMobile = (raw: string) => sanitizeDigits(raw, 10);

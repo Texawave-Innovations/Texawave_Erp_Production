@@ -1,3 +1,7 @@
+import {
+  FIELD_FORMAT,
+  FIELD_MESSAGE,
+} from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
@@ -14,7 +18,7 @@ import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { Trim } from "../../../../common/dto/transforms.js";
 import { LowerTrim } from "./employee-transforms.js";
 
-export const PHONE_PATTERN = /^[0-9+()\-\s]{6,20}$/;
+export const PHONE_PATTERN = FIELD_FORMAT.phone;
 
 /**
  * Deliberately has NO `status`, `employeeCode`, `dateOfExit`, `version` or
@@ -39,9 +43,7 @@ export class CreateEmployeeDto {
   @ApiPropertyOptional({ example: "+91 98765 43210" })
   @IsOptional()
   @Trim()
-  @Matches(PHONE_PATTERN, {
-    message: "phone must be 6-20 digits/+()- characters",
-  })
+  @Matches(PHONE_PATTERN, { message: FIELD_MESSAGE.phone })
   phone?: string;
 
   @ApiProperty({ description: "Access boundary for team-scoped permissions" })

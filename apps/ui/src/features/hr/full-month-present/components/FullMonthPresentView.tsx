@@ -17,7 +17,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, MONTH_PATTERN } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -41,7 +41,6 @@ import type { FullMonthPresentRow } from "../types";
 import { FullMonthPresentDetailDialog } from "./FullMonthPresentDetailDialog";
 
 const PAGE_SIZE = 24;
-const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function shiftMonth(month: string, delta: number): string {
   const parts = month.split("-").map(Number);
@@ -455,7 +454,8 @@ export function FullMonthPresentView() {
                             : "text-slate-800 dark:text-white"
                         }
                       >
-                        {r.presentDays} / {r.days.length} days ({presentPercentage}
+                        {r.presentDays} / {r.days.length} days (
+                        {presentPercentage}
                         %)
                       </span>
                     </div>
@@ -471,7 +471,9 @@ export function FullMonthPresentView() {
                                 ? "bg-amber-500"
                                 : "bg-rose-500"
                         }`}
-                        style={{ width: `${Math.min(presentPercentage, 100)}%` }}
+                        style={{
+                          width: `${Math.min(presentPercentage, 100)}%`,
+                        }}
                       />
                     </div>
 
@@ -563,9 +565,7 @@ export function FullMonthPresentView() {
                       <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            r.fullMonthPresent
-                              ? "bg-emerald-500"
-                              : "-brand-500"
+                            r.fullMonthPresent ? "bg-emerald-500" : "-brand-500"
                           }`}
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />

@@ -338,7 +338,7 @@ export function SectionEditDialog({
               {field("Address line", address.addressLine, (v) =>
                 setAddress({ ...address, addressLine: v }),
               )}
-              <FormField label="Area / locality">
+              <FormField label="Area / locality" required>
                 {(p) => (
                   <Input
                     {...p}

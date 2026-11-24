@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
 import { FieldEncryptionService } from "../../../shared/crypto/field-encryption.service.js";
 import {
   detectFileType,
   FileStorageService,
   MAX_UPLOAD_BYTES,
+  sanitizeFileName,
 } from "../../../shared/file-storage/file-storage.service.js";
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import type { AddressDto } from "../../employee-self-service/profile/dto/address.dto.js";
@@ -31,14 +31,6 @@ export interface UploadedDocument {
   buffer: Buffer;
   size: number;
   originalname: string;
-}
-
-function sanitizeFileName(name: string): string {
-  const base = [...path.basename(name)]
-    .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
-    .join("")
-    .trim();
-  return (base || "document").slice(0, 255);
 }
 
 const ADDRESS_TYPES: readonly AddressType[] = ["PERMANENT", "PRESENT"];

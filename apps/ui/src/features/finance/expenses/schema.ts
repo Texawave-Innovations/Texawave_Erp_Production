@@ -1,8 +1,8 @@
+import { GSTIN_PATTERN, ISO_DATE_PATTERN } from "@texawave-erp/core";
 import { FINANCE_EXPENSE_STATUSES } from "@texawave-erp/api-types";
 import { z } from "zod";
 
-export const GSTIN_REGEX =
-  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+export const GSTIN_REGEX = GSTIN_PATTERN;
 
 export const createExpenseSchema = z.object({
   expenseNumber: z
@@ -13,7 +13,7 @@ export const createExpenseSchema = z.object({
   expenseTypeId: z.number().int().positive("Please select an expense category"),
   expenseDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expense date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Expense date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Expense date cannot be in the future",
@@ -45,7 +45,7 @@ export const createExpenseSchema = z.object({
     .nullable(),
   vendorInvoiceDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invoice date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Invoice date must be in YYYY-MM-DD format")
     .optional()
     .nullable()
     .or(z.literal("")),
@@ -101,7 +101,7 @@ export const updateExpenseSchema = z.object({
     .optional(),
   expenseDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expense date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Expense date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Expense date cannot be in the future",
@@ -131,7 +131,7 @@ export const updateExpenseSchema = z.object({
     .nullable(),
   vendorInvoiceDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invoice date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Invoice date must be in YYYY-MM-DD format")
     .optional()
     .nullable()
     .or(z.literal("")),
@@ -181,7 +181,7 @@ export type UpdateExpenseFormValues = z.infer<typeof updateExpenseSchema>;
 export const payExpenseSchema = z.object({
   paymentDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Payment date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Payment date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Payment date cannot be in the future",

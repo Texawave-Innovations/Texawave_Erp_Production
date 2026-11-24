@@ -1,5 +1,6 @@
 "use client";
 
+import { FINANCIAL_YEAR_PATTERN } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import {
   Calendar,
@@ -62,7 +63,7 @@ export function YearlyBonusMatrix() {
   const [deptFilter, setDeptFilter] = useState("");
   const [showLogic, setShowLogic] = useState(true);
 
-  const isValidYear = /^[0-9]{4}-[0-9]{2}$/.test(financialYear.trim());
+  const isValidYear = FINANCIAL_YEAR_PATTERN.test(financialYear.trim());
 
   async function handleCalculate(create = false) {
     if (!isValidYear) {

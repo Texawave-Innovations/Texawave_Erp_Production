@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN } from "@texawave-erp/core";
 import { FINANCE_PAYMENT_MADE_STATUSES } from "@texawave-erp/api-types";
 import { z } from "zod";
 
@@ -9,7 +10,7 @@ export const createPaymentMadeSchema = z.object({
     .optional(),
   paymentDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Payment date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Payment date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Payment date cannot be in the future",
@@ -56,7 +57,7 @@ export type CreatePaymentMadeFormValues = z.infer<
 export const updatePaymentMadeSchema = z.object({
   paymentDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Payment date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Payment date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Payment date cannot be in the future",

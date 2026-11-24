@@ -1,5 +1,6 @@
 "use client";
 
+import { FINANCIAL_YEAR_PATTERN } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -36,7 +37,7 @@ export function StatutoryBonusDialog({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<StatutoryBonusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const valid = /^[0-9]{4}-[0-9]{2}$/.test(financialYear);
+  const valid = FINANCIAL_YEAR_PATTERN.test(financialYear);
   const toRaise =
     result?.employees.filter(
       (e) => e.eligible && e.amount > 0 && !e.alreadyRaised,

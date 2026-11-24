@@ -33,6 +33,7 @@ const REQUIRED_PERSONAL = [
 
 const REQUIRED_ADDRESS = [
   "addressLine",
+  "areaLocality",
   "district",
   "city",
   "state",

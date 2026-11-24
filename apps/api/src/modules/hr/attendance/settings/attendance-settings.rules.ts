@@ -16,7 +16,7 @@ export const DEFAULT_AUTO_CHECKOUT_TIME = "20:00";
 /** The cut-off used when the HR master's earlier cut-off is switched off. */
 export const END_OF_DAY_CUTOFF = "23:59";
 /** 24-hour `HH:mm`. Mirrors the database CHECK. */
-export const AUTO_CHECKOUT_TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+export const AUTO_CHECKOUT_TIME_PATTERN = FIELD_FORMAT.time;
 
 export interface AttendanceRules {
   autoCheckoutEnabled: boolean;
@@ -113,3 +113,4 @@ export function planFixedCheckouts(
   }
   return plan;
 }
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
