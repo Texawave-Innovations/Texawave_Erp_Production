@@ -25,6 +25,12 @@ export interface TabsProps<T extends string> {
   onChange: (id: T) => void;
   /** Content of the selected tab, rendered inside the tab panel. */
   children?: ReactNode;
+  /**
+   * Render the tab panel (default). Pass `false` when the tabs only drive a
+   * filter or view and there is no per-tab panel — otherwise an empty,
+   * focusable `tabpanel` is emitted.
+   */
+  panel?: boolean;
   className?: string;
 }
 
@@ -39,6 +45,7 @@ export function Tabs<T extends string>({
   value,
   onChange,
   children,
+  panel = true,
   className,
 }: TabsProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,7 +159,7 @@ export function Tabs<T extends string>({
               role="tab"
               id={tabId(tab.id)}
               aria-selected={selected}
-              aria-controls={panelId(tab.id)}
+              aria-controls={panel ? panelId(tab.id) : undefined}
               tabIndex={selected ? 0 : -1}
               onClick={() => onChange(tab.id)}
               onKeyDown={(e) => onKeyDown(e, index)}
@@ -169,15 +176,17 @@ export function Tabs<T extends string>({
           );
         })}
       </div>
-      <div
-        role="tabpanel"
-        id={panelId(value)}
-        aria-labelledby={tabId(value)}
-        tabIndex={0}
-        className="min-w-0 focus-visible:outline-none"
-      >
-        {children}
-      </div>
+      {panel ? (
+        <div
+          role="tabpanel"
+          id={panelId(value)}
+          aria-labelledby={tabId(value)}
+          tabIndex={0}
+          className="min-w-0 focus-visible:outline-none"
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

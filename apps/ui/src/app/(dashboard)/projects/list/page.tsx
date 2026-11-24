@@ -24,6 +24,7 @@ import {
   Pagination,
   SpringGlideSegmentedControl,
   TableToolbar,
+  Tabs,
   useToast,
   type DataTableColumn,
 } from "@texawave-erp/ui-kit";
@@ -332,17 +333,21 @@ export default function ProjectsListPage() {
             }
           />
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <SpringGlideSegmentedControl
-              ariaLabel="Filter by status"
-              options={STATUS_TABS}
+            <Tabs<string>
+              label="Filter by status"
+              idPrefix="project-status"
+              tabs={STATUS_TABS}
               value={status === "" ? "all" : status}
               onChange={handleStatusChange}
+              panel={false}
             />
-            <SpringGlideSegmentedControl
-              ariaLabel="Filter by health"
-              options={HEALTH_FILTERS}
+            <Tabs<string>
+              label="Filter by health"
+              idPrefix="project-health"
+              tabs={HEALTH_FILTERS}
               value={signal === "" ? "all" : signal}
               onChange={handleSignalChange}
+              panel={false}
             />
           </div>
         </div>
