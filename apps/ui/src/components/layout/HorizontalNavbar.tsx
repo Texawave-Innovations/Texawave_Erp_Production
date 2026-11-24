@@ -103,7 +103,10 @@ import { NotificationBell } from "@/features/notifications/components/Notificati
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
 import { MASTER_READ_PERMISSIONS } from "@/features/masters/master-permissions";
-import { WRITE_TEAM_OR_ALL as EMPLOYEE_WRITE_TEAM_OR_ALL } from "@/features/hr/employees/permissions";
+import {
+  ACCOUNT_WRITE as EMPLOYEE_ACCOUNT_WRITE,
+  WRITE_TEAM_OR_ALL as EMPLOYEE_WRITE_TEAM_OR_ALL,
+} from "@/features/hr/employees/permissions";
 import { usePermission } from "@/hooks/usePermission";
 import { GlobalSearch, keywordsFor, type SearchEntry } from "./GlobalSearch";
 import { useMyMenu } from "@/features/menu/hooks";
@@ -2255,7 +2258,10 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     "hr.employee.read.team",
     "hr.employee.read.all",
   ]);
-  const canCreateEmployee = usePermission(EMPLOYEE_WRITE_TEAM_OR_ALL);
+  // Adding a new hire also creates their login (needs the account permission).
+  const canWriteEmployees = usePermission(EMPLOYEE_WRITE_TEAM_OR_ALL);
+  const canWriteEmployeeAccounts = usePermission(EMPLOYEE_ACCOUNT_WRITE);
+  const canCreateEmployee = canWriteEmployees && canWriteEmployeeAccounts;
 
   // Navigation Dropdown state: separate hovered preview from pinned selection
   const [hoveredModuleId, setHoveredModuleId] = useState<string | null>(null);

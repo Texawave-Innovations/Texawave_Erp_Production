@@ -371,7 +371,8 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "hr.employee_account.write",
-    description: "Link/unlink an employee to a login account",
+    description:
+      "Link/unlink an employee to a login account, and create a new hire's login (Employee role, optionally Team Lead)",
   },
   // apps/api/src/modules/employee-self-service — own record only.
   {

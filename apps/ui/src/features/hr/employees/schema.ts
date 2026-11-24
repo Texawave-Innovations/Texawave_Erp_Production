@@ -119,27 +119,6 @@ type Payload = Record<string, unknown>;
 
 const toNum = (v: string) => Number(v);
 
-/** Create body: only what the API accepts; empty optional fields are omitted. */
-export function buildCreatePayload(v: EmployeeFormValues): Payload {
-  const body: Payload = {
-    fullName: v.fullName.trim(),
-    teamId: toNum(v.teamId),
-    designationId: toNum(v.designationId),
-    employmentTypeId: toNum(v.employmentTypeId),
-    dateOfJoining: v.dateOfJoining,
-  };
-  if (v.workEmail.trim()) body.workEmail = v.workEmail.trim();
-  if (v.phone.trim()) body.phone = v.phone.trim();
-  if (v.departmentId) body.departmentId = toNum(v.departmentId);
-  if (v.workLocationId) body.workLocationId = toNum(v.workLocationId);
-  if (v.reportsToId) body.reportsToId = toNum(v.reportsToId);
-  if (v.probationEndDate) body.probationEndDate = v.probationEndDate;
-  if (v.confirmationDate) body.confirmationDate = v.confirmationDate;
-  if (v.referredBy.trim()) body.referredBy = v.referredBy.trim();
-  if (v.workDomain.trim()) body.workDomain = v.workDomain.trim();
-  return body;
-}
-
 /**
  * Update body: only fields that changed, plus the `version` read with the
  * record (optimistic lock). Cleared optional fields are sent as `null`.

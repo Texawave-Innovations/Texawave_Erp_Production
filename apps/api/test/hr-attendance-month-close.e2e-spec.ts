@@ -841,10 +841,16 @@ describe("HR attendance month close, import/export and alerts (e2e)", () => {
       const again = await alerts.runForOrganization(orgA.id, asOf);
       expect(again).toEqual({ alerts: 2, notified: 0 });
 
+      // The employee gets a reminder; their manager the missing-check-in
+      // alert (separate types since 2026-10-23, attendance-alerts.service).
       const mine = data<Notice[]>(await get("empC1", "/notifications"));
-      expect(mine.map((n) => n.type)).toEqual(["attendance.missing_check_in"]);
+      expect(mine.map((n) => n.type)).toEqual(["attendance.reminder"]);
       const managers = data<Notice[]>(await get("mgr", "/notifications"));
       expect(managers).toHaveLength(2);
+      expect(managers.map((n) => n.type)).toEqual([
+        "attendance.missing_check_in",
+        "attendance.missing_check_in",
+      ]);
     });
 
     it("is not raised before the due time or once the employee has punched", async () => {

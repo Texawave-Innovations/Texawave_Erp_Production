@@ -47,15 +47,6 @@ export async function getEmployee(id: number): Promise<EmployeeDetail> {
   return data;
 }
 
-export async function createEmployee(
-  body: Record<string, unknown>,
-): Promise<EmployeeDetail> {
-  const { data } = await withAuthRetry(() =>
-    apiClient.post<EmployeeDetail>(BASE, body),
-  );
-  return data;
-}
-
 export async function updateEmployee(
   id: number,
   body: Record<string, unknown>,

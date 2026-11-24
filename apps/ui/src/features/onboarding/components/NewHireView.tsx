@@ -39,6 +39,11 @@ import {
   useTeamOptions,
 } from "../hooks";
 import { FormSection } from "@/features/hr/components";
+import {
+  ACCOUNT_WRITE,
+  WRITE_TEAM_OR_ALL,
+} from "@/features/hr/employees/permissions";
+import { usePermission } from "@/hooks/usePermission";
 
 type FieldKey = keyof NewHireFormValues;
 
@@ -102,6 +107,11 @@ export function NewHireView() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Adding a new hire also creates their login: both permissions are needed
+  // (POST /hr/employees/new-hire). The API re-checks; this only explains.
+  const canWriteEmployees = usePermission(WRITE_TEAM_OR_ALL);
+  const canWriteAccounts = usePermission(ACCOUNT_WRITE);
 
   const teams = useTeamOptions();
   const designations = useDesignationOptions();
@@ -198,6 +208,18 @@ export function NewHireView() {
   }
 
   // Success Screen
+  if (!canWriteEmployees || !canWriteAccounts) {
+    return (
+      <div className="mx-auto max-w-3xl pb-12">
+        <Alert variant="warning" title="You can't add employees">
+          Adding a new hire also creates their login, which needs both the
+          Employees edit permission and the Login accounts permission. Ask an
+          administrator for access.
+        </Alert>
+      </div>
+    );
+  }
+
   if (created) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 pb-12 animate-reveal">

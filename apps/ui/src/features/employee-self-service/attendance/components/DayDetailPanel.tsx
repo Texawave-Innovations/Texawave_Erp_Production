@@ -33,7 +33,7 @@ const KIND_BANNER: Partial<Record<DayKind, { label: string; cls: string }>> = {
   },
   holiday: {
     label: "Holiday",
-    cls: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
+    cls: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-800",
   },
   weekoff: {
     label: "Week Off",
@@ -235,7 +235,7 @@ export function DayDetailPanel({
                           />
                           Break Duration: {msToHM(gap)}
                         </span>
-                        <span className="font-mono text-[10px] text-amber-700">
+                        <span className="tabular-nums text-[10px] text-amber-700">
                           {time12(out)} → {time12(next.checkInAt)}
                         </span>
                       </div>

@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import {
   READ_ANY_SCOPE as EMPLOYEE_READ,
+  ACCOUNT_WRITE,
   WRITE_TEAM_OR_ALL,
 } from "../../employees/permissions";
 import { READ_ANY_SCOPE as EXPENSE_CLAIM_READ } from "../../expense-approvals/permissions";
@@ -129,7 +130,10 @@ export function HrDashboardView() {
   const canHolidays = usePermission(HOLIDAY_READ);
   const canGlance = canHolidays && canEmployees && canAttendance;
   const canActivity = canTickets && canExpenses;
-  const canCreateEmployee = usePermission(WRITE_TEAM_OR_ALL);
+  // Adding a new hire also creates their login (needs the account permission).
+  const canWriteEmployees = usePermission(WRITE_TEAM_OR_ALL);
+  const canWriteAccounts = usePermission(ACCOUNT_WRITE);
+  const canCreateEmployee = canWriteEmployees && canWriteAccounts;
   const canQuickActions =
     canCreateEmployee ||
     canEmployees ||
