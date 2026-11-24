@@ -128,7 +128,8 @@ describe("AttendanceService", () => {
         "2026-10-05",
         NOW,
         USER_ID,
-        null,
+        // The HR master's cut-off is off: stale sessions close at end of day.
+        "23:59",
       );
       expect(result).toEqual({
         id: 100,

@@ -9,6 +9,7 @@ import {
   Textarea,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { leaveErrorMessage } from "../errors";
 import { useCancelMyLeaveRequest } from "../hooks";
 import { cancelLeaveSchema } from "../schema";
 import type { LeaveRequestItem } from "../types";
@@ -19,6 +20,8 @@ export interface CancelLeaveDialogProps {
   request: Pick<LeaveRequestItem, "id" | "startDate" | "endDate" | "leaveType">;
 }
 
+/** The employee's own wording for a few cases; everything else comes from
+ * the shared `leaveErrorMessage`. */
 function describeCancelError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
@@ -30,12 +33,11 @@ function describeCancelError(error: unknown): string {
     if (error.errorCode === "INVALID_STATE_TRANSITION") {
       return "This request can no longer be cancelled — it may have already started, been decided, or already been cancelled.";
     }
-    if (error.isValidationError) {
-      return "The note was rejected. Check the character limits and try again.";
-    }
-    return error.message;
   }
-  return "Something went wrong. Try again.";
+  return leaveErrorMessage(
+    error,
+    "You don't have permission to cancel leave requests.",
+  );
 }
 
 /** Withdraws a PENDING request any time, or an APPROVED one only while its

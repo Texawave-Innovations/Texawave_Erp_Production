@@ -13,6 +13,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { AttendanceStatusBadge } from "@/features/hr/attendance/components/AttendanceStatusBadge";
 import type { EffectiveStatus } from "@/features/hr/attendance/types";
+import { visibleMonthStatus } from "../month-status";
 import type { EmployeeMonth, MonthDay } from "../types";
 import {
   formatClock,
@@ -153,15 +154,16 @@ function monthColumns(
     { header: "Day", cell: (d) => weekdayShort(d.weekday) },
     {
       header: "Status",
-      // A future day has no verdict yet; HR's status is shown only up to today.
-      cell: (d) =>
-        d.attendanceStatus === null || d.date > today ? (
+      // A future day has no verdict yet; only a planned holiday, weekly off
+      // or approved leave is shown ahead of the day.
+      cell: (d) => {
+        const status = visibleMonthStatus(d, today);
+        return status === null ? (
           <Dash />
         ) : (
-          <AttendanceStatusBadge
-            status={d.attendanceStatus as EffectiveStatus}
-          />
-        ),
+          <AttendanceStatusBadge status={status as EffectiveStatus} />
+        );
+      },
     },
     {
       header: "Check In",

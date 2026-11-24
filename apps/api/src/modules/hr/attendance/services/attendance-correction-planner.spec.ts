@@ -76,6 +76,60 @@ describe("planCorrection", () => {
     ).toThrow(CorrectionNotApplicableException);
   });
 
+  it("MISSED_CHECK_OUT replaces the technical close of an auto-closed last session", () => {
+    const plan = planCorrection(
+      req({
+        correctionType: "MISSED_CHECK_OUT",
+        requestedCheckOutAt: t("18:00"),
+      }),
+      [{ ...closed(7, "09:00", "23:59"), autoClosed: true }],
+    );
+    expect(plan.updates).toEqual([{ id: 7, checkOutAt: t("18:00") }]);
+  });
+
+  it("MISSED_CHECK_OUT targets the pending second session and leaves the verified first one intact", () => {
+    const plan = planCorrection(
+      req({
+        correctionType: "MISSED_CHECK_OUT",
+        requestedCheckOutAt: t("18:00"),
+      }),
+      [
+        closed(1, "09:00", "13:00"),
+        { ...closed(2, "14:00", "23:59"), autoClosed: true },
+      ],
+    );
+    expect(plan.updates).toEqual([{ id: 2, checkOutAt: t("18:00") }]);
+  });
+
+  it("MISSED_CHECK_OUT is refused when only an earlier session is auto-closed", () => {
+    // HR-master cut-off 20:00 closed the first session; the employee then
+    // checked in and out again: the last session has a real check-out.
+    expect(() =>
+      planCorrection(
+        req({
+          correctionType: "MISSED_CHECK_OUT",
+          requestedCheckOutAt: t("19:00"),
+        }),
+        [
+          { ...closed(1, "09:00", "20:00"), autoClosed: true },
+          closed(2, "21:00", "22:00"),
+        ],
+      ),
+    ).toThrow(CorrectionNotApplicableException);
+  });
+
+  it("MISSED_CHECK_OUT for an auto-closed session still refuses a time before its check-in", () => {
+    expect(() =>
+      planCorrection(
+        req({
+          correctionType: "MISSED_CHECK_OUT",
+          requestedCheckOutAt: t("08:00"),
+        }),
+        [{ ...closed(7, "09:00", "23:59"), autoClosed: true }],
+      ),
+    ).toThrow(CorrectionNotApplicableException);
+  });
+
   it("LATE_ARRIVAL moves the first check-in only", () => {
     const plan = planCorrection(
       req({ correctionType: "LATE_ARRIVAL", requestedCheckInAt: t("10:00") }),

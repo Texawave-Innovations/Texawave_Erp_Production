@@ -176,6 +176,8 @@ export function GlobalSearch({
   // Ctrl/⌘+K anywhere, or "/" when not already typing somewhere.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Browser autofill dispatches keydown events with no `key`.
+      if (typeof e.key !== "string") return;
       const isK = e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey);
       const isSlash = e.key === "/" && !isTypingTarget(e.target);
       if (isK || isSlash) {

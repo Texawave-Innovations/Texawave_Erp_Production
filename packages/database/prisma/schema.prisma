@@ -1615,9 +1615,11 @@ model AttendanceSession {
   checkOutAt         DateTime? @map("check_out_at") @db.Timestamptz(6)
   /// SELF | HR | CORRECTION | IMPORT (CHECK in the migration)
   source             String
-  /// True when the system closed this session (the organization's fixed
-  /// auto check-out). The day stays pending until HR regularizes it; any HR
-  /// edit or approved correction clears the flag.
+  /// True when the system closed this session (the auto check-out at its
+  /// day's cut-off). `check_out_at` is then the technical close time, not a
+  /// verified check-out: the session counts no worked time or overtime until
+  /// HR regularizes it. An HR edit that enters a real check-out time, or an
+  /// approved correction, clears the flag; a status-only edit does not.
   autoClosed         Boolean   @default(false) @map("auto_closed")
   createdBy          Int?      @map("created_by")
   updatedBy          Int?      @map("updated_by")
@@ -1637,7 +1639,7 @@ model AttendanceSetting {
   id                  Int      @id @default(autoincrement())
   organizationId      Int      @unique @map("organization_id")
   /// When on, every open session is closed at `auto_checkout_time` (IST) of
-  /// its own business date. When off, the shift-target rule applies.
+  /// its own business date. When off, at the end of that day (23:59 IST).
   autoCheckoutEnabled Boolean  @default(false) @map("auto_checkout_enabled")
   /// `HH:mm`, 24-hour, IST (CHECK in the migration).
   autoCheckoutTime    String   @default("20:00") @map("auto_checkout_time")

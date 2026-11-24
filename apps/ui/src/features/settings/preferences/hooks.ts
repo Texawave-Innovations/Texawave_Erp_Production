@@ -7,6 +7,7 @@ import {
   RegionalFormatter,
 } from "@texawave-erp/core";
 import { useMemo } from "react";
+import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   convertCurrency,
@@ -110,20 +111,27 @@ export function useUpdateOrganizationSettings() {
   });
 }
 
-export function useExchangeRates(query?: {
-  page?: number;
-  limit?: number;
-  fromCurrency?: string;
-  toCurrency?: string;
-  effectiveDate?: string;
-}) {
+export function useExchangeRates(
+  query?: {
+    page?: number;
+    limit?: number;
+    fromCurrency?: string;
+    toCurrency?: string;
+    effectiveDate?: string;
+  },
+  options?: { enabled?: boolean },
+) {
   const organizationId = useAuthStore((s) => s.organizationId);
   return useQuery({
     queryKey: exchangeRatesKey(organizationId ?? 0, query),
     queryFn: () => listExchangeRates(query),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && (options?.enabled ?? true),
   });
 }
+
+/** `GET /settings/exchange-rates` needs this; without it the shared
+ * formatter must not call it (every page would log a 403). */
+const EXCHANGE_RATES_READ = "settings.general.read";
 
 export function useUpsertExchangeRate() {
   const queryClient = useQueryClient();
@@ -167,8 +175,13 @@ export function useConvertCurrency(
  */
 export function useRegionalFormatter() {
   const { data: prefResponse, isLoading: prefLoading } = useUserPreferences();
+  // Only users who may read exchange rates fetch them. Everyone else gets the
+  // same formatter as before (no rates: amounts are shown unconverted), just
+  // without the failing request.
+  const canReadRates = usePermission(EXCHANGE_RATES_READ);
   const { data: exchangeRatesData, isLoading: ratesLoading } = useExchangeRates(
     { limit: 100 },
+    { enabled: canReadRates },
   );
 
   const effective = prefResponse?.effective;

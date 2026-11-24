@@ -61,15 +61,20 @@ function AutoCheckoutForm({
     <div className="flex flex-col gap-3">
       <label
         className="flex cursor-pointer items-center gap-2 text-theme-xs text-gray-700 dark:text-gray-300"
-        title="When off, a session closes after the employee's shift hours. Auto-closed days stay pending until HR regularizes them."
+        title="When off, a forgotten check-out is closed at the end of the day (23:59 IST). Either way the close time is not a check-out: the session counts no hours until HR regularizes it."
       >
         <Checkbox
           checked={enabled}
           disabled={!canWrite}
           onChange={(e) => setEnabled(e.target.checked)}
         />
-        Check out everyone at a fixed time (IST)
+        Check out everyone at an earlier fixed time (IST)
       </label>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+        {enabled
+          ? "Forgotten check-outs close at this time and stay pending until HR regularizes them."
+          : "Off: forgotten check-outs close at 23:59 IST and stay pending until HR regularizes them."}
+      </p>
 
       <div className="flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
         <Input

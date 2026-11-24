@@ -211,4 +211,27 @@ describe("attendance CSV — overlap and export", () => {
       "0.00",
     ]);
   });
+
+  it("leaves Last Out blank for an auto-closed session (its close time is not a check-out)", () => {
+    const row = toExportRow(
+      { employeeCode: "E1", fullName: "Asha" },
+      {
+        attendanceDate: "2026-09-17",
+        status: "NOT_MARKED",
+        workedMinutes: 0,
+        overtimeMinutes: 0,
+        shortfallMinutes: 480,
+        sessions: [
+          {
+            checkInAt: new Date("2026-09-17T09:00:00+05:30"),
+            checkOutAt: new Date("2026-09-17T23:59:00+05:30"),
+            autoClosed: true,
+          },
+        ],
+      },
+    );
+    expect(row[5]).toBe("09:00");
+    expect(row[6]).toBe("");
+    expect(row.slice(8)).toEqual(["0.00", "0.00", "8.00"]);
+  });
 });

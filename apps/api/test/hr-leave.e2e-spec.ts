@@ -586,7 +586,7 @@ describe("HR leave requests (e2e)", () => {
         startDate: `${y}-06-01`,
         endDate: `${y}-06-05`,
       });
-      await decide("hrAll", l.id, "approve").expect(200);
+      await decide("approverT1", l.id, "approve").expect(200);
       await submit("empA", {
         leaveTypeId: casual,
         startDate: `${y}-06-03`,
@@ -597,7 +597,7 @@ describe("HR leave requests (e2e)", () => {
         startDate: `${y}-07-01`,
         endDate: `${y}-07-05`,
       });
-      await decide("hrAll", r.id, "reject").expect(200);
+      await decide("approverT1", r.id, "reject").expect(200);
       await mkLeave("empA", { startDate: `${y}-07-01`, endDate: `${y}-07-05` }); // same dates again: allowed
     });
 
@@ -785,12 +785,15 @@ describe("HR leave requests (e2e)", () => {
         endDate: `${y}-04-02`,
       });
       const res = (
-        (await decide("hrAll", l.id, "approve", { note: "enjoy" }).expect(200))
-          .body as Body<Leave>
+        (
+          await decide("approverT1", l.id, "approve", { note: "enjoy" }).expect(
+            200,
+          )
+        ).body as Body<Leave>
       ).data;
       expect(res).toMatchObject({
         status: "APPROVED",
-        decidedBy: { id: userIds.hrAll },
+        decidedBy: { id: userIds.approverT1 },
         decisionNote: "enjoy",
       });
       expect(res.decidedAt).not.toBeNull();
@@ -802,13 +805,13 @@ describe("HR leave requests (e2e)", () => {
         },
       });
       expect(audit).toMatchObject({
-        actorUserId: userIds.hrAll,
+        actorUserId: userIds.approverT1,
         reason: "enjoy",
       });
       expect(audit.before).toMatchObject({ status: "PENDING" });
       expect(audit.after).toMatchObject({
         status: "APPROVED",
-        decidedBy: userIds.hrAll,
+        decidedBy: userIds.approverT1,
       });
       // The employee sees the outcome.
       const mine = list<Leave>(
@@ -831,7 +834,7 @@ describe("HR leave requests (e2e)", () => {
       });
       expect(
         (
-          (await decide("hrAll", l.id, "approve").expect(200))
+          (await decide("approverT1", l.id, "approve").expect(200))
             .body as Body<Leave>
         ).data.decisionNote,
       ).toBeNull();
@@ -843,13 +846,15 @@ describe("HR leave requests (e2e)", () => {
         startDate: `${y}-04-01`,
         endDate: `${y}-04-02`,
       });
-      await post("hrAll", `/hr/leave-requests/${l.id}/reject`, {}).expect(400);
-      await post("hrAll", `/hr/leave-requests/${l.id}/reject`, {
+      await post("approverT1", `/hr/leave-requests/${l.id}/reject`, {}).expect(
+        400,
+      );
+      await post("approverT1", `/hr/leave-requests/${l.id}/reject`, {
         note: "no",
       }).expect(400);
       const res = (
         (
-          await post("hrAll", `/hr/leave-requests/${l.id}/reject`, {
+          await post("approverT1", `/hr/leave-requests/${l.id}/reject`, {
             note: "team is short-staffed",
           }).expect(200)
         ).body as Body<Leave>
@@ -857,7 +862,7 @@ describe("HR leave requests (e2e)", () => {
       expect(res).toMatchObject({
         status: "REJECTED",
         decisionNote: "team is short-staffed",
-        decidedBy: { id: userIds.hrAll },
+        decidedBy: { id: userIds.approverT1 },
       });
       const audit = await prisma.auditLog.findFirstOrThrow({
         where: {
@@ -875,19 +880,19 @@ describe("HR leave requests (e2e)", () => {
         startDate: `${y}-05-01`,
         endDate: `${y}-05-02`,
       });
-      await decide("hrAll", l.id, "approve").expect(200);
+      await decide("approverT1", l.id, "approve").expect(200);
       for (const action of ["approve", "reject"] as const) {
-        const res = await decide("hrAll", l.id, action).expect(422);
+        const res = await decide("approverT1", l.id, action).expect(422);
         expect(errorOf(res)).toBe("INVALID_STATE_TRANSITION");
       }
       const r = await mkLeave("empA", {
         startDate: `${y}-06-01`,
         endDate: `${y}-06-02`,
       });
-      await decide("hrAll", r.id, "reject").expect(200);
-      expect(errorOf(await decide("hrAll", r.id, "approve").expect(422))).toBe(
-        "INVALID_STATE_TRANSITION",
-      );
+      await decide("approverT1", r.id, "reject").expect(200);
+      expect(
+        errorOf(await decide("approverT1", r.id, "approve").expect(422)),
+      ).toBe("INVALID_STATE_TRANSITION");
       expect(
         (await prisma.leaveRequest.findUniqueOrThrow({ where: { id: r.id } }))
           .status,
@@ -896,13 +901,14 @@ describe("HR leave requests (e2e)", () => {
 
     it("two approvers racing: exactly one decision is recorded, the other is refused", async () => {
       const y = nextYear();
-      const l = await mkLeave("empA", {
+      // Team 2 has no lead, so the request is HR's: either HR approver decides.
+      const l = await mkLeave("empT2", {
         startDate: `${y}-08-01`,
         endDate: `${y}-08-02`,
       });
       const results = await Promise.all([
         decide("hrAll", l.id, "approve"),
-        decide("approverT1", l.id, "reject"),
+        decide("hrApprover", l.id, "reject", { note: "racing" }),
       ]);
       expect(results.map((r) => r.status).sort()).toEqual([200, 422]);
       const decisions = await prisma.auditLog.count({
@@ -999,8 +1005,8 @@ describe("HR leave requests (e2e)", () => {
           where: { id: own.id },
         });
         expect(row).toMatchObject({ status: "PENDING", decidedBy: null });
-        // ...but someone else can.
-        await decide("hrAll", own.id, "approve").expect(200);
+        // ...but someone else can: their team lead.
+        await decide("approverT1", own.id, "approve").expect(200);
       });
 
       it("the refusal leaves no decision or audit trace", async () => {

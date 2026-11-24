@@ -66,7 +66,9 @@ export function TimelineBar({
           ))
         : sessions.map((s, i) => {
             const inPct = timePct(s.checkInAt);
-            const outPct = s.checkOutAt ? timePct(s.checkOutAt) : null;
+            // No bar to an auto-closed session's cut-off: it is not a check-out.
+            const outPct =
+              s.checkOutAt && !s.autoClosed ? timePct(s.checkOutAt) : null;
             const isActive = !s.checkOutAt && isLiveToday;
             const corrected = s.source === "CORRECTION" || s.source === "HR";
             const barGrad = corrected

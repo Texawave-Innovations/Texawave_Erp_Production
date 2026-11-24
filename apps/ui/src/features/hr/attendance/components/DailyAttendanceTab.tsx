@@ -406,6 +406,10 @@ export function DailyAttendanceTab() {
                           <span className="font-bold text-brand-500 dark:text-sky-300">
                             Working
                           </span>
+                        ) : last?.autoClosed ? (
+                          <span className="font-semibold text-warning-600 dark:text-warning-400">
+                            Not recorded
+                          </span>
                         ) : last?.checkOutAt ? (
                           regionalFormatTime(last.checkOutAt)
                         ) : (

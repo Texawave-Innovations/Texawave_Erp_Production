@@ -481,7 +481,11 @@ export function AttendanceRecordsTab() {
                   const lastSession = r.sessions[r.sessions.length - 1];
                   return (
                     <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
-                      {lastSession?.checkOutAt ? (
+                      {lastSession?.autoClosed ? (
+                        <span className="text-warning-600 dark:text-warning-400 font-semibold">
+                          Not recorded
+                        </span>
+                      ) : lastSession?.checkOutAt ? (
                         regionalFormatTime(lastSession.checkOutAt)
                       ) : r.hasOpenSession ? (
                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold">

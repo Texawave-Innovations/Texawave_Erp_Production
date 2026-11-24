@@ -18,6 +18,9 @@ export interface AttendanceSession {
   checkInAt: string;
   checkOutAt: string | null;
   source: string;
+  /** Closed by the system's auto check-out, not yet regularized: `checkOutAt`
+   * is the cut-off, not a verified check-out, and the session counts nothing. */
+  autoClosed?: boolean;
 }
 
 /** Row shape of GET /hr/attendance, /hr/attendance/mine and /hr/attendance/:id.

@@ -36,7 +36,8 @@ export interface AttendanceDayInfo {
   /** Total of `permissions` — the minutes excused from the target. */
   permissionMinutes: number;
   /** First punch-in and last punch-out of the day; null when none. A day whose
-   * last session is still open has a null `checkOutAt`. */
+   * last session is still open, or was auto-closed by the system and is not
+   * yet regularized (no verified check-out), has a null `checkOutAt`. */
   checkInAt: Date | null;
   checkOutAt: Date | null;
 }
@@ -109,6 +110,8 @@ export class AttendanceLookupService {
               checkInAt: true,
               checkOutAt: true,
               source: true,
+              // Without it a pending auto-closed session would count as worked.
+              autoClosed: true,
             },
           },
         },
@@ -162,7 +165,7 @@ export class AttendanceLookupService {
         permissions,
         permissionMinutes: permissions.reduce((n, p) => n + p.minutes, 0),
         checkInAt: v.sessions[0]?.checkInAt ?? null,
-        checkOutAt: last?.checkOutAt ?? null,
+        checkOutAt: last?.autoClosed ? null : (last?.checkOutAt ?? null),
       });
     }
     return result;

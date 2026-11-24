@@ -19,6 +19,7 @@ import {
   useToast,
 } from "@texawave-erp/ui-kit";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
+import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useAuthStore } from "@/stores/auth-store";
 import { leaveErrorMessage } from "../errors";
 import {
@@ -39,7 +40,8 @@ function NewDelegationDialog({ onClose }: { onClose: () => void }) {
   const [endDate, setEndDate] = useState(todayStr());
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const candidates = useDelegationCandidates(search.trim());
+  // One request after typing pauses, not one per keystroke.
+  const candidates = useDelegationCandidates(useDebouncedValue(search.trim()));
   const mutation = useCreateLeaveDelegation();
   const { toast } = useToast();
 
@@ -181,9 +183,11 @@ export function DelegationsSection() {
   const [creating, setCreating] = useState(false);
   const list = useLeaveDelegations({ page, limit: PAGE_SIZE });
   const revoke = useRevokeLeaveDelegation();
+  const [revokingId, setRevokingId] = useState<number | null>(null);
   const { toast } = useToast();
 
   async function handleRevoke(d: LeaveDelegationItem) {
+    setRevokingId(d.id);
     try {
       await revoke.mutateAsync(d.id);
       toast({ title: "Delegation revoked", variant: "success" });
@@ -275,7 +279,7 @@ export function DelegationsSection() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      loading={revoke.isPending}
+                      loading={revoke.isPending && revokingId === d.id}
                       onClick={() => void handleRevoke(d)}
                     >
                       Revoke

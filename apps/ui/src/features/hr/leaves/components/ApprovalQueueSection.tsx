@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@texawave-erp/ui-kit";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
-import { useAwaitingLeave } from "../hooks";
+import { useAwaitingLeave, useLeaveRequest } from "../hooks";
 import type { LeaveRequestItem } from "../types";
 import { DecideLeaveDialog } from "./DecideLeaveDialog";
 import {
@@ -26,6 +26,36 @@ import {
 } from "./cells";
 
 const PAGE_SIZE = 10;
+
+/** The caller's step on a queued request (server-computed `yourStep`). */
+function StageCell({ r }: { r: LeaveRequestItem }) {
+  const step = r.yourStep;
+  if (step?.step === "HR") {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <StatusBadge
+          label={step.override ? "HR step (as Admin)" : "HR approval (final)"}
+          colorToken={step.override ? "warning" : "brand"}
+        />
+        {r.firstDecidedBy ? (
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            1st: {r.firstDecidedBy.fullName}
+          </span>
+        ) : step.escalated ? (
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            Team lead did not decide in 2 working days
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <StatusBadge
+      label={step && !step.final ? "Team lead · 1st of 2" : "Team lead"}
+      colorToken="warning"
+    />
+  );
+}
 
 /**
  * "Waiting for me" (GET /hr/leave-requests/approvals): exactly what the
@@ -44,18 +74,26 @@ export function ApprovalQueueSection() {
   } | null>(null);
   const list = useAwaitingLeave({ page, limit: PAGE_SIZE });
 
+  // A notification links here with `?id=`: open that request's dialog ONCE
+  // (not again after the list refreshes), wherever it is in the queue, and
+  // only while it still waits for the caller (`yourStep`).
+  const parsedId = urlId ? parseInt(urlId, 10) : NaN;
+  const linkedId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
+  const linked = useLeaveRequest(linkedId);
+  const openedFor = useRef<number | null>(null);
   useEffect(() => {
-    if (!urlId || !list.data?.data) return;
-    const lid = parseInt(urlId, 10);
-    if (isNaN(lid) || lid <= 0) return;
-    const match = list.data.data.find((r) => r.id === lid);
-    if (match) {
-      const timer = setTimeout(() => {
-        setDecision({ request: match, decision: "approve" });
-      }, 0);
-      return () => clearTimeout(timer);
+    const request = linked.data;
+    if (linkedId === null || !request || openedFor.current === linkedId) {
+      return;
     }
-  }, [urlId, list.data?.data]);
+    const timer = setTimeout(() => {
+      openedFor.current = linkedId;
+      if (request.status === "PENDING" && request.yourStep) {
+        setDecision({ request, decision: "approve" });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [linkedId, linked.data]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -123,22 +161,7 @@ export function ApprovalQueueSection() {
               { header: "Days", cell: (r) => <LeaveDaysCell r={r} /> },
               {
                 header: "Stage",
-                cell: (r) =>
-                  r.awaiting === "HR" ? (
-                    <div className="flex flex-col gap-0.5">
-                      <StatusBadge label="HR approval" colorToken="brand" />
-                      {r.firstDecidedBy ? (
-                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                          1st: {r.firstDecidedBy.fullName}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <StatusBadge
-                      label={r.approvalLevels === 2 ? "1st of 2" : "Approval"}
-                      colorToken="warning"
-                    />
-                  ),
+                cell: (r) => <StageCell r={r} />,
               },
               {
                 header: "Reason",

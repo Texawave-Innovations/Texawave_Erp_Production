@@ -13,7 +13,10 @@ import {
   SELF_SERVICE_PUNCH,
   SELF_SERVICE_READ,
 } from "@/features/hr/attendance/permissions";
-import { formatTime } from "@/features/hr/attendance/status";
+import {
+  formatTime,
+  verifiedCheckOutAt,
+} from "@/features/hr/attendance/status";
 import type { AttendanceDayView } from "@/features/hr/attendance/types";
 
 function isoDate(d: Date): string {
@@ -107,13 +110,12 @@ export function useTodayAttendance() {
     .filter((r) => r.pendingRegularization)
     .map((r) => r.attendanceDate);
 
-  const completedMs = rawSessions.reduce(
-    (sum, s) =>
-      s.checkOutAt
-        ? sum + (Date.parse(s.checkOutAt) - Date.parse(s.checkInAt))
-        : sum,
-    0,
-  );
+  // An auto-closed session (the HR master's cut-off passed today) counts no
+  // time: its close is the system's, not a check-out.
+  const completedMs = rawSessions.reduce((sum, s) => {
+    const out = verifiedCheckOutAt(s);
+    return out ? sum + (Date.parse(out) - Date.parse(s.checkInAt)) : sum;
+  }, 0);
   const openStart = rawSessions.find((s) => !s.checkOutAt)?.checkInAt ?? null;
 
   const [now, setNow] = useState(() => Date.now());
@@ -127,13 +129,14 @@ export function useTodayAttendance() {
     completedMs + (openStart ? Math.max(0, now - Date.parse(openStart)) : 0),
   );
 
-  const sessions: TodaySession[] = rawSessions.map((s) => ({
-    checkIn: formatTime(s.checkInAt),
-    checkOut: s.checkOutAt ? formatTime(s.checkOutAt) : null,
-    durationMs: s.checkOutAt
-      ? Date.parse(s.checkOutAt) - Date.parse(s.checkInAt)
-      : null,
-  }));
+  const sessions: TodaySession[] = rawSessions.map((s) => {
+    const out = verifiedCheckOutAt(s);
+    return {
+      checkIn: formatTime(s.checkInAt),
+      checkOut: out ? formatTime(out) : null,
+      durationMs: out ? Date.parse(out) - Date.parse(s.checkInAt) : null,
+    };
+  });
 
   const summary = useMemo(() => {
     let present = 0;

@@ -92,10 +92,15 @@ export function ManualEditAttendanceDialog({
   employee,
 }: ManualEditAttendanceDialogProps) {
   const [status, setStatus] = useState<string>(record.storedStatus ?? "");
-  const [sessions, setSessions] = useState<EditableSession[]>(
+  // An auto-closed session's close time is the system's cut-off, not a
+  // check-out: its field starts empty so HR enters the actual time.
+  const [sessions, setSessions] = useState<
+    (EditableSession & { autoClosed?: boolean })[]
+  >(
     record.sessions.map((s) => ({
       checkInAt: fromIso(s.checkInAt),
-      checkOutAt: fromIso(s.checkOutAt),
+      checkOutAt: s.autoClosed ? "" : fromIso(s.checkOutAt),
+      autoClosed: s.autoClosed === true,
     })),
   );
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -129,6 +134,13 @@ export function ManualEditAttendanceDialog({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (sessions.some((s) => s.autoClosed && !s.checkOutAt)) {
+      setErrors({
+        sessions:
+          "Enter the actual check-out time for the auto-closed session, or remove it.",
+      });
+      return;
+    }
     const result = manualEditSchema.safeParse({ status, sessions });
     if (!result.success) {
       setErrors({ sessions: result.error.issues[0]?.message ?? "Invalid" });
@@ -300,6 +312,11 @@ export function ManualEditAttendanceDialog({
                         }
                         className="w-full text-theme-xs font-medium"
                       />
+                      {s.autoClosed ? (
+                        <p className="mt-1 text-[11px] font-medium text-warning-600 dark:text-warning-400">
+                          Auto-closed by the system — enter the actual check-out
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="w-full flex items-center">

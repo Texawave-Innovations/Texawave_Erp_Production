@@ -45,7 +45,9 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium",
+        // w-fit: a flex column (a table cell stacking a badge over a line of
+        // text) stretches children by default; the pill keeps its own size.
+        "inline-flex w-fit max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium",
         COLOR_CLASSES[colorToken],
         className,
       )}

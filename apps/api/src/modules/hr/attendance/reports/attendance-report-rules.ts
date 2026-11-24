@@ -16,9 +16,12 @@ export type MissingPunchType = (typeof MISSING_PUNCH_TYPES)[number];
  * DEFINITION OF A MISSING PUNCH (a new, derived report — not legacy parity):
  *
  *  - MISSING_CHECKOUT: the day has an OPEN session and its business date is
- *    before today (IST). The employee checked in and no checkout exists, even
- *    after the day ended. Applies on any calendar state, because a punch that
- *    exists is a punch problem regardless of whether the day was a holiday.
+ *    before today (IST), or a session the system auto-closed that is still
+ *    pending regularization (the auto check-out closes every forgotten
+ *    session at its day's cut-off, so this is where a forgotten checkout now
+ *    shows up). Either way no verified checkout exists. Applies on any
+ *    calendar state, because a punch that exists is a punch problem
+ *    regardless of whether the day was a holiday.
  *  - MISSING_CHECK_IN: the derived status is PRESENT but there are no punches.
  *    That happens only when HR stored PRESENT and no check-in was recorded.
  *    It is NOT raised for an unmarked working day, a holiday, a weekly off,
@@ -35,6 +38,7 @@ export function missingPunchOf(
   if (view.attendanceDate > today) return null;
   if (view.hasOpenSession && view.attendanceDate < today)
     return "MISSING_CHECKOUT";
+  if (view.pendingRegularization) return "MISSING_CHECKOUT";
   if (view.status === "PRESENT" && view.sessions.length === 0)
     return "MISSING_CHECK_IN";
   return null;

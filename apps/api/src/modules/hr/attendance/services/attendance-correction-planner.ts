@@ -105,14 +105,19 @@ export function planCorrection(
       checkOutAt: request.requestedCheckOutAt,
     });
   } else if (request.correctionType === "MISSED_CHECK_OUT") {
+    // The missed check-out belongs to the last session: still open, or closed
+    // by the system's auto check-out (a technical close, not a check-out).
+    // Approval writes the real time and clears `autoClosed`.
     const open = ordered.filter((s) => s.checkOutAt === null);
-    if (open.length !== 1 || open[0] !== last) {
+    const missing =
+      open.length === 0 && last?.autoClosed === true ? last : open[0];
+    if (open.length > 1 || missing === undefined || missing !== last) {
       throw new CorrectionNotApplicableException(
-        "there is no open session to close",
+        "there is no open or auto-closed session to close",
       );
     }
     plan.updates.push({
-      id: open[0]!.id,
+      id: missing.id,
       checkOutAt: request.requestedCheckOutAt!,
     });
   } else {

@@ -488,7 +488,7 @@ export function EmployeesView() {
                 <span>Import CSV</span>
               </Button>
             ) : null}
-            {canWrite ? (
+            {canWrite && canAccount ? (
               <Button
                 variant="primary"
                 onClick={() => router.push("/hr/employees/new")}

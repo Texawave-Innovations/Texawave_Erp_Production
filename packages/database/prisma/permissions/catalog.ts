@@ -172,6 +172,14 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Approve or reject leave requests (all teams), including the HR approval",
   },
+  // Admin stands in for HR: decides at HR's step at any time, with a required
+  // reason, audited as an override, and HR is told (Docs/HR_LEAVE.md §6.1).
+  // Needs hr.leave.approve.all as well. Granted to Super Admin only.
+  {
+    code: "hr.leave.override",
+    description:
+      "Approve or reject leave in HR's place when HR is unavailable (reason required, audited)",
+  },
   // Apply on an employee's behalf, and cancel someone's pending/approved
   // leave. .own of both is reserved: one's own leave goes through
   // self-service, and the service refuses the caller's own record.
@@ -363,7 +371,8 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "hr.employee_account.write",
-    description: "Link/unlink an employee to a login account",
+    description:
+      "Link/unlink an employee to a login account, and create a new hire's login (Employee role, optionally Team Lead)",
   },
   // apps/api/src/modules/employee-self-service — own record only.
   {

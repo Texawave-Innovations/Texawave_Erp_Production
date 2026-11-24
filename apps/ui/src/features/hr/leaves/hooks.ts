@@ -27,6 +27,7 @@ import {
   type LeaveListQuery,
   type LeaveTypeBody,
   type LeaveTypeListQuery,
+  getLeaveRequest,
   listLeaveRequests,
   listLeaveTypes,
   listMyLeaveRequests,
@@ -44,6 +45,17 @@ const DELEGATIONS_KEY = "hr-leave-delegations" as const;
 
 function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
+}
+
+/** One request (HR/approver view), with `yourStep` when the caller may
+ * decide it now. `null` id = disabled. */
+export function useLeaveRequest(id: number | null) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: orgScopedKey(orgId, KEY, "detail", id ?? 0),
+    queryFn: () => getLeaveRequest(id as number),
+    enabled: orgId > 0 && id !== null,
+  });
 }
 
 /** HR/approver view: own/team/all, scoped server-side. */
@@ -138,16 +150,18 @@ export function useLeaveTypes(query: LeaveTypeListQuery, enabled = true) {
   });
 }
 
+// Leave-type changes (default entitlement, carry-forward, active) change every
+// balance, so they also refresh `KEY` (allotment report, balances).
 export function useCreateLeaveType() {
   return useOrgScopedMutation(
-    [LEAVE_TYPES_KEY],
+    [LEAVE_TYPES_KEY, KEY],
     (body: LeaveTypeBody & { code: string }) => createLeaveType(body),
   );
 }
 
 export function useUpdateLeaveType() {
   return useOrgScopedMutation(
-    [LEAVE_TYPES_KEY],
+    [LEAVE_TYPES_KEY, KEY],
     ({ id, body }: { id: number; body: Omit<LeaveTypeBody, "code"> }) =>
       updateLeaveType(id, body),
   );
@@ -155,7 +169,7 @@ export function useUpdateLeaveType() {
 
 export function useSetLeaveTypeActive() {
   return useOrgScopedMutation(
-    [LEAVE_TYPES_KEY],
+    [LEAVE_TYPES_KEY, KEY],
     ({ id, isActive }: { id: number; isActive: boolean }) =>
       setLeaveTypeActive(id, isActive),
   );

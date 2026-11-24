@@ -17,6 +17,10 @@ import {
   useDecideWorkPermission,
 } from "@/features/employee-self-service/work-permissions/hooks";
 import type { WorkPermission } from "@/features/employee-self-service/work-permissions/api";
+import { usePermission } from "@/hooks/usePermission";
+
+/** Deciding is its own permission (viewing the tab is `.read.all`). */
+const WORK_PERMISSION_DECIDE = "hr.work_permission.decide.all";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -175,6 +179,7 @@ export function PermissionsSection() {
   });
 
   const items = data?.items ?? [];
+  const canDecide = usePermission(WORK_PERMISSION_DECIDE);
 
   return (
     <div className="flex flex-col gap-5">
@@ -296,7 +301,7 @@ export function PermissionsSection() {
                       </div>
                     </td>
                     <td className="px-4 py-3 pr-5">
-                      {item.status === "PENDING" ? (
+                      {item.status === "PENDING" && canDecide ? (
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
@@ -324,7 +329,11 @@ export function PermissionsSection() {
                         </div>
                       ) : (
                         <span className="text-theme-xs text-gray-400 dark:text-gray-500">
-                          {item.decider ? `by ${item.decider.fullName}` : "—"}
+                          {item.status === "PENDING"
+                            ? "Pending"
+                            : item.decider
+                              ? `by ${item.decider.fullName}`
+                              : "—"}
                         </span>
                       )}
                     </td>

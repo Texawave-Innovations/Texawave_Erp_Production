@@ -27,7 +27,9 @@ export const newHireSchema = z.object({
       "Enter a valid 10-digit mobile number starting with 6 to 9.",
     ),
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
-  roleId: z.number().int().positive().optional(),
+  // The only extra role HR may give (POST /hr/employees/new-hire); every
+  // new hire always gets the Employee self-service role.
+  additionalRole: z.enum(["TEAM_LEAD"]).optional(),
   departmentId: z.number().int().positive("Select a department."),
   teamId: z.number().int().positive("Select a team."),
   designationId: z.number().int().positive("Select a designation."),

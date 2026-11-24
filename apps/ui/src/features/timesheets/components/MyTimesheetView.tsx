@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  History,
   Pencil,
   Plus,
   Send,
@@ -51,6 +52,8 @@ import {
   formatPermissionWindow,
 } from "./format";
 import { ReviewStatusChip } from "./ReviewStatus";
+import { TaskHistoryDialog } from "./TaskHistoryDialog";
+import { WorkTimelineCard } from "./WorkTimeline";
 import type {
   CarriedTask,
   DailyStatus,
@@ -158,12 +161,14 @@ function RowCard({
   canWrite,
   onEdit,
   onDelete,
+  onHistory,
 }: {
   row: TimesheetRow;
   categoryLabel: string;
   canWrite: boolean;
   onEdit: (row: TimesheetRow) => void;
   onDelete: (row: TimesheetRow) => void;
+  onHistory: (row: TimesheetRow) => void;
 }) {
   const runningNow = row.sessions.some((s) => s.endedAt === null);
   const custom = row.category !== "TASK";
@@ -189,6 +194,17 @@ function RowCard({
           <span className="text-sm font-extrabold text-gray-900 dark:text-white">
             {formatMinutes(row.durationMinutes)}
           </span>
+          {row.category === "TASK" && row.taskId !== null ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onHistory(row)}
+              aria-label={`Time history of ${row.title}`}
+              title="Time spent on this task, day by day"
+            >
+              <History className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
           {canWrite && isEditableActivity(row) ? (
             <>
               <Button
@@ -281,6 +297,7 @@ export function MyTimesheetView() {
   const today = businessToday();
   const [date, setDate] = useState(today);
   const [tab, setTab] = useState<"log" | "attendance">("log");
+  const [historyFor, setHistoryFor] = useState<TimesheetRow | null>(null);
   const [month, setMonth] = useState(currentMonth());
   const { data, isLoading, isError, refetch } = useMyDay(date);
   const monthQuery = useMyMonth(month);
@@ -561,6 +578,8 @@ export function MyTimesheetView() {
                   />
                 </section>
 
+                <WorkTimelineCard day={data} onOpenDay={setDate} />
+
                 {data.rows.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-6 dark:border-gray-800 dark:bg-gray-900">
                     <EmptyState
@@ -588,6 +607,7 @@ export function MyTimesheetView() {
                         canWrite={canWrite}
                         onEdit={(r) => setDialog({ open: true, editing: r })}
                         onDelete={setToDelete}
+                        onHistory={setHistoryFor}
                       />
                     ))}
                   </ul>
@@ -610,6 +630,16 @@ export function MyTimesheetView() {
           </div>
         ) : null}
       </Tabs>
+
+      {historyFor !== null && historyFor.taskId !== null ? (
+        <TaskHistoryDialog
+          taskId={historyFor.taskId}
+          title={historyFor.title}
+          toDate={date}
+          onClose={() => setHistoryFor(null)}
+          onOpenDay={setDate}
+        />
+      ) : null}
 
       {dialog.open ? (
         <CustomActivityDialog

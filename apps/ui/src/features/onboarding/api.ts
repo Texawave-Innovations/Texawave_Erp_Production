@@ -1,8 +1,4 @@
-import type {
-  CreateUserInput,
-  PaginatedEnvelope,
-  User,
-} from "@texawave-erp/api-types";
+import type { PaginatedEnvelope } from "@texawave-erp/api-types";
 import type { NewHireFormValues } from "@texawave-erp/core";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -24,18 +20,6 @@ export interface CreatedEmployee {
   onboardingStatus: string;
 }
 
-/** Thrown when the login was created but the employee record was not. The
- * login exists, so the caller must surface `userId` for cleanup instead of
- * letting HR retry the whole form (which would hit "email already in use"). */
-export class PartialNewHireError extends Error {
-  constructor(
-    message: string,
-    readonly userId: number,
-  ) {
-    super(message);
-  }
-}
-
 export function listTeams(): Promise<TeamOption[]> {
   return withAuthRetry(() => apiClient.get<TeamOption[]>("/hr/teams")).then(
     (res) => res.data,
@@ -52,63 +36,32 @@ export const listDesignations = () => listOptions("/master-data/designations");
 export const listEmploymentTypes = () =>
   listOptions("/master-data/employment-types");
 export const listDepartments = () => listOptions("/departments");
-export const listRoles = () => listOptions("/settings/roles");
 
-/** Two composed calls — see Docs/ARCHITECTURE.md §7a. Step 1 creates the
- * login with a forced password change; step 2 links the new employee to it.
- * `employeeRoleId` is always included alongside the admin-picked role so
- * every new hire gets the self-service baseline needed for onboarding,
- * regardless of which additional role (Team Lead, HR Manager, ...) they're
- * given — see the onboarding-landing 403 gap this closes. */
+/** One server call (`POST /hr/employees/new-hire`): the API creates the login
+ * (Employee role, plus Team Lead when asked, forced password change) and the
+ * employee record linked to it in ONE transaction — either both exist or
+ * neither does. Needs hr.employee.write + hr.employee_account.write; no
+ * Settings → Roles / Users access. */
 export async function createNewHire(
   values: NewHireFormValues,
-  employeeRoleId: number,
 ): Promise<CreatedEmployee> {
-  const roleIds = Array.from(
-    new Set(
-      [employeeRoleId, values.roleId].filter(
-        (id): id is number => id !== undefined,
-      ),
-    ),
+  const res = await withAuthRetry(() =>
+    apiClient.post<CreatedEmployee>("/hr/employees/new-hire", {
+      fullName: `${values.firstName} ${values.lastName}`,
+      email: values.email,
+      phone: values.mobile,
+      teamId: values.teamId,
+      departmentId: values.departmentId,
+      designationId: values.designationId,
+      employmentTypeId: values.employmentTypeId,
+      dateOfJoining: values.dateOfJoining,
+      tempPassword: values.tempPassword,
+      ...(values.additionalRole
+        ? { additionalRole: values.additionalRole }
+        : {}),
+    }),
   );
-  const userInput: CreateUserInput = {
-    email: values.email,
-    fullName: `${values.firstName} ${values.lastName}`,
-    password: values.tempPassword,
-    mustChangePassword: true,
-    roleIds,
-  };
-  const user = await withAuthRetry(() =>
-    apiClient.post<User>("/users", userInput),
-  ).then((res) => res.data);
-
-  try {
-    const res = await withAuthRetry(() =>
-      apiClient.post<CreatedEmployee>("/hr/employees", {
-        fullName: `${values.firstName} ${values.lastName}`,
-        workEmail: values.email,
-        phone: values.mobile,
-        teamId: values.teamId,
-        departmentId: values.departmentId,
-        designationId: values.designationId,
-        employmentTypeId: values.employmentTypeId,
-        dateOfJoining: values.dateOfJoining,
-        userId: user.id,
-      }),
-    );
-    return res.data;
-  } catch (employeeError) {
-    // Attempt automatic cleanup of the newly provisioned user account so the email is not stranded
-    try {
-      await apiClient.delete(`/users/${user.id}`);
-    } catch {
-      throw new PartialNewHireError(
-        "The login was created, but the employee record could not be saved.",
-        user.id,
-      );
-    }
-    throw employeeError;
-  }
+  return res.data;
 }
 
 export interface MyEmployee {

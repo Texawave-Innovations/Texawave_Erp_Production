@@ -12,6 +12,8 @@ function makeService(level: "own" | "team" | "all" = "all") {
   const repository = {
     findMany: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 31 }),
     findOne: vi.fn(),
+    // The caller's step on pending rows (none in these fixtures).
+    decisionSteps: vi.fn().mockResolvedValue(new Map()),
     decide: vi.fn(),
     employeeVisible: vi.fn(),
     setEntitlement: vi.fn(),

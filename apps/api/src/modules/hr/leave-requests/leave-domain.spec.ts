@@ -1,4 +1,5 @@
 import {
+  bookableDays,
   canTransition,
   countLeaveDays,
   covers,
@@ -212,6 +213,42 @@ describe("balance", () => {
     expect(b.available).toBe(7);
     expect(covers(b, 7)).toBe(true);
     expect(covers(b, 7.5)).toBe(false);
+  });
+
+  it("available is rounded DOWN to a half day; accrual itself stays exact", () => {
+    // 10 days a year, joined 6 Nov 2026 (Pavithran's case).
+    const p = policy({
+      annualEntitlement: 10,
+      typeFirstYear: 2026,
+      joiningDate: "2026-11-06",
+    });
+    const nov = yearBalance(p, noFacts, 2026, 11);
+    expect(nov.accrued).toBe(0.83);
+    expect(nov.available).toBe(0.5);
+    expect(covers(nov, 0.5)).toBe(true);
+    expect(covers(nov, 1)).toBe(false);
+    const dec = yearBalance(p, noFacts, 2026, 12);
+    expect(dec.accrued).toBe(1.67);
+    expect(dec.available).toBe(1.5);
+    // A full year still adds up to exactly 10, nothing is lost (no carry-
+    // forward: the type starts in 2026).
+    const full = yearBalance(
+      policy({ annualEntitlement: 10, typeFirstYear: 2026 }),
+      noFacts,
+      2026,
+      12,
+    );
+    expect(full.available).toBe(10);
+  });
+
+  it("bookableDays keeps exact halves and whole days", () => {
+    expect(bookableDays(0.83)).toBe(0.5);
+    expect(bookableDays(1.67)).toBe(1.5);
+    expect(bookableDays(1.5)).toBe(1.5);
+    expect(bookableDays(1.4999999999)).toBe(1.5);
+    expect(bookableDays(2)).toBe(2);
+    expect(bookableDays(0.49)).toBe(0);
+    expect(bookableDays(0)).toBe(0);
   });
 
   it("no balance exists before the leave type came into force", () => {

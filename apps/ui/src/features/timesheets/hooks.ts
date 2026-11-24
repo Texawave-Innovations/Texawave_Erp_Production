@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   approveDay,
@@ -42,6 +47,20 @@ export function useMyDay(date: string) {
     queryFn: () => getMyDay(date),
     enabled: Boolean(orgId) && Boolean(date),
     refetchInterval: 60_000,
+  });
+}
+
+/** Several of the employee's own days at once (the week worksheet). Shares
+ * the cache with `useMyDay`, so the selected day is not fetched twice. */
+export function useMyDays(dates: readonly string[]) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQueries({
+    queries: dates.map((date) => ({
+      queryKey: baseKey(orgId, "day", date),
+      queryFn: () => getMyDay(date),
+      enabled: Boolean(orgId),
+      refetchInterval: 60_000,
+    })),
   });
 }
 

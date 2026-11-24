@@ -326,8 +326,21 @@ describe("HR attendance month close, import/export and alerts (e2e)", () => {
 
     a1June = await record(emp.a1!.id, "2026-06-10", "10:00", "18:00");
     await record(emp.b1!.id, "2026-06-10", "10:00", "18:00");
-    // a2 left a session open in June: the month cannot be submitted for them.
-    await record(emp.a2!.id, "2026-06-11", "10:00", null);
+    // a2 forgot to check out in June. The auto check-out closes every
+    // forgotten session at its day's cut-off and flags it, so the session is
+    // created as the system leaves it (an open past session would be closed
+    // by the live scheduler mid-suite): the month cannot be submitted for a2
+    // until HR regularizes it.
+    const a2Rec = await record(emp.a2!.id, "2026-06-11");
+    await prisma.attendanceSession.create({
+      data: {
+        attendanceRecordId: a2Rec,
+        checkInAt: ist("2026-06-11", "10:00"),
+        checkOutAt: ist("2026-06-11", "23:59"),
+        autoClosed: true,
+        source: "SELF",
+      },
+    });
   });
 
   afterAll(async () => {
@@ -431,7 +444,7 @@ describe("HR attendance month close, import/export and alerts (e2e)", () => {
           }),
           expect.objectContaining({
             employeeId: emp.a2!.id,
-            code: "OPEN_SESSION_IN_MONTH",
+            code: "PENDING_REGULARIZATION_IN_MONTH",
           }),
         ]),
       );
@@ -828,10 +841,16 @@ describe("HR attendance month close, import/export and alerts (e2e)", () => {
       const again = await alerts.runForOrganization(orgA.id, asOf);
       expect(again).toEqual({ alerts: 2, notified: 0 });
 
+      // The employee gets a reminder; their manager the missing-check-in
+      // alert (separate types since 2026-10-23, attendance-alerts.service).
       const mine = data<Notice[]>(await get("empC1", "/notifications"));
-      expect(mine.map((n) => n.type)).toEqual(["attendance.missing_check_in"]);
+      expect(mine.map((n) => n.type)).toEqual(["attendance.reminder"]);
       const managers = data<Notice[]>(await get("mgr", "/notifications"));
       expect(managers).toHaveLength(2);
+      expect(managers.map((n) => n.type)).toEqual([
+        "attendance.missing_check_in",
+        "attendance.missing_check_in",
+      ]);
     });
 
     it("is not raised before the due time or once the employee has punched", async () => {

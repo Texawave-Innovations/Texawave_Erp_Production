@@ -28,9 +28,13 @@ import {
  *  - No shift target → hours are reported as punched, with no overtime or
  *    shortfall (the target is unknown, so neither can be computed honestly).
  *  - An open session counts time up to `asOf`.
- *  - A plain punched day with a session the system auto-closed (HR master's
- *    fixed cut-off) is NOT_MARKED with nothing worked until HR regularizes it.
- *    Calendar and explicit stored statuses still win, as above.
+ *  - A session the system auto-closed (`autoClosed`) is UNVERIFIED: its close
+ *    time is the system's cut-off, not the employee's check-out, so it is
+ *    left out of every figure until HR regularizes it. Every rule above runs
+ *    on the verified sessions only, so a day whose only session is pending is
+ *    NOT_MARKED with nothing worked, a day with a verified session as well is
+ *    PRESENT on the verified time, and neither ever yields overtime from the
+ *    unverified session. Calendar and explicit stored statuses still win.
  */
 
 export const STORED_STATUSES = ["PRESENT", "ABSENT", "HALF_DAY"] as const;
@@ -58,6 +62,9 @@ export interface CalendarFlags {
 export interface PunchSession {
   checkInAt: Date;
   checkOutAt: Date | null;
+  /** Closed by the system's auto check-out and not yet regularized by HR:
+   * the check-out is technical, not verified, so the session counts nothing. */
+  autoClosed?: boolean;
 }
 
 export interface AttendanceDayInput {
@@ -67,9 +74,6 @@ export interface AttendanceDayInput {
   targetMinutes: number | null;
   calendar: CalendarFlags;
   asOf: Date;
-  /** A session was closed by the system's fixed auto check-out and HR has not
-   * regularized it: an otherwise plain punched day is not counted as worked. */
-  autoClosedPending?: boolean;
 }
 
 export interface AttendanceDayResult {
@@ -114,8 +118,10 @@ export function workedMinutesOf(
 @Injectable()
 export class AttendanceCalculationService {
   calculate(input: AttendanceDayInput): AttendanceDayResult {
+    // Only verified sessions count; an auto-closed one waits for HR.
+    const verified = input.sessions.filter((s) => s.autoClosed !== true);
     const { minutes: actual, hasOpenSession } = workedMinutesOf(
-      input.sessions,
+      verified,
       input.asOf,
     );
     const target = input.targetMinutes;
@@ -188,24 +194,15 @@ export class AttendanceCalculationService {
       };
     }
 
-    // 3. Punched or unmarked day.
-    if (input.sessions.length === 0) {
-      // Stored PRESENT with no punches: HR marked presence explicitly, so it
-      // stands; the hours are unknown and reported as zero.
+    // 3. Punched or unmarked day (verified punches only).
+    if (verified.length === 0) {
+      // Stored PRESENT with no verified punches: HR marked presence
+      // explicitly, so it stands; the hours are unknown and reported as zero.
+      // Otherwise — no punches, or only a pending auto-closed session — the
+      // day is not marked until HR regularizes it.
       return {
         ...base,
         status: input.storedStatus === "PRESENT" ? "PRESENT" : "NOT_MARKED",
-        workedMinutes: 0,
-        overtimeMinutes: 0,
-        shortfallMinutes: target ?? 0,
-      };
-    }
-    if (input.autoClosedPending) {
-      // The close time is the system's, not the employee's: the day stays
-      // pending (not marked, nothing worked) until HR regularizes it.
-      return {
-        ...base,
-        status: "NOT_MARKED",
         workedMinutes: 0,
         overtimeMinutes: 0,
         shortfallMinutes: target ?? 0,

@@ -102,7 +102,10 @@ export function LeaveBalanceCards({
             <div>
               {b.isPaid ? (
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  <span
+                    className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white"
+                    title="Rounded down to a half day: leave is booked in half days. Accrued days keep adding up."
+                  >
                     {b.available ?? 0}
                   </span>
                   <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">

@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Clock, LogIn, LogOut, X } from "lucide-react";
+import { verifiedCheckOutAt } from "@/features/hr/attendance/status";
 import type { AttendanceDayView } from "@/features/hr/attendance/types";
 import {
   DAY_TYPE_STYLE,
@@ -32,7 +33,7 @@ const KIND_BANNER: Partial<Record<DayKind, { label: string; cls: string }>> = {
   },
   holiday: {
     label: "Holiday",
-    cls: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
+    cls: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-800",
   },
   weekoff: {
     label: "Week Off",
@@ -64,7 +65,7 @@ export function DayDetailPanel({
   const worked = workedMs(row, now);
   const brk = breakMs(sessions);
   const firstIn = sessions[0] ? time12(sessions[0].checkInAt) : "—";
-  const lastClosed = [...sessions].reverse().find((s) => s.checkOutAt);
+  const lastClosed = [...sessions].reverse().find((s) => verifiedCheckOutAt(s));
   const lastOut = lastClosed?.checkOutAt ? time12(lastClosed.checkOutAt) : "—";
   const date = new Date(`${dateStr}T00:00:00`);
   const isPast = dateStr < new Intl.DateTimeFormat("en-CA").format(new Date());
@@ -145,9 +146,11 @@ export function DayDetailPanel({
               </div>
               {sessions.map((s, i) => {
                 const next = sessions[i + 1];
+                // An auto-closed session shows as a missing check-out.
+                const out = verifiedCheckOutAt(s);
                 const gap =
-                  next && s.checkOutAt
-                    ? Date.parse(next.checkInAt) - Date.parse(s.checkOutAt)
+                  next && out
+                    ? Date.parse(next.checkInAt) - Date.parse(out)
                     : 0;
                 return (
                   <Fragment key={s.id}>
@@ -175,7 +178,7 @@ export function DayDetailPanel({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {s.checkOutAt ? (
+                        {out ? (
                           <>
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40">
                               <LogOut
@@ -185,17 +188,16 @@ export function DayDetailPanel({
                             </span>
                             <div>
                               <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                {time12(s.checkOutAt)}
+                                {time12(out)}
                               </span>
                               <p className="text-[10px] text-gray-500">
                                 {msToHM(
-                                  Date.parse(s.checkOutAt) -
-                                    Date.parse(s.checkInAt),
+                                  Date.parse(out) - Date.parse(s.checkInAt),
                                 )}
                               </p>
                             </div>
                           </>
-                        ) : isPast ? (
+                        ) : isPast || s.autoClosed ? (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-2">
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-100">
@@ -224,7 +226,7 @@ export function DayDetailPanel({
                         )}
                       </div>
                     </div>
-                    {gap > 0 && next && s.checkOutAt ? (
+                    {gap > 0 && next && out ? (
                       <div className="my-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-1.5 dark:border-amber-900/50 dark:bg-amber-950/30">
                         <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-200">
                           <Clock
@@ -233,8 +235,8 @@ export function DayDetailPanel({
                           />
                           Break Duration: {msToHM(gap)}
                         </span>
-                        <span className="font-mono text-[10px] text-amber-700">
-                          {time12(s.checkOutAt)} → {time12(next.checkInAt)}
+                        <span className="tabular-nums text-[10px] text-amber-700">
+                          {time12(out)} → {time12(next.checkInAt)}
                         </span>
                       </div>
                     ) : null}

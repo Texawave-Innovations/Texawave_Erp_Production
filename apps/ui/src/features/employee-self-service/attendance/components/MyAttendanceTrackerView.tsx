@@ -41,6 +41,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMyAttendance } from "@/features/hr/attendance/hooks";
 import { SELF_SERVICE_READ } from "@/features/hr/attendance/permissions";
+import { verifiedCheckOutAt } from "@/features/hr/attendance/status";
 import type { AttendanceDayView } from "@/features/hr/attendance/types";
 import { useHolidays } from "@/features/hr/holidays/hooks";
 import { READ as HOLIDAY_READ } from "@/features/hr/holidays/permissions";
@@ -595,14 +596,14 @@ export function MyAttendanceTrackerView() {
                   <>
                     <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                     Check Out&nbsp;
-                    <span className="font-mono">{live.totalElapsed}</span>
+                    <span className="tabular-nums">{live.totalElapsed}</span>
                     &nbsp;Hrs
                   </>
                 ) : (
                   <>
                     <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
                     Check in&nbsp;
-                    <span className="font-mono">{live.totalElapsed}</span>
+                    <span className="tabular-nums">{live.totalElapsed}</span>
                     &nbsp;Hrs
                   </>
                 )}
@@ -762,7 +763,7 @@ export function MyAttendanceTrackerView() {
                   const tone = isToday
                     ? "ring-2 ring-brand-500 border-brand-500 bg-brand-50/60 dark:bg-brand-950/30"
                     : kind === "holiday"
-                      ? "bg-purple-50/60 border-purple-200 dark:bg-purple-950/20 dark:border-purple-900"
+                      ? "bg-cyan-50/60 border-cyan-200 dark:bg-cyan-950/20 dark:border-cyan-900"
                       : kind === "leave"
                         ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900"
                         : kind === "weekoff" || kind === "weekend"
@@ -775,7 +776,7 @@ export function MyAttendanceTrackerView() {
                                 ? "bg-amber-50/40 border-amber-200 border-dashed dark:bg-amber-950/10 dark:border-amber-900"
                                 : "bg-white border-gray-200 hover:bg-slate-50 dark:bg-gray-900 dark:border-gray-800";
                   const tag: Partial<Record<DayKind, [string, string]>> = {
-                    holiday: ["Holi", "text-purple-600 bg-purple-100"],
+                    holiday: ["Holi", "text-cyan-600 bg-cyan-100"],
                     leave: ["Leave", "text-amber-600 bg-amber-100"],
                     weekoff: ["WO", "text-gray-600 bg-gray-100"],
                     present: ["P", "text-brand-700 bg-brand-100"],
@@ -834,9 +835,10 @@ export function MyAttendanceTrackerView() {
                 const sessions = row?.sessions ?? [];
                 const ms = workedMs(row, now);
                 const firstIn = sessions[0];
+                // An auto-closed session has no verified check-out to show.
                 const lastClosed = [...sessions]
                   .reverse()
-                  .find((s) => s.checkOutAt);
+                  .find((s) => verifiedCheckOutAt(s));
                 const hasActive = row?.hasOpenSession ?? false;
                 const regularized = sessions.some(
                   (s) => s.source === "CORRECTION" || s.source === "HR",
@@ -870,7 +872,7 @@ export function MyAttendanceTrackerView() {
                       isWknd
                         ? "cursor-default bg-gray-50/70 dark:bg-gray-800/30"
                         : kind === "holiday"
-                          ? "cursor-default bg-purple-50/60 dark:bg-purple-950/20"
+                          ? "cursor-default bg-cyan-50/60 dark:bg-cyan-950/20"
                           : kind === "leave"
                             ? "cursor-default bg-amber-50/60 dark:bg-amber-950/20"
                             : kind === "weekoff"
@@ -890,7 +892,7 @@ export function MyAttendanceTrackerView() {
                           isToday && !isWknd
                             ? "bg-brand-500 text-white"
                             : kind === "holiday"
-                              ? "bg-purple-100 text-purple-700"
+                              ? "bg-cyan-100 text-cyan-700"
                               : kind === "leave"
                                 ? "bg-amber-100 text-amber-700"
                                 : kind === "weekoff"
@@ -909,7 +911,7 @@ export function MyAttendanceTrackerView() {
                     {/* Check-in info */}
                     <div className="flex w-28 shrink-0 flex-col justify-center px-1 py-3">
                       {kind === "holiday" ? (
-                        <span className="text-[10px] font-semibold text-purple-600">
+                        <span className="text-[10px] font-semibold text-cyan-600">
                           🎉 Holiday
                         </span>
                       ) : kind === "leave" ? (
@@ -960,8 +962,8 @@ export function MyAttendanceTrackerView() {
                       {kind === "holiday" ? (
                         offLine(
                           holidays.get(ds) ?? "Holiday",
-                          "bg-purple-200",
-                          "border-purple-200 bg-purple-100 text-purple-500",
+                          "bg-cyan-200",
+                          "border-cyan-200 bg-cyan-100 text-cyan-500",
                         )
                       ) : kind === "leave" ? (
                         offLine(
@@ -1100,7 +1102,7 @@ export function MyAttendanceTrackerView() {
                 {TL_LABELS.map((h) => (
                   <span
                     key={h}
-                    className="absolute top-1.5 -translate-x-1/2 font-mono text-[10px] text-gray-500"
+                    className="absolute top-1.5 -translate-x-1/2 tabular-nums text-[10px] text-gray-500"
                     style={{ left: `${hourPct(h)}%` }}
                   >
                     {hourLabel(h)}

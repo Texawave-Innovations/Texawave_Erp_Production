@@ -119,6 +119,15 @@ describe("default roles", () => {
     }
   });
 
+  it("nobody but Super Admin decides leave in HR's place", () => {
+    for (const r of DEFAULT_ROLES) {
+      assert.ok(
+        !r.permissions.includes("hr.leave.override"),
+        `${r.name} must not hold it`,
+      );
+    }
+  });
+
   it("no default role holds a .team write/approve permission, except Team Lead's decided first approvals", () => {
     for (const r of DEFAULT_ROLES) {
       const teamMutating = r.permissions

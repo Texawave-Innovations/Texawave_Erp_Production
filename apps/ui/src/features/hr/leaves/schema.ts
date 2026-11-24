@@ -56,6 +56,15 @@ export const cancelLeaveSchema = z.object({
     }),
 });
 
+/** An Admin deciding in HR's place must say why (it is audited). */
+export const overrideLeaveSchema = z.object({
+  note: z
+    .string()
+    .trim()
+    .min(3, "A reason is required (3–500 characters)")
+    .max(500, "A reason is required (3–500 characters)"),
+});
+
 export const rejectLeaveSchema = z.object({
   note: z
     .string()
