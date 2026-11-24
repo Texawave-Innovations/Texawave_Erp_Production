@@ -67,7 +67,7 @@ export function ExecutiveSectionCard({
       {/* Card Body */}
       <div className="p-6">
         {bordered ? (
-          <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
             {children}
           </div>
         ) : (

@@ -128,7 +128,7 @@ export function TicketForm({
               placeholder="EMP-0001"
               value={values.employeeId}
               disabled={submitting}
-              className="pl-9.5 font-mono"
+              className="pl-9.5"
               onChange={(e) => update("employeeId", e.target.value)}
             />
           </div>

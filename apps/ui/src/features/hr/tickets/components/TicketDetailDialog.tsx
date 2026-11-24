@@ -139,7 +139,7 @@ export function TicketDetailDialog({
               <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                 Ticket ID
               </span>
-              <p className="font-mono text-theme-sm font-semibold text-gray-900 dark:text-white/90 mt-0.5">
+              <p className="text-theme-sm font-semibold text-gray-900 dark:text-white/90 mt-0.5">
                 {formatTicketId(ticket.data.id, ticket.data.createdAt)}
               </p>
             </div>

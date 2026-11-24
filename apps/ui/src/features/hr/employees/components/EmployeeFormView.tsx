@@ -229,7 +229,7 @@ export function EmployeeEditView({ id }: { id: number }) {
           </div>
         </div>
         <div className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
             <div className="flex items-center gap-4">
               <EmployeeIdentity
                 name={employee.fullName}

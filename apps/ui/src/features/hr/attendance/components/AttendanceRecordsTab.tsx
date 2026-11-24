@@ -467,7 +467,7 @@ export function AttendanceRecordsTab() {
                 cell: (r) => {
                   const firstSession = r.sessions[0];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs text-gray-600 dark:text-gray-400">
                       {firstSession
                         ? regionalFormatTime(firstSession.checkInAt)
                         : "—"}

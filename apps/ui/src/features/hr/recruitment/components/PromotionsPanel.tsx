@@ -217,7 +217,7 @@ function EmployeeList({
                           {emp.fullName}
                         </span>
                         <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                          <span className="font-mono">{emp.employeeCode}</span>
+                          <span>{emp.employeeCode}</span>
                           {" · "}
                           {emp.designation.name}
                           {" · "}
@@ -383,9 +383,7 @@ function PromotionLetters({
               {
                 header: "Document no.",
                 cell: (item) => (
-                  <span className="font-mono text-theme-xs">
-                    {item.documentNo}
-                  </span>
+                  <span className="text-theme-xs">{item.documentNo}</span>
                 ),
               },
               {
@@ -395,7 +393,7 @@ function PromotionLetters({
                     <span className="font-medium text-gray-900 dark:text-white/90">
                       {item.employeeName}
                     </span>
-                    <span className="font-mono text-theme-xs text-gray-500">
+                    <span className="text-theme-xs text-gray-500">
                       {item.employee.employeeCode}
                     </span>
                   </div>

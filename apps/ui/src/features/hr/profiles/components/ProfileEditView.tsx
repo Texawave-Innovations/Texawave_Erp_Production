@@ -144,7 +144,7 @@ function EditCardSection({
         </div>
       </div>
       <div className="p-6">
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           {children}
         </div>
       </div>
@@ -268,7 +268,8 @@ function ProfileEditForm({
       await queryClient.invalidateQueries({ queryKey: ["hr-profiles", id] });
       toast({
         title: "Profile photo updated",
-        description: "Employee profile photo has been uploaded and updated successfully.",
+        description:
+          "Employee profile photo has been uploaded and updated successfully.",
         variant: "success",
       });
     } catch {
@@ -368,13 +369,18 @@ function ProfileEditForm({
             </div>
 
             <p className="max-w-2xl text-[12px] font-medium text-[#2f6396] dark:text-sky-300/80">
-              Update personal identity, family members, emergency contact, experience, and residential addresses.
+              Update personal identity, family members, emergency contact,
+              experience, and residential addresses.
             </p>
           </div>
 
           <div className="hidden sm:flex sm:items-center sm:gap-3">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-2 shadow-[0_8px_20px_rgba(23,105,245,0.12)] ring-4 ring-white/70 dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-800/60">
-              <Semantic3DIcon name="edit" size={42} alt="Edit employee profile" />
+              <Semantic3DIcon
+                name="edit"
+                size={42}
+                alt="Edit employee profile"
+              />
             </div>
           </div>
         </div>
@@ -398,12 +404,13 @@ function ProfileEditForm({
                 Employee Profile Photo
               </h2>
               <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
-                Official employee photo. Reflected across HR profiles, employee documents, and system records.
+                Official employee photo. Reflected across HR profiles, employee
+                documents, and system records.
               </p>
             </div>
           </div>
           <div className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <div className="flex items-center gap-4">
                 <EmployeeIdentity
                   name={employeeName}
@@ -416,7 +423,9 @@ function ProfileEditForm({
                     {employeeName}
                   </h3>
                   <p className="text-xs font-semibold text-[#2f6396] dark:text-sky-300">
-                    {currentAvatarUrl ? "Custom profile photo is active" : "Default initials avatar"}
+                    {currentAvatarUrl
+                      ? "Custom profile photo is active"
+                      : "Default initials avatar"}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                     PNG, JPG, or WebP up to 5MB.
@@ -443,7 +452,11 @@ function ProfileEditForm({
                   ) : (
                     <Camera className="h-4 w-4 mr-1.5 text-brand-500" />
                   )}
-                  {isUploadingPhoto ? "Uploading..." : currentAvatarUrl ? "Change Photo" : "Upload Photo"}
+                  {isUploadingPhoto
+                    ? "Uploading..."
+                    : currentAvatarUrl
+                      ? "Change Photo"
+                      : "Upload Photo"}
                 </Button>
               </div>
             </div>

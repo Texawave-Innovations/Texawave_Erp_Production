@@ -157,47 +157,47 @@ export function EmployeeForm({
         description="Core employee identity and contact information"
         icon3d="user"
       >
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Full name" required error={errors.fullName}>
-            {(f) => (
-              <Input
-                {...f}
-                invalid={f.invalid}
-                value={values.fullName}
-                disabled={disabled}
-                onChange={(e) => set("fullName", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label="Work e-mail" error={errors.workEmail}>
-            {(f) => (
-              <Input
-                {...f}
-                type="email"
-                invalid={f.invalid}
-                value={values.workEmail}
-                disabled={disabled}
-                onChange={(e) => set("workEmail", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField
-            label="Phone"
-            error={errors.phone}
-            hint="Digits, spaces, + ( ) or -"
-          >
-            {(f) => (
-              <Input
-                {...f}
-                type="tel"
-                invalid={f.invalid}
-                value={values.phone}
-                disabled={disabled}
-                onChange={(e) => set("phone", e.target.value)}
-              />
-            )}
-          </FormField>
+            <FormField label="Full name" required error={errors.fullName}>
+              {(f) => (
+                <Input
+                  {...f}
+                  invalid={f.invalid}
+                  value={values.fullName}
+                  disabled={disabled}
+                  onChange={(e) => set("fullName", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField label="Work e-mail" error={errors.workEmail}>
+              {(f) => (
+                <Input
+                  {...f}
+                  type="email"
+                  invalid={f.invalid}
+                  value={values.workEmail}
+                  disabled={disabled}
+                  onChange={(e) => set("workEmail", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Phone"
+              error={errors.phone}
+              hint="Digits, spaces, + ( ) or -"
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  type="tel"
+                  invalid={f.invalid}
+                  value={values.phone}
+                  disabled={disabled}
+                  onChange={(e) => set("phone", e.target.value)}
+                />
+              )}
+            </FormField>
           </div>
         </div>
       </FormSection>
@@ -208,193 +208,199 @@ export function EmployeeForm({
         description="Organizational placement, role, and reporting relationship"
         icon3d="departments"
       >
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            label="Team"
-            required
-            error={errors.teamId}
-            hint={
-              canWriteAll
-                ? "The team decides who can see and manage this employee."
-                : "Only organization-wide HR can move an employee to another team."
-            }
-          >
-            {(f) => (
-              <Select
-                {...f}
-                value={values.teamId}
-                disabled={disabled || (!canWriteAll && Boolean(initialValues))}
-                onChange={(e) => set("teamId", e.target.value)}
-              >
-                <option value="">Select a team</option>
-                {/* Keep the current team visible even if the list omits it. */}
-                {values.teamId &&
-                !(teams.data ?? []).some(
-                  (t) => String(t.id) === values.teamId,
-                ) ? (
-                  <option value={values.teamId}>
-                    {initialTeamName ?? `Team ${values.teamId}`}
-                  </option>
-                ) : null}
-                {(teams.data ?? []).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <FormField
-            label="Date of joining"
-            required
-            error={errors.dateOfJoining}
-          >
-            {(f) => (
-              <Input
-                {...f}
-                type="date"
-                invalid={f.invalid}
-                value={values.dateOfJoining}
-                disabled={disabled}
-                onChange={(e) => set("dateOfJoining", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField label="Designation" required error={errors.designationId}>
-            {(f) => (
-              <Select
-                {...f}
-                value={values.designationId}
-                disabled={disabled}
-                onChange={(e) => set("designationId", e.target.value)}
-              >
-                <option value="">Select a designation</option>
-                {(designations.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <FormField
-            label="Employment type"
-            required
-            error={errors.employmentTypeId}
-          >
-            {(f) => (
-              <Select
-                {...f}
-                value={values.employmentTypeId}
-                disabled={disabled}
-                onChange={(e) => set("employmentTypeId", e.target.value)}
-              >
-                <option value="">Select an employment type</option>
-                {(employmentTypes.data ?? []).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <FormField label="Department" error={errors.departmentId}>
-            {(f) => (
-              <Select
-                {...f}
-                value={values.departmentId}
-                disabled={disabled}
-                onChange={(e) => set("departmentId", e.target.value)}
-              >
-                <option value="">Use the team's department</option>
-                {(departments.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <FormField label="Work location" error={errors.workLocationId}>
-            {(f) => (
-              <Select
-                {...f}
-                value={values.workLocationId}
-                disabled={disabled}
-                onChange={(e) => set("workLocationId", e.target.value)}
-              >
-                <option value="">None</option>
-                {(workLocations.data ?? []).map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-          <div className="sm:col-span-2">
             <FormField
-              label="Reporting manager"
-              error={errors.reportsToId}
-              hint="Only active employees can be selected."
+              label="Team"
+              required
+              error={errors.teamId}
+              hint={
+                canWriteAll
+                  ? "The team decides who can see and manage this employee."
+                  : "Only organization-wide HR can move an employee to another team."
+              }
             >
               {(f) => (
-                <div className="flex flex-col gap-2">
-                  <Input
-                    {...f}
-                    type="search"
-                    aria-label="Search for reporting manager"
-                    placeholder="Search active employees"
-                    value={managerSearch}
-                    disabled={disabled}
-                    onChange={(e) => setManagerSearch(e.target.value)}
-                  />
-                  <Select
-                    aria-label="Reporting manager"
-                    value={manager ? String(manager.id) : ""}
-                    disabled={disabled}
-                    onChange={(e) => {
-                      const id = Number(e.target.value);
-                      const match = managerMatches.data?.data.find(
-                        (m) => m.id === id,
-                      );
-                      setManager(
-                        e.target.value && match
-                          ? {
-                              id,
-                              label: `${match.fullName} (${match.employeeCode})`,
-                            }
-                          : null,
-                      );
-                    }}
-                  >
-                    <option value="">No reporting manager</option>
-                    {manager ? (
-                      <option value={manager.id}>{manager.label}</option>
-                    ) : null}
-                    {(managerMatches.data?.data ?? [])
-                      .filter((m) => m.id !== manager?.id)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.fullName} ({m.employeeCode})
-                        </option>
-                      ))}
-                  </Select>
-                  {manager ? (
-                    <button
-                      type="button"
-                      className="self-start text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-                      onClick={() => setManager(null)}
-                      disabled={disabled}
-                    >
-                      Clear manager
-                    </button>
+                <Select
+                  {...f}
+                  value={values.teamId}
+                  disabled={
+                    disabled || (!canWriteAll && Boolean(initialValues))
+                  }
+                  onChange={(e) => set("teamId", e.target.value)}
+                >
+                  <option value="">Select a team</option>
+                  {/* Keep the current team visible even if the list omits it. */}
+                  {values.teamId &&
+                  !(teams.data ?? []).some(
+                    (t) => String(t.id) === values.teamId,
+                  ) ? (
+                    <option value={values.teamId}>
+                      {initialTeamName ?? `Team ${values.teamId}`}
+                    </option>
                   ) : null}
-                </div>
+                  {(teams.data ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
               )}
             </FormField>
-          </div>
+            <FormField
+              label="Date of joining"
+              required
+              error={errors.dateOfJoining}
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  type="date"
+                  invalid={f.invalid}
+                  value={values.dateOfJoining}
+                  disabled={disabled}
+                  onChange={(e) => set("dateOfJoining", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Designation"
+              required
+              error={errors.designationId}
+            >
+              {(f) => (
+                <Select
+                  {...f}
+                  value={values.designationId}
+                  disabled={disabled}
+                  onChange={(e) => set("designationId", e.target.value)}
+                >
+                  <option value="">Select a designation</option>
+                  {(designations.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FormField>
+            <FormField
+              label="Employment type"
+              required
+              error={errors.employmentTypeId}
+            >
+              {(f) => (
+                <Select
+                  {...f}
+                  value={values.employmentTypeId}
+                  disabled={disabled}
+                  onChange={(e) => set("employmentTypeId", e.target.value)}
+                >
+                  <option value="">Select an employment type</option>
+                  {(employmentTypes.data ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FormField>
+            <FormField label="Department" error={errors.departmentId}>
+              {(f) => (
+                <Select
+                  {...f}
+                  value={values.departmentId}
+                  disabled={disabled}
+                  onChange={(e) => set("departmentId", e.target.value)}
+                >
+                  <option value="">Use the team's department</option>
+                  {(departments.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FormField>
+            <FormField label="Work location" error={errors.workLocationId}>
+              {(f) => (
+                <Select
+                  {...f}
+                  value={values.workLocationId}
+                  disabled={disabled}
+                  onChange={(e) => set("workLocationId", e.target.value)}
+                >
+                  <option value="">None</option>
+                  {(workLocations.data ?? []).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FormField>
+            <div className="sm:col-span-2">
+              <FormField
+                label="Reporting manager"
+                error={errors.reportsToId}
+                hint="Only active employees can be selected."
+              >
+                {(f) => (
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      {...f}
+                      type="search"
+                      aria-label="Search for reporting manager"
+                      placeholder="Search active employees"
+                      value={managerSearch}
+                      disabled={disabled}
+                      onChange={(e) => setManagerSearch(e.target.value)}
+                    />
+                    <Select
+                      aria-label="Reporting manager"
+                      value={manager ? String(manager.id) : ""}
+                      disabled={disabled}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        const match = managerMatches.data?.data.find(
+                          (m) => m.id === id,
+                        );
+                        setManager(
+                          e.target.value && match
+                            ? {
+                                id,
+                                label: `${match.fullName} (${match.employeeCode})`,
+                              }
+                            : null,
+                        );
+                      }}
+                    >
+                      <option value="">No reporting manager</option>
+                      {manager ? (
+                        <option value={manager.id}>{manager.label}</option>
+                      ) : null}
+                      {(managerMatches.data?.data ?? [])
+                        .filter((m) => m.id !== manager?.id)
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.fullName} ({m.employeeCode})
+                          </option>
+                        ))}
+                    </Select>
+                    {manager ? (
+                      <button
+                        type="button"
+                        className="self-start text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                        onClick={() => setManager(null)}
+                        disabled={disabled}
+                      >
+                        Clear manager
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+              </FormField>
+            </div>
           </div>
         </div>
       </FormSection>
@@ -405,78 +411,78 @@ export function EmployeeForm({
         description="Probation and confirmation dates, referral and area of work"
         icon3d="recruitment"
       >
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            label="Probation ends"
-            error={errors.probationEndDate}
-            hint={
-              canWriteAll
-                ? "On or after the date of joining."
-                : "Only organization-wide HR can change this."
-            }
-          >
-            {(f) => (
-              <Input
-                {...f}
-                type="date"
-                invalid={f.invalid}
-                value={values.probationEndDate}
-                disabled={disabled || !canWriteAll}
-                onChange={(e) => set("probationEndDate", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField
-            label="Confirmation date"
-            error={errors.confirmationDate}
-            hint={
-              canWriteAll
-                ? "On or after the date of joining."
-                : "Only organization-wide HR can change this."
-            }
-          >
-            {(f) => (
-              <Input
-                {...f}
-                type="date"
-                invalid={f.invalid}
-                value={values.confirmationDate}
-                disabled={disabled || !canWriteAll}
-                onChange={(e) => set("confirmationDate", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField
-            label="Work domain"
-            error={errors.workDomain}
-            hint="e.g. Embedded systems, Textile, Operations"
-          >
-            {(f) => (
-              <Input
-                {...f}
-                invalid={f.invalid}
-                value={values.workDomain}
-                disabled={disabled}
-                onChange={(e) => set("workDomain", e.target.value)}
-              />
-            )}
-          </FormField>
-          <FormField
-            label="Referred by"
-            error={errors.referredBy}
-            hint="Name or employee code of the referrer"
-          >
-            {(f) => (
-              <Input
-                {...f}
-                invalid={f.invalid}
-                value={values.referredBy}
-                disabled={disabled}
-                onChange={(e) => set("referredBy", e.target.value)}
-              />
-            )}
-          </FormField>
+            <FormField
+              label="Probation ends"
+              error={errors.probationEndDate}
+              hint={
+                canWriteAll
+                  ? "On or after the date of joining."
+                  : "Only organization-wide HR can change this."
+              }
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  type="date"
+                  invalid={f.invalid}
+                  value={values.probationEndDate}
+                  disabled={disabled || !canWriteAll}
+                  onChange={(e) => set("probationEndDate", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Confirmation date"
+              error={errors.confirmationDate}
+              hint={
+                canWriteAll
+                  ? "On or after the date of joining."
+                  : "Only organization-wide HR can change this."
+              }
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  type="date"
+                  invalid={f.invalid}
+                  value={values.confirmationDate}
+                  disabled={disabled || !canWriteAll}
+                  onChange={(e) => set("confirmationDate", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Work domain"
+              error={errors.workDomain}
+              hint="e.g. Embedded systems, Textile, Operations"
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  invalid={f.invalid}
+                  value={values.workDomain}
+                  disabled={disabled}
+                  onChange={(e) => set("workDomain", e.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField
+              label="Referred by"
+              error={errors.referredBy}
+              hint="Name or employee code of the referrer"
+            >
+              {(f) => (
+                <Input
+                  {...f}
+                  invalid={f.invalid}
+                  value={values.referredBy}
+                  disabled={disabled}
+                  onChange={(e) => set("referredBy", e.target.value)}
+                />
+              )}
+            </FormField>
           </div>
         </div>
       </FormSection>

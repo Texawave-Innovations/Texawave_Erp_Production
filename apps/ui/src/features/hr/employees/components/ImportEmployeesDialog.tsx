@@ -198,7 +198,7 @@ export function ImportEmployeesDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-mono">{e.row}</span>,
+                    cell: (e) => <span>{e.row}</span>,
                   },
                   { header: "Column", cell: (e) => e.field ?? "—" },
                   { header: "Problem", cell: (e) => e.message },

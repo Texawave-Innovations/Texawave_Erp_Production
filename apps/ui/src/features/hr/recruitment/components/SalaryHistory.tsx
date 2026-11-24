@@ -80,9 +80,7 @@ export function SalaryHistory({ employeeId }: { employeeId: number }) {
             {
               header: "Document no.",
               cell: (entry) => (
-                <span className="font-mono text-theme-xs">
-                  {entry.documentNo}
-                </span>
+                <span className="text-theme-xs">{entry.documentNo}</span>
               ),
             },
             {

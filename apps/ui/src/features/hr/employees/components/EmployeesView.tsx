@@ -906,7 +906,7 @@ export function EmployeesView() {
                   className: "w-[95px] text-center whitespace-nowrap",
                   headerClassName: "w-[95px] text-center whitespace-nowrap",
                   cell: (e) => (
-                    <span className="font-mono text-[12px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400">
                       {formatDate(e.dateOfJoining)}
                     </span>
                   ),

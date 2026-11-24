@@ -537,7 +537,7 @@ function HrLoansSection() {
   return (
     <div className="flex flex-col gap-6 animate-reveal">
       {/* Executive Header Banner - Soft Low-Contrast Styling */}
-      <div className="relative overflow-visible rounded-2xl border border-sky-200/80 bg-linear-to-r from-sky-50/90 via-sky-50/40 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/60">
+      <div className="relative overflow-visible rounded-2xl border border-sky-200/80 bg-linear-to-r from-sky-50/90 via-sky-50/40 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/60">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
