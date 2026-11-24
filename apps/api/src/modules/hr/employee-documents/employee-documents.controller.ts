@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Put,
   Query,
   StreamableFile,
   UploadedFile,
@@ -75,6 +76,24 @@ export class EmployeeDocumentsController {
       type: file.mimeType,
       disposition: `${disp}; filename="${encodeURIComponent(file.fileName)}"`,
     });
+  }
+
+  @Put(":id/file")
+  @RequireScopedPermission("hr.employee_document.write")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }),
+  )
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary:
+      "Replace the file of an existing document (onboarding or HR-uploaded), keeping its type and label. PDF, JPG or PNG, 5 MB or smaller. Field name: file.",
+  })
+  replace(
+    @Param("employeeId", ParseIntPipe) employeeId: number,
+    @Param("id", ParseIntPipe) id: number,
+    @UploadedFile() file: UploadedDocument | undefined,
+  ) {
+    return this.documents.replaceDocument(employeeId, id, file);
   }
 
   @Delete(":id")

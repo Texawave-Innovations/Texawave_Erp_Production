@@ -45,6 +45,23 @@ export function uploadEmployeeDocument(
   ).then((res) => res.data);
 }
 
+/** Swaps the file behind an existing document (onboarding or HR-uploaded);
+ * the record keeps its id, type and label. */
+export function replaceEmployeeDocument(
+  employeeId: number,
+  id: number,
+  file: File,
+): Promise<EmployeeDocumentRow> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return withAuthRetry(() =>
+    apiClient.request<EmployeeDocumentRow>(`${base(employeeId)}/${id}/file`, {
+      method: "PUT",
+      formData,
+    }),
+  ).then((res) => res.data);
+}
+
 export function removeEmployeeDocument(
   employeeId: number,
   id: number,

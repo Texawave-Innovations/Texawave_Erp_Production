@@ -112,6 +112,63 @@ export class EmployeeDocumentsRepository {
     });
   }
 
+  /** Points an existing document at a new file. Audit metadata is ids and
+   * classification only (type, source, mime type, size): never a file name,
+   * label or contents. Returns null when nothing matched (gone or out of scope). */
+  @TeamScoped()
+  replaceFile(
+    scope: TeamScope,
+    employeeId: number,
+    id: number,
+    file: {
+      fileName: string;
+      storageKey: string;
+      mimeType: string;
+      sizeBytes: number;
+      previousMimeType: string | null;
+      previousSizeBytes: number | null;
+    },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.employeeDocument.updateMany({
+        where: teamWhere(
+          scope,
+          { id, employeeId, deletedAt: null },
+          VIA_EMPLOYEE,
+        ),
+        data: {
+          fileName: file.fileName,
+          storageKey: file.storageKey,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          uploadedAt: new Date(),
+        },
+      });
+      if (count !== 1) return null;
+      const row = await tx.employeeDocument.findUniqueOrThrow({
+        where: { id },
+      });
+      await this.audit.write(tx, {
+        entityType: "employee_document",
+        entityId: id,
+        action: "replace_document",
+        before: {
+          employeeId,
+          mimeType: file.previousMimeType,
+          sizeBytes: file.previousSizeBytes,
+        },
+        after: {
+          employeeId,
+          documentType: auditDocumentType(row.documentType),
+          source: row.source,
+          mimeType: row.mimeType,
+          sizeBytes: row.sizeBytes,
+        },
+      });
+      return row;
+    });
+  }
+
   /** Only HR-uploaded documents are removable here; the onboarding set
    * belongs to the employee's own profile flow. Returns false when nothing
    * matched (already gone, out of scope, or not HR-uploaded). */
