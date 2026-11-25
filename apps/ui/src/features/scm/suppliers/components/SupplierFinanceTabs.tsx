@@ -21,11 +21,11 @@ import {
   Skeleton,
   StatCard,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { Download, Eye, Plus, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useMasterListItems } from "../../master-list-items/hooks";
 import {
@@ -111,7 +111,11 @@ function TabError({
 }) {
   if (error instanceof ApiError && error.isPermissionError) {
     return (
-      <Alert variant="warning" title={`You don't have access to ${noun}`}>
+      <Alert
+        dismissible
+        variant="warning"
+        title={`You don't have access to ${noun}`}
+      >
         Ask an administrator for the <code>{permission}</code> permission.
       </Alert>
     );
@@ -151,7 +155,7 @@ function ReasonDialog({
       await onConfirm(reason.trim());
       setReason("");
     } catch (err) {
-      setError(errorText(err, "Could not complete this action"));
+      setError(errorText(err, "scm.supplierFinance.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -239,7 +243,7 @@ function BillForm({
   currency: string;
   bill: SupplierBill | null;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const procurement = useSupplierProcurement(supplierId);
   const create = useCreateSupplierBill();
   const update = useUpdateSupplierBill();
@@ -323,7 +327,7 @@ function BillForm({
             notes,
           },
         });
-        toast({ title: "Bill updated", variant: "success" });
+        notify("scm.bill.updated");
       } else {
         const input: CreateSupplierBillInput = {
           supplierId,
@@ -337,14 +341,11 @@ function BillForm({
           ...(notes.trim() ? { notes: notes.trim() } : {}),
         };
         const created = await create.mutateAsync(input);
-        toast({
-          title: `Bill ${created.billNumber} recorded`,
-          variant: "success",
-        });
+        notify("scm.bill.recorded", { number: created.billNumber });
       }
       onClose();
     } catch (err) {
-      setSubmitError(errorText(err, "Could not save the bill"));
+      setSubmitError(errorText(err, "scm.bill.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -515,7 +516,7 @@ function PostBillDialog({
       onSuccess();
       onClose();
     } catch (err) {
-      setError(errorText(err, "Failed to post bill to Finance"));
+      setError(errorText(err, "scm.bill.postFailed"));
     } finally {
       setBusy(false);
     }
@@ -648,7 +649,7 @@ export function SupplierBillsTab({
   const [paying, setPaying] = useState<SupplierBill | null>(null);
   const [cancelling, setCancelling] = useState<SupplierBill | null>(null);
   const [posting, setPosting] = useState<SupplierBill | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.finance.write");
   const query = useSupplierBills({ supplierId, page, limit: PAGE_SIZE });
   const summary = useSupplierFinanceSummary(supplierId);
@@ -887,10 +888,7 @@ export function SupplierBillsTab({
         onClose={() => setPosting(null)}
         onSuccess={() => {
           if (posting) {
-            toast({
-              title: `${posting.billNumber} posted to Finance & GST`,
-              variant: "success",
-            });
+            notify("scm.bill.posted", { number: posting.billNumber });
           }
         }}
       />
@@ -903,10 +901,7 @@ export function SupplierBillsTab({
         onConfirm={async (reason) => {
           if (!cancelling) return;
           await cancel.mutateAsync({ id: cancelling.id, reason });
-          toast({
-            title: `${cancelling.billNumber} cancelled`,
-            variant: "success",
-          });
+          notify("scm.bill.cancelled", { number: cancelling.billNumber });
           setCancelling(null);
         }}
       />
@@ -957,7 +952,7 @@ function PaymentForm({
   currency: string;
   presetBill: SupplierBill | null;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const create = useCreateSupplierPayment();
   const unpaid = useSupplierBills({ supplierId, limit: 100 });
   const [billId, setBillId] = useState(presetBill ? String(presetBill.id) : "");
@@ -1009,13 +1004,10 @@ function PaymentForm({
         ...(reference.trim() ? { referenceNumber: reference.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
-      toast({
-        title: `Payment ${created.paymentNumber} recorded`,
-        variant: "success",
-      });
+      notify("scm.supplierPayment.recorded", { number: created.paymentNumber });
       onClose();
     } catch (err) {
-      setSubmitError(errorText(err, "Could not record the payment"));
+      setSubmitError(errorText(err, "scm.supplierPayment.recordFailed"));
     } finally {
       setBusy(false);
     }
@@ -1115,7 +1107,7 @@ export function SupplierPaymentsTab({
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [voiding, setVoiding] = useState<SupplierPayment | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.finance.write");
   const query = useSupplierPayments({ supplierId, page, limit: PAGE_SIZE });
   const summary = useSupplierFinanceSummary(supplierId);
@@ -1257,9 +1249,8 @@ export function SupplierPaymentsTab({
         onConfirm={async (reason) => {
           if (!voiding) return;
           await voidPayment.mutateAsync({ id: voiding.id, reason });
-          toast({
-            title: `${voiding.paymentNumber} voided`,
-            variant: "success",
+          notify("scm.supplierPayment.voided", {
+            number: voiding.paymentNumber,
           });
           setVoiding(null);
         }}
@@ -1284,7 +1275,7 @@ function UploadDialog({
   onClose: () => void;
   supplierId: number;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const upload = useUploadSupplierDocument();
   const documentTypes = useMasterListItems({
     category: "supplier_document_type",
@@ -1327,13 +1318,13 @@ function UploadDialog({
         ...(name.trim() ? { name: name.trim() } : {}),
         ...(type ? { documentType: type } : {}),
       });
-      toast({ title: "Document uploaded", variant: "success" });
+      notify("scm.supplierDocument.uploaded");
       setFile(null);
       setName("");
       setType("");
       onClose();
     } catch (err) {
-      setError(errorText(err, "Could not upload the document"));
+      setError(errorText(err, "scm.supplierDocument.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -1409,7 +1400,7 @@ function UploadDialog({
 export function SupplierDocumentsTab({ supplierId }: { supplierId: number }) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [removing, setRemoving] = useState<SupplierDocument | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.supplier.write");
   const query = useSupplierDocuments(supplierId);
   const remove = useRemoveSupplierDocument();
@@ -1418,10 +1409,7 @@ export function SupplierDocumentsTab({ supplierId }: { supplierId: number }) {
     try {
       await fetchSupplierDocument(supplierId, doc.id, doc.fileName, mode);
     } catch (err) {
-      toast({
-        title: errorText(err, "Could not open the document"),
-        variant: "error",
-      });
+      notifyError(err, "scm.supplierDocument.openFailed");
     }
   }
 
@@ -1544,13 +1532,10 @@ export function SupplierDocumentsTab({ supplierId }: { supplierId: number }) {
           if (!removing) return;
           try {
             await remove.mutateAsync({ supplierId, id: removing.id });
-            toast({ title: "Document deleted", variant: "success" });
+            notify("scm.supplierDocument.deleted");
             setRemoving(null);
           } catch (err) {
-            toast({
-              title: errorText(err, "Could not delete the document"),
-              variant: "error",
-            });
+            notifyError(err, "scm.supplierDocument.deleteFailed");
           }
         }}
         loading={remove.isPending}

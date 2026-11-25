@@ -1,9 +1,10 @@
 "use client";
 
 import type { QualityDefect, UpdateDefectInput } from "@texawave-erp/api-types";
-import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, StatusBadge } from "@texawave-erp/ui-kit";
 import { BadgeAlert, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useMasterListItems } from "../../master-list-items/hooks";
 import { formatStatusLabel } from "../../shared/format";
@@ -33,7 +34,7 @@ export function DefectsView() {
   const c = useListControls();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<QualityDefect | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.quality.write");
   const deletingRowRemove = useDeleteDefect();
   const [deletingRow, setDeletingRow] = useState<QualityDefect | null>(null);
@@ -150,8 +151,8 @@ export function DefectsView() {
         }
         confirmText="Delete defect"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Defect deleted"
-        errorFallback="Failed to delete defect"
+        successMessage="scm.defect.deleted"
+        errorFallback="scm.defect.deleteFailed"
       />
       <ScmFormDialog
         open={formOpen}
@@ -245,12 +246,9 @@ export function DefectsView() {
               });
             }
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save defect"));
+            throw new Error(errorText(err, "scm.defect.saveFailed"));
           }
-          toast({
-            title: editing ? "Defect updated" : "Defect added",
-            variant: "success",
-          });
+          notify(editing ? "scm.defect.updated" : "scm.defect.added");
           setFormOpen(false);
           setEditing(null);
         }}

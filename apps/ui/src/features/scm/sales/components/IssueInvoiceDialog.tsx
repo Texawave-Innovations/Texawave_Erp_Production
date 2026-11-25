@@ -8,8 +8,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileCheck, Receipt, AlertCircle } from "lucide-react";
 import { useState } from "react";
@@ -34,7 +34,7 @@ export function IssueInvoiceDialog({
   order,
   onSuccess,
 }: IssueInvoiceDialogProps) {
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const queryClient = useQueryClient();
   const issueMutation = useIssueSalesInvoice();
 
@@ -87,11 +87,7 @@ export function IssueInvoiceDialog({
         },
       });
 
-      toast({
-        title: "Tax Invoice Issued",
-        description: `Invoice ${result.invoiceNumber} posted to General Ledger and GST Return ledger.`,
-        variant: "success",
-      });
+      notify("scm.invoice.issued", { number: result.invoiceNumber });
 
       // Invalidate all affected queries
       await Promise.all([
@@ -110,13 +106,9 @@ export function IssueInvoiceDialog({
       }
       onClose();
     } catch (err) {
-      const msg = errorText(err, "Failed to issue tax invoice");
+      const msg = errorText(err, "scm.invoice.issueFailedInline");
       setFormError(msg);
-      toast({
-        title: "Invoice Issuance Failed",
-        description: msg,
-        variant: "error",
-      });
+      notifyFailure(err, "scm.invoice.issueFailed");
     }
   }
 

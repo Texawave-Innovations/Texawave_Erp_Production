@@ -54,7 +54,11 @@ export function ReturnsDashboardView() {
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to returns">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to returns"
+        >
           Ask an administrator for the <code>scm.returns.read</code> permission.
         </Alert>
       );

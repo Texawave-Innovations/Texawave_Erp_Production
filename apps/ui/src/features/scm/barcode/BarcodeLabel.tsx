@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, useToast } from "@texawave-erp/ui-kit";
+import { Button } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Download, Printer } from "lucide-react";
 import { useState } from "react";
 import {
@@ -21,7 +22,7 @@ export function BarcodeLabel({
   showActions = true,
   ...options
 }: BarcodeLabelProps) {
-  const { toast } = useToast();
+  const { notifyError } = useNotify();
   const [busy, setBusy] = useState(false);
   // Cheap to build (a few ms), so it is derived on every render.
   const label = buildLabelSvg(options);
@@ -37,11 +38,7 @@ export function BarcodeLabel({
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      toast({
-        title:
-          err instanceof Error ? err.message : "Could not download the label",
-        variant: "error",
-      });
+      notifyError(err, "scm.barcode.labelDownloadFailed");
     } finally {
       setBusy(false);
     }

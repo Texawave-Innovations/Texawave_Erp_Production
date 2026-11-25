@@ -62,7 +62,7 @@ export function InspectionDetailDialog({
       await action.mutateAsync({ id: insp.id, action: a, body });
       setCancelling(false);
     } catch (e) {
-      setErr(errorText(e, "Action failed"));
+      setErr(errorText(e, "scm.common.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -278,7 +278,7 @@ function CancelDialog({
                 try {
                   await onSubmit(reason.trim());
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -380,7 +380,7 @@ function RecordBody({
       });
       onClose();
     } catch (e) {
-      setErr(errorText(e, "Failed to record result"));
+      setErr(errorText(e, "scm.inspection.resultFailed"));
     } finally {
       setBusy(false);
     }

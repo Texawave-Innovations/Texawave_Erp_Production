@@ -2,9 +2,11 @@
 
 import type { Shipment } from "@texawave-erp/api-types";
 import { SHIPMENT_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { Truck } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useMasterListItems } from "../../master-list-items/hooks";
 import {
@@ -45,7 +47,7 @@ export function ShipmentsView() {
   const [status, setStatus] = useState("");
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [dlg, setDlg] = useState<Dlg>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.logistics.write");
   const deletingRowRemove = useDeleteShipment();
   const [deletingRow, setDeletingRow] = useState<Shipment | null>(null);
@@ -72,26 +74,34 @@ export function ShipmentsView() {
   });
   const s = detail.data;
 
+  /** Runs a shipment action and toasts the outcome; false when no shipment is loaded. */
+  async function exec(
+    action: string,
+    body: object | undefined,
+    ok: MessageKey,
+  ) {
+    if (!s) return false;
+    await act.mutateAsync({ id: s.id, action, ...(body ? { body } : {}) });
+    notify(ok);
+    return true;
+  }
   async function run(
     action: string,
     body: object | undefined,
-    ok: string,
+    ok: MessageKey,
     close = true,
   ) {
-    if (!s) return;
     try {
-      await act.mutateAsync({ id: s.id, action, ...(body ? { body } : {}) });
-      toast({ title: ok, variant: "success" });
-      if (close) setDlg(null);
+      if ((await exec(action, body, ok)) && close) setDlg(null);
     } catch (err) {
-      throw new Error(errorText(err, "Action failed"));
+      throw new Error(errorText(err, "scm.common.actionFailed"));
     }
   }
-  async function quick(action: string, ok: string) {
+  async function quick(action: string, ok: MessageKey) {
     try {
-      await run(action, undefined, ok, false);
+      await exec(action, undefined, ok);
     } catch (err) {
-      toast({ title: (err as Error).message, variant: "error" });
+      notifyError(err, "scm.common.actionFailed");
     }
   }
 
@@ -111,7 +121,9 @@ export function ShipmentsView() {
           </Button>
         ) : null}
         {st === "LABEL_CREATED" ? (
-          <Button onClick={() => void quick("dispatch", "Shipment dispatched")}>
+          <Button
+            onClick={() => void quick("dispatch", "scm.shipment.dispatched")}
+          >
             Dispatch
           </Button>
         ) : null}
@@ -255,8 +267,8 @@ export function ShipmentsView() {
         }
         confirmText="Delete shipment"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Shipment deleted"
-        errorFallback="Failed to delete shipment"
+        successMessage="scm.shipment.deleted"
+        errorFallback="scm.shipment.deleteFailed"
       />
       <ScmDetailDialog
         open={viewingId !== null}
@@ -382,7 +394,7 @@ export function ShipmentsView() {
           run(
             "carrier",
             { ...v, carrierId: Number(v.carrierId) },
-            "Carrier assigned",
+            "scm.shipment.carrierAssigned",
           )
         }
       />
@@ -400,7 +412,7 @@ export function ShipmentsView() {
             span: 2,
           },
         ]}
-        onSubmit={(v) => run("label", v, "Label created")}
+        onSubmit={(v) => run("label", v, "scm.shipment.labelCreated")}
       />
       <ScmFormDialog
         open={dlg === "transit"}
@@ -421,7 +433,7 @@ export function ShipmentsView() {
           { name: "location", label: "Location", type: "text" },
           { name: "description", label: "Details", type: "textarea", span: 2 },
         ]}
-        onSubmit={(v) => run("status", v, "Status updated")}
+        onSubmit={(v) => run("status", v, "scm.shipment.statusUpdated")}
       />
       <ScmFormDialog
         open={dlg === "deliver"}
@@ -437,7 +449,7 @@ export function ShipmentsView() {
           },
           { name: "deliveryNotes", label: "Notes", type: "textarea", span: 2 },
         ]}
-        onSubmit={(v) => run("deliver", v, "Shipment delivered")}
+        onSubmit={(v) => run("deliver", v, "scm.shipment.delivered")}
       />
       <ScmFormDialog
         open={dlg === "exception"}
@@ -463,7 +475,7 @@ export function ShipmentsView() {
             span: 2,
           },
         ]}
-        onSubmit={(v) => run("exception", v, "Exception recorded")}
+        onSubmit={(v) => run("exception", v, "scm.shipment.exceptionRecorded")}
       />
       <ScmFormDialog
         open={dlg === "resolve"}
@@ -483,7 +495,7 @@ export function ShipmentsView() {
           run(
             `exceptions/${openException?.id ?? 0}/resolve`,
             v,
-            "Exception resolved",
+            "scm.shipment.exceptionResolved",
           )
         }
       />
@@ -493,7 +505,7 @@ export function ShipmentsView() {
         title="Failed Delivery"
         submitLabel="Mark Failed"
         fields={reasonField("Reason")}
-        onSubmit={(v) => run("fail", v, "Marked as failed delivery")}
+        onSubmit={(v) => run("fail", v, "scm.shipment.markedFailed")}
       />
       <ScmFormDialog
         open={dlg === "cancel"}
@@ -502,7 +514,7 @@ export function ShipmentsView() {
         description="Packings become available to ship again."
         submitLabel="Cancel Shipment"
         fields={reasonField("Reason")}
-        onSubmit={(v) => run("cancel", v, "Shipment cancelled")}
+        onSubmit={(v) => run("cancel", v, "scm.shipment.cancelled")}
       />
     </ScmListView>
   );

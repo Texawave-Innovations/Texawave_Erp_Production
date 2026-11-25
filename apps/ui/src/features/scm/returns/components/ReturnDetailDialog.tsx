@@ -89,7 +89,7 @@ export function ReturnDetailDialog({
     try {
       await act.mutateAsync({ id: ret.id, action });
     } catch (e) {
-      setErr(errorText(e, "Action failed"));
+      setErr(errorText(e, "scm.common.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -512,7 +512,7 @@ function ReasonDialog({
                 try {
                   await onSubmit(reason.trim());
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -574,7 +574,7 @@ function InTransitDialog({
                     trackingNumber: trackingNumber.trim() || undefined,
                   });
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -640,7 +640,7 @@ function ShipVendorDialog({
                     trackingNumber: trackingNumber.trim(),
                   });
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -721,7 +721,7 @@ function ReceiveDialog({
                     })),
                   );
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -843,7 +843,7 @@ function InspectDialog({
                     })),
                   );
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -963,7 +963,7 @@ function DispositionDialog({
                     notes: notes.trim() || undefined,
                   });
                 } catch (e) {
-                  setErr(errorText(e, "Action failed"));
+                  setErr(errorText(e, "scm.common.actionFailed"));
                 } finally {
                   setBusy(false);
                 }

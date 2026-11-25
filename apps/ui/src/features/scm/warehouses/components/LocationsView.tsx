@@ -13,7 +13,6 @@ import {
   Select,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   ChevronDown,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { ApiError } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { buildQrPayload } from "../../barcode/codes";
 import { LabelDialog } from "../../barcode/LabelDialog";
@@ -108,7 +108,7 @@ export function LocationsView() {
   const [forceDelete, setForceDelete] = useState(false);
   const [label, setLabel] = useState<BarcodeLabelProps | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.warehouse.write");
   const warehouses = useWarehouseOptions();
   const locationsQuery = useLocationOptions();
@@ -280,12 +280,9 @@ export function LocationsView() {
     const next = l.status === "Active" ? "Inactive" : "Active";
     try {
       await update.mutateAsync({ id: l.id, input: { status: next } });
-      toast({ title: `Location marked ${next}`, variant: "success" });
+      notify("scm.location.statusChanged", { status: next });
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to update location"),
-        variant: "error",
-      });
+      notifyError(err, "scm.location.updateFailed");
     }
   }
 
@@ -306,7 +303,11 @@ export function LocationsView() {
   if (failed) {
     if (failed instanceof ApiError && failed.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to locations">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to locations"
+        >
           Ask an administrator for the <code>scm.warehouse.read</code>{" "}
           permission.
         </Alert>
@@ -345,11 +346,7 @@ export function LocationsView() {
               className="gap-2"
               onClick={() => {
                 if ((warehouses.data ?? []).length === 0) {
-                  toast({
-                    title:
-                      "Create a warehouse first (Warehouse → Warehouses), then add locations to it.",
-                    variant: "error",
-                  });
+                  notify("scm.location.warehouseRequired");
                   return;
                 }
                 setEditing(null);
@@ -594,16 +591,13 @@ export function LocationsView() {
           try {
             created = await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create location"));
+            throw new Error(errorText(err, "scm.location.createFailed"));
           }
           const bins = input.bins?.length ?? 0;
-          toast({
-            title:
-              bins > 0
-                ? `Rack created with ${bins} bin(s)`
-                : "Location created",
-            variant: "success",
-          });
+          notify(
+            bins > 0 ? "scm.location.rackCreated" : "scm.location.created",
+            { count: bins },
+          );
           if (bins > 0) setExpanded((prev) => new Set(prev).add(created.id));
           setFormOpen(false);
         }}
@@ -611,9 +605,9 @@ export function LocationsView() {
           try {
             await update.mutateAsync({ id, input });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to update location"));
+            throw new Error(errorText(err, "scm.location.updateFailed"));
           }
-          toast({ title: "Location updated", variant: "success" });
+          notify("scm.location.updated");
           setFormOpen(false);
           setEditing(null);
         }}
@@ -633,17 +627,14 @@ export function LocationsView() {
               id: deleting.id,
               force: forceDelete,
             });
-            toast({
-              title: result.nested
-                ? `Location and ${result.nested} nested location(s) deleted`
-                : "Location deleted",
-              variant: "success",
-            });
+            notify(
+              result.nested
+                ? "scm.location.deletedNested"
+                : "scm.location.deleted",
+              { count: result.nested },
+            );
           } catch (err) {
-            toast({
-              title: errorText(err, "Failed to delete location"),
-              variant: "error",
-            });
+            notifyError(err, "scm.location.deleteFailed");
           }
           setDeleting(null);
         }}

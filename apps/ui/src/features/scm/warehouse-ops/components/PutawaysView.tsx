@@ -8,10 +8,10 @@ import {
   Input,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { PackagePlus, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -45,7 +45,7 @@ export function PutawaysView() {
   const [status, setStatus] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [viewingId, setViewingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.warehouse.write");
   const deletingRowRemove = useDeletePutaway();
   const [deletingRow, setDeletingRow] = useState<Putaway | null>(null);
@@ -165,8 +165,8 @@ export function PutawaysView() {
         }
         confirmText="Delete put-away"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Put-away deleted"
-        errorFallback="Failed to delete put-away"
+        successMessage="scm.putaway.deleted"
+        errorFallback="scm.putaway.deleteFailed"
       />
       <CreatePutawayForm
         open={formOpen}
@@ -176,12 +176,9 @@ export function PutawaysView() {
           try {
             created = await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create put-away"));
+            throw new Error(errorText(err, "scm.putaway.createFailed"));
           }
-          toast({
-            title: `${created.putawayNumber} created`,
-            variant: "success",
-          });
+          notify("scm.putaway.created", { number: created.putawayNumber });
           setFormOpen(false);
           setViewingId(created.id);
         }}
@@ -225,7 +222,7 @@ function CreatePutawayForm({
         ...(grnId ? { grnId: Number(grnId) } : {}),
       });
     } catch (err) {
-      setError(errorText(err, "Failed to create put-away"));
+      setError(errorText(err, "scm.putaway.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -318,7 +315,7 @@ function PutawayDetailDialog({
     try {
       await action.mutateAsync({ id: putaway.id, action: a });
     } catch (e) {
-      setErr(errorText(e, "Action failed"));
+      setErr(errorText(e, "scm.common.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -560,7 +557,7 @@ function RecordItemDialog({
                   });
                   onClose();
                 } catch (e) {
-                  setErr(errorText(e, "Failed to record"));
+                  setErr(errorText(e, "scm.putaway.recordFailed"));
                 } finally {
                   setBusy(false);
                 }
@@ -629,7 +626,7 @@ function AddLineDialog({
                   });
                   onClose();
                 } catch (e) {
-                  setErr(errorText(e, "Failed to add line"));
+                  setErr(errorText(e, "scm.putaway.addLineFailed"));
                 } finally {
                   setBusy(false);
                 }

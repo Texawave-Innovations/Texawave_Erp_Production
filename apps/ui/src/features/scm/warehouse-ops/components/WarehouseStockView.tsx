@@ -14,7 +14,6 @@ import {
   Skeleton,
   StatusBadge,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Boxes,
@@ -26,6 +25,7 @@ import {
   Warehouse,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { buildQrPayload } from "../../barcode/codes";
 import { LabelDialog } from "../../barcode/LabelDialog";
@@ -40,7 +40,6 @@ import {
 } from "../../shared/format";
 import { useLocationOptions, WarehouseSelect } from "../../shared/masters";
 import { DashboardKpiGrid } from "../../shared/ScmDashboardPage";
-import { errorText } from "../../shared/use-list-controls";
 import { useStockView, useStockWriteOff } from "../hooks";
 
 const TABS = [
@@ -60,7 +59,7 @@ export function WarehouseStockView() {
   const [warehouseId, setWarehouseId] = useState<number | "">("");
   const [writeOff, setWriteOff] = useState<WarehouseStockViewRow | null>(null);
   const [label, setLabel] = useState<BarcodeLabelProps | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.warehouse.write");
   const filters = {
     warehouseId: warehouseId === "" ? undefined : warehouseId,
@@ -102,6 +101,7 @@ export function WarehouseStockView() {
     if (stock.error instanceof ApiError && stock.error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to warehouse stock"
         >
@@ -395,15 +395,12 @@ export function WarehouseStockView() {
               locationId: writeOff.locationId ?? undefined,
               quantity: writeOff.quantity,
             });
-            toast({
-              title: `Wrote off ${formatQty(writeOff.quantity)} × ${writeOff.productName}`,
-              variant: "success",
+            notify("scm.stock.writtenOff", {
+              qty: formatQty(writeOff.quantity),
+              product: writeOff.productName,
             });
           } catch (err) {
-            toast({
-              title: errorText(err, "Failed to write off this stock"),
-              variant: "error",
-            });
+            notifyError(err, "scm.stock.writeOffFailed");
           }
           setWriteOff(null);
         }}

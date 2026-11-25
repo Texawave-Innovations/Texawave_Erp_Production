@@ -10,9 +10,10 @@ import {
   INSPECTION_TYPES,
   INSPECTION_TYPE_LABEL,
 } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Plus, SearchCheck } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -38,7 +39,7 @@ export function InspectionsView() {
   const [status, setStatus] = useState<QualityInspectionStatus | "">("");
   const [formOpen, setFormOpen] = useState(false);
   const [viewingId, setViewingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.quality.write");
   const deletingRowRemove = useDeleteInspection();
   const [deletingRow, setDeletingRow] = useState<QualityInspection | null>(
@@ -195,8 +196,8 @@ export function InspectionsView() {
         }
         confirmText="Delete inspection"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Inspection deleted"
-        errorFallback="Failed to delete inspection"
+        successMessage="scm.inspection.deleted"
+        errorFallback="scm.inspection.deleteFailed"
       />
       <InspectionForm
         open={formOpen}
@@ -206,11 +207,10 @@ export function InspectionsView() {
           try {
             created = await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create inspection"));
+            throw new Error(errorText(err, "scm.inspection.createFailed"));
           }
-          toast({
-            title: `${created.inspectionNumber} created`,
-            variant: "success",
+          notify("scm.inspection.created", {
+            number: created.inspectionNumber,
           });
           setFormOpen(false);
           setViewingId(created.id);

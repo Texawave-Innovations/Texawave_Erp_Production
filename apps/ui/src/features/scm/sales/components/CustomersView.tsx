@@ -1,9 +1,10 @@
 "use client";
 
 import type { ScmCustomer, ScmCustomerPayload } from "@texawave-erp/api-types";
-import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, StatusBadge } from "@texawave-erp/ui-kit";
 import { Plus, Users } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { scmStatusToken } from "../../shared/format";
 import { ScmFormDialog } from "../../shared/ScmFormDialog";
@@ -17,7 +18,7 @@ export function CustomersView() {
   const c = useListControls();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ScmCustomer | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.sales.write");
   const create = useCreateCustomer();
   const update = useUpdateCustomer();
@@ -153,12 +154,9 @@ export function CustomersView() {
             if (editing) await update.mutateAsync({ id: editing.id, input });
             else await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save customer"));
+            throw new Error(errorText(err, "scm.customer.saveFailed"));
           }
-          toast({
-            title: editing ? "Customer updated" : "Customer added",
-            variant: "success",
-          });
+          notify(editing ? "scm.customer.updated" : "scm.customer.added");
           setFormOpen(false);
           setEditing(null);
         }}

@@ -72,7 +72,11 @@ export function ReportsDashboardView() {
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to reports">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to reports"
+        >
           Ask an administrator for the <code>scm.reports.read</code> permission.
         </Alert>
       );

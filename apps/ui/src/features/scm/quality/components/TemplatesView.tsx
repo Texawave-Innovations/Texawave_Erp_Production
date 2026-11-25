@@ -11,10 +11,11 @@ import {
   Input,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey, type MessageParams } from "@texawave-erp/core";
 import { ClipboardCheck, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
 import { ScmListView } from "../../shared/ScmListView";
@@ -48,7 +49,7 @@ export function TemplatesView() {
   const c = useListControls();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<QualityTemplate | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.quality.write");
   const deletingRowRemove = useDeleteTemplate();
   const [deletingRow, setDeletingRow] = useState<QualityTemplate | null>(null);
@@ -150,8 +151,8 @@ export function TemplatesView() {
         }
         confirmText="Delete template"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Template deleted"
-        errorFallback="Failed to delete template"
+        successMessage="scm.qualityTemplate.deleted"
+        errorFallback="scm.qualityTemplate.deleteFailed"
       />
       <TemplateForm
         open={formOpen}
@@ -160,8 +161,8 @@ export function TemplatesView() {
           setFormOpen(false);
           setEditing(null);
         }}
-        onSaved={(label) => {
-          toast({ title: label, variant: "success" });
+        onSaved={(key, params) => {
+          notify(key, params);
           setFormOpen(false);
           setEditing(null);
         }}
@@ -179,7 +180,7 @@ function TemplateForm({
   open: boolean;
   template: QualityTemplate | null;
   onClose: () => void;
-  onSaved: (label: string) => void;
+  onSaved: (key: MessageKey, params?: MessageParams) => void;
 }) {
   return (
     <ScmPanel
@@ -208,7 +209,7 @@ function Body({
 }: {
   template: QualityTemplate | null;
   onClose: () => void;
-  onSaved: (label: string) => void;
+  onSaved: (key: MessageKey, params?: MessageParams) => void;
 }) {
   const create = useCreateTemplate();
   const update = useUpdateTemplate();
@@ -268,7 +269,7 @@ function Body({
             checkpoints: checkpointInput,
           },
         });
-        onSaved("Template updated");
+        onSaved("scm.qualityTemplate.updated");
       } else {
         const created = await create.mutateAsync({
           templateCode,
@@ -277,10 +278,10 @@ function Body({
           inspectionType,
           checkpoints: checkpointInput,
         });
-        onSaved(`${created.templateCode} created`);
+        onSaved("scm.qualityTemplate.created", { code: created.templateCode });
       }
     } catch (err) {
-      setError(errorText(err, "Failed to save template"));
+      setError(errorText(err, "scm.qualityTemplate.saveFailed"));
     } finally {
       setBusy(false);
     }

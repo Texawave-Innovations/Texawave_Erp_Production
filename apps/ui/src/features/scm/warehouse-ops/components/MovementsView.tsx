@@ -13,10 +13,10 @@ import {
   Select,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ArrowLeftRight, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SCM_CLIENT_DEMO } from "../../shared/demo-mode";
 import {
@@ -110,7 +110,7 @@ export function MovementsView() {
   const [status, setStatus] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [viewingId, setViewingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.warehouse.write");
   const deletingRowRemove = useDeleteMovement();
   const [deletingRow, setDeletingRow] = useState<WarehouseMovement | null>(
@@ -283,8 +283,8 @@ export function MovementsView() {
         }
         confirmText="Delete movement"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Movement deleted"
-        errorFallback="Failed to delete movement"
+        successMessage="scm.movement.deleted"
+        errorFallback="scm.movement.deleteFailed"
       />
       <CreateMovementForm
         open={formOpen}
@@ -294,12 +294,9 @@ export function MovementsView() {
           try {
             created = await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create movement"));
+            throw new Error(errorText(err, "scm.movement.createFailed"));
           }
-          toast({
-            title: `${created.movementNumber} created`,
-            variant: "success",
-          });
+          notify("scm.movement.created", { number: created.movementNumber });
           setFormOpen(false);
           setViewingId(created.id);
         }}
@@ -366,7 +363,7 @@ function CreateMovementForm({
         notes: notes || undefined,
       });
     } catch (err) {
-      setError(errorText(err, "Failed to create movement"));
+      setError(errorText(err, "scm.movement.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -541,7 +538,7 @@ function MovementDetailDialog({
     try {
       await action.mutateAsync({ id: movement.id, action: a });
     } catch (e) {
-      setErr(errorText(e, "Action failed"));
+      setErr(errorText(e, "scm.common.actionFailed"));
     } finally {
       setBusy(false);
     }

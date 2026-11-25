@@ -82,6 +82,7 @@ export function ReportTableView<T>(props: ReportTableViewProps<T>) {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title={`You don't have access to ${props.noun}`}
           >

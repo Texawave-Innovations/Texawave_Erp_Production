@@ -18,7 +18,6 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Eye,
@@ -32,6 +31,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateSupplier,
@@ -60,7 +60,7 @@ export function SuppliersView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deleting, setDeleting] = useState<Supplier | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const canWrite = usePermission("scm.supplier.write");
   const query = useSuppliers({
@@ -94,10 +94,10 @@ export function SuppliersView() {
   async function handleSave(input: CreateSupplierInput) {
     if (editing) {
       await updateMutation.mutateAsync({ id: editing.id, input });
-      toast({ title: "Supplier updated", variant: "success" });
+      notify("scm.supplier.updated");
     } else {
       await createMutation.mutateAsync(input);
-      toast({ title: "Supplier created", variant: "success" });
+      notify("scm.supplier.created");
     }
     closeForm();
   }
@@ -110,15 +110,9 @@ export function SuppliersView() {
         id: supplier.id,
         input: { status: next },
       });
-      toast({ title: `Supplier marked ${next}`, variant: "success" });
+      notify("scm.supplier.statusChanged", { status: next });
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError
-            ? err.message
-            : "Failed to update supplier status",
-        variant: "error",
-      });
+      notifyError(err, "scm.supplier.statusFailed");
     }
   }
 
@@ -135,7 +129,11 @@ export function SuppliersView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to suppliers">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to suppliers"
+        >
           Ask an administrator for the <code>scm.supplier.read</code>{" "}
           permission.
         </Alert>
@@ -421,8 +419,8 @@ export function SuppliersView() {
         }
         confirmText="Delete supplier"
         run={(sup) => deleteMutation.mutateAsync(sup.id)}
-        successMessage="Supplier deleted"
-        errorFallback="Failed to delete supplier"
+        successMessage="scm.supplier.deleted"
+        errorFallback="scm.supplier.deleteFailed"
       />
       <ScmPanel
         open={formOpen}

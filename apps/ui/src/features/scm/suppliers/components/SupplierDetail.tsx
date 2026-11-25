@@ -12,7 +12,6 @@ import {
   Skeleton,
   StatusBadge,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   ArrowLeft,
@@ -27,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useSupplier, useSupplierActivity, useUpdateSupplier } from "../hooks";
 import {
@@ -187,7 +187,7 @@ function statusDelta(
 export function SupplierDetail({ id }: { id: number }) {
   const [tab, setTab] = useState<TabId>("overview");
   const [editOpen, setEditOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.supplier.write");
   const query = useSupplier(id);
   const updateMutation = useUpdateSupplier();
@@ -205,7 +205,11 @@ export function SupplierDetail({ id }: { id: number }) {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to suppliers">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to suppliers"
+        >
           Ask an administrator for the <code>scm.supplier.read</code>{" "}
           permission.
         </Alert>
@@ -236,7 +240,7 @@ export function SupplierDetail({ id }: { id: number }) {
 
   async function handleSave(input: CreateSupplierInput) {
     await updateMutation.mutateAsync({ id, input });
-    toast({ title: "Supplier updated", variant: "success" });
+    notify("scm.supplier.updated");
     setEditOpen(false);
   }
 

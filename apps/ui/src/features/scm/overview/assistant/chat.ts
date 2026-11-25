@@ -144,7 +144,7 @@ export function useAssistantChat() {
           {
             id: nextId(),
             role: "bot",
-            text: errorText(err, "Something went wrong. Please try again."),
+            text: errorText(err, "scm.assistant.failed"),
             timestamp: Date.now(),
           },
         ]);

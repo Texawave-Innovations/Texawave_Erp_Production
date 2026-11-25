@@ -2,10 +2,12 @@
 
 import type { Fulfillment } from "@texawave-erp/api-types";
 import { FULFILLMENT_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -79,7 +81,7 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
   const [formOpen, setFormOpen] = useState(Boolean(fromOrder));
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<Fulfillment | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.fulfillment.write");
   const deletingRowRemove = useDeleteFulfillment();
   const [deletingRow, setDeletingRow] = useState<Fulfillment | null>(null);
@@ -105,7 +107,7 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
   async function run(
     f: Fulfillment,
     action: Parameters<typeof act.mutateAsync>[0]["action"],
-    ok: string,
+    ok: MessageKey,
     reason?: string,
   ) {
     try {
@@ -114,9 +116,9 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
         action,
         ...(reason !== undefined ? { reason } : {}),
       });
-      toast({ title: ok, variant: "success" });
+      notify(ok);
     } catch (err) {
-      toast({ title: errorText(err, "Action failed"), variant: "error" });
+      notifyError(err, "scm.common.actionFailed");
     }
   }
 
@@ -144,7 +146,7 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void run(r, "reserve", "Stock reserved")}
+            onClick={() => void run(r, "reserve", "scm.stock.reserved")}
           >
             Reserve
           </Button>
@@ -153,7 +155,9 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void run(r, "pick-list", "Pick list created")}
+            onClick={() =>
+              void run(r, "pick-list", "scm.fulfillment.pickListCreated")
+            }
           >
             Create Pick List
           </Button>
@@ -163,7 +167,11 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
             variant="ghost"
             size="sm"
             onClick={() =>
-              void run(r, "shortage-requisition", "Material requisition raised")
+              void run(
+                r,
+                "shortage-requisition",
+                "scm.fulfillment.requisitionRaised",
+              )
             }
           >
             Raise Requisition
@@ -173,7 +181,7 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void run(r, "finalize", "Stock issued — fulfilled")}
+            onClick={() => void run(r, "finalize", "scm.fulfillment.issued")}
           >
             Issue Stock
           </Button>
@@ -324,8 +332,8 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
         }
         confirmText="Delete fulfillment"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Fulfillment deleted"
-        errorFallback="Failed to delete fulfillment"
+        successMessage="scm.fulfillment.deleted"
+        errorFallback="scm.fulfillment.deleteFailed"
       />
       <ScmFormDialog
         open={formOpen}
@@ -360,11 +368,10 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
               warehouseId: Number(v.warehouseId),
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create fulfillment"));
+            throw new Error(errorText(err, "scm.fulfillment.createFailed"));
           }
-          toast({
-            title: `${created.fulfillmentNumber} created`,
-            variant: "success",
+          notify("scm.fulfillment.created", {
+            number: created.fulfillmentNumber,
           });
           closeForm();
         }}
@@ -393,9 +400,9 @@ export function FulfillmentsView({ mode = "fulfillment" }: { mode?: Mode }) {
               reason: v.reason as string,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to cancel fulfillment"));
+            throw new Error(errorText(err, "scm.fulfillment.cancelFailed"));
           }
-          toast({ title: "Fulfillment cancelled", variant: "success" });
+          notify("scm.fulfillment.cancelled");
           setCancelling(null);
         }}
       />

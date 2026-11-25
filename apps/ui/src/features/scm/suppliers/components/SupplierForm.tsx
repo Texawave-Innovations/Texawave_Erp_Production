@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import {
   SUPPLIER_STATUSES,
   type CreateSupplierInput,
@@ -194,11 +195,7 @@ export function SupplierForm({
     try {
       await onSubmit(parsed.data);
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save this supplier. Check the fields above and try again.",
-      );
+      setSubmitError(errorText(err, "scm.supplier.formFailed"));
     } finally {
       setSubmitting(false);
     }

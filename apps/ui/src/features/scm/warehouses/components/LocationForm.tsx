@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type {
   CreateLocationInput,
   LocationType,
@@ -248,11 +249,7 @@ function Body({
         });
       }
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save the location.",
-      );
+      setSubmitError(errorText(err, "scm.location.formFailed"));
     } finally {
       setSubmitting(false);
     }

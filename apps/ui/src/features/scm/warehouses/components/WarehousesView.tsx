@@ -1,9 +1,10 @@
 "use client";
 
 import type { ScmWarehouse } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Building2, Pencil, Plus, Power, Tag } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { buildQrPayload } from "../../barcode/codes";
 import { LabelDialog } from "../../barcode/LabelDialog";
@@ -49,7 +50,7 @@ export function WarehousesView() {
   const [status, setStatus] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ScmWarehouse | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.warehouse.write");
   const deletingRowRemove = useDeleteWarehouse();
   const [deletingRow, setDeletingRow] = useState<ScmWarehouse | null>(null);
@@ -91,12 +92,9 @@ export function WarehousesView() {
     const next = w.status === "Active" ? "Inactive" : "Active";
     try {
       await update.mutateAsync({ id: w.id, input: { status: next } });
-      toast({ title: `Warehouse marked ${next}`, variant: "success" });
+      notify("scm.warehouse.statusChanged", { status: next });
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to update warehouse status"),
-        variant: "error",
-      });
+      notifyError(err, "scm.warehouse.statusFailed");
     }
   }
 
@@ -248,8 +246,8 @@ export function WarehousesView() {
         }
         confirmText="Delete warehouse"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Warehouse deleted"
-        errorFallback="Failed to delete warehouse"
+        successMessage="scm.warehouse.deleted"
+        errorFallback="scm.warehouse.deleteFailed"
       />
       <ScmFormDialog
         open={formOpen}
@@ -339,12 +337,9 @@ export function WarehousesView() {
             if (editing) await update.mutateAsync({ id: editing.id, input });
             else created = await create.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save warehouse"));
+            throw new Error(errorText(err, "scm.warehouse.saveFailed"));
           }
-          toast({
-            title: editing ? "Warehouse updated" : "Warehouse created",
-            variant: "success",
-          });
+          notify(editing ? "scm.warehouse.updated" : "scm.warehouse.created");
           closeForm();
           if (created) showQrLabel(created);
         }}

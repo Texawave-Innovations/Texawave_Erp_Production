@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type { SalesOrderPayload } from "@texawave-erp/api-types";
 import { Button } from "@texawave-erp/ui-kit";
 import { useState } from "react";
@@ -119,11 +120,7 @@ function Body({
         })),
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save the sales order.",
-      );
+      setSubmitError(errorText(err, "scm.salesOrder.formFailed"));
     } finally {
       setSubmitting(false);
     }
