@@ -12,9 +12,9 @@ import {
   ErrorState,
   Pagination,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateProject,
@@ -36,7 +36,7 @@ export function ProjectMasterListTab() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const canRead = usePermission(PROJECT_READ);
   const canWrite = usePermission(PROJECT_WRITE);
@@ -48,7 +48,11 @@ export function ProjectMasterListTab() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to Project Master">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to Project Master"
+      >
         Ask an administrator for the <code>{PROJECT_READ}</code> permission.
       </Alert>
     );
@@ -69,6 +73,7 @@ export function ProjectMasterListTab() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to Project Master"
         >
@@ -85,23 +90,23 @@ export function ProjectMasterListTab() {
   async function handleCreate(values: CreateProjectFormValues) {
     await createMutation.mutateAsync(values);
     setCreateOpen(false);
-    toast({ title: "Project created", variant: "success" });
+    notify("projects.master.created");
   }
 
   async function handleUpdate(values: CreateProjectFormValues) {
     if (!editing) return;
     await updateMutation.mutateAsync({ id: editing.id, input: values });
     setEditing(null);
-    toast({ title: "Project updated", variant: "success" });
+    notify("projects.master.updated");
   }
 
   async function handleDelete(project: Project) {
     if (!window.confirm(`Delete project "${project.name}"?`)) return;
     try {
       await deleteMutation.mutateAsync(project.id);
-      toast({ title: `Deleted "${project.name}"`, variant: "success" });
+      notify("projects.master.deleted", { name: project.name });
     } catch {
-      toast({ title: `Could not delete "${project.name}"`, variant: "error" });
+      notify("projects.master.deleteFailed", { name: project.name });
     }
   }
 

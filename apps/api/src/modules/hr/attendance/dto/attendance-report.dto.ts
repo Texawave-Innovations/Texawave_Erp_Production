@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsIn, IsInt, IsOptional, Matches, Min } from "class-validator";
@@ -46,7 +47,7 @@ export class DailyAttendanceReportQueryDto extends PaginationDto {
 
 export class MonthlyAttendanceReportQueryDto extends PaginationDto {
   @ApiProperty({ example: "2026-10", description: "Calendar month, YYYY-MM" })
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+  @Matches(FIELD_FORMAT.month)
   month!: string;
 }
 

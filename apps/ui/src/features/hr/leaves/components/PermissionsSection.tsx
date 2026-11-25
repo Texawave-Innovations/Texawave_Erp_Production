@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
 import {
   Button,
   Card,
@@ -10,13 +9,17 @@ import {
   ErrorState,
   Pagination,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   useAllWorkPermissions,
   useDecideWorkPermission,
 } from "@/features/employee-self-service/work-permissions/hooks";
 import type { WorkPermission } from "@/features/employee-self-service/work-permissions/api";
+import { useNotify } from "@/hooks/useNotify";
+import { usePermission } from "@/hooks/usePermission";
+
+/** Deciding is its own permission (viewing the tab is `.read.all`). */
+const WORK_PERMISSION_DECIDE = "hr.work_permission.decide.all";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +70,7 @@ function DecideDialog({
   onClose: () => void;
 }) {
   const [hrNote, setHrNote] = useState("");
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const mutation = useDecideWorkPermission();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,19 +81,14 @@ function DecideDialog({
         decision,
         ...(hrNote.trim() ? { hrNote: hrNote.trim() } : {}),
       });
-      toast({
-        title: `Permission ${decision === "APPROVED" ? "approved" : "rejected"}`,
-        variant: "success",
-      });
+      notify(
+        decision === "APPROVED"
+          ? "hr.leave.permissionApproved"
+          : "hr.leave.permissionRejected",
+      );
       onClose();
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError
-            ? err.message
-            : "Action failed. Please try again.",
-        variant: "error",
-      });
+      notifyError(err, "hr.leave.permissionActionFailed");
     }
   }
 
@@ -175,6 +173,7 @@ export function PermissionsSection() {
   });
 
   const items = data?.items ?? [];
+  const canDecide = usePermission(WORK_PERMISSION_DECIDE);
 
   return (
     <div className="flex flex-col gap-5">
@@ -296,7 +295,7 @@ export function PermissionsSection() {
                       </div>
                     </td>
                     <td className="px-4 py-3 pr-5">
-                      {item.status === "PENDING" ? (
+                      {item.status === "PENDING" && canDecide ? (
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
@@ -324,7 +323,11 @@ export function PermissionsSection() {
                         </div>
                       ) : (
                         <span className="text-theme-xs text-gray-400 dark:text-gray-500">
-                          {item.decider ? `by ${item.decider.fullName}` : "—"}
+                          {item.status === "PENDING"
+                            ? "Pending"
+                            : item.decider
+                              ? `by ${item.decider.fullName}`
+                              : "—"}
                         </span>
                       )}
                     </td>

@@ -1,7 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
   PINCODE,
-  OptionalName,
   Pattern,
   RequiredName,
   RequiredText,
@@ -11,8 +10,8 @@ export class AddressDto {
   @RequiredText(200)
   addressLine!: string;
 
-  @OptionalName()
-  areaLocality?: string;
+  @RequiredName()
+  areaLocality!: string;
 
   @RequiredName()
   district!: string;

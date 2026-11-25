@@ -7,9 +7,9 @@ import {
   FormField,
   Input,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, isoDate, money } from "../format";
@@ -122,7 +122,7 @@ export function LoanDecision({ loan }: { loan: Loan }) {
   const userId = useAuthStore((s) => s.user?.userId ?? null);
   const review = useReviewLoan();
   const decide = useDecideLoan();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -163,14 +163,14 @@ export function LoanDecision({ loan }: { loan: Loan }) {
           note: trimmed,
         });
       }
-      toast({
-        title: !accept
-          ? `Loan ${loan.loanNumber} rejected`
+      notify(
+        !accept
+          ? "payroll.loan.rejected"
           : atReview
-            ? `Loan ${loan.loanNumber} forwarded for final approval`
-            : `Loan ${loan.loanNumber} approved — EMI schedule created`,
-        variant: "success",
-      });
+            ? "payroll.loan.forwarded"
+            : "payroll.loan.approved",
+        { number: loan.loanNumber },
+      );
       setRejecting(false);
       setNote("");
     } catch (err) {
@@ -190,7 +190,7 @@ export function LoanDecision({ loan }: { loan: Loan }) {
           : "Awaiting final approval — the EMI schedule is created when it is approved."}
       </p>
       {loan.limitOverride ? (
-        <Alert variant="warning" title="Above the loan limit">
+        <Alert dismissible variant="warning" title="Above the loan limit">
           {loan.overrideReason ?? "Override requested."} Only an
           organization-wide approver may give the final approval.
         </Alert>
@@ -279,7 +279,7 @@ export function PrepaymentForm({
   onDone: () => void;
 }) {
   const request = useRequestLoanPrepayment();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [amount, setAmount] = useState("");
   const [receivedOn, setReceivedOn] = useState("");
   const [reference, setReference] = useState("");
@@ -310,10 +310,7 @@ export function PrepaymentForm({
           reason: reason.trim(),
         },
       });
-      toast({
-        title: "Prepayment recorded — awaiting approval",
-        variant: "success",
-      });
+      notify("payroll.loan.prepaymentRecorded");
       onDone();
     } catch (err) {
       setServerError(describeError(err));
@@ -396,7 +393,7 @@ function PrepaymentDecision({
   const canApprove = usePermission(LOAN_APPROVE);
   const userId = useAuthStore((s) => s.user?.userId ?? null);
   const decide = useDecideLoanPrepayment();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [error, setError] = useState<string | null>(null);
 
   if (prepayment.status !== "PENDING") {
@@ -422,13 +419,11 @@ function PrepaymentDecision({
     setError(null);
     try {
       await decide.mutateAsync({ id: prepayment.id, decision });
-      toast({
-        title:
-          decision === "APPROVED"
-            ? "Prepayment approved — EMIs settled"
-            : "Prepayment rejected",
-        variant: "success",
-      });
+      notify(
+        decision === "APPROVED"
+          ? "payroll.loan.prepaymentApproved"
+          : "payroll.loan.prepaymentRejected",
+      );
     } catch (err) {
       setError(describeError(err));
     }

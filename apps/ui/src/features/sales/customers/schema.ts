@@ -231,7 +231,7 @@ export const EMPTY_CUSTOMER_FORM: CustomerFormValues = {
   bankBranch: "",
   paymentNotes: "",
   status: "ACTIVE",
-  addresses: [{ ...emptyAddress("BILLING"), isDefault: true }],
+  addresses: [],
 };
 
 /** A stored customer as form values (the account number stays blank: the

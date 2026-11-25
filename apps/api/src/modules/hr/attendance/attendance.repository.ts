@@ -114,6 +114,24 @@ export function toStoredDay(row: AttendanceRecordRow): StoredDay {
   };
 }
 
+const minuteOf = (d: Date) => Math.floor(d.getTime() / 60_000);
+
+/** True when an edited session still carries an auto-closed session's
+ * punches: same check-in and the same (technical) check-out, to the minute —
+ * the HR form edits whole minutes, so a re-sent 23:59:59.999 arrives as 23:59.
+ * Such a session was not given a real check-out, so it stays pending. */
+export function keepsAutoClose(
+  autoClosed: { checkInAt: Date; checkOutAt: Date | null },
+  edited: { checkInAt: Date; checkOutAt: Date | null },
+): boolean {
+  return (
+    autoClosed.checkOutAt !== null &&
+    edited.checkOutAt !== null &&
+    minuteOf(autoClosed.checkInAt) === minuteOf(edited.checkInAt) &&
+    minuteOf(autoClosed.checkOutAt) === minuteOf(edited.checkOutAt)
+  );
+}
+
 /** Audit snapshot of a day: its stored status and its punches, nothing else. */
 function snapshot(row: {
   status: string | null;
@@ -150,9 +168,9 @@ export class AttendanceRepository {
     attendanceDate: string,
     now: Date,
     userId: number,
-    /** The organization's fixed auto check-out time (`HH:mm`, IST), or null
-     * when that setting is off. */
-    autoCheckoutTime: string | null = null,
+    /** The organization's effective auto check-out cut-off (`HH:mm`, IST):
+     * the HR master's time, or end of day (`effectiveCutoffTime`). */
+    autoCheckoutTime: string,
   ): Promise<{ recordId: number; sessionId: number }> {
     return this.prisma.$transaction(async (tx) => {
       await this.lockEmployee(tx, scope, employeeId);
@@ -160,9 +178,10 @@ export class AttendanceRepository {
       if (open) {
         // A session left open on an EARLIER day no longer blocks today's
         // check-in once its cut-off has passed: it is closed at that day's
-        // cut-off (flagged for HR) and the check-in goes ahead.
+        // cut-off (flagged for HR) and the check-in goes ahead. Same rule as
+        // the scheduled auto check-out, which may simply not have run yet.
         const closeAt =
-          autoCheckoutTime !== null && open.attendanceDate < attendanceDate
+          open.attendanceDate < attendanceDate
             ? fixedCloseAt(
                 open.attendanceDate,
                 autoCheckoutTime,
@@ -338,27 +357,25 @@ export class AttendanceRepository {
           where: { attendanceRecordId: recordId },
         });
         if (sessions.length > 0) {
+          // A session sent back with the auto-closed punches unchanged is not
+          // a regularization: its check-out is still the system's cut-off,
+          // so it stays pending. Any other time HR enters is verified.
+          const pending = before.sessions.filter((s) => s.autoClosed);
           await tx.attendanceSession.createMany({
             data: sessions.map((s) => ({
               attendanceRecordId: recordId,
               checkInAt: s.checkInAt,
               checkOutAt: s.checkOutAt,
               source: "HR",
+              autoClosed: pending.some((p) => keepsAutoClose(p, s)),
               createdBy: userId,
               updatedBy: userId,
             })),
           });
         }
       }
-
-      // HR has looked at this day: whatever the system auto-closed is now
-      // regularized (replaced sessions are new rows, which are never flagged).
-      if (sessions === undefined) {
-        await tx.attendanceSession.updateMany({
-          where: { attendanceRecordId: recordId, autoClosed: true },
-          data: { autoClosed: false, updatedBy: userId },
-        });
-      }
+      // A status-only edit (no `sessions`) leaves every auto-closed session
+      // pending: regularizing needs a real check-out time, never the system's.
 
       const statusChanged = edit.status !== undefined;
       await tx.attendanceRecord.update({

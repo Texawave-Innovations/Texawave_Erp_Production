@@ -69,6 +69,7 @@ export interface DocumentFigures {
   }>;
   recentActivity: Array<{
     documentType: string;
+    documentId: number;
     documentNumber: string;
     status: string;
     customerName: string;

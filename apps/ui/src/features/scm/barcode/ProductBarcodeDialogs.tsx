@@ -1,13 +1,8 @@
 "use client";
 
 import type { BarcodeProductRow, ScmProduct } from "@texawave-erp/api-types";
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  Input,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Checkbox, Dialog, Input } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import { usePostOpeningBalance } from "../inventory/hooks";
 import { useCreateScmProduct, useUpdateScmProduct } from "../products/hooks";
@@ -60,7 +55,7 @@ function GenerateBody({
   full: ScmProduct | undefined;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const update = useUpdateScmProduct();
   const batchDated = product.expiry.source === "BATCH";
   const [value, setValue] = useState(product.barcode ?? product.productCode);
@@ -102,11 +97,11 @@ function GenerateBody({
               }),
         },
       });
-      toast({ title: "Barcode assigned", variant: "success" });
+      notify("scm.barcode.assigned");
       onClose();
     } catch (err) {
       // A 409 means another product already uses this barcode.
-      setError(errorText(err, "Failed to assign barcode"));
+      setError(errorText(err, "scm.barcode.assignFailed"));
     }
   }
 
@@ -210,7 +205,7 @@ function AssignBinBody({
   full: ScmProduct;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const update = useUpdateScmProduct();
   const warehouses = useWarehouseOptions();
   const locations = useLocationOptions();
@@ -229,10 +224,7 @@ function AssignBinBody({
 
   async function save() {
     if (!warehouseId) {
-      return toast({
-        title: "Select a warehouse before assigning a bin",
-        variant: "error",
-      });
+      return notify("scm.bin.warehouseRequired");
     }
     try {
       await update.mutateAsync({
@@ -242,13 +234,10 @@ function AssignBinBody({
           binLocationId: bin ? Number(bin) : null,
         },
       });
-      toast({ title: "Bin location assigned", variant: "success" });
+      notify("scm.bin.assigned");
       onClose();
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to assign bin location"),
-        variant: "error",
-      });
+      notifyError(err, "scm.bin.assignFailed");
     }
   }
 
@@ -317,7 +306,7 @@ function ExpiryBody({
   full: ScmProduct | undefined;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const update = useUpdateScmProduct();
   const [date, setDate] = useState(full?.expiryDate?.slice(0, 10) ?? "");
   const [na, setNa] = useState(full?.expiryNotApplicable ?? false);
@@ -333,13 +322,10 @@ function ExpiryBody({
         id: product.id,
         input: { expiryDate: na ? null : v || null, expiryNotApplicable: na },
       });
-      toast({ title: "Expiry date saved", variant: "success" });
+      notify("scm.expiry.saved");
       onClose();
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to save expiry date"),
-        variant: "error",
-      });
+      notifyError(err, "scm.expiry.saveFailed");
     }
   }
 
@@ -399,7 +385,7 @@ export function AddProductDialog({
   onClose: () => void;
   onCreated: (product: ScmProduct) => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const create = useCreateScmProduct();
   const opening = usePostOpeningBalance();
 
@@ -512,7 +498,7 @@ export function AddProductDialog({
               (v.openingWarehouseId as number | undefined) || undefined,
           });
         } catch (err) {
-          throw new Error(errorText(err, "Failed to create product"));
+          throw new Error(errorText(err, "scm.product.createFailed"));
         }
         const qty = Number(v.openingQuantity ?? 0);
         if (qty > 0 && v.openingWarehouseId) {
@@ -528,21 +514,19 @@ export function AddProductDialog({
                   : Number(v.openingUnitCost),
             });
           } catch (err) {
-            toast({
-              title: `Product created, but opening stock failed: ${errorText(err, "could not post")}`,
-              variant: "error",
+            notify("scm.product.openingStockFailed", {
+              reason: errorText(err, "scm.product.openingStockFallback"),
             });
             onCreated(product);
             return;
           }
         }
-        toast({
-          title:
-            qty > 0
-              ? `Product "${product.name}" created with ${qty} opening stock`
-              : `Product "${product.name}" created`,
-          variant: "success",
-        });
+        notify(
+          qty > 0
+            ? "scm.product.createdNamedWithStock"
+            : "scm.product.createdNamed",
+          { name: product.name, qty },
+        );
         onCreated(product);
       }}
     />

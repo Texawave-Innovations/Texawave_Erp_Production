@@ -1,5 +1,6 @@
 import type {
   FinanceBalanceSheetReport,
+  FinanceMonthlyTrendItem,
   FinanceProfitAndLossReport,
   FinanceTrialBalanceReport,
   GeneralLedgerAccountReport,
@@ -56,6 +57,18 @@ export async function getGeneralLedger(
       "/finance/reports/general-ledger",
       { query },
     ),
+  );
+  return data;
+}
+
+/** Posted revenue / expense / net income per calendar month, oldest first. */
+export async function getMonthlyTrend(
+  months = 7,
+): Promise<FinanceMonthlyTrendItem[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<FinanceMonthlyTrendItem[]>("/finance/reports/monthly-trend", {
+      query: { months },
+    }),
   );
   return data;
 }

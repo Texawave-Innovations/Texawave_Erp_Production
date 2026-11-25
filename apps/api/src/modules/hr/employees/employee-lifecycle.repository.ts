@@ -35,10 +35,12 @@ export interface StatusChange {
 
 export interface StatusChangeResult {
   employee: EmployeeRow;
-  /** Linked login switched off because the employee left — its sessions must
-   * be revoked by the caller after this transaction commits. */
+  /** Linked login switched off because the employee is no longer ACTIVE
+   * (INACTIVE, RESIGNED or TERMINATED) — its sessions must be revoked by the
+   * caller after this transaction commits. */
   disabledUserId: number | null;
-  /** Linked login switched back on by a reinstating correction. */
+  /** Linked login switched back on because the employee is ACTIVE again
+   * (INACTIVE → ACTIVE, or a reinstating correction). */
   enabledUserId: number | null;
 }
 
@@ -122,6 +124,11 @@ export class EmployeeLifecycleRepository {
         reason: change.reason,
       });
 
+      // Only an ACTIVE employee may sign in (Docs/HR_API.md). INACTIVE (a
+      // temporary break) and RESIGNED/TERMINATED (left) both switch the login
+      // off; returning to ACTIVE switches it back on. Done in the same
+      // transaction so the status and the login can never disagree.
+      const loginAllowed = change.to === "ACTIVE";
       let disabledUserId: number | null = null;
       let enabledUserId: number | null = null;
       if (after.userId !== null) {
@@ -129,9 +136,7 @@ export class EmployeeLifecycleRepository {
           where: { id: after.userId },
           select: { id: true, isActive: true },
         });
-        if (user && leaving && user.isActive) {
-          // A leaver must not be able to log in. Done in the same
-          // transaction so the status and the login can never disagree.
+        if (user && !loginAllowed && user.isActive) {
           await tx.user.update({
             where: { id: user.id },
             data: { isActive: false, updatedBy: actorId },
@@ -145,12 +150,7 @@ export class EmployeeLifecycleRepository {
             reason: `employee ${after.employeeCode} ${change.to.toLowerCase()}`,
           });
           disabledUserId = user.id;
-        } else if (
-          user &&
-          change.correction &&
-          change.to === "ACTIVE" &&
-          !user.isActive
-        ) {
+        } else if (user && loginAllowed && !user.isActive) {
           await tx.user.update({
             where: { id: user.id },
             data: { isActive: true, updatedBy: actorId },
@@ -161,7 +161,9 @@ export class EmployeeLifecycleRepository {
             action: "activate",
             before: { isActive: false },
             after: { isActive: true },
-            reason: `employee ${after.employeeCode} reinstated by status correction`,
+            reason: change.correction
+              ? `employee ${after.employeeCode} reinstated by status correction`
+              : `employee ${after.employeeCode} reactivated`,
           });
           enabledUserId = user.id;
         }
@@ -172,7 +174,8 @@ export class EmployeeLifecycleRepository {
 
   /** Links an existing platform user to the employee (1:1). Idempotent for
    * the same user; refuses a different user until the current one is unlinked,
-   * and refuses employees who have left. */
+   * and refuses employees who have left or are INACTIVE (only an ACTIVE
+   * employee may have a working login — see changeStatus). */
   @OrgScoped()
   async linkUser(
     scope: OrgScope,
@@ -193,6 +196,12 @@ export class EmployeeLifecycleRepository {
           throw new BusinessRuleViolationException(
             "A login cannot be linked to an employee who has left",
             "EMPLOYEE_HAS_LEFT",
+          );
+        }
+        if (before.status === "INACTIVE") {
+          throw new BusinessRuleViolationException(
+            "A login cannot be linked to an inactive employee — make them active first",
+            "EMPLOYEE_INACTIVE",
           );
         }
         if (before.userId !== null) {

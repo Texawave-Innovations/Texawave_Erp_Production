@@ -206,6 +206,7 @@ export class InvoicesRepository {
         data: {
           status: "CONVERTED",
           convertedAt: new Date(),
+          reopenReason: null,
           updatedBy: actorId,
         },
       });
@@ -277,6 +278,7 @@ export class InvoicesRepository {
           status: "CONVERTED",
           convertedAt: new Date(),
           amountReceived: 0,
+          reopenReason: null,
           updatedBy: actorId,
         },
       });
@@ -297,6 +299,57 @@ export class InvoicesRepository {
         include: INCLUDE,
       });
       return toView(row);
+    });
+  }
+
+  /** A converted proforma back to UNPAID / PARTIALLY_PAID / PAID (from what
+   * it holds; its payments moved to the tax invoice), with the reason on the
+   * row and in the audit entry. The tax invoice already generated from it is
+   * left as it is. */
+  @OrgScoped()
+  async reopenProforma(
+    scope: OrgScope,
+    id: number,
+    reason: string,
+    actorId: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.lockLive(tx, scope, id);
+      if (!before) return null;
+      if (before.invoiceType !== "PROFORMA") {
+        throw new BusinessRuleViolationException(
+          `${before.invoiceNumber} is a tax invoice and cannot be reopened`,
+          "NOT_A_PROFORMA",
+        );
+      }
+      if (before.status !== "CONVERTED") {
+        throw new BusinessRuleConflictException(
+          `Proforma invoice ${before.invoiceNumber} is not converted`,
+          "NOT_CONVERTED",
+        );
+      }
+      await tx.salesInvoice.update({
+        where: { id },
+        data: {
+          status: paymentStatus(before.totalAmount, before.amountReceived),
+          convertedAt: null,
+          reopenReason: reason,
+          updatedBy: actorId,
+        },
+      });
+      const after = await tx.salesInvoice.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "reopen",
+        before: { status: before.status },
+        after: { status: after.status },
+        reason,
+      });
+      return toView(after);
     });
   }
 

@@ -9,8 +9,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadText } from "@/features/hr/payroll/download";
 import { leaveErrorMessage } from "../errors";
 import { useImportLeaveEntitlements } from "../hooks";
@@ -41,7 +41,7 @@ export function ImportEntitlementsDialog({
   const [report, setReport] = useState<EntitlementImportReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useImportLeaveEntitlements();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const busy = mutation.isPending;
 
   const checked = report?.dryRun === true && report.errors.length === 0;
@@ -70,10 +70,12 @@ export function ImportEntitlementsDialog({
       const result = await mutation.mutateAsync({ file, dryRun });
       setReport(result);
       if (!dryRun && result.errors.length === 0) {
-        toast({
-          title: `${result.imported} entitlement${result.imported === 1 ? "" : "s"} saved`,
-          variant: "success",
-        });
+        notify(
+          result.imported === 1
+            ? "hr.leave.entitlementsImportedOne"
+            : "hr.leave.entitlementsImportedMany",
+          { count: result.imported },
+        );
       }
     } catch (error) {
       setReport(null);
@@ -158,7 +160,11 @@ export function ImportEntitlementsDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-semibold text-slate-700 dark:text-slate-300">{e.row}</span>,
+                    cell: (e) => (
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {e.row}
+                      </span>
+                    ),
                   },
                   { header: "Problem", cell: (e) => e.message },
                 ]}
@@ -168,14 +174,14 @@ export function ImportEntitlementsDialog({
         ) : null}
 
         {checked ? (
-          <Alert variant="success" title="Ready to import">
+          <Alert dismissible variant="success" title="Ready to import">
             {report.validRows} row{report.validRows === 1 ? "" : "s"} will be
             saved. Nothing has been saved yet.
           </Alert>
         ) : null}
 
         {committed ? (
-          <Alert variant="success" title="Import complete">
+          <Alert dismissible variant="success" title="Import complete">
             Saved {report.imported} entitlement
             {report.imported === 1 ? "" : "s"}.
           </Alert>

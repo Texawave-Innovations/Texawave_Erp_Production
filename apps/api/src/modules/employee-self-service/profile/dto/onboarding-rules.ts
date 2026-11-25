@@ -42,19 +42,9 @@ export function isDocumentType(value: string): value is DocumentType {
   return (DOCUMENT_TYPES as readonly string[]).includes(value);
 }
 
-export const FORMAT = {
-  ...FIELD_FORMAT,
-  aadhaar: /^\d{12}$/,
-  esi: /^\d{17}$/,
-  pf: /^\d{12}$/,
-} as const;
+export const FORMAT = { ...FIELD_FORMAT, pf: FIELD_FORMAT.uan } as const;
 
-const MSG = {
-  ...FIELD_MESSAGE,
-  aadhaar: "Aadhaar number must be exactly 12 digits.",
-  esi: "ESI number must be exactly 17 digits.",
-  pf: "PF (UAN) number must be exactly 12 digits.",
-} as const;
+const MSG = { ...FIELD_MESSAGE, pf: FIELD_MESSAGE.uan } as const;
 
 /** A required text field: a non-empty string with a sensible length cap. */
 export function RequiredText(max = 100) {

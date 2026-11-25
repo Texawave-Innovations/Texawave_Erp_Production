@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -10,8 +10,8 @@ import {
   Dialog,
   FormField,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { todayIst } from "../../shared/format";
 import { useConvertQuotation } from "../hooks";
@@ -34,7 +34,7 @@ export function ConvertQuotationDialog({
   quotationId: number;
   quotationNumber: string;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const convert = useConvertQuotation();
   const [values, setValues] = useState<z.input<typeof schema>>({
     invoiceType: "PROFORMA",
@@ -53,16 +53,17 @@ export function ConvertQuotationDialog({
         id: quotationId,
         body: parsed,
       });
-      toast({
-        title: `${invoice.invoiceType === "PROFORMA" ? "Proforma invoice" : "Tax invoice"} ${invoice.invoiceNumber} created`,
-        description: `${quotationNumber} is now locked.`,
-        variant: "success",
+      notify("sales.quotation.converted", {
+        label:
+          invoice.invoiceType === "PROFORMA"
+            ? "Proforma invoice"
+            : "Tax invoice",
+        number: invoice.invoiceNumber,
+        quotation: quotationNumber,
       });
       onClose();
     } catch (e) {
-      setError(
-        e instanceof ApiError ? e.message : "Could not convert the quotation.",
-      );
+      setError(resolveErrorText(e, "sales.quotation.convertFailed"));
     }
   }
 

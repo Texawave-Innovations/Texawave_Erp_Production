@@ -774,6 +774,25 @@ describe("Sales — dashboard & customers (e2e)", () => {
         "overdue_follow_ups",
       );
     });
+
+    it("accepts a year for the trend and rejects a malformed one", async () => {
+      const res = await http()
+        .get("/sales/dashboard?year=2025")
+        .set(auth("exec"))
+        .expect(200);
+      const d = (
+        res.body as Body<{
+          year: number;
+          monthlyRevenueVsCollections: unknown[];
+        }>
+      ).data;
+      expect(d.year).toBe(2025);
+      expect(d.monthlyRevenueVsCollections).toHaveLength(12);
+      await http()
+        .get("/sales/dashboard?year=abc")
+        .set(auth("exec"))
+        .expect(400);
+    });
   });
 
   // ---------------------------------------------------------------------------

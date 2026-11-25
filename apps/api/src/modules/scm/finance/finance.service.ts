@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type { Prisma } from "@texawave-erp/database";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleViolationException,
@@ -12,6 +11,7 @@ import {
   detectFileType,
   FileStorageService,
   MAX_UPLOAD_BYTES,
+  sanitizeFileName,
 } from "../../../shared/file-storage/file-storage.service.js";
 import { MasterListValueGuard } from "../master-list-items/master-list-value.guard.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
@@ -39,16 +39,6 @@ export interface UploadedSupplierFile {
   buffer: Buffer;
   size: number;
   originalname: string;
-}
-
-/** Keeps the uploader's own file name for display, minus any path or control
- * characters (same rule as the HR employee-documents upload). */
-function sanitizeFileName(name: string): string {
-  const base = [...path.basename(name)]
-    .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
-    .join("")
-    .trim();
-  return (base || "document").slice(0, 255);
 }
 
 /** Supplier finance: Accounts Payable bills, payments made, and supplier

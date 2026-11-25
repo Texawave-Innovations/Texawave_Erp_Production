@@ -90,6 +90,7 @@ const QUOTATION = {
   terms: null,
   status: "OPEN",
   convertedAt: null as string | null,
+  reopenReason: null as string | null,
   lines: [
     {
       lineNo: 1,
@@ -226,6 +227,17 @@ function answer(req: MockRequest, quotation: typeof QUOTATION) {
       },
     };
   }
+  if (method === "POST" && pathname === "/sales/quotations/3/reopen") {
+    return {
+      body: {
+        data: {
+          ...quotation,
+          status: "OPEN",
+          reopenReason: (req.body as { reason: string }).reason,
+        },
+      },
+    };
+  }
   if (method === "GET" && pathname === "/sales/customers") {
     return { body: page1([CUSTOMER]) };
   }
@@ -258,7 +270,10 @@ test.describe("Sales quotations", () => {
     });
     await goToQuotations(page);
     await expect(page.getByText("TW/QUO/26-27/0007")).toBeVisible();
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     await expect(
       page.getByRole("heading", { name: "TW/QUO/26-27/0007" }),
@@ -382,7 +397,10 @@ test.describe("Sales quotations", () => {
       handler: handler(),
     });
     await goToQuotations(page);
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await page.getByRole("button", { name: "Edit" }).click();
     await expect(page.getByLabel("Quotation number")).toHaveValue(
       "TW/QUO/26-27/0007",
@@ -445,7 +463,10 @@ test.describe("Sales quotations", () => {
     await expect(
       page.getByRole("button", { name: "New quotation" }),
     ).toHaveCount(0);
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(
       page.getByRole("button", { name: "Download PDF" }),
     ).toBeVisible();
@@ -472,11 +493,73 @@ test.describe("Sales quotations", () => {
       }),
     });
     await goToQuotations(page);
-    await page.getByText("Global Enterprises Pvt Ltd").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByText("Converted to an invoice")).toBeVisible();
     for (const name of ["Edit", "Convert to invoice", "Delete"]) {
       await expect(page.getByRole("button", { name })).toHaveCount(0);
     }
     await expect(page.getByRole("button", { name: "Email" })).toBeVisible();
+  });
+
+  test("an open quotation can be converted but not manually locked or reopened", async ({
+    page,
+  }) => {
+    await signInWithMockedApi(page, {
+      permissions: MANAGER,
+      workspace: "sales",
+      menu: MENU,
+      handler: handler(),
+    });
+    await goToQuotations(page);
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Convert to invoice" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Mark as invoiced" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Reopen" })).toHaveCount(0);
+  });
+
+  test("reopening a converted quotation needs a reason", async ({ page }) => {
+    const { calls } = await signInWithMockedApi(page, {
+      permissions: MANAGER,
+      workspace: "sales",
+      menu: MENU,
+      handler: handler({
+        ...QUOTATION,
+        status: "CONVERTED",
+        convertedAt: "2026-10-16T00:00:00.000Z",
+      }),
+    });
+    await goToQuotations(page);
+    await page
+      .getByRole("button", { name: "Actions for TW/QUO/26-27/0007" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+    await page.getByRole("button", { name: "Reopen" }).click();
+    const dialog = page.getByRole("dialog");
+    const confirm = dialog.getByRole("button", { name: "Reopen" });
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel("Reason for reopening").fill("   ");
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel("Reason for reopening").fill("Revised quote");
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(
+      page.getByText("TW/QUO/26-27/0007 is open again"),
+    ).toBeVisible();
+    expect(
+      calls.some((c) =>
+        c.startsWith(
+          'POST /sales/quotations/3/reopen {"reason":"Revised quote"}',
+        ),
+      ),
+    ).toBe(true);
   });
 });

@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useDebouncedValue, useEmployees } from "@/features/hr/employees/hooks";
 import { useCreateTask } from "../hooks";
 import { createTaskSchema, EMPTY_CREATE_FORM } from "../schema";
@@ -63,7 +63,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
   });
   const mutation = useCreateTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -89,7 +89,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
         dueDate: result.data.dueDate,
         priority: result.data.priority,
       });
-      toast({ title: "Task assigned", variant: "success" });
+      notify("hr.task.assigned");
       setValues({ ...EMPTY_CREATE_FORM, dueDate: today() });
       setAssigneeSearch("");
       onClose();

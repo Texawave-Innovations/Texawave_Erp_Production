@@ -34,12 +34,14 @@ import {
   FormField,
   Input,
   SearchInput,
+  SectionCard,
   Select,
   Skeleton,
+  SpringGlideSegmentedControl,
   StatCard,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   useActiveTimer,
   useCreateManualTimeEntry,
@@ -52,7 +54,9 @@ import {
   useStopTimer,
   useUpdateTask,
 } from "@/features/projects/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
+import { MyPointsPanel } from "./MyPointsPanel";
 import {
   PriorityBadge,
   StatusBadge,
@@ -60,17 +64,20 @@ import {
 import { TaskTimeLogsModal } from "@/features/projects/components/TaskTimeLogsModal";
 import { EmployeeTaskUpdateModal } from "@/features/projects/components/EmployeeTaskUpdateModal";
 import { PageBanner } from "@/features/projects/components/PageBanner";
-import {
-  errorMessage,
-  formatDate,
-  isPastDue,
-  todayInput,
-} from "@/features/projects/format";
+import { formatDate, isPastDue, todayInput } from "@/features/projects/format";
 import type { ProjectTask } from "@/features/projects/types";
 
 /** Links to the project page only for users who can open it. Employees in the
  * portal hold no org-wide project read (and the Projects shell would send them
  * back to /portal), so for them the project is plain text. */
+const TASK_FILTERS = [
+  { id: "all", label: "All Tasks" },
+  { id: "active", label: "Active" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "hold", label: "On Hold" },
+  { id: "completed", label: "Completed" },
+] as const;
+
 function ProjectLink({
   projectId,
   className,
@@ -147,7 +154,7 @@ function minutesLabel(minutes: number): string {
 }
 
 export function MyWorkView() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canReview = usePermission("projects.work.review");
   const inPortal = (usePathname() ?? "").startsWith("/portal");
   const [viewEmployeeId, setViewEmployeeId] = useState<number | null>(null);
@@ -322,27 +329,20 @@ export function MyWorkView() {
   const handleStartTimer = async (taskId: number) => {
     try {
       await startTimerMutation.mutateAsync(taskId);
-      toast({ title: "Stopwatch started", variant: "success" });
+      notify("projects.work.timerStarted");
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to start stopwatch"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.timerStartFailed");
     }
   };
 
   const handleStopTimer = async (taskId: number) => {
     try {
       const stopped = await stopTimerMutation.mutateAsync({ taskId });
-      toast({
-        title: `Stopwatch stopped — ${stopped.durationMinutes} min logged`,
-        variant: "success",
+      notify("projects.work.timerStopped", {
+        minutes: stopped.durationMinutes,
       });
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to stop stopwatch"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.timerStopFailed");
     }
   };
 
@@ -354,15 +354,9 @@ export function MyWorkView() {
         taskId: task.id,
         pause: true,
       });
-      toast({
-        title: `Task paused — ${paused.durationMinutes ?? 0} min logged. It is now on hold.`,
-        variant: "success",
-      });
+      notify("projects.work.paused", { minutes: paused.durationMinutes ?? 0 });
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to pause task"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.pauseFailed");
     }
   };
 
@@ -381,10 +375,7 @@ export function MyWorkView() {
 
       if (willComplete) celebrate(task);
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to update task status"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.statusFailed");
     }
   };
 
@@ -407,10 +398,7 @@ export function MyWorkView() {
       }
       await handleStatusChange(task, "completed");
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to finish task"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.finishFailed");
     }
   };
 
@@ -433,12 +421,12 @@ export function MyWorkView() {
           ...(manualNotes.trim() ? { notes: manualNotes.trim() } : {}),
         },
       });
-      toast({ title: "Time entry logged", variant: "success" });
+      notify("projects.work.timeLogged");
       setLogModalTask(null);
       setManualHours(1);
       setManualNotes("");
     } catch (err: unknown) {
-      setManualError(errorMessage(err, "Failed to log time"));
+      setManualError(resolveErrorText(err, "projects.work.logFailed"));
     }
   };
 
@@ -470,7 +458,7 @@ export function MyWorkView() {
       />
 
       {viewingOther && otherWork.data ? (
-        <Alert variant="info" title="Read-only view">
+        <Alert dismissible variant="info" title="Read-only view">
           Viewing {otherWork.data.employee.fullName} (
           {otherWork.data.employee.employeeCode}
           {otherWork.data.employee.department
@@ -495,6 +483,7 @@ export function MyWorkView() {
           </div>
         ) : (
           <Alert
+            dismissible
             variant="warning"
             title={
               attendance.hasRecordToday
@@ -585,32 +574,37 @@ export function MyWorkView() {
         </div>
       ) : null}
 
-      {/* Contributing Milestones Rollup — legacy `MyWork.tsx` */}
+      {/* Reward points and how each award was worked out (own work only) */}
+      {!viewingOther ? <MyPointsPanel /> : null}
+
+      {/* Contributing Milestones Rollup */}
       {contributingMilestones.length > 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-            <Flag className="h-4 w-4 text-sky-500" />
-            Contributing Milestone Rollup
-          </h2>
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-            High-level goals where you have assigned tasks.
-          </p>
+        <SectionCard
+          title="Contributing Milestone Rollup"
+          description="High-level goals where you have assigned tasks."
+        >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {contributingMilestones.map((m) => {
               const overdue = isPastDue(m.targetDate, m.status);
               return (
                 <div
                   key={m.id}
-                  className="flex flex-col gap-1.5 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-800/40"
+                  className="flex flex-col gap-1.5 rounded-xl border border-gray-100 p-3 dark:border-gray-800"
                 >
-                  <span className="text-[10px] font-black uppercase text-brand-700 dark:text-cyan-400">
+                  <span className="text-theme-xs font-semibold text-brand-700 dark:text-cyan-300">
                     Milestone{m.projectCode ? ` • ${m.projectCode}` : ""}
                   </span>
-                  <p className="text-xs font-bold text-gray-900 dark:text-white">
+                  <p className="text-theme-sm font-semibold text-gray-900 dark:text-white/90">
                     {m.title}
                   </p>
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-1.5 text-[11px] text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                    <span className={overdue ? "font-bold text-rose-600" : ""}>
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-1.5 text-theme-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    <span
+                      className={
+                        overdue
+                          ? "font-semibold text-error-700 dark:text-error-400"
+                          : ""
+                      }
+                    >
                       Due {formatDate(m.targetDate)}
                       {overdue ? " • Overdue" : ""}
                     </span>
@@ -620,12 +614,12 @@ export function MyWorkView() {
               );
             })}
           </div>
-        </div>
+        </SectionCard>
       ) : null}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="min-w-[260px] flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
+        <div className="min-w-64 flex-1">
           <SearchInput
             value={search}
             onChangeValue={setSearch}
@@ -636,30 +630,12 @@ export function MyWorkView() {
             aria-label="Search my tasks"
           />
         </div>
-
-        <div className="flex items-center gap-1">
-          {[
-            { id: "all", label: "All Tasks" },
-            { id: "active", label: "Active" },
-            { id: "in_progress", label: "In Progress" },
-            { id: "hold", label: "On Hold" },
-            { id: "completed", label: "Completed" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              aria-pressed={statusFilter === tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
-                statusFilter === tab.id
-                  ? "bg-blue-600 text-white shadow-sm dark:bg-cyan-600"
-                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SpringGlideSegmentedControl
+          ariaLabel="Filter tasks by status"
+          options={TASK_FILTERS}
+          value={statusFilter}
+          onChange={setStatusFilter}
+        />
       </div>
 
       {/* Task List */}

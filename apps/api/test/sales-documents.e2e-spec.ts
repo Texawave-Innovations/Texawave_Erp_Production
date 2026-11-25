@@ -761,6 +761,98 @@ describe("Sales — quotations, invoices & delivery challans (e2e)", () => {
       expect((after.body as Body<Doc>).data.status).toBe("OPEN");
     });
 
+    it("reopen needs a reason and only works on a converted document; the generated invoice stays", async () => {
+      // Quotation: an open one cannot be reopened; converting locks it.
+      const q = await createQuotation("manager", tnCustomer);
+      const notConverted = await http()
+        .post(`/sales/quotations/${q.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Too early" })
+        .expect(409);
+      expect((notConverted.body as ErrorBody).error).toBe("NOT_CONVERTED");
+      // The manual mark endpoints no longer exist.
+      await http()
+        .post(`/sales/quotations/${q.id}/mark-invoiced`)
+        .set(auth("manager"))
+        .expect(404);
+      const converted = await http()
+        .post(`/sales/quotations/${q.id}/convert`)
+        .set(auth("manager"))
+        .send({})
+        .expect(201);
+      const piId = (converted.body as Body<Doc>).data.id;
+      await http()
+        .patch(`/sales/quotations/${q.id}`)
+        .set(auth("manager"))
+        .send({ validity: "10 Days" })
+        .expect(409);
+      for (const body of [{}, { reason: "   " }]) {
+        await http()
+          .post(`/sales/quotations/${q.id}/reopen`)
+          .set(auth("manager"))
+          .send(body)
+          .expect(400);
+      }
+      const reopened = await http()
+        .post(`/sales/quotations/${q.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Customer asked for a revision" })
+        .expect(200);
+      expect((reopened.body as Body<Doc>).data).toMatchObject({
+        status: "OPEN",
+        reopenReason: "Customer asked for a revision",
+      });
+      const again = await http()
+        .post(`/sales/quotations/${q.id}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Again" })
+        .expect(409);
+      expect((again.body as ErrorBody).error).toBe("NOT_CONVERTED");
+
+      // The proforma generated from the quotation is left as it is.
+      await http()
+        .get(`/sales/invoices/${piId}`)
+        .set(auth("manager"))
+        .expect(200);
+
+      // Proforma: an unconverted one cannot be reopened; moving it to a tax
+      // invoice locks it, and reopening keeps that tax invoice.
+      const piNotConverted = await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Too early" })
+        .expect(409);
+      expect((piNotConverted.body as ErrorBody).error).toBe("NOT_CONVERTED");
+      await http()
+        .post(`/sales/invoices/${piId}/mark-converted`)
+        .set(auth("manager"))
+        .expect(404);
+      const tax = await http()
+        .post(`/sales/invoices/${piId}/convert-to-tax`)
+        .set(auth("manager"))
+        .send({})
+        .expect(201);
+      const taxId = (tax.body as Body<Doc>).data.id;
+      await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({})
+        .expect(400);
+      const piReopened = await http()
+        .post(`/sales/invoices/${piId}/reopen`)
+        .set(auth("manager"))
+        .send({ reason: "Customer wants changes" })
+        .expect(200);
+      expect((piReopened.body as Body<Doc>).data).toMatchObject({
+        status: "UNPAID",
+        reopenReason: "Customer wants changes",
+      });
+      await http()
+        .get(`/sales/invoices/${taxId}`)
+        .set(auth("manager"))
+        .expect(200);
+    });
+
     it("payments can be deleted, restoring the balance", async () => {
       const inv = await http()
         .post("/sales/invoices")

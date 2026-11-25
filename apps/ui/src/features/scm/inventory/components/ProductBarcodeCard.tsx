@@ -1,7 +1,8 @@
 "use client";
 
 import type { ScmProduct } from "@texawave-erp/api-types";
-import { Button, Card, Checkbox, useToast } from "@texawave-erp/ui-kit";
+import { Button, Card, Checkbox } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Barcode as BarcodeIcon, Tag } from "lucide-react";
 import { useState } from "react";
 import { buildQrPayload, productBarcodeValue } from "../../barcode/codes";
@@ -29,7 +30,7 @@ export function ProductBarcodeCard({
   canEdit: boolean;
   batchDated: boolean;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const update = useUpdateScmProduct();
   const [generating, setGenerating] = useState(false);
   const [label, setLabel] = useState<BarcodeLabelProps | null>(null);
@@ -74,10 +75,10 @@ export function ProductBarcodeCard({
               }),
         },
       });
-      toast({ title: "Barcode assigned", variant: "success" });
+      notify("scm.barcode.assigned");
       setGenerating(false);
     } catch (err) {
-      setError(errorText(err, "Failed to assign barcode"));
+      setError(errorText(err, "scm.barcode.assignFailed"));
     }
   }
 

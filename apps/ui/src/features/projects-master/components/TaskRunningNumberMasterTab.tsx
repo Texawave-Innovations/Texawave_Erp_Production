@@ -12,9 +12,9 @@ import {
   FormField,
   Input,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useProjectCodeMaster,
@@ -50,7 +50,7 @@ function TaskRunningNumberMasterForm({
   projectCode: ProjectCodeMaster | undefined;
 }) {
   const canWrite = usePermission(TASK_RUNNING_NUMBER_MASTER_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const update = useUpdateTaskRunningNumberMaster();
 
   const [taskPrefix, setTaskPrefix] = useState(initial.taskPrefix);
@@ -79,9 +79,9 @@ function TaskRunningNumberMasterForm({
     setErrors({});
     try {
       await update.mutateAsync(result.data);
-      toast({ title: "Task code format saved", variant: "success" });
+      notify("projects.master.taskFormatSaved");
     } catch {
-      toast({ title: "Could not save the task code format", variant: "error" });
+      notify("projects.master.taskFormatFailed");
     }
   }
 
@@ -169,6 +169,7 @@ export function TaskRunningNumberMasterTab() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Task Running Number Master"
       >

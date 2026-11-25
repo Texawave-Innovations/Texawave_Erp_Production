@@ -81,3 +81,24 @@ export interface CustomerBody {
   status: CustomerStatus;
   addresses: CustomerAddressBody[];
 }
+
+/** Mirrors apps/api/src/modules/sales/customers/customers.statement.ts. */
+export interface StatementEntry {
+  date: string;
+  type: "INVOICE" | "PAYMENT";
+  number: string;
+  description: string;
+  debit: string;
+  credit: string;
+  balance: string;
+}
+
+export interface CustomerStatement {
+  from: string | null;
+  to: string | null;
+  openingBalance: string;
+  totalInvoiced: string;
+  totalReceived: string;
+  closingBalance: string;
+  entries: StatementEntry[];
+}

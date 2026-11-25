@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { useCreateTicket } from "../hooks";
 import {
@@ -76,7 +76,7 @@ export function RaiseTicketDialog({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const create = useCreateTicket();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const submitting = create.isPending;
 
   function update<K extends keyof typeof values>(
@@ -120,7 +120,7 @@ export function RaiseTicketDialog({
 
     try {
       await create.mutateAsync(result.data);
-      toast({ title: "Ticket created successfully", variant: "success" });
+      notify("hr.ticket.created");
       setValues(EMPTY_CREATE_TICKET_FORM);
       onSuccess?.();
       onClose();

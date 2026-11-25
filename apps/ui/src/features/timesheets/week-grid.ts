@@ -111,7 +111,9 @@ export function cellStateLabel(day: ReviewDaySummary): string {
     case "DRAFT":
       return "Draft";
     case "SUBMITTED":
-      return day.stage === "MANAGER" ? "Waiting for manager" : "Waiting for HR";
+      return day.stage === "MANAGER"
+        ? "Waiting for team lead"
+        : "Waiting for HR";
     case "APPROVED":
       return "Approved";
     case "REJECTED":

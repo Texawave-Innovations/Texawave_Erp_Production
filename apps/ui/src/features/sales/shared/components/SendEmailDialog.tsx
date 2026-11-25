@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -10,8 +10,8 @@ import {
   FormField,
   Input,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { sendEmail } from "../documents";
 
@@ -61,7 +61,7 @@ export function SendEmailDialog({
   documentLabel: string;
   customerEmail: string;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [values, setValues] = useState({
     to: "",
     cc: "",
@@ -86,19 +86,14 @@ export function SendEmailDialog({
         ...(values.subject.trim() ? { subject: values.subject.trim() } : {}),
         ...(values.message.trim() ? { message: values.message } : {}),
       });
-      toast(
-        result.status === "SENT"
-          ? { title: `Emailed to ${result.to.join(", ")}`, variant: "success" }
-          : {
-              title: "Email is not set up on the server",
-              description:
-                "Nothing was sent. Ask an administrator to configure SMTP.",
-              variant: "warning",
-            },
-      );
+      if (result.status === "SENT") {
+        notify("sales.email.sent", { to: result.to.join(", ") });
+      } else {
+        notify("sales.email.notConfigured");
+      }
       onClose();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not send the email.");
+      setError(resolveErrorText(e, "sales.email.sendFailed"));
     } finally {
       setSending(false);
     }

@@ -2,9 +2,10 @@
 
 import type { QuarantineRecord } from "@texawave-erp/api-types";
 import { QUARANTINE_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { ShieldAlert } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -34,7 +35,7 @@ export function QuarantineView() {
     row: QuarantineRecord;
     action: "release" | "reject";
   } | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.quality.write");
   const deletingRowRemove = useDeleteQuarantine();
   const [deletingRow, setDeletingRow] = useState<QuarantineRecord | null>(null);
@@ -50,9 +51,9 @@ export function QuarantineView() {
   async function review(row: QuarantineRecord) {
     try {
       await act.mutateAsync({ id: row.id, action: "review" });
-      toast({ title: "Marked under review", variant: "success" });
+      notify("scm.quarantine.reviewing");
     } catch (err) {
-      toast({ title: errorText(err, "Failed to update"), variant: "error" });
+      notifyError(err, "scm.quarantine.updateFailed");
     }
   }
 
@@ -196,8 +197,8 @@ export function QuarantineView() {
         }
         confirmText="Delete record"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Quarantine record deleted"
-        errorFallback="Failed to delete quarantine record"
+        successMessage="scm.quarantine.deleted"
+        errorFallback="scm.quarantine.deleteFailed"
       />
       <ScmFormDialog
         open={Boolean(acting)}
@@ -230,15 +231,13 @@ export function QuarantineView() {
               body: { notes: v.notes },
             });
           } catch (err) {
-            throw new Error(errorText(err, "Action failed"));
+            throw new Error(errorText(err, "scm.common.actionFailed"));
           }
-          toast({
-            title:
-              acting.action === "release"
-                ? "Stock released"
-                : "Stock written off",
-            variant: "success",
-          });
+          notify(
+            acting.action === "release"
+              ? "scm.quarantine.released"
+              : "scm.quarantine.writtenOff",
+          );
           setActing(null);
         }}
       />

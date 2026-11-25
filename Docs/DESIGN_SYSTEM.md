@@ -263,6 +263,10 @@ Dark mode is activated via `@custom-variant dark (&:is(.dark *))` in `theme.css`
 | `bg-{semantic}-50`    | `dark:bg-{semantic}-950`                | Status badge background        |
 | `text-{semantic}-700` | `dark:text-{semantic}-300`              | Status badge foreground        |
 
+**Undefined shades fail silently.** Tailwind's palette has 50, 100–900 and 950. A class such as `dark:bg-slate-850` or `dark:to-gray-850` for a shade that does not exist generates _no CSS_, so the element keeps its light-mode colour in dark mode (the dark table header faded to light grey on its right edge for exactly this reason). The in-between dark surfaces `gray-750`, `gray-850`, `slate-750` and `slate-850` are declared in `theme.css`. Any other non-standard shade must be declared there before it is used; `apps/ui/src/lib/theme-shades.test.ts` fails when a class points at an undefined shade.
+
+**A gradient surface needs `dark:bg-none`.** `bg-linear-to-*` sets `background-image`, which paints on top of any `background-color`, so `bg-linear-to-b from-[#f8fbff]/60 to-white dark:bg-slate-900/30` still renders the white gradient in dark mode (grey-white panel, white labels unreadable). Either swap the stops (`dark:from-… dark:to-…`, using shades that exist) or add `dark:bg-none` before the dark `bg-*` colour. Browser autofill is themed globally in `theme.css` (`input:-webkit-autofill`); do not restyle it per form.
+
 ### 3.5 Typography Scale (Preserved)
 
 - **Primary Body/UI Font:** **Nunito Sans** (`--font-sans: var(--font-nunito-sans)`). Wired in `apps/ui/src/app/layout.tsx`.
@@ -340,15 +344,15 @@ UI Typography Scale (Labels, controls, data cells):
   - Light mode: `bg-white/96 backdrop-blur-xl border border-sky-100/90 shadow-2xl`
   - Dark mode: `bg-slate-900/96 backdrop-blur-xl border border-sky-500/35 shadow-2xl text-white`
 - **Squircle Date Cell Tokens:**
-  - Standard cell: `h-8 w-8 rounded-xl font-semibold text-xs transition-all`
+  - Standard cell: `h-7 w-7 rounded-lg font-semibold text-[11px] transition-all`
   - Selected cell: `bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105`
   - Range ribbon: `bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200`
   - Today indicator: `ring-1.5 ring-brand-500/80 text-brand-700 dark:text-cyan-400 font-bold bg-sky-50/40 dark:bg-slate-800/40`
 - **Standardized Implementations Across the Application:**
-  1. **Single DatePicker (`packages/ui-kit/src/components/date-picker/index.tsx`):** Custom animated `.glass-calendar-surface` popover with squircle cells, month/year navigation, today quick action, clear button, and full ISO date formatting.
+  1. **Single DatePicker (`packages/ui-kit/src/components/date-picker/index.tsx`):** Custom animated `.glass-calendar-surface` popover with squircle cells, month/year navigation, today quick action, clear button, and full ISO date formatting. Compact size: popup 272px wide (date), 224px (month), 288px (date and time); 28px day cells. The CRM `legacy-ui/DatePicker` and `DateTimePicker` are thin adapters over it, so the CRM uses the same calendar.
   2. **Month Picker Mode (`DatePicker mode="month"`):** Dedicated 12-month squircle grid and year navigation bar for `type="month"` forms.
   3. **Universal Input Delegation (`packages/ui-kit/src/components/input/index.tsx`):** `<Input type="date">` and `<Input type="month">` automatically render the themed `DatePicker`, eliminating default OS calendar popups globally.
-  4. **DateRangePicker (`packages/ui-kit/src/components/date-range-picker/index.tsx`):** Glassmorphic range selector with enterprise presets sidebar and dual date boundaries.
+  4. **DateRangePicker (`packages/ui-kit/src/components/date-range-picker/index.tsx`):** Glassmorphic range selector in the same compact popup as the single DatePicker (about 288px wide, 28px cells); no presets sidebar; dual date boundaries.
   5. **Top Navbar Calendar (`apps/ui/src/components/layout/HorizontalNavbar.tsx`):** Compact navbar date & time trigger with interactive calendar popover.
   6. **Monthly Attendance Grid (`apps/ui/src/features/hr/attendance/components/EmployeeMonthTab.tsx`):** Cell status tones and 7-column squircle grid headers.
 - **Browser Picker Suppression:**
@@ -358,6 +362,29 @@ UI Typography Scale (Labels, controls, data cells):
 
 - Every Tailwind class name must be a complete string literal in source. Never interpolate variables into class names (e.g., `` `bg-${color}-500` `` is prohibited as Tailwind's compiler drops dynamic classes).
 - Use `Record<Variant, string>` literal maps indexed by variant enum (exemplified in `Button`, `Alert`, and `StatusBadge`).
+
+### 3.13a Scrollbars
+
+- Every Tailwind scroll container (`overflow-auto`, `overflow-y-auto`, `overflow-x-auto` and the `-scroll` variants) gets one shared floating-pill scrollbar from `theme.css`: 6px thumb inset 3px, no arrows, transparent track, visible at rest as a soft Prime Blue (`#1769F5`) to cyan (`#12CFE3`) gradient (sky `#38bdf8` to cyan in dark mode); on hover/drag it becomes 8px and full-strength gradient (the width eases over 180ms; the gradient swap is instant, CSS cannot animate gradients). Colours are the `--scrollbar-thumb*` variables. Firefox cannot draw gradients on its scrollbar, so it falls back to `scrollbar-width: thin` with a solid brand-blue (sky in dark mode) thumb.
+- It is applied by class, not by element: there is no `*`, `html` or `body` rule. The selector sits in `:where()` (zero specificity), so a component's own scrollbar rule wins.
+- Opt out with `scrollbar-none` (slim 6px style used by nav flyouts) or `no-scrollbar` (hidden). CRM's `.crm-module` scrollbar rules keep their own look.
+- Every shell scroller must be `relative` (dashboard `<main>`, employee-portal content area). `sr-only` and tooltips are `position: absolute`; with no positioned ancestor they escape the shell's `overflow-hidden`, make the whole document scroll, and show the browser's default scrollbar on both axes (`w-screen` then also overflows).
+- A rounded card or `DataTable` that contains a tinted header must clip its contents (`overflow-hidden` or the `overflow-x-auto` that `DataTable` already sets). Never override it with `overflow-visible` / `lg:overflow-x-visible`: the square header background then sticks out past the rounded corners. Row menus do not need the overflow, because `ActionMenu` and `DropdownMenu` render through a portal.
+- A scroll area built without a Tailwind overflow utility (e.g. an inline `style={{ overflow: "auto" }}`) shows the browser default; use the utility class.
+
+### 3.14 Class Merging (`cn`) and Custom Font-Size Tokens
+
+- Always compose classes with the shared `cn` from `@texawave-erp/ui-kit` (`packages/ui-kit/src/lib/cn.ts`). Never call `twMerge` directly and never add a second `cn` (the CRM `legacy-ui/utils.ts` re-exports the shared one).
+- `tailwind-merge` only knows Tailwind's built-in font sizes. An unregistered `text-*` class is treated as a text **colour**, so `cn("text-white", "text-theme-xs")` silently drops `text-white` and the label inherits its parent's colour (dark text on a blue gradient button).
+- Every `--text-<name>` token added to `theme.css` (§3.5) must also be added to `CUSTOM_FONT_SIZES` in `cn.ts`. `pnpm --filter @texawave-erp/ui-kit test` (`packages/ui-kit/test/cn.test.ts`) reads `theme.css` and fails if a token is missing, and asserts `text-white` survives next to every registered size.
+- Do not work around a missing label colour by adding `text-white` to the call site or to child `<span>`s; fix the registration instead.
+- `Button` variants paint a gradient, which is a background _image_. `cn()` treats a later background colour (`bg-sky-50`, `bg-emerald-600`, `bg-white`, `bg-[#1769F5]`) as replacing that gradient and its `from-/via-/to-` stops, per modifier (`hover:`/`dark:` only affect their own state). Without this the gradient kept showing underneath the colour and tinted labels became unreadable. So a one-off tinted or solid button may pass its colour through `className`, but prefer an existing variant (`secondary`, `outline`, `destructive`, `success`) when one fits. The tests in `cn.test.ts` cover this.
+
+### 3.15 Banner (page-header) action buttons
+
+- Buttons in a `PageHeader variant="banner"` / `HrPageHeader` `action` slot sit on a coloured gradient, so they use a **Button variant**: `variant="glass"` for the frosted white look (blue label), or `primary` for the single main call-to-action. Never hand-write a translucent look (`bg-white/20 hover:bg-white/30 text-white border-white/30`).
+- Why it matters: `theme.css` restyles every `.banner-actions button` into the frosted white style, but skips any button whose class list contains `from-` (every `primary` Button does, because of its gradient). A hand-written translucent button therefore looked solid white on some screens (secondary buttons got restyled) and see-through on others (primary buttons were skipped).
+- `apps/ui/src/lib/banner-actions.test.ts` scans every page-header `action` slot and fails if a Button there uses `bg-white/N` or `border-white/N`.
 
 ---
 
@@ -376,7 +403,7 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 | `Checkbox`                              | standard input checkbox props                                                                                                                                                                                                                                                             | Disabled, checked, focus ring                                                                                                                                                                                                       |
 | `FormField`                             | `label`, `error`, `hint`, `required`, `labelAction`, `errorVariant` (`text` default, `bubble`), render-prop `children`                                                                                                                                                                    | Wires `aria-describedby`, `aria-invalid`, and `<label htmlFor>` automatically; `bubble` shows the error in a callout with a pointer under the control (in the layout flow, `role="alert"`, ✕ glyph, error-700 on error-50 = 6.05:1) |
 | `Card`                                  | `tone` (`default`, `success`, `warning`, `error`, `info`), standard `HTMLAttributes<HTMLDivElement>`                                                                                                                                                                                      | Light/dark surface, rounded-2xl, shadow, full-perimeter gradient borders                                                                                                                                                            |
-| `StatCard`                              | `headingId`, `label`, `value`, `note`, `tone` (`neutral`, `brand`, `info`, `warning`, `error`, `success`), `icon`, `trend`, `href`                                                                                                                                                        | Metric card with accessible `aria-labelledby`, count-up animation, hover elevation, focus-visible stretched link                                                                                                                    |
+| `StatCard`                              | `headingId`, `label`, `value`, `note`, `tone` (`neutral`, `brand`, `info`, `warning`, `error`, `success`), `icon`, `trend`, `href`, `variant` (`standard` / `kpi` / `dashboard`)                                                                                                          | Metric card with accessible `aria-labelledby`, count-up animation, hover elevation, focus-visible stretched link                                                                                                                    |
 | `AnimatedNumber`                        | `value`, `duration` (ms), `formatter`                                                                                                                                                                                                                                                     | Accessible count-up transition, cubic ease-out, immediate render on `prefers-reduced-motion`                                                                                                                                        |
 | `MetricTrend`                           | `value`, `direction` (`up`, `down`, `neutral`), `label`, `isPositive`, `className`                                                                                                                                                                                                        | Semantic trend badge with distinct directional glyphs and non-color `aria-label` description                                                                                                                                        |
 | `TableSkeleton`                         | `rowsCount`, `columnsCount`, `className`                                                                                                                                                                                                                                                  | High-fidelity table loading skeleton with `role="status"` and `aria-label`, respects reduced motion                                                                                                                                 |
@@ -386,19 +413,19 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 | `Spinner`                               | standard `SVGAttributes<SVGSVGElement>`                                                                                                                                                                                                                                                   | SVG loading spinner with `motion-reduce:animate-none`                                                                                                                                                                               |
 | `EmptyState`                            | `title`, `description`, `action`                                                                                                                                                                                                                                                          | Zero-state placeholder (never used for request failures)                                                                                                                                                                            |
 | `ErrorState`                            | `title`, `description`, `onRetry`                                                                                                                                                                                                                                                         | Request failure state with explicit retry trigger                                                                                                                                                                                   |
-| `StatusBadge`                           | `label`, `colorToken` (`brand`, `gray`, `success`, `warning`, `error`)                                                                                                                                                                                                                    | Single source of truth for rendering domain status tokens                                                                                                                                                                           |
+| `StatusBadge`                           | `label`, `colorToken` (`brand`, `gray`, `success`, `warning`, `error`)                                                                                                                                                                                                                    | Single source of truth for rendering domain status tokens. Sizes to its label (`w-fit`): a flex column never stretches it                                                                                                           |
 | `DataTable`                             | `columns`, `rows`, `getRowKey`, `caption`, `loading`, `loadingRowsCount`, `loadingSkeleton`, `emptyState`, `errorState`, `sortColumn`, `sortDirection`, `onSort`, `selectable`, `selectedRowKeys`, `onSelectRow`, `onSelectAll`, `selectRowAriaLabel`, `selectAllAriaLabel`, `onRowClick` | Generic tabular data grid with accessible column sorting (`aria-sort`), row selection (accessible checkboxes + indeterminate state), interactive row clicks, horizontal overflow wrapper, and integrated loading/empty/error states |
 | `Pagination`                            | `page`, `totalPages`, `onPageChange`, `totalItems`, `pageSize`, `onPageSizeChange`, `pageSizeOptions`                                                                                                                                                                                     | Accessible pagination navigation with result count display (`Showing X–Y of Z results`) and items-per-page dropdown                                                                                                                 |
 | `TableToolbar`                          | `search`, `filters`, `chips`, `actions`, `bulkActions`, `resultCount`, `hasActiveFilters`, `onClearFilters`, `clearFiltersLabel`                                                                                                                                                          | Standardized table management toolbar with SearchInput integration, filter control slots, active filter chips row, and clear-all-filters action                                                                                     |
-| `ActionMenu`                            | `items` (`label`, `onClick`, `variant`, `icon`, `disabled`, `separator`), `ariaLabel`, `triggerIcon` (`vertical`, `horizontal`)                                                                                                                                                           | Zero-dependency accessible dropdown, `aria-haspopup="menu"`, Escape dismissal, click-outside                                                                                                                                        |
+| `ActionMenu`                            | `items` (`label`, `onClick`, `variant`, `icon`, `disabled`, `separator`), `ariaLabel`, `triggerIcon` (`vertical`, `horizontal`), `layout` (`list` default = labelled dropdown with `listTitle` header; `radial` = circular fan-out)                                                       | Zero-dependency accessible dropdown, `aria-haspopup="menu"`, Escape dismissal, click-outside                                                                                                                                        |
 | `ConfirmDialog` / `DeleteConfirmDialog` | `open`, `onClose`, `onConfirm`, `title`, `description`, `itemName`, `variant`, `confirmText`, `cancelText`, `loading`, `disabled`, `size`                                                                                                                                                 | Accessible native `<dialog>` modal, focus trap, backdrop blur, Escape dismissal, destructive deletion wrapper                                                                                                                       |
 | `FilterChip` / `FilterChips`            | `label`, `value`, `onRemove`, `disabled`, `icon` (chip); `chips`, `onClearAll`, `clearAllLabel`, `activeFiltersLabel` (group)                                                                                                                                                             | Removable filter token pills with accessible dismiss buttons (`aria-label`) and group "Clear all" action                                                                                                                            |
 | `SearchInput`                           | `value`, `onChange`, `onChangeValue`, `onClear`, `clearable`, `invalid`, `sizeVariant` (`sm`, `md`, `lg`), `clearButtonAriaLabel`                                                                                                                                                         | Accessible search control with leading magnifying glass, clear button (`type="button"`), `role="searchbox"`                                                                                                                         |
 | `DatePicker`                            | `value`, `defaultValue`, `onChange`, `onChangeDate`, `min`, `max`, `minDate`, `maxDate`, `clearable`, `onClear`, `invalid`, `sizeVariant`                                                                                                                                                 | Single date input, zero timezone distortion (`YYYY-MM-DD`), `.showPicker()` trigger, clear button                                                                                                                                   |
 | `PasswordField`                         | `value`, `showRequirements`, `rules` (`PasswordRule[]`), `invalid`, `toggleAriaLabel`                                                                                                                                                                                                     | Masked input by default, accessible reveal button (`type="button"`), live criteria validation checklist                                                                                                                             |
 | `Dialog`                                | `open`, `onClose`, `title`, `size` (`sm`, `md`, `lg`, `xl`, `2xl`)                                                                                                                                                                                                                        | Native `<dialog>`, `showModal()`, backdrop blur, Esc key, focus trap                                                                                                                                                                |
-| `DateRangePicker`                       | `value`, `onChange`, `onApply`, `onClear`, `variant`, `presets`, `fromAriaLabel`, `toAriaLabel`                                                                                                                                                                                           | Unified date-range calendar popover, quick presets, keyboard navigation                                                                                                                                                             |
-| `Tabs`                                  | `label`, `idPrefix`, `tabs`, `value`, `onChange`, `children`                                                                                                                                                                                                                              | WAI-ARIA tablist/tabpanel, Arrow/Home/End keyboard navigation                                                                                                                                                                       |
+| `DateRangePicker`                       | `value`, `onChange`, `onApply`, `onClear`, `variant`, `fromAriaLabel`, `toAriaLabel`                                                                                                                                                                                                      | Unified date-range calendar popover, keyboard navigation                                                                                                                                                                            |
+| `Tabs`                                  | `label`, `idPrefix`, `tabs`, `value`, `onChange`, `children`, `panel`                                                                                                                                                                                                                     | WAI-ARIA tablist/tabpanel, Arrow/Home/End keyboard navigation                                                                                                                                                                       |
 | `Breadcrumbs`                           | `items` (`string                                                                                                                                                                                                                                                                          | BreadcrumbItem`), `separator`, `ariaLabel`, `tone` (`neutral`, `banner`)                                                                                                                                                            | Accessible hierarchy path `<nav aria-label="Breadcrumb">`, `<ol>`, `aria-current="page"` on current, non-text separator |
 | `PageHeader`                            | `title`, `description`, `icon`, `badge`, `breadcrumbs`, `breadcrumbsSlot`, `action`, `primaryAction`, `secondaryActions`, `variant` (`neutral`, `banner`)                                                                                                                                 | Standardized page header supporting clean neutral surfaces and full-width gradient banners (`HrPageHeader`)                                                                                                                         |
 
@@ -443,10 +470,15 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `label: string` (Card metric title, rendered uppercase tracking-wider)
   - `value: string | number` (Primary numeric or formatted metric string)
   - `note: string` (Secondary contextual note / comparison baseline)
-  - `tone?: StatCardTone` (`"neutral" | "brand" | "info" | "warning" | "error" | "success"`; default `"neutral"`)
+  - `tone?: StatCardTone` (`"neutral" | "brand" | "info" | "warning" | "error" | "success" | "blue" | "cyan" | "emerald" | "amber"`; default `"neutral"`. `"purple"` is a legacy alias that renders cyan — the brand forbids purple; don't use it in new code)
   - `icon?: ComponentType<{ className?: string }>` (Rendered in tonally-matched squircle container)
   - `trend?: MetricTrendProps` (Optional directional trend badge)
   - `href?: string` (Optional destination with stretched overlay link `<a aria-label="...">`)
+  - `variant?: StatCardVariant` (`"standard" | "kpi" | "dashboard"`; default `"dashboard"`)
+    - `standard` — the original look: tinted card, tone hairline on top, uppercase label, divider above the note. Opt in explicitly.
+    - `kpi` — horizontal card with a large gradient icon tile.
+    - `dashboard` (default) — the admin dashboard's KPI card (`features/admin-dashboard`): white `rounded-3xl` card edged by the soft `card-light-shadow` (no border in light mode; a faint border in dark mode, where shadows barely show), title-case label, large tone-coloured figure, a corner badge (the `icon`, or an arrow that turns 45° on hover when the card links somewhere), a soft radial tone tint just inside the top-right corner (a gradient, not a blurred element, so it fades before the rounded edge), the note with a tone dot (wraps, never truncated), lift on hover. The figure uses `AnimatedValue`, so formatted values such as `"42h 48m"` count up too. Values longer than 5 characters step down one size to fit 6-up grids.
+    - **Rollout:** `dashboard` became the default after design approval, so every `StatCard` without an explicit `variant` uses it; the `kpi` cards keep their own look.
   - `className?: string`
 - **Accessibility Guarantees:** Semantic `<section aria-labelledby={headingId}>`, `<h3 id={headingId}>`, and full accessible link text `${label}: ${value}. ${note}`.
 - **Backward Compatibility:** `apps/ui/src/features/hr/components/StatCard.tsx` re-exports `StatCard`, `StatCardProps`, and `StatCardTone` from `@texawave-erp/ui-kit`.
@@ -462,6 +494,15 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - Inspects `window.matchMedia("(prefers-reduced-motion: reduce)").matches`.
   - When reduced motion is requested or `value === 0`, cancels animation frames and renders the target value immediately.
   - Implements smooth cubic ease-out curve (`1 - (1 - t)^3`) via `requestAnimationFrame`.
+
+#### 3a. `AnimatedValue`
+
+- **Location:** `packages/ui-kit/src/components/stat-card/animated-value.tsx`
+- **Public API:**
+  - `value: string | number` (A number, or formatted text such as `"42h 48m"`, `"₹3.2L"`, `"1,20,000"`)
+  - `duration?: number` (Count-up duration in ms; default: `900`)
+- **Behaviour:** Runs every number inside the text through `AnimatedNumber`; units, currency symbols and separators stay put. Keeps decimals, comma grouping (en-IN) and leading zeros (`"08"`). Numbers are formatted with `toLocaleString("en-IN")`.
+- **Accessibility & Motion:** Renders one copy in place, like `AnimatedNumber`, so the settled text is exactly the value. Reduced motion is honoured through `AnimatedNumber` (the value appears immediately).
 
 #### 4. `MetricTrend`
 
@@ -516,6 +557,14 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - Keyboard handling: Dismisses on `Escape` key and returns keyboard focus to the trigger button.
   - Dismisses on click-outside.
 - **Backward Compatibility:** `apps/ui/src/components/ActionMenu.tsx` re-exports `ActionMenu`, `ActionMenuItem`, and `ActionMenuProps` from `@texawave-erp/ui-kit`.
+
+#### 1a. `Dialog` banner header
+
+- **Location:** `packages/ui-kit/src/components/dialog/index.tsx` (every dialog, `ConfirmDialog` and `AddressDialog` included).
+- **Look:** every dialog opens with a banner header in the same sky-to-teal gradient as `PageHeader variant="banner"` (dark mode: the dark banner), a white title, an optional white subtitle and a white close button. A dialog without a title has no header and keeps a thin brand accent bar.
+- **Header props (all optional):** `title` (a string gets the standard bold title; a node is rendered as given), `subtitle` (a muted line under the title: a code, a contact, a date range), `icon` (a white tile before the title; without one a small white dot), `badge` (chips beside the title), `actions` (buttons on the right, given the glass style of page-banner actions), `tone` (`"brand"` by default, `"danger"` for a red gradient; `ConfirmDialog` uses it for destructive confirmations).
+- **Do not** build a custom title block with its own heading inside `title`, or put the main shortcuts in a row at the top of the body: use `title` + `subtitle` + `badge` + `actions` so every dialog header looks the same.
+- **Behaviour:** the header and footer stay put while the body scrolls, and the header gets a soft shadow once the body has scrolled. The title element id comes from `useId` and is wired to `aria-labelledby`, so stacked dialogs do not collide. Open/close animation respects `prefers-reduced-motion` (`theme.css`).
 
 #### 2. `ConfirmDialog` & `DeleteConfirmDialog`
 
@@ -681,6 +730,21 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - Direct UI Kit imports: `RolesHeader.tsx`, `UsersView.tsx`, `MenuView.tsx`.
   - HR banner instances via `HrPageHeader`: `EmployeesView`, `DepartmentsView`, `AttendanceView`, `LeavesView`, `HolidaysView`, `TasksView`, `TicketsView`, `TeamsView`, `RecruitmentView`, `OrgChartView`, `ProfilesListView`, `RegularizationView`, `ExpenseApprovalsView`, `ExitRequestsView`, `LocationPrivilegeView`, `FullMonthPresentView`, `EmployeeDocumentsListView`, `HrDashboardView`, `PayrollView`, `ComplianceView`.
 
+#### 3. `Tabs`
+
+- **Location:** `packages/ui-kit/src/components/tabs/index.tsx`
+- **Use for:** switching content **within one page** (the URL does not change). It is a WAI-ARIA tab list (`role="tablist"`/`"tab"`/`"tabpanel"`, arrow keys / Home / End). For moving **between pages** use links in a navigation landmark instead, not `Tabs`.
+- **Public API:**
+  - `label: string` (accessible name of the tab list), `idPrefix: string` (unique per page)
+  - `tabs: readonly { id; label: ReactNode }[]`, `value`, `onChange(id)`
+  - `children?: ReactNode` (the selected tab's panel), `className?: string`
+  - `variant?: TabsVariant` (`"default" | "capsule"`; default `"capsule"`)
+- **Variants:**
+  - `default` — the original boxed tab bar (`rounded-xl`, sky tint) with the sliding `tab-prime-pill`. Opt in explicitly; it keeps the old double-highlight and layout-property animation.
+  - `capsule` (default) — fully rounded capsule (`rounded-full`, white, soft drop shadow) with a fully rounded `tab-prime-pill` that glides between tabs. Only the pill moves: it animates `transform`/`width` over 300 ms with `ease-spring-glide`, labels only change colour (never weight, so nothing re-measures mid-slide), and the selected tab paints no background of its own. No transition before the first measurement, so the pill appears in place on load. Single line; scrolls sideways on narrow screens and keeps the selected tab in view. Reduced motion: no transitions.
+  - **Rollout:** `capsule` became the default after design approval, so every `Tabs` without an explicit `variant` uses it.
+  - **CRM legacy tabs:** the CRM screens use the Radix-based `apps/ui/src/components/legacy-ui/tabs.tsx` (`Tabs`/`TabsList`/`TabsTrigger`/`TabsContent`), not this component. Its `TabsList`/`TabsTrigger` render the same capsule and gliding pill, and enforce the capsule shape, white active text, readable dark-mode inactive text and "no icons" (`[&>svg]:hidden`) after the caller's `className`, so per-screen overrides cannot fight the pill. New CRM work should prefer the ui-kit `Tabs`.
+
 ---
 
 ### 4.7 Phase 5 DataTable, TableToolbar & Filtering Contracts
@@ -703,6 +767,8 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `caption?: string` (Rendered with accessible `.sr-only` class)
   - `className?: string`
   - `tableClassName?: string`
+  - `density?: "comfortable" | "compact"`
+  - `bordered?: boolean` (Default `false`; a thin border on every cell, a full row-and-column grid)
   - **Loading, Empty & Error State Slots:**
     - `loading?: boolean` (Renders `TableSkeleton` or `loadingSkeleton` slot)
     - `loadingRowsCount?: number` (Default: `6`)
@@ -735,17 +801,18 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 - **Location:** `packages/ui-kit/src/components/table-toolbar/index.tsx`
 - **Public API:**
   - `search?: ReactNode | TableToolbarSearchConfig`
-    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="sm"`.
+    - When passed config (`{ value, onChange, placeholder, onClear, ariaLabel, disabled }`), automatically renders integrated `SearchInput` with `sizeVariant="md"` (h-10, same height as `Select`).
   - `filters?: ReactNode` (Slot for select dropdowns, date pickers, or custom filter controls)
   - `chips?: ReactNode` (Slot for active filter chips rendered in dedicated bottom shelf)
   - `actions?: ReactNode` (Slot for primary/secondary buttons, e.g. "New Record")
   - `bulkActions?: ReactNode` (Slot for bulk actions when rows are selected)
-  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `12 results`)
+  - `resultCount?: ReactNode | number` (Count telemetry, e.g. `1 result` / `12 results`; shown at the right end of the row)
   - `hasActiveFilters?: boolean` (Default: `false`)
   - `onClearFilters?: () => void` (Reset/clear callback)
   - `clearFiltersLabel?: string` (Default: `"Clear filters"`)
   - `className?: string`
   - `children?: ReactNode`
+- **Layout:** one row — search (grows, `max-w-sm`), `filters` inline, then count / "Clear filters" / `bulkActions` / `actions` at the right end. Any `Select` inside `filters` (even inside a wrapper div) defaults to `w-44` from `sm` up (`Select`'s root carries `data-select-root`); below `sm` search and filters stack at full width.
 - **Accessibility & Structure:**
   - Outer region declared with `role="region" aria-label="Table management toolbar"`.
   - Form controls inside toolbar feature high-contrast idle borders (`border-gray-500` / 4.76:1 contrast ratio) conforming to WCAG SC 1.4.11.
@@ -846,7 +913,10 @@ The approved TexaOne specification transitions the navigation to a modern three-
 1. **Level 1 — Top Horizontal Navbar (`HorizontalNavbar`):**
    - Full-width light sky-blue to aqua gradient strip (`bg-linear-to-r from-blue-50/90 via-cyan-50/80 to-emerald-50/60`).
    - Brand logo & tagline ("Run Your Business as One.").
-   - Top-level authorized ERP module buttons (Dashboard, Human Resources, Commerce, Finance, Inventory, Projects, Reports, Settings).
+   - Top-level authorized ERP module buttons (Dashboard, Human Resources, Commerce, Finance, Inventory, Projects, Reports, Settings), **left-aligned** directly after the logo (not centred — the set differs per role, so a short rail must not float mid-bar).
+   - **Per-role module set:** a module button renders only when at least one of its Level 2 categories survives the RBAC filter below; `Dashboard` (`/admin`, the HR dashboard) follows the `hr-dashboard` menu row. No module renders until `useMyMenu()` has loaded, so unpermitted modules never flash. An HR Manager therefore sees Dashboard, Human Resources and Master List only.
+   - **Master List tabs** have no menu rows; each is gated by the read permissions of its screen, declared once in `apps/ui/src/features/masters/master-permissions.ts` (`MASTER_READ_PERMISSIONS`, any-of) and used by both the navbar's Master List dropdown (`NavCategory.anyPermission`) and `MastersTabBar`. A new master screen must add its read codes there.
+   - **Global search** (`apps/ui/src/components/layout/GlobalSearch.tsx`, also in the employee-portal header): a combobox that jumps to pages, quick actions and (HR workspace, `hr.employee.read.team|all` only) employees. The caller passes only entries the user may open — the HR bar builds them from the same `visibleModules` + `filterCategories` as the module bar, the portal from `usePortalNavGroups()` — so search never offers a page the role lacks. Employee lookup uses the existing `GET /hr/employees?search=` (team-scoped by the API). Ctrl/⌘+K or `/` focuses it; ↑/↓, Enter, Esc; recent pages are a per-browser convenience (`localStorage`, best effort). Synonyms live in `KEYWORDS_BY_PATH` in that file; add one there when a page is commonly searched by another word.
    - Date & time calendar popover, Notification popover, and User Profile menu.
    - Hover or click on a module activates its first-level category menu.
 
@@ -928,10 +998,9 @@ Every domain screen fetching or mutating data must handle these discrete states:
   - **Hover State:** `hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300`.
   - **Outside Month / Filler:** Subdued `text-slate-300 dark:text-slate-600 font-medium`.
   - **Disabled Date:** `opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-600`.
-  - **Navigation Controls:** Balanced squircle arrow buttons (`h-8 w-8 rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70`).
-  - **Weekday Labels:** Clean uppercase header (`text-[10.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider`).
+  - **Navigation Controls:** Balanced squircle arrow buttons (`h-7 w-7 rounded-lg border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70`).
+  - **Weekday Labels:** Clean uppercase header (`h-5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase`).
 - **Preserved Across Consumers:**
-  - Presets (Today, Yesterday, Last 7 days, Last 30 days, This month, Last month, Custom range).
   - Exact date range calculations, single-day and multi-day range boundaries.
   - Visually hidden accessibility inputs (`fromAriaLabel`, `toAriaLabel`).
   - Full-page month attendance calendar (`EmployeeMonthTab.tsx`): all status color indicators (`PRESENT`, `ABSENT`, `ON_LEAVE`, `HALF_DAY`, `OVERTIME`), daily punch timelines, totals, and employee selectors remain 100% intact.
@@ -955,7 +1024,25 @@ Every domain screen fetching or mutating data must handle these discrete states:
 - **Form Value Retention on Failure:** Form state remains in component state on failed submit and is only cleared upon success. Verified by Playwright test: `rejects a bad login and lets the user retry without losing the organization field`.
 - **Table & Pagination Conventions:** Generic dumb `DataTable` + `Pagination`, driven strictly by `PaginationMeta` returned in the API envelope. Never re-derive `totalPages` client-side when the server already computed it.
 - **Dialog Conventions:** Controlled via a single open/close boolean state in the parent component; backed by native `<dialog>` element (`showModal()`, focus trapping, Esc-to-close). Never build a manual custom `fixed` div modal.
+- **Dialog backdrop close:** a click on the backdrop closes the dialog only if the press _started_ on the backdrop too. A drag that begins inside a field (e.g. selecting text in an input) and is released over the backdrop fires its `click` on the `<dialog>` element itself, so the release point alone cannot tell it from a real backdrop click. `Dialog` records the press target on `onMouseDown`; do not re-implement backdrop closing in a feature.
+- **Unlock / reopen actions:** an action that undoes a locked state (e.g. reopening a returned DC, a converted quotation or a converted proforma) asks for a mandatory reason first. In Sales use `ReasonActionDialog` (`apps/ui/src/features/sales/shared/components/`): the confirm button stays disabled until a non-blank reason is typed, and the reason is sent to the API, which records it on the document and in its audit entry. Hide the document's Edit action while it is locked.
 - **Toast Notifications:** Fired fire-and-forget via `useToast().toast(...)` for action outcomes (created, updated, deleted, failed), never for field validation errors (which belong inline via `FormField`).
+
+### 6.4 Projects module page patterns
+
+Every Projects page is built from ui-kit primitives; there are no hand-rolled banners, tables or filter pills in the module.
+
+- **Header:** each page opens with `PageHeader variant="banner"`. Pages that had a `PageBanner` keep using `apps/ui/src/features/projects/components/PageBanner.tsx`, which is a thin wrapper over the same component. A back link goes in the `icon` slot, codes and status chips in `badge`, actions in `action` as `Button variant="glass"` (see §3.15).
+- **KPIs:** `StatCard` with a `tone`, linking to the filtered view where one exists (the Dashboard cards link to `/projects/list?status=` / `?filter=`). Do not draw a stat tile by hand.
+- **Status and health badges:** `features/projects/components/HealthBadge.tsx` maps project, task, milestone, health and priority values onto the ui-kit `StatusBadge` colour tokens (on track = success, delayed = error, delivered/active = brand, on hold = warning). Add a new value there, not as a local class string. Labels carry no emoji.
+- **Lists:** `TableToolbar` (search, filters, result count, clear) above a `DataTable`. Status and health filters are `SpringGlideSegmentedControl`s; sortable columns use `DataTable`'s `sortable`/`onSort`. Loading, empty and error states come from the `DataTable` props plus `EmptyState` / `ErrorState`.
+- **Table / Board toggle (`/projects/list`):** the view is held in the URL (`?view=board`) so it can be linked and survives reload. The table is paginated (10 per page). The board loads one page of up to 100 projects, because that is the API's `MAX_PAGE_SIZE`, and shows a note when `total` is larger. The board groups cards by status and is read-only; cards link to the project.
+- **Usage bars:** `ProjectMeter` (`features/projects/components/ProjectMeter.tsx`) is the one bar for hours, budget and capacity: used amount, total and percentage, turning to the error colour above 90 %. It is a feature-level component, not in ui-kit.
+- **Project detail (`/projects/[id]`):** the header sits above ui-kit `Tabs` (Overview, Milestones & Tasks, Meetings). Team and Expenses tabs exist but are hidden by `SHOW_TEAM_MEMBERS_SECTION` / `SHOW_EXPENSES_SECTION` in the page file, which are `false` because those sections are not part of the legacy screen. The active tab is local state, not part of the URL.
+- **New / Edit Project (`ProjectForm`):** one form for both. Four `SectionCard`s (Basics, Client, Scope & Team, Budget & Schedule) on the left; on the right a sticky `ProjectSummaryCard` (`lg:` and up; below that it follows the form) with the project code, key figures (duration, hours, price, price per hour, team size) and a Required / Recommended checklist. Actions live only in a sticky bar at the bottom of the form. On create the code is a **preview** (`features/projects/project-code-preview.ts`, same rules as the API's `project-sequences.ts`, sequence shown as `#`); on edit it is the saved code. The form has `noValidate`, so required fields are reported by the form's own message rather than the browser's. A planned end date before the start date is flagged inline on that field.
+- **Select accessible names:** `FormField` points its `<label>` at the hidden native `<select>` inside the ui-kit `Select`, while the visible combobox button is named only by `aria-label`. Until that is fixed in ui-kit, pass `aria-label` on a `Select` that sits inside a `FormField` (as `ProjectForm` does).
+- **Known gap:** navigation actions are written `<Link><Button/></Link>`, which nests a button in a link. ui-kit has no link-styled button yet; until one exists, follow the existing pattern rather than inventing another.
+- **Tests:** `apps/ui/e2e/projects-redesign.spec.ts` (live API, seeded dev database) checks that each page uses the shared banner, the list toggles table/board via the URL, the detail page splits into tabs, and the Expenses table sorts.
 
 ---
 
@@ -1006,7 +1093,7 @@ These criteria govern the approval of the implementation PR:
 2. **Contrast & Inversion Audit:** Primary buttons, selected tabs, active navigation, focus rings, and logo fallbacks must satisfy WCAG 2.2 AA contrast requirements (distinguishing normal-text ≥ 4.5:1 and non-text ≥ 3.0:1).
 3. **Foundation Preservation:** Preserve semantic status colors, Nunito Sans typography, login authentication behavior, and existing interaction contracts.
 4. **Sidebar Consolidation:** Implement one collapsible main sidebar with nested accordion submenus, single-module expansion, and preserved `useMyMenu()` RBAC gating.
-5. **Calendar Preservation:** Preserve date-range presets, month jumpers, selection logic, and filter behaviors.
+5. **Calendar Preservation:** Preserve month jumpers (the date-range presets were removed on purpose), selection logic, and filter behaviors.
 6. **Zero Dependency Bloat:** Do not add external npm dependencies solely for dropdowns, icons, animations, or visual effects.
 7. **Test Suite Integrity:** All existing unit and E2E Playwright tests must pass without weakening assertions.
 8. **Accessibility Standards:** Target WCAG 2.2 AA. Verify contrast, keyboard access, focus visibility, reduced motion, 200% zoom, and reflow at 320 CSS pixels.

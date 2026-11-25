@@ -6,10 +6,10 @@ import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DatePicker,
   FormField,
   Input,
+  SectionCard,
   Select,
   Textarea,
 } from "@texawave-erp/ui-kit";
@@ -20,6 +20,7 @@ import { formatInr } from "../format";
 import { GST_STATES } from "../gst";
 import { useMasterOptions } from "../hooks";
 import { useLivePreview } from "../useLivePreview";
+import { type DraftParams, useTemplateHtml } from "../useTemplateHtml";
 import {
   emptyLine,
   type HeaderField,
@@ -54,18 +55,17 @@ function describeError(error: unknown, noun: string): string {
 
 function Section({
   title,
+  action,
   children,
 }: {
   title: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="flex flex-col gap-4">
-      <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-        {title}
-      </h2>
+    <SectionCard title={title} action={action}>
       {children}
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -82,6 +82,12 @@ export interface PricedDocumentFormProps {
   customerLabel?: string | undefined;
   /** Server pricing and HTML for the current values. */
   preview: (values: V, bank: Bank) => Promise<DocumentPreview>;
+  /** New documents: the draft shown until the first valid preview. */
+  template?:
+    | ((params: Record<string, string | number>) => Promise<{ html: string }>)
+    | undefined;
+  /** What the draft preview shows of the values so far (customer, date, …). */
+  templateParams?: ((values: V) => DraftParams) | undefined;
   onSubmit: (values: V, bank: Bank) => Promise<void>;
   onCancel: () => void;
   submitLabel: string;
@@ -103,6 +109,8 @@ export function PricedDocumentForm({
   savedBank = null,
   customerLabel,
   preview: runPreview,
+  template: loadTemplate,
+  templateParams,
   onSubmit,
   onCancel,
   submitLabel,
@@ -172,6 +180,13 @@ export function PricedDocumentForm({
   } = useLivePreview(values, isValid, request);
   /** The preview of exactly the values on screen (else null). */
   const shown = fresh ? preview : null;
+
+  // The empty template, so the panel is never blank before the first
+  // valid preview (best effort: without it the empty message shows).
+  const templateHtml = useTemplateHtml(
+    mode === "create" && !preview ? loadTemplate : undefined,
+    templateParams ? templateParams(values) : {},
+  );
 
   function set<K extends keyof V>(key: K, value: V[K]) {
     changed(String(key));
@@ -253,22 +268,21 @@ export function PricedDocumentForm({
     </FormField>
   );
 
-  const datalist = (id: string, labels: string[]) => (
-    <datalist id={id}>
-      {labels.map((l) => (
-        <option key={l} value={l} />
-      ))}
-    </datalist>
-  );
-
   const number =
     mode === "edit" ? documentNumber : (preview?.number ?? "Issued on save");
+
+  const hsnCodes = options
+    .byField("HSN_CODE")
+    .map((o) => o.value ?? "")
+    .filter(Boolean);
+
+  const masterLabels = (field: NonNullable<HeaderField["masterField"]>) =>
+    options.byField(field).map((o) => o.label);
 
   const headerField = (f: HeaderField) => {
     const key = `header.${f.key}`;
     const value = values.header[f.key] ?? "";
     const fixed = mode === "edit" && Boolean(f.fixedOnEdit);
-    const listId = f.masterField ? `${config.noun}-${f.key}` : undefined;
     return (
       <FormField
         key={f.key}
@@ -282,6 +296,7 @@ export function PricedDocumentForm({
           f.kind === "date" ? (
             <DatePicker
               {...p}
+              placement="bottom"
               value={value}
               disabled={submitting || fixed}
               onBlur={() => touch(key)}
@@ -301,25 +316,35 @@ export function PricedDocumentForm({
                 </option>
               ))}
             </Select>
+          ) : f.masterField ? (
+            <Select
+              {...p}
+              value={value}
+              disabled={submitting || fixed}
+              onBlur={() => touch(key)}
+              onChange={(e) => setHeader(f.key, e.target.value)}
+            >
+              <option value="">Select…</option>
+              {masterLabels(f.masterField).map((label) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+              {/* A saved value that is no longer in the master list stays selectable. */}
+              {value && !masterLabels(f.masterField).includes(value) ? (
+                <option value={value}>{value}</option>
+              ) : null}
+            </Select>
           ) : (
-            <>
-              <Input
-                {...p}
-                maxLength={f.maxLength}
-                placeholder={f.placeholder}
-                list={listId}
-                value={value}
-                disabled={submitting || fixed}
-                onBlur={() => touch(key)}
-                onChange={(e) => setHeader(f.key, e.target.value)}
-              />
-              {listId && f.masterField
-                ? datalist(
-                    listId,
-                    options.byField(f.masterField).map((o) => o.label),
-                  )
-                : null}
-            </>
+            <Input
+              {...p}
+              maxLength={f.maxLength}
+              placeholder={f.placeholder}
+              value={value}
+              disabled={submitting || fixed}
+              onBlur={() => touch(key)}
+              onChange={(e) => setHeader(f.key, e.target.value)}
+            />
           )
         }
       </FormField>
@@ -340,7 +365,7 @@ export function PricedDocumentForm({
           </Alert>
         ) : null}
 
-        <Section title={`1. Customer & ${config.noun}`}>
+        <Section title="1. Customer details">
           <FormField
             label="Customer"
             required
@@ -360,6 +385,9 @@ export function PricedDocumentForm({
               />
             )}
           </FormField>
+        </Section>
+
+        <Section title={`2. ${capitalize(config.noun)} details & line items`}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label={config.numberLabel}>
               {(f) => <Input {...f} value={number ?? ""} readOnly />}
@@ -389,71 +417,74 @@ export function PricedDocumentForm({
               )}
             </FormField>
           </div>
-        </Section>
-
-        <Section title="2. Items">
+          <h3 className="mt-1 text-theme-xs font-bold tracking-wider text-gray-600 uppercase dark:text-gray-300">
+            Line items ({values.lines.length})
+          </h3>
           {errorFor("lines") ? (
             <p role="alert" className="text-theme-sm text-error-600">
               {errorFor("lines")}
             </p>
           ) : null}
-          {datalist(
-            `${config.noun}-hsn`,
-            options
-              .byField("HSN_CODE")
-              .map((o) => o.value ?? "")
-              .filter(Boolean),
-          )}
           {values.lines.map((l, i) => {
             const err = (k: string) => errorFor(`lines.${i}.${k}`);
             const amount = shown ? shown.totals.lineAmounts[i] : undefined;
             return (
               <fieldset
                 key={i}
-                className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-white/[0.03]"
               >
-                <legend className="px-1 text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+                <legend className="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                   Item {i + 1}
                 </legend>
-                <FormField
-                  label="Description"
-                  required
-                  errorVariant="bubble"
-                  error={err("description")}
-                >
-                  {(f) => (
-                    <Input
-                      {...f}
-                      maxLength={500}
-                      placeholder="Industrial control panel"
-                      value={l.description}
-                      disabled={submitting}
-                      onBlur={() => touch(`lines.${i}.description`)}
-                      onChange={(e) =>
-                        setLine(i, { description: e.target.value })
-                      }
-                    />
-                  )}
-                </FormField>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div>
+                  <FormField
+                    label="Description"
+                    required
+                    errorVariant="bubble"
+                    error={err("description")}
+                  >
+                    {(f) => (
+                      <Input
+                        {...f}
+                        maxLength={500}
+                        placeholder="Industrial control panel"
+                        value={l.description}
+                        disabled={submitting}
+                        onBlur={() => touch(`lines.${i}.description`)}
+                        onChange={(e) =>
+                          setLine(i, { description: e.target.value })
+                        }
+                      />
+                    )}
+                  </FormField>
+                </div>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                   <FormField
                     label="HSN code"
                     errorVariant="bubble"
                     error={err("hsnCode")}
                   >
                     {(f) => (
-                      <Input
+                      <Select
                         {...f}
-                        inputMode="numeric"
-                        maxLength={8}
-                        list={`${config.noun}-hsn`}
                         value={l.hsnCode}
                         disabled={submitting}
                         onBlur={() => touch(`lines.${i}.hsnCode`)}
                         onChange={(e) =>
                           setLine(i, { hsnCode: e.target.value })
                         }
-                      />
+                      >
+                        <option value="">Select…</option>
+                        {hsnCodes.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                        {/* A saved code that is no longer in the master list stays selectable. */}
+                        {l.hsnCode && !hsnCodes.includes(l.hsnCode) ? (
+                          <option value={l.hsnCode}>{l.hsnCode}</option>
+                        ) : null}
+                      </Select>
                     )}
                   </FormField>
                   <FormField
@@ -494,16 +525,14 @@ export function PricedDocumentForm({
                       />
                     )}
                   </FormField>
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-theme-sm font-medium text-gray-700 dark:text-white/90">
-                      Amount
-                    </span>
-                    <span className="flex h-11 items-center text-theme-sm font-semibold text-gray-900 dark:text-white/90">
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-3 dark:border-gray-800">
+                  <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+                    Calculated row amount:{" "}
+                    <span className="font-semibold text-gray-900 dark:text-white/90">
                       {amount ? formatInr(amount) : "—"}
                     </span>
-                  </div>
-                </div>
-                <div className="flex justify-end">
+                  </p>
                   <Button
                     type="button"
                     variant="ghost"
@@ -524,23 +553,21 @@ export function PricedDocumentForm({
               </fieldset>
             );
           })}
-          <div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={submitting || values.lines.length >= 200}
-              onClick={() =>
-                setValues((v) => ({ ...v, lines: [...v.lines, emptyLine()] }))
-              }
-            >
-              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
-              Add item
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full border-dashed"
+            disabled={submitting || values.lines.length >= 200}
+            onClick={() =>
+              setValues((v) => ({ ...v, lines: [...v.lines, emptyLine()] }))
+            }
+          >
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+            Add item
+          </Button>
         </Section>
 
-        <Section title="3. Charges & tax">
+        <Section title="3. Tax & transport charges">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {text("transportDescription", "Transport description", {
               placeholder: "Freight & Transportation Charges",
@@ -614,42 +641,89 @@ export function PricedDocumentForm({
           )}
         </Section>
 
-        <Section title="4. Bank, seal & signatory">
+        <Section title="4. Banking, seal, signature & terms">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-3 md:col-span-2">
+              <FormField
+                label="Bank account"
+                errorVariant="bubble"
+                error={errorFor("bankChoice")}
+              >
+                {(f) => (
+                  <Select
+                    {...f}
+                    value={values.bankChoice}
+                    disabled={submitting}
+                    onChange={(e) => set("bankChoice", e.target.value)}
+                  >
+                    <option value="">None</option>
+                    {savedBank ? (
+                      <option value="saved">
+                        As saved — {savedBank.bankName}{" "}
+                        {savedBank.accountNumber}
+                      </option>
+                    ) : null}
+                    {options.byField("BANK_ACCOUNT").map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </FormField>
+              {bank(values.bankChoice) ? (
+                <p className="rounded-xl bg-gray-50 p-3 text-theme-sm text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+                  <span className="font-semibold text-gray-900 dark:text-white/90">
+                    Bank:
+                  </span>{" "}
+                  {bank(values.bankChoice)?.bankName ?? "—"} |{" "}
+                  <span className="font-semibold text-gray-900 dark:text-white/90">
+                    Acc:
+                  </span>{" "}
+                  {bank(values.bankChoice)?.accountNumber ?? "—"}
+                  <br />
+                  <span className="font-semibold text-gray-900 dark:text-white/90">
+                    Branch:
+                  </span>{" "}
+                  {bank(values.bankChoice)?.branch ?? "—"} |{" "}
+                  <span className="font-semibold text-gray-900 dark:text-white/90">
+                    IFSC:
+                  </span>{" "}
+                  {bank(values.bankChoice)?.ifsc ?? "—"}
+                </p>
+              ) : null}
+            </div>
             <FormField
-              label="Bank account"
+              label="Prepared by"
               errorVariant="bubble"
-              error={errorFor("bankChoice")}
+              error={errorFor("preparedBy")}
             >
               {(f) => (
                 <Select
                   {...f}
-                  value={values.bankChoice}
+                  value={values.preparedBy}
                   disabled={submitting}
-                  onChange={(e) => set("bankChoice", e.target.value)}
+                  onBlur={() => touch("preparedBy")}
+                  onChange={(e) => set("preparedBy", e.target.value)}
                 >
-                  <option value="">None</option>
-                  {savedBank ? (
-                    <option value="saved">
-                      As saved — {savedBank.bankName} {savedBank.accountNumber}
-                    </option>
-                  ) : null}
-                  {options.byField("BANK_ACCOUNT").map((o) => (
-                    <option key={o.id} value={o.id}>
+                  <option value="">Select…</option>
+                  {options.byField("PREPARED_BY").map((o) => (
+                    <option key={o.id} value={o.label}>
                       {o.label}
                     </option>
                   ))}
+                  {/* A saved name that is no longer in the master list stays selectable. */}
+                  {values.preparedBy &&
+                  !options
+                    .byField("PREPARED_BY")
+                    .some((o) => o.label === values.preparedBy) ? (
+                    <option value={values.preparedBy}>
+                      {values.preparedBy}
+                    </option>
+                  ) : null}
                 </Select>
               )}
             </FormField>
-            {text("preparedBy", "Prepared by", {
-              maxLength: 150,
-              list: `${config.noun}-prepared-by`,
-            })}
-            {datalist(
-              `${config.noun}-prepared-by`,
-              options.byField("PREPARED_BY").map((o) => o.label),
-            )}
             <FormField
               label="Company seal"
               errorVariant="bubble"
@@ -708,27 +782,36 @@ export function PricedDocumentForm({
           </FormField>
         </Section>
 
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onCancel}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" loading={submitting}>
-            {submitLabel}
-          </Button>
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/95 px-5 py-3 shadow-theme-md backdrop-blur dark:border-slate-800 dark:bg-gray-dark/95">
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+            Total{" "}
+            <span className="text-theme-lg font-bold text-gray-900 dark:text-white/90">
+              {shown ? formatInr(shown.totals.totalAmount) : "—"}
+            </span>
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={submitting}>
+              {submitLabel}
+            </Button>
+          </div>
         </div>
       </form>
 
       <div className="xl:sticky xl:top-4 xl:self-start">
         <DocumentPreviewPanel
           title={`${capitalize(config.noun)} preview`}
-          html={preview?.html ?? null}
+          html={preview?.html ?? templateHtml}
+          sample={!preview && templateHtml !== null}
           loading={previewing}
-          stale={!fresh}
+          stale={preview !== null && !fresh}
           error={previewError}
           emptyMessage={`Choose a customer and fill in at least one item to see the ${config.noun}.`}
         />

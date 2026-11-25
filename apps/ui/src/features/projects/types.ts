@@ -243,6 +243,15 @@ export interface DashboardMetrics {
   delayedProjects: number;
   onTrackProjects: number;
   upcomingMilestonesCount: number;
+  /** Open milestones due within the window, soonest first (max 5). */
+  upcomingMilestones: {
+    id: number;
+    title: string;
+    targetDate: string;
+    projectId: number;
+    projectCode: string;
+    projectName: string;
+  }[];
   openTasksCount: number;
   /** Projects whose logged hours exceed expected hours. */
   overHoursProjects: number;
@@ -331,4 +340,36 @@ export interface PointsConfig {
   high: number;
   urgent: number;
   customRules: Record<string, unknown>;
+  /** Time-based points: when on, points come from the ETA and the timer. */
+  timeBasedEnabled: boolean;
+  /** Points of a finished task, the same for every task. */
+  defaultTaskPoints: number;
+  /** Extra points for finishing within the ETA. */
+  onTimeBonus: number;
+  /** Minutes over the ETA that cost nothing. */
+  graceMinutes: number;
+}
+
+/** One points award with the breakdown stored by the time-based rule (the
+ * breakdown fields are null on older awards). */
+export interface PointsAward {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  points: number;
+  awardedAt: string;
+  etaMinutes: number | null;
+  workedMinutes: number | null;
+  basePoints: number | null;
+  bonusPoints: number | null;
+  overrunMinutes: number | null;
+  rule: string | null;
+}
+
+/** GET /projects/analytics/hours-trend: hours per Monday-start week, oldest first. */
+export interface WeeklyHours {
+  /** Monday of the week, `YYYY-MM-DD`. */
+  weekStart: string;
+  hours: number;
+  entries: number;
 }

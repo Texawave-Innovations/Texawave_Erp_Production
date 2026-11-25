@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN as ISO_DATE } from "@texawave-erp/core";
 import { z } from "zod";
 import { TASK_PRIORITIES } from "./types";
 
@@ -6,7 +7,6 @@ import { TASK_PRIORITIES } from "./types";
  * apps/api/src/modules/hr/tasks/dto/task.dto.ts so the form fails the way
  * the API would, before a round trip. The backend remains authoritative.
  */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const createTaskSchema = z.object({
   title: z

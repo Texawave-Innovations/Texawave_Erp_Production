@@ -256,3 +256,53 @@ describe("overtime rows (the calculation is the only formula)", () => {
     expect(overtimeDaysOf([v])).toEqual([]);
   });
 });
+
+describe("auto-closed (unverified) sessions in the reports", () => {
+  const pending = (date: string, inH: string, outH: string) => ({
+    id: 99,
+    checkInAt: ctl(date, inH),
+    checkOutAt: ctl(date, outH),
+    source: "SELF",
+    autoClosed: true,
+  });
+
+  it("a forgotten check-out closed at the cut-off is still reported as MISSING_CHECKOUT", () => {
+    const v = viewOf({
+      attendanceDate: PAST,
+      sessions: [pending(PAST, "09:00", "23:59")],
+    });
+    expect(v.pendingRegularization).toBe(true);
+    expect(missingPunchOf(v, TODAY)).toBe("MISSING_CHECKOUT");
+  });
+
+  it("produces no overtime row from the 09:00–23:59 technical span", () => {
+    const v = viewOf({
+      attendanceDate: PAST,
+      sessions: [pending(PAST, "09:00", "23:59")],
+    });
+    expect(v.overtimeMinutes).toBe(0);
+    expect(v.workedMinutes).toBe(0);
+    expect(overtimeDaysOf([v])).toEqual([]);
+  });
+
+  it("a verified session beside a pending one keeps its hours and its own overtime only", () => {
+    const v = viewOf({
+      attendanceDate: PAST,
+      sessions: [
+        {
+          id: 1,
+          checkInAt: ctl(PAST, "08:00"),
+          checkOutAt: ctl(PAST, "17:00"),
+          source: "SELF",
+        },
+        pending(PAST, "18:00", "23:59"),
+      ],
+    });
+    expect(v).toMatchObject({
+      status: "PRESENT",
+      workedMinutes: 480,
+      overtimeMinutes: 60,
+      pendingRegularization: true,
+    });
+  });
+});

@@ -1,17 +1,13 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  ErrorState,
-  PageHeader,
-  Skeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, ErrorState, PageHeader, Skeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { todayIst } from "../../shared/format";
 import { useCreateQuotation, useQuotation, useUpdateQuotation } from "../hooks";
@@ -21,27 +17,20 @@ import { QuotationForm } from "./QuotationForm";
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to change quotations">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to change quotations"
+    >
       Ask an administrator for the <code>sales.quotation.write</code>{" "}
       permission.
     </Alert>
   );
 }
 
-function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-    >
-      ← {label}
-    </Link>
-  );
-}
-
 export function QuotationCreateView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
   const create = useCreateQuotation();
 
@@ -49,27 +38,31 @@ export function QuotationCreateView() {
 
   async function handleSubmit(body: QuotationBody) {
     const created = await create.mutateAsync(body);
-    toast({
-      title: `Quotation ${created.quotationNumber} saved`,
-      variant: "success",
+    notify("sales.document.saved", {
+      label: "Quotation",
+      number: created.quotationNumber,
     });
     router.push(`/sales/quotations/${created.id}`);
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href="/sales/quotations" label="Back to quotations" />
       <PageHeader
         variant="banner"
         title="New quotation"
         description="Taxes and totals are worked out by the server as you type."
-        icon={FileText}
+        icon={
+          <BackArrow
+            href={salesTabHref("quotations")}
+            label="Back to quotations"
+          />
+        }
       />
       <QuotationForm
         mode="create"
         initialValues={emptyQuotationForm(todayIst())}
         onSubmit={handleSubmit}
-        onCancel={() => router.push("/sales/quotations")}
+        onCancel={() => router.push(salesTabHref("quotations"))}
       />
     </div>
   );
@@ -77,7 +70,7 @@ export function QuotationCreateView() {
 
 export function QuotationEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
   const query = useQuotation(id);
   const update = useUpdateQuotation();
@@ -86,9 +79,9 @@ export function QuotationEditView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Quotation not found">
+      <Alert dismissible variant="warning" title="Quotation not found">
         It may have been deleted.{" "}
-        <Link href="/sales/quotations">Back to quotations</Link>
+        <Link href={salesTabHref("quotations")}>Back to quotations</Link>
       </Alert>
     ) : (
       <ErrorState onRetry={() => void query.refetch()} />
@@ -98,6 +91,7 @@ export function QuotationEditView({ id }: { id: number }) {
   if (q.status === "CONVERTED") {
     return (
       <Alert
+        dismissible
         variant="info"
         title={`${q.quotationNumber} can no longer be edited`}
       >
@@ -109,21 +103,25 @@ export function QuotationEditView({ id }: { id: number }) {
 
   async function handleSubmit(body: QuotationBody) {
     await update.mutateAsync({ id, body });
-    toast({
-      title: `Quotation ${q.quotationNumber} saved`,
-      variant: "success",
+    notify("sales.document.saved", {
+      label: "Quotation",
+      number: q.quotationNumber,
     });
     router.push(`/sales/quotations/${id}`);
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`/sales/quotations/${id}`} label="Back to quotation" />
       <PageHeader
         variant="banner"
         title={`Edit ${q.quotationNumber}`}
         description={q.customerSnapshot.companyName}
-        icon={FileText}
+        icon={
+          <BackArrow
+            href={`/sales/quotations/${id}`}
+            label="Back to quotation"
+          />
+        }
       />
       <QuotationForm
         key={q.updatedAt}

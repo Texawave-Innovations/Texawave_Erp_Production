@@ -11,10 +11,10 @@ import {
   Select,
   Skeleton,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { Calendar, MessageSquare, Tag } from "lucide-react";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAddTicketComment, useSetTicketStatus, useTicket } from "../hooks";
 import { createTicketCommentSchema, TICKET_COMMENT_MAX } from "../schema";
@@ -67,7 +67,7 @@ export function TicketDetailDialog({
   const ticket = useTicket(ticketId);
   const setStatus = useSetTicketStatus();
   const addComment = useAddTicketComment();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [status, setStatusValue] = useState<"" | TicketStatus>("");
   const [reply, setReply] = useState("");
@@ -81,7 +81,7 @@ export function TicketDetailDialog({
     setActionError(null);
     try {
       await setStatus.mutateAsync({ id: ticketId, status });
-      toast({ title: "Ticket status updated", variant: "success" });
+      notify("hr.ticket.statusUpdated");
       setStatusValue("");
     } catch (err) {
       setActionError(describeError(err));
@@ -100,7 +100,7 @@ export function TicketDetailDialog({
     try {
       await addComment.mutateAsync({ id: ticketId, body: result.data.body });
       setReply("");
-      toast({ title: "Reply sent", variant: "success" });
+      notify("hr.ticket.replySent");
     } catch (err) {
       setActionError(describeError(err));
     }
@@ -118,7 +118,11 @@ export function TicketDetailDialog({
         </div>
       ) : ticket.isError ? (
         ticket.error instanceof ApiError && ticket.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to this ticket">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to this ticket"
+          >
             Your access to this ticket has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -139,7 +143,7 @@ export function TicketDetailDialog({
               <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                 Ticket ID
               </span>
-              <p className="font-mono text-theme-sm font-semibold text-gray-900 dark:text-white/90 mt-0.5">
+              <p className="text-theme-sm font-semibold text-gray-900 dark:text-white/90 mt-0.5">
                 {formatTicketId(ticket.data.id, ticket.data.createdAt)}
               </p>
             </div>

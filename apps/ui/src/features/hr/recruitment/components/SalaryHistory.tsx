@@ -28,14 +28,14 @@ export function SalaryHistory({ employeeId }: { employeeId: number }) {
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isNotFound) {
       return (
-        <Alert variant="warning" title="Not available">
+        <Alert dismissible variant="warning" title="Not available">
           This employee is outside your teams or no longer exists.
         </Alert>
       );
     }
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access denied">
+        <Alert dismissible variant="warning" title="Access denied">
           You do not have permission to view salary history.
         </Alert>
       );
@@ -80,9 +80,7 @@ export function SalaryHistory({ employeeId }: { employeeId: number }) {
             {
               header: "Document no.",
               cell: (entry) => (
-                <span className="font-mono text-theme-xs">
-                  {entry.documentNo}
-                </span>
+                <span className="text-theme-xs">{entry.documentNo}</span>
               ),
             },
             {

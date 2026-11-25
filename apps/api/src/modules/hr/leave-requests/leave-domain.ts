@@ -130,10 +130,19 @@ export interface YearBalance {
   accrued: number;
   used: number;
   pending: number;
+  /** What can be booked now: opening + accrued − used − pending, rounded DOWN
+   * to a half day (leave is booked in 0.5 steps). The remainder is not lost:
+   * accrual stays exact, so it shows up once it adds to another half day. */
   available: number;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Rounds DOWN to a half day: 0.83 → 0.5, 1.67 → 1.5, 2 → 2. The epsilon
+ * keeps an exact half (computed as 1.4999999…) from dropping a step. */
+export function bookableDays(n: number): number {
+  return Math.floor(n * 2 + 1e-9) / 2;
+}
 
 function annualFor(policy: BalancePolicy, year: number): number {
   return policy.overrides.get(year) ?? policy.annualEntitlement;
@@ -194,7 +203,7 @@ export function yearBalance(
     accrued,
     used: round2(used),
     pending: round2(pending),
-    available: round2(openingR + accrued - used - pending),
+    available: bookableDays(round2(openingR + accrued - used - pending)),
   };
 }
 
@@ -209,9 +218,26 @@ export function covers(balance: YearBalance, days: number): boolean {
 export const APPROVAL_LEVELS = [1, 2] as const;
 export type ApprovalLevels = (typeof APPROVAL_LEVELS)[number];
 
-/** Who a PENDING request waits for: the first approver (the reporting
- * manager, a delegate, or a team/all approver) or, on a two-level request
- * already approved once, HR. */
+/** Working days the team lead has for the first decision before HR may take
+ * it instead (Docs/HR_LEAVE.md §6.1). */
+export const TEAM_LEAD_WAIT_WORKING_DAYS = 2;
+
+/** Working days strictly after `from` up to and including `to` (both
+ * `YYYY-MM-DD`), per `isWorking` (the employee's calendar). */
+export function workingDaysAfter(
+  from: string,
+  to: string,
+  isWorking: (date: string) => boolean,
+): number {
+  if (to <= from) return 0;
+  return eachDate(from, to).filter((d) => d !== from && isWorking(d)).length;
+}
+
+/** Who a PENDING request waits for: the first approver (the employee's team
+ * lead, or a team lead's delegate - HR alone for a team lead's own request,
+ * a team with no lead, or once the team lead has not decided within
+ * `TEAM_LEAD_WAIT_WORKING_DAYS`) or, on a two-level request already approved
+ * once, HR. */
 export type AwaitingStage = "FIRST" | "HR";
 
 export function awaitingStage(request: {
@@ -232,31 +258,60 @@ export interface ApprovalFacts {
   actorId: number;
   employeeUserId: number | null;
   requestedBy: number;
-  /** The actor is the employee's reporting manager, or that manager's active
-   * delegate today. */
+  /** The actor is the active delegate today of a lead of the employee's team
+   * (the lead themself is covered by their team scope, `inScope`). */
   isManager: boolean;
   /** The actor's `hr.leave.approve` scope is team/all and covers the employee. */
   inScope: boolean;
   /** The actor's resolved `hr.leave.approve` level. */
   scopeLevel: "own" | "team" | "all";
+  /** Only HR (`.all`) may give the first decision: the employee is a team lead,
+   * or their team has no lead who can approve. */
+  hrOnly: boolean;
+  /** The team lead has not decided within `TEAM_LEAD_WAIT_WORKING_DAYS`
+   * working days: HR may take the decision instead. */
+  escalated: boolean;
+  /** The actor holds `hr.leave.override` (Admin): their decision at HR's step
+   * is recorded as an override and needs a reason. */
+  canOverride: boolean;
 }
 
 export type ApprovalRefusal =
-  "NOT_VISIBLE" | "SELF" | "REQUESTER" | "AWAITING_HR" | "SAME_APPROVER";
+  | "NOT_VISIBLE"
+  | "SELF"
+  | "REQUESTER"
+  | "HR_ONLY"
+  | "AWAITING_TEAM_LEAD"
+  | "AWAITING_HR"
+  | "SAME_APPROVER";
 
 export type ApprovalVerdict =
-  | { ok: true; stage: 1 | 2; final: boolean }
+  | {
+      ok: true;
+      stage: 1 | 2;
+      final: boolean;
+      /** Decided at HR's step by an Admin (`hr.leave.override`): audited as
+       * an override, a reason is required and HR is told. */
+      override: boolean;
+    }
   | { ok: false; reason: ApprovalRefusal };
 
 /**
  * Whether the actor may decide this PENDING request now, and at which stage.
  *
- *  - Nobody outside the reporting line and outside their approve scope sees
- *    the request at all (NOT_VISIBLE → 404).
+ *  - Nobody who is not the team's lead (or a lead's delegate) and outside
+ *    their approve scope sees the request at all (NOT_VISIBLE → 404).
  *  - Nobody decides their own request, nor one they submitted on someone's
  *    behalf (maker-checker).
- *  - Stage 1: the reporting manager (or delegate) or a team/all approver.
+ *  - Stage 1 is the team lead's: the employee's team lead (team scope over
+ *    the employee) or a lead's delegate. HR (`.all`) does not take it while
+ *    the team lead still may.
+ *  - HR (`.all`) alone - and finally, even on a two-level type - when the
+ *    employee is a team lead, their team has no lead, or the team lead has
+ *    not decided within `TEAM_LEAD_WAIT_WORKING_DAYS` (escalated).
  *  - Stage 2 (two-level only): an `.all` approver who did not give stage 1.
+ *  - Any decision at HR's step by an Admin (`hr.leave.override`) is an
+ *    override: allowed at any time, audited, reason required.
  */
 export function approvalVerdict(f: ApprovalFacts): ApprovalVerdict {
   const hrInScope = f.inScope && f.scopeLevel === "all";
@@ -266,12 +321,32 @@ export function approvalVerdict(f: ApprovalFacts): ApprovalVerdict {
     return { ok: false, reason: "SELF" };
   if (f.requestedBy === f.actorId) return { ok: false, reason: "REQUESTER" };
   if (!firstDone) {
-    return { ok: true, stage: 1, final: f.approvalLevels !== 2 };
+    // No team-lead step exists here, so HR's one decision is the whole review.
+    if (f.hrOnly) {
+      return hrInScope
+        ? { ok: true, stage: 1, final: true, override: f.canOverride }
+        : { ok: false, reason: "HR_ONLY" };
+    }
+    // The team lead's step: the lead (team scope) or a lead's delegate.
+    if (f.isManager || (f.inScope && f.scopeLevel !== "all")) {
+      return {
+        ok: true,
+        stage: 1,
+        final: f.approvalLevels !== 2,
+        override: false,
+      };
+    }
+    // Only an `.all` approver is left. The team lead had their time: HR's one
+    // decision replaces both steps.
+    if (f.escalated) {
+      return { ok: true, stage: 1, final: true, override: f.canOverride };
+    }
+    return { ok: false, reason: "AWAITING_TEAM_LEAD" };
   }
   if (!hrInScope) return { ok: false, reason: "AWAITING_HR" };
   if (f.firstDecidedBy === f.actorId)
     return { ok: false, reason: "SAME_APPROVER" };
-  return { ok: true, stage: 2, final: true };
+  return { ok: true, stage: 2, final: true, override: f.canOverride };
 }
 
 /** First day of every calendar month the inclusive range touches. */

@@ -9,8 +9,8 @@ import {
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { formatTime } from "@/features/hr/attendance/status";
 import { useApproveCorrection, useRejectCorrection } from "../hooks";
@@ -73,7 +73,7 @@ export function DecideCorrectionDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const approve = useApproveCorrection();
   const reject = useRejectCorrection();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const mutation = decision === "approve" ? approve : reject;
   const submitting = mutation.isPending;
@@ -96,13 +96,11 @@ export function DecideCorrectionDialog({
         id: correction.id,
         body: result.data.note ? { note: result.data.note } : {},
       });
-      toast({
-        title:
-          decision === "approve"
-            ? "Correction approved successfully"
-            : "Correction rejected",
-        variant: "success",
-      });
+      notify(
+        decision === "approve"
+          ? "hr.correction.approved"
+          : "hr.correction.rejected",
+      );
       setNote("");
       onClose();
     } catch (err) {

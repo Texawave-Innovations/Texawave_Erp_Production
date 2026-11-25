@@ -11,8 +11,6 @@ import {
   getDaysInMonth,
   getFirstDayOfWeek,
   countDays,
-  DEFAULT_DATE_PRESETS,
-  type PresetRange,
 } from "./utils";
 
 export interface DateRangeValue {
@@ -32,8 +30,6 @@ export interface DateRangePickerProps {
   minDate?: string;
   maxDate?: string;
   maxRangeDays?: number;
-  showPresets?: boolean;
-  presets?: PresetRange[];
   disabled?: boolean;
   /**
    * "inputs": Renders explicit accessible textboxes for "From" and "To" with calendar toggle.
@@ -58,8 +54,6 @@ export function DateRangePicker({
   minDate,
   maxDate,
   maxRangeDays: _maxRangeDays,
-  showPresets = true,
-  presets = DEFAULT_DATE_PRESETS,
   disabled = false,
   variant: _variant = "inputs",
   align = "left",
@@ -99,8 +93,8 @@ export function DateRangePicker({
   const updatePlacement = useCallback(() => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const popoverHeight = 390;
-    const popoverWidth = 540;
+    const popoverHeight = 320;
+    const popoverWidth = 288;
 
     // Find closest scrollable or clipping container (dialog, modal, card, or viewport)
     const scrollParent = containerRef.current.closest<HTMLElement>(
@@ -295,16 +289,6 @@ export function DateRangePicker({
     }
   };
 
-  // Preset selection
-  const applyPreset = (preset: PresetRange) => {
-    const range = preset.getRange();
-    setPendingFrom(range.from);
-    setPendingTo(range.to);
-    const d = parseDateISO(range.from) || new Date();
-    setViewYear(d.getFullYear());
-    setViewMonth(d.getMonth());
-  };
-
   // Date cell click behavior:
   // 1. If no start date or both start & end exist: click sets start date and clears end date.
   // 2. If start date exists but no end date:
@@ -452,8 +436,8 @@ export function DateRangePicker({
           aria-modal="true"
           aria-label="Choose date range"
           className={cn(
-            "glass-calendar-surface absolute z-999 rounded-2xl p-4 shadow-2xl",
-            "w-85 sm:w-135 max-w-[calc(100vw-2rem)]",
+            "glass-calendar-surface absolute z-999 rounded-2xl p-3 shadow-2xl",
+            "w-72 max-w-[calc(100vw-2rem)]",
             "animate-in fade-in-0 zoom-in-95 duration-150",
             effectivePlacement === "top"
               ? "bottom-full mb-1.5 origin-bottom"
@@ -461,58 +445,29 @@ export function DateRangePicker({
             effectiveAlign === "right" ? "right-0" : "left-0",
           )}
         >
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* PRESETS SIDEBAR / TOPBAR */}
-            {showPresets && presets && presets.length > 0 && (
-              <div className="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 sm:pr-3 border-b sm:border-b-0 sm:border-r border-sky-100/80 dark:border-slate-800 sm:w-32 shrink-0">
-                <span className="hidden sm:block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 py-1">
-                  Presets
-                </span>
-                {presets.map((preset) => {
-                  const range = preset.getRange();
-                  const isSelected =
-                    pendingFrom === range.from && pendingTo === range.to;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => applyPreset(preset)}
-                      className={cn(
-                        "text-left text-xs font-medium px-2.5 py-1.5 rounded-xl transition-all whitespace-nowrap cursor-pointer",
-                        isSelected
-                          ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-semibold shadow-2xs"
-                          : "text-slate-600 dark:text-slate-300 hover:bg-sky-50 hover:text-brand-700 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
-                      )}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* MAIN CALENDAR GRID */}
+          <div className="flex flex-col">
+            {/* CALENDAR GRID */}
             <div className="flex-1 flex flex-col min-w-0">
               {/* MONTH & YEAR CONTROLS */}
-              <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
                   onClick={prevMonth}
                   aria-label="Previous month"
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
                 >
-                  <ChevronLeftIcon className="h-4 w-4" />
+                  <ChevronLeftIcon className="h-3.5 w-3.5" />
                 </button>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-slate-800 dark:text-white">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-white">
                     {MONTH_NAMES[viewMonth]}
                   </span>
                   <select
                     value={viewYear}
                     onChange={(e) => setViewYear(Number(e.target.value))}
                     aria-label="Select year"
-                    className="text-sm font-bold bg-transparent text-slate-800 dark:text-white border-0 py-0 pl-1 pr-5 rounded-lg focus:ring-1 focus:ring-brand-500 cursor-pointer"
+                    className="text-xs font-bold bg-transparent text-slate-800 dark:text-white border-0 py-0 pl-1 pr-5 rounded-lg focus:ring-1 focus:ring-brand-500 cursor-pointer"
                   >
                     {Array.from({ length: 60 }, (_, i) => 1990 + i).map((y) => (
                       <option
@@ -530,18 +485,18 @@ export function DateRangePicker({
                   type="button"
                   onClick={nextMonth}
                   aria-label="Next month"
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100/90 bg-white/70 hover:bg-sky-50 hover:border-sky-200 hover:text-brand-700 dark:border-slate-800 dark:bg-slate-800/70 dark:hover:bg-slate-800 dark:hover:text-cyan-300 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shadow-2xs"
                 >
-                  <ChevronRightIcon className="h-4 w-4" />
+                  <ChevronRightIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
 
               {/* WEEKDAY LABELS */}
-              <div className="grid grid-cols-7 mb-1 text-center">
+              <div className="grid grid-cols-7 text-center">
                 {WEEKDAY_NAMES_SHORT.map((day) => (
                   <div
                     key={day}
-                    className="text-[10.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider py-1"
+                    className="h-5 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase"
                   >
                     {day}
                   </div>
@@ -549,14 +504,14 @@ export function DateRangePicker({
               </div>
 
               {/* DAYS GRID */}
-              <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+              <div className="grid grid-cols-7 gap-y-0.5 text-center text-[11px]">
                 {/* PREV MONTH FILLER */}
                 {Array.from({ length: firstDayIndex }).map((_, i) => {
                   const dayNum = prevMonthDays - firstDayIndex + i + 1;
                   return (
                     <div
                       key={`prev-${i}`}
-                      className="h-8 flex items-center justify-center text-slate-300 dark:text-slate-600 select-none font-medium"
+                      className="h-7 flex items-center justify-center text-slate-300 dark:text-slate-600 select-none font-medium"
                     >
                       {dayNum}
                     </div>
@@ -592,17 +547,17 @@ export function DateRangePicker({
                         }
                       }}
                       className={cn(
-                        "h-8 flex items-center justify-center relative p-0 transition-colors",
+                        "h-7 flex items-center justify-center relative p-0 transition-colors",
                         isInRange &&
                           !isStart &&
                           !isEnd &&
                           "bg-sky-100/60 dark:bg-sky-950/40 text-brand-900 dark:text-cyan-200",
                         isStart &&
                           pendingTo &&
-                          "rounded-l-xl bg-sky-100/60 dark:bg-sky-950/30",
+                          "rounded-l-lg bg-sky-100/60 dark:bg-sky-950/30",
                         isEnd &&
                           pendingFrom &&
-                          "rounded-r-xl bg-sky-100/60 dark:bg-sky-950/30",
+                          "rounded-r-lg bg-sky-100/60 dark:bg-sky-950/30",
                       )}
                     >
                       <button
@@ -610,9 +565,9 @@ export function DateRangePicker({
                         disabled={isDisabled}
                         onClick={() => handleDateClick(iso)}
                         className={cn(
-                          "h-8 w-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all cursor-pointer",
+                          "h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-semibold transition-all cursor-pointer",
                           isStart || isEnd
-                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105"
+                            ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs"
                             : isInRange
                               ? "text-brand-900 dark:text-cyan-200 hover:bg-sky-200/60 dark:hover:bg-sky-900/60"
                               : "text-slate-700 dark:text-slate-200 hover:bg-sky-50 hover:text-brand-600 dark:hover:bg-slate-800 dark:hover:text-cyan-300",
@@ -632,8 +587,8 @@ export function DateRangePicker({
               </div>
 
               {/* FOOTER & ACTIONS */}
-              <div className="mt-4 pt-3 border-t border-sky-100/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate w-full sm:w-auto text-center sm:text-left">
+              <div className="mt-2 pt-2 border-t border-sky-100/80 dark:border-slate-800 flex flex-col gap-2">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate w-full">
                   {pendingFrom && pendingTo ? (
                     <span>
                       <strong className="text-slate-800 dark:text-slate-200">
@@ -658,7 +613,7 @@ export function DateRangePicker({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <div className="flex items-center gap-1.5 w-full justify-end">
                   <Button
                     type="button"
                     variant="ghost"

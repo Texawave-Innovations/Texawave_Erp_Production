@@ -16,6 +16,8 @@ import {
 import {
   ApiError,
   newHireSchema,
+  sanitizeMobile,
+  sanitizeName,
   type NewHireFormValues,
 } from "@texawave-erp/core";
 import {
@@ -31,24 +33,22 @@ import {
   Skeleton,
   Semantic3DIcon,
 } from "@texawave-erp/ui-kit";
-import {
-  createNewHire,
-  PartialNewHireError,
-  type CreatedEmployee,
-} from "../api";
+import { createNewHire, type CreatedEmployee } from "../api";
 import {
   useDepartmentOptions,
   useDesignationOptions,
   useEmploymentTypeOptions,
-  useRoleOptions,
   useTeamOptions,
 } from "../hooks";
 import { FormSection } from "@/features/hr/components";
+import {
+  ACCOUNT_WRITE,
+  WRITE_TEAM_OR_ALL,
+} from "@/features/hr/employees/permissions";
+import { usePermission } from "@/hooks/usePermission";
 
 type FieldKey = keyof NewHireFormValues;
 
-const sanitizeName = (raw: string) => raw.replace(/[^A-Za-z .'-]/g, "");
-const sanitizeMobile = (raw: string) => raw.replace(/\D/g, "").slice(0, 10);
 const generateSecurePassword = () => {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
@@ -64,7 +64,7 @@ interface FormState {
   lastName: string;
   mobile: string;
   email: string;
-  roleId: string;
+  additionalRole: "" | "TEAM_LEAD";
   departmentId: string;
   teamId: string;
   designationId: string;
@@ -78,7 +78,7 @@ const EMPTY: FormState = {
   lastName: "",
   mobile: "",
   email: "",
-  roleId: "",
+  additionalRole: "",
   departmentId: "",
   teamId: "",
   designationId: "",
@@ -104,17 +104,20 @@ export function NewHireView() {
   const [values, setValues] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [partialUserId, setPartialUserId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Adding a new hire also creates their login: both permissions are needed
+  // (POST /hr/employees/new-hire). The API re-checks; this only explains.
+  const canWriteEmployees = usePermission(WRITE_TEAM_OR_ALL);
+  const canWriteAccounts = usePermission(ACCOUNT_WRITE);
 
   const teams = useTeamOptions();
   const designations = useDesignationOptions();
   const employmentTypes = useEmploymentTypeOptions();
   const departments = useDepartmentOptions();
-  const roles = useRoleOptions();
-  const lists = [teams, designations, employmentTypes, departments, roles];
+  const lists = [teams, designations, employmentTypes, departments];
   const listsLoading = lists.some((q) => q.isPending);
   const listFailed = lists.some((q) => q.isError);
 
@@ -133,14 +136,13 @@ export function NewHireView() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitError(null);
-    setPartialUserId(null);
 
     const result = newHireSchema.safeParse({
       firstName: values.firstName,
       lastName: values.lastName,
       mobile: values.mobile,
       email: values.email,
-      roleId: values.roleId ? Number(values.roleId) : undefined,
+      additionalRole: values.additionalRole || undefined,
       departmentId: Number(values.departmentId),
       teamId: Number(values.teamId),
       designationId: Number(values.designationId),
@@ -161,18 +163,10 @@ export function NewHireView() {
       return;
     }
 
-    const employeeRole = roles.data?.find((r) => r.name === "Employee");
-    if (!employeeRole) {
-      setSubmitError(
-        "The 'Employee' role is missing from Settings → Roles. Every new hire needs it for self-service onboarding — ask an administrator to restore it before creating new hires.",
-      );
-      return;
-    }
-
     setErrors({});
     setSubmitting(true);
     try {
-      const employee = await createNewHire(result.data, employeeRole.id);
+      const employee = await createNewHire(result.data);
       setCreated({
         employee,
         email: result.data.email,
@@ -180,15 +174,17 @@ export function NewHireView() {
       });
       setValues(EMPTY);
     } catch (error) {
-      if (error instanceof PartialNewHireError) {
-        setPartialUserId(error.userId);
-        setSubmitError(error.message);
-      } else if (error instanceof ApiError && error.isPermissionError) {
+      if (error instanceof ApiError && error.isPermissionError) {
         setSubmitError(
           "You don't have permission to create employees. Ask an administrator for access.",
         );
       } else if (error instanceof ApiError && error.statusCode === 409) {
         setSubmitError("An account with this email already exists.");
+      } else if (
+        error instanceof ApiError &&
+        error.errorCode === "NEW_HIRE_ROLE_MISSING"
+      ) {
+        setSubmitError(error.message);
       } else {
         setSubmitError(
           "Could not create the new hire. Check the fields and try again.",
@@ -212,6 +208,18 @@ export function NewHireView() {
   }
 
   // Success Screen
+  if (!canWriteEmployees || !canWriteAccounts) {
+    return (
+      <div className="mx-auto max-w-3xl pb-12">
+        <Alert dismissible variant="warning" title="You can't add employees">
+          Adding a new hire also creates their login, which needs both the
+          Employees edit permission and the Login accounts permission. Ask an
+          administrator for access.
+        </Alert>
+      </div>
+    );
+  }
+
   if (created) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 pb-12 animate-reveal">
@@ -308,7 +316,7 @@ export function NewHireView() {
       <div className="mx-auto max-w-3xl pb-12">
         <ErrorState
           title="Could not load the form options"
-          description="Teams, departments, designations, employment types, or roles failed to load."
+          description="Teams, departments, designations or employment types failed to load."
           onRetry={() => lists.forEach((q) => void q.refetch())}
         />
       </div>
@@ -392,19 +400,6 @@ export function NewHireView() {
           {submitError && (
             <Alert variant="error" title="Could not create the new hire">
               {submitError}
-              {partialUserId !== null && (
-                <span className="block mt-1">
-                  The sign-in (user #{partialUserId}) was created. Remove it
-                  from{" "}
-                  <Link
-                    href="/admin/users"
-                    className="underline font-semibold hover:opacity-80"
-                  >
-                    Users
-                  </Link>{" "}
-                  before retrying, so the email is free again.
-                </span>
-              )}
             </Alert>
           )}
 
@@ -415,7 +410,7 @@ export function NewHireView() {
             description="Basic identity and contact details for the employee"
             icon3d="user"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="First name" required error={errors.firstName}>
                   {(p) => (
@@ -492,7 +487,7 @@ export function NewHireView() {
             description="Departmental assignment, reporting team, and employment terms"
             icon3d="departments"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   label="Department"
@@ -580,24 +575,23 @@ export function NewHireView() {
 
                 <FormField
                   label="Additional role"
-                  error={errors.roleId}
-                  hint="Every new hire gets the Employee self-service role automatically. Optionally add another role (e.g. Team Lead) on top of that."
+                  error={errors.additionalRole}
+                  hint="Every new hire gets the Employee self-service role automatically. HR may also make them a Team Lead; any other role is given in Settings → Users."
                 >
                   {(p) => (
                     <Select
                       {...p}
-                      value={values.roleId}
+                      value={values.additionalRole}
                       disabled={submitting}
-                      onChange={(e) => set("roleId", e.target.value)}
+                      onChange={(e) =>
+                        set(
+                          "additionalRole",
+                          e.target.value === "TEAM_LEAD" ? "TEAM_LEAD" : "",
+                        )
+                      }
                     >
-                      <option value="">Select a role</option>
-                      {roles.data
-                        ?.filter((r) => r.name !== "Employee")
-                        .map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
+                      <option value="">None</option>
+                      <option value="TEAM_LEAD">Team Lead</option>
                     </Select>
                   )}
                 </FormField>
@@ -629,7 +623,7 @@ export function NewHireView() {
             description="Initial security credentials for first-time login"
             icon3d="access-control"
           >
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30 space-y-4">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30 space-y-4">
               <div className="max-w-xl">
                 <FormField
                   label="Temporary password"

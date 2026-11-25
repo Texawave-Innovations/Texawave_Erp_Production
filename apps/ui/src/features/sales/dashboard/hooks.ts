@@ -1,7 +1,7 @@
 "use client";
 
 import { orgScopedKey } from "@texawave-erp/core";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useOrgScopedMutation } from "@/lib/use-org-scoped-mutation";
 import { useAuthStore } from "@/stores/auth-store";
 import { SALES_KEY } from "../shared/query";
@@ -17,11 +17,12 @@ function useOrgId() {
   return useAuthStore((s) => s.organizationId ?? 0);
 }
 
-export function useSalesDashboard(enabled: boolean) {
+export function useSalesDashboard(enabled: boolean, year?: number) {
   const orgId = useOrgId();
   return useQuery({
-    queryKey: orgScopedKey(orgId, SALES_KEY, "dashboard"),
-    queryFn: getSalesDashboard,
+    queryKey: orgScopedKey(orgId, SALES_KEY, "dashboard", year ?? "current"),
+    queryFn: () => getSalesDashboard(year),
+    placeholderData: keepPreviousData,
     enabled: enabled && orgId > 0,
   });
 }

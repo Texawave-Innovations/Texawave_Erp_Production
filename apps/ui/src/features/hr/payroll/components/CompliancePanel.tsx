@@ -12,7 +12,6 @@ import {
   Input,
   Pagination,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useMemo, useState } from "react";
 import {
@@ -38,6 +37,7 @@ import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import type { Contribution } from "../api";
 import { describeError, isoDate, money, periodLabel } from "../format";
@@ -61,7 +61,7 @@ import { StatusPill, statusLabel } from "./PayrollStatusBadge";
 import { PeriodFilterSelect } from "./PeriodFilterSelect";
 import { QueryState } from "./QueryState";
 import {
-  exportComplianceCsv,
+  exportComplianceExcel,
   exportEsicReturnCsv,
   exportPfEcrText,
 } from "./compliance-export";
@@ -585,7 +585,7 @@ function ProfileForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const save = useSaveComplianceProfile(kind);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -618,9 +618,9 @@ function ProfileForm({
     setServerError(null);
     try {
       await save.mutateAsync({ employeeId: employee.id, body: parsed.data });
-      toast({
-        title: `${cfg.name} profile saved for ${employee.fullName}`,
-        variant: "success",
+      notify("payroll.compliance.profileSaved", {
+        scheme: cfg.name,
+        name: employee.fullName,
       });
     } catch (err) {
       setServerError(describeError(err));
@@ -1211,13 +1211,13 @@ function ContributionsSection({ kind }: { kind: ComplianceKind }) {
             size="sm"
             variant="secondary"
             onClick={() =>
-              exportComplianceCsv(allRows, kind, currentPeriodName)
+              void exportComplianceExcel(allRows, kind, currentPeriodName)
             }
             disabled={allRows.length === 0}
             className="flex items-center gap-1.5 text-xs font-semibold"
           >
             <FileText className="h-3.5 w-3.5 text-slate-600" />
-            Export CSV
+            Export Excel
           </Button>
 
           <Button

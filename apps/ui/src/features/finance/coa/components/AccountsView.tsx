@@ -7,7 +7,6 @@ import type {
   FinanceAccountType,
 } from "@texawave-erp/api-types";
 import { FINANCE_ACCOUNT_TYPES } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -23,7 +22,6 @@ import {
   Select,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   BookOpen,
@@ -35,6 +33,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatMoney } from "../../shared/format";
 import {
@@ -85,7 +84,7 @@ export function AccountsView({ hideHeader = false }: AccountsViewProps = {}) {
   );
   const [presetParent, setPresetParent] = useState<FinanceAccount | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const queryParams = useMemo(() => {
     return {
@@ -138,22 +137,12 @@ export function AccountsView({ hideHeader = false }: AccountsViewProps = {}) {
         currency: val.currency ?? "INR",
         description: val.description ?? null,
       });
-      toast({
-        title: "Account created successfully",
-        variant: "success",
-      });
+      notify("finance.account.created");
       setPresetParent(null);
       void accountsQuery.refetch();
       void treeQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Could not create account. Please verify input and try again.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.account.createFailed");
       throw err;
     }
   };
@@ -175,22 +164,12 @@ export function AccountsView({ hideHeader = false }: AccountsViewProps = {}) {
           isActive: val.isActive,
         },
       });
-      toast({
-        title: "Account updated successfully",
-        variant: "success",
-      });
+      notify("finance.account.updated");
       setEditingAccount(null);
       void accountsQuery.refetch();
       void treeQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Could not update account. Please try again.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.account.updateFailed");
       throw err;
     }
   };
@@ -199,19 +178,14 @@ export function AccountsView({ hideHeader = false }: AccountsViewProps = {}) {
     if (!deletingAccount) return;
     try {
       await deleteMutation.mutateAsync(deletingAccount.id);
-      toast({
-        title: `Account ${deletingAccount.accountCode} deactivated`,
-        variant: "success",
+      notify("finance.account.deactivated", {
+        code: deletingAccount.accountCode,
       });
       setDeletingAccount(null);
       void accountsQuery.refetch();
       void treeQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error ? err.message : "Could not deactivate account",
-        variant: "error",
-      });
+      notifyError(err, "finance.account.deactivateFailed");
     }
   };
 

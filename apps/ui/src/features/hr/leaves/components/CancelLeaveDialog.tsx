@@ -2,13 +2,9 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Dialog,
-  FormField,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Dialog, FormField, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
+import { leaveErrorMessage } from "../errors";
 import { useCancelMyLeaveRequest } from "../hooks";
 import { cancelLeaveSchema } from "../schema";
 import type { LeaveRequestItem } from "../types";
@@ -19,6 +15,8 @@ export interface CancelLeaveDialogProps {
   request: Pick<LeaveRequestItem, "id" | "startDate" | "endDate" | "leaveType">;
 }
 
+/** The employee's own wording for a few cases; everything else comes from
+ * the shared `leaveErrorMessage`. */
 function describeCancelError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError) {
@@ -30,12 +28,11 @@ function describeCancelError(error: unknown): string {
     if (error.errorCode === "INVALID_STATE_TRANSITION") {
       return "This request can no longer be cancelled — it may have already started, been decided, or already been cancelled.";
     }
-    if (error.isValidationError) {
-      return "The note was rejected. Check the character limits and try again.";
-    }
-    return error.message;
   }
-  return "Something went wrong. Try again.";
+  return leaveErrorMessage(
+    error,
+    "You don't have permission to cancel leave requests.",
+  );
 }
 
 /** Withdraws a PENDING request any time, or an APPROVED one only while its
@@ -51,7 +48,7 @@ export function CancelLeaveDialog({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCancelMyLeaveRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = mutation.isPending;
 
@@ -69,7 +66,7 @@ export function CancelLeaveDialog({
         id: request.id,
         body: result.data.note ? { note: result.data.note } : {},
       });
-      toast({ title: "Leave request cancelled", variant: "success" });
+      notify("hr.leave.cancelled");
       setNote("");
       onClose();
     } catch (err) {

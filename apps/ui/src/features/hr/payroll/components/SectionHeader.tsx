@@ -30,7 +30,7 @@ export function SectionHeader({
 
 export function NoAccess({ area }: { area: string }) {
   return (
-    <Alert variant="warning" title="No access">
+    <Alert dismissible variant="warning" title="No access">
       Your role does not include any {area} permissions. Ask an administrator to
       grant access.
     </Alert>

@@ -234,7 +234,7 @@ export function PromotionForm({
   let designationControl: React.ReactNode;
   if (!canReadDesignations) {
     designationControl = (
-      <Alert variant="warning" title="Designation list unavailable">
+      <Alert dismissible variant="warning" title="Designation list unavailable">
         You do not have permission to view designations, so you cannot pick one
         here.
       </Alert>

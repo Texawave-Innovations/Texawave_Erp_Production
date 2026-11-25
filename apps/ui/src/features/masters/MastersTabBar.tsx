@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@texawave-erp/ui-kit";
-
-type MasterTabId = "sales-document" | "hr" | "finance" | "projects" | "scm";
+import { useAuthStore } from "@/stores/auth-store";
+import { canSeeMasterTab, type MasterTabId } from "./master-permissions";
 
 interface MasterTab {
   id: MasterTabId;
@@ -21,10 +21,10 @@ interface MasterTab {
 
 const TABS: MasterTab[] = [
   {
-    id: "sales-document",
-    label: "Sales & Document Masters",
+    id: "sales",
+    label: "Sales Master",
     icon: ShoppingCart,
-    path: "/settings/sales-settings",
+    path: "/sales/master-list",
   },
   { id: "hr", label: "HR Master", icon: Users, path: "/settings/masters/hr" },
   {
@@ -49,12 +49,12 @@ const TABS: MasterTab[] = [
 
 export interface MastersTabBarProps {
   /** Which tab to render as active — the caller's own page, not derived
-   * from the URL, since both sales-settings and HR Master live at
-   * unrelated paths. */
+   * from the URL, since Sales Master and HR Master live at unrelated
+   * paths. */
   active: MasterTabId;
 }
 
-/** Secondary nav shown above the Sales & Document Masters, HR Master,
+/** Secondary nav shown above the Sales Master, HR Master,
  * Finance Master, Projects Master, and SCM Master screens, letting a user
  * jump between master-data areas. Finance Master is just the master-list
  * foundation (Expense Types/Payment Modes) ahead of the rest of that
@@ -66,12 +66,18 @@ export interface MastersTabBarProps {
  * "paused, not removed" per CLAUDE.md. This is a secondary nav specific to
  * the Masters area, distinct from the main app's HorizontalNavbar. */
 export function MastersTabBar({ active }: MastersTabBarProps) {
+  const permissions = useAuthStore((s) => s.permissions);
+  // Only the masters this user can read (master-permissions.ts); the current
+  // page's own tab always stays, so a deep link never shows an empty bar.
+  const tabs = TABS.filter(
+    (tab) => tab.id === active || canSeeMasterTab(tab.id, permissions),
+  );
   return (
     <nav
       aria-label="Masters sections"
       className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-800"
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.id === active;
         const isDisabled = !tab.path;

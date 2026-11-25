@@ -16,8 +16,8 @@ const APPROVER_LINK = "/hr/leaves?tab=approvals";
 export type LeaveEvent =
   | { kind: "submitted"; onBehalf: boolean; resubmitted: boolean }
   | { kind: "first_approved" }
-  | { kind: "approved" }
-  | { kind: "rejected" }
+  | { kind: "approved"; override?: boolean }
+  | { kind: "rejected"; override?: boolean }
   | { kind: "cancelled"; byHr: boolean; wasApproved: boolean };
 
 /**
@@ -26,11 +26,12 @@ export type LeaveEvent =
  * never undoes or fails the change. Recipients never include the person who
  * acted, and the employee only through their linked login.
  *
- *  - submitted → the first approvers: the reporting manager and their active
- *    delegates; when there is no reporting manager with a login, the
- *    team/all approvers of the employee's team. On behalf → also the employee.
+ *  - submitted → the first approvers: the leads of the employee's team and
+ *    their active delegates; HR (`.all` approvers) when the employee is a team
+ *    lead or the team has no lead. On behalf → also the employee.
  *  - first approval (two-level) → the employee, and HR (`.all` approvers).
- *  - approved / rejected → the employee.
+ *  - approved / rejected → the employee; when an Admin decided in HR's place
+ *    (`hr.leave.override`), also HR (`.all` approvers), with the reason.
  *  - cancelled by HR → the employee; withdrawn by the employee after
  *    approval → whoever approved it.
  */
@@ -88,6 +89,30 @@ export class LeaveNotificationsService {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  /** HR is told when an Admin decided a request in HR's place. */
+  private async toHrForOverride(
+    f: LeaveNotificationFacts,
+    who: string,
+    what: string,
+    outcome: "approved" | "rejected",
+  ): Promise<Omit<NewNotification, "dedupKey">[]> {
+    const hr = await this.repository.usersWithApprove(
+      this.tenantContext.getOrgScope(),
+      ["all"],
+      null,
+    );
+    return hr
+      .filter((id) => id !== f.employeeUserId)
+      .map((userId) => ({
+        userId,
+        type: "leave.decided_by_admin",
+        title: "Leave decided by Admin for HR",
+        body: `An Admin ${outcome} ${who}: ${what} in HR's place. Reason: ${f.decisionNote ?? ""}`.trim(),
+        // Already decided: it is in Applications, not the approval queue.
+        link: "/hr/leaves?tab=applications",
+      }));
   }
 
   private async build(
@@ -166,17 +191,27 @@ export class LeaveNotificationsService {
         ];
       }
       case "approved":
-        return toEmployee(
-          "leave.approved",
-          "Leave approved",
-          `${what} is approved.${f.decisionNote ? ` Note: ${f.decisionNote}` : ""}`,
-        );
+        return [
+          ...toEmployee(
+            "leave.approved",
+            "Leave approved",
+            `${what} is approved.${f.decisionNote ? ` Note: ${f.decisionNote}` : ""}`,
+          ),
+          ...(event.override
+            ? await this.toHrForOverride(f, who, what, "approved")
+            : []),
+        ];
       case "rejected":
-        return toEmployee(
-          "leave.rejected",
-          "Leave rejected",
-          `${what} is rejected. Reason: ${f.decisionNote ?? ""}`.trim(),
-        );
+        return [
+          ...toEmployee(
+            "leave.rejected",
+            "Leave rejected",
+            `${what} is rejected. Reason: ${f.decisionNote ?? ""}`.trim(),
+          ),
+          ...(event.override
+            ? await this.toHrForOverride(f, who, what, "rejected")
+            : []),
+        ];
       case "cancelled":
         if (event.byHr) {
           return toEmployee(
@@ -197,18 +232,18 @@ export class LeaveNotificationsService {
     }
   }
 
-  /** The reporting manager and their delegates today; when the employee has
-   * no reporting manager with a login, the approvers of the employee's team. */
+  /** The leads of the employee's team and their delegates today; HR when the
+   * employee is a team lead or the team has no lead who can approve. */
   private async firstApprovers(f: LeaveNotificationFacts): Promise<number[]> {
     const scope = this.tenantContext.getOrgScope();
-    if (f.managerUserId !== null) {
+    if (!f.hrOnly) {
       const delegates = await this.repository.activeDelegatesOf(
         scope,
-        [f.managerUserId],
+        f.leadUserIds,
         today(),
       );
-      return [f.managerUserId, ...delegates];
+      return [...f.leadUserIds, ...delegates];
     }
-    return this.repository.usersWithApprove(scope, ["team", "all"], f.teamId);
+    return this.repository.usersWithApprove(scope, ["all"], null);
   }
 }

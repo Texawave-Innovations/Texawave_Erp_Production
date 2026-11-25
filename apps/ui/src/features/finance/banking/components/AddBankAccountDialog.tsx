@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   CreateFinanceBankAccountInput,
@@ -12,8 +13,8 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Building2, Plus } from "lucide-react";
 import { useAccounts } from "@/features/finance/coa/hooks";
 import { useCreateBankAccount } from "../hooks";
@@ -30,7 +31,7 @@ export function AddBankAccountDialog({
   onClose,
   onSuccess,
 }: AddBankAccountDialogProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMutation = useCreateBankAccount();
 
   const [accountName, setAccountName] = useState("");
@@ -132,15 +133,11 @@ export function AddBankAccountDialog({
     setSubmitting(true);
     try {
       const created = await createMutation.mutateAsync(payload);
-      toast({
-        title: `Bank account ${created.accountName} registered successfully`,
-        variant: "success",
-      });
+      notify("finance.bank.registered", { name: created.accountName });
       handleClose();
       onSuccess?.();
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to register bank account";
+      const msg = resolveErrorText(err, "finance.bank.registerFailed");
       setSubmitError(msg);
       if (
         msg.toLowerCase().includes("already exists") ||

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type {
   CreateRfqInput,
   PurchaseRequisition,
@@ -145,11 +146,7 @@ function Body({
         })),
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not create the RFQ.",
-      );
+      setSubmitError(errorText(err, "scm.rfq.formFailed"));
     } finally {
       setSubmitting(false);
     }

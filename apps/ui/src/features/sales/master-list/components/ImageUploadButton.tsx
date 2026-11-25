@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
-import { Button, useToast } from "@texawave-erp/ui-kit";
+import { Button } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 
 /** The API's limits (apps/api/src/modules/sales/master-list/image-upload.ts). */
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -26,28 +26,25 @@ export function ImageUploadButton({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   async function pick(file: File | undefined) {
     if (input.current) input.current.value = "";
     if (!file) return;
     if (!TYPES.includes(file.type)) {
-      toast({ title: "Choose a PNG or JPG image.", variant: "error" });
+      notify("sales.image.wrongType");
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast({ title: "The image must be 2 MB or smaller.", variant: "error" });
+      notify("sales.image.tooLarge");
       return;
     }
     setBusy(true);
     try {
       await onUpload(file);
-      toast({ title: "Image uploaded", variant: "success" });
+      notify("sales.image.uploaded");
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not upload the image",
-        variant: "error",
-      });
+      notifyError(e, "sales.image.uploadFailed");
     } finally {
       setBusy(false);
     }

@@ -32,8 +32,8 @@ import {
   type TabItem,
   Tabs,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import type { PayrollSettingsBody } from "../api";
 import { PAY_DAYS_LABEL, describeError, money, timestamp } from "../format";
@@ -723,7 +723,7 @@ function ProfileScorecard({ draft }: { draft: Draft }) {
 function PolicyForm({ settings }: { settings: PayrollSettings }) {
   const canWrite = usePermission(PAYROLL_SETTINGS_WRITE);
   const update = useUpdatePayrollSettings();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [activeCategory, setActiveCategory] = useState<string>("attendance");
   const [draft, setDraft] = useState<Draft>(() => toDraft(settings));
@@ -755,10 +755,7 @@ function PolicyForm({ settings }: { settings: PayrollSettings }) {
     try {
       const saved = await update.mutateAsync(res.body);
       setDraft(toDraft(saved));
-      toast({
-        title: "Payroll policy settings saved successfully",
-        variant: "success",
-      });
+      notify("payroll.settings.saved");
     } catch (err) {
       setError(describeError(err));
     }
@@ -787,11 +784,7 @@ function PolicyForm({ settings }: { settings: PayrollSettings }) {
       bonusCalculationCeiling: "7000",
       bonusPercent: "8.33",
     }));
-    toast({
-      title: "Statutory parameters loaded",
-      description: "Standard EPFO, ESIC, and Gratuity values applied to form.",
-      variant: "info",
-    });
+    notify("payroll.settings.statutoryLoaded");
   }
 
   // Active category object

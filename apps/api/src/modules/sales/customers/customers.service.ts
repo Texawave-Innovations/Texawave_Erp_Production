@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PaginatedResponseDto } from "../../../common/dto/paginated-response.dto.js";
 import {
   BusinessRuleConflictException,
+  BusinessRuleViolationException,
   ResourceNotFoundException,
 } from "../../../common/exceptions/business.exception.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
@@ -18,6 +19,7 @@ import {
   normalizeAddresses,
   resolveTaxIdentity,
 } from "./customers.rules.js";
+import { buildStatement } from "./customers.statement.js";
 import {
   type CustomerData,
   CustomersRepository,
@@ -53,6 +55,25 @@ export class CustomersService {
     const row = await this.repository.findOne(scope, id);
     if (!row) throw new ResourceNotFoundException("Customer", id);
     return row;
+  }
+
+  /** Tax-invoice ledger for one customer over an optional date range. */
+  async statement(id: number, range: { from?: string; to?: string }) {
+    const scope = this.tenantContext.getOrgScope();
+    if (range.from && range.to && range.from > range.to) {
+      throw new BusinessRuleViolationException(
+        "STATEMENT_RANGE_INVALID",
+        "The start date must be on or before the end date",
+      );
+    }
+    await this.findOne(id);
+    const src = await this.repository.statementSources(scope, id, range);
+    return buildStatement(
+      { from: range.from ?? null, to: range.to ?? null },
+      src.opening,
+      src.invoices,
+      src.payments,
+    );
   }
 
   /** Preview of the code the next customer from that country will get

@@ -15,8 +15,8 @@ import {
   Input,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useAddOfficeNetwork,
@@ -32,7 +32,7 @@ export function OfficeNetworksCard() {
   const [ipAddress, setIpAddress] = useState("");
   const [label, setLabel] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const canRead = usePermission(OFFICE_NETWORK_READ);
   const canWrite = usePermission(OFFICE_NETWORK_WRITE);
@@ -43,7 +43,11 @@ export function OfficeNetworksCard() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to office networks">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to office networks"
+      >
         Ask an administrator for the <code>hr.office_network.read</code>{" "}
         permission.
       </Alert>
@@ -64,12 +68,12 @@ export function OfficeNetworksCard() {
       setCreateOpen(false);
       setIpAddress("");
       setLabel("");
-      toast({ title: "Office network added", variant: "success" });
+      notify("hr.network.added");
     } catch (error) {
       if (error instanceof ApiError && error.isValidationError) {
         setFormError(error.message || "Enter a valid IP address");
       } else {
-        toast({ title: "Could not add office network", variant: "error" });
+        notify("hr.network.addFailed");
       }
     }
   }
@@ -80,12 +84,11 @@ export function OfficeNetworksCard() {
         id: network.id,
         isActive: !network.isActive,
       });
-      toast({
-        title: network.isActive ? "Address deactivated" : "Address activated",
-        variant: "success",
-      });
+      notify(
+        network.isActive ? "hr.network.deactivated" : "hr.network.activated",
+      );
     } catch {
-      toast({ title: "Could not update address", variant: "error" });
+      notify("hr.network.toggleFailed");
     }
   }
 

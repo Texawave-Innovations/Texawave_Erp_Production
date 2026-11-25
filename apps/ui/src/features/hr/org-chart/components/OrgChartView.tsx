@@ -156,7 +156,11 @@ export function OrgChartView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to the org chart">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to the org chart"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );
@@ -184,19 +188,19 @@ export function OrgChartView() {
         action={
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               onClick={handleExpandAll}
-              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+              className="gap-1 rounded-xl px-3 py-1.5 text-xs font-medium"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               <span>Expand All</span>
             </Button>
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               onClick={handleCollapseAll}
-              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3 py-1.5 text-xs font-medium"
+              className="gap-1 rounded-xl px-3 py-1.5 text-xs font-medium"
             >
               <ChevronsDownUp className="h-3.5 w-3.5" />
               <span>Collapse All</span>
@@ -332,6 +336,7 @@ export function OrgChartView() {
           chart.error instanceof ApiError && chart.error.isPermissionError ? (
             <div className="p-8">
               <Alert
+                dismissible
                 variant="warning"
                 title="You don't have access to this part of the org chart"
               >

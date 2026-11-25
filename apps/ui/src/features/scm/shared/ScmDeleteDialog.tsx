@@ -1,8 +1,9 @@
 "use client";
 
-import { Button, ConfirmDialog, useToast } from "@texawave-erp/ui-kit";
+import { Button, ConfirmDialog } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
+import { type MessageKey } from "@texawave-erp/core";
 import { Trash2 } from "lucide-react";
-import { errorText } from "./use-list-controls";
 
 /** Row action: the red trash icon every SCM list uses for "Delete". */
 export function ScmDeleteButton({
@@ -36,10 +37,10 @@ export interface ScmDeleteDialogProps<T> {
   /** Body text for the confirmation. */
   describe: (target: T) => string;
   confirmText?: string;
-  /** Performs the delete. May return the success message to show. */
-  run: (target: T) => Promise<string | void>;
-  successMessage: string;
-  errorFallback: string;
+  /** Performs the delete. May return the key of a message to show instead of `successMessage`. */
+  run: (target: T) => Promise<MessageKey | void>;
+  successMessage: MessageKey;
+  errorFallback: MessageKey;
 }
 
 /** Confirm-then-delete flow shared by every SCM "Delete" action: confirms,
@@ -55,7 +56,7 @@ export function ScmDeleteDialog<T>({
   successMessage,
   errorFallback,
 }: ScmDeleteDialogProps<T>) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   return (
     <ConfirmDialog
       open={Boolean(target)}
@@ -68,9 +69,9 @@ export function ScmDeleteDialog<T>({
         if (!target) return;
         try {
           const message = await run(target);
-          toast({ title: message || successMessage, variant: "success" });
+          notify(message || successMessage);
         } catch (err) {
-          toast({ title: errorText(err, errorFallback), variant: "error" });
+          notifyError(err, errorFallback);
         }
         onClose();
       }}

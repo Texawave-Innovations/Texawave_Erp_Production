@@ -7,8 +7,8 @@ import {
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { leaveErrorMessage } from "../errors";
 import { useHrCancelLeave } from "../hooks";
 import { rejectLeaveSchema } from "../schema";
@@ -46,7 +46,7 @@ export function HrCancelLeaveDialog({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useHrCancelLeave();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const started =
     request.status === "APPROVED" && request.startDate <= todayStr();
 
@@ -61,7 +61,7 @@ export function HrCancelLeaveDialog({
     setServerError(null);
     try {
       await mutation.mutateAsync({ id: request.id, note: result.data.note });
-      toast({ title: "Leave cancelled", variant: "success" });
+      notify("hr.leave.hrCancelled");
       onClose();
     } catch (err) {
       setServerError(
@@ -86,7 +86,11 @@ export function HrCancelLeaveDialog({
           · {request.leaveDays} day{request.leaveDays === 1 ? "" : "s"}
         </p>
         {started ? (
-          <Alert variant="warning" title="This leave has already started">
+          <Alert
+            dismissible
+            variant="warning"
+            title="This leave has already started"
+          >
             The whole request is cancelled: the days already passed lose their
             On leave status in attendance, and the balance is given back.
           </Alert>

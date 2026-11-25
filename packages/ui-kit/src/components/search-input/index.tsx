@@ -152,7 +152,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           className={cn(
-            "block w-full rounded-lg border bg-white pl-10 pr-9 shadow-theme-xs transition-colors",
+            "block w-full rounded-xl border bg-white pl-10 pr-9 shadow-theme-xs transition-colors",
             "placeholder:text-gray-400",
             "focus:outline-none focus:ring-3",
             "disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-300",

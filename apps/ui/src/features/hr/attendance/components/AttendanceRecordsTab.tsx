@@ -394,19 +394,23 @@ export function AttendanceRecordsTab() {
 
       {/* Range Error Alert */}
       {rangeError ? (
-        <Alert variant="warning" title="Invalid date range">
+        <Alert dismissible variant="warning" title="Invalid date range">
           {rangeError}
         </Alert>
       ) : list.isPending ? (
         <TableSkeleton rowsCount={6} columnsCount={8} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to attendance">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to attendance"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : list.error instanceof ApiError &&
           list.error.errorCode === "RANGE_TOO_LARGE" ? (
-          <Alert variant="warning" title="Date range too large">
+          <Alert dismissible variant="warning" title="Date range too large">
             {list.error.message}
           </Alert>
         ) : (
@@ -467,7 +471,7 @@ export function AttendanceRecordsTab() {
                 cell: (r) => {
                   const firstSession = r.sessions[0];
                   return (
-                    <span className="font-mono text-theme-xs text-gray-600 dark:text-gray-400">
+                    <span className="text-theme-xs text-gray-600 dark:text-gray-400">
                       {firstSession
                         ? regionalFormatTime(firstSession.checkInAt)
                         : "—"}
@@ -481,7 +485,11 @@ export function AttendanceRecordsTab() {
                   const lastSession = r.sessions[r.sessions.length - 1];
                   return (
                     <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
-                      {lastSession?.checkOutAt ? (
+                      {lastSession?.autoClosed ? (
+                        <span className="text-warning-600 dark:text-warning-400 font-semibold">
+                          Not recorded
+                        </span>
+                      ) : lastSession?.checkOutAt ? (
                         regionalFormatTime(lastSession.checkOutAt)
                       ) : r.hasOpenSession ? (
                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold">

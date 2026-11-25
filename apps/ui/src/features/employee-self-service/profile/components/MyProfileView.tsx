@@ -24,8 +24,8 @@ import {
   EmptyState,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   DetailField,
   EmployeeIdentity,
@@ -68,7 +68,7 @@ export function MyProfileView() {
   >({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const { formatDate } = useRegionalFormatter();
 
   const employee = useMyEmployee();
@@ -89,11 +89,7 @@ export function MyProfileView() {
     if (!text || text === "—") return;
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
-    toast({
-      title: "Copied to clipboard",
-      description: `${text} copied.`,
-      variant: "success",
-    });
+    notify("selfService.profile.copied", { text });
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
@@ -101,18 +97,9 @@ export function MyProfileView() {
     try {
       setDownloadingDoc(docType);
       await downloadMyDocument(docType, fileName);
-      toast({
-        title: "Download complete",
-        description: `Successfully downloaded ${fileName}`,
-        variant: "success",
-      });
+      notify("selfService.profile.downloaded", { file: fileName });
     } catch (err) {
-      toast({
-        title: "Download failed",
-        description:
-          err instanceof Error ? err.message : "Could not download document.",
-        variant: "error",
-      });
+      notifyFailure(err, "selfService.profile.downloadFailed");
     } finally {
       setDownloadingDoc(null);
     }

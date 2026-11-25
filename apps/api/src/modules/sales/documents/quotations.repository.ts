@@ -235,6 +235,44 @@ export class QuotationsRepository {
     });
   }
 
+  /** A converted quotation back to OPEN, with the reason on the row and in
+   * the audit entry. Any invoice already generated from it is left as it is. */
+  @OrgScoped()
+  async reopen(scope: OrgScope, id: number, reason: string, actorId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.lockLive(tx, scope, id);
+      if (!before) return null;
+      if (before.status !== "CONVERTED") {
+        throw new BusinessRuleConflictException(
+          `Quotation ${before.quotationNumber} is not converted`,
+          "NOT_CONVERTED",
+        );
+      }
+      await tx.salesQuotation.update({
+        where: { id },
+        data: {
+          status: "OPEN",
+          convertedAt: null,
+          reopenReason: reason,
+          updatedBy: actorId,
+        },
+      });
+      const after = await tx.salesQuotation.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE,
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: id,
+        action: "reopen",
+        before: { status: before.status },
+        after: { status: "OPEN" },
+        reason,
+      });
+      return toView(after);
+    });
+  }
+
   private async lockLive(
     tx: Prisma.TransactionClient,
     scope: OrgScope,

@@ -10,12 +10,16 @@ interface Point {
   collections: string;
 }
 
-// Two categorical series, validated (dataviz palette check, light and dark):
-// blue-500 vs orange-600 pass lightness, chroma, CVD and contrast in both
-// modes. Identity also comes from the legend and the table view.
+// Two series in brand hues: a dark blue and a light cyan, so they differ in
+// lightness as well as hue. Identity also comes from the legend and the table
+// view, never colour alone.
 const SERIES = [
-  { key: "revenue", label: "Revenue", swatch: "bg-blue-500" },
-  { key: "collections", label: "Collections", swatch: "bg-orange-600" },
+  { key: "revenue", label: "Revenue", swatch: "bg-blue-700 dark:bg-blue-500" },
+  {
+    key: "collections",
+    label: "Collections",
+    swatch: "bg-cyan-400 dark:bg-cyan-300",
+  },
 ] as const;
 
 /** A rounded axis maximum so gridlines land on readable values. */

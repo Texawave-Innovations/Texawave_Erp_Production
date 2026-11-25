@@ -54,7 +54,6 @@ import {
   CheckCircle2,
   Truck,
   PackageCheck,
-  ListChecks,
   Wallet,
   UserCheck,
   ClipboardList,
@@ -102,6 +101,13 @@ import { NavbarDateTimeCalendar } from "./NavbarDateTimeCalendar";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useAuthStore } from "@/stores/auth-store";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
+import { MASTER_READ_PERMISSIONS } from "@/features/masters/master-permissions";
+import {
+  ACCOUNT_WRITE as EMPLOYEE_ACCOUNT_WRITE,
+  WRITE_TEAM_OR_ALL as EMPLOYEE_WRITE_TEAM_OR_ALL,
+} from "@/features/hr/employees/permissions";
+import { usePermission } from "@/hooks/usePermission";
+import { GlobalSearch, keywordsFor, type SearchEntry } from "./GlobalSearch";
 import { useMyMenu } from "@/features/menu/hooks";
 import {
   SCM_CLIENT_DEMO,
@@ -146,6 +152,9 @@ export interface NavCategory {
   /** If category is a direct link without children (e.g. Overview) */
   path?: string;
   menuCode?: string;
+  /** For a direct-link category with no menu row (the Master List tabs):
+   * shown only when the user holds at least one of these permissions. */
+  anyPermission?: readonly string[];
   children?: NavLeafItem[];
 }
 
@@ -400,9 +409,10 @@ const HR_CATEGORIES: NavCategory[] = [
 ];
 
 /**
- * Sales Navigation. Each entry shows only when `getMyMenu()` returns its
- * `menuCode` (packages/database/prisma/menu/catalog.ts, gated by the page's
- * read permission). Entries are added as their screens ship.
+ * Sales Navigation — Overview plus one flat entry per tab of the `/sales`
+ * workspace (features/sales/components/SalesWorkspaceView), switched via the
+ * `tab` query param like Purchases. Each entry shows only when `getMyMenu()`
+ * returns its `menuCode` (packages/database/prisma/menu/catalog.ts).
  */
 const SALES_CATEGORIES: NavCategory[] = [
   {
@@ -420,91 +430,62 @@ const SALES_CATEGORIES: NavCategory[] = [
     icon: Building2,
     icon3d: "departments",
     iconColor: "text-blue-600",
-    path: "/sales/customers",
+    path: "/sales?tab=customers",
     menuCode: "sales-customers",
   },
   {
-    id: "sales-documents",
-    label: "Documents",
+    id: "sales-quotations",
+    label: "Quotations",
     icon: FileText,
     icon3d: "documents",
-    iconColor: "text-indigo-500",
-    children: [
-      {
-        id: "sales-quotations",
-        label: "Quotations",
-        path: "/sales/quotations",
-        icon: FileText,
-        icon3d: "documents",
-        menuCode: "sales-quotations",
-      },
-      {
-        id: "sales-proforma-invoices",
-        label: "Proforma Invoices",
-        path: "/sales/proforma-invoices",
-        icon: Receipt,
-        icon3d: "documents",
-        menuCode: "sales-proforma-invoices",
-      },
-      {
-        id: "sales-tax-invoices",
-        label: "Tax Invoices",
-        path: "/sales/tax-invoices",
-        icon: Receipt,
-        icon3d: "documents",
-        menuCode: "sales-tax-invoices",
-      },
-      {
-        id: "sales-delivery-challans",
-        label: "Delivery Challans",
-        path: "/sales/delivery-challans",
-        icon: Truck,
-        icon3d: "inventory-scm",
-        menuCode: "sales-delivery-challans",
-      },
-      {
-        id: "sales-returnable-dcs",
-        label: "Returnable DCs",
-        path: "/sales/returnable-dcs",
-        icon: PackageCheck,
-        icon3d: "inventory-scm",
-        menuCode: "sales-returnable-dcs",
-      },
-    ],
+    iconColor: "text-sky-500",
+    path: "/sales?tab=quotations",
+    menuCode: "sales-quotations",
   },
   {
-    id: "sales-collections",
-    label: "Collections",
+    id: "sales-proforma-invoices",
+    label: "Proforma Invoices",
+    icon: Receipt,
+    icon3d: "documents",
+    iconColor: "text-sky-500",
+    path: "/sales?tab=proforma-invoices",
+    menuCode: "sales-proforma-invoices",
+  },
+  {
+    id: "sales-tax-invoices",
+    label: "Tax Invoices",
+    icon: Receipt,
+    icon3d: "documents",
+    iconColor: "text-blue-600",
+    path: "/sales?tab=tax-invoices",
+    menuCode: "sales-tax-invoices",
+  },
+  {
+    id: "sales-delivery-challans",
+    label: "Delivery Challans",
+    icon: Truck,
+    icon3d: "inventory-scm",
+    iconColor: "text-sky-500",
+    path: "/sales?tab=delivery-challans",
+    menuCode: "sales-delivery-challans",
+  },
+  {
+    id: "sales-returnable-dcs",
+    label: "Returnable DCs",
+    icon: PackageCheck,
+    icon3d: "inventory-scm",
+    iconColor: "text-blue-600",
+    path: "/sales?tab=returnable-dcs",
+    menuCode: "sales-returnable-dcs",
+  },
+  {
+    id: "sales-payments",
+    label: "Payments Received",
     icon: Wallet,
     icon3d: "payroll",
     iconColor: "text-emerald-600",
-    children: [
-      {
-        id: "sales-payments",
-        label: "Payments Received",
-        path: "/sales/payments",
-        icon: Wallet,
-        icon3d: "payroll",
-        menuCode: "sales-payments",
-      },
-    ],
-  },
-  {
-    id: "sales-setup",
-    label: "Setup",
-    icon: ListChecks,
-    icon3d: "operations",
-    iconColor: "text-gray-600",
-    children: [
-      {
-        id: "sales-master-list",
-        label: "Master List",
-        path: "/sales/master-list",
-        icon: ListChecks,
-        icon3d: "master-list",
-        menuCode: "sales-master-list",
-      },
-    ],
+    path: "/sales?tab=payments",
+    menuCode: "sales-payments",
   },
 ];
 
@@ -1826,8 +1807,8 @@ export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
 
 /**
  * Master List top-nav dropdown — the same five sections as
- * features/masters/MastersTabBar.tsx's secondary nav (Sales & Document,
- * HR, Finance, Projects, SCM masters), surfaced from the top nav instead of
+ * features/masters/MastersTabBar.tsx's secondary nav (Sales, HR, Finance,
+ * Projects, SCM masters), surfaced from the top nav instead of
  * only being reachable once already on one of those pages. No menuCode: none
  * of these five routes have one in the menu catalog yet, matching the
  * module's existing unfiltered (no RBAC gating) access.
@@ -1835,11 +1816,12 @@ export const SCM_CATEGORIES: NavCategory[] = SCM_CLIENT_DEMO
 const MASTER_LIST_CATEGORIES: NavCategory[] = [
   {
     id: "master-list-sales",
-    label: "Sales & Document Masters",
+    label: "Sales Master",
     icon: ShoppingCart,
     icon3d: "sales",
     iconColor: "text-blue-600",
-    path: "/settings/sales-settings",
+    path: "/sales/master-list",
+    anyPermission: MASTER_READ_PERMISSIONS.sales,
   },
   {
     id: "master-list-hr",
@@ -1848,6 +1830,7 @@ const MASTER_LIST_CATEGORIES: NavCategory[] = [
     icon3d: "hr",
     iconColor: "text-emerald-600",
     path: "/settings/masters/hr",
+    anyPermission: MASTER_READ_PERMISSIONS.hr,
   },
   {
     id: "master-list-finance",
@@ -1856,6 +1839,7 @@ const MASTER_LIST_CATEGORIES: NavCategory[] = [
     icon3d: "finance",
     iconColor: "text-amber-600",
     path: "/settings/masters/finance",
+    anyPermission: MASTER_READ_PERMISSIONS.finance,
   },
   {
     id: "master-list-projects",
@@ -1864,6 +1848,7 @@ const MASTER_LIST_CATEGORIES: NavCategory[] = [
     icon3d: "projects",
     iconColor: "text-rose-600",
     path: "/settings/masters/projects",
+    anyPermission: MASTER_READ_PERMISSIONS.projects,
   },
   {
     id: "master-list-scm",
@@ -1872,6 +1857,7 @@ const MASTER_LIST_CATEGORIES: NavCategory[] = [
     icon3d: "inventory-scm",
     iconColor: "text-cyan-600",
     path: "/settings/masters/scm",
+    anyPermission: MASTER_READ_PERMISSIONS.scm,
   },
 ];
 
@@ -2040,7 +2026,7 @@ const ERP_MODULES: ErpModuleConfig[] = [
     label: "Master List",
     icon: ClipboardList,
     icon3d: "master-list",
-    path: "/settings/sales-settings",
+    path: "/sales/master-list",
     available: true,
     categories: MASTER_LIST_CATEGORIES,
   },
@@ -2142,9 +2128,6 @@ function findRouteNavigationState(pathname: string) {
   ) {
     return { moduleId: "dashboard", categoryId: null, leafId: null };
   }
-  if (pathname.startsWith("/settings/sales-settings")) {
-    return { moduleId: "master-list", categoryId: null, leafId: null };
-  }
   if (pathname.startsWith("/admin/users")) {
     return {
       moduleId: "settings",
@@ -2195,6 +2178,9 @@ function findRouteNavigationState(pathname: string) {
       leafId: null,
     };
   }
+  if (pathname === "/sales" || pathname.startsWith("/sales/")) {
+    return { moduleId: "sales", categoryId: null, leafId: null };
+  }
   if (pathname.startsWith("/purchases")) {
     return { moduleId: "purchases", categoryId: null, leafId: null };
   }
@@ -2237,6 +2223,16 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const user = useAuthStore((s) => s.user);
   const userPermissions = useAuthStore((s) => s.permissions);
   const menuQuery = useMyMenu();
+  // Global search extras: employee lookup needs team/all reach (own-only
+  // users would just find themselves); "New employee" needs a writer.
+  const canLookUpEmployees = usePermission([
+    "hr.employee.read.team",
+    "hr.employee.read.all",
+  ]);
+  // Adding a new hire also creates their login (needs the account permission).
+  const canWriteEmployees = usePermission(EMPLOYEE_WRITE_TEAM_OR_ALL);
+  const canWriteEmployeeAccounts = usePermission(EMPLOYEE_ACCOUNT_WRITE);
+  const canCreateEmployee = canWriteEmployees && canWriteEmployeeAccounts;
 
   // Navigation Dropdown state: separate hovered preview from pinned selection
   const [hoveredModuleId, setHoveredModuleId] = useState<string | null>(null);
@@ -2268,13 +2264,11 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     height: number;
     opacity: number;
   }>({ left: 0, top: 0, width: 0, height: 0, opacity: 0 });
-  const [searchFocused, setSearchFocused] = useState(false);
   const currentHash = useSyncExternalStore(
     subscribeHash,
     getHashSnapshot,
     getHashServerSnapshot,
   );
-  const [searchQuery, setSearchQuery] = useState("");
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const navContainerRef = useRef<HTMLElement>(null);
@@ -2424,9 +2418,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
   const filterCategories = useCallback(
     (categories?: NavCategory[]): NavCategory[] => {
       if (!categories) return [];
-      if (!menuQuery.data) return categories; // During loading, show categories
+      const permitted = categories.filter(
+        (cat) =>
+          !cat.anyPermission ||
+          cat.anyPermission.some((p) => userPermissions.includes(p)),
+      );
+      if (!menuQuery.data) return permitted; // During loading, show categories
 
-      return categories
+      return permitted
         .map((cat) => {
           if (cat.children) {
             const filteredChildren = cat.children.filter(
@@ -2460,6 +2459,100 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
     },
     [menuQuery.data, allowedCodes, userPermissions, user?.email],
   );
+
+  // Top-level modules the user can actually use: a module is shown only when
+  // at least one of its categories survives the RBAC filter above (an HR
+  // Manager sees Human Resources + Master List, not Sales/Finance/SCM/...).
+  // Dashboard (/admin) renders the HR dashboard, so it follows the HR
+  // dashboard's menu row. Nothing is shown until the menu has loaded, so a
+  // module the user lacks never flashes in; if the menu fails to load, fall
+  // back to the category filter's own behaviour (the API still enforces).
+  const visibleModules = useMemo(
+    () =>
+      ERP_MODULES.filter((mod) => {
+        if (menuQuery.isPending) return false;
+        if (mod.id === "dashboard") {
+          return !menuQuery.data || allowedCodes.has("hr-dashboard");
+        }
+        if (!mod.categories) return true;
+        return filterCategories(mod.categories).length > 0;
+      }),
+    [menuQuery.isPending, menuQuery.data, allowedCodes, filterCategories],
+  );
+  // Global search entries: exactly the pages the module bar offers this role
+  // (same visibleModules + filterCategories), plus permission-gated actions.
+  const searchEntries = useMemo<SearchEntry[]>(() => {
+    const seen = new Set<string>();
+    const out: SearchEntry[] = [];
+    const add = (entry: SearchEntry) => {
+      if (!entry.path || entry.path === "#" || seen.has(entry.path)) return;
+      seen.add(entry.path);
+      out.push(entry);
+    };
+    for (const mod of visibleModules) {
+      if (!mod.available) continue;
+      // Every result shows its module's top-bar icon, so the module is obvious.
+      const moduleIcon = mod.icon3d
+        ? { icon3d: mod.icon3d }
+        : { icon: mod.icon };
+      const cats = mod.categories ? filterCategories(mod.categories) : [];
+      if (cats.length === 0) {
+        add({
+          label: mod.label,
+          path: mod.path,
+          kind: "page",
+          keywords: keywordsFor(mod.path),
+          ...moduleIcon,
+        });
+        continue;
+      }
+      for (const cat of cats) {
+        if (cat.path) {
+          add({
+            label: cat.label,
+            path: cat.path,
+            context: mod.label,
+            kind: "page",
+            keywords: keywordsFor(cat.path),
+            ...moduleIcon,
+          });
+        }
+        for (const leaf of cat.children ?? []) {
+          if (leaf.disabled || leaf.upcoming) continue;
+          add({
+            label: leaf.label,
+            path: leaf.path,
+            context: `${mod.label} › ${cat.label}`,
+            kind: "page",
+            keywords: keywordsFor(leaf.path),
+            ...moduleIcon,
+          });
+        }
+      }
+    }
+    if (canCreateEmployee) {
+      add({
+        id: "action:new-employee",
+        label: "New employee",
+        path: "/hr/employees/new",
+        context: "Human Resources · Add a new hire",
+        kind: "action",
+        keywords: ["add employee", "new hire", "onboard"],
+        icon3d: "hr",
+      });
+    }
+    return out;
+  }, [visibleModules, filterCategories, canCreateEmployee]);
+
+  const visibleModuleKey = visibleModules.map((m) => m.id).join(",");
+  // Buttons appear (and shift) once the menu loads — re-measure the active
+  // indicator then, not only on route change or resize.
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() =>
+      updateIndicator(activeIndicatorModuleId),
+    );
+    return () => cancelAnimationFrame(rafId);
+  }, [visibleModuleKey, activeIndicatorModuleId, updateIndicator]);
 
   // Effective open module: hovered module previews; otherwise pinned module stays open
   const openModuleId = hoveredModuleId ?? pinnedModuleId;
@@ -2795,12 +2888,14 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
           </Link>
         </div>
 
-        {/* Center: Desktop Module Navigation (Level 1) with Spring Glide Active Indicator */}
+        {/* Left-aligned (after the logo): Desktop Module Navigation (Level 1)
+            with Spring Glide Active Indicator. Left, not centred, because the
+            module set is per-role and a short rail floated in the middle. */}
         <nav
           ref={navRailRef}
           aria-label="Main application navigation"
           onMouseLeave={handleNavRailMouseLeave}
-          className="relative hidden flex-1 min-w-0 items-center justify-center gap-0.5 px-0.5 sm:gap-0.5 md:flex lg:gap-1 2xl:gap-1.5 isolate"
+          className="relative hidden flex-1 min-w-0 items-center justify-start gap-0.5 pl-3 pr-0.5 sm:gap-0.5 md:flex lg:gap-1 lg:pl-6 2xl:gap-1.5 isolate"
         >
           {/* Spring Glide Active Indicator Pill */}
           <span
@@ -2815,7 +2910,7 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
             }}
           />
 
-          {ERP_MODULES.map((mod) => {
+          {visibleModules.map((mod) => {
             const isRouteActive = mod.id === activeIndicatorModuleId;
             const isDropdownOpen = mod.id === openModuleId;
             const _isHovered = mod.id === hoveredModuleId;
@@ -3180,26 +3275,12 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
 
         {/* Right Section: Search + Live Clock + Date & Time Calendar + Notifications + Profile */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 xl:gap-2 2xl:gap-2.5">
-          {/* Universal Search Input */}
-          <div
-            className={`relative hidden transition-all duration-200 sm:block ${
-              searchFocused ? "w-60" : "w-36 lg:w-48"
-            }`}
-          >
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/90 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-[#F8FAFC] dark:placeholder:text-gray-500 transition-all"
-            />
-          </div>
+          {/* Global search: pages/actions this role can open + employees */}
+          <GlobalSearch
+            entries={searchEntries}
+            employeeLookup={canLookUpEmployees}
+            className="hidden w-36 transition-all duration-200 focus-within:w-60 sm:block lg:w-48"
+          />
 
           {/* Live IST Clock */}
           <div className="hidden items-center gap-1.5 rounded-lg border border-cyan-200/60 bg-cyan-50/80 px-2.5 py-1 dark:border-[#1C2029] dark:bg-[#121622] lg:flex">
@@ -3338,130 +3419,132 @@ export function HorizontalNavbar({ onSignOut }: HorizontalNavbarProps) {
       {mobileMenuOpen && (
         <div className="glass-dropdown border-b border-sky-100 px-4 py-3 md:hidden dark:border-gray-800">
           <div className="flex flex-col gap-2">
-            {ERP_MODULES.filter((m) => m.available).map((mod) => {
-              const categories = filterCategories(mod.categories);
-              const isModuleExpanded = openModuleId === mod.id;
+            {visibleModules
+              .filter((m) => m.available)
+              .map((mod) => {
+                const categories = filterCategories(mod.categories);
+                const isModuleExpanded = openModuleId === mod.id;
 
-              return (
-                <div
-                  key={mod.id}
-                  className="rounded-xl border border-sky-100/70 p-2 dark:border-gray-800"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (categories.length > 0) {
-                        setPinnedModuleId((prev) =>
-                          prev === mod.id ? null : mod.id,
-                        );
-                      } else {
-                        router.push(mod.path);
-                        setMobileMenuOpen(false);
-                      }
-                    }}
-                    className="flex w-full items-center justify-between text-xs font-bold text-gray-900 dark:text-white"
+                return (
+                  <div
+                    key={mod.id}
+                    className="rounded-xl border border-sky-100/70 p-2 dark:border-gray-800"
                   >
-                    <div className="flex items-center gap-2">
-                      <mod.icon className="h-4 w-4 text-brand-600" />
-                      <span>{mod.label}</span>
-                    </div>
-                    {categories.length > 0 && (
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${
-                          isModuleExpanded ? "rotate-180" : ""
-                        }`}
-                      />
-                    )}
-                  </button>
-
-                  {isModuleExpanded && categories.length > 0 && (
-                    <div className="mt-2 flex flex-col gap-1 border-t border-sky-100/60 pt-2 dark:border-gray-800">
-                      {categories.map((cat) => {
-                        const isCatExpanded =
-                          (hoveredCategoryId ?? pinnedCategoryId) === cat.id;
-
-                        if (
-                          cat.path &&
-                          (!cat.children || cat.children.length === 0)
-                        ) {
-                          return (
-                            <Link
-                              key={cat.id}
-                              href={cat.path}
-                              onClick={() => handleLeafClick(mod.id)}
-                              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-gray-700 hover:bg-sky-50 dark:text-gray-300"
-                            >
-                              <cat.icon className="h-3.5 w-3.5 text-brand-500" />
-                              <span>{cat.label}</span>
-                            </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (categories.length > 0) {
+                          setPinnedModuleId((prev) =>
+                            prev === mod.id ? null : mod.id,
                           );
+                        } else {
+                          router.push(mod.path);
+                          setMobileMenuOpen(false);
                         }
+                      }}
+                      className="flex w-full items-center justify-between text-xs font-bold text-gray-900 dark:text-white"
+                    >
+                      <div className="flex items-center gap-2">
+                        <mod.icon className="h-4 w-4 text-brand-600" />
+                        <span>{mod.label}</span>
+                      </div>
+                      {categories.length > 0 && (
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            isModuleExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                      )}
+                    </button>
 
-                        return (
-                          <div key={cat.id}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPinnedCategoryId((prev) =>
-                                  prev === cat.id ? null : cat.id,
-                                )
-                              }
-                              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-700 hover:bg-sky-50 dark:text-gray-300"
-                            >
-                              <div className="flex items-center gap-2">
+                    {isModuleExpanded && categories.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-1 border-t border-sky-100/60 pt-2 dark:border-gray-800">
+                        {categories.map((cat) => {
+                          const isCatExpanded =
+                            (hoveredCategoryId ?? pinnedCategoryId) === cat.id;
+
+                          if (
+                            cat.path &&
+                            (!cat.children || cat.children.length === 0)
+                          ) {
+                            return (
+                              <Link
+                                key={cat.id}
+                                href={cat.path}
+                                onClick={() => handleLeafClick(mod.id)}
+                                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-gray-700 hover:bg-sky-50 dark:text-gray-300"
+                              >
                                 <cat.icon className="h-3.5 w-3.5 text-brand-500" />
                                 <span>{cat.label}</span>
-                              </div>
-                              <ChevronDown
-                                className={`h-3 w-3 transition-transform ${
-                                  isCatExpanded ? "rotate-180" : ""
-                                }`}
-                              />
-                            </button>
+                              </Link>
+                            );
+                          }
 
-                            {isCatExpanded && cat.children && (
-                              <div className="ml-4 flex flex-col gap-0.5 border-l border-sky-200 pl-2">
-                                {cat.children.map((child) => {
-                                  if (child.disabled) {
-                                    return (
-                                      <div
-                                        key={child.id}
-                                        className="flex items-center justify-between rounded-lg px-2 py-1 text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-                                        aria-disabled="true"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <child.icon className="h-3 w-3" />
-                                          <span>{child.label}</span>
+                          return (
+                            <div key={cat.id}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPinnedCategoryId((prev) =>
+                                    prev === cat.id ? null : cat.id,
+                                  )
+                                }
+                                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-700 hover:bg-sky-50 dark:text-gray-300"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <cat.icon className="h-3.5 w-3.5 text-brand-500" />
+                                  <span>{cat.label}</span>
+                                </div>
+                                <ChevronDown
+                                  className={`h-3 w-3 transition-transform ${
+                                    isCatExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
+
+                              {isCatExpanded && cat.children && (
+                                <div className="ml-4 flex flex-col gap-0.5 border-l border-sky-200 pl-2">
+                                  {cat.children.map((child) => {
+                                    if (child.disabled) {
+                                      return (
+                                        <div
+                                          key={child.id}
+                                          className="flex items-center justify-between rounded-lg px-2 py-1 text-xs text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                                          aria-disabled="true"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <child.icon className="h-3 w-3" />
+                                            <span>{child.label}</span>
+                                          </div>
+                                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                            Upcoming
+                                          </span>
                                         </div>
-                                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-gray-800 dark:text-gray-400">
-                                          Upcoming
-                                        </span>
-                                      </div>
-                                    );
-                                  }
+                                      );
+                                    }
 
-                                  return (
-                                    <Link
-                                      key={child.id}
-                                      href={child.path}
-                                      onClick={() => handleLeafClick(mod.id)}
-                                      className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
-                                    >
-                                      <child.icon className="h-3 w-3" />
-                                      <span>{child.label}</span>
-                                    </Link>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                                    return (
+                                      <Link
+                                        key={child.id}
+                                        href={child.path}
+                                        onClick={() => handleLeafClick(mod.id)}
+                                        className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-gray-600 hover:bg-sky-50 hover:text-brand-600 dark:text-gray-400"
+                                      >
+                                        <child.icon className="h-3 w-3" />
+                                        <span>{child.label}</span>
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

@@ -8,7 +8,6 @@ import {
   Input,
   PageHeader,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Barcode as BarcodeIcon,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { BarcodeGeneratorDialog } from "../../barcode/BarcodeGeneratorDialog";
 import { buildQrPayload } from "../../barcode/codes";
@@ -59,7 +59,6 @@ import {
   useWarehouseOptions,
 } from "../../shared/masters";
 import { ScmDeleteButton, ScmDeleteDialog } from "../../shared/ScmDeleteDialog";
-import { errorText } from "../../shared/use-list-controls";
 import { productLabelLines, expiryTone } from "../../shared/expiry";
 import { useBarcodeProducts, useScanCode } from "../hooks";
 
@@ -104,7 +103,7 @@ type TabId = (typeof TABS)[number]["id"];
  * assigning bins and expiry, and adding products. */
 export function BarcodeView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notifyError } = useNotify();
   const canProductWrite = usePermission("scm.product.write");
   const scanMutation = useScanCode();
 
@@ -171,7 +170,7 @@ export function BarcodeView() {
         50,
       );
     } catch (err) {
-      toast({ title: errorText(err, "Scan failed"), variant: "error" });
+      notifyError(err, "scm.barcode.scanFailed");
     }
   }
 
@@ -733,8 +732,8 @@ export function BarcodeView() {
         }
         confirmText="Delete product"
         run={(p) => removeProduct.mutateAsync(p.id)}
-        successMessage="Product deleted"
-        errorFallback="Could not delete product"
+        successMessage="scm.product.deleted"
+        errorFallback="scm.product.deleteFailed"
       />
     </div>
   );

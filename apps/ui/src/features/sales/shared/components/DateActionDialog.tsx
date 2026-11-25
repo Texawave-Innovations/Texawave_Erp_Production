@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -50,7 +50,7 @@ export function DateActionDialog({
     try {
       await onConfirm(v.date);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "That did not work.");
+      setError(resolveErrorText(e, "sales.document.actionFailed"));
     } finally {
       setBusy(false);
     }

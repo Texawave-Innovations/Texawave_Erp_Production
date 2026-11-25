@@ -2,6 +2,7 @@
 
 import type { ProposalTemplate } from "@texawave-erp/api-types";
 import {
+  PageHeader,
   Alert,
   Button,
   Card,
@@ -9,15 +10,15 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ArrowLeft, CheckCircle2, FileText, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, todayInput } from "@/features/projects/format";
+import { todayInput } from "@/features/projects/format";
 import { useCreateProposalDocument, useProposalTemplates } from "../hooks";
 import { PROPOSALS_WRITE } from "../permissions";
 import { createProposalDocumentSchema } from "../schema";
@@ -35,7 +36,7 @@ function plusDays(days: number): string {
 export function CreateProposalView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canWrite = usePermission(PROPOSALS_WRITE);
   const templatesQuery = useProposalTemplates();
   const projectsQuery = useProjects({ limit: 100 });
@@ -98,23 +99,16 @@ export function CreateProposalView() {
     if (!result.success || Object.keys(fieldErrors).length > 0) return;
     try {
       const created = await createMutation.mutateAsync(result.data);
-      toast({
-        title: `Proposal ${created.proposalNumber} created`,
-        variant: "success",
-      });
+      notify("proposals.created", { number: created.proposalNumber });
       router.push(`/projects/proposals/${created.id}`);
     } catch (err) {
-      toast({
-        title: "Could not create the proposal",
-        description: errorMessage(err, "Your entries are kept — try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.createFailed");
     }
   }
 
   if (!canWrite) {
     return (
-      <Alert variant="warning" title="You can't create proposals">
+      <Alert dismissible variant="warning" title="You can't create proposals">
         Ask an administrator for the <code>{PROPOSALS_WRITE}</code> permission.
       </Alert>
     );
@@ -122,27 +116,20 @@ export function CreateProposalView() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div className="relative flex items-center gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg">
-        <Link
-          href="/projects/proposals"
-          aria-label="Back to proposals"
-          className="rounded-xl bg-white/20 p-2 hover:bg-white/30"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-            New Document
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            Create Client Proposal
-          </h1>
-          <p className="text-theme-sm text-sky-50/90">
-            The proposal number is assigned automatically from your Proposal
-            Settings.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={
+          <Link
+            href="/projects/proposals"
+            aria-label="Back to proposals"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        }
+        title="Create Client Proposal"
+        description="The proposal number is assigned automatically from your Proposal Settings."
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
@@ -155,7 +142,7 @@ export function CreateProposalView() {
               <Skeleton className="h-20 w-full" />
             </div>
           ) : templates.length === 0 ? (
-            <Alert variant="info" title="No published templates">
+            <Alert dismissible variant="info" title="No published templates">
               The proposal will be created without structured sections.{" "}
               <Link
                 href="/projects/proposals/templates"

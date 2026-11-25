@@ -17,6 +17,7 @@ import { RequirePermission } from "../../../common/decorators/require-permission
 import { CustomersService } from "./customers.service.js";
 import {
   CreateCustomerDto,
+  CustomerStatementQueryDto,
   NextCustomerCodeQueryDto,
   QueryCustomerDto,
   UpdateCustomerDto,
@@ -53,6 +54,18 @@ export class CustomersController {
   @RequirePermission(READ)
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.customers.findOne(id);
+  }
+
+  @Get(":id/statement")
+  @RequirePermission(READ)
+  @ApiOperation({
+    summary: "Customer statement: tax invoices and payments, running balance",
+  })
+  statement(
+    @Param("id", ParseIntPipe) id: number,
+    @Query() query: CustomerStatementQueryDto,
+  ) {
+    return this.customers.statement(id, query);
   }
 
   @Get(":id/bank-account")

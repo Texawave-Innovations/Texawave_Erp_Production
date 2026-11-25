@@ -1,10 +1,37 @@
 import "reflect-metadata";
 import {
+  ANY_PERMISSION_KEY,
   PERMISSION_KEY,
+  RequireAnyPermission,
   RequirePermission,
   RequireScopedPermission,
   SCOPED_PERMISSION_KEY,
 } from "./require-permission.decorator.js";
+
+describe("RequireAnyPermission", () => {
+  it("stores the codes under its own metadata key", () => {
+    class Probe {
+      @RequireAnyPermission(
+        "employee_self_service.work.write",
+        "projects.timer.write",
+      )
+      handler() {}
+    }
+    const handler = Probe.prototype.handler;
+    expect(Reflect.getMetadata(ANY_PERMISSION_KEY, handler)).toEqual([
+      "employee_self_service.work.write",
+      "projects.timer.write",
+    ]);
+    expect(Reflect.getMetadata(PERMISSION_KEY, handler)).toBeUndefined();
+  });
+
+  it("refuses a single code (that is @RequirePermission) and blank codes", () => {
+    expect(() =>
+      (RequireAnyPermission as (...p: string[]) => unknown)("a.b.c"),
+    ).toThrow(/at least two/);
+    expect(() => RequireAnyPermission("a.b.c", " ")).toThrow(/non-empty/);
+  });
+});
 
 describe("RequireScopedPermission", () => {
   it("stores the prefix under its own metadata key, not the exact-match key", () => {

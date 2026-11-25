@@ -19,7 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatMoney } from "../../shared/format";
-import { downloadCsv, toCsv } from "../../shared/csv";
+import { downloadWorkbook } from "@/lib/spreadsheet";
 import { useHsnSummary } from "../hooks";
 
 export interface HsnSummaryViewProps {
@@ -130,48 +130,58 @@ export function HsnSummaryView({
     );
   }, [filteredItems]);
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (filteredItems.length === 0) return;
-    const columns = [
-      {
-        header: "HSN / SAC Code",
-        value: (row: (typeof filteredItems)[0]) => row.hsnSacCode,
-      },
-      {
-        header: "Description",
-        value: (row: (typeof filteredItems)[0]) =>
-          row.description || "General Goods/Services",
-      },
-      {
-        header: "Transactions",
-        value: (row: (typeof filteredItems)[0]) => row.transactionCount,
-      },
-      {
-        header: "Taxable Value (INR)",
-        value: (row: (typeof filteredItems)[0]) => row.taxableAmount.toFixed(2),
-      },
-      {
-        header: "CGST (INR)",
-        value: (row: (typeof filteredItems)[0]) => row.cgstAmount.toFixed(2),
-      },
-      {
-        header: "SGST (INR)",
-        value: (row: (typeof filteredItems)[0]) => row.sgstAmount.toFixed(2),
-      },
-      {
-        header: "IGST (INR)",
-        value: (row: (typeof filteredItems)[0]) => row.igstAmount.toFixed(2),
-      },
-      {
-        header: "Total Tax Amount (INR)",
-        value: (row: (typeof filteredItems)[0]) =>
-          row.totalTaxAmount.toFixed(2),
-      },
-    ];
-    const csvData = toCsv(columns, filteredItems);
-    downloadCsv(
-      `HSN_Summary_${startDate || initialPeriod}_to_${endDate || initialPeriod}.csv`,
-      csvData,
+    type HsnRow = (typeof filteredItems)[0];
+    void downloadWorkbook(
+      `HSN_Summary_${startDate || initialPeriod}_to_${endDate || initialPeriod}`,
+      [
+        {
+          name: "HSN Summary",
+          rows: filteredItems,
+          columns: [
+            {
+              header: "HSN / SAC Code",
+              value: (row: HsnRow) => row.hsnSacCode,
+            },
+            {
+              header: "Description",
+              value: (row: HsnRow) =>
+                row.description || "General Goods/Services",
+            },
+            {
+              header: "Transactions",
+              value: (row: HsnRow) => row.transactionCount,
+              type: "integer",
+            },
+            {
+              header: "Taxable Value (INR)",
+              value: (row: HsnRow) => row.taxableAmount,
+              type: "amount",
+            },
+            {
+              header: "CGST (INR)",
+              value: (row: HsnRow) => row.cgstAmount,
+              type: "amount",
+            },
+            {
+              header: "SGST (INR)",
+              value: (row: HsnRow) => row.sgstAmount,
+              type: "amount",
+            },
+            {
+              header: "IGST (INR)",
+              value: (row: HsnRow) => row.igstAmount,
+              type: "amount",
+            },
+            {
+              header: "Total Tax Amount (INR)",
+              value: (row: HsnRow) => row.totalTaxAmount,
+              type: "amount",
+            },
+          ],
+        },
+      ],
     );
   };
 
@@ -214,18 +224,18 @@ export function HsnSummaryView({
             ))}
           </div>
 
-          {/* Action Buttons: CSV & Print/PDF */}
+          {/* Action Buttons: Excel & Print/PDF */}
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleExportCSV}
+              onClick={handleExportExcel}
               disabled={filteredItems.length === 0}
               className="flex items-center gap-1.5 h-9"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Export CSV</span>
+              <span>Export Excel</span>
             </Button>
             <Button
               type="button"

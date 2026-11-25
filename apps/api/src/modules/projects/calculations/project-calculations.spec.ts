@@ -5,6 +5,7 @@ import {
   calculateEarnedAmount,
   calculateProjectHealth,
   calculateResourceUtilization,
+  calculateTaskPoints,
   hasCircularDependency,
   isMilestoneUpcoming,
 } from "./project-calculations.js";
@@ -223,6 +224,63 @@ describe("Project Calculations", () => {
       ];
       // Task 4 depends on Task 3 -> completely acyclic
       expect(hasCircularDependency(allTasks, 4, 3)).toBe(false);
+    });
+  });
+
+  describe("calculateTaskPoints", () => {
+    const rules = { basePoints: 10, onTimeBonus: 1, graceMinutes: 5 };
+    // The worked example: ETA 2h, 10 points.
+    it.each([
+      [110, 11], // within the ETA: base + 1
+      [120, 11], // exactly the ETA
+      [150, 7], // 2h30: 10 x 0.75 = 7.5 -> 7
+      [180, 5], // 3h: 10 x 0.5
+      [210, 2], // 3h30: 10 x 0.25 = 2.5 -> 2
+      [240, 0], // 4h: double the ETA
+      [600, 0], // far beyond: never negative
+    ])("ETA 2h, worked %i min -> %i points", (worked, expected) => {
+      expect(calculateTaskPoints(2, worked, rules).points).toBe(expected);
+    });
+
+    it("gives base without bonus inside the grace window", () => {
+      const r = calculateTaskPoints(2, 125, rules);
+      expect(r.points).toBe(10);
+      expect(r.bonusPoints).toBe(0);
+      expect(r.overrunMinutes).toBe(5);
+    });
+
+    it("deducts from the first minute past the grace window", () => {
+      // 6 min over a 2h task: floor(10 x (1 - 6/120)) = 9
+      expect(calculateTaskPoints(2, 126, rules).points).toBe(9);
+    });
+
+    it("reports the breakdown that is stored in the ledger", () => {
+      expect(calculateTaskPoints(2, 150, rules)).toEqual({
+        points: 7,
+        basePoints: 10,
+        bonusPoints: 0,
+        etaMinutes: 120,
+        workedMinutes: 150,
+        overrunMinutes: 30,
+      });
+    });
+
+    it("scales with the ETA (an 8h task reaches 0 at 16h)", () => {
+      expect(calculateTaskPoints(8, 540, rules).points).toBe(8);
+      expect(calculateTaskPoints(8, 960, rules).points).toBe(0);
+    });
+
+    it("pays the base without a bonus when there is no ETA", () => {
+      expect(calculateTaskPoints(0, 90, rules)).toMatchObject({
+        points: 10,
+        bonusPoints: 0,
+      });
+    });
+
+    it("follows the configured rules", () => {
+      const custom = { basePoints: 20, onTimeBonus: 3, graceMinutes: 0 };
+      expect(calculateTaskPoints(1, 60, custom).points).toBe(23);
+      expect(calculateTaskPoints(1, 61, custom).points).toBe(19);
     });
   });
 });

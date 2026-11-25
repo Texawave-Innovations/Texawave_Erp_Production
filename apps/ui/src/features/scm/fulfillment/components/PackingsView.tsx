@@ -2,15 +2,10 @@
 
 import type { Packing, PackingPayload, Picking } from "@texawave-erp/api-types";
 import { PACK_STATUSES } from "@texawave-erp/api-types";
-import {
-  Button,
-  Input,
-  Select,
-  StatusBadge,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Input, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Package, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -38,7 +33,7 @@ export function PackingsView() {
   const [status, setStatus] = useState("");
   const [packing, setPacking] = useState<Picking | null>(null);
   const [viewing, setViewing] = useState<Packing | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.fulfillment.write");
   const deletingRowRemove = useDeletePacking();
   const [deletingRow, setDeletingRow] = useState<Packing | null>(null);
@@ -166,8 +161,8 @@ export function PackingsView() {
         }
         confirmText="Delete packing"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Packing deleted"
-        errorFallback="Failed to delete packing"
+        successMessage="scm.packing.deleted"
+        errorFallback="scm.packing.deleteFailed"
       />
       <PackDialog
         picking={packing}
@@ -176,9 +171,9 @@ export function PackingsView() {
           try {
             await create.mutateAsync(payload);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save packing"));
+            throw new Error(errorText(err, "scm.packing.saveFailed"));
           }
-          toast({ title: "Packing completed", variant: "success" });
+          notify("scm.packing.completed");
           setPacking(null);
         }}
       />
@@ -226,13 +221,10 @@ export function PackingsView() {
                         id: viewing.id,
                         action: "pack",
                       });
-                      toast({ title: "Packing completed", variant: "success" });
+                      notify("scm.packing.completed");
                       setViewing(null);
                     } catch (err) {
-                      toast({
-                        title: errorText(err, "Failed to complete packing"),
-                        variant: "error",
-                      });
+                      notifyError(err, "scm.packing.completeFailed");
                     }
                   }}
                 >
@@ -244,13 +236,10 @@ export function PackingsView() {
                 onClick={async () => {
                   try {
                     await act.mutateAsync({ id: viewing.id, action: "cancel" });
-                    toast({ title: "Packing cancelled", variant: "success" });
+                    notify("scm.packing.cancelled");
                     setViewing(null);
                   } catch (err) {
-                    toast({
-                      title: errorText(err, "Failed to cancel packing"),
-                      variant: "error",
-                    });
+                    notifyError(err, "scm.packing.cancelFailed");
                   }
                 }}
               >
@@ -373,7 +362,7 @@ function PackBody({
         packages: out,
       });
     } catch (err) {
-      setError(errorText(err, "Failed to save packing"));
+      setError(errorText(err, "scm.packing.saveFailed"));
     } finally {
       setBusy(false);
     }

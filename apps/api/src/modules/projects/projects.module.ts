@@ -5,6 +5,8 @@ import { ProjectsMasterModule } from "../projects-master/projects-master.module.
 import { SuppliersModule } from "../scm/suppliers/suppliers.module.js";
 import { TimesheetsCoreModule } from "../timesheets/core/timesheets-core.module.js";
 import { AttendanceModule } from "../hr/attendance/attendance.module.js";
+import { RolesPermissionsModule } from "../../platform/roles-permissions/roles-permissions.module.js";
+import { ProjectsWriteAccessService } from "./projects-write-access.service.js";
 import { ProjectsAnalyticsController } from "./analytics.controller.js";
 import { ProjectsAnalyticsService } from "./analytics.service.js";
 import { ExpensesController } from "./expenses.controller.js";
@@ -31,6 +33,7 @@ import { TimeEntriesService } from "./time-entries.service.js";
     AttendanceModule,
     DepartmentsModule,
     TimesheetsCoreModule,
+    RolesPermissionsModule,
   ],
   // ProjectsController registers LAST: its `GET /projects/:id` (ParseIntPipe)
   // would otherwise shadow single-segment literal routes on the same prefix
@@ -51,6 +54,7 @@ import { TimeEntriesService } from "./time-entries.service.js";
     // is the one in-process interval that runs it.
     OpenSessionSweepService,
     OpenSessionSweepScheduler,
+    ProjectsWriteAccessService,
     ProjectsService,
     MilestonesService,
     TasksService,

@@ -93,7 +93,7 @@ function Body({
     try {
       await onSubmit(input);
     } catch (err) {
-      setError(errorText(err, "Failed to create inspection"));
+      setError(errorText(err, "scm.inspection.createFailed"));
     } finally {
       setBusy(false);
     }

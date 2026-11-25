@@ -196,7 +196,7 @@ export function LeaveTypeForm({
 
       <FormField
         label="Approval"
-        hint="Two levels: the reporting manager (or a team approver) first, then a different HR approver. Applies to requests submitted after the change."
+        hint="Two levels: the employee's team lead first, then a different HR approver. A team lead's own leave, or a team with no lead, goes to HR alone (one decision). Applies to requests submitted after the change."
       >
         {(f) => (
           <Select

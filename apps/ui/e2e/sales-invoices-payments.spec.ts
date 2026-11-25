@@ -104,6 +104,7 @@ const invoice = (over: Record<string, unknown> = {}) => ({
   terms: null,
   status: "PARTIALLY_PAID",
   convertedAt: null,
+  reopenReason: null as string | null,
   lines: [
     {
       lineNo: 1,
@@ -180,44 +181,40 @@ const MODES = [
   },
 ];
 
+// The proforma (id 22) is CONVERTED once moved to a tax invoice and flips
+// back when reopened with a reason.
+let proformaConverted = false;
+let proformaReason: string | null = null;
+
+const proforma = () =>
+  invoice({
+    id: 22,
+    invoiceType: "PROFORMA",
+    invoiceNumber: "TW/PI/26-27/0003",
+    status: proformaConverted ? "CONVERTED" : "UNPAID",
+    reopenReason: proformaReason,
+    amountReceived: "0",
+    balance: "708",
+    payments: [],
+  });
+
 function answer(req: MockRequest) {
   const { method, pathname } = req;
   if (method === "GET" && pathname === "/sales/invoices") {
     const type = req.search.get("invoiceType");
     return {
-      body: page1(
-        type === "PROFORMA"
-          ? [
-              invoice({
-                id: 22,
-                invoiceType: "PROFORMA",
-                invoiceNumber: "TW/PI/26-27/0003",
-                status: "UNPAID",
-                amountReceived: "0",
-                balance: "708",
-                payments: [],
-              }),
-            ]
-          : [invoice()],
-      ),
+      body: page1(type === "PROFORMA" ? [proforma()] : [invoice()]),
     };
   }
   if (method === "GET" && pathname === "/sales/invoices/21")
     return { body: { data: invoice() } };
   if (method === "GET" && pathname === "/sales/invoices/22") {
-    return {
-      body: {
-        data: invoice({
-          id: 22,
-          invoiceType: "PROFORMA",
-          invoiceNumber: "TW/PI/26-27/0003",
-          status: "UNPAID",
-          amountReceived: "0",
-          balance: "708",
-          payments: [],
-        }),
-      },
-    };
+    return { body: { data: proforma() } };
+  }
+  if (method === "POST" && pathname === "/sales/invoices/22/reopen") {
+    proformaConverted = false;
+    proformaReason = (req.body as { reason: string }).reason;
+    return { body: { data: proforma() } };
   }
   if (method === "GET" && /^\/sales\/invoices\/2[12]\/pdf$/.test(pathname)) {
     return { file: "%PDF-1.4", contentType: "application/pdf" };
@@ -410,6 +407,11 @@ async function signIn(page: Page, permissions = MANAGER) {
 }
 
 test.describe("Sales invoices, payments and challans", () => {
+  test.beforeEach(() => {
+    proformaConverted = false;
+    proformaReason = null;
+  });
+
   test("tax invoice: record a payment within the balance, then raise a challan", async ({
     page,
   }) => {
@@ -418,7 +420,10 @@ test.describe("Sales invoices, payments and challans", () => {
     await expect(
       page.getByRole("heading", { name: "Tax invoices" }),
     ).toBeVisible();
-    await page.getByText("TW/IN/26-27/0001").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/IN/26-27/0001" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByText("TW/PR/26-27/0001")).toBeVisible();
 
     await page.getByRole("button", { name: "Record payment" }).click();
@@ -453,7 +458,10 @@ test.describe("Sales invoices, payments and challans", () => {
   test("proforma → tax invoice", async ({ page }) => {
     const { calls } = await signIn(page);
     await open(page, "Documents", "Proforma Invoices");
-    await page.getByText("TW/PI/26-27/0003").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/PI/26-27/0003" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await page.getByRole("button", { name: "Move to tax invoice" }).click();
     await page
       .getByRole("dialog")
@@ -463,6 +471,60 @@ test.describe("Sales invoices, payments and challans", () => {
     expect(
       calls.some((c) => c.startsWith("POST /sales/invoices/22/convert-to-tax")),
     ).toBe(true);
+  });
+
+  test("a live proforma offers no Reopen and no manual mark", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await open(page, "Documents", "Proforma Invoices");
+    await page
+      .getByRole("button", { name: "Actions for TW/PI/26-27/0003" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Move to tax invoice" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Mark as tax invoiced" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Reopen" })).toHaveCount(0);
+  });
+
+  test("a converted proforma is locked; reopening needs a reason", async ({
+    page,
+  }) => {
+    proformaConverted = true;
+    const { calls } = await signIn(page);
+    await open(page, "Documents", "Proforma Invoices");
+    await page
+      .getByRole("button", { name: "Actions for TW/PI/26-27/0003" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    // Locked: no Edit, and Reopen is offered instead.
+    await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Reopen" }).click();
+    const dialog = page.getByRole("dialog");
+    const confirm = dialog.getByRole("button", { name: "Reopen" });
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel("Reason for reopening").fill("   ");
+    await expect(confirm).toBeDisabled();
+    await dialog
+      .getByLabel("Reason for reopening")
+      .fill("Customer asked for changes");
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(
+      page.getByText("TW/PI/26-27/0003 is open again"),
+    ).toBeVisible();
+    expect(
+      calls.some((c) =>
+        c.startsWith(
+          'POST /sales/invoices/22/reopen {"reason":"Customer asked for changes"}',
+        ),
+      ),
+    ).toBe(true);
+    await expect(page.getByText("Customer asked for changes")).toBeVisible();
   });
 
   test("new tax invoice: server preview, due-date bubble, save", async ({

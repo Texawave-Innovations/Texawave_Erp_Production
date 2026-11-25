@@ -61,6 +61,11 @@ describe("Attendance auto-checkout (e2e)", () => {
     ).id;
   }
 
+  const teamOf = (orgId: number) =>
+    prisma.team.findFirstOrThrow({
+      where: { organizationId: orgId, code: `BB${suffix}` },
+    });
+
   const openSession = async (
     orgId: number,
     employeeId: number,
@@ -161,7 +166,7 @@ describe("Attendance auto-checkout (e2e)", () => {
       .expect(404);
   });
 
-  it("closes an open session once due, at check-in plus the target", async () => {
+  it("closes a forgotten session at the end of its own IST day (23:59), flagged as unverified", async () => {
     const emp = await mkEmp(orgA.id, team);
     const s = await openSession(
       orgA.id,
@@ -175,7 +180,41 @@ describe("Attendance auto-checkout (e2e)", () => {
     const after = await prisma.attendanceSession.findUniqueOrThrow({
       where: { id: s.id },
     });
-    expect(after.checkOutAt?.toISOString()).toBe("2026-06-10T12:30:00.000Z");
+    // 23:59 IST on 10 June — not check-in plus the 8-hour target.
+    expect(after.checkOutAt?.toISOString()).toBe("2026-06-10T18:29:00.000Z");
+    expect(after.autoClosed).toBe(true);
+  });
+
+  it("uses the HR master's earlier cut-off when it is switched on", async () => {
+    const emp = await mkEmp(orgB.id, (await teamOf(orgB.id)).id);
+    await prisma.attendanceSetting.upsert({
+      where: { organizationId: orgB.id },
+      update: { autoCheckoutEnabled: true, autoCheckoutTime: "20:00" },
+      create: {
+        organizationId: orgB.id,
+        autoCheckoutEnabled: true,
+        autoCheckoutTime: "20:00",
+      },
+    });
+    try {
+      const s = await openSession(
+        orgB.id,
+        emp,
+        "2026-06-09",
+        utc("2026-06-09T04:30:00Z"),
+      );
+      await job.runForAllOrganizations(ASOF);
+      const after = await prisma.attendanceSession.findUniqueOrThrow({
+        where: { id: s.id },
+      });
+      expect(after.checkOutAt?.toISOString()).toBe("2026-06-09T14:30:00.000Z");
+      expect(after.autoClosed).toBe(true);
+    } finally {
+      await prisma.attendanceSetting.update({
+        where: { organizationId: orgB.id },
+        data: { autoCheckoutEnabled: false },
+      });
+    }
   });
 
   it("writes exactly one audit row as a system actor with no user", async () => {
@@ -275,7 +314,7 @@ describe("Attendance auto-checkout (e2e)", () => {
     expect(after.checkOutAt).toBeNull();
   });
 
-  it("with no shift target, the session is left open rather than given an invented duration", async () => {
+  it("with no shift target, the session still closes at the end of the day (no duration is credited)", async () => {
     const emp = await mkEmp(orgA.id, teamNoShift);
     const s = await openSession(
       orgA.id,
@@ -287,7 +326,8 @@ describe("Attendance auto-checkout (e2e)", () => {
     const after = await prisma.attendanceSession.findUniqueOrThrow({
       where: { id: s.id },
     });
-    expect(after.checkOutAt).toBeNull();
+    expect(after.checkOutAt?.toISOString()).toBe("2026-06-10T18:29:00.000Z");
+    expect(after.autoClosed).toBe(true);
   });
 
   it("handles several employees: each due session closes, the rest do not", async () => {

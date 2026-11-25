@@ -8,9 +8,8 @@ import type {
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 
 /**
- * Thin wrappers around the shared `apiClient` — mirrors
- * apps/ui/src/features/sales-settings/api.ts's master-list-items section.
- * One function per endpoint in apps/api/src/modules/finance-settings/.
+ * Thin wrappers around the shared `apiClient` —
+ * one function per endpoint in apps/api/src/modules/finance-settings/.
  */
 
 export function listMasterListItems(

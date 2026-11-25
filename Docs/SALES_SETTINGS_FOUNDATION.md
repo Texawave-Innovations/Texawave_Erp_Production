@@ -6,6 +6,16 @@ Test coverage landed: one `*.service.spec.ts` per service, a backend e2e
 spec (`apps/api/test/sales-settings.e2e-spec.ts`), and a UI e2e spec
 (`apps/ui/e2e/sales-settings.spec.ts`) — see "Tests" below.
 
+> **UI retired (2026-11-23).** The "Sales & Document Masters" screen
+> (`apps/ui/src/features/sales-settings/`, `/settings/sales-settings`) is removed. The
+> Sales master now lives at `/sales/master-list` (navbar **Master List → Sales Master**,
+> `Docs/SALES_API.md`), and Sales documents never read this module. Company details,
+> numbering, bank accounts, seals, signatures and the document-form options now come from
+> the Sales master list. Salespersons, the authorized signatory and the Terms & Inventory
+> categories were dropped. **The backend below (`modules/sales-settings`, its tables and the
+> `sales_settings.*` permissions) is still in place** and is pending removal in a separate PR
+> with migrations; it currently has no screen.
+
 **Owner:** repository maintainers — assign a named owner before further work.
 
 This is the backend for the three tabs/modules shown in the "Sales &

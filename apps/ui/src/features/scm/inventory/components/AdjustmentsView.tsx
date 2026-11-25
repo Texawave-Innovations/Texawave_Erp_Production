@@ -1,9 +1,10 @@
 "use client";
 
 import type { ScmAdjustment } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -30,7 +31,7 @@ export function AdjustmentsView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const canApprove = usePermission("scm.inventory.approve");
   const create = useCreateAdjustment();
@@ -56,18 +57,18 @@ export function AdjustmentsView() {
   async function run(a: ScmAdjustment, decision: "approve" | "reject") {
     try {
       await decide.mutateAsync({ id: a.id, decision });
-      toast({
-        title:
-          decision === "approve"
-            ? "Adjustment approved and posted to the stock ledger"
-            : "Adjustment rejected",
-        variant: "success",
-      });
+      notify(
+        decision === "approve"
+          ? "scm.adjustment.approved"
+          : "scm.adjustment.rejected",
+      );
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${decision} adjustment`),
-        variant: "error",
-      });
+      notifyError(
+        err,
+        decision === "approve"
+          ? "scm.adjustment.approveFailed"
+          : "scm.adjustment.rejectFailed",
+      );
     }
   }
 
@@ -202,8 +203,8 @@ export function AdjustmentsView() {
         }
         confirmText="Delete adjustment"
         run={(a) => remove.mutateAsync(a.id)}
-        successMessage="Adjustment deleted"
-        errorFallback="Failed to delete adjustment"
+        successMessage="scm.adjustment.deleted"
+        errorFallback="scm.adjustment.deleteFailed"
       />
       <ScmFormDialog
         open={open}
@@ -272,12 +273,9 @@ export function AdjustmentsView() {
               notes: v.notes as string | undefined,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create adjustment"));
+            throw new Error(errorText(err, "scm.adjustment.createFailed"));
           }
-          toast({
-            title: "Adjustment recorded, pending approval",
-            variant: "success",
-          });
+          notify("scm.adjustment.recorded");
           setOpen(false);
         }}
       />

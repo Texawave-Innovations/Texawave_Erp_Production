@@ -7,6 +7,7 @@ import { TimesheetsCoreModule } from "./core/timesheets-core.module.js";
 import { CustomActivitiesController } from "./custom-activities.controller.js";
 import { CustomActivitiesRepository } from "./custom-activities.repository.js";
 import { CustomActivitiesService } from "./custom-activities.service.js";
+import { TimesheetMonthService } from "./timesheet-month.service.js";
 import { TimesheetNotificationsService } from "./timesheet-notifications.service.js";
 import { TimesheetWorkflowController } from "./timesheet-workflow.controller.js";
 import { TimesheetWorkflowRepository } from "./timesheet-workflow.repository.js";
@@ -36,6 +37,7 @@ import { TimesheetsService } from "./timesheets.service.js";
   providers: [
     TimesheetsRepository,
     TimesheetsService,
+    TimesheetMonthService,
     CustomActivitiesRepository,
     CustomActivitiesService,
     TimesheetWorkflowRepository,

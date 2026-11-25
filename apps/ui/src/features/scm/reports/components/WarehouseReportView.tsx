@@ -18,7 +18,7 @@ export function WarehouseReportView() {
       noun="warehouses"
       query={query}
       getRowKey={(r) => r.code}
-      fileName="scm-warehouse-report.csv"
+      fileName="scm-warehouse-report.xlsx"
       emptyDescription="Warehouses will appear here once they're created."
       columns={[
         { header: "Warehouse", cell: (r) => r.warehouse },
@@ -50,14 +50,30 @@ export function WarehouseReportView() {
           cell: (r) => r.openMovements,
         },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Warehouse", value: (r) => r.warehouse },
         { header: "Code", value: (r) => r.code },
         { header: "Status", value: (r) => r.status },
-        { header: "Active Locations", value: (r) => r.activeLocations },
-        { header: "Occupied Locations", value: (r) => r.occupiedLocations },
-        { header: "Pending Put-away", value: (r) => r.pendingPutaways },
-        { header: "Open Movements", value: (r) => r.openMovements },
+        {
+          header: "Active Locations",
+          value: (r) => r.activeLocations,
+          type: "integer",
+        },
+        {
+          header: "Occupied Locations",
+          value: (r) => r.occupiedLocations,
+          type: "integer",
+        },
+        {
+          header: "Pending Put-away",
+          value: (r) => r.pendingPutaways,
+          type: "integer",
+        },
+        {
+          header: "Open Movements",
+          value: (r) => r.openMovements,
+          type: "integer",
+        },
       ]}
     />
   );

@@ -118,7 +118,7 @@ function TeamDialogContent({
             readOnly
             disabled
             value={team.code}
-            className="bg-gray-50 font-mono text-gray-700 cursor-not-allowed dark:bg-gray-800/60 dark:text-gray-300"
+            className="bg-gray-50 text-gray-700 cursor-not-allowed dark:bg-gray-800/60 dark:text-gray-300"
           />
           <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
             Code is generated automatically and cannot be edited.

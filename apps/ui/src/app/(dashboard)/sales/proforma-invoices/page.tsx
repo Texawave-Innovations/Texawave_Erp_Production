@@ -1,6 +1,6 @@
-import { InvoicesView } from "@/features/sales/invoices/components/InvoicesView";
+import { redirect } from "next/navigation";
 
-// `app/` stays thin — routing only (Docs/CODING_STANDARDS.md §4).
-export default function SalesProformaInvoicesPage() {
-  return <InvoicesView invoiceType="PROFORMA" />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectProforma() {
+  redirect("/sales?tab=proforma-invoices");
 }

@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsBoolean,
@@ -24,7 +25,7 @@ export class CreateGstEntryDto {
   })
   @IsNotEmpty()
   @IsString()
-  @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
+  @Matches(FIELD_FORMAT.gstin, {
     message:
       "Invalid GSTIN format. Expected standard 15-character Indian GSTIN.",
   })
@@ -36,7 +37,7 @@ export class CreateGstEntryDto {
   })
   @IsNotEmpty()
   @IsString()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+  @Matches(FIELD_FORMAT.month, {
     message: "Period must be in YYYY-MM format (e.g. 2026-10)",
   })
   period!: string;

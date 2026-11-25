@@ -137,6 +137,11 @@ export class PaymentsService {
       lines.push(row.join(","));
     }
 
+    await this.repository.recordBatchExport(
+      this.tenantContext.getOrgScope(),
+      id,
+      batch.payments.length,
+    );
     return lines.join("\n");
   }
 

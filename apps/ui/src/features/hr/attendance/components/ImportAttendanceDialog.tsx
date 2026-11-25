@@ -10,8 +10,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadText } from "@/features/hr/payroll/download";
 import { useImportAttendance } from "../hooks";
 import type { AttendanceImportReport } from "../types";
@@ -50,7 +50,7 @@ export function ImportAttendanceDialog({
   const [report, setReport] = useState<AttendanceImportReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useImportAttendance();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const busy = mutation.isPending;
 
   const checked = report?.dryRun === true && report.errors.length === 0;
@@ -80,10 +80,12 @@ export function ImportAttendanceDialog({
       const result = await mutation.mutateAsync({ file, dryRun });
       setReport(result);
       if (!dryRun && result.errors.length === 0) {
-        toast({
-          title: `${result.imported} session${result.imported === 1 ? "" : "s"} imported`,
-          variant: "success",
-        });
+        notify(
+          result.imported === 1
+            ? "hr.attendance.importedOne"
+            : "hr.attendance.importedMany",
+          { count: result.imported },
+        );
       }
     } catch (error) {
       setReport(null);
@@ -165,7 +167,11 @@ export function ImportAttendanceDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-semibold text-gray-800 dark:text-gray-200">{e.row}</span>,
+                    cell: (e) => (
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {e.row}
+                      </span>
+                    ),
                   },
                   { header: "Column", cell: (e) => e.field ?? "—" },
                   { header: "Problem", cell: (e) => e.message },
@@ -176,7 +182,7 @@ export function ImportAttendanceDialog({
         ) : null}
 
         {checked ? (
-          <Alert variant="success" title="Ready to import">
+          <Alert dismissible variant="success" title="Ready to import">
             {toAdd} new punch pair{toAdd === 1 ? "" : "s"} will be added
             {report.duplicates > 0
               ? `; ${report.duplicates} already recorded will be skipped`
@@ -186,7 +192,7 @@ export function ImportAttendanceDialog({
         ) : null}
 
         {committed ? (
-          <Alert variant="success" title="Import complete">
+          <Alert dismissible variant="success" title="Import complete">
             Added {report.imported} punch pair{report.imported === 1 ? "" : "s"}
             {report.duplicates > 0
               ? `; skipped ${report.duplicates} already recorded`

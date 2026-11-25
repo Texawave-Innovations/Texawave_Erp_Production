@@ -75,7 +75,7 @@ export function RoleHistoryPanel({
   if (history.isError) {
     return history.error instanceof ApiError &&
       history.error.isPermissionError ? (
-      <Alert variant="warning" title="You can't view this history">
+      <Alert dismissible variant="warning" title="You can't view this history">
         Role history needs the <code>settings.role.read</code> permission.
       </Alert>
     ) : (

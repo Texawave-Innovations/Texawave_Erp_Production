@@ -326,6 +326,7 @@ export function DailyAttendanceTab() {
       ) : report.isError ? (
         report.error instanceof ApiError && report.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to the daily roster"
             className="rounded-2xl"
@@ -405,6 +406,10 @@ export function DailyAttendanceTab() {
                         {r.hasOpenSession ? (
                           <span className="font-bold text-brand-500 dark:text-sky-300">
                             Working
+                          </span>
+                        ) : last?.autoClosed ? (
+                          <span className="font-semibold text-warning-600 dark:text-warning-400">
+                            Not recorded
                           </span>
                         ) : last?.checkOutAt ? (
                           regionalFormatTime(last.checkOutAt)

@@ -17,6 +17,11 @@ import { AuditWriter } from "../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../shared/prisma/prisma.service.js";
 import { TimesheetDayService } from "../timesheets/core/timesheet-day.service.js";
 import {
+  awardTaskPoints,
+  isTimeBasedPointsEnabled,
+  sumTimerMinutes,
+} from "./points-award.js";
+import {
   applyTaskAction,
   beginTimerTarget,
   dailyStatusAfterAction,
@@ -62,6 +67,7 @@ interface TaskRow {
   status: TaskStatus;
   priority: string;
   points: number;
+  hoursToComplete: Prisma.Decimal;
   assignedToId: number | null;
 }
 
@@ -97,6 +103,7 @@ const TASK_SELECT = {
   status: true,
   priority: true,
   points: true,
+  hoursToComplete: true,
   assignedToId: true,
 } as const;
 
@@ -364,6 +371,22 @@ export class TaskLifecycleRepository {
         userId: input.userId,
         reason: input.notes?.trim() || "employee complete",
       });
+      // With time-based points on, a task is measured by the timer: finishing
+      // one with no timer time at all would earn the on-time bonus for free.
+      if (
+        (await isTimeBasedPointsEnabled(tx, scope.organizationId)) &&
+        (await sumTimerMinutes(
+          tx,
+          scope.organizationId,
+          task.id,
+          input.employeeId,
+        )) === 0
+      ) {
+        throw new BusinessRuleViolationException(
+          "Start the timer and log time on this task before completing it.",
+          "NO_TIMER_TIME_LOGGED",
+        );
+      }
       await this.awardPointsOnce(
         tx,
         scope.organizationId,
@@ -808,29 +831,15 @@ export class TaskLifecycleRepository {
     });
   }
 
-  /** Points are awarded once per task and employee, ever: re-completing a
-   * reopened task, a retry or two requests never pay twice. */
+  /** Points are awarded once per task and employee, ever (see
+   * `awardTaskPoints`, shared with the manager update path). */
   private async awardPointsOnce(
     tx: Prisma.TransactionClient,
     organizationId: number,
     task: TaskRow,
     employeeId: number,
   ) {
-    const existing = await tx.projectPointsLedger.findFirst({
-      where: { organizationId, taskId: task.id, employeeId },
-      select: { id: true },
-    });
-    if (existing) return;
-    await tx.projectPointsLedger.create({
-      data: {
-        organizationId,
-        employeeId,
-        taskId: task.id,
-        taskTitle: task.title,
-        points: task.points,
-        note: `Completed ${task.taskCode} (${task.priority} priority)`,
-      },
-    });
+    await awardTaskPoints(tx, organizationId, task, employeeId);
   }
 
   /**

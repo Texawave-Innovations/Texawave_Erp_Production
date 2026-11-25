@@ -15,8 +15,8 @@ import {
   Select,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import type { StatusColorToken } from "@texawave-erp/ui-kit";
 import {
   Calendar,
@@ -99,7 +99,7 @@ export interface InterviewsPanelProps {
 }
 
 export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -141,7 +141,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
     await createMutation.mutateAsync(input);
     setViewMode("list");
     setPage(1);
-    toast({ title: "Interview scheduled successfully", variant: "success" });
+    notify("hr.interview.scheduled");
   }
 
   async function handleStatusChange(
@@ -151,15 +151,11 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
     if (status === item.status) return;
     try {
       await statusMutation.mutateAsync({ id: item.id, status });
-      toast({
-        title: `Status set to ${INTERVIEW_STATUS_LABELS[status]}`,
-        variant: "success",
+      notify("hr.interview.statusSet", {
+        status: INTERVIEW_STATUS_LABELS[status],
       });
     } catch (error) {
-      toast({
-        title: apiErrorMessage(error, "Could not update the status"),
-        variant: "error",
-      });
+      notifyError(error, "hr.interview.statusFailed");
     }
   }
 
@@ -524,7 +520,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
         </div>
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="Access denied">
+          <Alert dismissible variant="warning" title="Access denied">
             You do not have permission to view the interview schedule.
           </Alert>
         ) : (

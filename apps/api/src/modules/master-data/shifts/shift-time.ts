@@ -1,9 +1,10 @@
+import { FIELD_FORMAT } from "../../../common/dto/field-formats.js";
 import { BusinessRuleViolationException } from "../../../common/exceptions/business.exception.js";
 
 /** Wall-clock "HH:MM", 24-hour, zero-padded (mirrored by a DB CHECK). Shift
  * times carry no time zone: which zone they are read in is an Attendance
  * decision, not something HR data should guess. */
-export const TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+export const TIME_PATTERN = FIELD_FORMAT.time;
 export const MINUTES_PER_DAY = 1440;
 
 export function timeToMinutes(time: string): number {

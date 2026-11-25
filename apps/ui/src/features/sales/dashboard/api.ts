@@ -2,9 +2,14 @@ import type { PaginatedEnvelope } from "@texawave-erp/api-types";
 import { apiClient, withAuthRetry } from "@/lib/api-client";
 import type { ActionItem, SalesDashboard } from "./types";
 
-export async function getSalesDashboard(): Promise<SalesDashboard> {
+/** `year` re-scopes the monthly trend and top clients only. */
+export async function getSalesDashboard(
+  year?: number,
+): Promise<SalesDashboard> {
   const { data } = await withAuthRetry(() =>
-    apiClient.get<SalesDashboard>("/sales/dashboard"),
+    apiClient.get<SalesDashboard>("/sales/dashboard", {
+      query: year ? { year } : {},
+    }),
   );
   return data;
 }

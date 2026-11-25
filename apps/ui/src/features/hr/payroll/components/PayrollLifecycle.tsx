@@ -30,7 +30,7 @@ export function PayrollLifecycle({
 }) {
   if (period.status === "CANCELLED") {
     return (
-      <Alert variant="warning" title="Period cancelled">
+      <Alert dismissible variant="warning" title="Period cancelled">
         No payroll can be run for a cancelled period.
       </Alert>
     );

@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   FinancePaymentReceived,
@@ -13,8 +14,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Pencil } from "lucide-react";
 import { useAccounts } from "@/features/crm/accounts/hooks";
 import { useUpdatePaymentReceived } from "../hooks";
@@ -37,7 +38,7 @@ function EditPaymentReceivedForm({
   onClose,
   onSuccess,
 }: EditPaymentReceivedFormProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const today = new Date().toISOString().slice(0, 10);
 
   const [paymentDate, setPaymentDate] = useState(
@@ -118,17 +119,14 @@ function EditPaymentReceivedForm({
         id: payment.id,
         input: payload,
       });
-      toast({
-        title: `Draft receipt ${payment.paymentNumber} updated successfully`,
-        variant: "success",
+      notify("finance.paymentReceived.draftUpdated", {
+        number: payment.paymentNumber,
       });
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
       setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update payment receipt. Please verify details and try again.",
+        resolveErrorText(err, "finance.paymentReceived.draftUpdateFailed"),
       );
     } finally {
       setSubmitting(false);
@@ -284,7 +282,7 @@ export function EditPaymentReceivedDialog({
         size="md"
       >
         <div className="flex flex-col gap-4">
-          <Alert variant="warning" title="Receipt is Immutable">
+          <Alert dismissible variant="warning" title="Receipt is Immutable">
             Only DRAFT payment receipts can be edited. This receipt is{" "}
             <strong>{payment.status}</strong> and cannot be modified directly.
           </Alert>

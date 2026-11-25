@@ -14,7 +14,7 @@ import { ApiError } from "@texawave-erp/core";
 import { Button, Dialog, ErrorState, Skeleton } from "@texawave-erp/ui-kit";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useAttendanceRecord } from "../hooks";
-import { formatMinutes, formatTime } from "../status";
+import { AUTO_CLOSED_LABEL, formatMinutes, formatTime } from "../status";
 import { AttendanceStatusBadge } from "./AttendanceStatusBadge";
 
 export interface AttendanceDetailDialogProps {
@@ -62,11 +62,13 @@ export function AttendanceDetailDialog({
     const last = record.data.sessions[record.data.sessions.length - 1];
     return {
       firstIn: first ? formatTime(first.checkInAt) : "—",
-      lastOut: last?.checkOutAt
-        ? formatTime(last.checkOutAt)
-        : record.data.hasOpenSession
-          ? "Open"
-          : "—",
+      lastOut: last?.autoClosed
+        ? "Not recorded"
+        : last?.checkOutAt
+          ? formatTime(last.checkOutAt)
+          : record.data.hasOpenSession
+            ? "Open"
+            : "—",
     };
   }, [record.data]);
 
@@ -215,7 +217,14 @@ export function AttendanceDetailDialog({
                         <span>{formatTime(s.checkInAt)}</span>
                         <span className="text-gray-400">→</span>
                         <span>
-                          {s.checkOutAt ? (
+                          {s.autoClosed && s.checkOutAt ? (
+                            <span
+                              className="text-warning-600 dark:text-warning-400 font-semibold"
+                              title={`Auto-closed by the system at ${formatTime(s.checkOutAt)} — not a check-out`}
+                            >
+                              {AUTO_CLOSED_LABEL}
+                            </span>
+                          ) : s.checkOutAt ? (
                             formatTime(s.checkOutAt)
                           ) : (
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -228,7 +237,9 @@ export function AttendanceDetailDialog({
 
                     <div className="flex items-center gap-2">
                       <span className="text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                        {calculateSessionDuration(s.checkInAt, s.checkOutAt)}
+                        {s.autoClosed
+                          ? "0m (unverified)"
+                          : calculateSessionDuration(s.checkInAt, s.checkOutAt)}
                       </span>
                       <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                         {s.source}

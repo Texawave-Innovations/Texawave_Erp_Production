@@ -1,37 +1,40 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   Download,
-  FileText,
   Mail,
   MessageCircle,
   Pencil,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
-  Card,
   DeleteConfirmDialog,
   ErrorState,
   PageHeader,
+  SectionCard,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
+import { ReasonActionDialog } from "../../shared/components/ReasonActionDialog";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
 import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, formatInr } from "../../shared/format";
 import { QUOTATIONS } from "../api";
-import { useDeleteQuotation, useQuotation } from "../hooks";
+import { useDeleteQuotation, useQuotation, useReopenQuotation } from "../hooks";
 import { ConvertQuotationDialog } from "./ConvertQuotationDialog";
 
 export function QuotationStatusBadge({ status }: { status: string }) {
@@ -53,7 +56,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function QuotationDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.quotationRead);
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.quotationDelete);
@@ -61,14 +64,19 @@ export function QuotationDetailView({ id }: { id: number }) {
   const canConvert = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const query = useQuotation(canRead ? id : null);
   const remove = useDeleteQuotation();
-  const [dialog, setDialog] = useState<"email" | "convert" | "delete" | null>(
-    null,
-  );
+  const reopen = useReopenQuotation();
+  const [dialog, setDialog] = useState<
+    "email" | "convert" | "reopen" | "delete" | null
+  >(null);
   const [busy, setBusy] = useState<"pdf" | "whatsapp" | null>(null);
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to quotations">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to quotations"
+      >
         Ask an administrator for the <code>sales.quotation.read</code>{" "}
         permission.
       </Alert>
@@ -77,9 +85,9 @@ export function QuotationDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Quotation not found">
+      <Alert dismissible variant="warning" title="Quotation not found">
         It may have been deleted.{" "}
-        <Link href="/sales/quotations">Back to quotations</Link>
+        <Link href={salesTabHref("quotations")}>Back to quotations</Link>
       </Alert>
     ) : (
       <ErrorState onRetry={() => void query.refetch()} />
@@ -102,15 +110,12 @@ export function QuotationDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title:
-          e instanceof ApiError
-            ? e.message
-            : kind === "pdf"
-              ? "Could not download the PDF"
-              : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(
+        e,
+        kind === "pdf"
+          ? "sales.document.pdfFailed"
+          : "sales.document.whatsappFailed",
+      );
     } finally {
       setBusy(null);
     }
@@ -119,30 +124,26 @@ export function QuotationDetailView({ id }: { id: number }) {
   async function handleDelete() {
     try {
       await remove.mutateAsync(q.id);
-      toast({ title: `${q.quotationNumber} deleted`, variant: "success" });
-      router.push("/sales/quotations");
+      notify("sales.document.deleted", { number: q.quotationNumber });
+      router.push(salesTabHref("quotations"));
     } catch (e) {
       setDialog(null);
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <Link
-        href="/sales/quotations"
-        className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-      >
-        ← Back to quotations
-      </Link>
       <PageHeader
         variant="banner"
         title={q.quotationNumber}
         description={`${q.customerSnapshot.companyName} · ${formatDate(q.quotationDate)}`}
-        icon={FileText}
+        icon={
+          <BackArrow
+            href={salesTabHref("quotations")}
+            label="Back to quotations"
+          />
+        }
         badge={<QuotationStatusBadge status={q.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -188,6 +189,12 @@ export function QuotationDetailView({ id }: { id: number }) {
                 Convert to invoice
               </Button>
             ) : null}
+            {canWrite && !open ? (
+              <Button variant="secondary" onClick={() => setDialog("reopen")}>
+                <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                Reopen
+              </Button>
+            ) : null}
             {canDelete && open ? (
               <Button variant="destructive" onClick={() => setDialog("delete")}>
                 <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -199,22 +206,29 @@ export function QuotationDetailView({ id }: { id: number }) {
       />
 
       {!open ? (
-        <Alert variant="info" title="Converted to an invoice">
+        <Alert dismissible variant="info" title="Converted to an invoice">
           This quotation is locked
           {q.convertedAt ? ` since ${formatDate(q.convertedAt)}` : ""}.
         </Alert>
       ) : null}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <Card className="flex flex-col gap-3 xl:col-span-1">
-          <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-            Summary
-          </h2>
-          <dl className="flex flex-col gap-2">
+        <SectionCard
+          title="Summary"
+          description={`${q.lines.length} ${q.lines.length === 1 ? "item" : "items"}`}
+          className="xl:col-span-1 xl:self-start"
+        >
+          <dl className="flex flex-col gap-2.5">
             <Fact label="Customer" value={q.customerSnapshot.companyName} />
             <Fact label="Validity" value={q.validity ?? "—"} />
             <Fact label="Delivery" value={q.deliveryTerms ?? "—"} />
-            <Fact label="Items" value={q.lines.length} />
+            <Fact label="Prepared by" value={q.preparedBy ?? "—"} />
+            {q.reopenReason ? (
+              <Fact label="Reopened because" value={q.reopenReason} />
+            ) : null}
+          </dl>
+          <hr className="border-gray-200 dark:border-gray-800" />
+          <dl className="flex flex-col gap-2.5">
             <Fact label="Taxable amount" value={formatInr(q.taxableAmount)} />
             {q.taxMode === "INTRA" ? (
               <>
@@ -233,13 +247,16 @@ export function QuotationDetailView({ id }: { id: number }) {
                 value={formatInr(q.igstAmount)}
               />
             )}
-            <Fact
-              label="Total"
-              value={<strong>{formatInr(q.totalAmount)}</strong>}
-            />
-            <Fact label="Prepared by" value={q.preparedBy ?? "—"} />
           </dl>
-        </Card>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-3 dark:bg-sky-500/10">
+            <span className="text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+              Total
+            </span>
+            <span className="text-theme-xl font-bold text-brand-700 dark:text-sky-300">
+              {formatInr(q.totalAmount)}
+            </span>
+          </div>
+        </SectionCard>
         <div className="xl:col-span-2">
           <DocumentPdfPanel
             path={`${base}/pdf`}
@@ -264,6 +281,23 @@ export function QuotationDetailView({ id }: { id: number }) {
           onClose={() => setDialog(null)}
           quotationId={q.id}
           quotationNumber={q.quotationNumber}
+        />
+      ) : null}
+      {canWrite && !open ? (
+        <ReasonActionDialog
+          open={dialog === "reopen"}
+          onClose={() => setDialog(null)}
+          title="Reopen quotation"
+          description={`${q.quotationNumber} becomes open again and can be edited or converted. The invoice already created from it is not changed.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the quotation and in its history."
+          placeholder="e.g. Customer asked for a revised quote"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: q.id, reason });
+            notify("sales.document.reopened", { number: q.quotationNumber });
+            setDialog(null);
+          }}
         />
       ) : null}
       {canDelete ? (

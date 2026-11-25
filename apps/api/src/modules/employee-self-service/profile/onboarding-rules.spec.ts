@@ -20,6 +20,7 @@ const messagesFor = <T extends object>(
 
 const validAddress = {
   addressLine: "14, 3rd Cross",
+  areaLocality: "Indiranagar",
   district: "Bengaluru Urban",
   city: "Bengaluru",
   state: "Karnataka",
@@ -45,6 +46,14 @@ describe("onboarding validators", () => {
     it("rejects a missing required line", () => {
       const { addressLine: _omit, ...rest } = validAddress;
       expect(messagesFor(AddressDto, rest).length).toBeGreaterThan(0);
+    });
+
+    it("rejects a missing or blank area / locality", () => {
+      const { areaLocality: _omit, ...rest } = validAddress;
+      expect(messagesFor(AddressDto, rest).length).toBeGreaterThan(0);
+      expect(
+        messagesFor(AddressDto, { ...validAddress, areaLocality: "" }).length,
+      ).toBeGreaterThan(0);
     });
   });
 

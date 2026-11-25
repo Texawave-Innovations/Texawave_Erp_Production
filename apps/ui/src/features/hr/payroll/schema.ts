@@ -1,3 +1,9 @@
+import {
+  ESI_MESSAGE,
+  ESI_PATTERN,
+  UAN_MESSAGE,
+  UAN_PATTERN,
+} from "@texawave-erp/core";
 import { z } from "zod";
 
 /** Mirrors CreatePayrollPeriodDto (apps/api/.../periods/dto/payroll-period.dto.ts). */
@@ -39,10 +45,7 @@ export const pfProfileSchema = z
   .object({
     pfApplicable: z.boolean(),
     uan: optionalText.pipe(
-      z
-        .string()
-        .regex(/^[0-9]{12}$/, "UAN is 12 digits")
-        .optional(),
+      z.string().regex(UAN_PATTERN, UAN_MESSAGE).optional(),
     ),
     pfNumber: optionalText.pipe(z.string().max(30).optional()),
     effectiveFrom: optionalDate,
@@ -60,10 +63,7 @@ export const esiProfileSchema = z
   .object({
     esiApplicable: z.boolean(),
     insuranceNumber: optionalText.pipe(
-      z
-        .string()
-        .regex(/^([0-9]{10}|[0-9]{17})$/, "ESI number is 10 or 17 digits")
-        .optional(),
+      z.string().regex(ESI_PATTERN, ESI_MESSAGE).optional(),
     ),
     effectiveFrom: optionalDate,
     effectiveTo: optionalDate,

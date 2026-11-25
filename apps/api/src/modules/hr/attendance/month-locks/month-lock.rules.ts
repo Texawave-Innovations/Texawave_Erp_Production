@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import type { EffectiveStatus } from "../services/attendance-calculation.service.js";
 
 /**
@@ -39,7 +40,7 @@ export function isLocked(status: string | null | undefined): boolean {
   return LOCKED_STATUSES.includes(status as MonthLockStatus);
 }
 
-export const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const MONTH_PATTERN = FIELD_FORMAT.month;
 
 /** `2026-09` → `2026-09-01`. */
 export function firstDayOf(month: string): string {

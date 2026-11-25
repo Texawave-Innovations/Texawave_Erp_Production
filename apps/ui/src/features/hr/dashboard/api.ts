@@ -9,6 +9,7 @@ import type {
   PageMeta,
   TicketRow,
 } from "./types";
+import type { TaskItem } from "../tasks/types";
 
 type Query = Record<string, string | number | boolean>;
 
@@ -82,4 +83,35 @@ export async function listRecentExpenseClaims(
     limit,
   });
   return res.data;
+}
+
+/** Newest leave requests first, for the admin "Leave requests" list. */
+export async function listLatestLeaveRequests(
+  limit: number,
+): Promise<LeaveRequestRow[]> {
+  const res = await getList<LeaveRequestRow>("/hr/leave-requests", {
+    page: 1,
+    limit,
+    sortBy: "createdAt",
+    order: "desc",
+  });
+  return res.data;
+}
+
+/**
+ * Open tasks (pending + in progress), earliest due first. The HR list endpoint
+ * only orders by `createdAt`, so the two status pages are merged and sorted here.
+ */
+export async function listOpenTasks(limit: number): Promise<TaskItem[]> {
+  const [pending, inProgress] = await Promise.all([
+    getList<TaskItem>("/hr/tasks", { page: 1, limit: 50, status: "PENDING" }),
+    getList<TaskItem>("/hr/tasks", {
+      page: 1,
+      limit: 50,
+      status: "IN_PROGRESS",
+    }),
+  ]);
+  return [...pending.data, ...inProgress.data]
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id - b.id)
+    .slice(0, limit);
 }

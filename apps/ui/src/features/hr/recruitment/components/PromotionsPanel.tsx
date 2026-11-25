@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import {
   useCreatePromotion,
@@ -67,7 +67,7 @@ function ReadError({
 }) {
   if (error instanceof ApiError && error.isPermissionError) {
     return (
-      <Alert variant="warning" title="Access denied">
+      <Alert dismissible variant="warning" title="Access denied">
         You do not have permission to view {what}.
       </Alert>
     );
@@ -131,7 +131,7 @@ function EmployeeList({
   canRead: boolean;
   formProps: FormPermissionProps;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -154,13 +154,13 @@ function EmployeeList({
     if (designationId === undefined) return;
     await createMutation.mutateAsync({ ...input, designationId });
     setIssueFor(null);
-    toast({ title: "Promotion letter issued", variant: "success" });
+    notify("hr.promotion.issued");
   }
 
   let body: React.ReactNode;
   if (!canRead) {
     body = (
-      <Alert variant="warning" title="Employee list unavailable">
+      <Alert dismissible variant="warning" title="Employee list unavailable">
         You do not have permission to view employees, so you cannot pick one
         here.
       </Alert>
@@ -217,7 +217,7 @@ function EmployeeList({
                           {emp.fullName}
                         </span>
                         <span className="text-theme-xs text-gray-500 dark:text-gray-400">
-                          <span className="font-mono">{emp.employeeCode}</span>
+                          <span>{emp.employeeCode}</span>
                           {" · "}
                           {emp.designation.name}
                           {" · "}
@@ -328,7 +328,7 @@ function PromotionLetters({
   canWrite: boolean;
   formProps: FormPermissionProps;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -344,7 +344,7 @@ function PromotionLetters({
     const { employeeId: _employeeId, ...changes } = input;
     await updateMutation.mutateAsync({ id: editId, input: changes });
     setEditId(null);
-    toast({ title: "Promotion letter updated", variant: "success" });
+    notify("hr.promotion.updated");
   }
 
   let body: React.ReactNode;
@@ -383,9 +383,7 @@ function PromotionLetters({
               {
                 header: "Document no.",
                 cell: (item) => (
-                  <span className="font-mono text-theme-xs">
-                    {item.documentNo}
-                  </span>
+                  <span className="text-theme-xs">{item.documentNo}</span>
                 ),
               },
               {
@@ -395,7 +393,7 @@ function PromotionLetters({
                     <span className="font-medium text-gray-900 dark:text-white/90">
                       {item.employeeName}
                     </span>
-                    <span className="font-mono text-theme-xs text-gray-500">
+                    <span className="text-theme-xs text-gray-500">
                       {item.employee.employeeCode}
                     </span>
                   </div>

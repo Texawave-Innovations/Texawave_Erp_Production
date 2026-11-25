@@ -22,6 +22,20 @@ import { PaginationDto } from "../../../../common/dto/pagination.dto.js";
 import { Trim, UpperTrim } from "../../../../common/dto/transforms.js";
 import { IFSC_PATTERN } from "../../shared/gst.js";
 
+/** Body of a "Reopen" on a locked quotation / proforma: the reason is
+ * mandatory (the UI keeps Reopen disabled until one is typed). */
+export class ReopenDocumentDto {
+  @ApiProperty({
+    example: "Customer asked for a revised quote",
+    description: "Why the document is being reopened",
+    maxLength: 500,
+  })
+  @Trim()
+  @IsString()
+  @Length(1, 500)
+  reason!: string;
+}
+
 /**
  * DTO pieces shared by quotations, invoices and delivery challans. Every
  * amount the server can compute (line amounts, taxes, totals) is NOT
@@ -327,4 +341,56 @@ export class NextNumberQueryDto {
   @IsOptional()
   @IsDateOnly()
   date?: string;
+}
+
+/**
+ * `GET …/template`: the empty document a form previews before anything valid
+ * is typed, plus whatever the user has already picked. Nothing is required
+ * and nothing is validated beyond the shape: a half-filled form must preview.
+ */
+export class DraftPreviewQueryDto extends NextNumberQueryDto {
+  @ApiPropertyOptional({ description: "The customer picked so far" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  customerId?: number;
+
+  @ApiPropertyOptional({ description: "Quotation validity text" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 50)
+  validity?: string;
+
+  @ApiPropertyOptional({ description: "Invoice due date" })
+  @IsOptional()
+  @IsDateOnly()
+  dueDate?: string;
+
+  @ApiPropertyOptional({ description: "Returnable DC purpose" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 200)
+  purpose?: string;
+
+  @ApiPropertyOptional({ description: "Returnable DC expected return date" })
+  @IsOptional()
+  @IsDateOnly()
+  expectedReturnDate?: string;
+
+  @ApiPropertyOptional({ description: "Returnable DC: taken by / handed to" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 150)
+  takenBy?: string;
+
+  @ApiPropertyOptional({ description: "Prepared by" })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(0, 150)
+  preparedBy?: string;
 }

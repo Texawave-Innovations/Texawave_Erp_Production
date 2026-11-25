@@ -1,8 +1,13 @@
 "use client";
 
 import type { MomDocument, MomSortField } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
+  ApiError,
+  type MessageKey,
+  type MessageParams,
+} from "@texawave-erp/core";
+import {
+  PageHeader,
   ActionMenu,
   type ActionMenuItem,
   Alert,
@@ -19,7 +24,6 @@ import {
   StatCard,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Archive,
@@ -40,10 +44,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, formatDate } from "@/features/projects/format";
+import { formatDate } from "@/features/projects/format";
 import {
   useArchiveMomDocument,
   useDeleteMomDocument,
@@ -86,7 +91,7 @@ type PendingAction =
  * archive/restore, delete). */
 export function MomRegisterView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(MOM_READ);
   const canWrite = usePermission(MOM_WRITE);
   const canDelete = usePermission(MOM_DELETE);
@@ -143,25 +148,23 @@ export function MomRegisterView() {
 
   async function run(
     action: () => Promise<unknown>,
-    success: string,
-    failure: string,
+    success: MessageKey,
+    failure: MessageKey,
+    params?: MessageParams,
   ) {
     try {
       await action();
-      toast({ title: success, variant: "success" });
+      notify(success, params);
       setPending(null);
     } catch (err) {
-      toast({
-        title: failure,
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, failure, params);
     }
   }
 
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Minutes of Meeting"
       >
@@ -227,8 +230,9 @@ export function MomRegisterView() {
         onClick: () =>
           void run(
             () => restoreMutation.mutateAsync(m.id),
-            `${m.reference} restored`,
-            "Could not restore",
+            "mom.restored",
+            "mom.restoreFailed",
+            { reference: m.reference },
           ),
       });
     }
@@ -249,46 +253,30 @@ export function MomRegisterView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg sm:p-8 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-md">
-            <NotebookPen className="h-7 w-7 text-white" />
-          </div>
-          <div>
-            <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-              Cross-Project Register
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Minutes of Meeting (MoM)
-            </h1>
-            <p className="max-w-xl text-theme-sm text-sky-50/90">
-              Official project meeting minutes — recorded deliberations,
-              decisions, and action items, with revision control and an audit
-              trail.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManageTemplates ? (
-            <Link
-              href="/projects/mom/templates"
-              className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-theme-sm font-semibold text-white hover:bg-white/25"
-            >
-              <Layers className="h-4 w-4" />
-              Manage Templates
-            </Link>
-          ) : null}
-          {canWrite ? (
-            <Link
-              href="/projects/mom/create"
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-theme-sm font-bold text-brand-700 shadow-md hover:bg-sky-50"
-            >
-              <Plus className="h-4 w-4" />
-              Create MoM
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={NotebookPen}
+        title="Minutes of Meeting (MoM)"
+        description="Official project meeting minutes — recorded deliberations, decisions, and action items, with revision control and an audit trail."
+        action={
+          <>
+            {canManageTemplates ? (
+              <Link href="/projects/mom/templates">
+                <Button variant="glass">
+                  <Layers className="h-4 w-4" /> Manage Templates
+                </Button>
+              </Link>
+            ) : null}
+            {canWrite ? (
+              <Link href="/projects/mom/create">
+                <Button variant="glass">
+                  <Plus className="h-4 w-4" /> Create MoM
+                </Button>
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -402,6 +390,7 @@ export function MomRegisterView() {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to Minutes of Meeting"
           >
@@ -591,11 +580,7 @@ export function MomRegisterView() {
               setPending(null);
               router.push(`/projects/mom/${doc.id}/edit`);
             } catch (err) {
-              toast({
-                title: "Could not start a revision",
-                description: errorMessage(err, "Please try again."),
-                variant: "error",
-              });
+              notifyFailure(err, "mom.revisionFailed");
             }
           }}
         />
@@ -608,8 +593,9 @@ export function MomRegisterView() {
           const doc = pending.doc;
           return run(
             () => archiveMutation.mutateAsync(doc.id),
-            `${doc.reference} archived`,
-            "Could not archive",
+            "mom.archived",
+            "mom.archiveFailed",
+            { reference: doc.reference },
           );
         }}
         title="Archive meeting minutes?"
@@ -629,8 +615,9 @@ export function MomRegisterView() {
           const doc = pending.doc;
           return run(
             () => deleteMutation.mutateAsync(doc.id),
-            `${doc.reference} deleted`,
-            "Could not delete",
+            "mom.deleted",
+            "mom.deleteFailed",
+            { reference: doc.reference },
           );
         }}
         title="Delete this draft?"

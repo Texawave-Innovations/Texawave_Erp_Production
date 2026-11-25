@@ -14,8 +14,8 @@ import {
   Pagination,
   Tabs,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import {
@@ -65,7 +65,8 @@ function MySection() {
   const balances = useMyLeaveBalances();
   const list = useMyLeaveRequests({ page, limit: PAGE_SIZE });
   const resubmit = useResubmitMyLeaveRequest();
-  const { toast } = useToast();
+  const [resubmittingId, setResubmittingId] = useState<number | null>(null);
+  const { notify, notifyError } = useNotify();
 
   // `canRead` only means the account holds the self-service permission, not
   // that it's actually linked to an employee — an admin/HR account can hold
@@ -82,21 +83,22 @@ function MySection() {
       balances.error instanceof ApiError &&
       balances.error.errorCode === "NOT_AN_EMPLOYEE")
   ) {
-    return null;
+    // Say why, rather than leave the tab blank.
+    return (
+      <EmptyState
+        title="No personal leave for this login"
+        description="This login is not linked to an employee record, so it has no leave of its own. Use the other tabs to manage leave."
+      />
+    );
   }
 
   async function handleResubmit(id: number) {
+    setResubmittingId(id);
     try {
       await resubmit.mutateAsync(id);
-      toast({ title: "Leave request resubmitted", variant: "success" });
+      notify("hr.leave.resubmitted");
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError
-            ? err.message
-            : "Could not resubmit the request",
-        variant: "error",
-      });
+      notifyError(err, "hr.leave.resubmitFailed");
     }
   }
 
@@ -257,7 +259,9 @@ function MySection() {
                         <Button
                           size="sm"
                           variant="secondary"
-                          loading={resubmit.isPending}
+                          loading={
+                            resubmit.isPending && resubmittingId === r.id
+                          }
                           onClick={() => void handleResubmit(r.id)}
                         >
                           Resubmit
@@ -333,21 +337,34 @@ export function LeavesView() {
       ? [{ id: "permissions" as const, label: "Permissions" }]
       : []),
   ];
-  // A notification links approvers to `?tab=approvals` or `?id=...`
+  // A notification links approvers to `?tab=...` or `?id=...`. The link is
+  // followed on arrival AND when it changes while the page is open (clicking
+  // another notification), without overriding a tab chosen by hand after.
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
   const requestedId = searchParams.get("id");
-  const [chosen, setChosen] = useState<LeavesTab | null>(() => {
+  const linkedTab = (): LeavesTab | null => {
     if (requested) return requested as LeavesTab;
     if (requestedId && canApprove) return "approvals";
     return null;
-  });
+  };
+  const [chosen, setChosen] = useState<LeavesTab | null>(linkedTab);
+  const linkKey = `${requested ?? ""}|${requestedId ?? ""}`;
+  const [followedLink, setFollowedLink] = useState(linkKey);
+  if (followedLink !== linkKey) {
+    setFollowedLink(linkKey);
+    setChosen(linkedTab());
+  }
   const active: LeavesTab | undefined =
     tabs.find((t) => t.id === chosen)?.id ?? tabs[0]?.id;
 
   if (!active) {
     return (
-      <Alert variant="warning" title="You don't have access to leave">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to leave"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.leave_request.read</code> or{" "}
         <code>hr.leave_request.read</code> permission.

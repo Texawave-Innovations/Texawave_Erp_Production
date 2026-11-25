@@ -273,6 +273,8 @@ Same suffix pattern applies to `hr.attendance.*`, `hr.leave.approve.*`, `hr.payr
 
 **Sales** (Postgres schema `sales`) — built: `customers` (with encrypted bank account), `customer_addresses`, `action_items` (dashboard checklist), `code_formats`, `company_profiles` and `document_master_items` (Sales master list), `quotations`, `quotation_lines`, `invoices` (proforma + tax), `invoice_lines`, `invoice_payments`, `delivery_challans`, `delivery_challan_lines`, `returnable_delivery_challans`, `returnable_delivery_challan_lines`; planned: `customer_contacts`, `leads`, `sales_orders`, `sales_order_lines`, credit notes
 
+**Sales workspace** — the Sales document lists (Customers, Quotations, Proforma/Tax Invoices, Delivery Challans, Returnable DCs, Payments Received) are tabs of one `/sales?tab=…` route (`features/sales/components/SalesWorkspaceView`, tab list + permissions in `features/sales/shared/tabs.ts`), the same shell pattern as Purchases. Create/edit/detail pages stay on their own routes and link back via `salesTabHref()`; the old list routes redirect to the tabs.
+
 **Purchases** — no tables of its own. It's a top-level UI entry point (`apps/ui/src/components/layout/HorizontalNavbar.tsx`'s `PURCHASES_CATEGORIES`) over existing SCM/Finance data: Vendors → `Supplier` (`scm.suppliers`), Purchase Orders → `ScmPurchaseOrder` (`scm.purchase_orders`), Payments Made → `FinancePaymentMade`/`ScmSupplierPayment`. Deliberately not a second parallel vendor/PO/bill data model — see `Docs/SCM_LEGACY_PARITY.md` for the full SCM audit this reuses.
 
 **Payments Made ↔ SCM bridge.** `FinancePaymentMade` has nullable `supplierId` (→ `Supplier`) and `billId` (→ `ScmSupplierBill`) set at create time as a pending reference, plus `scmSupplierPaymentId` (→ `ScmSupplierPayment`, unique) set only once the SCM-side write actually happens. When a Payments Made disbursement is confirmed against a real bill, `PaymentsMadeService.confirm()` calls `FinanceService.createPayment()` (the SCM Accounts Payable engine — row-locked overpayment check, `ScmSupplierBill.paidAmount`/status update) _inside the same database transaction_ as its own GL journal and bank balance posting (see `Docs/CODING_STANDARDS.md` §11's narrow synchronous-cross-module-write exception). One commit produces both a GL-posted, bank-reconciled `FinancePaymentMade` and a real linked `ScmSupplierPayment` — no duplicate accounting engine, no duplicate outstanding-balance calculation. Voiding mirrors this: `FinanceService.voidPayment()` restores the bill's `paidAmount` in the same transaction as the GL/bank reversal. The standalone SCM Supplier detail page's own Bills/Payments tabs still call the same `FinanceService.createPayment()`/`voidPayment()` directly (their own transaction, no GL/bank posting) — a legitimate "track AP without touching the books yet" path, unaffected by this bridge. Historical rows and payments to a payee with no `Supplier` record keep `vendorName`/`billReference` as free text.
@@ -329,12 +331,24 @@ HR creates a new hire's login and employee record; the new hire changes a
 temporary password, fills in their own profile, and only then reaches the
 real employee portal.
 
-**Creation is two existing calls composed, never one combined endpoint.**
-`CreateEmployeeDto` deliberately carries no password field — "a login is a
-separate `users` row linked by `userId` — never stored here." So onboarding
-is: `POST /users` (temp password, `mustChangePassword: true`, the employee's
-self-service role), then `POST /hr/employees` with that new `userId`. No
-change to either endpoint's shape was needed.
+**Creation is one HR endpoint, one transaction** (changed 2026-11-23; it was
+two composed client calls, `POST /users` then `POST /hr/employees`, which only
+Super Admin could make — HR holds neither `users.user.write` nor
+`settings.role.read` — and which could strand a login when the second call
+failed). `POST /hr/employees/new-hire` (`hr.employee.write` scope **and**
+`hr.employee_account.write`) creates the login (temp password hashed,
+`mustChangePassword: true`) and the employee record linked to it inside ONE
+database transaction: `EmployeesRepository.createWithLogin` runs
+`UsersRepository.createLoginInTx` (platform/users, exported for this) and the
+employee insert on the same `tx`, so either both exist or neither does; both
+writes are audited (`user` create + assign_roles, `employee` create). Roles:
+always the organization's **Employee** role, plus **Team Lead** when asked —
+by name, nothing else. The body has no `roleIds`/`userId` (unknown fields are
+refused by the whitelist `ValidationPipe`), so HR cannot hand out admin or any
+other role; that stays with `users.user.write` in Settings → Users. A missing
+Employee/Team Lead role is `422 NEW_HIRE_ROLE_MISSING`. `CreateEmployeeDto`
+still carries no password field, and `POST /users` / `POST /hr/employees` are
+unchanged.
 
 **Two independent flags, not one stored state machine.** `onboardingStatus`
 on `Employee` only ever holds `PENDING_ACTIVATION` or `COMPLETE` — it is NOT

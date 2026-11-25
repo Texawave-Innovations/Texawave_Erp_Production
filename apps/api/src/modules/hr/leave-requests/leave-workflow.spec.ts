@@ -9,6 +9,7 @@ import {
   approvalVerdict,
   awaitingStage,
   monthsTouched,
+  workingDaysAfter,
 } from "./leave-domain.js";
 
 const base: ApprovalFacts = {
@@ -21,7 +22,12 @@ const base: ApprovalFacts = {
   isManager: false,
   inScope: true,
   scopeLevel: "team",
+  hrOnly: false,
+  escalated: false,
+  canOverride: false,
 };
+const hr = { scopeLevel: "all" as const };
+const admin = { scopeLevel: "all" as const, canOverride: true };
 const firstDone = {
   approvalLevels: 2,
   firstDecidedAt: new Date(),
@@ -29,13 +35,117 @@ const firstDone = {
 };
 
 describe("approvalVerdict", () => {
-  it("hides a request from someone outside the reporting line and the scope", () => {
+  it("a team lead's own request, or a team with no lead, is HR's: a team approver is refused", () => {
+    expect(approvalVerdict({ ...base, hrOnly: true })).toEqual({
+      ok: false,
+      reason: "HR_ONLY",
+    });
+    // A team lead's delegate cannot take it either.
+    expect(approvalVerdict({ ...base, hrOnly: true, isManager: true })).toEqual(
+      { ok: false, reason: "HR_ONLY" },
+    );
+  });
+
+  it("HR (.all) decides an HR-only request once, and finally, even on a two-level type", () => {
+    expect(approvalVerdict({ ...base, hrOnly: true, ...hr })).toEqual({
+      ok: true,
+      stage: 1,
+      final: true,
+      override: false,
+    });
+    expect(
+      approvalVerdict({ ...base, hrOnly: true, ...hr, approvalLevels: 2 }),
+    ).toEqual({ ok: true, stage: 1, final: true, override: false });
+  });
+
+  it("a team lead (team scope over the employee) gives the first approval", () => {
+    expect(approvalVerdict({ ...base, approvalLevels: 2 })).toEqual({
+      ok: true,
+      stage: 1,
+      final: false,
+      override: false,
+    });
+    expect(approvalVerdict(base)).toEqual({
+      ok: true,
+      stage: 1,
+      final: true,
+      override: false,
+    });
+  });
+
+  it("HR and Admin wait for the team lead: the first step is not theirs", () => {
+    expect(approvalVerdict({ ...base, ...hr })).toEqual({
+      ok: false,
+      reason: "AWAITING_TEAM_LEAD",
+    });
+    expect(approvalVerdict({ ...base, ...admin, approvalLevels: 2 })).toEqual({
+      ok: false,
+      reason: "AWAITING_TEAM_LEAD",
+    });
+  });
+
+  it("after the team lead's waiting time, HR's one decision is final, even on a two-level type", () => {
+    expect(
+      approvalVerdict({ ...base, ...hr, escalated: true, approvalLevels: 2 }),
+    ).toEqual({ ok: true, stage: 1, final: true, override: false });
+    // The team lead may still decide it themself, as the first step.
+    expect(
+      approvalVerdict({ ...base, escalated: true, approvalLevels: 2 }),
+    ).toEqual({ ok: true, stage: 1, final: false, override: false });
+  });
+
+  it("an HR approver who is a team lead's delegate decides as the team lead", () => {
+    expect(
+      approvalVerdict({ ...base, ...hr, isManager: true, approvalLevels: 2 }),
+    ).toEqual({ ok: true, stage: 1, final: false, override: false });
+  });
+
+  it("Admin decides at HR's step at any time, as an override", () => {
+    expect(approvalVerdict({ ...base, ...firstDone, ...admin })).toEqual({
+      ok: true,
+      stage: 2,
+      final: true,
+      override: true,
+    });
+    expect(approvalVerdict({ ...base, hrOnly: true, ...admin })).toEqual({
+      ok: true,
+      stage: 1,
+      final: true,
+      override: true,
+    });
+    expect(approvalVerdict({ ...base, escalated: true, ...admin })).toEqual({
+      ok: true,
+      stage: 1,
+      final: true,
+      override: true,
+    });
+    // HR's own decision is never an override.
+    expect(approvalVerdict({ ...base, ...firstDone, ...hr })).toEqual({
+      ok: true,
+      stage: 2,
+      final: true,
+      override: false,
+    });
+  });
+
+  it("an Admin who is a team lead's delegate decides the first step normally", () => {
+    expect(
+      approvalVerdict({
+        ...base,
+        ...admin,
+        isManager: true,
+        approvalLevels: 2,
+      }),
+    ).toEqual({ ok: true, stage: 1, final: false, override: false });
+  });
+
+  it("hides a request from someone outside the team lead's reach and the scope", () => {
     expect(
       approvalVerdict({ ...base, inScope: false, isManager: false }),
     ).toEqual({ ok: false, reason: "NOT_VISIBLE" });
   });
 
-  it("lets the reporting manager decide with no scope over the employee", () => {
+  it("lets the team lead (or delegate) decide with no scope over the employee", () => {
     expect(
       approvalVerdict({
         ...base,
@@ -43,7 +153,7 @@ describe("approvalVerdict", () => {
         inScope: false,
         isManager: true,
       }),
-    ).toEqual({ ok: true, stage: 1, final: true });
+    ).toEqual({ ok: true, stage: 1, final: true, override: false });
   });
 
   it("refuses the employee's own request even with .all and as their own manager", () => {
@@ -64,14 +174,6 @@ describe("approvalVerdict", () => {
     });
   });
 
-  it("makes the first approval of a two-level request non-final", () => {
-    expect(approvalVerdict({ ...base, approvalLevels: 2 })).toEqual({
-      ok: true,
-      stage: 1,
-      final: false,
-    });
-  });
-
   it("reserves the second approval for an .all approver in scope", () => {
     expect(
       approvalVerdict({ ...base, ...firstDone, scopeLevel: "team" }),
@@ -85,9 +187,6 @@ describe("approvalVerdict", () => {
         isManager: true,
       }),
     ).toEqual({ ok: false, reason: "AWAITING_HR" });
-    expect(
-      approvalVerdict({ ...base, ...firstDone, scopeLevel: "all" }),
-    ).toEqual({ ok: true, stage: 2, final: true });
   });
 
   it("refuses the same person giving both approvals", () => {
@@ -108,7 +207,24 @@ describe("approvalVerdict", () => {
         firstDecidedAt: new Date(),
         firstDecidedBy: 11,
       }),
-    ).toEqual({ ok: true, stage: 1, final: true });
+    ).toEqual({ ok: true, stage: 1, final: true, override: false });
+  });
+});
+
+describe("workingDaysAfter (team lead's waiting time)", () => {
+  // 2026-11-23 is a Monday.
+  const weekdays = (d: string) => {
+    const day = new Date(`${d}T00:00:00Z`).getUTCDay();
+    return day !== 0 && day !== 6;
+  };
+  it("counts working days after the request day, up to today", () => {
+    expect(workingDaysAfter("2026-11-23", "2026-11-23", weekdays)).toBe(0);
+    expect(workingDaysAfter("2026-11-23", "2026-11-24", weekdays)).toBe(1);
+    expect(workingDaysAfter("2026-11-23", "2026-11-25", weekdays)).toBe(2);
+  });
+  it("skips non-working days: Friday's request reaches two on Tuesday", () => {
+    expect(workingDaysAfter("2026-11-27", "2026-11-30", weekdays)).toBe(1);
+    expect(workingDaysAfter("2026-11-27", "2026-12-01", weekdays)).toBe(2);
   });
 });
 

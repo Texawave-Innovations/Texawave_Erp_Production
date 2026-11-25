@@ -1,7 +1,8 @@
 "use client";
 
 import type { MomAttendance, MomAttendee } from "@texawave-erp/api-types";
-import { Button, Input, Select, useToast } from "@texawave-erp/ui-kit";
+import { Button, Input, Select } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { AlertCircle, Plus, Trash2, User, UserX, Users } from "lucide-react";
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { useEmployees } from "@/features/hr/employees/hooks";
@@ -36,7 +37,7 @@ export const AttendeeListManager = forwardRef<
   { attendees, absentees, onChange, disabled = false, error },
   ref,
 ) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
   const employees = employeesQuery.data?.data ?? [];
   const [name, setName] = useState("");
@@ -53,11 +54,7 @@ export const AttendeeListManager = forwardRef<
       absentees.some((a) => isSamePersonName(a.name, trimmedName));
 
     if (isDuplicate) {
-      toast({
-        title: "Duplicate Participant",
-        description: `${trimmedName} is already on the participants list.`,
-        variant: "warning",
-      });
+      notify("mom.attendee.duplicate", { name: trimmedName });
       return null;
     }
     const person: MomAttendee = {

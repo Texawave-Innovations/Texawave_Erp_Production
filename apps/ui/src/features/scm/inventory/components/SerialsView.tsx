@@ -2,9 +2,10 @@
 
 import type { ScmSerial } from "@texawave-erp/api-types";
 import { SERIAL_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Hash, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -29,7 +30,7 @@ export function SerialsView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateSerials();
   const setSerialStatus = useSetSerialStatus();
@@ -115,17 +116,9 @@ export function SerialsView() {
                 onChange={(e) => {
                   setSerialStatus
                     .mutateAsync({ id: s.id, status: e.target.value })
-                    .then(() =>
-                      toast({
-                        title: "Serial status updated",
-                        variant: "success",
-                      }),
-                    )
+                    .then(() => notify("scm.serial.statusUpdated"))
                     .catch((err: unknown) =>
-                      toast({
-                        title: errorText(err, "Failed to update serial"),
-                        variant: "error",
-                      }),
+                      notifyError(err, "scm.serial.updateFailed"),
                     );
                 }}
               >
@@ -167,8 +160,8 @@ export function SerialsView() {
         }
         confirmText="Delete serial"
         run={(s) => remove.mutateAsync(s.id)}
-        successMessage="Serial number deleted"
-        errorFallback="Failed to delete serial number"
+        successMessage="scm.serial.deleted"
+        errorFallback="scm.serial.deleteFailed"
       />
       <ScmFormDialog
         open={open}
@@ -212,12 +205,9 @@ export function SerialsView() {
               warehouseId: v.warehouseId as number,
               serialNumbers: list,
             });
-            toast({
-              title: `${res.created} serial number(s) created`,
-              variant: "success",
-            });
+            notify("scm.serial.created", { count: res.created });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create serial numbers"));
+            throw new Error(errorText(err, "scm.serial.createFailed"));
           }
           setOpen(false);
         }}

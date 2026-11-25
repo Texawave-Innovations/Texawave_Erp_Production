@@ -18,12 +18,13 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  RefreshCw,
   Send,
   ShieldAlert,
   ShieldCheck,
   User,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, strongPasswordSchema } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -33,11 +34,11 @@ import {
   Pagination,
   Semantic3DIcon,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { downloadProfilePdf } from "../api";
 import { LinkAccountDialog } from "./LinkAccountDialog";
 import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
@@ -54,9 +55,12 @@ import { STATUS_LABELS, isExitStatus } from "../status";
 import {
   ACCOUNT_WRITE,
   READ_ANY_SCOPE,
+  STATUS_CORRECT,
+  STATUS_WRITE,
   WRITE_TEAM_OR_ALL,
 } from "../permissions";
 import type { EmployeeDetail } from "../types";
+import { ChangeStatusDialog } from "./ChangeStatusDialog";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 
 const HISTORY_PAGE_SIZE = 10;
@@ -93,6 +97,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const canReadProfile = usePermission(PROFILE_READ_ANY_SCOPE);
   const canAccount = usePermission(ACCOUNT_WRITE);
+  const canWriteStatus = usePermission(STATUS_WRITE);
+  const canCorrectStatus = usePermission(STATUS_CORRECT);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   const query = useEmployee(id);
   const [historyPage, setHistoryPage] = useState(1);
@@ -103,6 +110,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
   const [copiedCredentials, setCopiedCredentials] = useState(false);
   const [portalPassword, setPortalPassword] = useState("");
   const [portalPasswordSaved, setPortalPasswordSaved] = useState(false);
+  const portalPasswordCheck = strongPasswordSchema.safeParse(portalPassword);
   const setPortalPasswordMutation = useSetPortalPassword();
   const unlinkMutation = useUnlinkEmployeeUser();
   const resetPasswordMutation = useResetUserPassword();
@@ -110,7 +118,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
     username: string;
     password: string;
   } | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError, notifyFailure } = useNotify();
   const { formatDate } = useRegionalFormatter();
   const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
 
@@ -122,19 +130,17 @@ export function EmployeeDetailView({ id }: { id: number }) {
         password: result.temporaryPassword,
       });
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError
-            ? error.message
-            : "Failed to reset password",
-        variant: "error",
-      });
+      notifyError(error, "hr.employee.passwordResetFailed");
     }
   }
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to this employee">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to this employee"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );
@@ -178,14 +184,14 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   const e: EmployeeDetail = query.data;
   const exit = isExitStatus(e.status);
+  // Active/Inactive employees get the normal lifecycle (Inactive, Resigned,
+  // Terminated — the API disables the login on an exit). Once Resigned or
+  // Terminated, only the audited correction (Super Admin) can change it.
+  const canChangeStatus = exit ? canCorrectStatus : canWriteStatus;
 
   async function handleAccountAction() {
     if (!canAccount && !canWrite) {
-      toast({
-        title: "Permission denied",
-        description: "You do not have permission to manage employee accounts.",
-        variant: "error",
-      });
+      notify("hr.employee.accountPermissionDenied");
       return;
     }
     if (e.hasLogin) {
@@ -194,23 +200,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
           id: e.id,
           body: { reason: "Unlinked via employee detail quick action" },
         });
-        toast({
-          title: "Account unlinked",
-          description: `${e.fullName}'s login has been detached.`,
-          variant: "success",
-        });
+        notify("hr.employee.accountDetached", { name: e.fullName });
       } catch (error) {
-        const message =
-          error instanceof ApiError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Failed to unlink employee account";
-        toast({
-          title: "Unlink failed",
-          description: message,
-          variant: "error",
-        });
+        notifyFailure(error, "hr.employee.accountDetachFailed");
       }
     } else {
       setLinkDialogOpen(true);
@@ -221,18 +213,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
     setDownloadingPdf(true);
     try {
       await downloadProfilePdf(id, e.fullName);
-      toast({
-        title: "Profile PDF downloaded",
-        description: `Saved report for ${e.fullName}.`,
-        variant: "success",
-      });
+      notify("hr.employee.pdfDownloaded", { name: e.fullName });
     } catch (error) {
-      toast({
-        title: "Could not create the PDF",
-        description:
-          error instanceof Error ? error.message : "Try again in a moment.",
-        variant: "error",
-      });
+      notifyFailure(error, "hr.employee.pdfFailed");
     } finally {
       setDownloadingPdf(false);
     }
@@ -302,7 +285,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
 
-          {/* Action Toolbar - Cleaned with change status & unlink buttons removed */}
+          {/* Action Toolbar */}
           <div className="flex flex-wrap items-center gap-2 border-t border-sky-200/80 pt-4 dark:border-slate-700/80 lg:border-t-0 lg:pt-0">
             {canReadProfile ? (
               <Link
@@ -346,9 +329,31 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 Edit
               </Link>
             ) : null}
+
+            {canChangeStatus ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setStatusDialogOpen(true)}
+                className="rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-white"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-brand-500 dark:text-cyan-400" />
+                {exit ? "Correct status" : "Change status"}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {/* Mounted only while open so it starts from the current status. */}
+      {statusDialogOpen ? (
+        <ChangeStatusDialog
+          open
+          onClose={() => setStatusDialogOpen(false)}
+          employee={e}
+          correction={exit}
+        />
+      ) : null}
 
       <OnboardingReviewPanel employee={e} />
 
@@ -373,7 +378,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
           <div className="p-6">
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DetailField label="Date of joining" icon={Calendar}>
                   {dateOnly(e.dateOfJoining)}
@@ -452,7 +457,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
             </div>
           </div>
           <div className="p-6 space-y-5">
-            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DetailField label="Work e-mail" icon={Mail}>
                   {e.workEmail ? (
@@ -534,7 +539,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 {canReadProfile ? (
                   <Link
                     href={`/hr/employees/${e.id}/profile`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-755"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-750"
                   >
                     <User className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
                     View Employee Profile
@@ -543,7 +548,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                 {canRead ? (
                   <Link
                     href={`/hr/employees/${e.id}/onboarding`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-755"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-white px-3.5 py-2 text-xs font-bold text-[#0a3271] shadow-2xs transition-all hover:bg-sky-50/60 hover:shadow-xs dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-750"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-brand-500 dark:text-cyan-400" />
                     View Onboarding Checklist
@@ -655,7 +660,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
                       </button>
                     ) : null}
                   </div>
-                  {e.hasLogin && portalPassword.length >= 6 ? (
+                  {e.hasLogin && portalPasswordCheck.success ? (
                     <button
                       type="button"
                       disabled={setPortalPasswordMutation.isPending}
@@ -666,17 +671,12 @@ export function EmployeeDetailView({ id }: { id: number }) {
                             password: portalPassword,
                           });
                           setPortalPasswordSaved(true);
-                          toast({
-                            title: "Password updated",
-                            variant: "success",
-                          });
+                          notify("hr.employee.portalPasswordUpdated");
                         } catch (err) {
-                          toast({
-                            title: "Failed to set password",
-                            description:
-                              err instanceof Error ? err.message : "Try again.",
-                            variant: "error",
-                          });
+                          notifyFailure(
+                            err,
+                            "hr.employee.portalPasswordFailed",
+                          );
                         }
                       }}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-2xs transition-all hover:bg-brand-600 disabled:opacity-60"
@@ -693,7 +693,10 @@ export function EmployeeDetailView({ id }: { id: number }) {
                   ) : null}
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Employee can update their profile after login
+                  {portalPassword && !portalPasswordCheck.success
+                    ? (portalPasswordCheck.error.issues[0]?.message ??
+                      "Enter a stronger password.")
+                    : "Temporary password. The employee must change it at next login."}
                 </p>
               </div>
             </div>

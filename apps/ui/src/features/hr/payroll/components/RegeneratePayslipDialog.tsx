@@ -1,6 +1,7 @@
 "use client";
 
-import { Dialog, FormField, Textarea, useToast } from "@texawave-erp/ui-kit";
+import { Dialog, FormField, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import { describeError } from "../format";
 import { useRegeneratePayslip } from "../hooks";
@@ -24,7 +25,7 @@ export function RegeneratePayslipDialog({
   onClose: () => void;
 }) {
   const regenerate = useRegeneratePayslip();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -43,13 +44,12 @@ export function RegeneratePayslipDialog({
         reason: reason.trim(),
       });
       const version = updated.version ?? 1;
-      toast({
-        title:
-          version > (payslip.version ?? 1)
-            ? `${payslip.payslipNumber} regenerated — version ${version}`
-            : `${payslip.payslipNumber} is unchanged`,
-        variant: "success",
-      });
+      notify(
+        version > (payslip.version ?? 1)
+          ? "payroll.payslip.regenerated"
+          : "payroll.payslip.unchanged",
+        { number: payslip.payslipNumber, version },
+      );
       onClose();
     } catch (err) {
       setServerError(describeError(err));

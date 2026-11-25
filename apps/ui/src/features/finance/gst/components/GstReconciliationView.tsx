@@ -20,7 +20,7 @@ import {
   Scale,
 } from "lucide-react";
 import { formatDate, formatMoney } from "../../shared/format";
-import { downloadCsv, toCsv } from "../../shared/csv";
+import { downloadWorkbook } from "@/lib/spreadsheet";
 import { useGstEntries } from "../hooks";
 
 export interface GstReconciliationViewProps {
@@ -169,7 +169,7 @@ export function GstReconciliationView({
   const netTaxPosition = outwardTotals.totalTax - inwardTotals.totalTax;
   const isPayable = netTaxPosition > 0;
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     const listToExport =
       activeView === "inward"
         ? inwardEntries
@@ -179,49 +179,61 @@ export function GstReconciliationView({
 
     if (listToExport.length === 0) return;
 
-    const columns = [
-      { header: "Type", value: (row: FinanceGstEntry) => row.entryType },
-      { header: "Source", value: (row: FinanceGstEntry) => row.sourceType },
-      {
-        header: "Document / Invoice No",
-        value: (row: FinanceGstEntry) => row.sourceReference,
-      },
-      { header: "GSTIN", value: (row: FinanceGstEntry) => row.gstin },
-      {
-        header: "HSN/SAC",
-        value: (row: FinanceGstEntry) => row.hsnSacCode || "N/A",
-      },
-      {
-        header: "Date",
-        value: (row: FinanceGstEntry) => formatDate(row.createdAt),
-      },
-      {
-        header: "Taxable Base (INR)",
-        value: (row: FinanceGstEntry) => Number(row.taxableAmount).toFixed(2),
-      },
-      {
-        header: "CGST (INR)",
-        value: (row: FinanceGstEntry) => Number(row.cgstAmount).toFixed(2),
-      },
-      {
-        header: "SGST (INR)",
-        value: (row: FinanceGstEntry) => Number(row.sgstAmount).toFixed(2),
-      },
-      {
-        header: "IGST (INR)",
-        value: (row: FinanceGstEntry) => Number(row.igstAmount).toFixed(2),
-      },
-      {
-        header: "Total Tax (INR)",
-        value: (row: FinanceGstEntry) => Number(row.totalTaxAmount).toFixed(2),
-      },
-      { header: "Status", value: (row: FinanceGstEntry) => row.status },
-    ];
-
-    const csvData = toCsv(columns, listToExport);
-    downloadCsv(
-      `GST_Reconciliation_${startDate || initialPeriod}_to_${endDate || initialPeriod}.csv`,
-      csvData,
+    void downloadWorkbook(
+      `GST_Reconciliation_${startDate || initialPeriod}_to_${endDate || initialPeriod}`,
+      [
+        {
+          name: "GST Reconciliation",
+          rows: listToExport,
+          columns: [
+            { header: "Type", value: (row: FinanceGstEntry) => row.entryType },
+            {
+              header: "Source",
+              value: (row: FinanceGstEntry) => row.sourceType,
+            },
+            {
+              header: "Document / Invoice No",
+              value: (row: FinanceGstEntry) => row.sourceReference,
+            },
+            { header: "GSTIN", value: (row: FinanceGstEntry) => row.gstin },
+            {
+              header: "HSN/SAC",
+              value: (row: FinanceGstEntry) => row.hsnSacCode || "N/A",
+            },
+            {
+              header: "Date",
+              value: (row: FinanceGstEntry) => row.createdAt,
+              type: "date",
+            },
+            {
+              header: "Taxable Base (INR)",
+              value: (row: FinanceGstEntry) => row.taxableAmount,
+              type: "amount",
+            },
+            {
+              header: "CGST (INR)",
+              value: (row: FinanceGstEntry) => row.cgstAmount,
+              type: "amount",
+            },
+            {
+              header: "SGST (INR)",
+              value: (row: FinanceGstEntry) => row.sgstAmount,
+              type: "amount",
+            },
+            {
+              header: "IGST (INR)",
+              value: (row: FinanceGstEntry) => row.igstAmount,
+              type: "amount",
+            },
+            {
+              header: "Total Tax (INR)",
+              value: (row: FinanceGstEntry) => row.totalTaxAmount,
+              type: "amount",
+            },
+            { header: "Status", value: (row: FinanceGstEntry) => row.status },
+          ],
+        },
+      ],
     );
   };
 
@@ -264,18 +276,18 @@ export function GstReconciliationView({
             ))}
           </div>
 
-          {/* Action Buttons: CSV & Print */}
+          {/* Action Buttons: Excel & Print */}
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleExportCSV}
+              onClick={handleExportExcel}
               disabled={filteredEntries.length === 0}
               className="flex items-center gap-1.5 h-9"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Export CSV</span>
+              <span>Export Excel</span>
             </Button>
             <Button
               type="button"

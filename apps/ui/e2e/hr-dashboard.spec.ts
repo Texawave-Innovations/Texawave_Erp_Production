@@ -278,8 +278,20 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
         },
       });
     }
+    if (url.pathname === "/employee/profile") {
+      // The shell holds every page until onboarding is known to be complete
+      // (see hr-onboarding-redirect.spec.ts).
+      return json(200, {
+        data: {
+          id: 1,
+          employeeCode: "E001",
+          fullName: "Priya Nair",
+          onboardingStatus: "COMPLETE",
+        },
+      });
+    }
     if (url.pathname === "/menu/my-menu") {
-      // The HR sidebar links only the codes this (permission-filtered) menu
+      // The navbar links only the codes this (permission-filtered) menu
       // returns — here, just the dashboard tab.
       const node = (id: number, code: string, path: string | null) => ({
         id,
@@ -325,10 +337,13 @@ async function signIn(page: Page, { permissions, failPath }: Options) {
   await expect(page).toHaveURL(/\/hr$/);
 }
 
-async function openDashboardFromSidebar(page: Page) {
+async function openDashboardFromNavbar(page: Page) {
+  // The shell is a top navbar now (no HR sidebar); its brand link is the
+  // client-side route to the HR dashboard.
   await page
-    .getByRole("navigation", { name: "Human Resources Navigation" })
+    .getByRole("banner", { name: "TexaOne application navigation" })
     .locator("a[href='/hr/dashboard']")
+    .first()
     .click();
   await expect(page).toHaveURL(/\/hr\/dashboard/);
   await expect(
@@ -353,11 +368,11 @@ const HR_PERMS = [
   "hr.holiday.read",
 ];
 
-test("renders live HR figures from the API and navigates from the sidebar", async ({
+test("renders live HR figures from the API and navigates from the navbar", async ({
   page,
 }) => {
   await signIn(page, { permissions: HR_PERMS });
-  await openDashboardFromSidebar(page);
+  await openDashboardFromNavbar(page);
 
   const present = page.locator('section[aria-labelledby="kpi-present"]');
   await expect(
@@ -408,7 +423,7 @@ test("shows an error state, never a zero, when an endpoint fails", async ({
   page,
 }) => {
   await signIn(page, { permissions: HR_PERMS, failPath: "/hr/tickets" });
-  await openDashboardFromSidebar(page);
+  await openDashboardFromNavbar(page);
 
   const tickets = page.locator('section[aria-labelledby="kpi-tickets"]');
   await expect(tickets).toHaveCount(0);
@@ -427,7 +442,7 @@ test("shows an error state, never a zero, when an endpoint fails", async ({
 
 test("hides sections the user has no permission to read", async ({ page }) => {
   await signIn(page, { permissions: ["hr.ticket.read.team"] });
-  await openDashboardFromSidebar(page);
+  await openDashboardFromNavbar(page);
 
   await expect(
     page.locator('section[aria-labelledby="kpi-tickets"]'),
@@ -470,7 +485,7 @@ test("has no horizontal overflow at every target viewport", async ({
   page,
 }) => {
   await signIn(page, { permissions: HR_PERMS });
-  await openDashboardFromSidebar(page);
+  await openDashboardFromNavbar(page);
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
     await page.waitForTimeout(150);
@@ -481,24 +496,40 @@ test("has no horizontal overflow at every target viewport", async ({
   }
 });
 
-test("mobile drawer: sidebar is hidden until opened, then navigates and closes", async ({
+// The shell is a top navbar (HorizontalNavbar): below `md` the module rail is
+// replaced by a hamburger that toggles an accordion menu under the banner.
+function navbar(page: Page) {
+  return page.getByRole("banner", { name: "TexaOne application navigation" });
+}
+
+function mainNav(page: Page) {
+  return page.getByRole("navigation", { name: "Main application navigation" });
+}
+
+test("mobile menu is hidden until opened, then navigates and closes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page, { permissions: HR_PERMS });
 
-  const sidebar = page.locator("#app-sidebar");
-  const toggle = page.getByRole("button", { name: "Open navigation" });
-  await expect(toggle).toBeVisible();
-  await expect(sidebar).toBeHidden();
-
-  await toggle.click();
-  await expect(sidebar).toBeVisible();
+  const open = navbar(page).getByRole("button", {
+    name: "Open navigation menu",
+  });
+  await expect(open).toBeVisible();
+  await expect(open).toHaveAttribute("aria-expanded", "false");
+  await expect(mainNav(page)).toBeHidden();
   await expect(
-    page.getByRole("button", { name: "Close navigation" }).first(),
-  ).toBeVisible();
+    navbar(page).getByRole("button", { name: "Human Resources" }),
+  ).toHaveCount(0);
 
-  await sidebar.getByRole("link", { name: "HR" }).click();
+  await open.click();
+  const close = navbar(page).getByRole("button", {
+    name: "Close navigation menu",
+  });
+  await expect(close).toHaveAttribute("aria-expanded", "true");
+
+  await navbar(page).getByRole("button", { name: "Human Resources" }).click();
+  await navbar(page).getByRole("link", { name: "Overview" }).click();
   await expect(page).toHaveURL(/\/hr\/dashboard/);
   await expect(
     page.getByRole("heading", {
@@ -506,38 +537,43 @@ test("mobile drawer: sidebar is hidden until opened, then navigates and closes",
       name: /Good (morning|afternoon|evening)/,
     }),
   ).toBeVisible();
-  await expect(sidebar).toBeHidden();
+  // Following a link closes the menu.
+  await expect(open).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    navbar(page).getByRole("button", { name: "Human Resources" }),
+  ).toHaveCount(0);
 });
 
-test("mobile drawer closes on Escape and when the overlay is tapped", async ({
+test("mobile menu closes on Escape and on a tap outside the navbar", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page, { permissions: HR_PERMS });
-  const sidebar = page.locator("#app-sidebar");
+  const open = navbar(page).getByRole("button", {
+    name: "Open navigation menu",
+  });
+  const hr = navbar(page).getByRole("button", { name: "Human Resources" });
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(sidebar).toBeVisible();
+  await open.click();
+  await expect(hr).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(sidebar).toBeHidden();
+  await expect(hr).toHaveCount(0);
+  await expect(open).toHaveAttribute("aria-expanded", "false");
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(sidebar).toBeVisible();
-  await page
-    .locator("button.fixed.inset-0")
-    .click({ position: { x: 360, y: 400 } });
-  await expect(sidebar).toBeHidden();
+  await open.click();
+  await expect(hr).toBeVisible();
+  await page.mouse.click(187, 700);
+  await expect(hr).toHaveCount(0);
+  await expect(open).toHaveAttribute("aria-expanded", "false");
 });
 
-test("desktop keeps the sidebar visible with no drawer toggle", async ({
-  page,
-}) => {
+test("desktop shows the module rail with no menu toggle", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, { permissions: HR_PERMS });
-  await openDashboardFromSidebar(page);
-  await expect(page.locator("#app-sidebar")).toBeVisible();
+  await openDashboardFromNavbar(page);
+  await expect(mainNav(page)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Open navigation" }),
+    navbar(page).getByRole("button", { name: "Open navigation menu" }),
   ).toBeHidden();
 });
 
@@ -546,7 +582,7 @@ test("content is capped on very wide screens instead of stretching", async ({
 }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await signIn(page, { permissions: HR_PERMS });
-  await openDashboardFromSidebar(page);
+  await openDashboardFromNavbar(page);
   const width = await page
     .locator('[aria-label="HR dashboard"]')
     .evaluate((el) => el.getBoundingClientRect().width);

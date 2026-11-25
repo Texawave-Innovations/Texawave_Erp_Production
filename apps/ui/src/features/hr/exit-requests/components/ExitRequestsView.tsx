@@ -70,14 +70,13 @@ export function ExitRequestsView() {
   );
 
   // My requests query for checking active request & self-service count
-  const myRequestsQuery = useMyExitRequests(
-    { page: 1, limit: 10 },
-  );
+  const myRequestsQuery = useMyExitRequests({ page: 1, limit: 10 });
 
   const hasActiveMyRequest = useMemo(() => {
     return (
-      myRequestsQuery.data?.data.some((r) => ACTIVE_STATUSES.includes(r.status)) ??
-      false
+      myRequestsQuery.data?.data.some((r) =>
+        ACTIVE_STATUSES.includes(r.status),
+      ) ?? false
     );
   }, [myRequestsQuery.data]);
 
@@ -125,7 +124,11 @@ export function ExitRequestsView() {
 
   if (!canReadMine && !canReadAny) {
     return (
-      <Alert variant="warning" title="You don't have access to exit requests">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to exit requests"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.exit_request.read</code> or{" "}
         <code>hr.exit_request.read</code> permission.
@@ -149,7 +152,8 @@ export function ExitRequestsView() {
               </span>
             </div>
             <p className="max-w-2xl text-[12px] font-medium text-[#0a3271]/85 dark:text-sky-200/80">
-              Manage employee resignations, notice period milestones, handover tracking, and final settlement clearances.
+              Manage employee resignations, notice period milestones, handover
+              tracking, and final settlement clearances.
             </p>
           </div>
 
@@ -170,7 +174,11 @@ export function ExitRequestsView() {
               </Button>
             ) : null}
             <div className="hidden sm:flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white shadow-[0_6px_20px_rgba(30,100,180,0.12)] ring-4 ring-white/60 dark:border-slate-700 dark:bg-slate-800">
-              <Semantic3DIcon name="exit-requests" size={36} alt="Exit requests" />
+              <Semantic3DIcon
+                name="exit-requests"
+                size={36}
+                alt="Exit requests"
+              />
             </div>
           </div>
         </div>
@@ -220,7 +228,9 @@ export function ExitRequestsView() {
           type="button"
           onClick={() => {
             setActiveTab("team");
-            setStatusFilter((prev) => (prev === "SUBMITTED" ? "" : "SUBMITTED"));
+            setStatusFilter((prev) =>
+              prev === "SUBMITTED" ? "" : "SUBMITTED",
+            );
             setPage(1);
           }}
           className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
@@ -234,7 +244,8 @@ export function ExitRequestsView() {
               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                 Pending Review
               </p>
-              {statusFilter === "SUBMITTED" || statusFilter === "UNDER_REVIEW" ? (
+              {statusFilter === "SUBMITTED" ||
+              statusFilter === "UNDER_REVIEW" ? (
                 <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:text-amber-300">
                   Active Filter
                 </span>
@@ -294,7 +305,9 @@ export function ExitRequestsView() {
           type="button"
           onClick={() => {
             setActiveTab("team");
-            setStatusFilter((prev) => (prev === "COMPLETED" ? "" : "COMPLETED"));
+            setStatusFilter((prev) =>
+              prev === "COMPLETED" ? "" : "COMPLETED",
+            );
             setPage(1);
           }}
           className={`group flex items-center justify-between rounded-2xl p-4 text-left transition-all ${
@@ -418,6 +431,7 @@ export function ExitRequestsView() {
             teamRequestsQuery.error instanceof ApiError &&
             teamRequestsQuery.error.isPermissionError ? (
               <Alert
+                dismissible
                 variant="warning"
                 title="You don't have access to exit requests"
               >

@@ -22,6 +22,7 @@ import { LeaveNotificationsService } from "./leave-notifications.service.js";
 import {
   LeaveOwnViaSelfServiceException,
   LeaveRequestsRepository,
+  type LeaveRequestView,
   today,
 } from "./leave-requests.repository.js";
 
@@ -49,7 +50,12 @@ export class LeaveRequestsService {
       query,
       query,
     );
-    return new PaginatedResponseDto(items, total, query.page, query.limit);
+    return new PaginatedResponseDto(
+      await this.withYourStep(items),
+      total,
+      query.page,
+      query.limit,
+    );
   }
 
   /** 404 — not 403 — outside the caller's scope. */
@@ -57,7 +63,37 @@ export class LeaveRequestsService {
     const scope = await this.teamContext.resolveScope(READ);
     const row = await this.repository.findOne(scope, id);
     if (!row) throw new ResourceNotFoundException("Leave request", id);
-    return row;
+    const [withStep] = await this.withYourStep([row]);
+    return withStep ?? row;
+  }
+
+  /**
+   * Adds `yourStep` to each PENDING request the caller may decide now (the
+   * same rule as the decision), so every screen labels the step and offers
+   * Approve/Reject only where the server would accept it. A caller with no
+   * `hr.leave.approve` level gets the items unchanged.
+   */
+  private async withYourStep(
+    items: LeaveRequestView[],
+  ): Promise<LeaveRequestView[]> {
+    if (!items.some((i) => i.status === "PENDING")) return items;
+    let approveScope;
+    try {
+      approveScope = await this.teamContext.resolveScope(APPROVE);
+    } catch (error) {
+      if (error instanceof ForbiddenException) return items;
+      throw error;
+    }
+    const steps = await this.repository.decisionSteps(
+      approveScope,
+      this.tenantContext.getUserId(),
+      today(),
+      items.filter((i) => i.status === "PENDING").map((i) => i.id),
+    );
+    return items.map((item) => {
+      const step = steps.get(item.id);
+      return step ? { ...item, yourStep: step } : item;
+    });
   }
 
   approve(id: number, dto: ApproveLeaveRequestDto) {
@@ -69,9 +105,12 @@ export class LeaveRequestsService {
   }
 
   /**
-   * Any `hr.leave.approve` level may decide as the employee's reporting
-   * manager (or that manager's delegate); `.team`/`.all` also decide within
-   * their scope, and only `.all` gives the second (HR) approval. A request
+   * The team lead (or a lead's delegate) gives the first decision; HR (`.all`)
+   * decides a team lead's own request, a team with no lead, a request whose
+   * team lead has not acted within the waiting time, and the second step.
+   * An Admin (`hr.leave.override`) may decide at HR's step at any time, with
+   * a reason; it is audited as an override and HR is told
+   * (Docs/HR_LEAVE.md §6.1). A request
    * the caller has no authority over is 404 — except that an `.own`-only
    * caller gets 403, as before (`.own` grants nothing beyond the reporting
    * line, so there is nothing to hide).
@@ -92,23 +131,23 @@ export class LeaveRequestsService {
     if (outcome.kind === "not_found") {
       if (scope.level === "own") {
         throw new ForbiddenException(
-          "You may approve or reject only the leave of people who report to you",
+          "You may approve or reject only the leave of your team, as its team lead or a team lead's delegate",
         );
       }
       throw new ResourceNotFoundException("Leave request", id);
     }
-    await this.notifier.leaveChanged(id, {
-      kind:
-        status === "REJECTED"
-          ? "rejected"
-          : outcome.final
-            ? "approved"
-            : "first_approved",
-    });
+    await this.notifier.leaveChanged(
+      id,
+      status === "REJECTED"
+        ? { kind: "rejected", override: outcome.override }
+        : outcome.final
+          ? { kind: "approved", override: outcome.override }
+          : { kind: "first_approved" },
+    );
     return outcome.view;
   }
 
-  /** PENDING requests waiting for the caller (reporting line, delegation,
+  /** PENDING requests waiting for the caller (team lead, delegation,
    * scope, and HR's second approval). */
   async findAwaiting(query: QueryAwaitingLeaveDto) {
     const scope = await this.teamContext.resolveScope(APPROVE);

@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useState } from "react";
 import type { FinanceJournalEntry } from "@texawave-erp/api-types";
 import {
@@ -58,11 +59,7 @@ export function ReverseJournalDialog({
       });
       onClose();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to reverse journal voucher. Please try again.",
-      );
+      setError(resolveErrorText(err, "finance.journal.reverseDialogFailed"));
     }
   }
 
@@ -74,7 +71,11 @@ export function ReverseJournalDialog({
       size="md"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Alert variant="warning" title="Irreversible Accounting Operation">
+        <Alert
+          dismissible
+          variant="warning"
+          title="Irreversible Accounting Operation"
+        >
           Reversing this posted voucher will automatically generate a new
           counter-entry (REVERSAL voucher) with swapped debit and credit lines,
           restoring the original account ledger balances.

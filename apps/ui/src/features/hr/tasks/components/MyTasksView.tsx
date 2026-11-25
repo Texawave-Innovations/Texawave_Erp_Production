@@ -13,7 +13,6 @@ import {
   Pagination,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { HrPageHeader } from "@/features/hr/components";
 import {
@@ -27,6 +26,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import type { MyTaskStatus } from "../api";
 import { useMyTasks, useSetMyTaskStatus } from "../hooks";
@@ -106,7 +106,7 @@ export function MyTasksView() {
   const [summary, setSummary] = useState<SummaryFilter>("");
   const [createOpen, setCreateOpen] = useState(false);
   const setStatus = useSetMyTaskStatus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const searchParams = useSearchParams();
   const targetTaskId = searchParams?.get("id") || searchParams?.get("taskId");
 
@@ -163,19 +163,19 @@ export function MyTasksView() {
   async function handleMove(task: TaskItem, status: MyTaskStatus) {
     try {
       await setStatus.mutateAsync({ id: task.id, status });
-      toast({ title: "Task updated", variant: "success" });
+      notify("hr.task.updated");
     } catch (error) {
-      toast({
-        title: "Could not update task",
-        description: describeStatusError(error),
-        variant: "error",
-      });
+      notify("hr.task.updateFailed", { reason: describeStatusError(error) });
     }
   }
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to your tasks">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to your tasks"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.task.read</code> permission.
       </Alert>
@@ -330,7 +330,11 @@ export function MyTasksView() {
         </div>
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to your tasks">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to your tasks"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

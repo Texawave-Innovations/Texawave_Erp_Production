@@ -2,13 +2,8 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import {
-  Alert,
-  Button,
-  DateRangePicker,
-  Dialog,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, Button, DateRangePicker, Dialog } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { exportAttendanceCsv } from "../api";
 
 const MAX_DAYS = 62;
@@ -39,7 +34,7 @@ export function ExportAttendanceDialog({
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const days =
     range.from && range.to
@@ -61,7 +56,7 @@ export function ExportAttendanceDialog({
     setError(null);
     try {
       await exportAttendanceCsv(range);
-      toast({ title: "Attendance exported", variant: "success" });
+      notify("hr.attendance.exported");
       onClose();
     } catch (e) {
       setError(

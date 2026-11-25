@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  aadhaarField,
   bankAccountField,
+  esiField,
   ifscField,
   mobileField,
   optionalName,
@@ -8,6 +10,7 @@ import {
   pincodeField,
   requiredName,
   requiredText,
+  uanField,
 } from "./fields";
 
 /** Mirrors apps/api/src/modules/employee-self-service/profile/dto/*.ts — same
@@ -43,7 +46,7 @@ export type PersonalDetailsValues = z.infer<typeof personalDetailsSchema>;
 
 export const addressSchema = z.object({
   addressLine: requiredText(200),
-  areaLocality: optionalName(),
+  areaLocality: requiredName(),
   district: requiredName(),
   city: requiredName(),
   state: requiredName(),
@@ -61,23 +64,10 @@ export const bankDetailsSchema = z.object({
 export type BankDetailsValues = z.infer<typeof bankDetailsSchema>;
 
 export const governmentIdsSchema = z.object({
-  aadhaarNumber: z
-    .string()
-    .trim()
-    .regex(/^\d{12}$/, "Aadhaar number must be exactly 12 digits."),
+  aadhaarNumber: aadhaarField,
   panNumber: panField,
-  esiNumber: z
-    .string()
-    .trim()
-    .regex(/^\d{17}$/, "ESI number must be exactly 17 digits.")
-    .or(z.literal(""))
-    .optional(),
-  pfNumber: z
-    .string()
-    .trim()
-    .regex(/^\d{12}$/, "PF (UAN) number must be exactly 12 digits.")
-    .or(z.literal(""))
-    .optional(),
+  esiNumber: esiField.or(z.literal("")).optional(),
+  pfNumber: uanField.or(z.literal("")).optional(),
 });
 export type GovernmentIdsValues = z.infer<typeof governmentIdsSchema>;
 

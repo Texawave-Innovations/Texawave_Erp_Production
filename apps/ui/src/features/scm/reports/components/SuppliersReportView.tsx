@@ -19,7 +19,7 @@ export function SuppliersReportView() {
       noun="suppliers"
       query={query}
       getRowKey={(r) => r.supplier}
-      fileName="scm-supplier-report.csv"
+      fileName="scm-supplier-report.xlsx"
       emptyDescription="Suppliers will appear here once they're added."
       columns={[
         { header: "Supplier", cell: (r) => r.supplier },
@@ -53,13 +53,25 @@ export function SuppliersReportView() {
           cell: (r) => r.vendorReturns,
         },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Supplier", value: (r) => r.supplier },
         { header: "Status", value: (r) => r.status },
-        { header: "Purchase Orders", value: (r) => r.purchaseOrders },
-        { header: "Total Spend", value: (r) => r.totalSpend },
-        { header: "Goods Receipts", value: (r) => r.goodsReceipts },
-        { header: "Vendor Returns", value: (r) => r.vendorReturns },
+        {
+          header: "Purchase Orders",
+          value: (r) => r.purchaseOrders,
+          type: "integer",
+        },
+        { header: "Total Spend", value: (r) => r.totalSpend, type: "amount" },
+        {
+          header: "Goods Receipts",
+          value: (r) => r.goodsReceipts,
+          type: "integer",
+        },
+        {
+          header: "Vendor Returns",
+          value: (r) => r.vendorReturns,
+          type: "integer",
+        },
       ]}
     />
   );

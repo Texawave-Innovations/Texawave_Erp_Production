@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { ApiError } from "@texawave-erp/core";
 import { HrPageHeader } from "@/features/hr/components";
 import {
@@ -67,7 +67,7 @@ function getCategory(type: string): DocCategory {
  */
 export function MyDocumentsView() {
   const query = useMyDocuments();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const { formatDate } = useRegionalFormatter();
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocCategory>("");
@@ -80,7 +80,7 @@ export function MyDocumentsView() {
     try {
       await downloadMyDocument(row.documentType, row.fileName);
     } catch {
-      toast({ title: "Could not download this document", variant: "error" });
+      notify("selfService.documents.downloadFailed");
     } finally {
       setDownloadingType(null);
     }
@@ -142,6 +142,7 @@ export function MyDocumentsView() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to your documents"
         >

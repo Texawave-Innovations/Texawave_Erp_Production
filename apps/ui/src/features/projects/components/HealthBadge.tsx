@@ -1,3 +1,7 @@
+import {
+  StatusBadge as KitStatusBadge,
+  type StatusColorToken,
+} from "@texawave-erp/ui-kit";
 import type { HealthStatus } from "../types";
 
 export type NormalizedHealth = "ON_TRACK" | "DELAYED" | "COMPLETED";
@@ -20,111 +24,70 @@ export function normalizeHealth(
   }
 }
 
+const HEALTH_BADGE: Record<
+  NormalizedHealth,
+  { label: string; token: StatusColorToken }
+> = {
+  ON_TRACK: { label: "On Track", token: "success" },
+  DELAYED: { label: "Delayed", token: "error" },
+  COMPLETED: { label: "Delivered", token: "brand" },
+};
+
+/** Project health, rendered through the shared ui-kit `StatusBadge`. */
 export function HealthBadge({
   health: rawHealth,
 }: {
   health?: HealthStatus | null | undefined;
 }) {
   const health = normalizeHealth(rawHealth);
-  if (health === "COMPLETED") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-500/30">
-        <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-        Delivered
-      </span>
-    );
-  }
-
-  if (health === "ON_TRACK") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/30">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        On Track
-      </span>
-    );
-  }
-
-  if (health === "DELAYED") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400 dark:ring-rose-500/30">
-        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-        Delayed
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/20 dark:bg-gray-800 dark:text-gray-400">
-      <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-      Not Set
-    </span>
-  );
+  const badge = health
+    ? HEALTH_BADGE[health]
+    : { label: "Not Set", token: "gray" as const };
+  return <KitStatusBadge label={badge.label} colorToken={badge.token} />;
 }
 
+const STATUS_BADGE: Record<string, { label: string; token: StatusColorToken }> =
+  {
+    active: { label: "Active", token: "brand" },
+    in_progress: { label: "In Progress", token: "brand" },
+    completed: { label: "Completed", token: "success" },
+    on_hold: { label: "On Hold", token: "warning" },
+    hold: { label: "Hold", token: "warning" },
+    cancelled: { label: "Cancelled", token: "error" },
+    not_started: { label: "Not Started", token: "gray" },
+  };
+
+/** Project / task / milestone status, rendered through the ui-kit `StatusBadge`. */
 export function StatusBadge({
   status,
 }: {
   status?: string | null | undefined;
 }) {
   const normalized = (status || "").toLowerCase();
-  const styles: Record<string, string> = {
-    active:
-      "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-400 dark:ring-blue-500/30",
-    in_progress:
-      "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-500/30",
-    completed:
-      "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/30",
-    on_hold:
-      "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-500/30",
-    hold: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-500/30",
-    cancelled:
-      "bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-400 dark:ring-rose-500/30",
-    not_started:
-      "bg-gray-100 text-gray-700 ring-gray-600/20 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700",
+  const badge = STATUS_BADGE[normalized] ?? {
+    label: status || "Unknown",
+    token: "gray" as const,
   };
-
-  const labels: Record<string, string> = {
-    active: "Active",
-    in_progress: "In Progress",
-    completed: "Completed",
-    on_hold: "On Hold",
-    hold: "Hold",
-    cancelled: "Cancelled",
-    not_started: "Not Started",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${
-        styles[normalized] ?? styles.not_started
-      }`}
-    >
-      {labels[normalized] ?? (status || "Unknown")}
-    </span>
-  );
+  return <KitStatusBadge label={badge.label} colorToken={badge.token} />;
 }
+
+const PRIORITY_BADGE: Record<string, StatusColorToken> = {
+  low: "gray",
+  medium: "brand",
+  high: "warning",
+  urgent: "error",
+};
 
 export function PriorityBadge({
   priority,
 }: {
   priority?: string | null | undefined;
 }) {
-  const normalized = (priority || "").toLowerCase();
-  const styles: Record<string, string> = {
-    low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-    medium: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
-    high: "bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300",
-    urgent:
-      "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-bold animate-pulse",
-  };
-
+  const normalized = (priority || "medium").toLowerCase();
   return (
-    <span
-      className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${
-        styles[normalized] ?? styles.medium
-      }`}
-    >
-      {priority || "MEDIUM"}
-    </span>
+    <KitStatusBadge
+      label={normalized.charAt(0).toUpperCase() + normalized.slice(1)}
+      colorToken={PRIORITY_BADGE[normalized] ?? "brand"}
+    />
   );
 }

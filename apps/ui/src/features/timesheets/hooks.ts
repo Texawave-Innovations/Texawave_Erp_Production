@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   approveDay,
@@ -10,8 +15,10 @@ import {
   getActivityCategories,
   getDayReport,
   getEmployeeReport,
+  getEmployeeMonth,
   getLinkableProjects,
   getMyDay,
+  getMyMonth,
   getReviewDay,
   getReviewSummary,
   getTaskHistory,
@@ -40,6 +47,41 @@ export function useMyDay(date: string) {
     queryFn: () => getMyDay(date),
     enabled: Boolean(orgId) && Boolean(date),
     refetchInterval: 60_000,
+  });
+}
+
+/** Several of the employee's own days at once (the week worksheet). Shares
+ * the cache with `useMyDay`, so the selected day is not fetched twice. */
+export function useMyDays(dates: readonly string[]) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQueries({
+    queries: dates.map((date) => ({
+      queryKey: baseKey(orgId, "day", date),
+      queryFn: () => getMyDay(date),
+      enabled: Boolean(orgId),
+      refetchInterval: 60_000,
+    })),
+  });
+}
+
+/** The employee's own month (attendance and logged time, day by day). */
+export function useMyMonth(month: string) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "month", month),
+    queryFn: () => getMyMonth(month),
+    enabled: Boolean(orgId) && Boolean(month),
+    refetchInterval: 60_000,
+  });
+}
+
+/** A reviewer's view of one employee's month. */
+export function useEmployeeMonth(employeeId: number | null, month: string) {
+  const orgId = useAuthStore((s) => s.organizationId) ?? 0;
+  return useQuery({
+    queryKey: baseKey(orgId, "review", "month", employeeId, month),
+    queryFn: () => getEmployeeMonth(employeeId as number, month),
+    enabled: Boolean(orgId) && employeeId !== null && Boolean(month),
   });
 }
 
@@ -156,11 +198,16 @@ export function useReviewDays(query: ReviewListQuery, enabled = true) {
   });
 }
 
-export function useReviewDay(employeeId: number | null, date: string | null) {
+export function useReviewDay(
+  employeeId: number | null,
+  date: string | null,
+  includeDrafts = false,
+) {
   const orgId = useAuthStore((s) => s.organizationId) ?? 0;
   return useQuery({
-    queryKey: baseKey(orgId, "review", "day", employeeId, date),
-    queryFn: () => getReviewDay(employeeId as number, date as string),
+    queryKey: baseKey(orgId, "review", "day", employeeId, date, includeDrafts),
+    queryFn: () =>
+      getReviewDay(employeeId as number, date as string, includeDrafts),
     enabled: Boolean(orgId) && employeeId !== null && date !== null,
   });
 }

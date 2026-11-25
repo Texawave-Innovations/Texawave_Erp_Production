@@ -210,7 +210,11 @@ export function EmployeeMonthTab() {
       ) : statuses.isError || records.isError ? (
         (statuses.error ?? records.error) instanceof ApiError &&
         ((statuses.error ?? records.error) as ApiError).isPermissionError ? (
-          <Alert variant="warning" title="You can't view this employee's month">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You can't view this employee's month"
+          >
             This needs both the attendance read and attendance report
             permissions for their team.
           </Alert>
@@ -360,7 +364,9 @@ export function EmployeeMonthTab() {
                       "flex min-h-16 flex-col items-start gap-1 rounded-xl border p-2 text-left transition-all cursor-pointer",
                       "focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default",
                       tone,
-                      selectedDay === date ? "ring-2 ring-[#1769F5] shadow-xs scale-101" : "hover:shadow-2xs",
+                      selectedDay === date
+                        ? "ring-2 ring-[#1769F5] shadow-xs scale-101"
+                        : "hover:shadow-2xs",
                     )}
                   >
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -389,7 +395,11 @@ export function EmployeeMonthTab() {
                 <h3 className="text-theme-sm font-bold text-gray-900 dark:text-white">
                   {selectedDay} ·{" "}
                   <span className="text-brand-600 dark:text-brand-400 font-semibold">
-                    {STATUS_LABELS[statusByDate.get(selectedDay) ?? "NOT_MARKED"]}
+                    {
+                      STATUS_LABELS[
+                        statusByDate.get(selectedDay) ?? "NOT_MARKED"
+                      ]
+                    }
                   </span>
                 </h3>
                 {selectedRecord && (
@@ -420,8 +430,16 @@ export function EmployeeMonthTab() {
                           </span>
                           <span className="font-semibold text-gray-800 dark:text-gray-200">
                             {formatTime(s.checkInAt)} →{" "}
-                            {s.checkOutAt ? formatTime(s.checkOutAt) : (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Open</span>
+                            {s.autoClosed ? (
+                              <span className="text-warning-600 dark:text-warning-400 font-bold">
+                                Not recorded
+                              </span>
+                            ) : s.checkOutAt ? (
+                              formatTime(s.checkOutAt)
+                            ) : (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                Open
+                              </span>
                             )}
                           </span>
                         </div>
@@ -444,4 +462,3 @@ export function EmployeeMonthTab() {
     </div>
   );
 }
-

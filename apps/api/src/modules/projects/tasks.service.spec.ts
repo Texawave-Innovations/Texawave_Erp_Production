@@ -11,8 +11,18 @@ function makeService() {
     createTask: vi.fn(),
     updateTask: vi.fn(),
     deleteTask: vi.fn(),
-    getPointsConfig: vi.fn(),
-    awardPoints: vi.fn(),
+    getPointsConfig: vi.fn().mockResolvedValue({
+      low: 5,
+      medium: 10,
+      high: 20,
+      urgent: 30,
+      timeBasedEnabled: false,
+      defaultTaskPoints: 10,
+    }),
+    awardTaskCompletion: vi.fn(),
+    findPointsGate: vi
+      .fn()
+      .mockResolvedValue({ enabled: false, workedMinutes: 0 }),
   };
   const tenantContext = {
     getOrgScope: vi.fn().mockReturnValue({ organizationId: 1 }),
@@ -29,11 +39,18 @@ function makeService() {
       sequenceDigits: 2,
     }),
   };
+  // Org-wide writer: every assignee check passes (team-lead scoping has its
+  // own spec in projects-write-access.service.spec.ts).
+  const writeAccess = {
+    resolve: vi.fn().mockResolvedValue({ kind: "all" }),
+    assertAssignee: vi.fn().mockResolvedValue(undefined),
+  };
   const service = new TasksService(
     repository as never,
     tenantContext as never,
     employeeQuery as never,
     taskNumberMaster as never,
+    writeAccess as never,
   );
   return { service, repository, tenantContext, employeeQuery };
 }
@@ -48,6 +65,7 @@ describe("TasksService", () => {
         title: "Bad Dates Task",
         startDate: "2026-10-15",
         endDate: "2026-10-10",
+        hoursToComplete: 2,
       }),
     ).rejects.toThrow("Task end date cannot be earlier than start date");
   });
@@ -78,7 +96,7 @@ describe("TasksService", () => {
     ).rejects.toThrow("Circular dependency detected");
   });
 
-  it("calculates default business hours and points on task creation", async () => {
+  it("stores the manual ETA as entered and the priority points while time-based points are off", async () => {
     const { service, repository } = makeService();
     repository.findOne.mockResolvedValue({
       id: 1,
@@ -99,12 +117,13 @@ describe("TasksService", () => {
       points: 20,
     });
 
-    // 2 days from Monday 2026-10-05 to Tuesday 2026-10-06 = 2 working days * 8h = 16h
+    // Two working days, but the ETA is what was typed: 3.5h, not 16h.
     const created = await service.createTask(1, {
       title: "Design DB Schema",
       startDate: "2026-10-05",
       endDate: "2026-10-06",
       priority: "high",
+      hoursToComplete: 3.5,
     });
 
     expect(created.taskCode).toBe("TSK-000001");
@@ -112,7 +131,7 @@ describe("TasksService", () => {
       { organizationId: 1 },
       1,
       expect.objectContaining({ title: "Design DB Schema", priority: "high" }),
-      16, // 2 business days * 8 hours
+      3.5, // the manual ETA, never business days x 8
       20, // high priority config points
       10, // userId
       { id: 1, projectCode: "TXW/PRJ/ME/26-27/001" },
@@ -148,15 +167,178 @@ describe("TasksService", () => {
 
     await service.updateTask(50, { status: "completed" });
 
-    // Verify points were awarded to employee 7
-    expect(repository.awardPoints).toHaveBeenCalledWith(
+    // Verify points were awarded to employee 7 through the shared award
+    expect(repository.awardTaskCompletion).toHaveBeenCalledWith(
       { organizationId: 1 },
+      expect.objectContaining({
+        id: 50,
+        title: "API Implementation",
+        taskCode: "TSK-000050",
+        priority: "high",
+        points: 25,
+      }),
       7,
-      50,
-      "API Implementation",
-      25,
-      "Completed TSK-000050 (high priority)",
     );
+  });
+});
+
+describe("TasksService - time-based points", () => {
+  const task = {
+    id: 60,
+    taskCode: "TSK-000060",
+    priority: "medium",
+    projectId: 1,
+    title: "Wire the sensor",
+    assignedToId: 7,
+    status: "in_progress",
+    points: 10,
+    hoursToComplete: 2,
+    loggedHours: 1,
+    completionPercent: 50,
+    startDate: new Date("2026-10-01"),
+    endDate: new Date("2026-10-10"),
+  };
+
+  it("makes every new task worth the configured points, not the priority or a typed value", async () => {
+    const { service, repository } = makeService();
+    repository.findOne.mockResolvedValue({ id: 1, projectCode: "P" });
+    repository.getPointsConfig.mockResolvedValue({
+      timeBasedEnabled: true,
+      defaultTaskPoints: 10,
+      urgent: 30,
+    });
+    repository.createTask.mockResolvedValue({ id: 1, taskCode: "T" });
+    await service.createTask(1, {
+      title: "Urgent thing",
+      startDate: "2026-10-05",
+      endDate: "2026-10-06",
+      priority: "urgent",
+      points: 99,
+      hoursToComplete: 2,
+    });
+    expect(repository.createTask).toHaveBeenCalledWith(
+      expect.anything(),
+      1,
+      expect.anything(),
+      2,
+      10,
+      10,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("refuses to complete a task that has no timer time when the rule is on", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue(task);
+    repository.findPointsGate.mockResolvedValue({
+      enabled: true,
+      workedMinutes: 0,
+    });
+    await expect(
+      service.updateTask(60, { status: "completed" }),
+    ).rejects.toThrow("No timer time is logged");
+    expect(repository.updateTask).not.toHaveBeenCalled();
+    expect(repository.awardTaskCompletion).not.toHaveBeenCalled();
+  });
+
+  it("completes normally once the assignee has timer time", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue(task);
+    repository.findPointsGate.mockResolvedValue({
+      enabled: true,
+      workedMinutes: 95,
+    });
+    repository.updateTask.mockResolvedValue({ ...task, status: "completed" });
+    await service.updateTask(60, { status: "completed" });
+    expect(repository.awardTaskCompletion).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TasksService - ETA changes", () => {
+  const base = {
+    id: 70,
+    taskCode: "TSK-000070",
+    priority: "medium",
+    projectId: 1,
+    title: "Calibrate",
+    assignedToId: 7,
+    status: "not_started",
+    points: 10,
+    hoursToComplete: 2,
+    loggedHours: 0,
+    completionPercent: 0,
+    startDate: new Date("2026-10-01"),
+    endDate: new Date("2026-10-10"),
+  };
+
+  it("lets the ETA change freely before work starts, and audits it", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue(base);
+    repository.updateTask.mockResolvedValue(base);
+    await service.updateTask(70, { hoursToComplete: 4 });
+    expect(repository.updateTask).toHaveBeenCalledWith(
+      expect.anything(),
+      70,
+      expect.anything(),
+      4,
+      10,
+      undefined,
+      { before: 2, after: 4, reason: null },
+    );
+  });
+
+  it("does not touch the ETA when only the dates move", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue(base);
+    repository.updateTask.mockResolvedValue(base);
+    await service.updateTask(70, { endDate: "2026-10-20" });
+    expect(repository.updateTask).toHaveBeenCalledWith(
+      expect.anything(),
+      70,
+      expect.anything(),
+      undefined,
+      10,
+      undefined,
+      undefined,
+    );
+  });
+
+  it("needs a reason once work has started", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue({
+      ...base,
+      status: "in_progress",
+      loggedHours: 1,
+    });
+    await expect(
+      service.updateTask(70, { hoursToComplete: 6 }),
+    ).rejects.toThrow("give a reason");
+    repository.updateTask.mockResolvedValue(base);
+    await service.updateTask(70, {
+      hoursToComplete: 6,
+      hoursChangeReason: "Client added scope",
+    });
+    expect(repository.updateTask).toHaveBeenCalledWith(
+      expect.anything(),
+      70,
+      expect.anything(),
+      6,
+      10,
+      undefined,
+      { before: 2, after: 6, reason: "Client added scope" },
+    );
+  });
+
+  it("freezes the ETA of a completed task", async () => {
+    const { service, repository } = makeService();
+    repository.findTaskById.mockResolvedValue({ ...base, status: "completed" });
+    await expect(
+      service.updateTask(70, {
+        hoursToComplete: 9,
+        hoursChangeReason: "too late",
+      }),
+    ).rejects.toThrow("cannot be changed");
   });
 });
 
@@ -187,6 +369,7 @@ describe("BUG 7 — Task dependency validation", () => {
         title: "Independent Task",
         startDate: "2026-10-05",
         endDate: "2026-10-06",
+        hoursToComplete: 2,
       }),
     ).resolves.toBeDefined();
   });
@@ -225,6 +408,7 @@ describe("BUG 7 — Task dependency validation", () => {
       dependencyType: "employee",
       dependencyTargetId: 5,
       dependencyRequirement: "Need API credentials from John",
+      hoursToComplete: 2,
     });
     expect(result).toBeDefined();
     expect(createTaskSpy).toHaveBeenCalledWith(
@@ -261,6 +445,7 @@ describe("BUG 7 — Task dependency validation", () => {
       dependencyType: "employee",
       dependencyTargetId: 5,
       dependencyRequirement: "Need API credentials",
+      hoursToComplete: 2,
     });
 
     const result = await service.createTask(1, {
@@ -270,6 +455,7 @@ describe("BUG 7 — Task dependency validation", () => {
       dependencyType: "employee",
       dependencyTargetId: 5,
       dependencyRequirement: "Need API credentials",
+      hoursToComplete: 2,
     });
     expect(result.taskCode).toBe("TSK-000202");
     expect(result.dependencyRequirement).toBe("Need API credentials");

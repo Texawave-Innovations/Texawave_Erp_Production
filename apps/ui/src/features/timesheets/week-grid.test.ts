@@ -153,7 +153,7 @@ test("a cell says who a submitted day is waiting for, and only submitted days op
   assert.equal(cellStateLabel(day({ status: "DRAFT" })), "Draft");
   assert.equal(
     cellStateLabel(day({ status: "SUBMITTED", stage: "MANAGER" })),
-    "Waiting for manager",
+    "Waiting for team lead",
   );
   assert.equal(
     cellStateLabel(day({ status: "SUBMITTED", stage: "HR" })),

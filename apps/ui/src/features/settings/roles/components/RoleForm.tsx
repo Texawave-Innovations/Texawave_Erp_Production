@@ -4,6 +4,8 @@ import {
   ApiError,
   createRoleSchema,
   type CreateRoleFormValues,
+  resolveMessage,
+  type MessageKey,
 } from "@texawave-erp/core";
 import {
   Button,
@@ -34,15 +36,23 @@ export interface RoleFormProps {
   submitLabel: string;
 }
 
-const MESSAGES: Record<string, string> = {
-  SYSTEM_ROLE_PROTECTED:
-    "System roles keep their name and stay active. Clone the role to make a variant.",
-  ROLE_IN_USE:
-    "Users still hold this role. Move them to another role before deactivating it.",
-  VERSION_CONFLICT:
-    "Someone else changed this role meanwhile. Close this dialog to load their version, then try again.",
-  ACCESS_LOCKOUT: "This would leave nobody — or you — able to manage roles.",
+/** Known API codes -> the catalogue message for this form. */
+const MESSAGES: Record<string, MessageKey> = {
+  SYSTEM_ROLE_PROTECTED: "roles.form.systemProtected",
+  ROLE_IN_USE: "roles.form.inUse",
+  VERSION_CONFLICT: "roles.form.versionConflict",
+  ACCESS_LOCKOUT: "roles.form.accessLockout",
 };
+
+function submitErrorText(err: unknown): string {
+  if (ApiError.isApiError(err)) {
+    const known = MESSAGES[err.errorCode ?? ""];
+    return known ? resolveMessage(known).title : err.message;
+  }
+  return err instanceof Error
+    ? err.message
+    : resolveMessage("roles.form.unreachable").title;
+}
 
 /**
  * Create / edit a role's name, description and status. Validates the name
@@ -93,13 +103,7 @@ export function RoleForm({
         ...(editing ? { isActive } : {}),
       });
     } catch (err) {
-      setSubmitError(
-        ApiError.isApiError(err)
-          ? (MESSAGES[err.errorCode ?? ""] ?? err.message)
-          : err instanceof Error
-            ? err.message
-            : "Could not reach the server — check your connection and try again.",
-      );
+      setSubmitError(submitErrorText(err));
     } finally {
       setSubmitting(false);
     }

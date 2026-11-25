@@ -2,15 +2,11 @@
 
 import type { Picking } from "@texawave-erp/api-types";
 import { PICK_STATUSES } from "@texawave-erp/api-types";
-import {
-  Button,
-  Input,
-  Select,
-  StatusBadge,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Input, Select, StatusBadge } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { ListChecks } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -31,7 +27,7 @@ export function PickingsView() {
   const [status, setStatus] = useState("");
   const [recording, setRecording] = useState<Picking | null>(null);
   const [assigning, setAssigning] = useState<Picking | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.fulfillment.write");
   const deletingRowRemove = useDeletePicking();
   const [deletingRow, setDeletingRow] = useState<Picking | null>(null);
@@ -43,12 +39,12 @@ export function PickingsView() {
     status: status || undefined,
   });
 
-  async function run(p: Picking, action: "start" | "cancel", ok: string) {
+  async function run(p: Picking, action: "start" | "cancel", ok: MessageKey) {
     try {
       await act.mutateAsync({ id: p.id, action });
-      toast({ title: ok, variant: "success" });
+      notify(ok);
     } catch (err) {
-      toast({ title: errorText(err, "Action failed"), variant: "error" });
+      notifyError(err, "scm.common.actionFailed");
     }
   }
 
@@ -146,7 +142,9 @@ export function PickingsView() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => void run(r, "start", "Picking started")}
+                      onClick={() =>
+                        void run(r, "start", "scm.picking.started")
+                      }
                     >
                       Start
                     </Button>
@@ -170,7 +168,9 @@ export function PickingsView() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void run(r, "cancel", "Pick list cancelled")}
+                    onClick={() =>
+                      void run(r, "cancel", "scm.picking.cancelled")
+                    }
                   >
                     Cancel
                   </Button>
@@ -206,8 +206,8 @@ export function PickingsView() {
         }
         confirmText="Delete pick list"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Pick list deleted"
-        errorFallback="Failed to delete pick list"
+        successMessage="scm.picking.deleted"
+        errorFallback="scm.picking.deleteFailed"
       />
       <ScmFormDialog
         open={Boolean(assigning)}
@@ -232,9 +232,9 @@ export function PickingsView() {
               body: { pickerName: v.pickerName },
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to assign picker"));
+            throw new Error(errorText(err, "scm.picking.assignFailed"));
           }
-          toast({ title: "Picker assigned", variant: "success" });
+          notify("scm.picking.assigned");
           setAssigning(null);
         }}
       />
@@ -250,9 +250,9 @@ export function PickingsView() {
               body: { items, closeShort },
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to record pick"));
+            throw new Error(errorText(err, "scm.picking.recordFailed"));
           }
-          toast({ title: "Pick recorded", variant: "success" });
+          notify("scm.picking.recorded");
           setRecording(null);
         }}
       />
@@ -332,7 +332,7 @@ function RecordBody({
         closeShort,
       );
     } catch (err) {
-      setError(errorText(err, "Failed to record pick"));
+      setError(errorText(err, "scm.picking.recordFailed"));
     } finally {
       setBusy(false);
     }

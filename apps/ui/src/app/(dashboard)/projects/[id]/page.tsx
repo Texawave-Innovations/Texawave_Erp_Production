@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  Clock,
+  IndianRupee,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -28,11 +30,16 @@ import {
   ErrorState,
   FormField,
   Input,
+  PageHeader,
   Select,
   Skeleton,
+  StatCard,
+  StatusBadge as KitStatusBadge,
+  Tabs,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useActiveTimer,
   useAddProjectMember,
@@ -117,6 +124,8 @@ const SHOW_EXPENSES_SECTION = false;
 const SHOW_EARNED_REVENUE_ROW = false;
 const SHOW_STOPWATCH_COLUMN = false;
 
+type DetailTab = "overview" | "work" | "team" | "expenses" | "meetings";
+
 export default function ProjectDetailPage({
   params,
 }: {
@@ -124,7 +133,7 @@ export default function ProjectDetailPage({
 }) {
   const resolvedParams = use(params);
   const projectId = Number(resolvedParams.id);
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
 
   const projectQuery = useProject(projectId);
   const project = projectQuery.data;
@@ -152,6 +161,7 @@ export default function ProjectDetailPage({
     milestoneId: number | null;
   }>({ open: false, edit: null, milestoneId: null });
   const [logsTask, setLogsTask] = useState<ProjectTask | null>(null);
+  const [tab, setTab] = useState<DetailTab>("overview");
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
@@ -227,29 +237,40 @@ export default function ProjectDetailPage({
   );
   const generalTasks = tasks.filter((t) => !t.milestoneId);
 
+  const detailTabs: { id: DetailTab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    {
+      id: "work",
+      label: `Milestones & Tasks (${totalMilestones + tasks.length})`,
+    },
+    ...(SHOW_TEAM_MEMBERS_SECTION
+      ? [{ id: "team" as const, label: "Team" }]
+      : []),
+    ...(SHOW_EXPENSES_SECTION
+      ? [{ id: "expenses" as const, label: "Expenses" }]
+      : []),
+    { id: "meetings", label: "Meetings" },
+  ];
+
   async function confirmDelete() {
     if (!pendingDelete) return;
     try {
       if (pendingDelete.kind === "milestone") {
         await deleteMilestone.mutateAsync(pendingDelete.id);
-        toast({ title: "Milestone removed", variant: "success" });
+        notify("projects.milestone.removed");
       } else if (pendingDelete.kind === "task") {
         await deleteTask.mutateAsync(pendingDelete.id);
-        toast({ title: "Task removed", variant: "success" });
+        notify("projects.task.removed");
       } else {
         await removeMember.mutateAsync({
           projectId,
           employeeId: pendingDelete.id,
         });
-        toast({ title: "Team member removed", variant: "success" });
+        notify("projects.team.removed");
       }
       setPendingDelete(null);
     } catch (err) {
-      toast({
-        title: "Delete failed",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.deleteFailed");
     }
   }
 
@@ -257,23 +278,13 @@ export default function ProjectDetailPage({
     try {
       if (activeTimer?.taskId === task.id) {
         await stopTimer.mutateAsync({ taskId: task.id });
-        toast({
-          title: `Timer stopped for ${task.taskCode}`,
-          variant: "success",
-        });
+        notify("projects.task.timerStoppedFor", { code: task.taskCode });
       } else {
         await startTimer.mutateAsync(task.id);
-        toast({
-          title: `Timer started for ${task.taskCode}`,
-          variant: "success",
-        });
+        notify("projects.task.timerStartedFor", { code: task.taskCode });
       }
     } catch (err) {
-      toast({
-        title: "Timer action failed",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.task.timerFailed");
     }
   }
 
@@ -297,11 +308,7 @@ export default function ProjectDetailPage({
       });
       setReopenTarget(null);
     } catch (err) {
-      toast({
-        title: "Could not update task status",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.task.statusFailed");
     }
   }
 
@@ -481,651 +488,710 @@ export default function ProjectDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 1. Header banner (legacy gradient hero, brand palette) */}
-      <div className="relative flex flex-col justify-between gap-6 overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 via-sky-600 to-cyan-500 p-6 text-white shadow-lg shadow-blue-500/15 md:flex-row md:items-center sm:p-8">
-        <div className="relative z-10 space-y-2">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link
-              href="/projects/list"
-              aria-label="Back to projects list"
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white transition-colors hover:bg-white/30"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <span className="rounded-xl border border-white/20 bg-white/20 px-2.5 py-1 text-xs font-black text-cyan-50 backdrop-blur-md">
+      {/* 1. Header banner: the shared ui-kit PageHeader */}
+      <PageHeader
+        variant="banner"
+        icon={
+          <Link
+            href="/projects/list"
+            aria-label="Back to projects list"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        }
+        title={project.name}
+        badge={
+          <>
+            <span className="rounded-full bg-white/25 px-2.5 py-0.5 text-theme-xs font-semibold text-white">
               {project.projectCode}
             </span>
             <StatusBadge status={project.status} />
             {isDelayed ? (
-              <span className="rounded-md border border-rose-600 bg-rose-500 px-2 py-0.5 text-xs font-black text-white motion-safe:animate-pulse">
-                Delayed Milestone
-              </span>
+              <KitStatusBadge label="Delayed Milestone" colorToken="error" />
             ) : null}
-          </div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
-            {project.name}
-          </h1>
-          <p className="max-w-2xl text-xs text-cyan-50/90 sm:text-sm">
-            {project.description ||
-              "Enterprise project deliverable tracking with real-time milestones & tasks"}
-          </p>
-        </div>
+          </>
+        }
+        description={
+          project.description ||
+          "Enterprise project deliverable tracking with real-time milestones & tasks"
+        }
+        action={
+          <>
+            <Button variant="glass" onClick={() => openNewTask(null)}>
+              <Plus className="h-4 w-4" /> Add Task
+            </Button>
+            <Button
+              variant="glass"
+              onClick={() => setMilestoneModal({ open: true, edit: null })}
+            >
+              <Flag className="h-4 w-4" /> Add Milestone
+            </Button>
+            <Link href={`/projects/mom/create?projectId=${project.id}`}>
+              <Button variant="glass">
+                <ClipboardList className="h-4 w-4" /> New MoM
+              </Button>
+            </Link>
+            <Link href={`/projects/edit/${project.id}`}>
+              <Button variant="glass">
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
-        <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => openNewTask(null)}
-            className="flex items-center gap-1.5 rounded-2xl bg-white px-4 py-2 text-xs font-bold text-blue-800 shadow-md transition-colors hover:bg-cyan-50"
-          >
-            <Plus className="h-4 w-4" /> Add Task
-          </button>
-          <button
-            type="button"
-            onClick={() => setMilestoneModal({ open: true, edit: null })}
-            className="flex items-center gap-1.5 rounded-2xl border border-white/20 bg-blue-900/40 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-900/60"
-          >
-            <Flag className="h-4 w-4 text-cyan-200" /> Add Milestone
-          </button>
-          <Link
-            href={`/projects/mom/create?projectId=${project.id}`}
-            className="flex items-center gap-1.5 rounded-2xl border border-white/20 bg-blue-900/40 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-900/60"
-          >
-            <ClipboardList className="h-4 w-4 text-cyan-200" /> New MoM
-          </Link>
-          <Link
-            href={`/projects/edit/${project.id}`}
-            className="flex items-center gap-1 rounded-2xl bg-white/15 px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-white/25"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </Link>
-        </div>
-      </div>
-
-      {/* 2. Overall milestone delivery progress */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div>
-            <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              <Flag className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-              Overall Milestone Delivery Progress
-            </p>
-            <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-white">
-              {completedMilestones} of {totalMilestones} Milestones Completed
-              <span className="ml-2 text-xs font-semibold text-gray-400">
-                • Task delivery {project.progressPercent ?? 0}%
-              </span>
-            </p>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-brand-700 dark:text-cyan-300">
-              {milestoneProgress}%
-            </span>
-            <span className="text-xs font-bold text-gray-400">completed</span>
-          </div>
-        </div>
-        <div className="h-3 overflow-hidden rounded-full border border-gray-200/60 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-400 transition-all duration-700 ease-out motion-reduce:transition-none"
-            style={{ width: `${milestoneProgress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* 3. Project information + financials */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
-          <div className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
-            <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
-              Project Information
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-6 p-6 text-xs sm:grid-cols-2">
-            <InfoBlock label="Customer / Client">
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                {project.customerName ||
-                  project.salesCustomer?.companyName ||
-                  "—"}
-              </p>
-              {project.salesCustomer ? (
-                <span className="text-[11px] text-gray-400">
-                  {project.salesCustomer.customerCode}
-                </span>
-              ) : null}
-            </InfoBlock>
-
-            <InfoBlock label="Departments">
-              <div className="flex flex-wrap gap-1.5">
-                {(project.departments ?? []).length > 0 ? (
-                  project.departments?.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
-                    >
-                      {d}
-                    </span>
-                  ))
-                ) : (
-                  <span className="italic text-gray-400">General</span>
-                )}
+      <Tabs
+        label="Project sections"
+        idPrefix="project-detail"
+        tabs={detailTabs}
+        value={tab}
+        onChange={setTab}
+      >
+        <div className="flex flex-col gap-6">
+          {tab === "overview" ? (
+            <>
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  headingId="prj-detail-progress"
+                  label="Milestone Progress"
+                  value={`${milestoneProgress}%`}
+                  note={`${completedMilestones} of ${totalMilestones} milestones done`}
+                  tone="brand"
+                  icon={Flag}
+                />
+                <StatCard
+                  headingId="prj-detail-hours"
+                  label="Hours Logged"
+                  value={`${totalTaskHoursLogged}h`}
+                  note={`of ${Number(project.expectedHours) || 0}h expected`}
+                  tone="cyan"
+                  icon={Clock}
+                />
+                <StatCard
+                  headingId="prj-detail-budget"
+                  label="Budget Spent"
+                  value={formatCurrency(actualSpend)}
+                  note={`of ${formatCurrency(projectPrice)} contract`}
+                  tone="emerald"
+                  icon={IndianRupee}
+                />
+                <StatCard
+                  headingId="prj-detail-delayed"
+                  label="Delayed Milestones"
+                  value={delayedMilestones}
+                  note={isDelayed ? "Past their target date" : "None past due"}
+                  tone={delayedMilestones > 0 ? "error" : "success"}
+                  icon={AlertTriangle}
+                />
               </div>
-            </InfoBlock>
 
-            <InfoBlock label="Client Handling Person">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
-                  {(project.clientHandlingPerson?.fullName ?? "U")
-                    .charAt(0)
-                    .toUpperCase()}
-                </span>
-                <span className="font-bold text-gray-800 dark:text-gray-100">
-                  {project.clientHandlingPerson?.fullName ?? "Not Assigned"}
-                </span>
-              </div>
-            </InfoBlock>
-
-            <InfoBlock label="Assigned Resources / Team">
-              <div className="flex flex-wrap gap-1.5">
-                {(project.resourceNames ?? []).length > 0 ? (
-                  project.resourceNames?.map((r) => (
-                    <span
-                      key={r}
-                      className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    >
-                      {r}
-                    </span>
-                  ))
-                ) : (
-                  <span className="italic text-gray-400">
-                    No resource members specified
-                  </span>
-                )}
-              </div>
-            </InfoBlock>
-
-            <InfoBlock label="Timeline Schedule">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-gray-800 dark:text-gray-100">
-                <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
-                {formatDate(project.startDate)} →{" "}
-                {project.plannedEndDate
-                  ? formatDate(project.plannedEndDate)
-                  : "TBD"}
-              </p>
-            </InfoBlock>
-
-            <InfoBlock label="Actual Completion Date">
-              {project.actualEndDate ? (
-                <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
-                  {formatDate(project.actualEndDate)}
-                </span>
-              ) : (
-                <span className="italic text-gray-400">
-                  In progress / Pending
-                </span>
-              )}
-            </InfoBlock>
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
-            <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
-              Financial &amp; Hours
-            </h2>
-          </div>
-          <div className="flex flex-col gap-4 p-6 text-xs">
-            <div className="flex flex-col gap-1">
-              <Row label="Project Contract Price">
-                <span className="text-sm font-black text-gray-900 dark:text-white">
-                  {formatCurrency(projectPrice)}
-                </span>
-              </Row>
-              <Row label="Actual Spend (Expenses)">
-                <span
-                  className={`font-black ${
-                    actualSpend > projectPrice && projectPrice > 0
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-emerald-700 dark:text-emerald-400"
-                  }`}
-                >
-                  {formatCurrency(actualSpend)}
-                </span>
-              </Row>
-              {SHOW_EARNED_REVENUE_ROW ? (
-                <Row label="Earned Revenue">
-                  <span className="font-black text-brand-700 dark:text-cyan-300">
-                    {formatCurrency(project.earnedAmount ?? 0)}
-                  </span>
-                </Row>
-              ) : null}
-              <Row label="Budget Variance">
-                <span
-                  className={`font-black ${
-                    (project.budgetVariance ?? 0) >= 0
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
-                  }`}
-                >
-                  {formatCurrency(project.budgetVariance ?? 0)}
-                </span>
-              </Row>
-            </div>
-
-            <div className="flex flex-col gap-1 border-t border-gray-100 pt-4 dark:border-gray-800">
-              <Row label="Expected Hours">
-                <span className="text-sm font-black text-brand-700 dark:text-cyan-300">
-                  {Number(project.expectedHours) || 0}h
-                </span>
-              </Row>
-              <Row label="Total Task Hours Logged">
-                <span className="font-black text-gray-800 dark:text-gray-100">
-                  {totalTaskHoursLogged}h
-                </span>
-              </Row>
-              <Row label="Team Hours Logged">
-                <span className="font-black text-gray-800 dark:text-gray-100">
-                  {project.totalLoggedHours ?? 0}h
-                </span>
-              </Row>
-            </div>
-
-            <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
-              {isDelayed ? (
-                <div className="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3 font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>
-                    Project delayed: {delayedMilestones} milestone(s) past
-                    target date
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 font-bold text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>
-                    {health === "COMPLETED"
-                      ? "Project deliverables are complete"
-                      : "Project deliverables are on track"}
-                  </span>
-                </div>
-              )}
-              <div className="mt-3 flex justify-end">
-                <HealthBadge health={project.health} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Milestones & nested deliverables */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
-              <Flag className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-              Milestones &amp; Nested Deliverables
-            </h2>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              Expand any milestone row to inspect and manage assigned child
-              tasks
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setMilestoneModal({ open: true, edit: null })}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Milestone
-          </Button>
-        </div>
-
-        {milestones.length === 0 && generalTasks.length === 0 ? (
-          <div className="py-12">
-            <EmptyState
-              title="No milestones configured yet"
-              description="Break this project into sequenced milestones to track progress."
-              action={
-                <Button
-                  size="sm"
-                  onClick={() => setMilestoneModal({ open: true, edit: null })}
-                >
-                  <Plus className="h-4 w-4" /> Create First Milestone
-                </Button>
-              }
-            />
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {milestones.map((m) => {
-              const expanded = !collapsed.has(m.id);
-              const milestoneTasks = tasks.filter(
-                (t) => t.milestoneId === m.id,
-              );
-              const overdue = isPastDue(m.targetDate, m.status);
-              return (
-                <div
-                  key={m.id}
-                  className="transition-colors hover:bg-gray-50/40 dark:hover:bg-gray-800/20"
-                >
-                  <div className="flex flex-col justify-between gap-4 p-4 sm:p-5 md:flex-row md:items-center">
-                    <div className="flex flex-1 items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => toggleGroup(m.id)}
-                        aria-expanded={expanded}
-                        aria-label={`${expanded ? "Collapse" : "Expand"} ${m.title}`}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-sky-100 hover:text-sky-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-sky-950"
-                      >
-                        {expanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </button>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-extrabold text-gray-900 dark:text-white">
-                            {m.title}
-                          </span>
-                          <StatusBadge status={m.status} />
-                          {overdue ? (
-                            <span className="rounded-md border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
-                              Overdue
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-gray-400">
-                          <span>Target: {formatDate(m.targetDate)}</span>
-                          {m.actualDate ? (
-                            <span className="text-emerald-600 dark:text-emerald-400">
-                              Actual: {formatDate(m.actualDate)}
-                            </span>
-                          ) : null}
-                          <span>
-                            • {milestoneTasks.length} task
-                            {milestoneTasks.length !== 1 ? "s" : ""}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 self-end md:self-center">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openNewTask(m.id)}
-                      >
-                        <Plus className="h-3 w-3" /> Add Task
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMilestoneModal({ open: true, edit: m })
-                        }
-                        aria-label={`Edit ${m.title}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPendingDelete({
-                            kind: "milestone",
-                            id: m.id,
-                            name: m.title,
-                          })
-                        }
-                        aria-label={`Delete ${m.title}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {expanded ? (
-                    <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-gray-800 dark:bg-gray-800/20 sm:px-8">
-                      {milestoneTasks.length === 0 ? (
-                        <div className="py-6 text-center text-xs text-gray-400">
-                          <p>No tasks under this milestone yet.</p>
-                          <button
-                            type="button"
-                            onClick={() => openNewTask(m.id)}
-                            className="mt-1 text-xs font-bold text-brand-600 hover:underline dark:text-cyan-400"
-                          >
-                            + Click to add task
-                          </button>
-                        </div>
-                      ) : (
-                        renderTaskTable(milestoneTasks)
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-
-            {/* Tasks with no milestone (legacy "General / No Milestone"). */}
-            {generalTasks.length > 0 ? (
-              <div>
-                <div className="flex items-center gap-3 p-4 sm:p-5">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup("general")}
-                    aria-expanded={!collapsed.has("general")}
-                    aria-label="Toggle general tasks"
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-sky-100 hover:text-sky-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-sky-950"
-                  >
-                    {collapsed.has("general") ? (
-                      <ChevronRight className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
+              {/* 2. Overall milestone delivery progress */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
-                    <span className="text-sm font-extrabold text-gray-900 dark:text-white">
-                      General Deliverables (No Milestone)
-                    </span>
-                    <p className="text-[11px] font-semibold text-gray-400">
-                      {generalTasks.length} task
-                      {generalTasks.length !== 1 ? "s" : ""}
+                    <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      <Flag className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
+                      Overall Milestone Delivery Progress
+                    </p>
+                    <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-white">
+                      {completedMilestones} of {totalMilestones} Milestones
+                      Completed
+                      <span className="ml-2 text-xs font-semibold text-gray-400">
+                        • Task delivery {project.progressPercent ?? 0}%
+                      </span>
                     </p>
                   </div>
-                </div>
-                {!collapsed.has("general") ? (
-                  <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-gray-800 dark:bg-gray-800/20 sm:px-8">
-                    {renderTaskTable(generalTasks)}
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-brand-700 dark:text-cyan-300">
+                      {milestoneProgress}%
+                    </span>
+                    <span className="text-xs font-bold text-gray-400">
+                      completed
+                    </span>
                   </div>
-                ) : null}
+                </div>
+                <div className="h-3 overflow-hidden rounded-full border border-gray-200/60 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-400 transition-all duration-700 ease-out motion-reduce:transition-none"
+                    style={{ width: `${milestoneProgress}%` }}
+                  />
+                </div>
               </div>
-            ) : null}
-          </div>
-        )}
-      </div>
 
-      {/* 5. Team members (new-module feature; hidden — not in legacy ProjectDetail) */}
-      {SHOW_TEAM_MEMBERS_SECTION ? (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
-                <Users2 className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-                Assigned Project Members
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-                  {project.members?.length ?? 0}
-                </span>
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                Engineers, architects and managers allocating capacity to this
-                project.
-              </p>
-            </div>
-            <Button size="sm" onClick={() => setShowMemberModal(true)}>
-              <Plus className="h-3.5 w-3.5" /> Add Member
-            </Button>
-          </div>
-          {(project.members?.length ?? 0) === 0 ? (
-            <div className="py-10">
-              <EmptyState
-                title="No team members yet"
-                description="Add employees to allocate capacity and track their logged hours."
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-gray-100 text-[11px] font-extrabold uppercase text-gray-400 dark:border-gray-800">
-                  <tr>
-                    <th className="px-5 py-2.5">Employee</th>
-                    <th className="px-3 py-2.5">Role</th>
-                    <th className="px-3 py-2.5 text-right">Rate</th>
-                    <th className="px-3 py-2.5 text-right">Est. Hours</th>
-                    <th className="px-3 py-2.5 text-right">Logged</th>
-                    <th className="px-5 py-2.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {project.members.map((m) => (
-                    <tr
-                      key={m.id}
-                      className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
-                    >
-                      <td className="px-5 py-3">
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          {m.employee.fullName}
-                        </span>{" "}
-                        <span className="text-gray-400">
-                          ({m.employee.employeeCode})
+              {/* 3. Project information + financials */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
+                  <div className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
+                    <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Project Information
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-1 gap-6 p-6 text-xs sm:grid-cols-2">
+                    <InfoBlock label="Customer / Client">
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                        {project.customerName ||
+                          project.salesCustomer?.companyName ||
+                          "—"}
+                      </p>
+                      {project.salesCustomer ? (
+                        <span className="text-[11px] text-gray-400">
+                          {project.salesCustomer.customerCode}
                         </span>
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-gray-700 dark:text-gray-300">
-                        {m.role}
-                      </td>
-                      <td className="px-3 py-3 text-right text-gray-600 dark:text-gray-400">
-                        ₹{Number(m.hourlyRate)}/hr
-                      </td>
-                      <td className="px-3 py-3 text-right text-gray-600 dark:text-gray-400">
-                        {Number(m.estimatedHours)}h
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-800 dark:text-gray-100">
-                        {Number(m.loggedHours)}h
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPendingDelete({
-                              kind: "member",
-                              id: m.employeeId,
-                              name: m.employee.fullName,
-                            })
-                          }
-                          aria-label={`Remove ${m.employee.fullName}`}
-                          className="rounded-lg p-1.5 text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      ) : null}
+                      ) : null}
+                    </InfoBlock>
 
-      {/* 6. Project expenses (new-module feature; hidden — not in legacy ProjectDetail) */}
-      {SHOW_EXPENSES_SECTION ? (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
-                <Receipt className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
-                Project Incurred Expenses
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                Automatically rolled up into actual cost for budget variance
-                tracking. Total:{" "}
-                <span className="font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(actualSpend)}
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/projects/expenses"
-                className="text-xs font-bold text-brand-600 hover:underline dark:text-cyan-400"
-              >
-                All expenses
-              </Link>
-              <Button size="sm" onClick={() => setShowExpenseModal(true)}>
-                <Plus className="h-3.5 w-3.5" /> Add Expense
-              </Button>
-            </div>
-          </div>
-          {(project.expenses?.length ?? 0) === 0 ? (
-            <div className="py-10">
-              <EmptyState
-                title="No expenses recorded"
-                description="Record vendor invoices and other spend against this project."
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-gray-100 text-[11px] font-extrabold uppercase text-gray-400 dark:border-gray-800">
-                  <tr>
-                    <th className="px-5 py-2.5">Date</th>
-                    <th className="px-3 py-2.5">Vendor</th>
-                    <th className="px-3 py-2.5">Reference</th>
-                    <th className="px-3 py-2.5">Department</th>
-                    <th className="px-3 py-2.5">Status</th>
-                    <th className="px-5 py-2.5 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {project.expenses?.map((e) => (
-                    <tr
-                      key={e.id}
-                      className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
-                    >
-                      <td className="whitespace-nowrap px-5 py-3 text-gray-600 dark:text-gray-400">
-                        {formatDate(e.expenseDate)}
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-gray-800 dark:text-gray-100">
-                        {e.vendor || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {e.referenceNo || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
-                        {e.department || "—"}
-                      </td>
-                      <td className="px-3 py-3">
+                    <InfoBlock label="Departments">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(project.departments ?? []).length > 0 ? (
+                          project.departments?.map((d) => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+                            >
+                              {d}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="italic text-gray-400">General</span>
+                        )}
+                      </div>
+                    </InfoBlock>
+
+                    <InfoBlock label="Client Handling Person">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                          {(project.clientHandlingPerson?.fullName ?? "U")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+                        <span className="font-bold text-gray-800 dark:text-gray-100">
+                          {project.clientHandlingPerson?.fullName ??
+                            "Not Assigned"}
+                        </span>
+                      </div>
+                    </InfoBlock>
+
+                    <InfoBlock label="Assigned Resources / Team">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(project.resourceNames ?? []).length > 0 ? (
+                          project.resourceNames?.map((r) => (
+                            <span
+                              key={r}
+                              className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                            >
+                              {r}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="italic text-gray-400">
+                            No resource members specified
+                          </span>
+                        )}
+                      </div>
+                    </InfoBlock>
+
+                    <InfoBlock label="Timeline Schedule">
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-gray-800 dark:text-gray-100">
+                        <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-cyan-400" />
+                        {formatDate(project.startDate)} →{" "}
+                        {project.plannedEndDate
+                          ? formatDate(project.plannedEndDate)
+                          : "TBD"}
+                      </p>
+                    </InfoBlock>
+
+                    <InfoBlock label="Actual Completion Date">
+                      {project.actualEndDate ? (
+                        <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
+                          {formatDate(project.actualEndDate)}
+                        </span>
+                      ) : (
+                        <span className="italic text-gray-400">
+                          In progress / Pending
+                        </span>
+                      )}
+                    </InfoBlock>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <div className="border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30">
+                    <h2 className="text-sm font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Financial &amp; Hours
+                    </h2>
+                  </div>
+                  <div className="flex flex-col gap-4 p-6 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <Row label="Project Contract Price">
+                        <span className="text-sm font-black text-gray-900 dark:text-white">
+                          {formatCurrency(projectPrice)}
+                        </span>
+                      </Row>
+                      <Row label="Actual Spend (Expenses)">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                            e.status === "paid"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : e.status === "cancelled"
-                                ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                                : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                          className={`font-black ${
+                            actualSpend > projectPrice && projectPrice > 0
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-emerald-700 dark:text-emerald-400"
                           }`}
                         >
-                          {e.status}
+                          {formatCurrency(actualSpend)}
                         </span>
-                      </td>
-                      <td className="px-5 py-3 text-right font-bold text-gray-900 dark:text-white">
-                        {formatCurrency(e.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      ) : null}
+                      </Row>
+                      {SHOW_EARNED_REVENUE_ROW ? (
+                        <Row label="Earned Revenue">
+                          <span className="font-black text-brand-700 dark:text-cyan-300">
+                            {formatCurrency(project.earnedAmount ?? 0)}
+                          </span>
+                        </Row>
+                      ) : null}
+                      <Row label="Budget Variance">
+                        <span
+                          className={`font-black ${
+                            (project.budgetVariance ?? 0) >= 0
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {formatCurrency(project.budgetVariance ?? 0)}
+                        </span>
+                      </Row>
+                    </div>
 
-      {/* 7. Meeting history (MoM) */}
-      <ProjectMomHistory projectId={project.id} />
+                    <div className="flex flex-col gap-1 border-t border-gray-100 pt-4 dark:border-gray-800">
+                      <Row label="Expected Hours">
+                        <span className="text-sm font-black text-brand-700 dark:text-cyan-300">
+                          {Number(project.expectedHours) || 0}h
+                        </span>
+                      </Row>
+                      <Row label="Total Task Hours Logged">
+                        <span className="font-black text-gray-800 dark:text-gray-100">
+                          {totalTaskHoursLogged}h
+                        </span>
+                      </Row>
+                      <Row label="Team Hours Logged">
+                        <span className="font-black text-gray-800 dark:text-gray-100">
+                          {project.totalLoggedHours ?? 0}h
+                        </span>
+                      </Row>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
+                      {isDelayed ? (
+                        <div className="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-3 font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>
+                            Project delayed: {delayedMilestones} milestone(s)
+                            past target date
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 font-bold text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>
+                            {health === "COMPLETED"
+                              ? "Project deliverables are complete"
+                              : "Project deliverables are on track"}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-3 flex justify-end">
+                        <HealthBadge health={project.health} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {tab === "work" ? (
+            <>
+              {/* 4. Milestones & nested deliverables */}
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
+                      <Flag className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
+                      Milestones &amp; Nested Deliverables
+                    </h2>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Expand any milestone row to inspect and manage assigned
+                      child tasks
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setMilestoneModal({ open: true, edit: null })
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Milestone
+                  </Button>
+                </div>
+
+                {milestones.length === 0 && generalTasks.length === 0 ? (
+                  <div className="py-12">
+                    <EmptyState
+                      title="No milestones configured yet"
+                      description="Break this project into sequenced milestones to track progress."
+                      action={
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setMilestoneModal({ open: true, edit: null })
+                          }
+                        >
+                          <Plus className="h-4 w-4" /> Create First Milestone
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {milestones.map((m) => {
+                      const expanded = !collapsed.has(m.id);
+                      const milestoneTasks = tasks.filter(
+                        (t) => t.milestoneId === m.id,
+                      );
+                      const overdue = isPastDue(m.targetDate, m.status);
+                      return (
+                        <div
+                          key={m.id}
+                          className="transition-colors hover:bg-gray-50/40 dark:hover:bg-gray-800/20"
+                        >
+                          <div className="flex flex-col justify-between gap-4 p-4 sm:p-5 md:flex-row md:items-center">
+                            <div className="flex flex-1 items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleGroup(m.id)}
+                                aria-expanded={expanded}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} ${m.title}`}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-sky-100 hover:text-sky-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-sky-950"
+                              >
+                                {expanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </button>
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-extrabold text-gray-900 dark:text-white">
+                                    {m.title}
+                                  </span>
+                                  <StatusBadge status={m.status} />
+                                  {overdue ? (
+                                    <span className="rounded-md border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
+                                      Overdue
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-gray-400">
+                                  <span>
+                                    Target: {formatDate(m.targetDate)}
+                                  </span>
+                                  {m.actualDate ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      Actual: {formatDate(m.actualDate)}
+                                    </span>
+                                  ) : null}
+                                  <span>
+                                    • {milestoneTasks.length} task
+                                    {milestoneTasks.length !== 1 ? "s" : ""}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 self-end md:self-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openNewTask(m.id)}
+                              >
+                                <Plus className="h-3 w-3" /> Add Task
+                              </Button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMilestoneModal({ open: true, edit: m })
+                                }
+                                aria-label={`Edit ${m.title}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPendingDelete({
+                                    kind: "milestone",
+                                    id: m.id,
+                                    name: m.title,
+                                  })
+                                }
+                                aria-label={`Delete ${m.title}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {expanded ? (
+                            <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-gray-800 dark:bg-gray-800/20 sm:px-8">
+                              {milestoneTasks.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-gray-400">
+                                  <p>No tasks under this milestone yet.</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => openNewTask(m.id)}
+                                    className="mt-1 text-xs font-bold text-brand-600 hover:underline dark:text-cyan-400"
+                                  >
+                                    + Click to add task
+                                  </button>
+                                </div>
+                              ) : (
+                                renderTaskTable(milestoneTasks)
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+
+                    {/* Tasks with no milestone (legacy "General / No Milestone"). */}
+                    {generalTasks.length > 0 ? (
+                      <div>
+                        <div className="flex items-center gap-3 p-4 sm:p-5">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup("general")}
+                            aria-expanded={!collapsed.has("general")}
+                            aria-label="Toggle general tasks"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 transition-colors hover:bg-sky-100 hover:text-sky-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-sky-950"
+                          >
+                            {collapsed.has("general") ? (
+                              <ChevronRight className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </button>
+                          <div>
+                            <span className="text-sm font-extrabold text-gray-900 dark:text-white">
+                              General Deliverables (No Milestone)
+                            </span>
+                            <p className="text-[11px] font-semibold text-gray-400">
+                              {generalTasks.length} task
+                              {generalTasks.length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        </div>
+                        {!collapsed.has("general") ? (
+                          <div className="border-t border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-gray-800 dark:bg-gray-800/20 sm:px-8">
+                            {renderTaskTable(generalTasks)}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+
+          {/* 5. Team members (new-module feature; hidden — not in legacy ProjectDetail) */}
+          {tab === "team" && SHOW_TEAM_MEMBERS_SECTION ? (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
+                    <Users2 className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
+                    Assigned Project Members
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-bold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+                      {project.members?.length ?? 0}
+                    </span>
+                  </h2>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    Engineers, architects and managers allocating capacity to
+                    this project.
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => setShowMemberModal(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Add Member
+                </Button>
+              </div>
+              {(project.members?.length ?? 0) === 0 ? (
+                <div className="py-10">
+                  <EmptyState
+                    title="No team members yet"
+                    description="Add employees to allocate capacity and track their logged hours."
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-gray-100 text-[11px] font-extrabold uppercase text-gray-400 dark:border-gray-800">
+                      <tr>
+                        <th className="px-5 py-2.5">Employee</th>
+                        <th className="px-3 py-2.5">Role</th>
+                        <th className="px-3 py-2.5 text-right">Rate</th>
+                        <th className="px-3 py-2.5 text-right">Est. Hours</th>
+                        <th className="px-3 py-2.5 text-right">Logged</th>
+                        <th className="px-5 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {project.members.map((m) => (
+                        <tr
+                          key={m.id}
+                          className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
+                        >
+                          <td className="px-5 py-3">
+                            <span className="font-bold text-gray-900 dark:text-white">
+                              {m.employee.fullName}
+                            </span>{" "}
+                            <span className="text-gray-400">
+                              ({m.employee.employeeCode})
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 font-semibold text-gray-700 dark:text-gray-300">
+                            {m.role}
+                          </td>
+                          <td className="px-3 py-3 text-right text-gray-600 dark:text-gray-400">
+                            ₹{Number(m.hourlyRate)}/hr
+                          </td>
+                          <td className="px-3 py-3 text-right text-gray-600 dark:text-gray-400">
+                            {Number(m.estimatedHours)}h
+                          </td>
+                          <td className="px-3 py-3 text-right font-bold text-gray-800 dark:text-gray-100">
+                            {Number(m.loggedHours)}h
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingDelete({
+                                  kind: "member",
+                                  id: m.employeeId,
+                                  name: m.employee.fullName,
+                                })
+                              }
+                              aria-label={`Remove ${m.employee.fullName}`}
+                              className="rounded-lg p-1.5 text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* 6. Project expenses (new-module feature; hidden — not in legacy ProjectDetail) */}
+          {tab === "expenses" && SHOW_EXPENSES_SECTION ? (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex flex-col justify-between gap-4 border-b border-gray-100 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-800/30 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="flex items-center gap-2 text-base font-black text-gray-900 dark:text-white">
+                    <Receipt className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
+                    Project Incurred Expenses
+                  </h2>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    Automatically rolled up into actual cost for budget variance
+                    tracking. Total:{" "}
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(actualSpend)}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/projects/expenses"
+                    className="text-xs font-bold text-brand-600 hover:underline dark:text-cyan-400"
+                  >
+                    All expenses
+                  </Link>
+                  <Button size="sm" onClick={() => setShowExpenseModal(true)}>
+                    <Plus className="h-3.5 w-3.5" /> Add Expense
+                  </Button>
+                </div>
+              </div>
+              {(project.expenses?.length ?? 0) === 0 ? (
+                <div className="py-10">
+                  <EmptyState
+                    title="No expenses recorded"
+                    description="Record vendor invoices and other spend against this project."
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-gray-100 text-[11px] font-extrabold uppercase text-gray-400 dark:border-gray-800">
+                      <tr>
+                        <th className="px-5 py-2.5">Date</th>
+                        <th className="px-3 py-2.5">Vendor</th>
+                        <th className="px-3 py-2.5">Reference</th>
+                        <th className="px-3 py-2.5">Department</th>
+                        <th className="px-3 py-2.5">Status</th>
+                        <th className="px-5 py-2.5 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {project.expenses?.map((e) => (
+                        <tr
+                          key={e.id}
+                          className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
+                        >
+                          <td className="whitespace-nowrap px-5 py-3 text-gray-600 dark:text-gray-400">
+                            {formatDate(e.expenseDate)}
+                          </td>
+                          <td className="px-3 py-3 font-semibold text-gray-800 dark:text-gray-100">
+                            {e.vendor || "—"}
+                          </td>
+                          <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                            {e.referenceNo || "—"}
+                          </td>
+                          <td className="px-3 py-3 text-gray-600 dark:text-gray-400">
+                            {e.department || "—"}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                e.status === "paid"
+                                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                  : e.status === "cancelled"
+                                    ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                              }`}
+                            >
+                              {e.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(e.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* 7. Meeting history (MoM) */}
+          {tab === "meetings" ? (
+            <ProjectMomHistory projectId={project.id} />
+          ) : null}
+        </div>
+      </Tabs>
 
       {/* Modals */}
       <MilestoneModal
@@ -1263,7 +1329,7 @@ function AddMemberForm({
   onClose: () => void;
   project: Project;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const addMember = useAddProjectMember();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
   const [employeeId, setEmployeeId] = useState("");
@@ -1294,10 +1360,10 @@ function AddMemberForm({
           estimatedHours: Number(estimatedHours) || 0,
         },
       });
-      toast({ title: "Team member added", variant: "success" });
+      notify("projects.team.added");
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to add team member"));
+      setFormError(resolveErrorText(err, "projects.team.addFailed"));
     }
   }
 
@@ -1404,7 +1470,7 @@ function AddExpenseForm({
   onClose: () => void;
   project: Project;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createExpense = useCreateExpense();
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(todayInput());
@@ -1435,10 +1501,10 @@ function AddExpenseForm({
           ...(notes.trim() ? { notes: notes.trim() } : {}),
         },
       });
-      toast({ title: "Expense recorded", variant: "success" });
+      notify("projects.project.expenseRecorded");
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to record expense"));
+      setFormError(resolveErrorText(err, "projects.expense.recordFailed"));
     }
   }
 

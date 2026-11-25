@@ -19,8 +19,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useUpdateExitRequest } from "../hooks";
 import { decideExitRequestSchema } from "../schema";
@@ -97,15 +97,15 @@ export function ExitRequestCard({
   const [confirmedLastWorkingDate, setConfirmedLastWorkingDate] = useState(
     request.confirmedLastWorkingDate ?? "",
   );
-  const [settlementStatus, setSettlementStatus] = useState<"" | SettlementStatus>(
-    request.settlementStatus ?? "",
-  );
+  const [settlementStatus, setSettlementStatus] = useState<
+    "" | SettlementStatus
+  >(request.settlementStatus ?? "");
   const [hrNote, setHrNote] = useState(request.hrNote ?? "");
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const updateMutation = useUpdateExitRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const isSubmitting = updateMutation.isPending;
 
   const handleToggleExpand = () => {
@@ -164,11 +164,7 @@ export function ExitRequestCard({
         id: request.id,
         body: payload,
       });
-      toast({
-        title: "Exit request updated",
-        description: "Status and decision details saved successfully.",
-        variant: "success",
-      });
+      notify("hr.exit.cardUpdated");
       setIsExpanded(false);
       onUpdated?.();
     } catch (err) {
@@ -185,7 +181,10 @@ export function ExitRequestCard({
           <div className="flex items-start gap-3.5">
             <EmployeeIdentity
               name={request.employee.fullName}
-              code={request.employee.employeeCode ?? `EMP${String(request.employee.id).padStart(4, "0")}`}
+              code={
+                request.employee.employeeCode ??
+                `EMP${String(request.employee.id).padStart(4, "0")}`
+              }
               avatarUrl={request.employee.avatarUrl}
               size="md"
             />
@@ -195,7 +194,8 @@ export function ExitRequestCard({
                   {request.employee.fullName}
                 </span>
                 <span className="inline-flex items-center rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-bold text-[#0284c7] dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">
-                  {request.employee.employeeCode ?? `EMP${String(request.employee.id).padStart(4, "0")}`}
+                  {request.employee.employeeCode ??
+                    `EMP${String(request.employee.id).padStart(4, "0")}`}
                 </span>
                 <ExitRequestStatusBadge status={request.status} />
               </div>
@@ -203,7 +203,9 @@ export function ExitRequestCard({
               {/* Resignation Reason */}
               {request.reason ? (
                 <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300 line-clamp-2">
-                  <span className="font-semibold text-[#0a3271] dark:text-sky-200">Reason: </span>
+                  <span className="font-semibold text-[#0a3271] dark:text-sky-200">
+                    Reason:{" "}
+                  </span>
                   {request.reason}
                 </p>
               ) : null}
@@ -249,7 +251,9 @@ export function ExitRequestCard({
 
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1 text-[#0284c7] dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300">
             <Calendar className="h-3 w-3 text-[#0284c7]" />
-            <span>Preferred LWD: {formatDate(request.preferredLastWorkingDate)}</span>
+            <span>
+              Preferred LWD: {formatDate(request.preferredLastWorkingDate)}
+            </span>
           </span>
 
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -259,14 +263,18 @@ export function ExitRequestCard({
           {request.confirmedLastWorkingDate ? (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-              <span>Confirmed LWD: {formatDate(request.confirmedLastWorkingDate)}</span>
+              <span>
+                Confirmed LWD: {formatDate(request.confirmedLastWorkingDate)}
+              </span>
             </span>
           ) : null}
 
           {request.settlementStatus ? (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 font-bold text-[#0a3271] dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200">
               <DollarSign className="h-3 w-3 text-brand-500" />
-              <span>Settlement: {SETTLEMENT_LABELS[request.settlementStatus]}</span>
+              <span>
+                Settlement: {SETTLEMENT_LABELS[request.settlementStatus]}
+              </span>
             </span>
           ) : null}
 
@@ -282,7 +290,9 @@ export function ExitRequestCard({
           <div className="mt-3 flex items-start gap-2 rounded-xl border border-sky-100 bg-[#f8fbff] p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-300">
             <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-500" />
             <div className="min-w-0">
-              <span className="font-bold text-[#0a3271] dark:text-sky-200">HR Note: </span>
+              <span className="font-bold text-[#0a3271] dark:text-sky-200">
+                HR Note:{" "}
+              </span>
               <span>{request.hrNote}</span>
             </div>
           </div>
@@ -298,7 +308,10 @@ export function ExitRequestCard({
                 Manage Exit Request & Decisions
               </h4>
               <span className="text-[11px] font-medium text-slate-500">
-                Current status: <strong className="text-[#0a3271] dark:text-white">{STATUS_LABELS[request.status]}</strong>
+                Current status:{" "}
+                <strong className="text-[#0a3271] dark:text-white">
+                  {STATUS_LABELS[request.status]}
+                </strong>
               </span>
             </div>
 
@@ -309,18 +322,26 @@ export function ExitRequestCard({
               {/* Status transition */}
               <FormField
                 label="New Status"
-                hint={isTerminal ? "Final state reached" : "Select next status transition"}
+                hint={
+                  isTerminal
+                    ? "Final state reached"
+                    : "Select next status transition"
+                }
               >
                 {(f) => (
                   <Select
                     {...f}
                     aria-label="New status"
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as "" | ExitRequestStatus)}
+                    onChange={(e) =>
+                      setStatus(e.target.value as "" | ExitRequestStatus)
+                    }
                     disabled={isTerminal || isSubmitting}
                     className="rounded-xl border border-sky-200/90 bg-white dark:border-slate-700 dark:bg-slate-800"
                   >
-                    <option value="">Keep current ({STATUS_LABELS[request.status]})</option>
+                    <option value="">
+                      Keep current ({STATUS_LABELS[request.status]})
+                    </option>
                     {nextStatuses.map((s) => (
                       <option key={s} value={s}>
                         {STATUS_LABELS[s]}
@@ -341,7 +362,9 @@ export function ExitRequestCard({
                     type="date"
                     aria-label="Confirmed last working date"
                     value={confirmedLastWorkingDate}
-                    onChange={(e) => setConfirmedLastWorkingDate(e.target.value)}
+                    onChange={(e) =>
+                      setConfirmedLastWorkingDate(e.target.value)
+                    }
                     disabled={isSubmitting}
                     className="rounded-xl border border-sky-200/90 bg-white dark:border-slate-700 dark:bg-slate-800"
                   />
@@ -359,7 +382,9 @@ export function ExitRequestCard({
                     aria-label="Settlement status"
                     value={settlementStatus}
                     onChange={(e) =>
-                      setSettlementStatus(e.target.value as "" | SettlementStatus)
+                      setSettlementStatus(
+                        e.target.value as "" | SettlementStatus,
+                      )
                     }
                     disabled={isSubmitting}
                     className="rounded-xl border border-sky-200/90 bg-white dark:border-slate-700 dark:bg-slate-800"

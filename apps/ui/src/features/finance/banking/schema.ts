@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN } from "@texawave-erp/core";
 import {
   FINANCE_BANK_ACCOUNT_TYPES,
   FINANCE_BANK_TRANSACTION_TYPES,
@@ -97,10 +98,7 @@ export const createBankTransactionSchema = z.object({
     .positive("Please select a target bank account"),
   transactionDate: z
     .string()
-    .regex(
-      /^\d{4}-\d{2}-\d{2}$/,
-      "Transaction date must be in YYYY-MM-DD format",
-    )
+    .regex(ISO_DATE_PATTERN, "Transaction date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Transaction date cannot be in the future",
@@ -131,7 +129,7 @@ export type CreateBankTransactionFormValues = z.infer<
 export const reconcileTransactionSchema = z.object({
   statementDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Statement date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Statement date must be in YYYY-MM-DD format")
     .refine(
       (val) => val <= new Date().toISOString().slice(0, 10),
       "Statement date cannot be in the future",

@@ -77,8 +77,25 @@ export interface DayAttendance {
   /** Minutes HR counts as worked (capped at the shift target, as in HR). */
   workedMinutes: number;
   overtimeMinutes: number;
+  /** The shift target AFTER approved work permissions are excused. */
   targetMinutes: number | null;
+  /** The shift's full target before any permission is excused. */
+  baseTargetMinutes: number | null;
+  /** Approved short-time permissions on the day. */
+  permissions: DayPermission[];
+  permissionMinutes: number;
   hasOpenSession: boolean;
+  /** First punch-in of the day; null when none. */
+  checkInAt: string | null;
+  /** Last verified punch-out; null while open or pending regularization. */
+  checkOutAt: string | null;
+}
+
+/** An approved work permission (a window inside the day, IST `HH:mm`). */
+export interface DayPermission {
+  fromTime: string;
+  toTime: string;
+  minutes: number;
 }
 
 export interface MyTimesheetDay {
@@ -162,7 +179,7 @@ export interface CustomActivity {
 }
 
 // ---------------------------------------------------------------------------
-// Submit and review (reporting manager first, then HR)
+// Submit and review (team lead first, then HR)
 // ---------------------------------------------------------------------------
 
 export type DayWorkflowStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
@@ -175,7 +192,7 @@ export interface DayReview {
   /** null = no rows on the day. */
   status: DayWorkflowStatus | null;
   stage: ReviewStage | null;
-  /** 2 = reporting manager then HR; 1 = HR alone (no reporting manager). */
+  /** 2 = team lead then HR; 1 = HR alone (a team lead's own day, or no lead). */
   approvalLevels: 1 | 2;
   submittedAt: string | null;
   firstApprovedAt: string | null;
@@ -190,7 +207,7 @@ export interface SubmitDayResult {
   date: string;
   rowCount: number;
   approvalLevels: 1 | 2;
-  approverBasis: "REPORTING_MANAGER" | "HR";
+  approverBasis: "TEAM" | "HR";
 }
 
 export interface SubmitWeekResult {
@@ -259,6 +276,9 @@ export interface ReviewDayDetail extends ReviewDaySummary {
     workedMinutes: number;
     overtimeMinutes: number;
     targetMinutes: number | null;
+    baseTargetMinutes: number | null;
+    permissions: DayPermission[];
+    permissionMinutes: number;
   } | null;
   /** HR's status when the day was submitted (to see a later change). */
   attendanceStatusAtSubmit: string | null;
@@ -306,6 +326,11 @@ export interface EmployeeReportLine {
   approvedDays: number;
   returnedDays: number;
   needsAttentionDays: number;
+  /** From HR attendance over the range: shift targets after approved
+   * permissions, the permission minutes, and the minutes HR counts as worked. */
+  targetMinutes: number;
+  permissionMinutes: number;
+  attendanceMinutes: number;
 }
 
 export interface EmployeeReport {
@@ -320,4 +345,55 @@ export interface DayReport {
   from: string;
   to: string;
   days: ReviewDaySummary[];
+}
+
+// ---------------------------------------------------------------------------
+// Month view (employee: GET /timesheets/my-month, reviewer:
+// GET /timesheets/employees/:employeeId/month)
+// ---------------------------------------------------------------------------
+
+export interface MonthDay {
+  date: string;
+  /** 1 = Monday ... 7 = Sunday. */
+  weekday: number;
+  /** HR's effective status; null when HR has nothing for the day. */
+  attendanceStatus: string | null;
+  checkInAt: string | null;
+  /** null while the day's last session is still open. */
+  checkOutAt: string | null;
+  /** Minutes HR counts as worked (capped at the target). */
+  workedMinutes: number;
+  targetMinutes: number | null;
+  baseTargetMinutes: number | null;
+  permissions: DayPermission[];
+  permissionMinutes: number;
+  /** Minutes logged in the timesheet (stopped and paused work only). */
+  loggedMinutes: number;
+  /** null = nothing logged on the day. */
+  reviewStatus: DayWorkflowStatus | null;
+  rowCount: number;
+}
+
+export interface MonthSummary {
+  presentDays: number;
+  absentDays: number;
+  leaveDays: number;
+  holidayDays: number;
+  loggedMinutes: number;
+  workedMinutes: number;
+  permissionMinutes: number;
+}
+
+export interface EmployeeMonth {
+  /** `YYYY-MM` */
+  month: string;
+  from: string;
+  to: string;
+  summary: MonthSummary;
+  days: MonthDay[];
+}
+
+/** A reviewer's view of one employee's month. */
+export interface ReviewEmployeeMonth extends EmployeeMonth {
+  employee: { id: number; code: string; name: string; team: string };
 }

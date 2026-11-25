@@ -7,6 +7,12 @@ export function leaveErrorMessage(error: unknown, fallback: string): string {
   switch (error.errorCode) {
     case "SELF_APPROVAL_FORBIDDEN":
       return "You cannot decide your own leave, or a request you applied for on someone's behalf.";
+    case "LEAVE_AWAITING_TEAM_LEAD":
+      return "This request waits for the employee's team lead. HR can decide it once the team lead has not acted for 2 working days.";
+    case "LEAVE_HR_ONLY":
+      return "This request goes to HR: the employee is a team lead, or their team has no lead.";
+    case "LEAVE_OVERRIDE_REASON_REQUIRED":
+      return "Enter a reason: deciding in HR's place is recorded in the audit log.";
     case "LEAVE_AWAITING_HR":
       return "This request already has its first approval. It now needs an HR approver.";
     case "LEAVE_SAME_APPROVER":

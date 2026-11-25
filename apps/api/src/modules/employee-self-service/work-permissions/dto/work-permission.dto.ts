@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
@@ -25,7 +26,7 @@ export class CreateWorkPermissionDto {
     description: "Start time within the day (HH:mm), must be ≥ 10:00",
     example: "14:00",
   })
-  @Matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, {
+  @Matches(FIELD_FORMAT.time, {
     message: "fromTime must be a valid time in HH:mm format",
   })
   fromTime!: string;
@@ -34,7 +35,7 @@ export class CreateWorkPermissionDto {
     description: "End time within the day (HH:mm), must be ≤ 19:00",
     example: "16:00",
   })
-  @Matches(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, {
+  @Matches(FIELD_FORMAT.time, {
     message: "toTime must be a valid time in HH:mm format",
   })
   toTime!: string;

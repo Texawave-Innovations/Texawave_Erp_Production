@@ -107,10 +107,20 @@
   --color-gray-500: #64748b;
   --color-gray-600: #475569;
   --color-gray-700: #334155;
+  --color-gray-750: #283548;
   --color-gray-800: #1e293b;
+  --color-gray-850: #172033;
   --color-gray-900: #0f172a;
   --color-gray-950: #020617;
   --color-gray-dark: #0d1117;
+
+  /* In-between dark surfaces used across the app (dark:bg-slate-850,
+     dark:to-gray-850, dark:hover:bg-slate-750, ...). Tailwind's palette has
+     no 750/850, and a class with an undefined shade generates NO css, so the
+     light-mode colour silently showed through in dark mode. Midpoints of the
+     neighbouring slate shades (700/800/900). */
+  --color-slate-750: #283548;
+  --color-slate-850: #172033;
 
   /* Semantic — success (approved, QA-accepted, dispatched, payment cleared) */
   --color-success-25: #f6fef9;
@@ -471,6 +481,104 @@ dialog::backdrop {
   background-color: rgba(203, 213, 225, 0.5);
 }
 
+/* Shared floating-pill scrollbar for every Tailwind scroll container
+   (.overflow-auto / -y-auto / -x-auto / -scroll), e.g. the dashboard <main>,
+   dialog bodies, select and dropdown lists. Slim thumb inset from the edge, no
+   arrows, transparent track, subtly visible at rest, brand blue on hover/drag.
+   The selector sits in :where() (zero specificity) so any component- or
+   module-level scrollbar rule (.crm-module, .crm-*-scroll) still wins, and
+   .scrollbar-none (nav flyouts) / .no-scrollbar are opted out. Native
+   scrolling is untouched; this is cosmetic only. */
+:root {
+  /* Firefox fallback (no gradients on its scrollbar) */
+  --scrollbar-thumb: rgba(23, 105, 245, 0.4);
+  --scrollbar-thumb-active: #1769f5;
+  /* TexaOne brand gradient stops: Prime Blue to cyan, soft at rest, full
+     strength on hover. The angle is set on the thumb (vertical vs horizontal). */
+  --scrollbar-from: rgba(23, 105, 245, 0.42);
+  --scrollbar-to: rgba(18, 207, 227, 0.42);
+  --scrollbar-from-active: #1769f5;
+  --scrollbar-to-active: #12cfe3;
+}
+.dark {
+  --scrollbar-thumb: rgba(56, 189, 248, 0.45);
+  --scrollbar-thumb-active: #38bdf8;
+  --scrollbar-from: rgba(56, 189, 248, 0.5);
+  --scrollbar-to: rgba(18, 207, 227, 0.5);
+  --scrollbar-from-active: #38bdf8;
+  --scrollbar-to-active: #12cfe3;
+}
+
+:where(
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-scroll,
+  .overflow-y-scroll,
+  .overflow-x-scroll
+):where(:not(.scrollbar-none, .no-scrollbar)) {
+  &::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* 12px gutter - 2 x 3px transparent border = 6px visible pill, 3px inset. */
+  &::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(
+      180deg,
+      var(--scrollbar-from),
+      var(--scrollbar-to)
+    );
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    transition: border-width 180ms ease;
+  }
+  /* Horizontal bars run the gradient left to right. */
+  &::-webkit-scrollbar-thumb:horizontal {
+    background-image: linear-gradient(
+      90deg,
+      var(--scrollbar-from),
+      var(--scrollbar-to)
+    );
+  }
+  /* Hover / drag: 8px visible pill, full-strength brand gradient. */
+  &::-webkit-scrollbar-thumb:hover,
+  &::-webkit-scrollbar-thumb:active {
+    background-image: linear-gradient(
+      180deg,
+      var(--scrollbar-from-active),
+      var(--scrollbar-to-active)
+    );
+    border-width: 2px;
+  }
+  &::-webkit-scrollbar-thumb:horizontal:hover,
+  &::-webkit-scrollbar-thumb:horizontal:active {
+    background-image: linear-gradient(
+      90deg,
+      var(--scrollbar-from-active),
+      var(--scrollbar-to-active)
+    );
+  }
+}
+/* Firefox has no ::-webkit-scrollbar: standard thin scrollbar, same colours. */
+@supports not selector(::-webkit-scrollbar) {
+  :where(
+    .overflow-auto,
+    .overflow-y-auto,
+    .overflow-x-auto,
+    .overflow-scroll,
+    .overflow-y-scroll,
+    .overflow-x-scroll
+  ):where(:not(.scrollbar-none, .no-scrollbar)) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
 /* Electric Luminous Blue Active Pill (Softened Contrast Specification) */
 .glass-item-active {
   background: linear-gradient(
@@ -829,4 +937,41 @@ input[type="search"]::-webkit-search-results-button,
 input[type="search"]::-webkit-search-results-decoration {
   display: none !important;
   -webkit-appearance: none !important;
+}
+
+/* Browser autofill paints its own pale-blue/white fill over the control.
+   Keep it on-theme: the field's own surface and text colour win, so autofilled
+   inputs stay readable in dark mode (the autofill background itself cannot be
+   overridden, so it is held back with a long inset shadow instead). */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+select:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: #101828;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  caret-color: #101828;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark select:-webkit-autofill,
+.dark textarea:-webkit-autofill {
+  -webkit-text-fill-color: rgb(255 255 255 / 0.9);
+  box-shadow: 0 0 0 1000px #101b36 inset;
+  caret-color: #ffffff;
+}
+
+input:-webkit-autofill:focus {
+  box-shadow:
+    0 0 0 1000px #ffffff inset,
+    0 0 0 3px rgb(23 105 245 / 0.2);
+}
+
+.dark input:-webkit-autofill:focus {
+  box-shadow:
+    0 0 0 1000px #101b36 inset,
+    0 0 0 3px rgb(6 182 212 / 0.2);
 }

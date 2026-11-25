@@ -39,12 +39,12 @@ import {
   Pagination,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { downloadPayslipPdf } from "../api";
 import { downloadBlob } from "../download";
@@ -80,7 +80,7 @@ export function DownloadPdfButton({
   selfService: boolean;
   size?: "sm" | "md";
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [busy, setBusy] = useState(false);
 
   async function handleClick() {
@@ -89,11 +89,7 @@ export function DownloadPdfButton({
       const pdf = await downloadPayslipPdf(payslip.id, selfService);
       downloadBlob(`${payslip.payslipNumber}.pdf`, pdf);
     } catch (err) {
-      toast({
-        title: "Could not download the payslip",
-        description: describeError(err),
-        variant: "error",
-      });
+      notify("payroll.payslip.downloadFailed", { reason: describeError(err) });
     } finally {
       setBusy(false);
     }
@@ -118,7 +114,7 @@ export function DownloadPdfButton({
 function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
   const generate = useGeneratePayslips();
   const periods = usePeriods({ page: 1, limit: 100 });
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -140,10 +136,12 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
         payrollPeriodId: periodId,
         ...(reason.trim() ? { reason: reason.trim() } : {}),
       });
-      toast({
-        title: `${rows.length} payslip${rows.length === 1 ? "" : "s"} generated successfully`,
-        variant: "success",
-      });
+      notify(
+        rows.length === 1
+          ? "payroll.payslip.generatedOne"
+          : "payroll.payslip.generatedMany",
+        { count: rows.length },
+      );
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -460,7 +458,7 @@ export function MyPayslipsSection() {
 function HrPayslipsSection() {
   const canRead = usePermission(PAYSLIP_READ);
   const canGenerate = usePermission(PAYROLL_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [page, setPage] = useState(1);
   const [periodId, setPeriodId] = useState<number | null>(null);
@@ -585,25 +583,26 @@ function HrPayslipsSection() {
 
   const handleExportCsv = () => {
     if (allPayslips.length === 0) {
-      toast({ title: "No payslips available to export", variant: "warning" });
+      notify("payroll.payslip.nothingToExport");
       return;
     }
     exportPayslipsCsv(allPayslips, activePeriodTitle);
     setExportOpen(false);
-    toast({ title: "CSV export generated successfully", variant: "success" });
+    notify("payroll.payslip.csvExported");
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (allPayslips.length === 0) {
-      toast({ title: "No payslips available to export", variant: "warning" });
+      notify("payroll.payslip.nothingToExport");
       return;
     }
-    exportPayslipsExcel(allPayslips, activePeriodTitle);
     setExportOpen(false);
-    toast({
-      title: "Excel (.xls) export generated successfully",
-      variant: "success",
-    });
+    try {
+      await exportPayslipsExcel(allPayslips, activePeriodTitle);
+      notify("payroll.payslip.excelExported");
+    } catch {
+      notify("payroll.payslip.excelFailed");
+    }
   };
 
   if (!canRead) return null;
@@ -611,7 +610,7 @@ function HrPayslipsSection() {
   return (
     <div className="flex flex-col gap-6 animate-reveal">
       {/* Executive Header Banner - Soft Low-Contrast Styling */}
-      <div className="relative overflow-visible rounded-2xl border border-sky-200/80 bg-linear-to-r from-sky-50/90 via-sky-50/40 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/60">
+      <div className="relative overflow-visible rounded-2xl border border-sky-200/80 bg-linear-to-r from-sky-50/90 via-sky-50/40 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/60">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -837,7 +836,7 @@ function HrPayslipsSection() {
                     className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Export Excel (.xls)
+                    Export Excel (.xlsx)
                   </button>
                 </div>
               </>

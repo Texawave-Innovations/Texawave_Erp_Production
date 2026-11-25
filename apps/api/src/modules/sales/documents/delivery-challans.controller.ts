@@ -23,6 +23,7 @@ import {
   UpdateDeliveryChallanDto,
 } from "./dto/delivery-challan.dto.js";
 import {
+  DraftPreviewQueryDto,
   NextNumberQueryDto,
   SendDocumentEmailDto,
 } from "./dto/document-parts.dto.js";
@@ -50,6 +51,16 @@ export class DeliveryChallansController {
   @ApiOperation({ summary: "Preview the next DC number (not reserved)" })
   nextNumber(@Query() query: NextNumberQueryDto) {
     return this.challans.nextNumber(query.date);
+  }
+
+  @Get("template")
+  @RequirePermission(WRITE)
+  @ApiOperation({
+    summary:
+      "The empty delivery challan (letterhead, next number) for a form's default preview",
+  })
+  template(@Query() query: DraftPreviewQueryDto) {
+    return this.challans.template(query);
   }
 
   @Get(":id")

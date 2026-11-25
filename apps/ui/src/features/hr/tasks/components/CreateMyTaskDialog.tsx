@@ -11,8 +11,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateMyTask } from "../hooks";
 import { createMyTaskSchema, EMPTY_CREATE_MY_TASK_FORM } from "../schema";
 import { PRIORITY_LABELS } from "../status";
@@ -54,7 +54,7 @@ export function CreateMyTaskDialog({ open, onClose }: CreateMyTaskDialogProps) {
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCreateMyTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -80,12 +80,9 @@ export function CreateMyTaskDialog({ open, onClose }: CreateMyTaskDialogProps) {
         priority: result.data.priority,
         requestToAdmin: result.data.requestToAdmin,
       });
-      toast({
-        title: result.data.requestToAdmin
-          ? "Task sent to admin/HR"
-          : "Task created",
-        variant: "success",
-      });
+      notify(
+        result.data.requestToAdmin ? "hr.task.sentToAdmin" : "hr.task.created",
+      );
       setValues({ ...EMPTY_CREATE_MY_TASK_FORM, dueDate: today() });
       onClose();
     } catch (error) {

@@ -32,15 +32,17 @@ export class SalesDashboardService {
     private readonly documents: DocumentFiguresService,
   ) {}
 
-  async get() {
+  /** `year` only re-scopes the yearly parts (monthly trend, top clients);
+   * month-to-date, outstanding and aging are always as of today. */
+  async get(year?: number) {
     const today = parseDateOnly(new Date().toISOString().slice(0, 10));
     const [customers, checklist, figures] = await Promise.all([
       this.customers.countByStatus(),
       this.actionItems.countOpen(today),
-      this.documents.figures(today),
+      this.documents.figures(today, year),
     ]);
     return buildSalesDashboard({
-      year: today.getUTCFullYear(),
+      year: year ?? today.getUTCFullYear(),
       customers: { active: customers.ACTIVE, inactive: customers.INACTIVE },
       checklist,
       documents: {

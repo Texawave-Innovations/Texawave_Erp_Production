@@ -1,11 +1,13 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import * as bcrypt from "bcrypt";
+import type { Redis } from "ioredis";
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import request from "supertest";
 import { AppModule } from "../src/app.module.js";
 import { PrismaService } from "../src/shared/prisma/prisma.service.js";
+import { REDIS_CLIENT } from "../src/shared/redis/redis.constants.js";
 
 /**
  * HR employee documents (e2e): HR can view documents an employee uploaded
@@ -48,6 +50,7 @@ const SELF_SERVICE_PERMS = [
 describe("HR employee documents (e2e)", () => {
   let app: INestApplication<Server>;
   let prisma: PrismaService;
+  let redis: Redis;
   let org: { id: number; slug: string };
   const tokens: Record<string, string> = {};
   const perm = new Map<string, number>();
@@ -133,6 +136,7 @@ describe("HR employee documents (e2e)", () => {
     app = moduleFixture.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
+    redis = app.get<Redis>(REDIS_CLIENT);
     passwordHash = await bcrypt.hash("Password123!", 10);
 
     org = await prisma.organization.create({
@@ -194,6 +198,12 @@ describe("HR employee documents (e2e)", () => {
     await mkUser("hrTeam1", HR_PERMS_TEAM, { teamIds: [team1] });
     await mkUser("hrTeam2", HR_PERMS_TEAM, { teamIds: [team2] });
     await mkUser("noPerm", []);
+    // Reads employees org-wide but may only write documents for team2.
+    await mkUser(
+      "hrMixed",
+      ["hr.employee.read.all", "hr.employee_document.write.team"],
+      { teamIds: [team2] },
+    );
 
     // Self-service user for the regression check against
     // employee/profile/documents/... (profile.repository.ts).
@@ -258,13 +268,25 @@ describe("HR employee documents (e2e)", () => {
       where: { role: { organizationId: org.id } },
     });
     await prisma.role.deleteMany({ where: { organizationId: org.id } });
-    await prisma.user.deleteMany({ where: { organizationId: org.id } });
     await prisma.employmentType.deleteMany({
       where: { organizationId: org.id },
     });
     await prisma.designation.deleteMany({ where: { organizationId: org.id } });
     await prisma.team.deleteMany({ where: { organizationId: org.id } });
-    await prisma.organization.delete({ where: { id: org.id } });
+    // Users and the organization stay: this suite writes audit rows, and
+    // audit_logs is append-only with an FK to the actor (test/README.md).
+    const users = await prisma.user.findMany({
+      where: { organizationId: org.id },
+      select: { id: true },
+    });
+    await Promise.all(
+      users.flatMap(({ id }) => [
+        redis.del(`permissions:${id}`),
+        redis
+          .keys(`refresh:${id}:*`)
+          .then((k) => (k.length ? redis.del(k) : 0)),
+      ]),
+    );
     await app.close();
   });
 
@@ -374,6 +396,299 @@ describe("HR employee documents (e2e)", () => {
       "hrAll",
       `/hr/employees/${empInTeam1}/documents/${uploadedId}`,
     ).expect(404);
+  });
+
+  describe("Batch 1: removal, upload validation and audit", () => {
+    const auditRows = (entityId: number, action: string) =>
+      prisma.auditLog.findMany({
+        where: {
+          organizationId: org.id,
+          entityType: "employee_document",
+          entityId: BigInt(entityId),
+          action,
+        },
+      });
+
+    it("EMP-8: HR cannot delete a document the employee submitted during onboarding", async () => {
+      const onboarding = await prisma.employeeDocument.create({
+        data: {
+          organizationId: org.id,
+          teamId: team1,
+          employeeId: empInTeam1,
+          documentType: "AADHAAR",
+          source: "ONBOARDING",
+          fileName: "aadhaar.png",
+          storageKey: `${empInTeam1}/onboarding-${suffix}.png`,
+          mimeType: "image/png",
+          sizeBytes: 10,
+        },
+      });
+      const res = await del(
+        "hrAll",
+        `/hr/employees/${empInTeam1}/documents/${onboarding.id}`,
+      ).expect(422);
+      expect((res.body as { error: string }).error).toBe(
+        "ONBOARDING_DOCUMENT_NOT_REMOVABLE",
+      );
+      const after = await prisma.employeeDocument.findUnique({
+        where: { id: onboarding.id },
+      });
+      expect(after?.deletedAt).toBeNull();
+      expect(await auditRows(onboarding.id, "delete_document")).toHaveLength(0);
+    });
+
+    it("EMP-9: rejects a documentType outside the fixed set", async () => {
+      await request(app.getHttpServer())
+        .post(`/hr/employees/${empInTeam1}/documents`)
+        .set(auth("hrAll"))
+        .field("label", "Odd")
+        .field("documentType", "NOT_A_TYPE")
+        .attach("file", PNG_BYTES, "odd.png")
+        .expect(400);
+    });
+
+    it("EMP-9: rejects a label that spells a reserved type when no type is given", async () => {
+      await upload(
+        "hrAll",
+        empInTeam1,
+        "profile_photo",
+        PNG_BYTES,
+        "p.png",
+      ).expect(400);
+    });
+
+    it("EMP-9: still accepts PROFILE_PHOTO as the document type (HR avatar upload)", async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/hr/employees/${empInTeam1}/documents`)
+        .set(auth("hrAll"))
+        .field("label", "Profile photo")
+        .field("documentType", "PROFILE_PHOTO")
+        .attach("file", PNG_BYTES, "me.png")
+        .expect(201);
+      expect((res.body as Body<DocRow>).data.documentType).toBe(
+        "PROFILE_PHOTO",
+      );
+    });
+
+    it("EMP-9: a team-scoped document writer cannot upload into another team even with org-wide employee read", async () => {
+      await upload(
+        "hrMixed",
+        empInTeam1,
+        "Cross team",
+        PNG_BYTES,
+        "x.png",
+      ).expect(404);
+      const rows = await prisma.employeeDocument.findMany({
+        where: { employeeId: empInTeam1, label: "Cross team" },
+      });
+      expect(rows).toHaveLength(0);
+    });
+
+    it("EMP-16: upload, download and delete each write an audit row with no file name, label or contents", async () => {
+      const up = await upload(
+        "hrAll",
+        empInTeam1,
+        "Audit Subject Label",
+        PNG_BYTES,
+        "secret-name.png",
+      ).expect(201);
+      const id = (up.body as Body<DocRow>).data.id;
+
+      await get(
+        "hrAll",
+        `/hr/employees/${empInTeam1}/documents/${id}/file`,
+      ).expect(200);
+      await del("hrAll", `/hr/employees/${empInTeam1}/documents/${id}`).expect(
+        204,
+      );
+
+      for (const action of [
+        "upload_document",
+        "download_document",
+        "delete_document",
+      ]) {
+        const rows = await auditRows(id, action);
+        expect(rows).toHaveLength(1);
+        const row = rows[0];
+        expect(row?.actorUserId).not.toBeNull();
+        const meta = JSON.stringify([row?.before, row?.after, row?.reason]);
+        expect(meta).not.toContain("secret-name");
+        expect(meta).not.toContain("Audit Subject Label");
+        expect(meta).not.toContain("storageKey");
+      }
+    });
+
+    describe("replacing a document's file", () => {
+      const replace = (
+        who: string,
+        employeeId: number,
+        id: number,
+        buffer: Buffer,
+        name: string,
+      ) =>
+        request(app.getHttpServer())
+          .put(`/hr/employees/${employeeId}/documents/${id}/file`)
+          .set(auth(who))
+          .attach("file", buffer, name);
+      const PNG_V2 = Buffer.concat([PNG_BYTES, Buffer.from("-second-version")]);
+
+      it("swaps the file of an HR-uploaded document and keeps its id, label and source", async () => {
+        const up = await upload(
+          "hrAll",
+          empInTeam1,
+          "Replace Me",
+          PNG_BYTES,
+          "v1.png",
+        ).expect(201);
+        const id = (up.body as Body<DocRow>).data.id;
+        const before = await prisma.employeeDocument.findUniqueOrThrow({
+          where: { id },
+        });
+
+        const res = await replace(
+          "hrAll",
+          empInTeam1,
+          id,
+          PNG_V2,
+          "v2.png",
+        ).expect(200);
+        const doc = (res.body as Body<DocRow>).data;
+        expect(doc.id).toBe(id);
+        expect(doc.label).toBe("Replace Me");
+        expect(doc.source).toBe("HR_UPLOADED");
+        expect(doc.fileName).toBe("v2.png");
+        expect(JSON.stringify(res.body)).not.toContain("storageKey");
+
+        const after = await prisma.employeeDocument.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(after.storageKey).not.toBe(before.storageKey);
+        expect(after.sizeBytes).toBe(PNG_V2.length);
+
+        const file = await get(
+          "hrAll",
+          `/hr/employees/${empInTeam1}/documents/${id}/file`,
+        ).expect(200);
+        expect(Buffer.from(file.body as Buffer).equals(PNG_V2)).toBe(true);
+      });
+
+      it("lets HR replace a document the employee submitted during onboarding", async () => {
+        const onboarding = await prisma.employeeDocument.create({
+          data: {
+            organizationId: org.id,
+            teamId: team1,
+            employeeId: empInTeam1,
+            documentType: "CERT_12TH",
+            source: "ONBOARDING",
+            fileName: "old.png",
+            storageKey: `${empInTeam1}/onboarding-replace-${suffix}.png`,
+            mimeType: "image/png",
+            sizeBytes: 10,
+          },
+        });
+        await replace(
+          "hrAll",
+          empInTeam1,
+          onboarding.id,
+          PNG_V2,
+          "new.png",
+        ).expect(200);
+        const after = await prisma.employeeDocument.findUniqueOrThrow({
+          where: { id: onboarding.id },
+        });
+        expect(after.source).toBe("ONBOARDING");
+        expect(after.documentType).toBe("CERT_12TH");
+        expect(after.fileName).toBe("new.png");
+        expect(after.deletedAt).toBeNull();
+      });
+
+      it("rejects a non-PDF/JPG/PNG replacement and leaves the document unchanged", async () => {
+        const up = await upload(
+          "hrAll",
+          empInTeam1,
+          "Keep Me",
+          PNG_BYTES,
+          "keep.png",
+        ).expect(201);
+        const id = (up.body as Body<DocRow>).data.id;
+        const before = await prisma.employeeDocument.findUniqueOrThrow({
+          where: { id },
+        });
+        await replace(
+          "hrAll",
+          empInTeam1,
+          id,
+          Buffer.from("not a real file"),
+          "x.txt",
+        ).expect(400);
+        const after = await prisma.employeeDocument.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(after.storageKey).toBe(before.storageKey);
+        expect(after.fileName).toBe("keep.png");
+      });
+
+      it("404s for a deleted document and for another team's employee", async () => {
+        const up = await upload(
+          "hrAll",
+          empInTeam1,
+          "Gone Soon",
+          PNG_BYTES,
+          "g.png",
+        ).expect(201);
+        const id = (up.body as Body<DocRow>).data.id;
+        await replace("hrMixed", empInTeam1, id, PNG_V2, "cross.png").expect(
+          404,
+        );
+        await del(
+          "hrAll",
+          `/hr/employees/${empInTeam1}/documents/${id}`,
+        ).expect(204);
+        await replace("hrAll", empInTeam1, id, PNG_V2, "late.png").expect(404);
+      });
+
+      it("writes one replace_document audit row with no file name, label or contents", async () => {
+        const up = await upload(
+          "hrAll",
+          empInTeam1,
+          "Audit Replace Label",
+          PNG_BYTES,
+          "orig-secret.png",
+        ).expect(201);
+        const id = (up.body as Body<DocRow>).data.id;
+        await replace(
+          "hrAll",
+          empInTeam1,
+          id,
+          PNG_V2,
+          "replacement-secret.png",
+        ).expect(200);
+        const rows = await auditRows(id, "replace_document");
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.actorUserId).not.toBeNull();
+        const meta = JSON.stringify([
+          rows[0]?.before,
+          rows[0]?.after,
+          rows[0]?.reason,
+        ]);
+        for (const secret of [
+          "orig-secret",
+          "replacement-secret",
+          "Audit Replace Label",
+          "storageKey",
+        ]) {
+          expect(meta).not.toContain(secret);
+        }
+      });
+    });
+
+    it("EMP-16: a download that fails (missing/out-of-scope document) writes no audit row", async () => {
+      await get(
+        "hrAll",
+        `/hr/employees/${empInTeam1}/documents/99999999/file`,
+      ).expect(404);
+      expect(await auditRows(99999999, "download_document")).toHaveLength(0);
+    });
   });
 
   describe("regression: self-service onboarding document flow is unaffected", () => {

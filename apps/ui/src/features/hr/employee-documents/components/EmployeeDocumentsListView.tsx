@@ -29,10 +29,7 @@ import {
   useLookup,
 } from "../../employees/hooks";
 import { EmployeeStatusBadge } from "../../employees/components/EmployeeStatusBadge";
-import {
-  EMPLOYEE_STATUSES,
-  type EmployeeStatus,
-} from "../../employees/types";
+import { EMPLOYEE_STATUSES, type EmployeeStatus } from "../../employees/types";
 import { STATUS_LABELS } from "../../employees/status";
 import { READ_ANY_SCOPE } from "../../employees/permissions";
 import { EmployeeDocumentEmployeeCard } from "./EmployeeDocumentEmployeeCard";
@@ -84,6 +81,7 @@ export function EmployeeDocumentsListView() {
   if (!canReadEmployees || !canReadDocuments) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to employee documents"
       >
@@ -253,7 +251,11 @@ export function EmployeeDocumentsListView() {
         )
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to employees">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to employees"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

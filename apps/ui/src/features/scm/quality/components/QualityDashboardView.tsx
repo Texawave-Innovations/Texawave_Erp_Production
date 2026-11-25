@@ -53,7 +53,11 @@ export function QualityDashboardView() {
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to quality">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to quality"
+        >
           Ask an administrator for the <code>scm.quality.read</code> permission.
         </Alert>
       );

@@ -9,12 +9,14 @@ import type {
   CorrectSessionResult,
   DayReport,
   DayWorkflowStatus,
+  EmployeeMonth,
   EmployeeReport,
   LinkableProject,
   MyTimesheetDay,
   ReviewDayDetail,
   ReviewDaySummary,
   ReviewDecisionResult,
+  ReviewEmployeeMonth,
   ReviewSummary,
   SubmitDayResult,
   SubmitWeekResult,
@@ -25,6 +27,15 @@ import type {
 export async function getMyDay(date: string): Promise<MyTimesheetDay> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<MyTimesheetDay>(`/timesheets/my/${date}`),
+  );
+  return data;
+}
+
+/** The signed-in employee's month (`YYYY-MM`): attendance, check-in/out, hours
+ * and approved permissions per day, beside what was logged. */
+export async function getMyMonth(month: string): Promise<EmployeeMonth> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<EmployeeMonth>("/timesheets/my-month", { query: { month } }),
   );
   return data;
 }
@@ -115,7 +126,7 @@ export async function submitWeek(weekStart: string): Promise<SubmitWeekResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Review (reporting manager, then HR) — scoped server-side
+// Review (team lead, then HR) — scoped server-side
 // ---------------------------------------------------------------------------
 
 export interface ReviewListQuery {
@@ -147,12 +158,31 @@ export function listReviewDays(
   ) as Promise<PaginatedEnvelope<ReviewDaySummary>>;
 }
 
+/** One employee-day for a reviewer. `includeDrafts` also opens a day the
+ * employee has not submitted (read-only, for the employee drill-down). */
 export async function getReviewDay(
   employeeId: number,
   date: string,
+  includeDrafts = false,
 ): Promise<ReviewDayDetail> {
   const { data } = await withAuthRetry(() =>
-    apiClient.get<ReviewDayDetail>(`/timesheets/review/${employeeId}/${date}`),
+    apiClient.get<ReviewDayDetail>(`/timesheets/review/${employeeId}/${date}`, {
+      query: includeDrafts ? { drafts: "true" } : {},
+    }),
+  );
+  return data;
+}
+
+/** One employee's month for a reviewer (inside their `hr.timesheet.read` reach). */
+export async function getEmployeeMonth(
+  employeeId: number,
+  month: string,
+): Promise<ReviewEmployeeMonth> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<ReviewEmployeeMonth>(
+      `/timesheets/employees/${employeeId}/month`,
+      { query: { month } },
+    ),
   );
   return data;
 }

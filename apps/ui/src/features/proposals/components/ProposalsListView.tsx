@@ -8,6 +8,7 @@ import type {
 } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
 import {
+  PageHeader,
   ActionMenu,
   type ActionMenuItem,
   Alert,
@@ -26,7 +27,6 @@ import {
   StatusBadge,
   TableSkeleton,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -49,10 +49,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, formatDate } from "@/features/projects/format";
+import { formatDate } from "@/features/projects/format";
 import {
   useDeleteProposalDocument,
   useDuplicateProposalDocument,
@@ -97,7 +98,7 @@ type HubTab = "proposals" | "history";
  * actions, and the "Workflow & Audit History" tab. */
 export function ProposalsListView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(PROPOSALS_READ);
   const canWrite = usePermission(PROPOSALS_WRITE);
   const canSend = usePermission(PROPOSALS_SEND);
@@ -172,6 +173,7 @@ export function ProposalsListView() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Proposal Documents"
       >
@@ -183,17 +185,10 @@ export function ProposalsListView() {
   async function handleDuplicate(p: ProposalDocument) {
     try {
       const copy = await duplicateMutation.mutateAsync(p.id);
-      toast({
-        title: `Duplicated as ${copy.proposalNumber}`,
-        variant: "success",
-      });
+      notify("proposals.duplicated", { number: copy.proposalNumber });
       router.push(`/projects/proposals/${copy.id}`);
     } catch (err) {
-      toast({
-        title: "Could not duplicate",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.duplicateFailed");
     }
   }
 
@@ -276,54 +271,37 @@ export function ProposalsListView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg sm:p-8 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-md">
-            <FileText className="h-7 w-7 text-white" />
-          </div>
-          <div>
-            <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-              Proposal Pipeline
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Proposal Documents
-            </h1>
-            <p className="max-w-xl text-theme-sm text-sky-50/90">
-              Client proposals from versioned templates — internal review,
-              client delivery, follow-ups and a full audit trail.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canSettings ? (
-            <Link
-              href="/projects/proposals/settings"
-              className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-theme-sm font-semibold text-white hover:bg-white/25"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
-          ) : null}
-          {canTemplates ? (
-            <Link
-              href="/projects/proposals/templates"
-              className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-2 text-theme-sm font-semibold text-white hover:bg-white/25"
-            >
-              <Layers className="h-4 w-4" />
-              Templates
-            </Link>
-          ) : null}
-          {canWrite ? (
-            <Link
-              href="/projects/proposals/create"
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-theme-sm font-bold text-brand-700 shadow-md hover:bg-sky-50"
-            >
-              <Plus className="h-4 w-4" />
-              Create Proposal
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <PageHeader
+        variant="banner"
+        icon={FileText}
+        title="Proposal Documents"
+        description="Client proposals from versioned templates — internal review, client delivery, follow-ups and a full audit trail."
+        action={
+          <>
+            {canSettings ? (
+              <Link href="/projects/proposals/settings">
+                <Button variant="glass">
+                  <Settings className="h-4 w-4" /> Settings
+                </Button>
+              </Link>
+            ) : null}
+            {canTemplates ? (
+              <Link href="/projects/proposals/templates">
+                <Button variant="glass">
+                  <Layers className="h-4 w-4" /> Templates
+                </Button>
+              </Link>
+            ) : null}
+            {canWrite ? (
+              <Link href="/projects/proposals/create">
+                <Button variant="glass">
+                  <Plus className="h-4 w-4" /> Create Proposal
+                </Button>
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
@@ -512,6 +490,7 @@ export function ProposalsListView() {
               query.error instanceof ApiError &&
               query.error.isPermissionError ? (
                 <Alert
+                  dismissible
                   variant="warning"
                   title="You don't have access to Proposal Documents"
                 >
@@ -693,17 +672,13 @@ export function ProposalsListView() {
               id: extendTarget.id,
               input: { dueDate, reason },
             });
-            toast({
-              title: `Follow-up for ${extendTarget.proposalNumber} set to ${formatDate(dueDate)}`,
-              variant: "success",
+            notify("proposals.followUpSetFor", {
+              number: extendTarget.proposalNumber,
+              date: formatDate(dueDate),
             });
             setExtendTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not update the follow-up",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.followUpFailed");
           }
         }}
       />
@@ -719,17 +694,13 @@ export function ProposalsListView() {
               id: proposal.id,
               input: { action, comments },
             });
-            toast({
-              title: `${proposal.proposalNumber}: ${WORKFLOW_ACTION_META[action].label}`,
-              variant: "success",
+            notify("proposals.workflowDone", {
+              number: proposal.proposalNumber,
+              action: WORKFLOW_ACTION_META[action].label,
             });
             setWorkflowTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not update the status",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.statusUpdateFailed");
           }
         }}
       />
@@ -740,17 +711,12 @@ export function ProposalsListView() {
           if (!deleteTarget) return;
           try {
             await deleteMutation.mutateAsync(deleteTarget.id);
-            toast({
-              title: `${deleteTarget.proposalNumber} deleted`,
-              variant: "success",
+            notify("proposals.deleted", {
+              number: deleteTarget.proposalNumber,
             });
             setDeleteTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not delete",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.deleteFailed");
           }
         }}
         title="Delete this draft proposal?"

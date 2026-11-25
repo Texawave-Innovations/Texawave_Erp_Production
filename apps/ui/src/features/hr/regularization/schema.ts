@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN as ISO_DATE } from "@texawave-erp/core";
 import { z } from "zod";
 import { ALLOWED_TIMES, CORRECTION_TYPES } from "./types";
 
@@ -8,7 +9,6 @@ import { ALLOWED_TIMES, CORRECTION_TYPES } from "./types";
  * fails the way the API would, before a round trip. The backend remains
  * authoritative.
  */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const submitCorrectionSchema = z.object({
   attendanceDate: z

@@ -1,5 +1,6 @@
-import { InvoicesView } from "@/features/sales/invoices/components/InvoicesView";
+import { redirect } from "next/navigation";
 
-export default function SalesTaxInvoicesPage() {
-  return <InvoicesView invoiceType="TAX" />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectTax() {
+  redirect("/sales?tab=tax-invoices");
 }

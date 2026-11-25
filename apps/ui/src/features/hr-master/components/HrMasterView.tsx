@@ -1,7 +1,8 @@
 "use client";
 
 import { ApiError } from "@texawave-erp/core";
-import { MasterListCard, useToast } from "@texawave-erp/ui-kit";
+import { MasterListCard } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateDepartment,
@@ -48,7 +49,7 @@ const PAGE_SIZE = 50;
 function DepartmentsCard() {
   const canRead = usePermission(DEPARTMENT_READ);
   const canWrite = usePermission(DEPARTMENT_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useDepartments({ page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateDepartment();
@@ -62,24 +63,23 @@ function DepartmentsCard() {
   async function handleAdd(value: string) {
     try {
       await createMutation.mutateAsync({ name: value });
-      toast({ title: "Department added", variant: "success" });
+      notify("hr.master.departmentAdded");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${DEPARTMENT_WRITE} permission.`
-            : "Could not add this department",
-        variant: "error",
-      });
+      notify(
+        error instanceof ApiError && error.isPermissionError
+          ? "hr.master.permissionMissing"
+          : "hr.master.departmentAddFailed",
+        { permission: DEPARTMENT_WRITE },
+      );
     }
   }
 
   async function handleDelete(id: number | string, label: string) {
     try {
       await deleteMutation.mutateAsync(Number(id));
-      toast({ title: "Department removed", variant: "success" });
+      notify("hr.master.departmentRemoved");
     } catch {
-      toast({ title: `Could not remove "${label}"`, variant: "error" });
+      notify("hr.master.removeFailed", { name: label });
     }
   }
 
@@ -104,7 +104,7 @@ function DepartmentsCard() {
 function DesignationsCard() {
   const canRead = usePermission(DESIGNATION_READ);
   const canWrite = usePermission(DESIGNATION_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useDesignations({ page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateDesignation();
@@ -120,24 +120,23 @@ function DesignationsCard() {
         code: deriveCode(value),
         name: value,
       });
-      toast({ title: "Designation added", variant: "success" });
+      notify("hr.master.designationAdded");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${DESIGNATION_WRITE} permission.`
-            : "Could not add this designation",
-        variant: "error",
-      });
+      notify(
+        error instanceof ApiError && error.isPermissionError
+          ? "hr.master.permissionMissing"
+          : "hr.master.designationAddFailed",
+        { permission: DESIGNATION_WRITE },
+      );
     }
   }
 
   async function handleDelete(id: number | string, label: string) {
     try {
       await deactivateMutation.mutateAsync({ id: Number(id), isActive: false });
-      toast({ title: "Designation removed", variant: "success" });
+      notify("hr.master.designationRemoved");
     } catch {
-      toast({ title: `Could not remove "${label}"`, variant: "error" });
+      notify("hr.master.removeFailed", { name: label });
     }
   }
 
@@ -162,7 +161,7 @@ function DesignationsCard() {
 function OfficeLocationsCard() {
   const canRead = usePermission(WORK_LOCATION_READ);
   const canWrite = usePermission(WORK_LOCATION_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useWorkLocations({ page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateWorkLocation();
@@ -178,24 +177,23 @@ function OfficeLocationsCard() {
         code: deriveCode(value),
         name: value,
       });
-      toast({ title: "Office location added", variant: "success" });
+      notify("hr.master.locationAdded");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${WORK_LOCATION_WRITE} permission.`
-            : "Could not add this office location",
-        variant: "error",
-      });
+      notify(
+        error instanceof ApiError && error.isPermissionError
+          ? "hr.master.permissionMissing"
+          : "hr.master.locationAddFailed",
+        { permission: WORK_LOCATION_WRITE },
+      );
     }
   }
 
   async function handleDelete(id: number | string, label: string) {
     try {
       await deactivateMutation.mutateAsync({ id: Number(id), isActive: false });
-      toast({ title: "Office location removed", variant: "success" });
+      notify("hr.master.locationRemoved");
     } catch {
-      toast({ title: `Could not remove "${label}"`, variant: "error" });
+      notify("hr.master.removeFailed", { name: label });
     }
   }
 
@@ -220,7 +218,7 @@ function OfficeLocationsCard() {
 function LeaveTypesCard() {
   const canRead = usePermission(LEAVE_TYPE_READ);
   const canWrite = usePermission(LEAVE_TYPE_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useLeaveTypes({ page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateLeaveType();
@@ -236,24 +234,23 @@ function LeaveTypesCard() {
         code: deriveCode(value),
         name: value,
       });
-      toast({ title: "Leave type added", variant: "success" });
+      notify("hr.master.leaveTypeAdded");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${LEAVE_TYPE_WRITE} permission.`
-            : "Could not add this leave type",
-        variant: "error",
-      });
+      notify(
+        error instanceof ApiError && error.isPermissionError
+          ? "hr.master.permissionMissing"
+          : "hr.master.leaveTypeAddFailed",
+        { permission: LEAVE_TYPE_WRITE },
+      );
     }
   }
 
   async function handleDelete(id: number | string, label: string) {
     try {
       await deactivateMutation.mutateAsync({ id: Number(id), isActive: false });
-      toast({ title: "Leave type removed", variant: "success" });
+      notify("hr.master.leaveTypeRemoved");
     } catch {
-      toast({ title: `Could not remove "${label}"`, variant: "error" });
+      notify("hr.master.removeFailed", { name: label });
     }
   }
 
@@ -287,7 +284,7 @@ const DEFAULT_SHIFT_WORKING_MINUTES = 480;
 function ShiftsCard() {
   const canRead = usePermission(SHIFT_READ);
   const canWrite = usePermission(SHIFT_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useShifts({ page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateShift();
@@ -306,24 +303,23 @@ function ShiftsCard() {
         endTime: DEFAULT_SHIFT_END,
         workingMinutes: DEFAULT_SHIFT_WORKING_MINUTES,
       });
-      toast({ title: "Shift added", variant: "success" });
+      notify("hr.master.shiftAdded");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${SHIFT_WRITE} permission.`
-            : "Could not add this shift",
-        variant: "error",
-      });
+      notify(
+        error instanceof ApiError && error.isPermissionError
+          ? "hr.master.permissionMissing"
+          : "hr.master.shiftAddFailed",
+        { permission: SHIFT_WRITE },
+      );
     }
   }
 
   async function handleDelete(id: number | string, label: string) {
     try {
       await deactivateMutation.mutateAsync({ id: Number(id), isActive: false });
-      toast({ title: "Shift removed", variant: "success" });
+      notify("hr.master.shiftRemoved");
     } catch {
-      toast({ title: `Could not remove "${label}"`, variant: "error" });
+      notify("hr.master.removeFailed", { name: label });
     }
   }
 

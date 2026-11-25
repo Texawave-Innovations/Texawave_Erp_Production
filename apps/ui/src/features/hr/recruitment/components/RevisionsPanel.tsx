@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   ArrowLeft,
   Download,
@@ -88,7 +88,7 @@ function ReadError({
 }) {
   if (error instanceof ApiError && error.isPermissionError) {
     return (
-      <Alert variant="warning" title="Access denied">
+      <Alert dismissible variant="warning" title="Access denied">
         You do not have permission to view {what}.
       </Alert>
     );
@@ -195,7 +195,7 @@ function RevisionWorkspace({
   editLetter: RevisionLetterView | null;
   onBack: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMutation = useCreateRevision();
   const updateMutation = useUpdateRevision();
 
@@ -219,7 +219,10 @@ function RevisionWorkspace({
     const currCtc = parseFloat(formExtra?.currentCtc || "1000000") || 1000000;
 
     return {
-      documentNo: formExtra?.documentNo || editLetter?.documentNo || "TW/HR/REV/26-27/001",
+      documentNo:
+        formExtra?.documentNo ||
+        editLetter?.documentNo ||
+        "TW/HR/REV/26-27/001",
       employeeName: empName,
       employeeCode: empCode,
       designation: desig,
@@ -246,11 +249,18 @@ function RevisionWorkspace({
       signatureImageUrl: signatureImageUrl || undefined,
       sealImageUrl: sealImageUrl || undefined,
     };
-  }, [employee, editLetter, formState, formExtra, signatureImageUrl, sealImageUrl]);
+  }, [
+    employee,
+    editLetter,
+    formState,
+    formExtra,
+    signatureImageUrl,
+    sealImageUrl,
+  ]);
 
   async function handleIssue(input: CreateRevisionLetterInput) {
     await createMutation.mutateAsync(input);
-    toast({ title: "Revision letter issued", variant: "success" });
+    notify("hr.revision.issued");
     onBack();
   }
 
@@ -258,7 +268,7 @@ function RevisionWorkspace({
     if (!editLetter) return;
     const { employeeId: _empId, ...changes } = input;
     await updateMutation.mutateAsync({ id: editLetter.id, input: changes });
-    toast({ title: "Revision letter updated", variant: "success" });
+    notify("hr.revision.updated");
     onBack();
   }
 
@@ -343,7 +353,9 @@ function RevisionWorkspace({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => printOfferLetter("revision-letter-printable-content")}
+                onClick={() =>
+                  printOfferLetter("revision-letter-printable-content")
+                }
                 className="inline-flex items-center gap-1.5 self-start sm:self-auto text-brand-600 hover:text-brand-700 hover:bg-brand-50 border-brand-200"
               >
                 <Download className="h-4 w-4" />
@@ -354,7 +366,9 @@ function RevisionWorkspace({
             <div className="max-h-[calc(100vh-16rem)] overflow-y-auto rounded-xl p-1 print:max-h-none print:overflow-visible print:p-0">
               <RevisionLetterDocument
                 data={previewData}
-                onPrint={() => printOfferLetter("revision-letter-printable-content")}
+                onPrint={() =>
+                  printOfferLetter("revision-letter-printable-content")
+                }
               />
             </div>
           </Card>
@@ -389,7 +403,7 @@ function EmployeePicker({
   let body: React.ReactNode;
   if (!canRead) {
     body = (
-      <Alert variant="warning" title="Employee list unavailable">
+      <Alert dismissible variant="warning" title="Employee list unavailable">
         You do not have permission to view employees, so you cannot pick one
         here.
       </Alert>
@@ -429,7 +443,7 @@ function EmployeePicker({
               {
                 header: "Employee ID",
                 cell: (emp) => (
-                  <span className="font-mono text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
+                  <span className="text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
                     {emp.employeeCode}
                   </span>
                 ),
@@ -679,7 +693,9 @@ function RevisionHistory({
                 signatoryName: detail.data.signatoryName,
                 signatoryDesignation: detail.data.signatoryDesignation,
               }}
-              onPrint={() => printOfferLetter("revision-letter-printable-content")}
+              onPrint={() =>
+                printOfferLetter("revision-letter-printable-content")
+              }
             />
           </div>
         )}

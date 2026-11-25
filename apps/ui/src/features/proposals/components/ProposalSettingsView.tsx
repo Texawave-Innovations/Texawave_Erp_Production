@@ -11,9 +11,9 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProposalSettings, useUpdateProposalSettings } from "../hooks";
 import { PROPOSALS_MANAGE_SETTINGS, PROPOSALS_READ } from "../permissions";
@@ -26,6 +26,7 @@ export function ProposalSettingsView() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Proposal Settings"
       >
@@ -49,6 +50,7 @@ export function ProposalSettingsView() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to Proposal Settings"
         >
@@ -120,7 +122,7 @@ const FOOTER_TOGGLES: { key: ToggleKey; label: string; hint: string }[] = [
  * footer toggles, and numbering format with a live sample. */
 function ProposalSettingsForm({ settings }: { settings: ProposalSettings }) {
   const canManage = usePermission(PROPOSALS_MANAGE_SETTINGS);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const updateMutation = useUpdateProposalSettings();
 
   const [companyName, setCompanyName] = useState(settings.companyName ?? "");
@@ -171,9 +173,9 @@ function ProposalSettingsForm({ settings }: { settings: ProposalSettings }) {
         sequenceDigits,
         ...toggles,
       });
-      toast({ title: "Settings saved", variant: "success" });
+      notify("proposals.settings.saved");
     } catch {
-      toast({ title: "Could not save settings", variant: "error" });
+      notify("proposals.settings.saveFailed");
     }
   }
 

@@ -2,9 +2,11 @@
 
 import type { ScmTransfer } from "@texawave-erp/api-types";
 import { TRANSFER_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { ArrowLeftRight, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -26,11 +28,18 @@ import {
 
 type Action = "approve" | "dispatch" | "receive" | "cancel";
 
-const SUCCESS: Record<Action, string> = {
-  approve: "Transfer approved",
-  dispatch: "Transfer marked in transit — source stock reduced",
-  receive: "Transfer received — destination stock increased",
-  cancel: "Transfer cancelled",
+const SUCCESS: Record<Action, MessageKey> = {
+  approve: "scm.transfer.approved",
+  dispatch: "scm.transfer.dispatched",
+  receive: "scm.transfer.received",
+  cancel: "scm.transfer.cancelled",
+};
+
+const FAILED: Record<Action, MessageKey> = {
+  approve: "scm.transfer.approveFailed",
+  dispatch: "scm.transfer.dispatchFailed",
+  receive: "scm.transfer.receiveFailed",
+  cancel: "scm.transfer.cancelFailed",
 };
 
 /** Legacy `ScmTransfers`: REQUESTED -> APPROVED -> IN_TRANSIT (posts
@@ -40,7 +49,7 @@ export function TransfersView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const canApprove = usePermission("scm.inventory.approve");
   const warehouses = useWarehouseOptions();
@@ -59,12 +68,9 @@ export function TransfersView() {
   async function run(t: ScmTransfer, action: Action) {
     try {
       await act.mutateAsync({ id: t.id, action });
-      toast({ title: SUCCESS[action], variant: "success" });
+      notify(SUCCESS[action]);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} transfer`),
-        variant: "error",
-      });
+      notifyError(err, FAILED[action]);
     }
   }
 
@@ -221,8 +227,8 @@ export function TransfersView() {
         }
         confirmText="Delete transfer"
         run={(t) => deleteTransfer.mutateAsync(t.id)}
-        successMessage="Transfer deleted"
-        errorFallback="Failed to delete transfer"
+        successMessage="scm.transfer.deleted"
+        errorFallback="scm.transfer.deleteFailed"
       />
       <ScmFormDialog
         open={open}
@@ -283,9 +289,9 @@ export function TransfersView() {
               notes: v.notes as string | undefined,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create transfer"));
+            throw new Error(errorText(err, "scm.transfer.createFailed"));
           }
-          toast({ title: "Transfer requested", variant: "success" });
+          notify("scm.transfer.requested");
           setOpen(false);
         }}
       />

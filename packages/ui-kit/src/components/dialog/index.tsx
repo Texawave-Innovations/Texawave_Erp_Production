@@ -1,15 +1,35 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 
 export type DialogSize =
   "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "full";
 
+export type DialogTone = "brand" | "danger";
+
+const BANNER_TONE: Record<DialogTone, string> = {
+  brand:
+    "bg-linear-135 from-[#38bdf8] via-[#0ea5e9] to-[#2dd4bf] dark:bg-linear-to-r dark:from-[#131722] dark:via-[#0E111A] dark:to-[#08090D] dark:border-b dark:border-[#1C2029]",
+  danger:
+    "bg-linear-135 from-error-500 via-error-600 to-error-700 dark:bg-linear-to-r dark:from-[#2a1215] dark:via-[#1f0f12] dark:to-[#120a0c] dark:border-b dark:border-[#3a1a1e]",
+};
+
 export interface DialogProps {
   open: boolean;
   onClose: () => void;
+  /** A string gets the standard title; a node is rendered as given. */
   title?: ReactNode | string | undefined;
+  /** A muted line under the title (a code, a contact, a date range). */
+  subtitle?: ReactNode | undefined;
+  /** An icon, shown in a tinted tile before the title (else a small dot). */
+  icon?: ReactNode | undefined;
+  /** Chips beside the title (a status, a code). */
+  badge?: ReactNode | undefined;
+  /** Buttons on the right of the banner (they get the glass style). */
+  actions?: ReactNode | undefined;
+  /** Banner colour: brand (default) or danger for destructive actions. */
+  tone?: DialogTone | undefined;
   children: ReactNode;
   footer?: ReactNode | undefined;
   size?: DialogSize | undefined;
@@ -44,6 +64,11 @@ export function Dialog({
   open,
   onClose,
   title,
+  subtitle,
+  icon,
+  badge,
+  actions,
+  tone = "brand",
   children,
   footer,
   size = "lg",
@@ -53,6 +78,9 @@ export function Dialog({
   showCloseButton = true,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  /** The body has scrolled under the header: it gets a soft shadow. */
+  const [scrolled, setScrolled] = useState(false);
 
   // Sync open state with native dialog
   useEffect(() => {
@@ -63,6 +91,7 @@ export function Dialog({
     } else if (!open && dialog.open) {
       dialog.close();
     }
+    if (!open) setScrolled(false);
   }, [open]);
 
   // Prevent background page scrolling when modal is open
@@ -84,12 +113,26 @@ export function Dialog({
     };
   }, [open]);
 
+  /**
+   * Whether the current press began on the backdrop. A drag that starts in a
+   * field (selecting text) and ends over the backdrop fires its `click` on the
+   * dialog element, so the release point alone can't tell it from a real
+   * backdrop click.
+   */
+  const pressStartedOnBackdrop = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDialogElement>) => {
+    pressStartedOnBackdrop.current = e.target === ref.current;
+  };
+
   // Click outside modal backdrop to close safely
   const handleClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     const dialog = ref.current;
     if (!dialog) return;
-    // Clicks on backdrop target the dialog itself
-    if (e.target !== dialog) return;
+    const startedOnBackdrop = pressStartedOnBackdrop.current;
+    pressStartedOnBackdrop.current = false;
+    // Clicks on backdrop target the dialog itself, and must also have started there
+    if (e.target !== dialog || !startedOnBackdrop) return;
 
     const rect = dialog.getBoundingClientRect();
     const isInsideDialog =
@@ -113,8 +156,9 @@ export function Dialog({
       ref={ref}
       onClose={onClose}
       onCancel={onClose}
+      onMouseDown={handleMouseDown}
       onClick={handleClick}
-      aria-labelledby={shouldRenderHeader ? "dialog-title" : undefined}
+      aria-labelledby={shouldRenderHeader ? titleId : undefined}
       className={cn(
         "[&:not([open])]:hidden",
         "fixed inset-0 m-auto flex flex-col",
@@ -130,48 +174,89 @@ export function Dialog({
         className,
       )}
     >
-      {/* Top brand accent bar */}
-      <div className="h-1 w-full bg-linear-to-r from-brand-400 via-brand-500 to-brand-600 shrink-0 rounded-t-2xl" />
+      {/* Without a header the dialog keeps a thin brand accent bar. */}
+      {shouldRenderHeader ? null : (
+        <div className="h-1 w-full shrink-0 rounded-t-2xl bg-linear-to-r from-brand-400 via-brand-500 to-brand-600" />
+      )}
 
-      {/* Optional Sticky Header */}
+      {/* Banner header: the same look as a page banner (PageHeader). */}
       {shouldRenderHeader ? (
-        <div className="shrink-0 flex items-center justify-between border-b border-gray-100 px-5 sm:px-6 py-4 dark:border-gray-800">
-          <div className="flex items-center gap-2.5 min-w-0 pr-2">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500 ring-4 ring-brand-500/20 dark:bg-brand-400 dark:ring-brand-400/20" />
-            {typeof title === "string" ? (
-              <h2
-                id="dialog-title"
-                className="text-theme-sm font-semibold tracking-tight text-gray-900 dark:text-white/90 truncate"
-              >
-                {title}
-              </h2>
-            ) : (
-              title
-            )}
-          </div>
-          {showCloseButton ? (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close dialog"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+        <div
+          className={cn(
+            "shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-t-2xl px-5 sm:px-6 py-4 text-white transition-shadow",
+            BANNER_TONE[tone],
+            scrolled && "shadow-[0_8px_14px_-10px_rgba(15,23,42,0.45)]",
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-3.5">
+            {icon ? (
+              <span
                 aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm dark:bg-[#161B26] dark:text-sky-400 [&_svg]:h-5 [&_svg]:w-5"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          ) : null}
+                {icon}
+              </span>
+            ) : (
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-white ring-4 ring-white/25" />
+            )}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                {typeof title === "string" ? (
+                  <h2
+                    id={titleId}
+                    className="min-w-0 truncate text-lg font-bold tracking-tight text-white"
+                  >
+                    {title}
+                  </h2>
+                ) : (
+                  // A custom title keeps its layout; its own colours would clash with the
+                  // banner, so everything in it is forced to white.
+                  <div
+                    id={titleId}
+                    className="min-w-0 text-white [&_*]:text-white!"
+                  >
+                    {title}
+                  </div>
+                )}
+                {badge}
+              </div>
+              {subtitle ? (
+                <div className="text-theme-xs text-white/85 sm:text-theme-sm">
+                  {subtitle}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2.5">
+            {actions ? (
+              <div className="banner-actions flex flex-wrap items-center gap-2.5">
+                {actions}
+              </div>
+            ) : null}
+            {showCloseButton ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close dialog"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white/85 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -181,6 +266,7 @@ export function Dialog({
           "flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6",
           contentClassName,
         )}
+        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 2)}
       >
         {children}
       </div>

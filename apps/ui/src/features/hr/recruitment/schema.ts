@@ -1,3 +1,4 @@
+import { emailField } from "@texawave-erp/core";
 import { z } from "zod";
 import { INTERVIEW_MODES } from "./types";
 
@@ -62,7 +63,7 @@ export const offerFormSchema = z.object({
   workScheduleSun: text("Sunday schedule", 1, 60),
   signatoryName: text("Signatory name", 2, 120),
   signatoryDesignation: text("Signatory designation", 2, 120),
-  companyEmail: z.string().trim().email("Enter a valid company e-mail"),
+  companyEmail: emailField,
   companyPhone: text("Company phone", 5, 30),
   companyWebsite: text("Company website", 3, 120),
   companyAddress: text("Company address", 5, 300),

@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   FileText,
   List,
@@ -51,7 +51,7 @@ export interface OffersPanelProps {
 }
 
 export function OffersPanel({ canWrite }: OffersPanelProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [activeSubTab, setActiveSubTab] = useState<"generator" | "history">(
     "generator",
   );
@@ -115,7 +115,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
 
   async function handleCreate(input: CreateOfferLetterInput) {
     await createMutation.mutateAsync(input);
-    toast({ title: "Offer letter generated", variant: "success" });
+    notify("hr.offer.generated");
     setFormState(emptyOfferValues());
     setActiveSubTab("history");
     setPage(1);
@@ -125,7 +125,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
     if (!editingOffer) return;
     await updateMutation.mutateAsync({ id: editingOffer.id, input });
     setEditingOffer(null);
-    toast({ title: "Offer letter updated", variant: "success" });
+    notify("hr.offer.updated");
   }
 
   function shareViaWhatsApp(item: OfferLetterView) {
@@ -152,7 +152,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
     query.error.isPermissionError
   ) {
     return (
-      <Alert variant="warning" title="Access denied">
+      <Alert dismissible variant="warning" title="Access denied">
         You do not have permission to view offer letters.
       </Alert>
     );
@@ -167,7 +167,8 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
             Offer Letter Generator
           </h2>
           <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Generate, customize, and issue official candidate offer letters with live document preview.
+            Generate, customize, and issue official candidate offer letters with
+            live document preview.
           </p>
         </div>
 

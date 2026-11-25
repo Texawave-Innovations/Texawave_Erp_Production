@@ -1,23 +1,19 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Receipt } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  ErrorState,
-  PageHeader,
-  Skeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, ErrorState, PageHeader, Skeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { PricedDocumentForm } from "../../shared/components/PricedDocumentForm";
 import type { BankDetails } from "../../shared/documents";
 import { todayIst } from "../../shared/format";
-import { previewInvoice } from "../api";
+import { getInvoiceTemplate, previewInvoice } from "../api";
 import { useCreateInvoice, useInvoice, useUpdateInvoice } from "../hooks";
 import {
   emptyInvoiceForm,
@@ -33,24 +29,17 @@ import { INVOICE_LABEL, type InvoiceType } from "../types";
 type Bank = (choice: string) => BankDetails | null;
 
 export const listPathOf = (t: InvoiceType) =>
-  t === "PROFORMA" ? "/sales/proforma-invoices" : "/sales/tax-invoices";
+  salesTabHref(t === "PROFORMA" ? "proforma-invoices" : "tax-invoices");
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to change invoices">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to change invoices"
+    >
       Ask an administrator for the <code>sales.invoice.write</code> permission.
     </Alert>
-  );
-}
-
-function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-    >
-      ← {label}
-    </Link>
   );
 }
 
@@ -60,7 +49,7 @@ export function InvoiceCreateView({
   invoiceType: InvoiceType;
 }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const create = useCreateInvoice();
   const preview = useCallback(
@@ -68,17 +57,23 @@ export function InvoiceCreateView({
       previewInvoice(formToCreateBody(v, bank)),
     [],
   );
+  const template = useCallback(
+    (params: Record<string, string | number>) =>
+      getInvoiceTemplate(invoiceType, params),
+    [invoiceType],
+  );
 
   if (!canWrite) return <NoWriteAccess />;
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={listPathOf(invoiceType)} label="Back to invoices" />
       <PageHeader
         variant="banner"
         title={`New ${INVOICE_LABEL[invoiceType].toLowerCase()}`}
         description="Taxes and totals are worked out by the server as you type."
-        icon={Receipt}
+        icon={
+          <BackArrow href={listPathOf(invoiceType)} label="Back to invoices" />
+        }
       />
       <PricedDocumentForm
         config={INVOICE_FORM}
@@ -86,11 +81,18 @@ export function InvoiceCreateView({
         mode="create"
         initialValues={emptyInvoiceForm(invoiceType, todayIst())}
         preview={preview}
+        template={template}
+        templateParams={(v) => ({
+          customerId: v.customerId,
+          date: v.header.invoiceDate,
+          dueDate: v.header.dueDate,
+          preparedBy: v.preparedBy,
+        })}
         onSubmit={async (v, bank) => {
           const created = await create.mutateAsync(formToCreateBody(v, bank));
-          toast({
-            title: `${INVOICE_LABEL[created.invoiceType]} ${created.invoiceNumber} saved`,
-            variant: "success",
+          notify("sales.document.saved", {
+            label: INVOICE_LABEL[created.invoiceType],
+            number: created.invoiceNumber,
           });
           router.push(`/sales/invoices/${created.id}`);
         }}
@@ -103,7 +105,7 @@ export function InvoiceCreateView({
 
 export function InvoiceEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const query = useInvoice(id);
   const update = useUpdateInvoice();
@@ -117,7 +119,7 @@ export function InvoiceEditView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Invoice not found">
+      <Alert dismissible variant="warning" title="Invoice not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -128,6 +130,7 @@ export function InvoiceEditView({ id }: { id: number }) {
   if (inv.status === "CONVERTED") {
     return (
       <Alert
+        dismissible
         variant="info"
         title={`${inv.invoiceNumber} can no longer be edited`}
       >
@@ -139,15 +142,16 @@ export function InvoiceEditView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink href={`/sales/invoices/${id}`} label="Back to invoice" />
       <PageHeader
         variant="banner"
         title={`Edit ${inv.invoiceNumber}`}
         description={inv.customerSnapshot.companyName}
-        icon={Receipt}
+        icon={
+          <BackArrow href={`/sales/invoices/${id}`} label="Back to invoice" />
+        }
       />
       {Number(inv.amountReceived) > 0 ? (
-        <Alert variant="info" title="Payments already received">
+        <Alert dismissible variant="info" title="Payments already received">
           The total cannot go below {inv.amountReceived} already received.
         </Alert>
       ) : null}
@@ -163,7 +167,10 @@ export function InvoiceEditView({ id }: { id: number }) {
         preview={preview}
         onSubmit={async (v, bank) => {
           await update.mutateAsync({ id, body: formToUpdateBody(v, bank) });
-          toast({ title: `${inv.invoiceNumber} saved`, variant: "success" });
+          notify("sales.document.saved", {
+            label: INVOICE_LABEL[inv.invoiceType],
+            number: inv.invoiceNumber,
+          });
           router.push(`/sales/invoices/${id}`);
         }}
         onCancel={() => router.push(`/sales/invoices/${id}`)}

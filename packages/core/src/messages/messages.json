@@ -1,0 +1,3694 @@
+{
+  "messages": {
+    "sales.customer.created": {
+      "variant": "success",
+      "title": "{name} added as {code}"
+    },
+    "sales.customer.saved": {
+      "variant": "success",
+      "title": "{name} saved"
+    },
+    "sales.customer.deleted": {
+      "variant": "success",
+      "title": "{name} deleted"
+    },
+    "sales.customer.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete {name}"
+    },
+    "sales.customer.deleteBlocked": {
+      "variant": "error",
+      "title": "{name} has documents and cannot be deleted"
+    },
+    "sales.customer.revealFailed": {
+      "variant": "error",
+      "title": "Could not reveal the account number"
+    },
+    "sales.document.saved": {
+      "variant": "success",
+      "title": "{label} {number} saved"
+    },
+    "sales.document.created": {
+      "variant": "success",
+      "title": "{label} {number} created"
+    },
+    "sales.document.deleted": {
+      "variant": "success",
+      "title": "{number} deleted"
+    },
+    "sales.document.reopened": {
+      "variant": "success",
+      "title": "{number} is open again"
+    },
+    "sales.document.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete"
+    },
+    "sales.document.actionFailed": {
+      "variant": "error",
+      "title": "That did not work"
+    },
+    "sales.document.pdfFailed": {
+      "variant": "error",
+      "title": "Could not download the PDF"
+    },
+    "sales.document.whatsappFailed": {
+      "variant": "error",
+      "title": "Could not open WhatsApp"
+    },
+    "sales.quotation.converted": {
+      "variant": "success",
+      "title": "{label} {number} created",
+      "description": "{quotation} is now locked."
+    },
+    "sales.rdc.returned": {
+      "variant": "success",
+      "title": "{number} returned"
+    },
+    "sales.rdc.pendingAgain": {
+      "variant": "success",
+      "title": "{number} is pending return again"
+    },
+    "sales.payment.recorded": {
+      "variant": "success",
+      "title": "Payment {number} recorded",
+      "description": "Balance on {invoice}: {balance}"
+    },
+    "sales.payment.saved": {
+      "variant": "success",
+      "title": "Payment {number} saved",
+      "description": "Balance on {invoice}: {balance}"
+    },
+    "sales.payment.receiptFailed": {
+      "variant": "error",
+      "title": "Could not download the receipt"
+    },
+    "sales.company.saved": {
+      "variant": "success",
+      "title": "Company details saved"
+    },
+    "sales.company.logoRemoved": {
+      "variant": "success",
+      "title": "Logo removed"
+    },
+    "sales.company.logoRemoveFailed": {
+      "variant": "error",
+      "title": "Could not remove"
+    },
+    "sales.option.added": {
+      "variant": "success",
+      "title": "Option added"
+    },
+    "sales.option.saved": {
+      "variant": "success",
+      "title": "Option saved"
+    },
+    "sales.option.deleted": {
+      "variant": "success",
+      "title": "Option deleted"
+    },
+    "sales.option.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete"
+    },
+    "sales.image.wrongType": {
+      "variant": "error",
+      "title": "Choose a PNG or JPG image."
+    },
+    "sales.image.tooLarge": {
+      "variant": "error",
+      "title": "The image must be 2 MB or smaller."
+    },
+    "sales.image.uploaded": {
+      "variant": "success",
+      "title": "Image uploaded"
+    },
+    "sales.image.uploadFailed": {
+      "variant": "error",
+      "title": "Could not upload the image"
+    },
+    "sales.numbering.formatSaved": {
+      "variant": "success",
+      "title": "{type} format saved — next: {example}"
+    },
+    "sales.numbering.nextSet": {
+      "variant": "success",
+      "title": "{label}: next number is {code}"
+    },
+    "sales.email.sent": {
+      "variant": "success",
+      "title": "Emailed to {to}"
+    },
+    "sales.email.notConfigured": {
+      "variant": "warning",
+      "title": "Email is not set up on the server",
+      "description": "Nothing was sent. Ask an administrator to configure SMTP."
+    },
+    "sales.checklist.completeFailed": {
+      "variant": "error",
+      "title": "Could not complete the item"
+    },
+    "sales.checklist.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete the item"
+    },
+    "sales.common.saveFailed": {
+      "variant": "error",
+      "title": "Could not save."
+    },
+    "sales.checklist.addFailed": {
+      "variant": "error",
+      "title": "Could not add the item"
+    },
+    "sales.challan.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the challan."
+    },
+    "sales.payment.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the payment."
+    },
+    "sales.quotation.convertFailed": {
+      "variant": "error",
+      "title": "Could not convert the quotation."
+    },
+    "sales.rdc.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the returnable DC."
+    },
+    "sales.email.sendFailed": {
+      "variant": "error",
+      "title": "Could not send the email."
+    },
+    "sales.preview.loadFailed": {
+      "variant": "error",
+      "title": "The preview could not load."
+    },
+    "finance.bank.registered": {
+      "variant": "success",
+      "title": "Bank account {name} registered successfully"
+    },
+    "finance.bank.archived": {
+      "variant": "success",
+      "title": "Bank account {name} archived"
+    },
+    "finance.bank.updated": {
+      "variant": "success",
+      "title": "Bank account {name} updated successfully"
+    },
+    "finance.bank.unreconciled": {
+      "variant": "success",
+      "title": "Transaction #{id} unmarked from reconciliation"
+    },
+    "finance.bank.reconciled": {
+      "variant": "success",
+      "title": "Transaction #{id} reconciled against bank statement"
+    },
+    "finance.bank.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete bank account. Accounts with recorded transactions cannot be deleted."
+    },
+    "finance.bank.unreconcileFailed": {
+      "variant": "error",
+      "title": "Failed to unreconcile transaction"
+    },
+    "finance.bank.registerFailed": {
+      "variant": "error",
+      "title": "Failed to register bank account"
+    },
+    "finance.bank.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update bank account"
+    },
+    "finance.bank.reconcileFailed": {
+      "variant": "error",
+      "title": "Failed to reconcile transaction"
+    },
+    "finance.bank.transactionRecorded": {
+      "variant": "success",
+      "title": "Transaction recorded: {type} of ₹{amount}"
+    },
+    "finance.account.created": {
+      "variant": "success",
+      "title": "Account created successfully"
+    },
+    "finance.account.updated": {
+      "variant": "success",
+      "title": "Account updated successfully"
+    },
+    "finance.account.deactivated": {
+      "variant": "success",
+      "title": "Account {code} deactivated"
+    },
+    "finance.account.createFailed": {
+      "variant": "error",
+      "title": "Could not create account. Please verify input and try again."
+    },
+    "finance.account.updateFailed": {
+      "variant": "error",
+      "title": "Could not update account. Please try again."
+    },
+    "finance.account.deactivateFailed": {
+      "variant": "error",
+      "title": "Could not deactivate account"
+    },
+    "finance.expense.createdPaid": {
+      "variant": "success",
+      "title": "Expense recorded & posted to General Ledger"
+    },
+    "finance.expense.createdDraft": {
+      "variant": "success",
+      "title": "Expense saved as draft"
+    },
+    "finance.expense.updated": {
+      "variant": "success",
+      "title": "Expense updated successfully"
+    },
+    "finance.expense.disbursed": {
+      "variant": "success",
+      "title": "Payment disbursed & posted to General Ledger"
+    },
+    "finance.expense.converted": {
+      "variant": "success",
+      "title": "Claim converted to expense #{number}"
+    },
+    "finance.expense.submitted": {
+      "variant": "success",
+      "title": "Expense {number} submitted for approval"
+    },
+    "finance.expense.approved": {
+      "variant": "success",
+      "title": "Expense {number} approved"
+    },
+    "finance.expense.cancelled": {
+      "variant": "success",
+      "title": "Expense {number} cancelled"
+    },
+    "finance.expense.deleted": {
+      "variant": "success",
+      "title": "Expense {number} deleted"
+    },
+    "finance.expense.createFailed": {
+      "variant": "error",
+      "title": "Failed to record expense. Please check input values."
+    },
+    "finance.expense.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update expense."
+    },
+    "finance.expense.disburseFailed": {
+      "variant": "error",
+      "title": "Failed to disburse payment."
+    },
+    "finance.expense.convertFailed": {
+      "variant": "error",
+      "title": "Failed to convert claim to expense."
+    },
+    "finance.expense.submitFailed": {
+      "variant": "error",
+      "title": "Failed to submit expense"
+    },
+    "finance.expense.approveFailed": {
+      "variant": "error",
+      "title": "Failed to approve expense"
+    },
+    "finance.expense.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel expense"
+    },
+    "finance.expense.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete expense"
+    },
+    "finance.gst.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record GST entry"
+    },
+    "finance.gst.recorded": {
+      "variant": "success",
+      "title": "GST Entry Recorded",
+      "description": "Successfully recorded {kind} entry for period {period}."
+    },
+    "finance.gst.reconciled": {
+      "variant": "success",
+      "title": "Reconciliation Complete",
+      "description": "Compared {books} books records with {portal} portal entries ({matched} matched)."
+    },
+    "finance.journal.created": {
+      "variant": "success",
+      "title": "Journal voucher created as draft"
+    },
+    "finance.journal.posted": {
+      "variant": "success",
+      "title": "Voucher {number} posted to General Ledger"
+    },
+    "finance.journal.reversed": {
+      "variant": "success",
+      "title": "Voucher {number} reversed successfully"
+    },
+    "finance.journal.deleted": {
+      "variant": "success",
+      "title": "Draft voucher {number} deleted"
+    },
+    "finance.journal.createFailed": {
+      "variant": "error",
+      "title": "Could not create journal voucher. Please verify balances and try again."
+    },
+    "finance.journal.postFailed": {
+      "variant": "error",
+      "title": "Failed to post voucher to ledger"
+    },
+    "finance.journal.reverseFailed": {
+      "variant": "error",
+      "title": "Failed to reverse voucher"
+    },
+    "finance.journal.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete voucher"
+    },
+    "finance.paymentMade.recorded": {
+      "variant": "success",
+      "title": "Supplier payment recorded & posted to General Ledger"
+    },
+    "finance.paymentMade.savedDraft": {
+      "variant": "success",
+      "title": "Supplier payment saved as draft"
+    },
+    "finance.paymentMade.draftUpdated": {
+      "variant": "success",
+      "title": "Draft payment {number} updated successfully"
+    },
+    "finance.paymentMade.confirmed": {
+      "variant": "success",
+      "title": "Payment {number} confirmed & posted to GL"
+    },
+    "finance.paymentMade.voided": {
+      "variant": "success",
+      "title": "Payment {number} voided and GL reversal posted"
+    },
+    "finance.paymentMade.deleted": {
+      "variant": "success",
+      "title": "Payment {number} deleted"
+    },
+    "finance.paymentMade.createFailed": {
+      "variant": "error",
+      "title": "Failed to record payment. Please check values and try again."
+    },
+    "finance.paymentMade.confirmFailed": {
+      "variant": "error",
+      "title": "Failed to confirm payment"
+    },
+    "finance.paymentMade.voidFailed": {
+      "variant": "error",
+      "title": "Failed to void payment"
+    },
+    "finance.paymentMade.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete payment"
+    },
+    "finance.paymentMade.popupBlocked": {
+      "variant": "error",
+      "title": "Pop-up blocked. Please allow pop-ups to print disbursement voucher."
+    },
+    "finance.paymentReceived.recorded": {
+      "variant": "success",
+      "title": "Payment receipt recorded & posted to General Ledger"
+    },
+    "finance.paymentReceived.savedDraft": {
+      "variant": "success",
+      "title": "Payment receipt saved as draft"
+    },
+    "finance.paymentReceived.draftUpdated": {
+      "variant": "success",
+      "title": "Draft receipt {number} updated successfully"
+    },
+    "finance.paymentReceived.confirmed": {
+      "variant": "success",
+      "title": "Receipt {number} confirmed & posted to GL"
+    },
+    "finance.paymentReceived.voided": {
+      "variant": "success",
+      "title": "Receipt {number} voided and GL reversal posted"
+    },
+    "finance.paymentReceived.deleted": {
+      "variant": "success",
+      "title": "Receipt {number} deleted"
+    },
+    "finance.paymentReceived.allocated": {
+      "variant": "success",
+      "title": "Invoice allocation recorded successfully"
+    },
+    "finance.paymentReceived.deallocated": {
+      "variant": "success",
+      "title": "Allocation removed and balance restored"
+    },
+    "finance.paymentReceived.createFailed": {
+      "variant": "error",
+      "title": "Failed to record payment receipt. Please check values and try again."
+    },
+    "finance.paymentReceived.confirmFailed": {
+      "variant": "error",
+      "title": "Failed to confirm receipt"
+    },
+    "finance.paymentReceived.voidFailed": {
+      "variant": "error",
+      "title": "Failed to void receipt"
+    },
+    "finance.paymentReceived.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete receipt"
+    },
+    "finance.paymentReceived.allocateFailed": {
+      "variant": "error",
+      "title": "Failed to record allocation"
+    },
+    "finance.paymentReceived.deallocateFailed": {
+      "variant": "error",
+      "title": "Failed to remove allocation"
+    },
+    "finance.paymentReceived.popupBlocked": {
+      "variant": "error",
+      "title": "Pop-up blocked. Please allow pop-ups to print payment receipt."
+    },
+    "finance.paymentReceived.printFailed": {
+      "variant": "error",
+      "title": "Failed to generate print document"
+    },
+    "finance.paymentReceived.invoiceRefRequired": {
+      "variant": "error",
+      "title": "Please specify an invoice reference"
+    },
+    "finance.paymentReceived.allocationNotPositive": {
+      "variant": "error",
+      "title": "Allocation amount must be greater than zero"
+    },
+    "finance.paymentReceived.overAllocated": {
+      "variant": "error",
+      "title": "Cannot allocate more than remaining unallocated balance ({balance})"
+    },
+    "finance.master.invalid": {
+      "variant": "error",
+      "title": "{reason}"
+    },
+    "finance.master.permissionDenied": {
+      "variant": "error",
+      "title": "You don't have the {permission} permission."
+    },
+    "finance.master.addFailed": {
+      "variant": "error",
+      "title": "Could not add this item"
+    },
+    "finance.master.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{label}\""
+    },
+    "finance.gst.reconcileFailed": {
+      "variant": "error",
+      "title": "Failed to perform GST reconciliation."
+    },
+    "finance.bank.transactionFailed": {
+      "variant": "error",
+      "title": "Failed to record bank transaction"
+    },
+    "finance.paymentMade.draftUpdateFailed": {
+      "variant": "error",
+      "title": "Failed to update draft payment. Please verify details and try again."
+    },
+    "finance.paymentReceived.draftUpdateFailed": {
+      "variant": "error",
+      "title": "Failed to update payment receipt. Please verify details and try again."
+    },
+    "finance.account.dialogUpdateFailed": {
+      "variant": "error",
+      "title": "Failed to update account. Please review details and try again."
+    },
+    "finance.account.dialogCreateFailed": {
+      "variant": "error",
+      "title": "Failed to create account. Please ensure code is unique in your organization."
+    },
+    "finance.journal.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record journal voucher. Please verify all lines and balances."
+    },
+    "finance.journal.reverseDialogFailed": {
+      "variant": "error",
+      "title": "Failed to reverse journal voucher. Please try again."
+    },
+    "finance.paymentMade.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record payment. Please check required fields and try again."
+    },
+    "finance.paymentReceived.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record payment received. Please check balances and try again."
+    },
+    "finance.gst.reconcileInputRequired": {
+      "variant": "error",
+      "title": "Please paste GSTR-2B counterpart records or load sample data."
+    },
+    "proposals.created": {
+      "variant": "success",
+      "title": "Proposal {number} created"
+    },
+    "proposals.createFailed": {
+      "variant": "error",
+      "title": "Could not create the proposal",
+      "description": "Your entries are kept — try again."
+    },
+    "proposals.titleRequired": {
+      "variant": "error",
+      "title": "Proposal title is required"
+    },
+    "proposals.saved": {
+      "variant": "success",
+      "title": "Proposal saved"
+    },
+    "proposals.workflowDone": {
+      "variant": "success",
+      "title": "{number}: {action}"
+    },
+    "proposals.statusUpdateFailed": {
+      "variant": "error",
+      "title": "Could not update the status"
+    },
+    "proposals.duplicated": {
+      "variant": "success",
+      "title": "Duplicated as {number}"
+    },
+    "proposals.duplicateFailed": {
+      "variant": "error",
+      "title": "Could not duplicate"
+    },
+    "proposals.followUpSet": {
+      "variant": "success",
+      "title": "Follow-up set to {date}"
+    },
+    "proposals.followUpSetFor": {
+      "variant": "success",
+      "title": "Follow-up for {number} set to {date}"
+    },
+    "proposals.followUpFailed": {
+      "variant": "error",
+      "title": "Could not update the follow-up"
+    },
+    "proposals.deleted": {
+      "variant": "success",
+      "title": "{number} deleted"
+    },
+    "proposals.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete"
+    },
+    "proposals.settings.saved": {
+      "variant": "success",
+      "title": "Settings saved"
+    },
+    "proposals.settings.saveFailed": {
+      "variant": "error",
+      "title": "Could not save settings"
+    },
+    "proposals.autosaveFailed": {
+      "variant": "error",
+      "title": "Autosave failed",
+      "description": "Your changes are still on this page."
+    },
+    "proposals.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the proposal",
+      "description": "Your changes are still on this page."
+    },
+    "proposals.incomplete": {
+      "variant": "warning",
+      "title": "Complete the proposal before submitting",
+      "description": "{issues}"
+    },
+    "proposals.template.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the template"
+    },
+    "proposals.template.needsSection": {
+      "variant": "warning",
+      "title": "Add at least one section before publishing"
+    },
+    "proposals.template.sectionTitleMissing": {
+      "variant": "warning",
+      "title": "Section title missing",
+      "description": "Please provide a title for all sections before publishing."
+    },
+    "proposals.template.publishedLocked": {
+      "variant": "success",
+      "title": "V{version} published",
+      "description": "This version is now locked."
+    },
+    "proposals.template.publishFailed": {
+      "variant": "error",
+      "title": "Could not publish",
+      "description": "Please try again."
+    },
+    "proposals.template.draftSaved": {
+      "variant": "success",
+      "title": "Template draft saved"
+    },
+    "proposals.template.created": {
+      "variant": "success",
+      "title": "Template \"{title}\" created as a draft"
+    },
+    "proposals.template.invalidDefault": {
+      "variant": "error",
+      "title": "Invalid default value",
+      "description": "Field \"{field}\" in section \"{section}\": {reason}"
+    },
+    "proposals.template.duplicated": {
+      "variant": "success",
+      "title": "Template duplicated"
+    },
+    "proposals.template.duplicatedNamed": {
+      "variant": "success",
+      "title": "Duplicated \"{title}\""
+    },
+    "proposals.template.duplicateFailed": {
+      "variant": "error",
+      "title": "Could not duplicate",
+      "description": "Please try again."
+    },
+    "proposals.template.published": {
+      "variant": "success",
+      "title": "\"{title}\" V{version} published"
+    },
+    "proposals.template.versionCreated": {
+      "variant": "success",
+      "title": "New draft version created"
+    },
+    "proposals.template.versionFailed": {
+      "variant": "error",
+      "title": "Could not create a version",
+      "description": "Please try again."
+    },
+    "proposals.template.defaultSet": {
+      "variant": "success",
+      "title": "\"{title}\" is now the default template"
+    },
+    "proposals.template.defaultFailed": {
+      "variant": "error",
+      "title": "Could not set the default",
+      "description": "Please try again."
+    },
+    "proposals.template.archived": {
+      "variant": "success",
+      "title": "\"{title}\" archived"
+    },
+    "proposals.template.archiveFailed": {
+      "variant": "error",
+      "title": "Could not archive",
+      "description": "Please try again."
+    },
+    "proposals.template.deleted": {
+      "variant": "success",
+      "title": "\"{title}\" deleted"
+    },
+    "proposals.template.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete",
+      "description": "Please try again."
+    },
+    "mom.template.applied": {
+      "variant": "success",
+      "title": "Applied template \"{name}\" (V{version})"
+    },
+    "mom.revisionStarted": {
+      "variant": "success",
+      "title": "Revision {revision} started"
+    },
+    "mom.revisionFailed": {
+      "variant": "error",
+      "title": "Could not start a revision",
+      "description": "Please try again."
+    },
+    "mom.archived": {
+      "variant": "success",
+      "title": "{reference} archived"
+    },
+    "mom.archiveFailed": {
+      "variant": "error",
+      "title": "Could not archive",
+      "description": "Please try again."
+    },
+    "mom.restored": {
+      "variant": "success",
+      "title": "{reference} restored"
+    },
+    "mom.restoreFailed": {
+      "variant": "error",
+      "title": "Could not restore",
+      "description": "Please try again."
+    },
+    "mom.deleted": {
+      "variant": "success",
+      "title": "{reference} deleted"
+    },
+    "mom.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete",
+      "description": "Please try again."
+    },
+    "mom.overwriteEnabled": {
+      "variant": "info",
+      "title": "Overwrite enabled",
+      "description": "Save again to replace the server copy with your version."
+    },
+    "mom.attendee.duplicate": {
+      "variant": "warning",
+      "title": "Duplicate Participant",
+      "description": "{name} is already on the participants list."
+    },
+    "mom.attendee.addedBeforeSave": {
+      "variant": "info",
+      "title": "Participant added",
+      "description": "{name} was still in the \"Add Meeting Participant\" row, so we added them before saving. Review the attendee list and save again."
+    },
+    "mom.finalizeFailed": {
+      "variant": "error",
+      "title": "Could not finalize these minutes",
+      "description": "Your changes are still in the editor — try again."
+    },
+    "mom.saveDraftFailed": {
+      "variant": "error",
+      "title": "Could not save this draft",
+      "description": "Your changes are still in the editor — try again."
+    },
+    "mom.revisionFinalized": {
+      "variant": "success",
+      "title": "Revision {revision} finalized"
+    },
+    "mom.finalized": {
+      "variant": "success",
+      "title": "Meeting minutes finalized"
+    },
+    "mom.draftSaved": {
+      "variant": "success",
+      "title": "Draft saved"
+    },
+    "mom.draftCreated": {
+      "variant": "success",
+      "title": "Draft created"
+    },
+    "mom.template.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the template"
+    },
+    "mom.template.draftSaved": {
+      "variant": "success",
+      "title": "Template draft saved"
+    },
+    "mom.template.publishedLocked": {
+      "variant": "success",
+      "title": "\"{name}\" V{version} published",
+      "description": "This version is now locked."
+    },
+    "mom.template.publishFailed": {
+      "variant": "error",
+      "title": "Could not publish",
+      "description": "Please try again."
+    },
+    "mom.template.draftVersionCreated": {
+      "variant": "success",
+      "title": "Draft V{version} created"
+    },
+    "mom.template.versionCreateFailed": {
+      "variant": "error",
+      "title": "Could not create a new version"
+    },
+    "mom.template.duplicatedAs": {
+      "variant": "success",
+      "title": "Duplicated as \"{name}\""
+    },
+    "mom.template.duplicateFailed": {
+      "variant": "error",
+      "title": "Could not duplicate",
+      "description": "Please try again."
+    },
+    "mom.template.created": {
+      "variant": "success",
+      "title": "Template \"{name}\" created as a draft"
+    },
+    "mom.template.published": {
+      "variant": "success",
+      "title": "\"{name}\" V{version} published"
+    },
+    "mom.template.versionCreated": {
+      "variant": "success",
+      "title": "New draft version created"
+    },
+    "mom.template.versionFailed": {
+      "variant": "error",
+      "title": "Could not create a version",
+      "description": "Please try again."
+    },
+    "mom.template.duplicatedNamed": {
+      "variant": "success",
+      "title": "Duplicated \"{name}\""
+    },
+    "mom.template.defaultSet": {
+      "variant": "success",
+      "title": "\"{name}\" is now the default template"
+    },
+    "mom.template.defaultFailed": {
+      "variant": "error",
+      "title": "Could not set the default",
+      "description": "Please try again."
+    },
+    "mom.template.archived": {
+      "variant": "success",
+      "title": "\"{name}\" archived"
+    },
+    "mom.template.archiveFailed": {
+      "variant": "error",
+      "title": "Could not archive",
+      "description": "Please try again."
+    },
+    "mom.template.deleted": {
+      "variant": "success",
+      "title": "\"{name}\" deleted"
+    },
+    "mom.template.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete",
+      "description": "Please try again."
+    },
+    "projects.task.completedPoints": {
+      "variant": "success",
+      "title": "Task marked completed! +{points} points awarded"
+    },
+    "projects.task.progressUpdated": {
+      "variant": "success",
+      "title": "Task progress updated successfully"
+    },
+    "projects.task.progressFailed": {
+      "variant": "error",
+      "title": "Failed to update task progress"
+    },
+    "projects.milestone.updated": {
+      "variant": "success",
+      "title": "Milestone updated"
+    },
+    "projects.milestone.added": {
+      "variant": "success",
+      "title": "Milestone added"
+    },
+    "projects.milestone.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save milestone"
+    },
+    "projects.work.timerStarted": {
+      "variant": "success",
+      "title": "Stopwatch started"
+    },
+    "projects.work.timerStartFailed": {
+      "variant": "error",
+      "title": "Failed to start stopwatch"
+    },
+    "projects.work.timerStopped": {
+      "variant": "success",
+      "title": "Stopwatch stopped — {minutes} min logged"
+    },
+    "projects.work.timerStopFailed": {
+      "variant": "error",
+      "title": "Failed to stop stopwatch"
+    },
+    "projects.work.paused": {
+      "variant": "success",
+      "title": "Task paused — {minutes} min logged. It is now on hold."
+    },
+    "projects.work.pauseFailed": {
+      "variant": "error",
+      "title": "Failed to pause task"
+    },
+    "projects.work.statusFailed": {
+      "variant": "error",
+      "title": "Failed to update task status"
+    },
+    "projects.work.finishFailed": {
+      "variant": "error",
+      "title": "Failed to finish task"
+    },
+    "projects.work.timeLogged": {
+      "variant": "success",
+      "title": "Time entry logged"
+    },
+    "projects.work.logFailed": {
+      "variant": "error",
+      "title": "Failed to log time"
+    },
+    "projects.task.updated": {
+      "variant": "success",
+      "title": "Task updated successfully"
+    },
+    "projects.task.created": {
+      "variant": "success",
+      "title": "New task created successfully"
+    },
+    "projects.task.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save task"
+    },
+    "timesheets.activity.updated": {
+      "variant": "success",
+      "title": "Activity updated"
+    },
+    "timesheets.activity.added": {
+      "variant": "success",
+      "title": "Activity added"
+    },
+    "timesheets.activity.deleted": {
+      "variant": "success",
+      "title": "Activity deleted"
+    },
+    "timesheets.activity.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete the activity"
+    },
+    "timesheets.day.submitted": {
+      "variant": "success",
+      "title": "Day submitted"
+    },
+    "timesheets.day.submitFailed": {
+      "variant": "error",
+      "title": "Could not submit"
+    },
+    "timesheets.review.reopened": {
+      "variant": "success",
+      "title": "Day reopened for the employee"
+    },
+    "timesheets.review.reopenFailed": {
+      "variant": "error",
+      "title": "Could not reopen the day"
+    },
+    "timesheets.review.timerCorrected": {
+      "variant": "success",
+      "title": "Timer corrected: {minutes} min counted"
+    },
+    "timesheets.review.timerCorrectFailed": {
+      "variant": "error",
+      "title": "Could not correct the timer"
+    },
+    "timesheets.review.decisionFailed": {
+      "variant": "error",
+      "title": "Could not save the decision"
+    },
+    "timesheets.report.downloadFailed": {
+      "variant": "error",
+      "title": "Could not download the report"
+    },
+    "timesheets.activity.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the activity. Please try again."
+    },
+    "timesheets.week.submittedOne": {
+      "variant": "success",
+      "title": "Submitted 1 day"
+    },
+    "timesheets.week.submittedMany": {
+      "variant": "success",
+      "title": "Submitted {count} days"
+    },
+    "timesheets.week.nothingToSubmit": {
+      "variant": "success",
+      "title": "Nothing to submit this week"
+    },
+    "timesheets.review.returned": {
+      "variant": "success",
+      "title": "Day returned to the employee"
+    },
+    "timesheets.review.approved": {
+      "variant": "success",
+      "title": "Day approved"
+    },
+    "timesheets.review.firstApproval": {
+      "variant": "success",
+      "title": "First approval given — it now waits for HR"
+    },
+    "projects.master.codeFormatSaved": {
+      "variant": "success",
+      "title": "Project code format saved"
+    },
+    "projects.master.codeFormatFailed": {
+      "variant": "error",
+      "title": "Could not save the code format"
+    },
+    "projects.master.created": {
+      "variant": "success",
+      "title": "Project created"
+    },
+    "projects.master.updated": {
+      "variant": "success",
+      "title": "Project updated"
+    },
+    "projects.master.deleted": {
+      "variant": "success",
+      "title": "Deleted \"{name}\""
+    },
+    "projects.master.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{name}\""
+    },
+    "projects.master.taskFormatSaved": {
+      "variant": "success",
+      "title": "Task code format saved"
+    },
+    "projects.master.taskFormatFailed": {
+      "variant": "error",
+      "title": "Could not save the task code format"
+    },
+    "projects.team.selectEmployee": {
+      "variant": "warning",
+      "title": "Please select an employee"
+    },
+    "projects.team.assigned": {
+      "variant": "success",
+      "title": "Team member assigned"
+    },
+    "projects.team.assignFailed": {
+      "variant": "error",
+      "title": "Failed to add member",
+      "description": "Please try again."
+    },
+    "projects.team.removed": {
+      "variant": "success",
+      "title": "Team member removed"
+    },
+    "projects.team.removeFailed": {
+      "variant": "error",
+      "title": "Failed to remove member",
+      "description": "Please try again."
+    },
+    "projects.team.added": {
+      "variant": "success",
+      "title": "Team member added"
+    },
+    "projects.team.addFailed": {
+      "variant": "error",
+      "title": "Failed to add team member"
+    },
+    "projects.project.updated": {
+      "variant": "success",
+      "title": "Project updated successfully"
+    },
+    "projects.project.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update project"
+    },
+    "projects.project.created": {
+      "variant": "success",
+      "title": "Project {code} created successfully"
+    },
+    "projects.project.createFailed": {
+      "variant": "error",
+      "title": "Failed to create project"
+    },
+    "projects.project.deleted": {
+      "variant": "success",
+      "title": "Project deleted"
+    },
+    "projects.project.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete project",
+      "description": "Please try again."
+    },
+    "projects.project.expenseRecorded": {
+      "variant": "success",
+      "title": "Expense recorded"
+    },
+    "projects.expense.updated": {
+      "variant": "success",
+      "title": "Project expense updated"
+    },
+    "projects.expense.recorded": {
+      "variant": "success",
+      "title": "Project expense recorded"
+    },
+    "projects.expense.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update expense"
+    },
+    "projects.expense.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record expense"
+    },
+    "projects.expense.deleted": {
+      "variant": "success",
+      "title": "Expense record deleted"
+    },
+    "projects.expense.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete expense"
+    },
+    "projects.expense.statusChanged": {
+      "variant": "success",
+      "title": "Marked as {status}"
+    },
+    "projects.expense.statusFailed": {
+      "variant": "error",
+      "title": "Failed to update expense status"
+    },
+    "projects.pointsMaster.saved": {
+      "variant": "success",
+      "title": "Points master rules saved successfully"
+    },
+    "projects.pointsMaster.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save points rules"
+    },
+    "projects.milestone.removed": {
+      "variant": "success",
+      "title": "Milestone removed"
+    },
+    "projects.task.removed": {
+      "variant": "success",
+      "title": "Task removed"
+    },
+    "projects.deleteFailed": {
+      "variant": "error",
+      "title": "Delete failed",
+      "description": "Please try again."
+    },
+    "projects.task.timerStoppedFor": {
+      "variant": "success",
+      "title": "Timer stopped for {code}"
+    },
+    "projects.task.timerStartedFor": {
+      "variant": "success",
+      "title": "Timer started for {code}"
+    },
+    "projects.task.timerFailed": {
+      "variant": "error",
+      "title": "Timer action failed",
+      "description": "Please try again."
+    },
+    "projects.task.statusFailed": {
+      "variant": "error",
+      "title": "Could not update task status",
+      "description": "Please try again."
+    },
+    "scm.common.actionFailed": {
+      "variant": "error",
+      "title": "Action failed"
+    },
+    "scm.common.saveFailed": {
+      "variant": "error",
+      "title": "Could not save. Try again."
+    },
+    "scm.assistant.failed": {
+      "variant": "error",
+      "title": "Something went wrong. Please try again."
+    },
+    "scm.barcode.assigned": {
+      "variant": "success",
+      "title": "Barcode assigned"
+    },
+    "scm.barcode.assignFailed": {
+      "variant": "error",
+      "title": "Failed to assign barcode"
+    },
+    "scm.barcode.labelDownloadFailed": {
+      "variant": "error",
+      "title": "Could not download the label"
+    },
+    "scm.barcode.scanFailed": {
+      "variant": "error",
+      "title": "Scan failed"
+    },
+    "scm.bin.warehouseRequired": {
+      "variant": "error",
+      "title": "Select a warehouse before assigning a bin"
+    },
+    "scm.bin.assigned": {
+      "variant": "success",
+      "title": "Bin location assigned"
+    },
+    "scm.bin.assignFailed": {
+      "variant": "error",
+      "title": "Failed to assign bin location"
+    },
+    "scm.bin.saved": {
+      "variant": "success",
+      "title": "Bin location saved"
+    },
+    "scm.bin.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save bin location"
+    },
+    "scm.expiry.saved": {
+      "variant": "success",
+      "title": "Expiry date saved"
+    },
+    "scm.expiry.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save expiry date"
+    },
+    "scm.product.createdNamedWithStock": {
+      "variant": "success",
+      "title": "Product \"{name}\" created with {qty} opening stock"
+    },
+    "scm.product.createdNamed": {
+      "variant": "success",
+      "title": "Product \"{name}\" created"
+    },
+    "scm.product.createdWithStock": {
+      "variant": "success",
+      "title": "Product created with {qty} opening stock"
+    },
+    "scm.product.created": {
+      "variant": "success",
+      "title": "Product created"
+    },
+    "scm.product.updated": {
+      "variant": "success",
+      "title": "Product updated"
+    },
+    "scm.product.createFailed": {
+      "variant": "error",
+      "title": "Failed to create product"
+    },
+    "scm.product.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save product"
+    },
+    "scm.product.deletedNamed": {
+      "variant": "success",
+      "title": "Deleted \"{name}\""
+    },
+    "scm.product.deleted": {
+      "variant": "success",
+      "title": "Product deleted"
+    },
+    "scm.product.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete product"
+    },
+    "scm.product.openingStockPostFailed": {
+      "variant": "error",
+      "title": "Product created, but opening stock failed to post"
+    },
+    "scm.product.openingStockFallback": {
+      "variant": "error",
+      "title": "could not post"
+    },
+    "scm.product.openingStockFailed": {
+      "variant": "error",
+      "title": "Product created, but opening stock failed: {reason}"
+    },
+    "scm.stock.updated": {
+      "variant": "success",
+      "title": "Stock updated"
+    },
+    "scm.stock.reserved": {
+      "variant": "success",
+      "title": "Stock reserved"
+    },
+    "scm.stock.adjustFailed": {
+      "variant": "error",
+      "title": "Failed to apply adjustment"
+    },
+    "scm.stock.reserveFailed": {
+      "variant": "error",
+      "title": "Failed to reserve stock"
+    },
+    "scm.stock.writtenOff": {
+      "variant": "success",
+      "title": "Wrote off {qty} × {product}"
+    },
+    "scm.stock.writeOffFailed": {
+      "variant": "error",
+      "title": "Failed to write off this stock"
+    },
+    "scm.adjustment.approved": {
+      "variant": "success",
+      "title": "Adjustment approved and posted to the stock ledger"
+    },
+    "scm.adjustment.rejected": {
+      "variant": "success",
+      "title": "Adjustment rejected"
+    },
+    "scm.adjustment.recorded": {
+      "variant": "success",
+      "title": "Adjustment recorded, pending approval"
+    },
+    "scm.adjustment.createFailed": {
+      "variant": "error",
+      "title": "Failed to create adjustment"
+    },
+    "scm.adjustment.deleted": {
+      "variant": "success",
+      "title": "Adjustment deleted"
+    },
+    "scm.adjustment.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete adjustment"
+    },
+    "scm.adjustment.approveFailed": {
+      "variant": "error",
+      "title": "Failed to approve adjustment"
+    },
+    "scm.adjustment.rejectFailed": {
+      "variant": "error",
+      "title": "Failed to reject adjustment"
+    },
+    "scm.batch.statusUpdated": {
+      "variant": "success",
+      "title": "Batch status updated"
+    },
+    "scm.batch.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update batch"
+    },
+    "scm.batch.registered": {
+      "variant": "success",
+      "title": "Batch registered"
+    },
+    "scm.batch.createFailed": {
+      "variant": "error",
+      "title": "Failed to create batch"
+    },
+    "scm.batch.deleted": {
+      "variant": "success",
+      "title": "Batch deleted"
+    },
+    "scm.batch.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete batch"
+    },
+    "scm.reservation.statusChanged": {
+      "variant": "success",
+      "title": "Reservation {status}"
+    },
+    "scm.reservation.releaseFailed": {
+      "variant": "error",
+      "title": "Failed to release reservation"
+    },
+    "scm.reservation.deleted": {
+      "variant": "success",
+      "title": "Reservation deleted"
+    },
+    "scm.reservation.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete reservation"
+    },
+    "scm.serial.statusUpdated": {
+      "variant": "success",
+      "title": "Serial status updated"
+    },
+    "scm.serial.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update serial"
+    },
+    "scm.serial.created": {
+      "variant": "success",
+      "title": "{count} serial number(s) created"
+    },
+    "scm.serial.createFailed": {
+      "variant": "error",
+      "title": "Failed to create serial numbers"
+    },
+    "scm.serial.deleted": {
+      "variant": "success",
+      "title": "Serial number deleted"
+    },
+    "scm.serial.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete serial number"
+    },
+    "scm.ledger.reversed": {
+      "variant": "success",
+      "title": "Entry reversed and stock balance adjusted"
+    },
+    "scm.ledger.reverseFailed": {
+      "variant": "error",
+      "title": "Failed to reverse ledger entry"
+    },
+    "scm.opening.warehouseRequired": {
+      "variant": "error",
+      "title": "Create a warehouse first (Warehouse → Warehouses) before posting an opening balance."
+    },
+    "scm.opening.productRequired": {
+      "variant": "error",
+      "title": "No products in the catalog yet — add a product first, then post its opening balance."
+    },
+    "scm.opening.posted": {
+      "variant": "success",
+      "title": "Opening balance posted to the stock ledger"
+    },
+    "scm.opening.postFailed": {
+      "variant": "error",
+      "title": "Failed to post opening balance"
+    },
+    "scm.transfer.requested": {
+      "variant": "success",
+      "title": "Transfer requested"
+    },
+    "scm.transfer.createFailed": {
+      "variant": "error",
+      "title": "Failed to create transfer"
+    },
+    "scm.transfer.deleted": {
+      "variant": "success",
+      "title": "Transfer deleted"
+    },
+    "scm.transfer.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete transfer"
+    },
+    "scm.transfer.approved": {
+      "variant": "success",
+      "title": "Transfer approved"
+    },
+    "scm.transfer.dispatched": {
+      "variant": "success",
+      "title": "Transfer marked in transit — source stock reduced"
+    },
+    "scm.transfer.received": {
+      "variant": "success",
+      "title": "Transfer received — destination stock increased"
+    },
+    "scm.transfer.cancelled": {
+      "variant": "success",
+      "title": "Transfer cancelled"
+    },
+    "scm.transfer.approveFailed": {
+      "variant": "error",
+      "title": "Failed to approve transfer"
+    },
+    "scm.transfer.dispatchFailed": {
+      "variant": "error",
+      "title": "Failed to dispatch transfer"
+    },
+    "scm.transfer.receiveFailed": {
+      "variant": "error",
+      "title": "Failed to receive transfer"
+    },
+    "scm.transfer.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel transfer"
+    },
+    "scm.fulfillment.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.fulfillment.cancelled": {
+      "variant": "success",
+      "title": "Fulfillment cancelled"
+    },
+    "scm.fulfillment.createFailed": {
+      "variant": "error",
+      "title": "Failed to create fulfillment"
+    },
+    "scm.fulfillment.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel fulfillment"
+    },
+    "scm.fulfillment.pickListCreated": {
+      "variant": "success",
+      "title": "Pick list created"
+    },
+    "scm.fulfillment.requisitionRaised": {
+      "variant": "success",
+      "title": "Material requisition raised"
+    },
+    "scm.fulfillment.issued": {
+      "variant": "success",
+      "title": "Stock issued — fulfilled"
+    },
+    "scm.fulfillment.deleted": {
+      "variant": "success",
+      "title": "Fulfillment deleted"
+    },
+    "scm.fulfillment.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete fulfillment"
+    },
+    "scm.picking.assigned": {
+      "variant": "success",
+      "title": "Picker assigned"
+    },
+    "scm.picking.recorded": {
+      "variant": "success",
+      "title": "Pick recorded"
+    },
+    "scm.picking.assignFailed": {
+      "variant": "error",
+      "title": "Failed to assign picker"
+    },
+    "scm.picking.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record pick"
+    },
+    "scm.picking.started": {
+      "variant": "success",
+      "title": "Picking started"
+    },
+    "scm.picking.cancelled": {
+      "variant": "success",
+      "title": "Pick list cancelled"
+    },
+    "scm.picking.deleted": {
+      "variant": "success",
+      "title": "Pick list deleted"
+    },
+    "scm.picking.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete pick list"
+    },
+    "scm.packing.completed": {
+      "variant": "success",
+      "title": "Packing completed"
+    },
+    "scm.packing.completeFailed": {
+      "variant": "error",
+      "title": "Failed to complete packing"
+    },
+    "scm.packing.cancelled": {
+      "variant": "success",
+      "title": "Packing cancelled"
+    },
+    "scm.packing.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel packing"
+    },
+    "scm.packing.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save packing"
+    },
+    "scm.packing.deleted": {
+      "variant": "success",
+      "title": "Packing deleted"
+    },
+    "scm.packing.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete packing"
+    },
+    "scm.shipment.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.shipment.createFailed": {
+      "variant": "error",
+      "title": "Failed to create shipment"
+    },
+    "scm.shipment.carrierAssigned": {
+      "variant": "success",
+      "title": "Carrier assigned"
+    },
+    "scm.shipment.labelCreated": {
+      "variant": "success",
+      "title": "Label created"
+    },
+    "scm.shipment.statusUpdated": {
+      "variant": "success",
+      "title": "Status updated"
+    },
+    "scm.shipment.delivered": {
+      "variant": "success",
+      "title": "Shipment delivered"
+    },
+    "scm.shipment.exceptionRecorded": {
+      "variant": "success",
+      "title": "Exception recorded"
+    },
+    "scm.shipment.exceptionResolved": {
+      "variant": "success",
+      "title": "Exception resolved"
+    },
+    "scm.shipment.markedFailed": {
+      "variant": "success",
+      "title": "Marked as failed delivery"
+    },
+    "scm.shipment.cancelled": {
+      "variant": "success",
+      "title": "Shipment cancelled"
+    },
+    "scm.shipment.dispatched": {
+      "variant": "success",
+      "title": "Shipment dispatched"
+    },
+    "scm.shipment.deleted": {
+      "variant": "success",
+      "title": "Shipment deleted"
+    },
+    "scm.shipment.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete shipment"
+    },
+    "scm.carrier.updated": {
+      "variant": "success",
+      "title": "Carrier updated"
+    },
+    "scm.carrier.added": {
+      "variant": "success",
+      "title": "Carrier added"
+    },
+    "scm.carrier.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save carrier"
+    },
+    "scm.carrier.deleted": {
+      "variant": "success",
+      "title": "Carrier deleted"
+    },
+    "scm.carrier.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete carrier"
+    },
+    "scm.master.invalid": {
+      "variant": "error",
+      "title": "{reason}"
+    },
+    "scm.master.permissionDenied": {
+      "variant": "error",
+      "title": "You don't have the {permission} permission."
+    },
+    "scm.master.addFailed": {
+      "variant": "error",
+      "title": "Could not add this item"
+    },
+    "scm.master.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{label}\""
+    },
+    "scm.grn.posted": {
+      "variant": "success",
+      "title": "{number} posted — stock updated"
+    },
+    "scm.grn.postFailed": {
+      "variant": "error",
+      "title": "Failed to post goods receipt"
+    },
+    "scm.grn.deleted": {
+      "variant": "success",
+      "title": "Goods receipt deleted"
+    },
+    "scm.grn.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete goods receipt"
+    },
+    "scm.grn.formFailed": {
+      "variant": "error",
+      "title": "Could not post the goods receipt."
+    },
+    "scm.po.submitted": {
+      "variant": "success",
+      "title": "Purchase order submitted for approval"
+    },
+    "scm.po.approved": {
+      "variant": "success",
+      "title": "Purchase order approved — incoming stock raised"
+    },
+    "scm.po.sent": {
+      "variant": "success",
+      "title": "Purchase order marked as sent"
+    },
+    "scm.po.cancelled": {
+      "variant": "success",
+      "title": "Purchase order cancelled"
+    },
+    "scm.po.closed": {
+      "variant": "success",
+      "title": "Purchase order closed"
+    },
+    "scm.po.submitFailed": {
+      "variant": "error",
+      "title": "Failed to submit purchase order"
+    },
+    "scm.po.approveFailed": {
+      "variant": "error",
+      "title": "Failed to approve purchase order"
+    },
+    "scm.po.sendFailed": {
+      "variant": "error",
+      "title": "Failed to send purchase order"
+    },
+    "scm.po.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel purchase order"
+    },
+    "scm.po.closeFailed": {
+      "variant": "error",
+      "title": "Failed to close purchase order"
+    },
+    "scm.po.createdSent": {
+      "variant": "success",
+      "title": "Purchase order {number} created and sent to the supplier"
+    },
+    "scm.po.createdDraft": {
+      "variant": "success",
+      "title": "Purchase order {number} created as draft"
+    },
+    "scm.po.deletedWithReceipts": {
+      "variant": "success",
+      "title": "Purchase order and {count} goods receipt(s) deleted"
+    },
+    "scm.po.deleted": {
+      "variant": "success",
+      "title": "Purchase order deleted"
+    },
+    "scm.po.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete purchase order"
+    },
+    "scm.po.createFailed": {
+      "variant": "error",
+      "title": "Failed to create purchase order"
+    },
+    "scm.po.formFailed": {
+      "variant": "error",
+      "title": "Could not create the purchase order."
+    },
+    "scm.quotation.comparisonSaved": {
+      "variant": "success",
+      "title": "Comparison saved"
+    },
+    "scm.quotation.comparisonFailed": {
+      "variant": "error",
+      "title": "Failed to save comparison"
+    },
+    "scm.quotation.rejected": {
+      "variant": "success",
+      "title": "Quotation rejected"
+    },
+    "scm.quotation.cancelled": {
+      "variant": "success",
+      "title": "Quotation cancelled"
+    },
+    "scm.quotation.rejectFailed": {
+      "variant": "error",
+      "title": "Failed to reject quotation"
+    },
+    "scm.quotation.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel quotation"
+    },
+    "scm.quotation.recorded": {
+      "variant": "success",
+      "title": "Quotation {number} recorded"
+    },
+    "scm.quotation.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save quotation"
+    },
+    "scm.quotation.deleted": {
+      "variant": "success",
+      "title": "Quotation deleted"
+    },
+    "scm.quotation.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete quotation"
+    },
+    "scm.quotation.formFailed": {
+      "variant": "error",
+      "title": "Could not save the quotation."
+    },
+    "scm.requisition.submitted": {
+      "variant": "success",
+      "title": "Requisition submitted for approval"
+    },
+    "scm.requisition.approved": {
+      "variant": "success",
+      "title": "Requisition approved"
+    },
+    "scm.requisition.cancelled": {
+      "variant": "success",
+      "title": "Requisition cancelled"
+    },
+    "scm.requisition.rejected": {
+      "variant": "success",
+      "title": "Requisition rejected"
+    },
+    "scm.requisition.updated": {
+      "variant": "success",
+      "title": "Requisition updated"
+    },
+    "scm.requisition.savedDraft": {
+      "variant": "success",
+      "title": "Requisition saved as draft"
+    },
+    "scm.requisition.deleted": {
+      "variant": "success",
+      "title": "Requisition deleted"
+    },
+    "scm.requisition.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete requisition"
+    },
+    "scm.requisition.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save requisition"
+    },
+    "scm.requisition.rejectFailed": {
+      "variant": "error",
+      "title": "Failed to reject requisition"
+    },
+    "scm.requisition.submitFailed": {
+      "variant": "error",
+      "title": "Failed to submit requisition"
+    },
+    "scm.requisition.approveFailed": {
+      "variant": "error",
+      "title": "Failed to approve requisition"
+    },
+    "scm.requisition.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel requisition"
+    },
+    "scm.requisition.formFailed": {
+      "variant": "error",
+      "title": "Could not save the requisition."
+    },
+    "scm.rfq.issued": {
+      "variant": "success",
+      "title": "RFQ issued to suppliers"
+    },
+    "scm.rfq.closed": {
+      "variant": "success",
+      "title": "RFQ closed"
+    },
+    "scm.rfq.cancelled": {
+      "variant": "success",
+      "title": "RFQ cancelled"
+    },
+    "scm.rfq.issueFailed": {
+      "variant": "error",
+      "title": "Failed to issue RFQ"
+    },
+    "scm.rfq.closeFailed": {
+      "variant": "error",
+      "title": "Failed to close RFQ"
+    },
+    "scm.rfq.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel RFQ"
+    },
+    "scm.rfq.created": {
+      "variant": "success",
+      "title": "RFQ {number} created as draft"
+    },
+    "scm.rfq.createFailed": {
+      "variant": "error",
+      "title": "Failed to create RFQ"
+    },
+    "scm.rfq.deleted": {
+      "variant": "success",
+      "title": "RFQ deleted"
+    },
+    "scm.rfq.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete RFQ"
+    },
+    "scm.rfq.formFailed": {
+      "variant": "error",
+      "title": "Could not create the RFQ."
+    },
+    "scm.defect.updated": {
+      "variant": "success",
+      "title": "Defect updated"
+    },
+    "scm.defect.added": {
+      "variant": "success",
+      "title": "Defect added"
+    },
+    "scm.defect.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save defect"
+    },
+    "scm.defect.deleted": {
+      "variant": "success",
+      "title": "Defect deleted"
+    },
+    "scm.defect.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete defect"
+    },
+    "scm.inspection.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.inspection.createFailed": {
+      "variant": "error",
+      "title": "Failed to create inspection"
+    },
+    "scm.inspection.resultFailed": {
+      "variant": "error",
+      "title": "Failed to record result"
+    },
+    "scm.inspection.deleted": {
+      "variant": "success",
+      "title": "Inspection deleted"
+    },
+    "scm.inspection.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete inspection"
+    },
+    "scm.quarantine.reviewing": {
+      "variant": "success",
+      "title": "Marked under review"
+    },
+    "scm.quarantine.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update"
+    },
+    "scm.quarantine.released": {
+      "variant": "success",
+      "title": "Stock released"
+    },
+    "scm.quarantine.writtenOff": {
+      "variant": "success",
+      "title": "Stock written off"
+    },
+    "scm.quarantine.deleted": {
+      "variant": "success",
+      "title": "Quarantine record deleted"
+    },
+    "scm.quarantine.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete quarantine record"
+    },
+    "scm.qualityTemplate.updated": {
+      "variant": "success",
+      "title": "Template updated"
+    },
+    "scm.qualityTemplate.created": {
+      "variant": "success",
+      "title": "{code} created"
+    },
+    "scm.qualityTemplate.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save template"
+    },
+    "scm.qualityTemplate.deleted": {
+      "variant": "success",
+      "title": "Template deleted"
+    },
+    "scm.qualityTemplate.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete template"
+    },
+    "scm.return.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.return.createFailed": {
+      "variant": "error",
+      "title": "Failed to create return"
+    },
+    "scm.return.deleted": {
+      "variant": "success",
+      "title": "Return deleted"
+    },
+    "scm.return.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete return"
+    },
+    "scm.customer.updated": {
+      "variant": "success",
+      "title": "Customer updated"
+    },
+    "scm.customer.added": {
+      "variant": "success",
+      "title": "Customer added"
+    },
+    "scm.customer.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save customer"
+    },
+    "scm.invoice.issued": {
+      "variant": "success",
+      "title": "Tax Invoice Issued",
+      "description": "Invoice {number} posted to General Ledger and GST Return ledger."
+    },
+    "scm.invoice.issueFailed": {
+      "variant": "error",
+      "title": "Invoice Issuance Failed",
+      "description": "Failed to issue tax invoice"
+    },
+    "scm.invoice.issueFailedInline": {
+      "variant": "error",
+      "title": "Failed to issue tax invoice"
+    },
+    "scm.salesOrder.confirmed": {
+      "variant": "success",
+      "title": "Sales order confirmed"
+    },
+    "scm.salesOrder.cancelled": {
+      "variant": "success",
+      "title": "Sales order cancelled"
+    },
+    "scm.salesOrder.savedDraft": {
+      "variant": "success",
+      "title": "Sales order saved as draft"
+    },
+    "scm.salesOrder.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save sales order"
+    },
+    "scm.salesOrder.confirmFailed": {
+      "variant": "error",
+      "title": "Failed to confirm order"
+    },
+    "scm.salesOrder.cancelFailed": {
+      "variant": "error",
+      "title": "Failed to cancel order"
+    },
+    "scm.salesOrder.formFailed": {
+      "variant": "error",
+      "title": "Could not save the sales order."
+    },
+    "scm.supplier.updated": {
+      "variant": "success",
+      "title": "Supplier updated"
+    },
+    "scm.supplier.created": {
+      "variant": "success",
+      "title": "Supplier created"
+    },
+    "scm.supplier.statusChanged": {
+      "variant": "success",
+      "title": "Supplier marked {status}"
+    },
+    "scm.supplier.statusFailed": {
+      "variant": "error",
+      "title": "Failed to update supplier status"
+    },
+    "scm.supplier.deleted": {
+      "variant": "success",
+      "title": "Supplier deleted"
+    },
+    "scm.supplier.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete supplier"
+    },
+    "scm.supplier.formFailed": {
+      "variant": "error",
+      "title": "Could not save this supplier. Check the fields above and try again."
+    },
+    "scm.bill.updated": {
+      "variant": "success",
+      "title": "Bill updated"
+    },
+    "scm.bill.recorded": {
+      "variant": "success",
+      "title": "Bill {number} recorded"
+    },
+    "scm.bill.posted": {
+      "variant": "success",
+      "title": "{number} posted to Finance & GST"
+    },
+    "scm.bill.cancelled": {
+      "variant": "success",
+      "title": "{number} cancelled"
+    },
+    "scm.bill.saveFailed": {
+      "variant": "error",
+      "title": "Could not save the bill"
+    },
+    "scm.bill.postFailed": {
+      "variant": "error",
+      "title": "Failed to post bill to Finance"
+    },
+    "scm.supplierFinance.actionFailed": {
+      "variant": "error",
+      "title": "Could not complete this action"
+    },
+    "scm.supplierPayment.recorded": {
+      "variant": "success",
+      "title": "Payment {number} recorded"
+    },
+    "scm.supplierPayment.voided": {
+      "variant": "success",
+      "title": "{number} voided"
+    },
+    "scm.supplierPayment.recordFailed": {
+      "variant": "error",
+      "title": "Could not record the payment"
+    },
+    "scm.supplierDocument.uploaded": {
+      "variant": "success",
+      "title": "Document uploaded"
+    },
+    "scm.supplierDocument.openFailed": {
+      "variant": "error",
+      "title": "Could not open the document"
+    },
+    "scm.supplierDocument.deleted": {
+      "variant": "success",
+      "title": "Document deleted"
+    },
+    "scm.supplierDocument.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete the document"
+    },
+    "scm.supplierDocument.uploadFailed": {
+      "variant": "error",
+      "title": "Could not upload the document"
+    },
+    "scm.movement.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.movement.createFailed": {
+      "variant": "error",
+      "title": "Failed to create movement"
+    },
+    "scm.movement.deleted": {
+      "variant": "success",
+      "title": "Movement deleted"
+    },
+    "scm.movement.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete movement"
+    },
+    "scm.putaway.created": {
+      "variant": "success",
+      "title": "{number} created"
+    },
+    "scm.putaway.createFailed": {
+      "variant": "error",
+      "title": "Failed to create put-away"
+    },
+    "scm.putaway.deleted": {
+      "variant": "success",
+      "title": "Put-away deleted"
+    },
+    "scm.putaway.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete put-away"
+    },
+    "scm.warehouse.statusChanged": {
+      "variant": "success",
+      "title": "Warehouse marked {status}"
+    },
+    "scm.warehouse.statusFailed": {
+      "variant": "error",
+      "title": "Failed to update warehouse status"
+    },
+    "scm.warehouse.updated": {
+      "variant": "success",
+      "title": "Warehouse updated"
+    },
+    "scm.warehouse.created": {
+      "variant": "success",
+      "title": "Warehouse created"
+    },
+    "scm.warehouse.deleted": {
+      "variant": "success",
+      "title": "Warehouse deleted"
+    },
+    "scm.warehouse.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete warehouse"
+    },
+    "scm.location.statusChanged": {
+      "variant": "success",
+      "title": "Location marked {status}"
+    },
+    "scm.location.updateFailed": {
+      "variant": "error",
+      "title": "Failed to update location"
+    },
+    "scm.location.warehouseRequired": {
+      "variant": "error",
+      "title": "Create a warehouse first (Warehouse → Warehouses), then add locations to it."
+    },
+    "scm.location.rackCreated": {
+      "variant": "success",
+      "title": "Rack created with {count} bin(s)"
+    },
+    "scm.location.created": {
+      "variant": "success",
+      "title": "Location created"
+    },
+    "scm.location.updated": {
+      "variant": "success",
+      "title": "Location updated"
+    },
+    "scm.location.deletedNested": {
+      "variant": "success",
+      "title": "Location and {count} nested location(s) deleted"
+    },
+    "scm.location.deleted": {
+      "variant": "success",
+      "title": "Location deleted"
+    },
+    "scm.location.deleteFailed": {
+      "variant": "error",
+      "title": "Failed to delete location"
+    },
+    "scm.location.createFailed": {
+      "variant": "error",
+      "title": "Failed to create location"
+    },
+    "scm.location.formFailed": {
+      "variant": "error",
+      "title": "Could not save the location."
+    },
+    "scm.putaway.recordFailed": {
+      "variant": "error",
+      "title": "Failed to record"
+    },
+    "scm.putaway.addLineFailed": {
+      "variant": "error",
+      "title": "Failed to add line"
+    },
+    "scm.warehouse.saveFailed": {
+      "variant": "error",
+      "title": "Failed to save warehouse"
+    },
+    "users.rolesUpdated": {
+      "variant": "success",
+      "title": "Updated roles for \"{name}\""
+    },
+    "users.teamsUpdated": {
+      "variant": "success",
+      "title": "Updated teams for \"{name}\""
+    },
+    "users.credentialsCopied": {
+      "variant": "success",
+      "title": "Credentials copied"
+    },
+    "users.credentialsCopyFailed": {
+      "variant": "error",
+      "title": "Could not copy to clipboard"
+    },
+    "users.resetPasswordFailed": {
+      "variant": "error",
+      "title": "Failed to reset password"
+    },
+    "users.created": {
+      "variant": "success",
+      "title": "User created"
+    },
+    "users.createFailed": {
+      "variant": "error",
+      "title": "Could not create user"
+    },
+    "users.updated": {
+      "variant": "success",
+      "title": "User updated"
+    },
+    "users.deleted": {
+      "variant": "success",
+      "title": "Deleted \"{name}\""
+    },
+    "users.rolesFailed": {
+      "variant": "error",
+      "title": "Could not update roles",
+      "description": "{reason}"
+    },
+    "users.teamsFailed": {
+      "variant": "error",
+      "title": "Could not update teams",
+      "description": "{reason}"
+    },
+    "users.updateFailed": {
+      "variant": "error",
+      "title": "Could not update user",
+      "description": "{reason}"
+    },
+    "users.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{name}\"",
+      "description": "{reason}"
+    },
+    "users.permissionDenied": {
+      "variant": "error",
+      "title": "You don't have permission to do this."
+    },
+    "selfService.attendance.checkedIn": {
+      "variant": "success",
+      "title": "Checked in at {time}"
+    },
+    "selfService.attendance.checkedOut": {
+      "variant": "success",
+      "title": "Checked out at {time}"
+    },
+    "selfService.punch.failed": {
+      "variant": "error",
+      "title": "Failed to save attendance. Please try again."
+    },
+    "selfService.punch.permissionDenied": {
+      "variant": "error",
+      "title": "You don't have permission to punch attendance."
+    },
+    "selfService.punch.alreadyCheckedIn": {
+      "variant": "error",
+      "title": "You are already checked in."
+    },
+    "selfService.punch.notCheckedIn": {
+      "variant": "error",
+      "title": "You are not checked in."
+    },
+    "selfService.documents.downloadFailed": {
+      "variant": "error",
+      "title": "Could not download this document"
+    },
+    "selfService.exit.submitted": {
+      "variant": "success",
+      "title": "Exit request submitted"
+    },
+    "selfService.exit.submitFailed": {
+      "variant": "error",
+      "title": "Could not submit this request. Check the fields and try again."
+    },
+    "selfService.claim.submitted": {
+      "variant": "success",
+      "title": "Expense claim submitted"
+    },
+    "selfService.claim.submitFailed": {
+      "variant": "error",
+      "title": "Could not submit this claim. Check the fields and try again."
+    },
+    "selfService.leave.resubmitted": {
+      "variant": "success",
+      "title": "Leave request resubmitted"
+    },
+    "selfService.leave.resubmitFailed": {
+      "variant": "error",
+      "title": "Could not resubmit request"
+    },
+    "selfService.profile.copied": {
+      "variant": "success",
+      "title": "Copied to clipboard",
+      "description": "{text} copied."
+    },
+    "selfService.profile.downloaded": {
+      "variant": "success",
+      "title": "Download complete",
+      "description": "Successfully downloaded {file}"
+    },
+    "selfService.profile.downloadFailed": {
+      "variant": "error",
+      "title": "Download failed",
+      "description": "Could not download document."
+    },
+    "departments.created": {
+      "variant": "success",
+      "title": "Department created"
+    },
+    "departments.updated": {
+      "variant": "success",
+      "title": "Department updated"
+    },
+    "departments.deleted": {
+      "variant": "success",
+      "title": "Deleted \"{name}\""
+    },
+    "departments.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{name}\""
+    },
+    "departments.createFailed": {
+      "variant": "error",
+      "title": "Could not create department"
+    },
+    "departments.updateFailed": {
+      "variant": "error",
+      "title": "Could not update department"
+    },
+    "departments.saveFailed": {
+      "variant": "error",
+      "title": "Could not save department. Please verify the name and try again."
+    },
+    "designations.created": {
+      "variant": "success",
+      "title": "Designation created"
+    },
+    "designations.createFailed": {
+      "variant": "error",
+      "title": "Could not create designation"
+    },
+    "designations.updated": {
+      "variant": "success",
+      "title": "Designation updated"
+    },
+    "designations.updateFailed": {
+      "variant": "error",
+      "title": "Could not update designation"
+    },
+    "designations.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update \"{name}\""
+    },
+    "designations.activated": {
+      "variant": "success",
+      "title": "Activated \"{name}\""
+    },
+    "designations.deactivated": {
+      "variant": "success",
+      "title": "Deactivated \"{name}\""
+    },
+    "menu.created": {
+      "variant": "success",
+      "title": "Menu item created"
+    },
+    "menu.createFailed": {
+      "variant": "error",
+      "title": "Could not create menu item"
+    },
+    "menu.updated": {
+      "variant": "success",
+      "title": "Menu item updated"
+    },
+    "menu.updateFailed": {
+      "variant": "error",
+      "title": "Could not update menu item"
+    },
+    "menu.deleted": {
+      "variant": "success",
+      "title": "Deleted \"{label}\""
+    },
+    "menu.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{label}\""
+    },
+    "roles.saved": {
+      "variant": "success",
+      "title": "Saved “{name}”"
+    },
+    "roles.createdChoosePermissions": {
+      "variant": "success",
+      "title": "Role “{name}” created — choose its permissions"
+    },
+    "roles.cloned": {
+      "variant": "success",
+      "title": "Created “{name}”"
+    },
+    "roles.updated": {
+      "variant": "success",
+      "title": "Role updated"
+    },
+    "roles.form.systemProtected": {
+      "variant": "error",
+      "title": "System roles keep their name and stay active. Clone the role to make a variant."
+    },
+    "roles.form.inUse": {
+      "variant": "error",
+      "title": "Users still hold this role. Move them to another role before deactivating it."
+    },
+    "roles.form.versionConflict": {
+      "variant": "error",
+      "title": "Someone else changed this role meanwhile. Close this dialog to load their version, then try again."
+    },
+    "roles.form.accessLockout": {
+      "variant": "error",
+      "title": "This would leave nobody — or you — able to manage roles."
+    },
+    "roles.form.unreachable": {
+      "variant": "error",
+      "title": "Could not reach the server — check your connection and try again."
+    },
+    "roles.save.versionConflict": {
+      "variant": "error",
+      "title": "Someone else changed this role while you were editing. Their version is now loaded underneath and your edits are kept — review the changes again."
+    },
+    "roles.save.permissionDenied": {
+      "variant": "error",
+      "title": "You don't have permission to change roles."
+    },
+    "roles.save.notFound": {
+      "variant": "error",
+      "title": "This role no longer exists."
+    },
+    "roles.save.failed": {
+      "variant": "error",
+      "title": "Saving failed. Try again."
+    },
+    "tags.created": {
+      "variant": "success",
+      "title": "Tag created"
+    },
+    "tags.deleted": {
+      "variant": "success",
+      "title": "Deleted \"{name}\""
+    },
+    "tags.deleteFailed": {
+      "variant": "error",
+      "title": "Could not delete \"{name}\""
+    },
+    "onboarding.forceApproved": {
+      "variant": "success",
+      "title": "Onboarding approved",
+      "description": "This was approved even though it isn't fully submitted — an explicit HR override."
+    },
+    "onboarding.forceApproveFailed": {
+      "variant": "error",
+      "title": "Approve failed",
+      "description": "Failed to approve onboarding"
+    },
+    "notifications.dnd.failed": {
+      "variant": "error",
+      "title": "Could not change Do Not Disturb"
+    },
+    "selfService.permission.submitted": {
+      "variant": "success",
+      "title": "Permission request submitted"
+    },
+    "selfService.permission.submitFailed": {
+      "variant": "error",
+      "title": "Failed to submit. Please try again."
+    },
+    "payroll.bonus.created": {
+      "variant": "success",
+      "title": "Bonus created for {name} — awaiting approval"
+    },
+    "payroll.bonus.approved": {
+      "variant": "success",
+      "title": "Bonus approved"
+    },
+    "payroll.bonus.rejected": {
+      "variant": "success",
+      "title": "Bonus rejected"
+    },
+    "payroll.bonus.statutoryRaised": {
+      "variant": "success",
+      "title": "{count} statutory bonus(es) raised — awaiting approval"
+    },
+    "payroll.bonus.yearlyRaised": {
+      "variant": "success",
+      "title": "{count} statutory bonus(es) raised — awaiting maker-checker approval"
+    },
+    "payroll.bonus.gratuityRaised": {
+      "variant": "success",
+      "title": "Gratuity of {amount} raised for {name} — awaiting approval"
+    },
+    "payroll.loan.rejected": {
+      "variant": "success",
+      "title": "Loan {number} rejected"
+    },
+    "payroll.loan.forwarded": {
+      "variant": "success",
+      "title": "Loan {number} forwarded for final approval"
+    },
+    "payroll.loan.approved": {
+      "variant": "success",
+      "title": "Loan {number} approved — EMI schedule created"
+    },
+    "payroll.loan.prepaymentRecorded": {
+      "variant": "success",
+      "title": "Prepayment recorded — awaiting approval"
+    },
+    "payroll.loan.prepaymentApproved": {
+      "variant": "success",
+      "title": "Prepayment approved — EMIs settled"
+    },
+    "payroll.loan.prepaymentRejected": {
+      "variant": "success",
+      "title": "Prepayment rejected"
+    },
+    "payroll.loan.requestedSelf": {
+      "variant": "success",
+      "title": "Loan {number} requested — HR will review it"
+    },
+    "payroll.loan.requestedFor": {
+      "variant": "success",
+      "title": "Loan {number} requested for {name} — awaiting HR review"
+    },
+    "payroll.loan.createdFor": {
+      "variant": "success",
+      "title": "Loan {number} created for {name} — awaiting review"
+    },
+    "payroll.loan.skipRequested": {
+      "variant": "success",
+      "title": "EMI skip requested"
+    },
+    "payroll.loan.skipSubmitted": {
+      "variant": "success",
+      "title": "EMI skip request submitted successfully"
+    },
+    "payroll.loan.skipApproved": {
+      "variant": "success",
+      "title": "Skip approved"
+    },
+    "payroll.loan.skipRejected": {
+      "variant": "success",
+      "title": "Skip rejected"
+    },
+    "payroll.payment.batchCreated": {
+      "variant": "success",
+      "title": "Payment batch {number} created",
+      "description": "Batch with {count} employees generated successfully."
+    },
+    "payroll.payment.updated": {
+      "variant": "success",
+      "title": "Payment record updated",
+      "description": "Updated status for {name}."
+    },
+    "payroll.payment.batchProcessed": {
+      "variant": "success",
+      "title": "Payment batch processed successfully",
+      "description": "All pending payments have been updated to Paid status."
+    },
+    "payroll.payment.adviceExported": {
+      "variant": "success",
+      "title": "Bank advice exported",
+      "description": "Saved {file} for upload to corporate banking portal."
+    },
+    "payroll.settings.saved": {
+      "variant": "success",
+      "title": "Payroll policy settings saved successfully"
+    },
+    "payroll.settings.statutoryLoaded": {
+      "variant": "info",
+      "title": "Statutory parameters loaded",
+      "description": "Standard EPFO, ESIC, and Gratuity values applied to form."
+    },
+    "payroll.payslip.downloaded": {
+      "variant": "success",
+      "title": "Payslip downloaded successfully"
+    },
+    "payroll.payslip.pdfFailed": {
+      "variant": "error",
+      "title": "Could not download the payslip PDF",
+      "description": "{reason}"
+    },
+    "payroll.payslip.downloadFailed": {
+      "variant": "error",
+      "title": "Could not download the payslip",
+      "description": "{reason}"
+    },
+    "payroll.payslip.generatedOne": {
+      "variant": "success",
+      "title": "{count} payslip generated successfully"
+    },
+    "payroll.payslip.generatedMany": {
+      "variant": "success",
+      "title": "{count} payslips generated successfully"
+    },
+    "payroll.payslip.nothingToExport": {
+      "variant": "warning",
+      "title": "No payslips available to export"
+    },
+    "payroll.payslip.csvExported": {
+      "variant": "success",
+      "title": "CSV export generated successfully"
+    },
+    "payroll.payslip.excelExported": {
+      "variant": "success",
+      "title": "Excel (.xlsx) export generated successfully"
+    },
+    "payroll.payslip.excelFailed": {
+      "variant": "error",
+      "title": "Could not generate the Excel export"
+    },
+    "payroll.payslip.regenerated": {
+      "variant": "success",
+      "title": "{number} regenerated — version {version}"
+    },
+    "payroll.payslip.unchanged": {
+      "variant": "success",
+      "title": "{number} is unchanged"
+    },
+    "payroll.period.created": {
+      "variant": "success",
+      "title": "Payroll period {period} created"
+    },
+    "payroll.period.finalized": {
+      "variant": "success",
+      "title": "{period} finalized — payslips generated"
+    },
+    "payroll.period.cancelled": {
+      "variant": "success",
+      "title": "{period} cancelled"
+    },
+    "payroll.period.reopened": {
+      "variant": "success",
+      "title": "{period} reopened — the run needs a fresh approval"
+    },
+    "payroll.run.processed": {
+      "variant": "success",
+      "title": "Run #{number} processed"
+    },
+    "payroll.run.approved": {
+      "variant": "success",
+      "title": "Run #{number} approved"
+    },
+    "payroll.salary.saved": {
+      "variant": "success",
+      "title": "Salary structure saved for {name}"
+    },
+    "payroll.salary.updated": {
+      "variant": "success",
+      "title": "Salary structure updated"
+    },
+    "payroll.salary.componentUpdated": {
+      "variant": "success",
+      "title": "Component updated"
+    },
+    "payroll.salary.componentAdded": {
+      "variant": "success",
+      "title": "Component added"
+    },
+    "payroll.salary.templateUpdated": {
+      "variant": "success",
+      "title": "Template updated"
+    },
+    "payroll.salary.templateCreated": {
+      "variant": "success",
+      "title": "Template created"
+    },
+    "payroll.tax.declarationSubmitted": {
+      "variant": "success",
+      "title": "Declaration submitted for verification"
+    },
+    "payroll.tax.declarationDraftSaved": {
+      "variant": "success",
+      "title": "Declaration saved as a draft"
+    },
+    "payroll.tax.declarationVerified": {
+      "variant": "success",
+      "title": "Declaration for {name} verified"
+    },
+    "payroll.tax.declarationRejected": {
+      "variant": "success",
+      "title": "Declaration rejected"
+    },
+    "payroll.tax.declarationSubmittedFor": {
+      "variant": "success",
+      "title": "Declaration submitted for {name}"
+    },
+    "payroll.tax.declarationDraftSavedFor": {
+      "variant": "success",
+      "title": "Declaration draft saved for {name}"
+    },
+    "payroll.tax.slabsPopulated": {
+      "variant": "success",
+      "title": "Populated Finance Act standard slabs for {regime} regime"
+    },
+    "payroll.tax.regimeSaved": {
+      "variant": "success",
+      "title": "{regime} regime for FY {year} saved successfully"
+    },
+    "payroll.statutory.profileSelected": {
+      "variant": "success",
+      "title": "Selected {state} ({code}) statutory profile"
+    },
+    "payroll.compliance.profileSaved": {
+      "variant": "success",
+      "title": "{scheme} profile saved for {name}"
+    },
+    "payroll.pt.slabAdded": {
+      "variant": "success",
+      "title": "PT slab added for {code}"
+    },
+    "payroll.pt.mapped": {
+      "variant": "success",
+      "title": "Mapped {code} PT jurisdiction to location"
+    },
+    "payroll.pt.slabDeactivated": {
+      "variant": "success",
+      "title": "PT slab deactivated"
+    },
+    "payroll.error.payrollFinalized": {
+      "variant": "error",
+      "title": "This payroll period is finalized or cancelled."
+    },
+    "payroll.error.payrollAlreadyFinalized": {
+      "variant": "error",
+      "title": "This payroll period is already finalized."
+    },
+    "payroll.error.periodDatesInvalid": {
+      "variant": "error",
+      "title": "The period end date cannot be before its start date."
+    },
+    "payroll.error.salaryNotConfigured": {
+      "variant": "error",
+      "title": "Some employees have no salary structure for this period. Add one under Salaries, then run payroll again."
+    },
+    "payroll.error.noEligibleEmployees": {
+      "variant": "error",
+      "title": "No eligible employees were found for this period."
+    },
+    "payroll.error.calculationEmpty": {
+      "variant": "error",
+      "title": "Payroll could not be calculated for any employee."
+    },
+    "payroll.error.runAlreadyApproved": {
+      "variant": "error",
+      "title": "This payroll run is already approved."
+    },
+    "payroll.error.periodFinalized": {
+      "variant": "error",
+      "title": "That payroll period is finalized, so it can no longer change."
+    },
+    "payroll.error.alreadyDecided": {
+      "variant": "error",
+      "title": "This was already decided by someone else. Refresh to see it."
+    },
+    "payroll.error.loanNotActive": {
+      "variant": "error",
+      "title": "Only an active loan can skip an EMI."
+    },
+    "payroll.error.loanScheduleInvalid": {
+      "variant": "error",
+      "title": "EMI × months must cover the principal, and the last installment can't be empty."
+    },
+    "payroll.error.noApprovedRun": {
+      "variant": "error",
+      "title": "This period has no approved payroll run yet. Approve a run first."
+    },
+    "payroll.error.periodNotFinalized": {
+      "variant": "error",
+      "title": "Payments can only be made for a finalized payroll period. Finalize it first."
+    },
+    "payroll.error.paymentBatchExists": {
+      "variant": "error",
+      "title": "A payment batch already exists for this period. Open it from the list."
+    },
+    "payroll.error.payrollRunEmpty": {
+      "variant": "error",
+      "title": "The approved payroll run has no employees to pay."
+    },
+    "payroll.error.batchAlreadyProcessed": {
+      "variant": "error",
+      "title": "This batch was already processed."
+    },
+    "payroll.error.invalidStateTransition": {
+      "variant": "error",
+      "title": "That action is not allowed in the current status. Refresh and try again."
+    },
+    "payroll.error.attendanceNotApproved": {
+      "variant": "error",
+      "title": "Payroll reads approved attendance. Approve these employees' attendance month first (HR → Attendance → Month close)."
+    },
+    "payroll.error.taxRegimeNotConfigured": {
+      "variant": "error",
+      "title": "TDS is on, but this financial year's tax slabs are missing. Add them under Payroll settings → Tax regimes."
+    },
+    "payroll.error.salaryGrossMismatch": {
+      "variant": "error",
+      "title": "The earning lines do not add up to the gross. Fix the amounts or leave the gross empty."
+    },
+    "payroll.error.salaryComponentsIncomplete": {
+      "variant": "error",
+      "title": "Give the salary lines, a template with its gross, or a gross to split."
+    },
+    "payroll.error.salaryOverlap": {
+      "variant": "error",
+      "title": "This employee already has a salary structure for these dates. End the current one first."
+    },
+    "payroll.error.salaryLockedByFinalizedPayroll": {
+      "variant": "error",
+      "title": "A finalized payroll used this structure. Create a new structure from the next month instead."
+    },
+    "payroll.error.salaryComponentInactive": {
+      "variant": "error",
+      "title": "One of the components is inactive."
+    },
+    "payroll.error.salaryComponentDuplicate": {
+      "variant": "error",
+      "title": "A component appears more than once."
+    },
+    "payroll.error.componentCodeReserved": {
+      "variant": "error",
+      "title": "That code is used by the payroll engine itself (PF, ESI, PT, TDS, LOAN, BONUS, ARREARS, OVERTIME, GRATUITY)."
+    },
+    "payroll.error.componentRequired": {
+      "variant": "error",
+      "title": "Basic Salary cannot be deactivated."
+    },
+    "payroll.error.templateExceedsGross": {
+      "variant": "error",
+      "title": "The template's earnings are more than the gross."
+    },
+    "payroll.error.templateGrossMismatch": {
+      "variant": "error",
+      "title": "The template's earnings do not add up to the gross. Add a REMAINDER line."
+    },
+    "payroll.error.templateBasicMissing": {
+      "variant": "error",
+      "title": "A percent-of-Basic line needs a fixed or percent-of-gross BASIC line."
+    },
+    "payroll.error.templateRemainderDuplicate": {
+      "variant": "error",
+      "title": "A template can have only one REMAINDER line."
+    },
+    "payroll.error.templateRemainderNotEarning": {
+      "variant": "error",
+      "title": "Only an earning can take the remainder."
+    },
+    "payroll.error.templateValueRequired": {
+      "variant": "error",
+      "title": "Every line except the REMAINDER needs a value."
+    },
+    "payroll.error.taxSlabsInvalid": {
+      "variant": "error",
+      "title": "Slabs must start at 0 and follow on without gaps; only the last may have no upper limit."
+    },
+    "payroll.error.ptSlabOverlap": {
+      "variant": "error",
+      "title": "This wage range overlaps another slab of the same state in force at the same time."
+    },
+    "payroll.error.taxDeclarationLocked": {
+      "variant": "error",
+      "title": "The declaration is submitted or verified and can no longer be changed."
+    },
+    "payroll.error.decisionNoteRequired": {
+      "variant": "error",
+      "title": "Give a note when rejecting."
+    },
+    "payroll.error.form16NoPayroll": {
+      "variant": "error",
+      "title": "No finalized payroll for this employee in that year."
+    },
+    "payroll.error.financialYearInvalid": {
+      "variant": "error",
+      "title": "Write the financial year like 2026-27."
+    },
+    "payroll.error.loanOverLimit": {
+      "variant": "error",
+      "title": "The principal is above the organization's limit. Give an override reason; an organization-wide approver must then approve it."
+    },
+    "payroll.error.loanEmiOverLimit": {
+      "variant": "error",
+      "title": "The employee's EMIs together would exceed the allowed share of their salary."
+    },
+    "payroll.error.loanPrepaymentExceedsBalance": {
+      "variant": "error",
+      "title": "The prepayment is more than the outstanding balance."
+    },
+    "payroll.error.payrollAlreadyPaid": {
+      "variant": "error",
+      "title": "Salary for this month is already paid, so it cannot be reopened. Correct it in the next period."
+    },
+    "payroll.error.statutoryAlreadyRemitted": {
+      "variant": "error",
+      "title": "PF or ESI for this month is already remitted, so it cannot be reopened."
+    },
+    "payroll.error.payslipRegenerationReasonRequired": {
+      "variant": "error",
+      "title": "A generated payslip would change. Give a reason to regenerate it."
+    },
+    "payroll.error.payslipSuperseded": {
+      "variant": "error",
+      "title": "This payslip belongs to a superseded run."
+    },
+    "payroll.error.gratuityNotEligible": {
+      "variant": "error",
+      "title": "No gratuity is due."
+    },
+    "payroll.error.uanMissing": {
+      "variant": "error",
+      "title": "Some PF members have no UAN. Add it under Compliance."
+    },
+    "payroll.error.makerChecker": {
+      "variant": "error",
+      "title": "You created this, so someone else must approve it."
+    },
+    "payroll.error.permission": {
+      "variant": "error",
+      "title": "You don't have permission to do this. Organization-wide payroll actions need an .all grant."
+    },
+    "payroll.error.generic": {
+      "variant": "error",
+      "title": "Something went wrong. Try again."
+    },
+    "hr.photo.invalidFormat": {
+      "variant": "warning",
+      "title": "Invalid file format",
+      "description": "Please select an image file (PNG, JPG, JPEG, or WebP)."
+    },
+    "hr.photo.tooLarge": {
+      "variant": "warning",
+      "title": "File too large",
+      "description": "Photo file size must not exceed 5MB."
+    },
+    "hr.photo.uploadFailed": {
+      "variant": "error",
+      "title": "Upload failed",
+      "description": "Could not upload the profile photo. Please try again."
+    },
+    "hr.employee.photoUpdated": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "Employee photo has been uploaded and updated successfully."
+    },
+    "hr.employee.updated": {
+      "variant": "success",
+      "title": "Employee updated"
+    },
+    "hr.employee.statusChanged": {
+      "variant": "success",
+      "title": "Status changed to {status}"
+    },
+    "hr.employee.statusChangedPaused": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is now inactive — their portal login is paused until they're made active again."
+    },
+    "hr.employee.statusChangedReactivated": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is active again and can sign in to the portal."
+    },
+    "hr.employee.statusChangedPlain": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is now {state}."
+    },
+    "hr.employee.statusChangeFailed": {
+      "variant": "error",
+      "title": "Status change failed",
+      "description": "Failed to update employee status"
+    },
+    "hr.employee.accountPermissionDenied": {
+      "variant": "error",
+      "title": "Permission denied",
+      "description": "You do not have permission to manage employee accounts."
+    },
+    "hr.employee.statusPermissionDenied": {
+      "variant": "error",
+      "title": "Permission denied",
+      "description": "You do not have permission to update employee status."
+    },
+    "hr.employee.accountLinked": {
+      "variant": "success",
+      "title": "Login account linked"
+    },
+    "hr.employee.accountUnlinked": {
+      "variant": "success",
+      "title": "Login account unlinked"
+    },
+    "hr.employee.accountDetached": {
+      "variant": "success",
+      "title": "Account unlinked",
+      "description": "{name}'s login has been detached."
+    },
+    "hr.employee.accountDetachFailed": {
+      "variant": "error",
+      "title": "Unlink failed",
+      "description": "Failed to unlink employee account"
+    },
+    "hr.employee.passwordResetFailed": {
+      "variant": "error",
+      "title": "Failed to reset password"
+    },
+    "hr.employee.portalPasswordUpdated": {
+      "variant": "success",
+      "title": "Password updated"
+    },
+    "hr.employee.portalPasswordFailed": {
+      "variant": "error",
+      "title": "Failed to set password",
+      "description": "Try again."
+    },
+    "hr.employee.deleted": {
+      "variant": "success",
+      "title": "Employee deleted",
+      "description": "{name}'s record has been permanently removed."
+    },
+    "hr.employee.deleteFailed": {
+      "variant": "error",
+      "title": "Delete failed",
+      "description": "Failed to delete employee"
+    },
+    "hr.employee.exported": {
+      "variant": "success",
+      "title": "Export complete",
+      "description": "The employees CSV has been downloaded successfully."
+    },
+    "hr.employee.exportFailed": {
+      "variant": "error",
+      "title": "Export failed",
+      "description": "Try again in a moment."
+    },
+    "hr.employee.pdfDownloaded": {
+      "variant": "success",
+      "title": "Profile PDF downloaded",
+      "description": "Saved report for {name}."
+    },
+    "hr.employee.pdfFailed": {
+      "variant": "error",
+      "title": "Could not create the PDF",
+      "description": "Try again in a moment."
+    },
+    "hr.employee.importedOne": {
+      "variant": "success",
+      "title": "1 employee imported"
+    },
+    "hr.employee.importedMany": {
+      "variant": "success",
+      "title": "{count} employees imported"
+    },
+    "hr.employee.onboardingSentBack": {
+      "variant": "success",
+      "title": "Profile sent back to {name}"
+    },
+    "hr.employee.onboardingApproved": {
+      "variant": "success",
+      "title": "{name}'s onboarding approved"
+    },
+    "hr.profile.noChanges": {
+      "variant": "info",
+      "title": "No changes to save"
+    },
+    "hr.profile.saved": {
+      "variant": "success",
+      "title": "Profile saved"
+    },
+    "hr.profile.statutorySaved": {
+      "variant": "success",
+      "title": "Statutory and bank details saved"
+    },
+    "hr.profile.photoUpdated": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "Employee profile photo has been uploaded and updated successfully."
+    },
+    "hr.profile.photoUpdatedView": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "The employee profile photo has been updated successfully."
+    },
+    "hr.leave.exportFailed": {
+      "variant": "error",
+      "title": "Could not export",
+      "description": "{reason}"
+    },
+    "hr.leave.applied": {
+      "variant": "success",
+      "title": "Leave applied for {name}",
+      "description": "It now waits for approval."
+    },
+    "hr.leave.cancelled": {
+      "variant": "success",
+      "title": "Leave request cancelled"
+    },
+    "hr.leave.rejected": {
+      "variant": "success",
+      "title": "Leave rejected"
+    },
+    "hr.leave.firstApproval": {
+      "variant": "success",
+      "title": "First approval given — the request now waits for HR"
+    },
+    "hr.leave.approved": {
+      "variant": "success",
+      "title": "Leave approved"
+    },
+    "hr.leave.delegationCreated": {
+      "variant": "success",
+      "title": "Delegation created"
+    },
+    "hr.leave.delegationRevoked": {
+      "variant": "success",
+      "title": "Delegation revoked"
+    },
+    "hr.leave.delegationRevokeFailed": {
+      "variant": "error",
+      "title": "Could not revoke",
+      "description": "{reason}"
+    },
+    "hr.leave.hrCancelled": {
+      "variant": "success",
+      "title": "Leave cancelled"
+    },
+    "hr.leave.entitlementsImportedOne": {
+      "variant": "success",
+      "title": "1 entitlement saved"
+    },
+    "hr.leave.entitlementsImportedMany": {
+      "variant": "success",
+      "title": "{count} entitlements saved"
+    },
+    "hr.leave.resubmitted": {
+      "variant": "success",
+      "title": "Leave request resubmitted"
+    },
+    "hr.leave.resubmitFailed": {
+      "variant": "error",
+      "title": "Could not resubmit the request"
+    },
+    "hr.leave.requested": {
+      "variant": "success",
+      "title": "Leave requested"
+    },
+    "hr.leave.entitlementDefault": {
+      "variant": "success",
+      "title": "Back to the leave type default"
+    },
+    "hr.leave.entitlementSaved": {
+      "variant": "success",
+      "title": "Entitlement saved"
+    },
+    "hr.leave.permissionApproved": {
+      "variant": "success",
+      "title": "Permission approved"
+    },
+    "hr.leave.permissionRejected": {
+      "variant": "success",
+      "title": "Permission rejected"
+    },
+    "hr.leave.permissionActionFailed": {
+      "variant": "error",
+      "title": "Action failed. Please try again."
+    },
+    "hr.leaveType.created": {
+      "variant": "success",
+      "title": "Leave type created"
+    },
+    "hr.leaveType.createFailed": {
+      "variant": "error",
+      "title": "Could not create leave type"
+    },
+    "hr.leaveType.updated": {
+      "variant": "success",
+      "title": "Leave type updated"
+    },
+    "hr.leaveType.updateFailed": {
+      "variant": "error",
+      "title": "Could not update leave type"
+    },
+    "hr.leaveType.activated": {
+      "variant": "success",
+      "title": "Activated \"{name}\""
+    },
+    "hr.leaveType.deactivated": {
+      "variant": "success",
+      "title": "Deactivated \"{name}\""
+    },
+    "hr.leaveType.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update \"{name}\""
+    },
+    "hr.attendance.exported": {
+      "variant": "success",
+      "title": "Attendance exported"
+    },
+    "hr.attendance.importedOne": {
+      "variant": "success",
+      "title": "1 session imported"
+    },
+    "hr.attendance.importedMany": {
+      "variant": "success",
+      "title": "{count} sessions imported"
+    },
+    "hr.attendance.monthsSubmitted": {
+      "variant": "success",
+      "title": "{count} submitted"
+    },
+    "hr.attendance.monthsApproved": {
+      "variant": "success",
+      "title": "{count} approved"
+    },
+    "hr.attendance.monthApproved": {
+      "variant": "success",
+      "title": "Month approved"
+    },
+    "hr.attendance.monthReturned": {
+      "variant": "success",
+      "title": "Month returned"
+    },
+    "hr.attendance.monthReopened": {
+      "variant": "success",
+      "title": "Month reopened"
+    },
+    "hr.correction.approved": {
+      "variant": "success",
+      "title": "Correction approved successfully"
+    },
+    "hr.correction.rejected": {
+      "variant": "success",
+      "title": "Correction rejected"
+    },
+    "hr.correction.requested": {
+      "variant": "success",
+      "title": "Correction requested successfully"
+    },
+    "hr.holiday.created": {
+      "variant": "success",
+      "title": "Holiday created"
+    },
+    "hr.holiday.updated": {
+      "variant": "success",
+      "title": "Holiday updated"
+    },
+    "hr.holiday.activated": {
+      "variant": "success",
+      "title": "Activated \"{name}\""
+    },
+    "hr.holiday.deactivated": {
+      "variant": "success",
+      "title": "Deactivated \"{name}\""
+    },
+    "hr.holiday.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update \"{name}\""
+    },
+    "hr.exit.cardUpdated": {
+      "variant": "success",
+      "title": "Exit request updated",
+      "description": "Status and decision details saved successfully."
+    },
+    "hr.exit.updated": {
+      "variant": "success",
+      "title": "Exit request updated"
+    },
+    "hr.exit.submitted": {
+      "variant": "success",
+      "title": "Exit request submitted"
+    },
+    "hr.expense.approved": {
+      "variant": "success",
+      "title": "Expense claim approved"
+    },
+    "hr.expense.rejected": {
+      "variant": "success",
+      "title": "Expense claim rejected"
+    },
+    "hr.expense.approveFailed": {
+      "variant": "error",
+      "title": "Could not approve claim",
+      "description": "{reason}"
+    },
+    "hr.expense.rejectFailed": {
+      "variant": "error",
+      "title": "Could not reject claim",
+      "description": "{reason}"
+    },
+    "hr.expense.nothingToExport": {
+      "variant": "warning",
+      "title": "No expense claims to export"
+    },
+    "hr.expense.exported": {
+      "variant": "success",
+      "title": "Expense claims exported successfully"
+    },
+    "hr.expense.exportFailed": {
+      "variant": "error",
+      "title": "Could not export expense claims"
+    },
+    "hr.expense.submitted": {
+      "variant": "success",
+      "title": "Expense claim submitted"
+    },
+    "hr.task.sentToAdmin": {
+      "variant": "success",
+      "title": "Task sent to admin/HR"
+    },
+    "hr.task.created": {
+      "variant": "success",
+      "title": "Task created"
+    },
+    "hr.task.assigned": {
+      "variant": "success",
+      "title": "Task assigned"
+    },
+    "hr.task.updated": {
+      "variant": "success",
+      "title": "Task updated"
+    },
+    "hr.task.updateFailed": {
+      "variant": "error",
+      "title": "Could not update task",
+      "description": "{reason}"
+    },
+    "hr.task.reassigned": {
+      "variant": "success",
+      "title": "Task reassigned"
+    },
+    "hr.task.updatedSuccess": {
+      "variant": "success",
+      "title": "Task updated successfully"
+    },
+    "hr.task.approved": {
+      "variant": "success",
+      "title": "Task approved"
+    },
+    "hr.task.reopened": {
+      "variant": "success",
+      "title": "Task reopened"
+    },
+    "hr.task.requestApproved": {
+      "variant": "success",
+      "title": "Request approved"
+    },
+    "hr.task.requestApproveFailed": {
+      "variant": "error",
+      "title": "Could not approve request",
+      "description": "{reason}"
+    },
+    "hr.task.requestRejected": {
+      "variant": "success",
+      "title": "Request rejected"
+    },
+    "hr.task.requestRejectFailed": {
+      "variant": "error",
+      "title": "Could not reject request",
+      "description": "{reason}"
+    },
+    "hr.task.approveFailed": {
+      "variant": "error",
+      "title": "Could not approve",
+      "description": "{reason}"
+    },
+    "hr.task.reopenFailed": {
+      "variant": "error",
+      "title": "Could not reopen",
+      "description": "{reason}"
+    },
+    "hr.task.nothingToExport": {
+      "variant": "warning",
+      "title": "No tasks to export"
+    },
+    "hr.task.exported": {
+      "variant": "success",
+      "title": "Tasks exported successfully"
+    },
+    "hr.task.exportFailed": {
+      "variant": "error",
+      "title": "Could not export tasks"
+    },
+    "hr.ticket.raised": {
+      "variant": "success",
+      "title": "Ticket raised"
+    },
+    "hr.ticket.updated": {
+      "variant": "success",
+      "title": "Ticket updated"
+    },
+    "hr.ticket.replySent": {
+      "variant": "success",
+      "title": "Reply sent"
+    },
+    "hr.ticket.created": {
+      "variant": "success",
+      "title": "Ticket created successfully"
+    },
+    "hr.ticket.statusUpdated": {
+      "variant": "success",
+      "title": "Ticket status updated"
+    },
+    "hr.ticket.nothingToUpdate": {
+      "variant": "warning",
+      "title": "Nothing to update",
+      "description": "Write a reply or change the status."
+    },
+    "hr.ticket.updatedSuccess": {
+      "variant": "success",
+      "title": "Ticket updated successfully"
+    },
+    "hr.ticket.updateFailed": {
+      "variant": "error",
+      "title": "Update failed",
+      "description": "Could not update ticket"
+    },
+    "hr.ticket.nothingToExport": {
+      "variant": "warning",
+      "title": "No tickets to export"
+    },
+    "hr.ticket.exported": {
+      "variant": "success",
+      "title": "Tickets exported successfully"
+    },
+    "hr.ticket.exportFailed": {
+      "variant": "error",
+      "title": "Could not export tickets"
+    },
+    "hr.team.deactivated": {
+      "variant": "success",
+      "title": "Team \"{name}\" deactivated."
+    },
+    "hr.team.activated": {
+      "variant": "success",
+      "title": "Team \"{name}\" activated."
+    },
+    "hr.team.deleted": {
+      "variant": "success",
+      "title": "Team \"{name}\" deleted."
+    },
+    "hr.team.created": {
+      "variant": "success",
+      "title": "Team \"{name}\" created successfully."
+    },
+    "hr.team.updated": {
+      "variant": "success",
+      "title": "Team \"{name}\" updated successfully."
+    },
+    "hr.interview.scheduled": {
+      "variant": "success",
+      "title": "Interview scheduled successfully"
+    },
+    "hr.interview.statusSet": {
+      "variant": "success",
+      "title": "Status set to {status}"
+    },
+    "hr.interview.statusFailed": {
+      "variant": "error",
+      "title": "Could not update the status"
+    },
+    "hr.offer.generated": {
+      "variant": "success",
+      "title": "Offer letter generated"
+    },
+    "hr.offer.updated": {
+      "variant": "success",
+      "title": "Offer letter updated"
+    },
+    "hr.promotion.issued": {
+      "variant": "success",
+      "title": "Promotion letter issued"
+    },
+    "hr.promotion.updated": {
+      "variant": "success",
+      "title": "Promotion letter updated"
+    },
+    "hr.revision.issued": {
+      "variant": "success",
+      "title": "Revision letter issued"
+    },
+    "hr.revision.updated": {
+      "variant": "success",
+      "title": "Revision letter updated"
+    },
+    "hr.location.updatedFor": {
+      "variant": "success",
+      "title": "Updated {name} to {mode} access"
+    },
+    "hr.location.ownChangeForbidden": {
+      "variant": "error",
+      "title": "You cannot change your own location privilege"
+    },
+    "hr.location.ownChangeForbiddenCard": {
+      "variant": "error",
+      "title": "You may not change your own location privilege"
+    },
+    "hr.location.updateFailed": {
+      "variant": "error",
+      "title": "Could not update location privilege"
+    },
+    "hr.location.updated": {
+      "variant": "success",
+      "title": "Location privilege updated"
+    },
+    "hr.network.added": {
+      "variant": "success",
+      "title": "Office network added"
+    },
+    "hr.network.addFailed": {
+      "variant": "error",
+      "title": "Could not add office network"
+    },
+    "hr.network.deactivated": {
+      "variant": "success",
+      "title": "Address deactivated"
+    },
+    "hr.network.activated": {
+      "variant": "success",
+      "title": "Address activated"
+    },
+    "hr.network.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update address"
+    },
+    "hr.master.autoCheckoutSaved": {
+      "variant": "success",
+      "title": "Auto check-out saved"
+    },
+    "hr.master.attendanceSettingsDenied": {
+      "variant": "error",
+      "title": "You don't have permission to change attendance settings."
+    },
+    "hr.master.autoCheckoutFailed": {
+      "variant": "error",
+      "title": "Could not save the auto check-out setting"
+    },
+    "hr.master.permissionMissing": {
+      "variant": "error",
+      "title": "You don't have the {permission} permission."
+    },
+    "hr.master.departmentAdded": {
+      "variant": "success",
+      "title": "Department added"
+    },
+    "hr.master.departmentAddFailed": {
+      "variant": "error",
+      "title": "Could not add this department"
+    },
+    "hr.master.departmentRemoved": {
+      "variant": "success",
+      "title": "Department removed"
+    },
+    "hr.master.designationAdded": {
+      "variant": "success",
+      "title": "Designation added"
+    },
+    "hr.master.designationAddFailed": {
+      "variant": "error",
+      "title": "Could not add this designation"
+    },
+    "hr.master.designationRemoved": {
+      "variant": "success",
+      "title": "Designation removed"
+    },
+    "hr.master.locationAdded": {
+      "variant": "success",
+      "title": "Office location added"
+    },
+    "hr.master.locationAddFailed": {
+      "variant": "error",
+      "title": "Could not add this office location"
+    },
+    "hr.master.locationRemoved": {
+      "variant": "success",
+      "title": "Office location removed"
+    },
+    "hr.master.leaveTypeAdded": {
+      "variant": "success",
+      "title": "Leave type added"
+    },
+    "hr.master.leaveTypeAddFailed": {
+      "variant": "error",
+      "title": "Could not add this leave type"
+    },
+    "hr.master.leaveTypeRemoved": {
+      "variant": "success",
+      "title": "Leave type removed"
+    },
+    "hr.master.shiftAdded": {
+      "variant": "success",
+      "title": "Shift added"
+    },
+    "hr.master.shiftAddFailed": {
+      "variant": "error",
+      "title": "Could not add this shift"
+    },
+    "hr.master.shiftRemoved": {
+      "variant": "success",
+      "title": "Shift removed"
+    },
+    "hr.master.removeFailed": {
+      "variant": "error",
+      "title": "Could not remove \"{name}\""
+    }
+  },
+  "errorCodes": {
+    "CUSTOMER_HAS_DOCUMENTS": "sales.customer.deleteBlocked",
+    "ALREADY_CHECKED_IN": "selfService.punch.alreadyCheckedIn",
+    "NOT_CHECKED_IN": "selfService.punch.notCheckedIn"
+  }
+}

@@ -10,6 +10,16 @@ export interface DetectedFileType {
   mimeType: "application/pdf" | "image/jpeg" | "image/png";
 }
 
+/** The client-supplied file name reduced to a safe display/storage name: no
+ * directory part, no control characters, at most 255 characters. */
+export function sanitizeFileName(name: string): string {
+  const base = [...path.basename(name)]
+    .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
+    .join("")
+    .trim();
+  return (base || "document").slice(0, 255);
+}
+
 /** Decides the type from the file's own bytes (magic numbers), never from the
  * file name or the browser's claimed type, which the client controls. */
 export function detectFileType(buffer: Buffer): DetectedFileType | null {

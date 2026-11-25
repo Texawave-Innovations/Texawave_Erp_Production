@@ -14,9 +14,9 @@ import {
   detectFileType,
   FileStorageService,
   MAX_UPLOAD_BYTES,
+  sanitizeFileName,
 } from "../../../shared/file-storage/file-storage.service.js";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import { DOCUMENT_TYPES, isDocumentType } from "./dto/onboarding-rules.js";
 
 export interface UploadedDocument {
@@ -26,13 +26,6 @@ export interface UploadedDocument {
 }
 
 /** Keeps the employee's own file name for display, minus any path or control characters. */
-function sanitizeFileName(name: string): string {
-  const base = [...path.basename(name)]
-    .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
-    .join("")
-    .trim();
-  return (base || "document").slice(0, 255);
-}
 import type { ExperienceDto } from "./dto/experience.dto.js";
 import type { FamilyMemberDto } from "./dto/family-member.dto.js";
 import type { GovernmentIdsDto } from "./dto/government-ids.dto.js";

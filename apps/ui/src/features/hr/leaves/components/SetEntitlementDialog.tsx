@@ -8,8 +8,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   EmployeePicker,
   type EmployeeOption,
@@ -60,7 +60,7 @@ export function SetEntitlementDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useSetLeaveEntitlement();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const submitting = mutation.isPending;
 
   async function handleSubmit(event: React.FormEvent) {
@@ -88,12 +88,11 @@ export function SetEntitlementDialog({
         year: result.data.year,
         annualEntitlement: result.data.annualEntitlement,
       });
-      toast({
-        title: clearOverride
-          ? "Back to the leave type default"
-          : "Entitlement saved",
-        variant: "success",
-      });
+      notify(
+        clearOverride
+          ? "hr.leave.entitlementDefault"
+          : "hr.leave.entitlementSaved",
+      );
       onClose();
     } catch (err) {
       setServerError(

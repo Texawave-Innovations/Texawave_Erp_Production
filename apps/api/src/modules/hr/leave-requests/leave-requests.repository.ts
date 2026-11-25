@@ -19,8 +19,19 @@ import type { OrgScope } from "../../../common/tenancy/org-scope.js";
 import type { TeamScope } from "../../../common/tenancy/team-scope.js";
 import { teamWhere } from "../../../common/tenancy/team-where.js";
 import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
+import {
+  addDays,
+  businessDateOf,
+  businessDayStart,
+  businessToday,
+} from "../../../common/dates/business-date.js";
 import { AuditWriter } from "../../../platform/audit/audit-writer.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
+import {
+  holdsAnyPermission,
+  isTeamLead,
+  leadsOfTeam,
+} from "../../../shared/team-leads/team-leads.js";
 import { AttendanceDayContextRepository } from "../attendance/attendance-day-context.repository.js";
 import { AttendanceMonthLockedException } from "../attendance/attendance.exceptions.js";
 import { LOCKED_STATUSES } from "../attendance/month-locks/month-lock.rules.js";
@@ -41,6 +52,8 @@ import {
   OPEN_STATUSES,
   requestsConflict,
   spansYears,
+  TEAM_LEAD_WAIT_WORKING_DAYS,
+  workingDaysAfter,
   yearBalance,
   type YearBalance,
 } from "./leave-domain.js";
@@ -63,6 +76,7 @@ const INCLUDE = {
       fullName: true,
       userId: true,
       teamId: true,
+      workLocationId: true,
       reportsTo: { select: { userId: true } },
     },
   },
@@ -93,6 +107,16 @@ export interface LeaveRequestView {
   approvalLevels: number;
   /** Who a PENDING request waits for; null once it is no longer pending. */
   awaiting: AwaitingStage | null;
+  /** Only in the caller's approval queue: the step the caller would decide.
+   * TEAM_LEAD = the first approval (final on a one-level type); HR = the
+   * final decision (`override` when the caller decides as Admin in HR's
+   * place; `escalated` when the team lead did not decide in time). */
+  yourStep?: {
+    step: "TEAM_LEAD" | "HR";
+    final: boolean;
+    override: boolean;
+    escalated: boolean;
+  };
   /** Who submitted it: the employee, or HR on the employee's behalf. */
   requestedBy: UserRef;
   firstDecidedBy: UserRef | null;
@@ -181,6 +205,39 @@ export class LeaveAwaitingHrException extends BusinessException {
   }
 }
 
+/** The first step is the team lead's until they have had their time. */
+export class LeaveAwaitingTeamLeadException extends BusinessException {
+  constructor() {
+    super(
+      `This request waits for the employee's team lead. HR can decide it once the team lead has not acted for ${TEAM_LEAD_WAIT_WORKING_DAYS} working days`,
+      HttpStatus.FORBIDDEN,
+      "LEAVE_AWAITING_TEAM_LEAD",
+    );
+  }
+}
+
+/** Admin deciding in HR's place must say why (it is audited). */
+export class LeaveOverrideReasonRequiredException extends BusinessException {
+  constructor() {
+    super(
+      "A reason is required when you decide a leave request in HR's place",
+      HttpStatus.BAD_REQUEST,
+      "LEAVE_OVERRIDE_REASON_REQUIRED",
+    );
+  }
+}
+
+/** A team lead's own request, or one from a team with no lead, is HR's. */
+export class LeaveHrOnlyException extends BusinessException {
+  constructor() {
+    super(
+      "This request goes to HR: the employee is a team lead, or their team has no lead who can approve",
+      HttpStatus.FORBIDDEN,
+      "LEAVE_HR_ONLY",
+    );
+  }
+}
+
 /** Two-level approval needs two different people. */
 export class LeaveSameApproverException extends BusinessException {
   constructor() {
@@ -207,7 +264,14 @@ export class LeaveOwnViaSelfServiceException extends BusinessException {
 /** What `decide()` returns when the request is not one the actor may act on
  * (null) or the actor may see it but not decide it now. */
 export type DecideOutcome =
-  | { kind: "decided"; view: LeaveRequestView; stage: 1 | 2; final: boolean }
+  | {
+      kind: "decided";
+      view: LeaveRequestView;
+      stage: 1 | 2;
+      final: boolean;
+      /** Decided by an Admin in HR's place. */
+      override: boolean;
+    }
   | { kind: "not_found" };
 
 /** Facts the notifier needs about one request (never sent to a client). */
@@ -218,7 +282,10 @@ export interface LeaveNotificationFacts {
   employeeCode: string;
   employeeUserId: number | null;
   teamId: number;
-  managerUserId: number | null;
+  /** Leads of the employee's team who can approve (first approvers). */
+  leadUserIds: number[];
+  /** Only HR decides: the employee is a team lead, or the team has no lead. */
+  hrOnly: boolean;
   leaveTypeName: string;
   startDate: string;
   endDate: string;
@@ -236,6 +303,12 @@ export const APPROVE_CODES = {
   team: "hr.leave.approve.team",
   all: "hr.leave.approve.all",
 } as const;
+
+/** Pending requests the escalation check looks at, at most, per queue load. */
+const ESCALATION_SCAN_LIMIT = 1000;
+
+/** Admin: decide at HR's step in HR's place (audited, reason required). */
+export const OVERRIDE_CODE = "hr.leave.override";
 
 export interface LeaveFilter {
   employeeId?: number | undefined;
@@ -763,8 +836,9 @@ export class LeaveRequestsRepository {
   /**
    * Approves or rejects a PENDING request the caller may act on. In order:
    * lock the employee and the row → work out the caller's authority: the
-   * employee's reporting manager (or that manager's delegate today), and/or a
-   * team/all approve scope covering the employee — neither → `not_found`
+   * lead of the employee's team (or a lead's delegate today), and/or a
+   * team/all approve scope covering the employee; HR alone for a team lead's
+   * own request or a team with no lead — neither → `not_found`
    * (404) → maker-checker and stage rules (`approvalVerdict`) → refuse
    * anything but PENDING → on approval, re-check the balance including this
    * request (it is already held as pending) → on the FINAL approval, refuse a
@@ -797,17 +871,37 @@ export class LeaveRequestsRepository {
       });
       if (!before) return { kind: "not_found" } as const;
 
-      const managerUserId = before.employee.reportsTo?.userId ?? null;
-      const isManager =
-        managerUserId !== null &&
-        (managerUserId === actorId ||
-          (
-            await this.delegatorsOf(tx, scope.organizationId, actorId, asOf)
-          ).includes(managerUserId));
+      // First approver: the lead of the employee's team (through their team
+      // scope) or a lead's delegate today; HR alone for a team lead's own
+      // request or a team with no lead.
+      const routing = await this.teamLeadRouting(
+        tx,
+        scope.organizationId,
+        before.employee,
+      );
+      const delegators = await this.delegatorsOf(
+        tx,
+        scope.organizationId,
+        actorId,
+        asOf,
+      );
+      const isManager = routing.leadUserIds.some((id) =>
+        delegators.includes(id),
+      );
       const inScope =
         scope.level !== "own" &&
         (await tx.leaveRequest.count({
           where: teamWhere(scope, { id }, VIA_EMPLOYEE),
+        })) > 0;
+      const firstPending =
+        before.approvalLevels !== 2 || before.firstDecidedAt === null;
+      const escalated =
+        firstPending && !routing.hrOnly && scope.level === "all"
+          ? (await this.escalatedIds(scope, [before])).has(before.id)
+          : false;
+      const canOverride =
+        (await tx.user.count({
+          where: { id: actorId, ...holdsAnyPermission([OVERRIDE_CODE]) },
         })) > 0;
       const verdict = approvalVerdict({
         approvalLevels: before.approvalLevels,
@@ -819,12 +913,19 @@ export class LeaveRequestsRepository {
         isManager,
         inScope,
         scopeLevel: scope.level,
+        hrOnly: routing.hrOnly,
+        escalated,
+        canOverride,
       });
       if (!verdict.ok) {
         if (verdict.reason === "NOT_VISIBLE") {
           return { kind: "not_found" } as const;
         }
         throw refusal(verdict.reason);
+      }
+      // Admin deciding in HR's place says why; the reason is audited.
+      if (verdict.override && !decision.note?.trim()) {
+        throw new LeaveOverrideReasonRequiredException();
       }
       if (before.status !== "PENDING") {
         throw new InvalidStateTransitionException(
@@ -897,8 +998,12 @@ export class LeaveRequestsRepository {
         action: firstApproval
           ? "approve_first"
           : decision.status === "APPROVED"
-            ? "approve"
-            : "reject",
+            ? verdict.override
+              ? "approve_override"
+              : "approve"
+            : verdict.override
+              ? "reject_override"
+              : "reject",
         before: snapshot(before),
         after: snapshot(after),
         reason: decision.note,
@@ -908,16 +1013,24 @@ export class LeaveRequestsRepository {
         view: toView(after),
         stage: verdict.stage,
         final: decision.status === "REJECTED" || verdict.final,
+        override: verdict.override,
       } as const;
     });
   }
 
   /**
-   * PENDING requests waiting for THIS caller's decision: stage 1 of requests
-   * whose employee reports to the caller (or to someone who delegated to the
-   * caller today) or is in the caller's team/all approve scope, and — for an
-   * `.all` approver — stage 2 of two-level requests someone else approved
-   * first. Never the caller's own requests, nor ones the caller submitted.
+   * PENDING requests waiting for THIS caller's decision (Docs/HR_LEAVE.md
+   * §6.1). Never the caller's own requests, nor ones the caller submitted.
+   *  - A team lead (team scope) or a lead's delegate: the first step of their
+   *    team's requests — never a team lead's own request, nor one from a team
+   *    with no lead (those are HR's).
+   *  - HR (`.all`): the requests that are HR's from the start (a team lead's
+   *    own, a team with no lead), those whose team lead has not decided within
+   *    `TEAM_LEAD_WAIT_WORKING_DAYS` working days, and the second step of
+   *    two-level requests someone else approved first. Not the team lead's
+   *    step while the team lead still has time (unless standing in as a
+   *    lead's delegate).
+   * Each item carries `yourStep`: what the caller's decision would be.
    */
   @TeamScoped()
   async findAwaiting(
@@ -927,42 +1040,119 @@ export class LeaveRequestsRepository {
     filter: LeaveFilter,
     pagination: PaginationDto,
   ) {
-    const managers = [
+    const delegators = await this.delegatorsOf(
+      this.prisma,
+      scope.organizationId,
       actorId,
-      ...(await this.delegatorsOf(
-        this.prisma,
-        scope.organizationId,
-        actorId,
-        asOf,
-      )),
-    ];
-    const reportsToMe: Prisma.LeaveRequestWhereInput = {
-      employee: { reportsTo: { userId: { in: managers } } },
+      asOf,
+    );
+    const isLeadApprover = holdsAnyPermission([APPROVE_CODES.team]);
+    // Standing in for a team lead today: that lead's team's requests.
+    const delegatedFromLead: Prisma.LeaveRequestWhereInput = {
+      employee: {
+        team: {
+          userAccess: {
+            some: {
+              userId: { in: delegators },
+              isActive: true,
+              deletedAt: null,
+              user: isLeadApprover,
+            },
+          },
+        },
+      },
     };
     const scoped: Prisma.LeaveRequestWhereInput[] =
       scope.level === "own" ? [] : [teamWhere(scope, {}, VIA_EMPLOYEE)];
-    const stageOne: Prisma.LeaveRequestWhereInput = {
-      OR: [{ approvalLevels: 1 }, { firstDecidedAt: null }],
-      AND: [{ OR: [reportsToMe, ...scoped] }],
-    };
-    const stageTwo: Prisma.LeaveRequestWhereInput[] =
-      scope.level === "all"
-        ? [
-            {
-              approvalLevels: 2,
-              firstDecidedAt: { not: null },
-              NOT: { firstDecidedBy: actorId },
+    // HR's from the start: a team lead's own request, or a team with no lead.
+    // The decision re-checks all of this exactly; the list only keeps to what
+    // the caller can act on.
+    const hrOnly: Prisma.LeaveRequestWhereInput = {
+      OR: [
+        { employee: { user: isLeadApprover } },
+        {
+          NOT: {
+            employee: {
+              team: {
+                userAccess: {
+                  some: {
+                    isActive: true,
+                    deletedAt: null,
+                    user: isLeadApprover,
+                  },
+                },
+              },
             },
-          ]
-        : [];
-    const where: Prisma.LeaveRequestWhereInput = {
-      AND: [
-        filterWhere({ ...filter, status: "PENDING" }),
-        { organizationId: scope.organizationId },
-        { NOT: { requestedBy: actorId } },
-        { NOT: { employee: { userId: actorId } } },
-        { OR: [stageOne, ...stageTwo] },
+          },
+        },
       ],
+    };
+    const firstPending: Prisma.LeaveRequestWhereInput = {
+      OR: [{ approvalLevels: 1 }, { firstDecidedAt: null }],
+    };
+    const common: Prisma.LeaveRequestWhereInput[] = [
+      filterWhere({ ...filter, status: "PENDING" }),
+      { organizationId: scope.organizationId },
+      { NOT: { requestedBy: actorId } },
+      { NOT: { employee: { userId: actorId } } },
+    ];
+
+    const isHr = scope.level === "all";
+    let escalated = new Set<number>();
+    let steps: Prisma.LeaveRequestWhereInput[];
+    if (isHr) {
+      // The team lead's step, once it has waited long enough. A cheap first
+      // cut in the database (old enough in calendar days), then exact working
+      // days in each employee's calendar.
+      const candidates = await this.prisma.leaveRequest.findMany({
+        where: {
+          AND: [
+            ...common,
+            firstPending,
+            ...scoped,
+            { NOT: hrOnly },
+            {
+              createdAt: {
+                lt: businessDayStart(
+                  addDays(businessToday(), -(TEAM_LEAD_WAIT_WORKING_DAYS - 1)),
+                ),
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          employee: {
+            select: { id: true, teamId: true, workLocationId: true },
+          },
+        },
+        take: ESCALATION_SCAN_LIMIT,
+      });
+      escalated = await this.escalatedIds(scope, candidates);
+      steps = [
+        { AND: [firstPending, delegatedFromLead, { NOT: hrOnly }] },
+        { AND: [firstPending, ...scoped, hrOnly] },
+        { id: { in: [...escalated] } },
+        {
+          approvalLevels: 2,
+          firstDecidedAt: { not: null },
+          NOT: { firstDecidedBy: actorId },
+        },
+      ];
+    } else {
+      steps = [
+        {
+          AND: [
+            firstPending,
+            { OR: [delegatedFromLead, ...scoped] },
+            { NOT: hrOnly },
+          ],
+        },
+      ];
+    }
+    const where: Prisma.LeaveRequestWhereInput = {
+      AND: [...common, { OR: steps }],
     };
     const [rows, total] = await Promise.all([
       this.prisma.leaveRequest.findMany({
@@ -977,7 +1167,213 @@ export class LeaveRequestsRepository {
       }),
       this.prisma.leaveRequest.count({ where }),
     ]);
-    return { items: rows.map(toView), total };
+
+    // What the caller's decision would be on each item (the same rule as
+    // the decision itself).
+    const yourSteps = await this.decisionSteps(
+      scope,
+      actorId,
+      asOf,
+      rows.map((r) => r.id),
+    );
+    const items = rows.map((row) => {
+      const view = toView(row);
+      const step = yourSteps.get(row.id);
+      if (step) view.yourStep = step;
+      return view;
+    });
+    return { items, total };
+  }
+
+  /**
+   * The step the caller would decide on each PENDING request in `ids`, by the
+   * same rule as `decide()` (`approvalVerdict`): `scope` is the caller's
+   * `hr.leave.approve` scope. A request the caller cannot decide now (not
+   * theirs to see, their own, not yet their step, already decided) has no
+   * entry. Used by the approval queue, the applications list and the detail,
+   * so every screen labels the step - and offers Approve/Reject - exactly
+   * when the server would accept it.
+   */
+  async decisionSteps(
+    scope: TeamScope,
+    actorId: number,
+    asOf: string,
+    ids: readonly number[],
+  ): Promise<Map<number, NonNullable<LeaveRequestView["yourStep"]>>> {
+    const out = new Map<number, NonNullable<LeaveRequestView["yourStep"]>>();
+    if (ids.length === 0) return out;
+    const rows = await this.prisma.leaveRequest.findMany({
+      where: {
+        id: { in: [...ids] },
+        organizationId: scope.organizationId,
+        status: "PENDING",
+        deletedAt: null,
+      },
+      include: INCLUDE,
+    });
+    if (rows.length === 0) return out;
+    const [delegators, inScopeIds, canOverride] = await Promise.all([
+      this.delegatorsOf(this.prisma, scope.organizationId, actorId, asOf),
+      scope.level === "own"
+        ? Promise.resolve(new Set<number>())
+        : this.prisma.leaveRequest
+            .findMany({
+              where: teamWhere(
+                scope,
+                { id: { in: rows.map((r) => r.id) } },
+                VIA_EMPLOYEE,
+              ),
+              select: { id: true },
+            })
+            .then((found) => new Set(found.map((r) => r.id))),
+      this.prisma.user
+        .count({
+          where: { id: actorId, ...holdsAnyPermission([OVERRIDE_CODE]) },
+        })
+        .then((n) => n > 0),
+    ]);
+    // Team-lead routing per employee (read live, as at decision time).
+    const routingByEmployee = new Map<
+      number,
+      { leadUserIds: number[]; hrOnly: boolean }
+    >();
+    for (const row of rows) {
+      if (routingByEmployee.has(row.employee.id)) continue;
+      routingByEmployee.set(
+        row.employee.id,
+        await this.teamLeadRouting(
+          this.prisma,
+          scope.organizationId,
+          row.employee,
+        ),
+      );
+    }
+    const escalated =
+      scope.level === "all"
+        ? await this.escalatedIds(
+            scope,
+            rows.filter(
+              (r) =>
+                (r.approvalLevels !== 2 || r.firstDecidedAt === null) &&
+                !routingByEmployee.get(r.employee.id)?.hrOnly,
+            ),
+          )
+        : new Set<number>();
+
+    for (const row of rows) {
+      const routing = routingByEmployee.get(row.employee.id);
+      if (!routing) continue;
+      const isManager = routing.leadUserIds.some((id) =>
+        delegators.includes(id),
+      );
+      const inScope = inScopeIds.has(row.id);
+      const verdict = approvalVerdict({
+        approvalLevels: row.approvalLevels,
+        firstDecidedAt: row.firstDecidedAt,
+        firstDecidedBy: row.firstDecidedBy,
+        actorId,
+        employeeUserId: row.employee.userId,
+        requestedBy: row.requestedBy,
+        isManager,
+        inScope,
+        scopeLevel: scope.level,
+        hrOnly: routing.hrOnly,
+        escalated: escalated.has(row.id),
+        canOverride,
+      });
+      if (!verdict.ok) continue;
+      const firstDone = row.approvalLevels === 2 && row.firstDecidedAt !== null;
+      // The team lead's step is the lead's or a lead's delegate's; anything
+      // else the caller may decide is HR's step.
+      const leadStep =
+        !firstDone &&
+        !routing.hrOnly &&
+        (isManager || (inScope && scope.level !== "all"));
+      out.set(row.id, {
+        step: leadStep ? "TEAM_LEAD" : "HR",
+        final: verdict.final,
+        override: verdict.override,
+        escalated: !leadStep && !firstDone && escalated.has(row.id),
+      });
+    }
+    return out;
+  }
+
+  /** Requests whose team lead has had `TEAM_LEAD_WAIT_WORKING_DAYS` working
+   * days (after the request day, up to today, in the employee's own calendar:
+   * holidays and weekly offs do not count) without deciding. */
+  private async escalatedIds(
+    scope: OrgScope,
+    rows: readonly {
+      id: number;
+      createdAt: Date;
+      employee: { id: number; teamId: number; workLocationId: number | null };
+    }[],
+  ): Promise<Set<number>> {
+    const to = businessToday();
+    const due = rows.filter(
+      (r) =>
+        addDays(businessDateOf(r.createdAt), TEAM_LEAD_WAIT_WORKING_DAYS) <= to,
+    );
+    if (due.length === 0) return new Set();
+    const from = due.map((r) => businessDateOf(r.createdAt)).sort()[0] ?? to;
+    const refs = new Map(
+      due.map((r) => [
+        r.employee.id,
+        {
+          id: r.employee.id,
+          teamId: r.employee.teamId,
+          workLocationId: r.employee.workLocationId,
+        },
+      ]),
+    );
+    // The calendar loader filters by organization only: a team scope's extra
+    // fields (level, teamIds) must not reach its queries.
+    const ctx = await this.calendar.load(
+      { organizationId: scope.organizationId },
+      [...refs.values()],
+      from,
+      to,
+    );
+    const out = new Set<number>();
+    for (const r of due) {
+      const ref = refs.get(r.employee.id);
+      if (!ref) continue;
+      const waited = workingDaysAfter(businessDateOf(r.createdAt), to, (d) => {
+        const day = resolveCalendar(ctx, ref, d);
+        return !day.holiday && !day.weeklyOff;
+      });
+      if (waited >= TEAM_LEAD_WAIT_WORKING_DAYS) out.add(r.id);
+    }
+    return out;
+  }
+
+  /** The leads of the employee's team (team-level approvers assigned to it,
+   * never the employee), and whether only HR decides: the employee is a team
+   * lead, or the team has no lead. Read live, so a change of lead applies to
+   * pending requests. */
+  private async teamLeadRouting(
+    tx: Prisma.TransactionClient | PrismaService,
+    organizationId: number,
+    employee: { userId: number | null; teamId: number },
+  ): Promise<{ leadUserIds: number[]; hrOnly: boolean }> {
+    const employeeIsLead =
+      employee.userId !== null &&
+      (await tx.user.count({
+        where: isTeamLead(organizationId, employee.userId, APPROVE_CODES.team),
+      })) > 0;
+    if (employeeIsLead) return { leadUserIds: [], hrOnly: true };
+    const leads = await tx.userTeamAccess.findMany({
+      where: leadsOfTeam({
+        organizationId,
+        teamId: employee.teamId,
+        teamApproveCode: APPROVE_CODES.team,
+        excludeUserId: employee.userId,
+      }),
+      select: { userId: true },
+    });
+    const leadUserIds = [...new Set(leads.map((l) => l.userId))];
+    return { leadUserIds, hrOnly: leadUserIds.length === 0 };
   }
 
   /** Users who made `delegateUserId` their leave approver for `asOf`. */
@@ -1024,7 +1420,10 @@ export class LeaveRequestsRepository {
       employeeCode: row.employee.employeeCode,
       employeeUserId: row.employee.userId,
       teamId: row.employee.teamId,
-      managerUserId: row.employee.reportsTo?.userId ?? null,
+      ...(await this.teamLeadRouting(this.prisma, scope.organizationId, {
+        userId: row.employee.userId,
+        teamId: row.employee.teamId,
+      })),
       leaveTypeName: row.leaveType.name,
       startDate: formatDateOnly(row.startDate),
       endDate: formatDateOnly(row.endDate),
@@ -1818,6 +2217,10 @@ function refusal(reason: Exclude<ApprovalRefusal, "NOT_VISIBLE">) {
       return new SelfApprovalForbiddenException();
     case "REQUESTER":
       return new SelfApprovalForbiddenException(true);
+    case "HR_ONLY":
+      return new LeaveHrOnlyException();
+    case "AWAITING_TEAM_LEAD":
+      return new LeaveAwaitingTeamLeadException();
     case "AWAITING_HR":
       return new LeaveAwaitingHrException();
     case "SAME_APPROVER":

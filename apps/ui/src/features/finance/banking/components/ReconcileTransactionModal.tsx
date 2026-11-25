@@ -1,15 +1,10 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useState } from "react";
 import type { FinanceBankTransaction } from "@texawave-erp/api-types";
-import {
-  Alert,
-  Button,
-  Dialog,
-  FormField,
-  Input,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, Button, Dialog, FormField, Input } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { formatDate, formatMoney } from "../../shared/format";
 import { useReconcileBankTransaction } from "../hooks";
@@ -28,7 +23,7 @@ export function ReconcileTransactionModal({
   transaction,
   onSuccess,
 }: ReconcileTransactionModalProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const reconcileMutation = useReconcileBankTransaction();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -89,16 +84,11 @@ export function ReconcileTransactionModal({
         },
       });
 
-      toast({
-        title: `Transaction #${transaction.id} reconciled against bank statement`,
-        variant: "success",
-      });
+      notify("finance.bank.reconciled", { id: transaction.id });
       handleClose();
       onSuccess?.();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to reconcile transaction",
-      );
+      setSubmitError(resolveErrorText(err, "finance.bank.reconcileFailed"));
     } finally {
       setSubmitting(false);
     }

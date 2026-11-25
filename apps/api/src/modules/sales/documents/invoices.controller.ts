@@ -17,11 +17,15 @@ import { Paginate } from "../../../common/decorators/paginate.decorator.js";
 import { RawResponse } from "../../../common/decorators/raw-response.decorator.js";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
 import { DeliveryChallansService } from "./delivery-challans.service.js";
-import { SendDocumentEmailDto } from "./dto/document-parts.dto.js";
+import {
+  ReopenDocumentDto,
+  SendDocumentEmailDto,
+} from "./dto/document-parts.dto.js";
 import {
   ConvertToDeliveryChallanDto,
   ConvertToTaxInvoiceDto,
   CreateInvoiceDto,
+  InvoiceDraftPreviewQueryDto,
   NextInvoiceNumberQueryDto,
   QueryInvoiceDto,
   UpdateInvoiceDto,
@@ -57,6 +61,16 @@ export class InvoicesController {
   @ApiOperation({ summary: "Preview the next PI / tax invoice number" })
   nextNumber(@Query() query: NextInvoiceNumberQueryDto) {
     return this.invoices.nextNumber(query.invoiceType, query.date);
+  }
+
+  @Get("template")
+  @RequirePermission(WRITE)
+  @ApiOperation({
+    summary:
+      "The empty PI / tax invoice (letterhead, next number) for a form's default preview",
+  })
+  template(@Query() query: InvoiceDraftPreviewQueryDto) {
+    return this.invoices.template(query);
   }
 
   @Get(":id")
@@ -133,6 +147,20 @@ export class InvoicesController {
     @Body() dto: ConvertToTaxInvoiceDto,
   ) {
     return this.invoices.convertToTax(id, dto);
+  }
+
+  @Post(":id/reopen")
+  @RequirePermission(WRITE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Reopen a converted proforma; a reason is required; the generated tax invoice is left as it is",
+  })
+  reopen(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: ReopenDocumentDto,
+  ) {
+    return this.invoices.reopen(id, dto);
   }
 
   @Post(":id/delivery-challan")

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type {
   CreateGoodsReceiptInput,
   PurchaseOrder,
@@ -169,11 +170,7 @@ function Body({
         lines,
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not post the goods receipt.",
-      );
+      setSubmitError(errorText(err, "scm.grn.formFailed"));
     } finally {
       setSubmitting(false);
     }

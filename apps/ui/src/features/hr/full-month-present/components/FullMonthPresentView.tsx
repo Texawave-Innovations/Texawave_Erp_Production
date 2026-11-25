@@ -17,7 +17,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, MONTH_PATTERN } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -41,7 +41,6 @@ import type { FullMonthPresentRow } from "../types";
 import { FullMonthPresentDetailDialog } from "./FullMonthPresentDetailDialog";
 
 const PAGE_SIZE = 24;
-const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function shiftMonth(month: string, delta: number): string {
   const parts = month.split("-").map(Number);
@@ -118,6 +117,7 @@ export function FullMonthPresentView() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Full Month Present"
       >
@@ -358,7 +358,7 @@ export function FullMonthPresentView() {
 
       {/* Main Content & States */}
       {!monthValid ? (
-        <Alert variant="warning" title="Invalid month">
+        <Alert dismissible variant="warning" title="Invalid month">
           Choose a calendar month in YYYY-MM format.
         </Alert>
       ) : list.isPending ? (
@@ -366,17 +366,18 @@ export function FullMonthPresentView() {
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to Full Month Present"
           >
             Your access to this report has changed. Contact an administrator.
           </Alert>
         ) : list.error instanceof ApiError && list.error.isValidationError ? (
-          <Alert variant="warning" title="Invalid filters">
+          <Alert dismissible variant="warning" title="Invalid filters">
             {list.error.message}
           </Alert>
         ) : list.error instanceof ApiError && list.error.isNotFound ? (
-          <Alert variant="warning" title="Not found">
+          <Alert dismissible variant="warning" title="Not found">
             {list.error.message}
           </Alert>
         ) : (
@@ -455,7 +456,8 @@ export function FullMonthPresentView() {
                             : "text-slate-800 dark:text-white"
                         }
                       >
-                        {r.presentDays} / {r.days.length} days ({presentPercentage}
+                        {r.presentDays} / {r.days.length} days (
+                        {presentPercentage}
                         %)
                       </span>
                     </div>
@@ -471,7 +473,9 @@ export function FullMonthPresentView() {
                                 ? "bg-amber-500"
                                 : "bg-rose-500"
                         }`}
-                        style={{ width: `${Math.min(presentPercentage, 100)}%` }}
+                        style={{
+                          width: `${Math.min(presentPercentage, 100)}%`,
+                        }}
                       />
                     </div>
 
@@ -563,9 +567,7 @@ export function FullMonthPresentView() {
                       <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                         <div
                           className={`h-full rounded-full ${
-                            r.fullMonthPresent
-                              ? "bg-emerald-500"
-                              : "-brand-500"
+                            r.fullMonthPresent ? "bg-emerald-500" : "-brand-500"
                           }`}
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />

@@ -13,8 +13,7 @@ import {
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Download, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import type { CsvColumn } from "../../shared/csv";
-import { downloadCsv, toCsv } from "../../shared/csv";
+import { downloadWorkbook, type SheetColumn } from "@/lib/spreadsheet";
 
 export interface ReportTableViewProps<T> {
   title: string;
@@ -23,7 +22,8 @@ export interface ReportTableViewProps<T> {
   noun: string;
   query: UseQueryResult<T[]>;
   columns: ReadonlyArray<DataTableColumn<T>>;
-  csvColumns: readonly CsvColumn<T>[];
+  /** Typed columns of the Excel export (dates, amounts, quantities). */
+  exportColumns: readonly SheetColumn<T>[];
   getRowKey: (row: T) => string;
   fileName: string;
   filters?: ReactNode;
@@ -31,7 +31,7 @@ export interface ReportTableViewProps<T> {
 }
 
 /** The one report-screen shell every SCM report page uses: a capped,
- * read-only row list with a "Download CSV" export of the exact rows shown
+ * read-only row list with a "Download Excel" export of the exact rows shown
  * (Docs/SCM_LEGACY_PARITY.md section 10 — reports are snapshots, not
  * documents, so there is no pagination to match). */
 export function ReportTableView<T>(props: ReportTableViewProps<T>) {
@@ -58,14 +58,17 @@ export function ReportTableView<T>(props: ReportTableViewProps<T>) {
               variant="secondary"
               className="gap-2"
               onClick={() =>
-                downloadCsv(
-                  props.fileName,
-                  toCsv(props.csvColumns, query.data!),
-                )
+                void downloadWorkbook(props.fileName, [
+                  {
+                    name: props.title,
+                    columns: props.exportColumns,
+                    rows: query.data!,
+                  },
+                ])
               }
             >
               <Download className="h-4 w-4" />
-              Download CSV
+              Download Excel
             </Button>
           ) : null
         }
@@ -79,6 +82,7 @@ export function ReportTableView<T>(props: ReportTableViewProps<T>) {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title={`You don't have access to ${props.noun}`}
           >

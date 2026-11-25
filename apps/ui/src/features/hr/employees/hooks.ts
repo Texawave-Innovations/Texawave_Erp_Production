@@ -9,7 +9,6 @@ import { listTeams } from "@/features/onboarding/api";
 import {
   approveOnboarding,
   changeEmployeeStatus,
-  createEmployee,
   deleteEmployee,
   getEmployee,
   getEmployeeStats,
@@ -88,12 +87,6 @@ export function useLookup(
     enabled: enabled && orgId > 0,
     staleTime: 5 * 60 * 1000,
   });
-}
-
-export function useCreateEmployee() {
-  return useOrgScopedMutation([KEY], (body: Record<string, unknown>) =>
-    createEmployee(body),
-  );
 }
 
 export function useUpdateEmployee() {

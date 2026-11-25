@@ -158,6 +158,8 @@ returns each field with `hasImage` and its `documentTypes`.
 | `POST /sales/{quotations,invoices,delivery-challans}/preview`, `POST /:id/preview` | `sales.<doc>.write`            |
 | `POST /sales/quotations/:id/convert` (to proforma or tax)                          | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/convert-to-tax`                                          | `sales.invoice.write`          |
+| `POST /sales/quotations/:id/reopen` `{ reason }`                                   | `sales.quotation.write`        |
+| `POST /sales/invoices/:id/reopen` `{ reason }` (proformas only)                    | `sales.invoice.write`          |
 | `POST /sales/invoices/:id/delivery-challan`                                        | `sales.delivery_challan.write` |
 | `POST /sales/invoices/:id/payments`, `DELETE /:id/payments/:paymentId`             | `sales.invoice_payment.write`  |
 
@@ -174,6 +176,15 @@ returns each field with `hasImage` and its `documentTypes`.
   deleted — is printed. The choice carries through conversions.
 - **Conversions** (quotation → proforma/tax, proforma → tax with its payments, tax → DC) run in one
   transaction and lock the source (`CONVERTED`); deleting the converted-to invoice reopens it.
+- **Reopen** (quotations and proformas only; tax invoices keep their payment-driven status). A
+  document is locked only by its real conversion above; there is no manual "mark as invoiced".
+  - `reopen` undoes a conversion and **requires a `reason`** (1–500 characters, else 400). The
+    reason is kept on the document (`reopenReason`, cleared when it is converted again) and in the
+    `reopen` audit entry. A quotation returns to `OPEN`; a proforma returns to `UNPAID` /
+    `PARTIALLY_PAID` / `PAID` from what it holds (its payments moved to the tax invoice).
+  - The invoice already generated from the document is **left as it is**; reopening does not
+    delete or change it. `reopen` is 409 `NOT_CONVERTED` on a live document and 422
+    `NOT_A_PROFORMA` on a tax invoice.
 - **Payments** — see §8; the invoice payment routes above go through the same rules.
 - **Live preview** (quotations, invoices, delivery challans): `POST /preview` takes the create
   body, and `POST /:id/preview` takes the update body merged over the saved document.
@@ -211,20 +222,20 @@ returns each field with `hasImage` and its `documentTypes`.
   invoice is UNPAID / PARTIALLY_PAID and that date has passed (`overdueDays` on every row).
   `GET /alerts` → `{ overduePayments, overdueInvoices, overdueBalance }` for the banner.
 - List filters: `search` (payment no, reference, invoice no, customer name/code), `customerId`,
-  `invoiceId`, `paymentMonth` / `dueMonth` (`YYYY-MM`), `overdueOnly=true`. Each row carries
+  `invoiceId`, `paymentFrom` / `paymentTo` and `dueFrom` / `dueTo` (`YYYY-MM-DD`, inclusive, either end may be left open), `overdueOnly=true`. Each row carries
   the invoice (number, total, received, balance) and the customer.
 - The receipt prints the company logo, name and address from the master list (§6.3).
 
 ## 9. Returnable Delivery Challans — `/sales/returnable-dcs`
 
-| Route                                                      | Permission                   |
-| ---------------------------------------------------------- | ---------------------------- |
-| `GET /`, `GET /:id`, `GET /:id/pdf`                        | `sales.returnable_dc.read`   |
-| `GET /next-number`, `POST /`, `PATCH /:id`                 | `sales.returnable_dc.write`  |
-| `POST /preview`, `POST /:id/preview`                       | `sales.returnable_dc.write`  |
-| `POST /:id/return` `{ returnedDate? }`, `POST /:id/reopen` | `sales.returnable_dc.write`  |
-| `DELETE /:id`                                              | `sales.returnable_dc.delete` |
-| `POST /:id/email`, `POST /:id/whatsapp`                    | `sales.returnable_dc.send`   |
+| Route                                                                   | Permission                   |
+| ----------------------------------------------------------------------- | ---------------------------- |
+| `GET /`, `GET /:id`, `GET /:id/pdf`                                     | `sales.returnable_dc.read`   |
+| `GET /next-number`, `POST /`, `PATCH /:id`                              | `sales.returnable_dc.write`  |
+| `POST /preview`, `POST /:id/preview`                                    | `sales.returnable_dc.write`  |
+| `POST /:id/return` `{ returnedDate? }`, `POST /:id/reopen` `{ reason }` | `sales.returnable_dc.write`  |
+| `DELETE /:id`                                                           | `sales.returnable_dc.delete` |
+| `POST /:id/email`, `POST /:id/whatsapp`                                 | `sales.returnable_dc.send`   |
 
 - Goods lent to a customer (the recipient) and expected back: issue date, purpose, expected return
   date (≥ issue date, else 422 `RETURN_DATE_BEFORE_ISSUE_DATE`), taken by, goods lines
@@ -232,11 +243,13 @@ returns each field with `hasImage` and its `documentTypes`.
   prepared by, and returnable terms (the standard text when omitted). No prices, no HSN.
 - Number `TW/RDC/<FY>/<NNNN>` by issue date, from the running numbers (§6.2).
 - Status `ISSUED` (pending return) → `RETURNED` via `/return` (`returnedDate`, default today,
-  ≥ issue date); `/reopen` undoes it. A returned RDC cannot be edited or returned again (409
+  ≥ issue date); `/reopen` undoes it and **requires a `reason`** (1–500 characters, else 400).
+  The reason is kept on the RDC (`reopenReason`, cleared when it is marked returned again) and
+  in the `reopen` audit entry. A returned RDC cannot be edited or returned again (409
   `RDC_RETURNED`); reopening an issued one is 409 `RDC_NOT_RETURNED`. `overdueDays` is set
   while it is still out past the expected return date.
 - List filters: `search` (RDC no, recipient, purpose, taken by, prepared by), `customerId`,
-  `status`, and `date` or `month` (`YYYY-MM`) of issue.
+  `status`, and `date`, or `from` / `to` (`YYYY-MM-DD`, inclusive, either end may be left open), of issue.
 - PDF, email and WhatsApp as in §7; the PDF carries the company logo, name and address (§6.3).
 - **Live preview** as in §7: `{ number, html }`, nothing stored; it checks the return date too.
   A returned RDC has no edit preview (409 `RDC_RETURNED`).
@@ -291,7 +304,9 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     (validity, delivery terms, bank, seal, signature, prepared by). Field errors show in bubbles.
   - `/sales/quotations/[id]`: the saved PDF inline, with Download PDF, Email, WhatsApp, Edit,
     Convert to invoice and Delete, each shown only with its permission. A converted quotation is
-    locked.
+    locked and offers **Reopen** (mandatory reason) instead; the reason shows as "Reopened
+    because". Converted proformas offer **Reopen** the same way, on the list's row menu and on
+    the detail page.
   - `/sales/proforma-invoices` and `/sales/tax-invoices`: one list filtered by type, with
     search, status and date filters.
   - `/sales/invoices/new/{proforma,tax}` and `/sales/invoices/[id]/edit`: the same priced form
@@ -305,7 +320,7 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     edit and delete.
   - `/sales/payments` (Payments Received):
     - the due-date alert banner with **Filter overdue only**;
-    - search, payment-month and due-month filters;
+    - search, payment-date-range and due-date-range filters;
     - each row's invoice link, due date with an overdue badge, and balance;
     - actions: View receipt, Download receipt PDF, Edit payment and Delete payment.
   - The **Record / Edit payment** dialog picks a customer and then one of their open invoices, or
@@ -313,14 +328,14 @@ Received, (4) Returnable DCs and the Master List. Screens use the ui-kit compone
     (or "Other", typed). The amount is checked against the balance as you type; the server
     still enforces it.
   - `/sales/returnable-dcs` (list), `…/new`, `…/[id]` and `…/[id]/edit`:
-    - the list has search, status (pending return / returned) and issue-month filters, and an
+    - the list has search, status (pending return / returned) and issue-date-range filters, and an
       overdue badge;
     - the form takes the recipient, issue and expected return dates (checked as you type),
       purpose, taken by, goods, seal, signature, prepared by and terms, with a live preview.
       Seal, signature and prepared-by defaults come from the master list (RETURNABLE_DC);
     - the detail has the PDF and **Mark returned** (with a date) or **Reopen**, plus Email,
       WhatsApp, Edit and Delete. A returned RDC is not editable.
-  - `/sales/master-list` (navbar **Setup → Master List**), three tabs:
+  - `/sales/master-list` (navbar **Master List → Sales Master**; it is not in the Sales menu), three tabs:
     - **Numbering:** each code's format and its last and next number for this financial year.
       **Format** edits the prefix and width (`sales.master.write`); **Number** sets the last
       number used (`sales.running_number.write`).

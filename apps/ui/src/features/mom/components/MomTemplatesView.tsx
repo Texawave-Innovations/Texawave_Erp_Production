@@ -1,8 +1,14 @@
 "use client";
 
 import type { MomTemplate } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
+  ApiError,
+  type MessageKey,
+  type MessageParams,
+} from "@texawave-erp/core";
+import {
+  PageHeader,
+  Button,
   ActionMenu,
   type ActionMenuItem,
   Alert,
@@ -16,7 +22,6 @@ import {
   Select,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Archive,
@@ -32,8 +37,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
-import { errorMessage } from "@/features/projects/format";
 import {
   useCreateMomTemplate,
   useCreateMomTemplateVersion,
@@ -66,7 +71,7 @@ const STATUS_LABEL: Record<MomTemplate["status"], string> = {
  * set default, archive, and delete drafts. */
 export function MomTemplatesView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(MOM_READ);
   const canManage = usePermission(MOM_MANAGE_TEMPLATES);
 
@@ -100,19 +105,16 @@ export function MomTemplatesView() {
 
   async function act<T>(
     fn: () => Promise<T>,
-    success: string,
-    failure: string,
+    success: MessageKey,
+    failure: MessageKey,
+    params?: MessageParams,
   ): Promise<T | undefined> {
     try {
       const result = await fn();
-      toast({ title: success, variant: "success" });
+      notify(success, params);
       return result;
     } catch (err) {
-      toast({
-        title: failure,
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, failure, params);
       return undefined;
     }
   }
@@ -120,10 +122,7 @@ export function MomTemplatesView() {
   async function handleCreate(values: CreateMomTemplateFormValues) {
     const created = await createMutation.mutateAsync(values);
     setCreateOpen(false);
-    toast({
-      title: `Template "${created.name}" created as a draft`,
-      variant: "success",
-    });
+    notify("mom.template.created", { name: created.name });
     router.push(`/projects/mom/templates/${created.id}/builder`);
   }
 
@@ -144,8 +143,9 @@ export function MomTemplatesView() {
         onClick: () =>
           void act(
             () => publishMutation.mutateAsync(t.id),
-            `"${t.name}" V${t.version} published`,
-            "Could not publish",
+            "mom.template.published",
+            "mom.template.publishFailed",
+            { name: t.name, version: t.version },
           ),
       });
     } else {
@@ -155,8 +155,8 @@ export function MomTemplatesView() {
         onClick: () =>
           void act(
             () => versionMutation.mutateAsync(t.id),
-            "New draft version created",
-            "Could not create a version",
+            "mom.template.versionCreated",
+            "mom.template.versionFailed",
           ).then((created) => {
             if (created)
               router.push(`/projects/mom/templates/${created.id}/builder`);
@@ -169,8 +169,9 @@ export function MomTemplatesView() {
       onClick: () =>
         void act(
           () => duplicateMutation.mutateAsync(t.id),
-          `Duplicated "${t.name}"`,
-          "Could not duplicate",
+          "mom.template.duplicatedNamed",
+          "mom.template.duplicateFailed",
+          { name: t.name },
         ).then((created) => {
           if (created)
             router.push(`/projects/mom/templates/${created.id}/builder`);
@@ -187,8 +188,9 @@ export function MomTemplatesView() {
                 id: t.id,
                 input: { isDefault: true },
               }),
-            `"${t.name}" is now the default template`,
-            "Could not set the default",
+            "mom.template.defaultSet",
+            "mom.template.defaultFailed",
+            { name: t.name },
           ),
       });
     }
@@ -213,7 +215,11 @@ export function MomTemplatesView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to MoM Templates">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to MoM Templates"
+      >
         Ask an administrator for the <code>{MOM_READ}</code> permission.
       </Alert>
     );
@@ -221,40 +227,27 @@ export function MomTemplatesView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-[#2454e8] via-[#1769f5] to-[#12cfe3] p-6 text-white shadow-lg sm:p-8 md:flex-row md:items-center">
-        <div className="flex items-center gap-4">
+      <PageHeader
+        variant="banner"
+        icon={
           <Link
             href="/projects/mom"
             aria-label="Back to the MoM register"
-            className="rounded-xl bg-white/20 p-2 hover:bg-white/30"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm transition-colors hover:bg-brand-50 dark:bg-[#161B26] dark:text-sky-400"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <span className="text-theme-xs font-bold uppercase tracking-wider text-cyan-100">
-              Template Library
-            </span>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Meeting Minutes Templates
-            </h1>
-            <p className="max-w-xl text-theme-sm text-sky-50/90">
-              Versioned layouts for meeting records. Published versions are
-              locked so issued minutes stay reproducible — create a new version
-              to make changes.
-            </p>
-          </div>
-        </div>
-        {canManage ? (
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-md transition-all hover:bg-cyan-50 hover:shadow-lg active:scale-95 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-800"
-          >
-            <Plus className="h-4 w-4 stroke-[2.5]" />
-            New Template
-          </button>
-        ) : null}
-      </div>
+        }
+        title="Meeting Minutes Templates"
+        description="Versioned layouts for meeting records. Published versions are locked so issued minutes stay reproducible — create a new version to make changes."
+        action={
+          canManage ? (
+            <Button variant="glass" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" /> New Template
+            </Button>
+          ) : null
+        }
+      />
 
       <Card>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -285,6 +278,7 @@ export function MomTemplatesView() {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to MoM Templates"
           >
@@ -405,8 +399,9 @@ export function MomTemplatesView() {
                 id: t.id,
                 input: { status: "archived", isDefault: false },
               }),
-            `"${t.name}" archived`,
-            "Could not archive",
+            "mom.template.archived",
+            "mom.template.archiveFailed",
+            { name: t.name },
           );
           setConfirm(null);
         }}
@@ -425,8 +420,9 @@ export function MomTemplatesView() {
           const t = confirm.template;
           await act(
             () => deleteMutation.mutateAsync(t.id),
-            `"${t.name}" deleted`,
-            "Could not delete",
+            "mom.template.deleted",
+            "mom.template.deleteFailed",
+            { name: t.name },
           );
           setConfirm(null);
         }}

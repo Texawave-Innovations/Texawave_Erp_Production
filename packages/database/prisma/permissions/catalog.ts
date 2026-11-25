@@ -172,6 +172,14 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     description:
       "Approve or reject leave requests (all teams), including the HR approval",
   },
+  // Admin stands in for HR: decides at HR's step at any time, with a required
+  // reason, audited as an override, and HR is told (Docs/HR_LEAVE.md §6.1).
+  // Needs hr.leave.approve.all as well. Granted to Super Admin only.
+  {
+    code: "hr.leave.override",
+    description:
+      "Approve or reject leave in HR's place when HR is unavailable (reason required, audited)",
+  },
   // Apply on an employee's behalf, and cancel someone's pending/approved
   // leave. .own of both is reserved: one's own leave goes through
   // self-service, and the service refuses the caller's own record.
@@ -363,7 +371,8 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
   },
   {
     code: "hr.employee_account.write",
-    description: "Link/unlink an employee to a login account",
+    description:
+      "Link/unlink an employee to a login account, and create a new hire's login (Employee role, optionally Team Lead)",
   },
   // apps/api/src/modules/employee-self-service — own record only.
   {
@@ -396,8 +405,17 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "employee_self_service.attendance.read",
     description: "View my own attendance",
   },
+  // apps/api/src/modules/projects (My Work) — an employee working their own
+  // assigned tasks. The My Work routes accept this OR projects.timer.write
+  // (`@RequireAnyPermission`), so no existing grant stops working.
+  {
+    code: "employee_self_service.work.write",
+    description:
+      "Use My Work: see my assigned tasks, start, pause and finish timers, and log time on them",
+  },
   // apps/api/src/modules/timesheets — the employee's own timesheet (read side).
-  // Working a task uses the existing stopwatch permission (projects.timer.write).
+  // Working a task needs employee_self_service.work.write (or the older
+  // projects.timer.write).
   {
     code: "employee_self_service.timesheet.read",
     description: "View my own timesheet (daily work, hours and task history)",
@@ -1282,6 +1300,13 @@ export const PERMISSION_CATALOG: readonly PermissionDef[] = [
     code: "projects.task.write",
     description: "Create, update, and assign tasks and milestones",
   },
+  // Team-scoped task assignment (the Team Lead's grant): `projects.task.write`
+  // above stays the org-wide one. `.team` limits the holder to employees of
+  // their own team(s); the API checks the assignee's team.
+  ...scopedPermission(
+    "projects.task_assignment.write",
+    "Create, update, and assign project tasks and milestones",
+  ),
   {
     code: "projects.timer.write",
     description: "Start and stop stopwatch timers, log time entries",

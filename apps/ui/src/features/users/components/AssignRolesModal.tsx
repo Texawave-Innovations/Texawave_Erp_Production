@@ -1,6 +1,7 @@
 "use client";
 
-import { Alert, Checkbox, Skeleton, useToast } from "@texawave-erp/ui-kit";
+import { Alert, Checkbox, Skeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import { useRoles } from "@/features/settings/roles/hooks";
 import { useAssignUserRoles } from "../hooks";
@@ -22,7 +23,7 @@ export function AssignRolesModal({
 }: AssignRolesModalProps) {
   const rolesQuery = useRoles({ limit: 100 });
   const assignMutation = useAssignUserRoles();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(
     new Set(currentRoleIds),
@@ -66,18 +67,11 @@ export function AssignRolesModal({
         id: userId,
         input: { roleIds: [...selectedIds] },
       });
-      toast({
-        title: `Updated roles for "${userName}"`,
-        variant: "success",
-      });
+      notify("users.rolesUpdated", { name: userName });
       onClose();
     } catch (error) {
       const description = userErrorDescription(error);
-      toast({
-        title: "Could not update roles",
-        ...(description ? { description } : {}),
-        variant: "error",
-      });
+      notify("users.rolesFailed", { reason: description });
     }
   }
 

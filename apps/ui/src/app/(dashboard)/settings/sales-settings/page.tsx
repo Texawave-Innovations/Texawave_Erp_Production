@@ -1,11 +1,9 @@
-import { SalesSettingsView } from "@/features/sales-settings/components/SalesSettingsView";
-import { MastersTabBar } from "@/features/masters/MastersTabBar";
+import { redirect } from "next/navigation";
 
-export default function SalesSettingsPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <MastersTabBar active="sales-document" />
-      <SalesSettingsView />
-    </div>
-  );
+/**
+ * The old "Sales & Document Masters" screen is retired; the Sales master
+ * lives at /sales/master-list. Kept so existing links and bookmarks work.
+ */
+export default function SalesSettingsRedirectPage() {
+  redirect("/sales/master-list");
 }

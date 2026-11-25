@@ -1,4 +1,4 @@
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveMessage } from "@texawave-erp/core";
 
 /**
  * The reason to show under a failed user action's toast. Business refusals
@@ -7,7 +7,8 @@ import { ApiError } from "@texawave-erp/core";
  */
 export function userErrorDescription(error: unknown): string | undefined {
   if (error instanceof ApiError) {
-    if (error.isPermissionError) return "You don't have permission to do this.";
+    if (error.isPermissionError)
+      return resolveMessage("users.permissionDenied").title;
     if (error.errorCode) return error.message;
   }
   return undefined;

@@ -7,7 +7,6 @@ import type {
   FinancePaymentMadeStatus,
 } from "@texawave-erp/api-types";
 import { FINANCE_PAYMENT_MADE_STATUSES } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Button,
@@ -20,7 +19,6 @@ import {
   Pagination,
   SearchInput,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Ban,
@@ -35,6 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatDate, formatMoney } from "../../shared/format";
 import {
@@ -82,7 +81,7 @@ export function PaymentsMadeView() {
   const [deletingPayment, setDeletingPayment] =
     useState<FinancePaymentMade | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // Convert paymentMonth (YYYY-MM) to server-supported startDate and endDate
   const dateRange = useMemo(() => {
@@ -122,23 +121,14 @@ export function PaymentsMadeView() {
     try {
       const { createPaymentMade } = await import("../api");
       await createPaymentMade(values);
-      toast({
-        title:
-          values.status === "CONFIRMED"
-            ? "Supplier payment recorded & posted to General Ledger"
-            : "Supplier payment saved as draft",
-        variant: "success",
-      });
+      notify(
+        values.status === "CONFIRMED"
+          ? "finance.paymentMade.recorded"
+          : "finance.paymentMade.savedDraft",
+      );
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Failed to record payment. Please check values and try again.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentMade.createFailed");
       throw err;
     }
   };
@@ -147,9 +137,8 @@ export function PaymentsMadeView() {
     if (!confirmingPayment) return;
     try {
       await confirmMutation.mutateAsync(confirmingPayment.id);
-      toast({
-        title: `Payment ${confirmingPayment.paymentNumber} confirmed & posted to GL`,
-        variant: "success",
+      notify("finance.paymentMade.confirmed", {
+        number: confirmingPayment.paymentNumber,
       });
       setConfirmingPayment(null);
       if (selectedPayment?.id === confirmingPayment.id) {
@@ -157,10 +146,7 @@ export function PaymentsMadeView() {
       }
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to confirm payment",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentMade.confirmFailed");
     }
   };
 
@@ -168,9 +154,8 @@ export function PaymentsMadeView() {
     if (!voidingPayment) return;
     try {
       await voidMutation.mutateAsync(voidingPayment.id);
-      toast({
-        title: `Payment ${voidingPayment.paymentNumber} voided and GL reversal posted`,
-        variant: "success",
+      notify("finance.paymentMade.voided", {
+        number: voidingPayment.paymentNumber,
       });
       setVoidingPayment(null);
       if (selectedPayment?.id === voidingPayment.id) {
@@ -178,10 +163,7 @@ export function PaymentsMadeView() {
       }
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to void payment",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentMade.voidFailed");
     }
   };
 
@@ -189,28 +171,20 @@ export function PaymentsMadeView() {
     if (!deletingPayment) return;
     try {
       await deleteMutation.mutateAsync(deletingPayment.id);
-      toast({
-        title: `Payment ${deletingPayment.paymentNumber} deleted`,
-        variant: "success",
+      notify("finance.paymentMade.deleted", {
+        number: deletingPayment.paymentNumber,
       });
       setDeletingPayment(null);
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to delete payment",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentMade.deleteFailed");
     }
   };
 
   const handlePrintAction = async (payment: FinancePaymentMade) => {
     const success = await printPaymentDisbursement(payment);
     if (!success) {
-      toast({
-        title:
-          "Pop-up blocked. Please allow pop-ups to print disbursement voucher.",
-        variant: "error",
-      });
+      notify("finance.paymentMade.popupBlocked");
     }
   };
 

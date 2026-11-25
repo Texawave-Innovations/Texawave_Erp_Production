@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import {
   useApproveTask,
@@ -71,7 +71,7 @@ function TaskDetailsForm({
   const reassign = useReassignTask();
   const approve = useApproveTask();
   const reopen = useReopenTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const employees = useEmployees({ page: 1, limit: 100 });
   const employeeOptions = employees.data?.data ?? [];
@@ -116,7 +116,7 @@ function TaskDetailsForm({
       }
 
       if (changed) {
-        toast({ title: "Task updated successfully", variant: "success" });
+        notify("hr.task.updatedSuccess");
       }
       onClose();
     } catch (error) {
@@ -135,7 +135,7 @@ function TaskDetailsForm({
     setSubmitting(true);
     try {
       await approve.mutateAsync(task.id);
-      toast({ title: "Task approved", variant: "success" });
+      notify("hr.task.approved");
       onClose();
     } catch {
       setServerError("Could not approve task.");
@@ -149,7 +149,7 @@ function TaskDetailsForm({
     setSubmitting(true);
     try {
       await reopen.mutateAsync(task.id);
-      toast({ title: "Task reopened", variant: "success" });
+      notify("hr.task.reopened");
       onClose();
     } catch {
       setServerError("Could not reopen task.");

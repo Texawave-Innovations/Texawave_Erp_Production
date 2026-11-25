@@ -25,7 +25,6 @@ import {
   Input,
   Pagination,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   type EmployeeOption,
@@ -35,6 +34,7 @@ import {
   EMPLOYEE_READ_ANY_SCOPE,
   useEmployeeOptions,
 } from "@/components/widgets/employee-picker.api";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { describeError, isoDate, money } from "../format";
 import {
@@ -78,7 +78,7 @@ function NewSalaryDialog({ onClose }: { onClose: () => void }) {
   const create = useCreateSalary();
   const templates = useSalaryTemplates(false, canReadMasters);
   const components = useSalaryComponents(false, canReadMasters);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -129,10 +129,7 @@ function NewSalaryDialog({ onClose }: { onClose: () => void }) {
           : {}),
         ...(arrears ? { arrearsSalary: Number(arrears) } : {}),
       });
-      toast({
-        title: `Salary structure saved for ${employee.fullName}`,
-        variant: "success",
-      });
+      notify("payroll.salary.saved", { name: employee.fullName });
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -324,7 +321,7 @@ function EditSalaryDialog({
   const update = useUpdateSalary();
   const canReadMasters = usePermission(PAYROLL_SETTINGS_READ);
   const components = useSalaryComponents(true, canReadMasters);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [lines, setLines] = useState<EditableLine[]>(
     salary.components.map((c) =>
       newLine(c.component.id, String(Number(c.monthlyAmount))),
@@ -365,7 +362,7 @@ function EditSalaryDialog({
             : {}),
         },
       });
-      toast({ title: "Salary structure updated", variant: "success" });
+      notify("payroll.salary.updated");
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -400,7 +397,7 @@ function EditSalaryDialog({
             error={errors.lines}
           />
         ) : (
-          <Alert variant="info" title="Lines are read-only here">
+          <Alert dismissible variant="info" title="Lines are read-only here">
             Changing the lines needs the payroll settings read permission (the
             component list).
           </Alert>

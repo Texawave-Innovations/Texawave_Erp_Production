@@ -1,5 +1,6 @@
-import { ChallansView } from "@/features/sales/delivery-challans/components/ChallanViews";
+import { redirect } from "next/navigation";
 
-export default function SalesDeliveryChallansPage() {
-  return <ChallansView />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectChallans() {
+  redirect("/sales?tab=delivery-challans");
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEmployeeReport,
   dayReportRow,
+  EMPLOYEE_REPORT_HEADERS,
   employeeReportRow,
   hours,
 } from "./timesheet-report.js";
@@ -102,13 +103,33 @@ describe("csv rows", () => {
       1,
       0,
       0,
+      0,
+      0,
+      0,
     ]);
+  });
+
+  it("the attendance columns are in hours: target after permissions, permission, worked", () => {
+    const [line] = buildEmployeeReport([day({ status: "APPROVED" })]);
+    const row = employeeReportRow({
+      ...line!,
+      targetMinutes: 360,
+      permissionMinutes: 120,
+      attendanceMinutes: 330,
+    });
+    expect(row.slice(-3)).toEqual([6, 2, 5.5]);
+    expect(EMPLOYEE_REPORT_HEADERS.slice(-3)).toEqual([
+      "Target Hours (after permissions)",
+      "Permission Hours",
+      "Attendance Hours",
+    ]);
+    expect(EMPLOYEE_REPORT_HEADERS).toHaveLength(row.length);
   });
 
   it("a day row says what it is waiting for in words", () => {
     expect(
       dayReportRow(day({ status: "SUBMITTED", stage: "MANAGER" }))[5],
-    ).toBe("Manager");
+    ).toBe("Team lead");
     expect(dayReportRow(day({ status: "SUBMITTED", stage: "HR" }))[5]).toBe(
       "HR",
     );

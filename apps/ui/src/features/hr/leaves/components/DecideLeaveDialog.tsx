@@ -7,11 +7,17 @@ import {
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
+import { usePermission } from "@/hooks/usePermission";
 import { useApproveLeaveRequest, useRejectLeaveRequest } from "../hooks";
+import { LEAVE_OVERRIDE } from "../permissions";
 import { leaveErrorMessage } from "../errors";
-import { approveLeaveSchema, rejectLeaveSchema } from "../schema";
+import {
+  approveLeaveSchema,
+  overrideLeaveSchema,
+  rejectLeaveSchema,
+} from "../schema";
 import type { LeaveRequestItem } from "../types";
 
 export interface DecideLeaveDialogProps {
@@ -30,7 +36,8 @@ export interface DecideLeaveDialogProps {
     | "awaiting"
     | "firstDecidedBy"
     | "firstDecisionNote"
-  >;
+  > &
+    Partial<Pick<LeaveRequestItem, "yourStep">>;
   decision: "approve" | "reject";
 }
 
@@ -42,9 +49,11 @@ function describeDecideError(error: unknown): string {
 }
 
 /** Approve/reject a PENDING leave request. A rejection note is mandatory; an
- * approval note is optional. On a two-level request the first approval keeps
- * it pending for HR (Docs/HR_LEAVE.md §6.1). Maker-checker and stage rules
- * are enforced server-side, never by this dialog. */
+ * approval note is optional — except for an Admin deciding in HR's place,
+ * who must give a reason (it is audited). On a two-level request the team
+ * lead's first approval keeps it pending for HR (Docs/HR_LEAVE.md §6.1).
+ * Maker-checker and stage rules are enforced server-side, never by this
+ * dialog; the step shown comes from the server (`yourStep`) where known. */
 export function DecideLeaveDialog({
   open,
   onClose,
@@ -56,22 +65,37 @@ export function DecideLeaveDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const approve = useApproveLeaveRequest();
   const reject = useRejectLeaveRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
+
+  // An Admin only ever decides at HR's step (unless standing in as a team
+  // lead's delegate, which the server reports), so the reason is asked for.
+  const holdsOverride = usePermission(LEAVE_OVERRIDE);
 
   const mutation = decision === "approve" ? approve : reject;
   const submitting = mutation.isPending;
-  const firstOfTwo =
-    request.approvalLevels === 2 && request.awaiting === "FIRST";
-  const title =
-    decision === "reject"
+  const step = request.yourStep;
+  const override = step ? step.override : holdsOverride;
+  const firstOfTwo = step
+    ? step.step === "TEAM_LEAD" && !step.final
+    : request.approvalLevels === 2 && request.awaiting === "FIRST";
+  const hrFinal = step ? step.step === "HR" : request.awaiting === "HR";
+  const title = override
+    ? decision === "reject"
+      ? "Reject leave in HR's place"
+      : "Approve leave in HR's place"
+    : decision === "reject"
       ? "Reject leave"
-      : request.awaiting === "HR"
-        ? "Give HR approval"
+      : hrFinal
+        ? "Give HR approval (final)"
         : firstOfTwo
           ? "Give first approval"
           : "Approve leave";
-  const schema =
-    decision === "approve" ? approveLeaveSchema : rejectLeaveSchema;
+  const reasonRequired = decision === "reject" || override;
+  const schema = override
+    ? overrideLeaveSchema
+    : decision === "reject"
+      ? rejectLeaveSchema
+      : approveLeaveSchema;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -94,15 +118,13 @@ export function DecideLeaveDialog({
           body: { note: result.data.note },
         });
       }
-      toast({
-        title:
-          decision === "reject"
-            ? "Leave rejected"
-            : firstOfTwo
-              ? "First approval given — the request now waits for HR"
-              : "Leave approved",
-        variant: "success",
-      });
+      notify(
+        decision === "reject"
+          ? "hr.leave.rejected"
+          : firstOfTwo
+            ? "hr.leave.firstApproval"
+            : "hr.leave.approved",
+      );
       setNote("");
       onClose();
     } catch (err) {
@@ -140,14 +162,34 @@ export function DecideLeaveDialog({
           </p>
         </div>
 
+        {override ? (
+          <Alert
+            dismissible
+            variant="warning"
+            title="You are deciding as Admin, for HR"
+          >
+            Your decision is final. It is recorded in the audit log with your
+            reason, and HR is notified.
+          </Alert>
+        ) : null}
+        {step?.escalated ? (
+          <Alert
+            dismissible
+            variant="info"
+            title="The team lead did not decide in time"
+          >
+            The team lead has not acted for 2 working days, so this decision is
+            final and replaces both approvals.
+          </Alert>
+        ) : null}
         {decision === "approve" && firstOfTwo ? (
-          <Alert variant="info" title="Two approvals needed">
+          <Alert dismissible variant="info" title="Two approvals needed">
             This leave type needs your approval and then an HR approver&apos;s.
             The request stays pending until HR approves it.
           </Alert>
         ) : null}
         {request.awaiting === "HR" && request.firstDecidedBy ? (
-          <Alert variant="info" title="First approval given">
+          <Alert dismissible variant="info" title="First approval given">
             Approved by {request.firstDecidedBy.fullName}
             {request.firstDecisionNote
               ? ` — “${request.firstDecisionNote}”`
@@ -158,13 +200,17 @@ export function DecideLeaveDialog({
 
         <FormField
           label={
-            decision === "approve" ? "Note to the employee" : "Rejection reason"
+            override
+              ? "Reason (recorded in the audit log)"
+              : decision === "approve"
+                ? "Note to the employee"
+                : "Rejection reason"
           }
-          required={decision === "reject"}
+          required={reasonRequired}
           hint={
-            decision === "approve"
-              ? "Optional. 3–500 characters if provided."
-              : "Required. 3–500 characters."
+            reasonRequired
+              ? "Required. 3–500 characters."
+              : "Optional. 3–500 characters if provided."
           }
           labelAction={
             <span className="text-theme-xs font-medium text-gray-400 dark:text-gray-500">
@@ -181,9 +227,11 @@ export function DecideLeaveDialog({
               value={note}
               disabled={submitting}
               placeholder={
-                decision === "approve"
-                  ? "Add an optional note to the employee..."
-                  : "State the reason for rejecting this leave request..."
+                override
+                  ? "Why you are deciding this in HR's place..."
+                  : decision === "approve"
+                    ? "Add an optional note to the employee..."
+                    : "State the reason for rejecting this leave request..."
               }
               onChange={(e) => setNote(e.target.value)}
             />

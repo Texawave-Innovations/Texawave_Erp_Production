@@ -5,6 +5,9 @@ import {
   bankDetailsSchema,
   governmentIdsSchema,
   personalDetailsSchema,
+  sanitizeDigits,
+  sanitizeMobile,
+  sanitizeName,
   ApiError,
 } from "@texawave-erp/core";
 import {
@@ -51,6 +54,7 @@ import {
   submitOnboarding,
   uploadDocument,
 } from "../api";
+import { landingPathAfterLogin } from "@/features/auth/landing";
 import { useMyDocuments, useMyEmployee } from "../hooks";
 import { FamilyExperienceStep } from "./FamilyExperienceStep";
 
@@ -170,10 +174,10 @@ const DIGIT_FIELD_LENGTHS: Record<string, number> = {
 };
 
 function sanitizeForField(key: string, raw: string): string {
-  if (NAME_FIELDS.has(key)) return raw.replace(/[^A-Za-z .'-]/g, "");
-  if (PHONE_FIELDS.has(key)) return raw.replace(/\D/g, "").slice(0, 10);
+  if (NAME_FIELDS.has(key)) return sanitizeName(raw);
+  if (PHONE_FIELDS.has(key)) return sanitizeMobile(raw);
   const digitMax = DIGIT_FIELD_LENGTHS[key];
-  if (digitMax) return raw.replace(/\D/g, "").slice(0, digitMax);
+  if (digitMax) return sanitizeDigits(raw, digitMax);
   return raw;
 }
 
@@ -361,7 +365,9 @@ export function OnboardingWizard() {
         setMissing(result.missing);
       } else {
         await queryClient.invalidateQueries();
-        router.replace("/portal");
+        // Same rule as sign-in: HR/Sales staff go to their workspace, other
+        // employees to the portal.
+        router.replace(await landingPathAfterLogin());
       }
     } catch (error) {
       setSaveError(apiMessage(error));
@@ -518,6 +524,7 @@ export function OnboardingWizard() {
 
           {sentBackNote && (
             <Alert
+              dismissible
               variant="warning"
               title="HR requested updates to your details"
               className="mt-1"
@@ -574,7 +581,7 @@ export function OnboardingWizard() {
               className="flex flex-col gap-6"
             >
               {/* Basic Demographics */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <User className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -675,7 +682,7 @@ export function OnboardingWizard() {
               </div>
 
               {/* Emergency Contact */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <HeartHandshake className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -711,7 +718,7 @@ export function OnboardingWizard() {
               </div>
 
               {/* Parents Information */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <Users className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -774,7 +781,7 @@ export function OnboardingWizard() {
               className="flex flex-col gap-6"
             >
               {/* Permanent Address */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <MapPin className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -797,7 +804,6 @@ export function OnboardingWizard() {
                     permanent.areaLocality,
                     (v) => setPermanent({ ...permanent, areaLocality: v }),
                     "e.g. Anna Nagar West",
-                    false,
                   )}
                   {renderField(
                     "District",
@@ -848,7 +854,7 @@ export function OnboardingWizard() {
 
               {/* Present Address (if different) */}
               {!sameAsPermanent && (
-                <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+                <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                   <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                     <MapPin className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
                     <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -871,7 +877,6 @@ export function OnboardingWizard() {
                       present.areaLocality,
                       (v) => setPresent({ ...present, areaLocality: v }),
                       "e.g. HSR Layout Sector 2",
-                      false,
                     )}
                     {renderField(
                       "District",
@@ -939,7 +944,7 @@ export function OnboardingWizard() {
               className="flex flex-col gap-6"
             >
               {/* Salary Bank Details */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <Building2 className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -989,7 +994,7 @@ export function OnboardingWizard() {
               </div>
 
               {/* Government Statutory IDs */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <ShieldCheck className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">
@@ -1076,7 +1081,7 @@ export function OnboardingWizard() {
           {step === 5 && (
             <div className="flex flex-col gap-6">
               {/* Review Overview Banner */}
-              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-800 dark:bg-none dark:bg-slate-900/30">
                 <div className="flex items-center gap-2 pb-3 mb-4 border-b border-sky-100 dark:border-slate-800">
                   <CheckCircle2 className="h-4 w-4 text-brand-600 dark:text-cyan-400" />
                   <h3 className="text-xs font-bold text-[#0a3271] uppercase tracking-wider dark:text-white">

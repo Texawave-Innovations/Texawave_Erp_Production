@@ -1,6 +1,7 @@
 /**
  * Pure GST identity helpers for Sales. No I/O.
  */
+import { FIELD_FORMAT } from "../../../common/dto/field-formats.js";
 
 /** GST state/UT codes as used in a GSTIN's first two digits and as the
  * place of supply. 96 = other countries (exports), 97 = other territory. */
@@ -58,10 +59,10 @@ export function gstStateName(code: string | null): string | null {
 /** 2 state digits, 10-character PAN, entity character, `Z`, check
  * character. The check character is not verified: legacy data and test
  * GSTINs do not always carry a correct one. */
-export const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
-export const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+export const GSTIN_PATTERN = FIELD_FORMAT.gstin;
+export const PAN_PATTERN = FIELD_FORMAT.pan;
 /** Indian Financial System Code: 4 letters, `0`, 6 alphanumerics. */
-export const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+export const IFSC_PATTERN = FIELD_FORMAT.ifsc;
 /** Corporate Identification Number (21 characters). */
 export const CIN_PATTERN = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
 

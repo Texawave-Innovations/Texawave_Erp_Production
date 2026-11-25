@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../../common/dto/field-formats.js";
 import { applyDecorators } from "@nestjs/common";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
@@ -26,7 +27,7 @@ import {
   type TaxRegime,
 } from "../../settings/payroll-settings.rules.js";
 
-export const FINANCIAL_YEAR = /^[0-9]{4}-[0-9]{2}$/;
+export const FINANCIAL_YEAR = FIELD_FORMAT.financialYear;
 
 /** A non-negative rupee amount. */
 const Rupees = (optional = true) =>

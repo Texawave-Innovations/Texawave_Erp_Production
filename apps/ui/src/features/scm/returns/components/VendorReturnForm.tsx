@@ -113,7 +113,7 @@ function Body({
         items,
       });
     } catch (err) {
-      setError(errorText(err, "Failed to create return"));
+      setError(errorText(err, "scm.return.createFailed"));
     } finally {
       setBusy(false);
     }

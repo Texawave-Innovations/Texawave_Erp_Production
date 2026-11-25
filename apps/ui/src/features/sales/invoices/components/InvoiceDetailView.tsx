@@ -10,7 +10,7 @@ import {
   MessageCircle,
   Pencil,
   Plus,
-  Receipt,
+  RotateCcw,
   Trash2,
   Truck,
 } from "lucide-react";
@@ -23,13 +23,16 @@ import {
   DeleteConfirmDialog,
   ErrorState,
   PageHeader,
+  SectionCard,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
+import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { DateActionDialog } from "../../shared/components/DateActionDialog";
 import { DocumentPdfPanel } from "../../shared/components/DocumentPdfPanel";
+import { ReasonActionDialog } from "../../shared/components/ReasonActionDialog";
 import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
 import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, formatInr } from "../../shared/format";
@@ -41,6 +44,7 @@ import {
   useCreateChallanFromInvoice,
   useDeleteInvoice,
   useInvoice,
+  useReopenProforma,
 } from "../hooks";
 import { INVOICE_LABEL, type InvoicePayment } from "../types";
 import { listPathOf } from "./InvoiceFormView";
@@ -58,6 +62,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 type DialogKind =
   | "email"
   | "tax"
+  | "reopen"
   | "challan"
   | "delete"
   | "payment"
@@ -65,7 +70,7 @@ type DialogKind =
 
 export function InvoiceDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.invoiceRead);
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.invoiceDelete);
@@ -75,14 +80,20 @@ export function InvoiceDetailView({ id }: { id: number }) {
   const query = useInvoice(canRead ? id : null);
   const remove = useDeleteInvoice();
   const toTax = useConvertToTax();
+  const reopen = useReopenProforma();
   const toChallan = useCreateChallanFromInvoice();
   const removePayment = useDeletePayment();
   const [dialog, setDialog] = useState<DialogKind | null>(null);
+  const [lockedNoticeOpen, setLockedNoticeOpen] = useState(true);
   const [busy, setBusy] = useState<"pdf" | "whatsapp" | null>(null);
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to invoices">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to invoices"
+      >
         Ask an administrator for the <code>sales.invoice.read</code> permission.
       </Alert>
     );
@@ -90,7 +101,7 @@ export function InvoiceDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Invoice not found">
+      <Alert dismissible variant="warning" title="Invoice not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -116,10 +127,7 @@ export function InvoiceDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "That did not work",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.actionFailed");
     } finally {
       setBusy(null);
     }
@@ -128,26 +136,20 @@ export function InvoiceDetailView({ id }: { id: number }) {
   async function handleDelete() {
     try {
       await remove.mutateAsync(inv.id);
-      toast({ title: `${inv.invoiceNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: inv.invoiceNumber });
       router.push(listPathOf(inv.invoiceType));
     } catch (e) {
       setDialog(null);
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     }
   }
 
   async function handleDeletePayment(p: InvoicePayment) {
     try {
       await removePayment.mutateAsync(p.id);
-      toast({ title: `${p.paymentNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: p.paymentNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setDialog(null);
     }
@@ -155,17 +157,16 @@ export function InvoiceDetailView({ id }: { id: number }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Link
-        href={listPathOf(inv.invoiceType)}
-        className="text-theme-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-      >
-        ← Back to {inv.invoiceType === "PROFORMA" ? "proforma" : "tax"} invoices
-      </Link>
       <PageHeader
         variant="banner"
         title={inv.invoiceNumber}
         description={`${label} · ${inv.customerSnapshot.companyName} · ${formatDate(inv.invoiceDate)}`}
-        icon={Receipt}
+        icon={
+          <BackArrow
+            href={listPathOf(inv.invoiceType)}
+            label={`Back to ${inv.invoiceType === "PROFORMA" ? "proforma" : "tax"} invoices`}
+          />
+        }
         badge={<InvoiceStatusBadge status={inv.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -211,6 +212,12 @@ export function InvoiceDetailView({ id }: { id: number }) {
                 Move to tax invoice
               </Button>
             ) : null}
+            {canWrite && !live ? (
+              <Button variant="secondary" onClick={() => setDialog("reopen")}>
+                <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                Reopen
+              </Button>
+            ) : null}
             {canChallan && inv.invoiceType === "TAX" ? (
               <Button variant="secondary" onClick={() => setDialog("challan")}>
                 <Truck className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -227,8 +234,12 @@ export function InvoiceDetailView({ id }: { id: number }) {
         }
       />
 
-      {!live ? (
-        <Alert variant="info" title="Moved to a tax invoice">
+      {!live && lockedNoticeOpen ? (
+        <Alert
+          variant="info"
+          title="Moved to a tax invoice"
+          onClose={() => setLockedNoticeOpen(false)}
+        >
           This proforma is locked.{" "}
           {inv.convertedTo ? (
             <Link href={`/sales/invoices/${inv.convertedTo.id}`}>
@@ -240,14 +251,17 @@ export function InvoiceDetailView({ id }: { id: number }) {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="flex flex-col gap-5">
-          <Card className="flex flex-col gap-3">
-            <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-              Summary
-            </h2>
-            <dl className="flex flex-col gap-2">
+          <SectionCard
+            title="Summary"
+            description={`${inv.lines.length} ${inv.lines.length === 1 ? "item" : "items"}`}
+          >
+            <dl className="flex flex-col gap-2.5">
               <Fact label="Customer" value={inv.customerSnapshot.companyName} />
               <Fact label="Due date" value={formatDate(inv.dueDate)} />
               <Fact label="Payment terms" value={inv.paymentTerms ?? "—"} />
+              {inv.reopenReason ? (
+                <Fact label="Reopened because" value={inv.reopenReason} />
+              ) : null}
               {inv.sourceQuotation ? (
                 <Fact
                   label="From quotation"
@@ -268,6 +282,9 @@ export function InvoiceDetailView({ id }: { id: number }) {
                   }
                 />
               ) : null}
+            </dl>
+            <hr className="border-gray-200 dark:border-gray-800" />
+            <dl className="flex flex-col gap-2.5">
               <Fact
                 label="Taxable amount"
                 value={formatInr(inv.taxableAmount)}
@@ -289,17 +306,23 @@ export function InvoiceDetailView({ id }: { id: number }) {
                   value={formatInr(inv.igstAmount)}
                 />
               )}
-              <Fact
-                label="Total"
-                value={<strong>{formatInr(inv.totalAmount)}</strong>}
-              />
+            </dl>
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-50 px-4 py-3 dark:bg-sky-500/10">
+              <span className="text-theme-sm font-semibold text-gray-700 dark:text-gray-300">
+                Total
+              </span>
+              <span className="text-theme-xl font-bold text-brand-700 dark:text-sky-300">
+                {formatInr(inv.totalAmount)}
+              </span>
+            </div>
+            <dl className="flex flex-col gap-2.5">
               <Fact label="Received" value={formatInr(inv.amountReceived)} />
               <Fact
                 label="Balance"
                 value={<strong>{formatInr(inv.balance)}</strong>}
               />
             </dl>
-          </Card>
+          </SectionCard>
 
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
@@ -390,11 +413,28 @@ export function InvoiceDetailView({ id }: { id: number }) {
               id: inv.id,
               invoiceDate: date,
             });
-            toast({
-              title: `Tax invoice ${tax.invoiceNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Tax invoice",
+              number: tax.invoiceNumber,
             });
             router.push(`/sales/invoices/${tax.id}`);
+          }}
+        />
+      ) : null}
+      {dialog === "reopen" ? (
+        <ReasonActionDialog
+          open
+          onClose={() => setDialog(null)}
+          title="Reopen proforma invoice"
+          description={`${inv.invoiceNumber} becomes live again and can be edited or paid. The tax invoice already created from it is not changed.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the proforma and in its history."
+          placeholder="e.g. Customer asked for changes before billing"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: inv.id, reason });
+            notify("sales.document.reopened", { number: inv.invoiceNumber });
+            setDialog(null);
           }}
         />
       ) : null}
@@ -411,9 +451,9 @@ export function InvoiceDetailView({ id }: { id: number }) {
               id: inv.id,
               dcDate: date,
             });
-            toast({
-              title: `Delivery challan ${dc.dcNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Delivery challan",
+              number: dc.dcNumber,
             });
             router.push(`/sales/delivery-challans/${dc.id}`);
           }}

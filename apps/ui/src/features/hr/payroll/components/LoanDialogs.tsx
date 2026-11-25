@@ -7,7 +7,6 @@ import {
   FormField,
   Input,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ApiError, formatCurrency } from "@texawave-erp/core";
 import { useState } from "react";
@@ -15,6 +14,7 @@ import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, isoDate, money, periodLabel } from "../format";
@@ -63,7 +63,7 @@ export function IssueLoanDialog({
 }) {
   const create = useCreateLoan();
   const requestMine = useRequestMyLoan();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [principal, setPrincipal] = useState("");
   const [emi, setEmi] = useState("");
@@ -115,12 +115,12 @@ export function IssueLoanDialog({
     setServerError(null);
     try {
       const loan = await send();
-      toast({
-        title: selfService
-          ? `Loan ${loan.loanNumber} requested — HR will review it`
-          : `Loan ${loan.loanNumber} requested for ${employee?.fullName} — awaiting HR review`,
-        variant: "success",
-      });
+      notify(
+        selfService
+          ? "payroll.loan.requestedSelf"
+          : "payroll.loan.requestedFor",
+        { number: loan.loanNumber, name: employee?.fullName },
+      );
       onClose();
     } catch (err) {
       // Above the principal limit: offer the override reason field.
@@ -263,7 +263,7 @@ export function IssueLoanDialog({
 
 function SkipRequestForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
   const request = useRequestLoanSkip();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -283,7 +283,7 @@ function SkipRequestForm({ loan, onDone }: { loan: Loan; onDone: () => void }) {
     setServerError(null);
     try {
       await request.mutateAsync({ loanId: loan.id, body: parsed.data });
-      toast({ title: "EMI skip requested", variant: "success" });
+      notify("payroll.loan.skipRequested");
       onDone();
     } catch (err) {
       setServerError(describeError(err));
@@ -335,7 +335,7 @@ function SkipDecision({ skip, loan }: { skip: LoanSkipRequest; loan: Loan }) {
   const userId = useAuthStore((s) => s.user?.userId ?? null);
   const canApprove = usePermission(LOAN_APPROVE);
   const decide = useDecideLoanSkip();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [error, setError] = useState<string | null>(null);
 
   // Maker-checker, mirrored from the API: neither the requester nor the
@@ -363,10 +363,11 @@ function SkipDecision({ skip, loan }: { skip: LoanSkipRequest; loan: Loan }) {
     setError(null);
     try {
       await decide.mutateAsync({ id: skip.id, decision });
-      toast({
-        title: decision === "APPROVED" ? "Skip approved" : "Skip rejected",
-        variant: "success",
-      });
+      notify(
+        decision === "APPROVED"
+          ? "payroll.loan.skipApproved"
+          : "payroll.loan.skipRejected",
+      );
     } catch (err) {
       setError(describeError(err));
     }

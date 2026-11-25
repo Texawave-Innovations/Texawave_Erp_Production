@@ -41,7 +41,11 @@ const row = (over: Partial<EmployeeRow> = {}): EmployeeRow =>
     ...over,
   }) as unknown as EmployeeRow;
 
-function makeService(level: TeamScope["level"], teamIds: number[] = []) {
+function makeService(
+  level: TeamScope["level"],
+  teamIds: number[] = [],
+  granted: string[] = [],
+) {
   const repository = {
     findMany: vi.fn(),
     findOne: vi.fn(),
@@ -56,12 +60,16 @@ function makeService(level: TeamScope["level"], teamIds: number[] = []) {
     getOrgScope: vi.fn().mockReturnValue(ORG),
     getUserId: vi.fn().mockReturnValue(9),
   };
+  const permissions = {
+    getPermissionsForUser: vi.fn().mockResolvedValue(granted),
+  };
   const service = new EmployeesService(
     repository as never,
     tenantContext as never,
     teamContext as never,
+    permissions as never,
   );
-  return { service, repository, teamContext };
+  return { service, repository, teamContext, permissions };
 }
 
 const newEmployee = {
@@ -73,6 +81,35 @@ const newEmployee = {
 };
 
 describe("EmployeesService", () => {
+  describe("create: linking a login at creation (EMP-12)", () => {
+    it("refuses userId without hr.employee_account.write, before touching the repository", async () => {
+      const { service, repository } = makeService("team", [2], []);
+      await expect(
+        service.create({ ...newEmployee, userId: 5 } as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it("allows userId when the caller also holds hr.employee_account.write", async () => {
+      const { service, repository } = makeService(
+        "team",
+        [2],
+        ["hr.employee_account.write"],
+      );
+      repository.create.mockResolvedValue(row());
+      await service.create({ ...newEmployee, userId: 5 } as never);
+      expect(repository.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not require the account permission when no userId is sent", async () => {
+      const { service, repository, permissions } = makeService("team", [2], []);
+      repository.create.mockResolvedValue(row());
+      await service.create(newEmployee as never);
+      expect(permissions.getPermissionsForUser).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("reads use the resolved scope and never widen it", () => {
     it("resolves hr.employee.read and passes that scope to the repository", async () => {
       const { service, repository, teamContext } = makeService("team", [2]);

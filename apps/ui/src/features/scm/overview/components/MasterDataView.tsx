@@ -48,7 +48,11 @@ export function MasterDataView() {
         <TableSkeleton rowsCount={5} columnsCount={3} />
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to master data">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to master data"
+          >
             Ask an administrator for the <code>scm.overview.read</code>{" "}
             permission.
           </Alert>

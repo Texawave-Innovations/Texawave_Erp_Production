@@ -13,19 +13,20 @@ import {
 } from "lucide-react";
 import {
   Button,
+  Checkbox,
   EmptyState,
   ErrorState,
   FormField,
   Input,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   usePointsConfig,
   usePointsLeaderboard,
   useUpdatePointsConfig,
 } from "@/features/projects/hooks";
-import { errorMessage } from "@/features/projects/format";
 import { PageBanner } from "@/features/projects/components/PageBanner";
 import type { PointsConfig } from "@/features/projects/types";
 
@@ -79,7 +80,7 @@ function PriorityConfigForm({
 }: {
   initialConfig?: PointsConfig | undefined;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const updateConfigMutation = useUpdatePointsConfig();
 
   const [points, setPoints] = useState<Record<PriorityKey, number>>({
@@ -96,6 +97,15 @@ function PriorityConfigForm({
       points: Number(value) || 0,
     })),
   );
+  // Time-based points: points come from the ETA and the timer, not priority.
+  const [timeBased, setTimeBased] = useState(
+    initialConfig?.timeBasedEnabled ?? false,
+  );
+  const [taskPoints, setTaskPoints] = useState(
+    initialConfig?.defaultTaskPoints ?? 10,
+  );
+  const [bonus, setBonus] = useState(initialConfig?.onTimeBonus ?? 1);
+  const [grace, setGrace] = useState(initialConfig?.graceMinutes ?? 5);
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypePoints, setNewTypePoints] = useState(15);
   const [formError, setFormError] = useState<string | null>(null);
@@ -146,13 +156,14 @@ function PriorityConfigForm({
         high: Number(points.high) || 20,
         urgent: Number(points.urgent) || 30,
         customRules,
+        timeBasedEnabled: timeBased,
+        defaultTaskPoints: Math.max(0, Math.trunc(Number(taskPoints) || 0)),
+        onTimeBonus: Math.max(0, Math.trunc(Number(bonus) || 0)),
+        graceMinutes: Math.max(0, Math.trunc(Number(grace) || 0)),
       });
-      toast({
-        title: "Points master rules saved successfully",
-        variant: "success",
-      });
+      notify("projects.pointsMaster.saved");
     } catch (err: unknown) {
-      setFormError(errorMessage(err, "Failed to save points rules"));
+      setFormError(resolveErrorText(err, "projects.pointsMaster.saveFailed"));
     }
   };
 
@@ -170,6 +181,85 @@ function PriorityConfigForm({
           {formError}
         </p>
       ) : null}
+
+      {/* Time-based points: finishing a task against its ETA */}
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
+          <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
+            <Award className="h-5 w-5 text-amber-500" />
+            Time-based points
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            Every task is worth the same points. Finish within the ETA the team
+            lead set and earn a bonus; go over and the points shrink in
+            proportion, reaching zero when the task took twice its ETA. Time is
+            measured by the assignee&apos;s timer.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 p-4 sm:p-5">
+          <label className="flex items-start gap-2.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
+            <Checkbox
+              className="mt-0.5"
+              checked={timeBased}
+              onChange={(e) => setTimeBased(e.target.checked)}
+            />
+            <span>
+              Use time-based points
+              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                Applies to tasks completed from now on. Points already awarded
+                never change. While off, the priority points below are used.
+              </span>
+            </span>
+          </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FormField label="Points per task">
+              {(field) => (
+                <Input
+                  {...field}
+                  type="number"
+                  min="0"
+                  max="1000"
+                  disabled={!timeBased}
+                  value={taskPoints}
+                  onChange={(e) => setTaskPoints(Number(e.target.value) || 0)}
+                />
+              )}
+            </FormField>
+            <FormField label="On-time bonus">
+              {(field) => (
+                <Input
+                  {...field}
+                  type="number"
+                  min="0"
+                  max="1000"
+                  disabled={!timeBased}
+                  value={bonus}
+                  onChange={(e) => setBonus(Number(e.target.value) || 0)}
+                />
+              )}
+            </FormField>
+            <FormField label="Grace (minutes over)">
+              {(field) => (
+                <Input
+                  {...field}
+                  type="number"
+                  min="0"
+                  max="240"
+                  disabled={!timeBased}
+                  value={grace}
+                  onChange={(e) => setGrace(Number(e.target.value) || 0)}
+                />
+              )}
+            </FormField>
+          </div>
+          <p className="rounded-xl bg-sky-50 p-3 text-xs font-medium text-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+            Example, ETA 2h and {taskPoints} points: done in 2h or less earns{" "}
+            {taskPoints + bonus}; 2h 30m earns{" "}
+            {Math.floor(taskPoints * (1 - 30 / 120))}; 3h earns{" "}
+            {Math.floor(taskPoints * (1 - 60 / 120))}; 4h or more earns 0.
+          </p>
+        </div>
+      </section>
 
       {/* Default Priority Points — legacy 4-tier grid */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">

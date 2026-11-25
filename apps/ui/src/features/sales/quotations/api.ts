@@ -10,6 +10,7 @@ export interface QuotationListQuery {
   limit: number;
   search?: string;
   status?: QuotationStatus;
+  customerId?: number;
   from?: string;
   to?: string;
 }
@@ -36,6 +37,18 @@ export async function getNextQuotationNumber(date: string): Promise<string> {
     }),
   );
   return data.number;
+}
+
+/** The empty quotation (letterhead, next number) for the form's default preview. */
+export async function getQuotationTemplate(
+  params: Record<string, string | number>,
+): Promise<{ html: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ html: string }>(`${QUOTATIONS}/template`, {
+      query: params,
+    }),
+  );
+  return data;
 }
 
 /** Server pricing + the PDF's HTML for unsaved values (nothing stored). */
@@ -73,6 +86,16 @@ export async function updateQuotation(
 
 export async function deleteQuotation(id: number): Promise<void> {
   await withAuthRetry(() => apiClient.delete(`${QUOTATIONS}/${id}`));
+}
+
+export async function reopenQuotation(
+  id: number,
+  reason: string,
+): Promise<Quotation> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.post<Quotation>(`${QUOTATIONS}/${id}/reopen`, { reason }),
+  );
+  return data;
 }
 
 export interface ConvertedInvoice {

@@ -7,13 +7,16 @@ import {
   Upload,
   Download,
   Trash2,
+  RefreshCw,
   File,
   Image as ImageIcon,
   ArrowLeft,
 } from "lucide-react";
+import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
+  ConfirmDialog,
   ErrorState,
   Input,
   Skeleton,
@@ -29,6 +32,7 @@ import type { EmployeeDocumentRow } from "../api";
 import {
   useEmployeeDocuments,
   useRemoveEmployeeDocument,
+  useReplaceEmployeeDocument,
   useUploadEmployeeDocument,
 } from "../hooks";
 
@@ -49,14 +53,19 @@ function DocumentCard({
   canWrite,
   employeeId,
   onDelete,
+  onReplace,
+  busy,
 }: {
   doc: EmployeeDocumentRow;
   canWrite: boolean;
   employeeId: number;
   onDelete: (id: number) => void;
+  onReplace: (doc: EmployeeDocumentRow, file: File) => void;
+  busy: boolean;
 }) {
   const isImage = doc.mimeType?.startsWith("image/");
   const isPdf = doc.mimeType === "application/pdf";
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all duration-200 hover:border-sky-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-700">
@@ -108,16 +117,44 @@ function DocumentCard({
       {/* Footer Info: File Size & Remove Action */}
       <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-2.5 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
         <span className="font-medium">{formatSize(doc.sizeBytes)}</span>
-        {canWrite && doc.source === "HR_UPLOADED" ? (
-          <button
-            type="button"
-            onClick={() => onDelete(doc.id)}
-            className="inline-flex items-center gap-1 font-semibold text-rose-600 transition-colors hover:text-rose-700 hover:underline dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
-          >
-            <Trash2 className="h-3 w-3" />
-            <span>Remove</span>
-          </button>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {canWrite ? (
+            <>
+              <input
+                ref={replaceInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                className="hidden"
+                aria-label={`Choose a replacement file for ${doc.label ?? doc.documentType}`}
+                onChange={(e) => {
+                  const chosen = e.target.files?.[0];
+                  // Reset so choosing the same file again still fires onChange.
+                  e.target.value = "";
+                  if (chosen) onReplace(doc, chosen);
+                }}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => replaceInputRef.current?.click()}
+                className="inline-flex items-center gap-1 font-semibold text-brand-500 transition-colors hover:text-[#0a3271] hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:text-sky-200 cursor-pointer"
+              >
+                <RefreshCw className="h-3 w-3" />
+                <span>Replace</span>
+              </button>
+            </>
+          ) : null}
+          {canWrite && doc.source === "HR_UPLOADED" ? (
+            <button
+              type="button"
+              onClick={() => onDelete(doc.id)}
+              className="inline-flex items-center gap-1 font-semibold text-rose-600 transition-colors hover:text-rose-700 hover:underline dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>Remove</span>
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -136,7 +173,15 @@ export function EmployeeDocumentsDetailView({
   const documents = useEmployeeDocuments(employeeId);
   const upload = useUploadEmployeeDocument(employeeId);
   const remove = useRemoveEmployeeDocument(employeeId);
+  const replace = useReplaceEmployeeDocument(employeeId);
   const canWrite = usePermission(DOCUMENT_WRITE_SCOPE);
+
+  // The file chosen to replace a document waits here until HR confirms.
+  const [pendingReplace, setPendingReplace] = useState<{
+    doc: EmployeeDocumentRow;
+    file: File;
+  } | null>(null);
+  const [replaceError, setReplaceError] = useState<string | null>(null);
 
   const [label, setLabel] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -157,10 +202,33 @@ export function EmployeeDocumentsDetailView({
           setFile(null);
           if (fileInputRef.current) fileInputRef.current.value = "";
         },
-        onError: () =>
+        // Show the server's own reason (e.g. a reserved document name); only
+        // an unexplained failure gets the generic hint.
+        onError: (err) =>
           setError(
-            "Upload failed. Check the file type and size (PDF/JPG/PNG, 5 MB max).",
+            err instanceof ApiError
+              ? err.message
+              : "Upload failed. Check the file type and size (PDF/JPG/PNG, 5 MB max).",
           ),
+      },
+    );
+  };
+
+  const confirmReplace = () => {
+    if (!pendingReplace) return;
+    setReplaceError(null);
+    replace.mutate(
+      { id: pendingReplace.doc.id, file: pendingReplace.file },
+      {
+        onSuccess: () => setPendingReplace(null),
+        onError: (err) => {
+          setPendingReplace(null);
+          setReplaceError(
+            err instanceof ApiError
+              ? err.message
+              : "Could not replace the document. Check the file type and size (PDF/JPG/PNG, 5 MB max).",
+          );
+        },
       },
     );
   };
@@ -196,15 +264,21 @@ export function EmployeeDocumentsDetailView({
           employee.data ? (
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
               <span className="text-slate-600 dark:text-slate-300">
-                <strong className="text-[#0a3271] dark:text-sky-200">Department:</strong>{" "}
+                <strong className="text-[#0a3271] dark:text-sky-200">
+                  Department:
+                </strong>{" "}
                 {employee.data.team.name}
               </span>
               <span className="text-slate-600 dark:text-slate-300">
-                <strong className="text-[#0a3271] dark:text-sky-200">Designation:</strong>{" "}
+                <strong className="text-[#0a3271] dark:text-sky-200">
+                  Designation:
+                </strong>{" "}
                 {employee.data.designation?.name || "—"}
               </span>
               <span className="text-slate-600 dark:text-slate-300">
-                <strong className="text-[#0a3271] dark:text-sky-200">Total Documents:</strong>{" "}
+                <strong className="text-[#0a3271] dark:text-sky-200">
+                  Total Documents:
+                </strong>{" "}
                 {documents.data?.length ?? 0} files
               </span>
             </div>
@@ -220,6 +294,12 @@ export function EmployeeDocumentsDetailView({
           </Link>
         }
       />
+
+      {replaceError ? (
+        <Alert variant="error" title="Replace failed">
+          {replaceError}
+        </Alert>
+      ) : null}
 
       {/* Upload Section Card */}
       {canWrite ? (
@@ -273,7 +353,9 @@ export function EmployeeDocumentsDetailView({
                 className="w-full gap-2 rounded-xl bg-linear-to-r from-brand-500 to-brand-600 py-2.5 font-semibold text-white shadow-xs hover:from-brand-600 hover:to-brand-700 cursor-pointer"
               >
                 <Upload className="h-4 w-4" />
-                <span>{upload.isPending ? "Uploading…" : "Upload Document"}</span>
+                <span>
+                  {upload.isPending ? "Uploading…" : "Upload Document"}
+                </span>
               </Button>
             </div>
           </div>
@@ -306,7 +388,8 @@ export function EmployeeDocumentsDetailView({
               No Onboarding Documents Yet
             </p>
             <p className="mt-1 max-w-sm text-xs text-slate-500 dark:text-slate-400">
-              Identity proofs and onboarding documents submitted by this employee will appear here.
+              Identity proofs and onboarding documents submitted by this
+              employee will appear here.
             </p>
           </div>
         ) : (
@@ -318,6 +401,11 @@ export function EmployeeDocumentsDetailView({
                 canWrite={canWrite}
                 employeeId={employeeId}
                 onDelete={(id) => remove.mutate(id)}
+                onReplace={(d, f) => {
+                  setReplaceError(null);
+                  setPendingReplace({ doc: d, file: f });
+                }}
+                busy={replace.isPending}
               />
             ))}
           </div>
@@ -338,7 +426,8 @@ export function EmployeeDocumentsDetailView({
         {hrDocs.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200/90 bg-slate-50/50 p-8 text-center dark:border-slate-800 dark:bg-slate-900/40">
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              No supplementary HR documents uploaded for this employee yet. Use the upload form above to add one.
+              No supplementary HR documents uploaded for this employee yet. Use
+              the upload form above to add one.
             </p>
           </div>
         ) : (
@@ -350,11 +439,39 @@ export function EmployeeDocumentsDetailView({
                 canWrite={canWrite}
                 employeeId={employeeId}
                 onDelete={(id) => remove.mutate(id)}
+                onReplace={(d, f) => {
+                  setReplaceError(null);
+                  setPendingReplace({ doc: d, file: f });
+                }}
+                busy={replace.isPending}
               />
             ))}
           </div>
         )}
       </ExecutiveSectionCard>
+
+      <ConfirmDialog
+        open={pendingReplace !== null}
+        onClose={() => {
+          if (!replace.isPending) setPendingReplace(null);
+        }}
+        onConfirm={confirmReplace}
+        title="Replace document"
+        variant="primary"
+        confirmText="Replace"
+        loading={replace.isPending}
+      >
+        {pendingReplace ? (
+          <p className="text-theme-sm text-gray-600 dark:text-gray-300">
+            Replace{" "}
+            <strong>
+              {pendingReplace.doc.label ?? pendingReplace.doc.documentType}
+            </strong>{" "}
+            with <strong>{pendingReplace.file.name}</strong>? The current file (
+            {pendingReplace.doc.fileName}) is removed and cannot be recovered.
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

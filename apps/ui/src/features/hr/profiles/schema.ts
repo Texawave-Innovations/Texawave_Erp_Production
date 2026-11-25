@@ -1,3 +1,22 @@
+import {
+  AADHAAR_MESSAGE,
+  AADHAAR_PATTERN,
+  BANK_ACCOUNT_MESSAGE,
+  BANK_ACCOUNT_PATTERN,
+  ESI_MESSAGE,
+  ESI_PATTERN,
+  IFSC_MESSAGE,
+  IFSC_PATTERN,
+  ISO_DATE_PATTERN as ISO_DATE,
+  PAN_MESSAGE,
+  PAN_PATTERN,
+  PHONE_MESSAGE,
+  PHONE_PATTERN,
+  PINCODE_MESSAGE,
+  PINCODE_PATTERN,
+  UAN_MESSAGE,
+  UAN_PATTERN,
+} from "@texawave-erp/core";
 import type {
   EmployeeProfileView,
   EmployeeSensitiveView,
@@ -9,14 +28,6 @@ import type {
  * dto/profile.dto.ts so the form fails the way the API would, before a round
  * trip. The backend remains authoritative.
  */
-const PHONE_PATTERN = /^[0-9+ ()-]{6,20}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const PINCODE_PATTERN = /^[0-9A-Za-z -]{3,10}$/;
-const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const AADHAAR_PATTERN = /^[0-9]{12}$/;
-const ESI_PATTERN = /^[0-9]{10,17}$/;
-const ACCOUNT_PATTERN = /^[0-9]{6,20}$/;
-const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 export const MAX_LANGUAGES = 10;
 
@@ -157,7 +168,7 @@ function validateAddress(
   const pin = a.pincode.trim();
   if (!pin) errors[`${key}.pincode`] = "Pincode is required";
   else if (!PINCODE_PATTERN.test(pin))
-    errors[`${key}.pincode`] = "Enter a valid pincode";
+    errors[`${key}.pincode`] = PINCODE_MESSAGE;
   const optional: Array<[keyof AddressForm, string, number]> = [
     ["area", "Area", 100],
     ["district", "District", 100],
@@ -192,7 +203,7 @@ export function validateProfileForm(v: ProfileFormValues): FormErrors {
 
   const phone = v.emergencyPhone.trim();
   if (phone && !PHONE_PATTERN.test(phone))
-    errors.emergencyPhone = "Phone must be 6–20 digits, spaces, + ( ) or -";
+    errors.emergencyPhone = PHONE_MESSAGE;
 
   const langs = parseLanguages(v.languages);
   if (langs.length > MAX_LANGUAGES)
@@ -345,18 +356,14 @@ export function validateSensitiveForm(v: SensitiveFormValues): FormErrors {
     else if (max !== undefined && value.length > max) errors[field] = message;
     else if (pattern && !pattern.test(value)) errors[field] = message;
   };
-  check("panNumber", PAN_PATTERN, "PAN must be 10 characters, e.g. ABCDE1234F");
-  check("aadhaarNumber", AADHAAR_PATTERN, "Aadhaar must be 12 digits");
-  check("esiNumber", ESI_PATTERN, "ESI must be 10 to 17 digits");
-  check("pfNumber", null, "PF number must be 5 to 30 characters", 5, 30);
+  check("panNumber", PAN_PATTERN, PAN_MESSAGE);
+  check("aadhaarNumber", AADHAAR_PATTERN, AADHAAR_MESSAGE);
+  check("esiNumber", ESI_PATTERN, ESI_MESSAGE);
+  check("pfNumber", UAN_PATTERN, UAN_MESSAGE);
   check("bankName", null, "Bank name must be 2 to 100 characters", 2, 100);
   check("bankBranch", null, "Branch must be 2 to 100 characters", 2, 100);
-  check(
-    "bankAccountNo",
-    ACCOUNT_PATTERN,
-    "Account number must be 6 to 20 digits",
-  );
-  check("bankIfsc", IFSC_PATTERN, "IFSC must be valid, e.g. SBIN0001234");
+  check("bankAccountNo", BANK_ACCOUNT_PATTERN, BANK_ACCOUNT_MESSAGE);
+  check("bankIfsc", IFSC_PATTERN, IFSC_MESSAGE);
   return errors;
 }
 

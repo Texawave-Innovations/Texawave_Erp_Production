@@ -4,12 +4,14 @@ import { TenantContextService } from "../../platform/tenancy/tenant-context.serv
 import type { CreateMilestoneDto } from "./dto/create-milestone.dto.js";
 import type { UpdateMilestoneDto } from "./dto/update-milestone.dto.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { ProjectsWriteAccessService } from "./projects-write-access.service.js";
 
 @Injectable()
 export class MilestonesService {
   constructor(
     private readonly repository: ProjectsRepository,
     private readonly tenantContext: TenantContextService,
+    private readonly writeAccess: ProjectsWriteAccessService,
   ) {}
 
   async findMilestones(projectId: number) {
@@ -27,6 +29,10 @@ export class MilestonesService {
     if (!project) {
       throw new ResourceNotFoundException("Project", projectId);
     }
+    await this.writeAccess.assertProject(
+      await this.writeAccess.resolve(),
+      projectId,
+    );
     return this.repository.createMilestone(scope, projectId, dto);
   }
 
@@ -39,6 +45,10 @@ export class MilestonesService {
     if (!milestone) {
       throw new ResourceNotFoundException("Milestone", milestoneId);
     }
+    await this.writeAccess.assertProject(
+      await this.writeAccess.resolve(),
+      milestone.projectId,
+    );
     const updated = await this.repository.updateMilestone(
       scope,
       milestoneId,
@@ -59,6 +69,10 @@ export class MilestonesService {
     if (!milestone) {
       throw new ResourceNotFoundException("Milestone", milestoneId);
     }
+    await this.writeAccess.assertProject(
+      await this.writeAccess.resolve(),
+      milestone.projectId,
+    );
     const deleted = await this.repository.deleteMilestone(scope, milestoneId);
     return { success: deleted };
   }

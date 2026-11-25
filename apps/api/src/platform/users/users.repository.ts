@@ -279,6 +279,99 @@ export class UsersRepository {
     };
   }
 
+  /** Active roles of the organization with exactly these names (a new
+   * hire's Employee / Team Lead roles are looked up by name). */
+  @OrgScoped()
+  async findRolesByName(
+    scope: OrgScope,
+    names: readonly string[],
+  ): Promise<{ id: number; name: string }[]> {
+    return this.prisma.role.findMany({
+      where: tenantWhere(scope, {
+        name: { in: [...names] },
+        isActive: true,
+      }),
+      select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * Creates a login and gives it `roleIds` INSIDE the caller's transaction,
+   * so a caller that writes something else in the same transaction (HR's new
+   * hire: the login and the employee record) commits all or nothing. Audited
+   * like `create` + `assignRoles`. Adding roles to a brand-new login cannot
+   * take role administration away from anyone, so no role-admin guard is
+   * needed. A duplicate e-mail is a 409.
+   */
+  async createLoginInTx(
+    tx: Prisma.TransactionClient,
+    scope: OrgScope,
+    data: {
+      email: string;
+      fullName: string;
+      passwordHash: string;
+      mustChangePassword: boolean;
+    },
+    roleIds: readonly number[],
+    createdBy: number,
+  ): Promise<{ id: number; email: string }> {
+    let created;
+    try {
+      created = await tx.user.create({
+        data: {
+          organizationId: scope.organizationId,
+          email: data.email,
+          fullName: data.fullName,
+          passwordHash: data.passwordHash,
+          mustChangePassword: data.mustChangePassword,
+          createdBy,
+          updatedBy: createdBy,
+        },
+        select: { id: true, email: true, fullName: true, isActive: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ResourceConflictException(
+          `A user with email "${data.email}" already exists`,
+        );
+      }
+      throw error;
+    }
+    await this.audit.write(tx, {
+      entityType: ENTITY_TYPE,
+      entityId: created.id,
+      action: "create",
+      after: {
+        email: created.email,
+        fullName: created.fullName,
+        isActive: created.isActive,
+      },
+    });
+    if (roleIds.length > 0) {
+      await tx.userRole.createMany({
+        data: roleIds.map((roleId) => ({
+          userId: created.id,
+          roleId,
+          createdBy,
+          updatedBy: createdBy,
+        })),
+      });
+      await this.audit.write(tx, {
+        entityType: ENTITY_TYPE,
+        entityId: created.id,
+        action: "assign_roles",
+        after: {
+          addedRoleIds: [...roleIds].sort((a, b) => a - b),
+          removedRoleIds: [],
+        },
+      });
+    }
+    return { id: created.id, email: created.email };
+  }
+
   /** Edits name / e-mail / active state. Disabling a user is refused when it
    * would leave nobody (or the caller) able to manage roles. */
   @OrgScoped()

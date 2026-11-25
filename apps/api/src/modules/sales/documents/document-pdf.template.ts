@@ -63,35 +63,44 @@ export interface PrintableDocument {
 
 const STYLE = `
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1f2937; margin: 0; }
-  .sheet { border: 2px solid #4caf50; border-radius: 6px; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; color: #1f2937; margin: 0; }
+  .sheet { border: 2px solid #4caf50; border-radius: 6px; display: flex; flex-direction: column;
+           min-height: 258mm; }
+  tr, .totals, .words, .bottom, .terms, .summary, .note { break-inside: avoid; }
   .head { display: flex; justify-content: space-between; padding: 12px 14px; }
-  .brand { font-size: 17px; font-weight: 800; color: #2e7d32; }
+  .brand { font-size: 20px; font-weight: 800; color: #2e7d32; }
   .brandrow { display: flex; align-items: center; gap: 10px; }
-  .logo { max-height: 48px; max-width: 120px; }
+  .logo { max-height: 56px; max-width: 140px; }
   .stamp { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 6px; }
-  .stamp img { max-height: 56px; max-width: 120px; }
-  .tag { font-size: 10px; color: #4b5563; }
-  .addr { text-align: right; font-size: 10px; max-width: 45%; }
+  .stamp img { max-height: 64px; max-width: 140px; }
+  .tag { font-size: 11.5px; color: #4b5563; }
+  .addr { text-align: right; font-size: 11.5px; max-width: 45%; }
   .band { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; text-align: center;
-          font-weight: 700; letter-spacing: 3px; padding: 6px; }
+          font-weight: 700; letter-spacing: 3px; padding: 8px; font-size: 13px; }
   .parties { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; }
   .box { border: 1.5px solid #4caf50; border-radius: 6px; padding: 8px 10px; }
-  .box h4 { margin: 0 0 4px; color: #2e7d32; font-size: 10px; text-transform: uppercase; }
+  .box h4 { margin: 0 0 4px; color: #2e7d32; font-size: 11.5px; text-transform: uppercase; }
+  .box:has(> h4) { padding: 0 0 8px; overflow: hidden; }
+  .box:has(> h4) > :not(h4) { margin-left: 10px; margin-right: 10px; }
+  .box:has(> h4) > h4 { margin: 0 0 6px; padding: 6px 10px; color: #fff; letter-spacing: 0.5px;
+                        background: linear-gradient(90deg, #4caf50, #8bc34a); }
+  .foot { margin-top: auto; }
   .party { flex: 1; }
   .meta td { padding: 1px 4px; } .meta td:last-child { text-align: right; font-weight: 700; }
   table.items { width: calc(100% - 28px); margin: 0 14px; border-collapse: separate; border-spacing: 0;
                 border: 1.5px solid #4caf50; border-radius: 6px; overflow: hidden; }
-  table.items th { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; padding: 5px; font-size: 10px; }
-  table.items td { padding: 5px; border-top: 1px solid #c8e6c9; }
+  table.items th { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; padding: 7px 5px; font-size: 11.5px; }
+  table.items td { padding: 7px 5px; border-top: 1px solid #a5d6a7; border-left: 1px solid #a5d6a7; }
+  table.items th { border-left: 1px solid rgba(255, 255, 255, 0.7); }
+  table.items th:first-child, table.items td:first-child { border-left: 0; }
   .num { text-align: right; } .ctr { text-align: center; }
   .totals { margin: 10px 14px 0 auto; width: 46%; border: 1.5px solid #4caf50; border-radius: 6px; overflow: hidden; }
-  .totals div { display: flex; justify-content: space-between; padding: 4px 8px; }
-  .totals .grand { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; font-weight: 800; font-size: 13px; }
+  .totals div { display: flex; justify-content: space-between; padding: 5px 10px; }
+  .totals .grand { background: linear-gradient(90deg, #4caf50, #8bc34a); color: #fff; font-weight: 800; font-size: 15px; }
   .words { margin: 10px 14px; } .words b { color: #2e7d32; }
   .bottom { display: flex; gap: 12px; margin: 10px 14px; }
   .bank { flex: 1; }
-  .sign { width: 40%; text-align: center; font-size: 10px; }
+  .sign { width: 40%; text-align: center; font-size: 11.5px; }
   .sign .line { border-top: 1.5px solid #4caf50; margin-top: 34px; padding-top: 3px; font-weight: 700; }
   .terms { margin: 10px 14px 14px; } .terms ol { margin: 0; padding-left: 16px; }
   .note { margin: 10px 14px; }
@@ -116,12 +125,13 @@ function partyBlock(doc: PrintableDocument): string {
     ${c.billingAddress ? `<div>${esc(c.billingAddress)}</div>` : ""}
     ${c.gstin ? `<div>GSTIN: ${esc(c.gstin)}</div>` : ""}
     ${c.stateName ? `<div>State: ${esc(c.stateName)} (${esc(c.stateCode)})</div>` : ""}
-    <div>${esc(c.contactPerson)} · ${esc(c.mobile)} · ${esc(c.email)}</div>
+    <div>${[c.contactPerson, c.mobile, c.email].filter(Boolean).map(esc).join(" · ")}</div>
   </div>`;
 }
 
 function itemsTable(doc: PrintableDocument): string {
-  if (!doc.lines.length) return "";
+  const transport = doc.pricing?.transport ?? null;
+  if (!doc.lines.length && !transport) return "";
   const priced = doc.pricing !== null;
   const head = priced
     ? `<th>S.No</th><th>Description</th><th>HSN Code</th><th>Qty</th><th>Unit Price (₹)</th><th>Total (₹)</th>`
@@ -140,7 +150,10 @@ function itemsTable(doc: PrintableDocument): string {
         }</tr>`,
     )
     .join("");
-  return `<table class="items"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  const freight = transport
+    ? `<tr><td colspan="2"><strong>${esc(transport.description)}</strong></td><td class="ctr">${esc(transport.hsn ?? "")}</td><td class="ctr">-</td><td class="num">${esc(transport.charge)}</td><td class="num">${esc(transport.charge)}</td></tr>`
+    : "";
+  return `<table class="items"><thead><tr>${head}</tr></thead><tbody>${rows}${freight}</tbody></table>`;
 }
 
 function totalsBlock(p: PrintablePricing): string {
@@ -153,7 +166,6 @@ function totalsBlock(p: PrintablePricing): string {
       : row(`IGST @ ${p.igst.rate}%`, p.igst.amount);
   return `<div class="totals">
     ${row("Subtotal", p.itemsSubtotal)}
-    ${p.transport ? row(`${p.transport.description}${p.transport.hsn ? ` (HSN ${p.transport.hsn})` : ""}`, p.transport.charge) : ""}
     ${taxes}
     ${row("Round Off", p.roundOff)}
     <div class="grand"><span>Total Amount</span><span>₹${esc(p.total)}</span></div>
@@ -202,9 +214,10 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
   <div class="parties">${partyBlock(doc)}
     <div class="box"><table class="meta">${meta}</table></div></div>
   ${itemsTable(doc)}
+  <div class="foot">
   ${doc.pricing ? totalsBlock(doc.pricing) : ""}
   ${doc.summary?.length ? summaryBlock(doc.summary) : ""}
-  ${doc.note ? `<div class="box note"><h4>${esc(doc.noteTitle ?? "Note")}</h4>${nl(doc.note)}</div>` : ""}
+  ${doc.note ? `<div class="box note"><h4>${esc(doc.noteTitle ?? "Note")}</h4><div>${nl(doc.note)}</div></div>` : ""}
   <div class="bottom">
     ${doc.pricing ? bankBlock(doc.bank) : `<div class="bank">${doc.preparedBy ? `<strong>Prepared By:</strong> ${esc(doc.preparedBy)}` : ""}</div>`}
     <div class="sign"><strong>For ${esc(co.legalName)}</strong>
@@ -228,5 +241,6 @@ export function renderSalesDocumentHtml(doc: PrintableDocument): string {
       <div class="line">AUTHORIZED SIGNATORY</div></div>
   </div>
   ${terms}
+  </div>
 </div></body></html>`;
 }

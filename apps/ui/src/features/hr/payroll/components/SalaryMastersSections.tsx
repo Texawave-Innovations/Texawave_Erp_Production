@@ -11,7 +11,6 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -38,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import type { TemplateLineBody } from "../api";
 import { describeError, money } from "../format";
@@ -105,7 +105,7 @@ function ComponentDialog({
   onClose: () => void;
 }) {
   const save = useSaveSalaryComponent();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [code, setCode] = useState(component?.code ?? "");
   const [name, setName] = useState(component?.name ?? "");
   const [kind, setKind] = useState<ComponentKind>(component?.kind ?? "EARNING");
@@ -145,10 +145,11 @@ function ComponentDialog({
           ...flags,
         },
       });
-      toast({
-        title: component ? "Component updated" : "Component added",
-        variant: "success",
-      });
+      notify(
+        component
+          ? "payroll.salary.componentUpdated"
+          : "payroll.salary.componentAdded",
+      );
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -1196,7 +1197,7 @@ function TemplateDialog({
 }) {
   const save = useSaveSalaryTemplate();
   const components = useSalaryComponents(false);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [code, setCode] = useState(template?.code ?? "");
   const [name, setName] = useState(template?.name ?? "");
   const [description, setDescription] = useState(template?.description ?? "");
@@ -1268,10 +1269,11 @@ function TemplateDialog({
           lines: body,
         },
       });
-      toast({
-        title: template ? "Template updated" : "Template created",
-        variant: "success",
-      });
+      notify(
+        template
+          ? "payroll.salary.templateUpdated"
+          : "payroll.salary.templateCreated",
+      );
       onClose();
     } catch (err) {
       setError(describeError(err));

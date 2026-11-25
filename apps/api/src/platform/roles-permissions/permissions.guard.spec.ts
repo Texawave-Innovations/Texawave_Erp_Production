@@ -1,6 +1,7 @@
 import { ForbiddenException, type ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import {
+  ANY_PERMISSION_KEY,
   PERMISSION_KEY,
   SCOPED_PERMISSION_KEY,
 } from "../../common/decorators/require-permission.decorator.js";
@@ -9,6 +10,7 @@ import { PermissionsGuard } from "./permissions.guard.js";
 interface Meta {
   exact?: string;
   scoped?: string;
+  anyOf?: string[];
 }
 
 function makeGuard(meta: Meta, granted: string[], user: object | undefined) {
@@ -18,7 +20,9 @@ function makeGuard(meta: Meta, granted: string[], user: object | undefined) {
         ? meta.exact
         : key === SCOPED_PERMISSION_KEY
           ? meta.scoped
-          : undefined,
+          : key === ANY_PERMISSION_KEY
+            ? meta.anyOf
+            : undefined,
     ),
   };
   const permissions = {
@@ -140,6 +144,49 @@ describe("PermissionsGuard", () => {
       );
       await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
         ForbiddenException,
+      );
+    });
+  });
+
+  describe("@RequireAnyPermission (any one of several exact strings)", () => {
+    const anyOf = ["employee_self_service.work.write", "projects.timer.write"];
+
+    it.each(anyOf)("allows a caller holding only %s", async (code) => {
+      const { guard, context } = makeGuard({ anyOf }, [code], USER);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it("denies a caller holding none of them, naming all of them", async () => {
+      const { guard, context } = makeGuard(
+        { anyOf },
+        ["employee_self_service.timesheet.write"],
+        USER,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        "Missing permission: employee_self_service.work.write or projects.timer.write",
+      );
+    });
+
+    it("denies when there is no authenticated user", async () => {
+      const { guard, context, permissions } = makeGuard(
+        { anyOf },
+        anyOf,
+        undefined,
+      );
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(permissions.getPermissionsForUser).not.toHaveBeenCalled();
+    });
+
+    it("still requires an exact permission declared beside it", async () => {
+      const { guard, context } = makeGuard(
+        { exact: "settings.role.write", anyOf },
+        ["projects.timer.write"],
+        USER,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        "Missing permission: settings.role.write",
       );
     });
   });

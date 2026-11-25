@@ -17,14 +17,14 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ArrowLeft, Copy, GitBranch, Lock, Save, Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
-import { errorMessage, todayInput } from "@/features/projects/format";
+import { todayInput } from "@/features/projects/format";
 import {
   useCreateMomTemplateVersion,
   useDuplicateMomTemplate,
@@ -56,7 +56,11 @@ export function MomTemplateBuilderView({
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to MoM Templates">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to MoM Templates"
+      >
         Ask an administrator for the <code>{MOM_READ}</code> permission.
       </Alert>
     );
@@ -73,14 +77,18 @@ export function MomTemplateBuilderView({
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to MoM Templates">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to MoM Templates"
+        >
           Ask an administrator for the <code>{MOM_READ}</code> permission.
         </Alert>
       );
     }
     if (error instanceof ApiError && error.isNotFound) {
       return (
-        <Alert variant="warning" title="Template not found">
+        <Alert dismissible variant="warning" title="Template not found">
           It may have been deleted.{" "}
           <Link href="/projects/mom/templates">Back to templates</Link>
         </Alert>
@@ -98,7 +106,7 @@ export function MomTemplateBuilderView({
 
 function Builder({ template }: { template: MomTemplate }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canManage = usePermission(MOM_MANAGE_TEMPLATES);
   const updateMutation = useUpdateMomTemplate();
   const publishMutation = usePublishMomTemplate();
@@ -148,63 +156,45 @@ function Builder({ template }: { template: MomTemplate }) {
       });
       return true;
     } catch (err) {
-      toast({
-        title: "Could not save the template",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.template.saveFailed");
       return false;
     }
   }
 
   async function handleSave() {
-    if (await save())
-      toast({ title: "Template draft saved", variant: "success" });
+    if (await save()) notify("mom.template.draftSaved");
   }
 
   async function handlePublish() {
     if (!(await save())) return;
     try {
       await publishMutation.mutateAsync(template.id);
-      toast({
-        title: `"${name.trim()}" V${template.version} published`,
-        description: "This version is now locked.",
-        variant: "success",
+      notify("mom.template.publishedLocked", {
+        name: name.trim(),
+        version: template.version,
       });
     } catch (err) {
-      toast({
-        title: "Could not publish",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.template.publishFailed");
     }
   }
 
   async function handleNewVersion() {
     try {
       const created = await versionMutation.mutateAsync(template.id);
-      toast({ title: `Draft V${created.version} created`, variant: "success" });
+      notify("mom.template.draftVersionCreated", { version: created.version });
       router.push(`/projects/mom/templates/${created.id}/builder`);
     } catch (err) {
-      toast({
-        title: "Could not create a new version",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.template.versionCreateFailed");
     }
   }
 
   async function handleDuplicate() {
     try {
       const created = await duplicateMutation.mutateAsync(template.id);
-      toast({ title: `Duplicated as "${created.name}"`, variant: "success" });
+      notify("mom.template.duplicatedAs", { name: created.name });
       router.push(`/projects/mom/templates/${created.id}/builder`);
     } catch (err) {
-      toast({
-        title: "Could not duplicate",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.template.duplicateFailed");
     }
   }
 
@@ -334,6 +324,7 @@ function Builder({ template }: { template: MomTemplate }) {
 
       {locked ? (
         <Alert
+          dismissible
           variant="info"
           title={`V${template.version} is ${template.status === "active" ? "published" : "archived"} and locked`}
         >

@@ -1079,3 +1079,12 @@ export interface SalesPurchasesPostingResult {
   reversalJournalEntryId?: number | null;
   message: string;
 }
+
+/** GET /finance/reports/monthly-trend: posted P&L per calendar month, oldest first. */
+export interface FinanceMonthlyTrendItem {
+  /** `YYYY-MM`. */
+  month: string;
+  revenue: number;
+  expenses: number;
+  netIncome: number;
+}

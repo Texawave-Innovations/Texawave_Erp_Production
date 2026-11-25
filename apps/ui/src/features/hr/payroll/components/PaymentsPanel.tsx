@@ -37,8 +37,8 @@ import {
   Input,
   Pagination,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { exportPaymentBatch } from "../api";
 import { downloadText } from "../download";
@@ -100,7 +100,7 @@ function NewBatchDialog({
 }) {
   const create = useCreatePaymentBatch();
   const periods = usePeriods({ page: 1, limit: 100 });
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("BANK_TRANSFER");
   const [error, setError] = useState<string | undefined>();
@@ -125,10 +125,9 @@ function NewBatchDialog({
         payrollPeriodId: periodId,
         paymentMethod: method,
       });
-      toast({
-        title: `Payment batch ${batch.batchNumber} created`,
-        description: `Batch with ${batch.totalEmployees} employees generated successfully.`,
-        variant: "success",
+      notify("payroll.payment.batchCreated", {
+        number: batch.batchNumber,
+        count: batch.totalEmployees,
       });
       onCreated(batch.id);
     } catch (err) {
@@ -235,7 +234,7 @@ function PaymentEditorDialog({
   onClose: () => void;
 }) {
   const update = useUpdatePayment();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [status, setStatus] = useState<PaymentStatus>(payment.status);
   const [reference, setReference] = useState(payment.bankReference ?? "");
   const [serverError, setServerError] = useState<string | null>(null);
@@ -260,11 +259,7 @@ function PaymentEditorDialog({
             : {}),
         },
       });
-      toast({
-        title: `Payment record updated`,
-        description: `Updated status for ${payment.employee.fullName}.`,
-        variant: "success",
-      });
+      notify("payroll.payment.updated", { name: payment.employee.fullName });
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -368,7 +363,7 @@ function BatchDetailDialog({
   const canEditPayment = usePermission(PAYMENT_WRITE);
   const query = usePaymentBatch(id);
   const process = useProcessPaymentBatch();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [confirming, setConfirming] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PayrollPayment | null>(
@@ -421,11 +416,7 @@ function BatchDetailDialog({
     setActionError(null);
     try {
       await process.mutateAsync(id);
-      toast({
-        title: "Payment batch processed successfully",
-        description: "All pending payments have been updated to Paid status.",
-        variant: "success",
-      });
+      notify("payroll.payment.batchProcessed");
       setConfirming(false);
     } catch (err) {
       setActionError(describeError(err));
@@ -438,11 +429,7 @@ function BatchDetailDialog({
     try {
       const file = await exportPaymentBatch(id);
       downloadText(file.fileName, file.content);
-      toast({
-        title: "Bank advice exported",
-        description: `Saved ${file.fileName} for upload to corporate banking portal.`,
-        variant: "success",
-      });
+      notify("payroll.payment.adviceExported", { file: file.fileName });
     } catch (err) {
       setActionError(describeError(err));
     } finally {
@@ -458,8 +445,8 @@ function BatchDetailDialog({
 
   function handleExportReconExcel() {
     if (!batch) return;
-    exportBatchPaymentsExcel(batch, filteredPayments);
     setExportDropdownOpen(false);
+    void exportBatchPaymentsExcel(batch, filteredPayments);
   }
 
   return (
@@ -566,7 +553,11 @@ function BatchDetailDialog({
 
               {/* Action and Processing Confirmations */}
               {confirming && (
-                <Alert variant="warning" title="Process this payment batch?">
+                <Alert
+                  dismissible
+                  variant="warning"
+                  title="Process this payment batch?"
+                >
                   <div className="flex flex-col gap-3">
                     <span className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
                       Every payment still marked <strong>Pending</strong> will
@@ -700,7 +691,7 @@ function BatchDetailDialog({
                             className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
                             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                            Reconciliation (.xls)
+                            Reconciliation (.xlsx)
                           </button>
                         </div>
                       </>
@@ -940,14 +931,15 @@ export function PaymentsPanel() {
   }
 
   function handleExportExcel() {
-    exportPaymentBatchesExcel(filteredBatches);
     setExportOpen(false);
+    void exportPaymentBatchesExcel(filteredBatches);
   }
 
   // Permission fallback
   if (!canList) {
     return (
       <Alert
+        dismissible
         variant="info"
         title="Payment Batches Require Organization-Wide Access"
       >
@@ -1174,7 +1166,7 @@ export function PaymentsPanel() {
                     className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-sky-50/70 hover:text-emerald-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Export Excel (.xls)
+                    Export Excel (.xlsx)
                   </button>
                 </div>
               </>

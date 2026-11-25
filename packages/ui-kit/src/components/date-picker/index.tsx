@@ -671,16 +671,16 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                   : "Choose date"
             }
             className={cn(
-              "glass-calendar-surface absolute z-999 rounded-2xl border border-sky-100/90 dark:border-slate-800 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150",
+              "glass-calendar-surface absolute z-999 rounded-2xl border border-sky-100/90 dark:border-slate-800 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150",
               popoverPlacement === "top"
                 ? "bottom-full mb-1.5 origin-bottom"
                 : "top-full mt-1.5 origin-top",
               popoverAlign === "right" ? "right-0" : "left-0",
               isMonthMode
-                ? "w-64 max-w-[calc(100vw-2rem)]"
+                ? "w-56 max-w-[calc(100vw-2rem)]"
                 : isDateTimeMode
-                  ? "w-80 max-w-[calc(100vw-2rem)]"
-                  : "w-76 max-w-[calc(100vw-2.5rem)]",
+                  ? "w-72 max-w-[calc(100vw-2rem)]"
+                  : "w-68 max-w-[calc(100vw-2.5rem)]",
             )}
           >
             {/* CALENDAR VIEW: YEARS DECADE SELECTOR */}
@@ -695,7 +695,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                       setDecadeStartYear((y) => y - 12);
                     }}
                     aria-label="Previous 12 years"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
@@ -711,7 +711,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                       setDecadeStartYear((y) => y + 12);
                     }}
                     aria-label="Next 12 years"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronRightIcon className="h-4 w-4" />
                   </button>
@@ -806,7 +806,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     type="button"
                     onClick={handlePrevYear}
                     aria-label="Previous year"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
@@ -837,7 +837,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     type="button"
                     onClick={handleNextYear}
                     aria-label="Next year"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronRightIcon className="h-4 w-4" />
                   </button>
@@ -942,7 +942,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     type="button"
                     onClick={handlePrevMonth}
                     aria-label="Previous month"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                   </button>
@@ -996,7 +996,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     type="button"
                     onClick={handleNextMonth}
                     aria-label="Next month"
-                    className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-600 hover:bg-sky-100/60 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <ChevronRightIcon className="h-4 w-4" />
                   </button>
@@ -1007,7 +1007,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                   {WEEKDAY_NAMES_SHORT.map((wd) => (
                     <div
                       key={wd}
-                      className="h-6 flex items-center justify-center text-[11px] font-semibold text-slate-400 dark:text-slate-500"
+                      className="h-5 flex items-center justify-center text-[10px] font-semibold text-slate-400 dark:text-slate-500"
                     >
                       {wd}
                     </div>
@@ -1022,7 +1022,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                     return (
                       <div
                         key={`prev-${dayNum}`}
-                        className="h-8 w-8 flex items-center justify-center text-xs text-slate-300 dark:text-slate-600 opacity-40 select-none"
+                        className="h-7 w-7 justify-self-center flex items-center justify-center text-[11px] text-slate-300 dark:text-slate-600 opacity-40 select-none"
                       >
                         {dayNum}
                       </div>
@@ -1059,7 +1059,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
                         disabled={isDisabled}
                         onClick={() => handleDateSelect(iso)}
                         className={cn(
-                          "h-8 w-8 rounded-xl flex items-center justify-center text-xs font-semibold transition-all cursor-pointer",
+                          "h-7 w-7 justify-self-center rounded-lg flex items-center justify-center text-[11px] font-semibold transition-all cursor-pointer",
                           isSelected
                             ? "bg-linear-to-r from-brand-600 to-sky-500 text-white font-bold shadow-2xs scale-105"
                             : isToday

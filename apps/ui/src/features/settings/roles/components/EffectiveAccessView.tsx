@@ -318,7 +318,11 @@ export function EffectiveAccessView({
           </Card>
 
           {teamScoped && data.teams.length === 0 ? (
-            <Alert variant="warning" title="Team scope with no team">
+            <Alert
+              dismissible
+              variant="warning"
+              title="Team scope with no team"
+            >
               This user has Team-scoped permissions but no team, so those
               permissions show them nothing.
             </Alert>

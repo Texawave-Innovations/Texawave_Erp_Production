@@ -34,6 +34,7 @@ import {
 } from "../../../common/decorators/require-permission.decorator.js";
 import { PaginationDto } from "../../../common/dto/pagination.dto.js";
 import { CreateEmployeeDto } from "./dto/create-employee.dto.js";
+import { CreateNewHireDto } from "./dto/create-new-hire.dto.js";
 import { QueryEmployeeDto } from "./dto/query-employee.dto.js";
 import { UpdateEmployeeDto } from "./dto/update-employee.dto.js";
 import { EmployeePersonalDataService } from "./employee-personal-data.service.js";
@@ -132,6 +133,16 @@ export class EmployeesController {
     return this.employees.create(dto);
   }
 
+  @Post("new-hire")
+  @RequireScopedPermission("hr.employee.write")
+  @ApiOperation({
+    summary:
+      "Create a new hire: the employee record and their login (Employee role, optionally Team Lead) in one transaction. Also needs hr.employee_account.write.",
+  })
+  createNewHire(@Body() dto: CreateNewHireDto) {
+    return this.employees.createNewHire(dto);
+  }
+
   @Patch(":id")
   @RequireScopedPermission("hr.employee.write")
   @ApiOperation({
@@ -213,14 +224,17 @@ export class EmployeesController {
     return this.personalData.updateBank(id, dto);
   }
 
+  // Aadhaar/PAN are returned unmasked, so this is gated by the dedicated
+  // sensitive permission (same boundary as the profiles module), not the
+  // ordinary employee.read that Team Leads hold.
   @Get(":id/government-ids")
-  @RequireScopedPermission("hr.employee.read")
+  @RequirePermission("hr.employee_sensitive.read")
   getGovernmentIds(@Param("id", ParseIntPipe) id: number) {
     return this.personalData.getGovernmentIds(id);
   }
 
   @Put(":id/government-ids")
-  @RequireScopedPermission("hr.employee.write")
+  @RequirePermission("hr.employee_sensitive.write")
   putGovernmentIds(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: GovernmentIdsDto,

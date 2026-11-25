@@ -7,11 +7,12 @@ import {
   ConfirmDialog,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { Plus, ShoppingCart, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -41,7 +42,7 @@ export function SalesOrdersView() {
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<SalesOrder | null>(null);
   const [invoicingOrder, setInvoicingOrder] = useState<SalesOrder | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.sales.write");
   const canFulfil = usePermission("scm.fulfillment.write");
   const create = useCreateSalesOrder();
@@ -54,15 +55,21 @@ export function SalesOrdersView() {
     status: status || undefined,
   });
 
-  async function run(so: SalesOrder, action: "confirm" | "cancel", ok: string) {
+  async function run(
+    so: SalesOrder,
+    action: "confirm" | "cancel",
+    ok: MessageKey,
+  ) {
     try {
       await act.mutateAsync({ id: so.id, action });
-      toast({ title: ok, variant: "success" });
+      notify(ok);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} order`),
-        variant: "error",
-      });
+      notifyError(
+        err,
+        action === "confirm"
+          ? "scm.salesOrder.confirmFailed"
+          : "scm.salesOrder.cancelFailed",
+      );
     }
   }
 
@@ -70,9 +77,9 @@ export function SalesOrdersView() {
     try {
       await create.mutateAsync(payload);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to save sales order"));
+      throw new Error(errorText(err, "scm.salesOrder.saveFailed"));
     }
-    toast({ title: "Sales order saved as draft", variant: "success" });
+    notify("scm.salesOrder.savedDraft");
     setFormOpen(false);
   }
 
@@ -178,7 +185,7 @@ export function SalesOrdersView() {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    void run(r, "confirm", "Sales order confirmed")
+                    void run(r, "confirm", "scm.salesOrder.confirmed")
                   }
                 >
                   Confirm
@@ -236,7 +243,7 @@ export function SalesOrdersView() {
         variant="destructive"
         onConfirm={async () => {
           if (cancelling)
-            await run(cancelling, "cancel", "Sales order cancelled");
+            await run(cancelling, "cancel", "scm.salesOrder.cancelled");
           setCancelling(null);
         }}
       />

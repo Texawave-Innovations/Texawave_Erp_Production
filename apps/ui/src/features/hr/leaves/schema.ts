@@ -1,3 +1,7 @@
+import {
+  ENTITY_CODE_PATTERN,
+  ISO_DATE_PATTERN as ISO_DATE,
+} from "@texawave-erp/core";
 import { z } from "zod";
 import { DAY_PORTIONS } from "./types";
 
@@ -8,7 +12,6 @@ import { DAY_PORTIONS } from "./types";
  * year-boundary rules (Docs/HR_LEAVE.md §3-5) — this only catches obviously
  * malformed input before a round trip.
  */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const requestLeaveSchema = z
   .object({
@@ -56,6 +59,15 @@ export const cancelLeaveSchema = z.object({
     }),
 });
 
+/** An Admin deciding in HR's place must say why (it is audited). */
+export const overrideLeaveSchema = z.object({
+  note: z
+    .string()
+    .trim()
+    .min(3, "A reason is required (3–500 characters)")
+    .max(500, "A reason is required (3–500 characters)"),
+});
+
 export const rejectLeaveSchema = z.object({
   note: z
     .string()
@@ -77,7 +89,6 @@ export const approveLeaveSchema = z.object({
  * Mirrors apps/api/.../leave-types/dto/create-leave-type.dto.ts. `code` is
  * immutable once created (omitted entirely on edit, like designations/code).
  */
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,29}$/;
 
 export const createLeaveTypeSchema = z.object({
   code: z
@@ -86,7 +97,7 @@ export const createLeaveTypeSchema = z.object({
     .toUpperCase()
     .min(2, "Code must be 2–30 characters")
     .max(30, "Code must be 2–30 characters")
-    .refine((v) => CODE_PATTERN.test(v), {
+    .refine((v) => ENTITY_CODE_PATTERN.test(v), {
       message:
         "Upper-case letters, digits or underscore; must start with a letter",
     }),

@@ -14,6 +14,7 @@ import type { CodeFormat } from "../master-list/code-formats.rules.js";
 import { paymentStatus } from "./document-totals.js";
 import { issueDocumentNumber } from "./document-repository.helpers.js";
 import {
+  type DateRange,
   effectiveDueDate,
   OPEN_INVOICE_STATUSES,
   overdueDays,
@@ -58,8 +59,8 @@ export interface PaymentFilter {
   search?: string | undefined;
   customerId?: number | undefined;
   invoiceId?: number | undefined;
-  paid?: { from: Date; to: Date } | undefined;
-  due?: { from: Date; to: Date } | undefined;
+  paid?: DateRange | undefined;
+  due?: DateRange | undefined;
   overdueOnly?: boolean | undefined;
 }
 
@@ -113,13 +114,20 @@ function overdueWhere(today: Date): Prisma.SalesInvoicePaymentWhereInput {
   };
 }
 
-function dueWithin(range: {
-  from: Date;
-  to: Date;
-}): Prisma.SalesInvoicePaymentWhereInput {
-  const within = { gte: range.from, lte: range.to };
+function within(range: DateRange): Prisma.DateTimeFilter {
   return {
-    OR: [{ dueDate: within }, { dueDate: null, invoice: { dueDate: within } }],
+    ...(range.from ? { gte: range.from } : {}),
+    ...(range.to ? { lte: range.to } : {}),
+  };
+}
+
+function dueWithin(range: DateRange): Prisma.SalesInvoicePaymentWhereInput {
+  const within_ = within(range);
+  return {
+    OR: [
+      { dueDate: within_ },
+      { dueDate: null, invoice: { dueDate: within_ } },
+    ],
   };
 }
 
@@ -177,9 +185,7 @@ export class PaymentsRepository {
         ...(filter.customerId ? { customerId: filter.customerId } : {}),
       },
       ...(filter.invoiceId ? { invoiceId: filter.invoiceId } : {}),
-      ...(filter.paid
-        ? { paymentDate: { gte: filter.paid.from, lte: filter.paid.to } }
-        : {}),
+      ...(filter.paid ? { paymentDate: within(filter.paid) } : {}),
       AND: and,
     });
     const [rows, total] = await Promise.all([

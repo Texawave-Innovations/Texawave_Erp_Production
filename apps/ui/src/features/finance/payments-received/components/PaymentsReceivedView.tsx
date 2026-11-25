@@ -7,7 +7,6 @@ import type {
   FinancePaymentReceivedStatus,
 } from "@texawave-erp/api-types";
 import { FINANCE_PAYMENT_RECEIVED_STATUSES } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Button,
@@ -20,7 +19,6 @@ import {
   Pagination,
   SearchInput,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Ban,
@@ -33,6 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatDate, formatMoney } from "../../shared/format";
 import {
@@ -81,7 +80,7 @@ export function PaymentsReceivedView() {
   const [deletingPayment, setDeletingPayment] =
     useState<FinancePaymentReceived | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // Convert paymentMonth (YYYY-MM) to server-supported startDate and endDate
   const dateRange = useMemo(() => {
@@ -146,23 +145,14 @@ export function PaymentsReceivedView() {
     try {
       const { createPaymentReceived } = await import("../api");
       await createPaymentReceived(values);
-      toast({
-        title:
-          values.status === "CONFIRMED"
-            ? "Payment receipt recorded & posted to General Ledger"
-            : "Payment receipt saved as draft",
-        variant: "success",
-      });
+      notify(
+        values.status === "CONFIRMED"
+          ? "finance.paymentReceived.recorded"
+          : "finance.paymentReceived.savedDraft",
+      );
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Failed to record payment receipt. Please check values and try again.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.createFailed");
       throw err;
     }
   };
@@ -171,9 +161,8 @@ export function PaymentsReceivedView() {
     if (!confirmingPayment) return;
     try {
       await confirmMutation.mutateAsync(confirmingPayment.id);
-      toast({
-        title: `Receipt ${confirmingPayment.paymentNumber} confirmed & posted to GL`,
-        variant: "success",
+      notify("finance.paymentReceived.confirmed", {
+        number: confirmingPayment.paymentNumber,
       });
       setConfirmingPayment(null);
       if (selectedPayment?.id === confirmingPayment.id) {
@@ -181,10 +170,7 @@ export function PaymentsReceivedView() {
       }
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to confirm receipt",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.confirmFailed");
     }
   };
 
@@ -192,9 +178,8 @@ export function PaymentsReceivedView() {
     if (!voidingPayment) return;
     try {
       await voidMutation.mutateAsync(voidingPayment.id);
-      toast({
-        title: `Receipt ${voidingPayment.paymentNumber} voided and GL reversal posted`,
-        variant: "success",
+      notify("finance.paymentReceived.voided", {
+        number: voidingPayment.paymentNumber,
       });
       setVoidingPayment(null);
       if (selectedPayment?.id === voidingPayment.id) {
@@ -202,10 +187,7 @@ export function PaymentsReceivedView() {
       }
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to void receipt",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.voidFailed");
     }
   };
 
@@ -213,17 +195,13 @@ export function PaymentsReceivedView() {
     if (!deletingPayment) return;
     try {
       await deleteMutation.mutateAsync(deletingPayment.id);
-      toast({
-        title: `Receipt ${deletingPayment.paymentNumber} deleted`,
-        variant: "success",
+      notify("finance.paymentReceived.deleted", {
+        number: deletingPayment.paymentNumber,
       });
       setDeletingPayment(null);
       void paymentsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to delete receipt",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.deleteFailed");
     }
   };
 
@@ -231,17 +209,10 @@ export function PaymentsReceivedView() {
     try {
       const success = await printPaymentReceipt(payment);
       if (!success) {
-        toast({
-          title:
-            "Pop-up blocked. Please allow pop-ups to print payment receipt.",
-          variant: "error",
-        });
+        notify("finance.paymentReceived.popupBlocked");
       }
     } catch {
-      toast({
-        title: "Failed to generate print document",
-        variant: "error",
-      });
+      notify("finance.paymentReceived.printFailed");
     }
   };
 

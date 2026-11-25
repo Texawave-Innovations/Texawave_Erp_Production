@@ -208,3 +208,66 @@ export function hasCircularDependency(
   }
   return false;
 }
+
+/** Rules of the time-based task points (Projects points config). */
+export interface TaskPointsRules {
+  /** Points of a finished task: the same fixed value for every task. */
+  basePoints: number;
+  /** Extra points when the task is finished within its ETA. */
+  onTimeBonus: number;
+  /** Minutes over the ETA that cost nothing (no bonus, no deduction). */
+  graceMinutes: number;
+}
+
+export interface TaskPointsBreakdown {
+  /** Whole points awarded, never negative. */
+  points: number;
+  basePoints: number;
+  bonusPoints: number;
+  etaMinutes: number;
+  workedMinutes: number;
+  /** Minutes worked beyond the ETA (0 when within it). */
+  overrunMinutes: number;
+}
+
+/**
+ * Points for finishing a task against its ETA (the hours the team lead
+ * entered), measured by the assignee's own timer minutes:
+ *
+ * - within the ETA: base + on-time bonus;
+ * - over the ETA but inside the grace window: base (no bonus, no deduction);
+ * - beyond that: floor(base x (1 - overrun / ETA)), reaching 0 once the
+ *   overrun equals the ETA (a task that took double its ETA earns nothing).
+ *
+ * Pure: one place for the rule, used by both completion paths. A task with no
+ * ETA cannot be measured, so it earns the base points without a bonus.
+ */
+export function calculateTaskPoints(
+  etaHours: number,
+  workedMinutes: number,
+  rules: TaskPointsRules,
+): TaskPointsBreakdown {
+  const base = Math.max(0, Math.trunc(rules.basePoints));
+  const bonus = Math.max(0, Math.trunc(rules.onTimeBonus));
+  const grace = Math.max(0, rules.graceMinutes);
+  const worked = Math.max(0, Math.round(workedMinutes));
+  const eta = Math.max(0, Math.round(etaHours * 60));
+  const overrun = eta > 0 ? Math.max(0, worked - eta) : 0;
+  const result = (
+    points: number,
+    bonusPoints: number,
+  ): TaskPointsBreakdown => ({
+    points,
+    basePoints: base,
+    bonusPoints,
+    etaMinutes: eta,
+    workedMinutes: worked,
+    overrunMinutes: overrun,
+  });
+
+  if (eta === 0) return result(base, 0);
+  if (overrun === 0) return result(base + bonus, bonus);
+  if (overrun <= grace) return result(base, 0);
+  const kept = Math.floor(base * (1 - overrun / eta));
+  return result(Math.max(0, kept), 0);
+}

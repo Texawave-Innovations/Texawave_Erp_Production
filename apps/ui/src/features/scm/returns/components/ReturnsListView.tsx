@@ -6,9 +6,10 @@ import type {
   ScmReturnType,
 } from "@texawave-erp/api-types";
 import { ALL_RETURN_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Plus, RotateCw, Undo2 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -45,7 +46,7 @@ export function ReturnsListView({
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
   const [vendorFormOpen, setVendorFormOpen] = useState(false);
   const [viewingId, setViewingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.returns.write");
   const deletingRowRemove = useDeleteReturn();
   const [deletingRow, setDeletingRow] = useState<ScmReturn | null>(null);
@@ -210,8 +211,8 @@ export function ReturnsListView({
         }
         confirmText="Delete return"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Return deleted"
-        errorFallback="Failed to delete return"
+        successMessage="scm.return.deleted"
+        errorFallback="scm.return.deleteFailed"
       />
       <CustomerReturnForm
         open={customerFormOpen}
@@ -221,12 +222,9 @@ export function ReturnsListView({
           try {
             created = await createCustomer.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create return"));
+            throw new Error(errorText(err, "scm.return.createFailed"));
           }
-          toast({
-            title: `${created.returnNumber} created`,
-            variant: "success",
-          });
+          notify("scm.return.created", { number: created.returnNumber });
           setCustomerFormOpen(false);
         }}
       />
@@ -238,12 +236,9 @@ export function ReturnsListView({
           try {
             created = await createVendor.mutateAsync(input);
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create return"));
+            throw new Error(errorText(err, "scm.return.createFailed"));
           }
-          toast({
-            title: `${created.returnNumber} created`,
-            variant: "success",
-          });
+          notify("scm.return.created", { number: created.returnNumber });
           setVendorFormOpen(false);
         }}
       />

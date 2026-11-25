@@ -191,21 +191,21 @@ export async function signInWithMockedApi(
  * so a `page.goto()` to a protected route after sign-in is a full reload
  * that wipes it and bounces back to `/login`. The real user path is to
  * click the "Master List" module button (HorizontalNavbar) and then, for
- * any tab but Sales & Document Masters, a MastersTabBar link — both use
+ * any tab but Sales Master, a MastersTabBar link — both use
  * `router.push`/`next/link`, never a full navigation.
  */
 export async function navigateToMasterTab(
   page: Page,
   tab:
-    | "Sales & Document Masters"
+    | "Sales Master"
     | "HR Master"
     | "Finance Master"
     | "Projects Master"
     | "SCM Master",
 ): Promise<void> {
   await page.getByRole("button", { name: "Master List" }).click();
-  await expect(page).toHaveURL(/\/settings\/sales-settings/);
-  if (tab !== "Sales & Document Masters") {
+  await expect(page).toHaveURL(/\/sales\/master-list/);
+  if (tab !== "Sales Master") {
     await page.getByRole("link", { name: tab }).click();
   }
 }

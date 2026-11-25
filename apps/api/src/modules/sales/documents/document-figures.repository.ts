@@ -18,11 +18,14 @@ export class DocumentFiguresRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   @OrgScoped()
-  async figures(scope: OrgScope, today: Date) {
+  async figures(scope: OrgScope, today: Date, yearOverride?: number) {
     const org = scope.organizationId;
-    const year = today.getUTCFullYear();
-    const monthStart = new Date(Date.UTC(year, today.getUTCMonth(), 1));
-    const nextMonth = new Date(Date.UTC(year, today.getUTCMonth() + 1, 1));
+    const thisYear = today.getUTCFullYear();
+    // Month-to-date figures are always for today; only the trend and top
+    // clients follow the requested year.
+    const year = yearOverride ?? thisYear;
+    const monthStart = new Date(Date.UTC(thisYear, today.getUTCMonth(), 1));
+    const nextMonth = new Date(Date.UTC(thisYear, today.getUTCMonth() + 1, 1));
     const yearStart = new Date(Date.UTC(year, 0, 1));
     const nextYear = new Date(Date.UTC(year + 1, 0, 1));
 
@@ -134,6 +137,7 @@ export class DocumentFiguresRepository {
     const recent = await this.prisma.$queryRaw<
       Array<{
         document_type: string;
+        document_id: number;
         document_number: string;
         status: string;
         customer_name: string;
@@ -142,14 +146,14 @@ export class DocumentFiguresRepository {
       }>
     >`
       SELECT * FROM (
-        SELECT 'QUOTATION' AS document_type, quotation_number AS document_number, status,
+        SELECT 'QUOTATION' AS document_type, id AS document_id, quotation_number AS document_number, status,
                customer_snapshot->>'companyName' AS customer_name, total_amount AS amount,
                quotation_date AS date, created_at
           FROM sales.quotations
          WHERE organization_id = ${org} AND deleted_at IS NULL
         UNION ALL
         SELECT CASE invoice_type WHEN 'TAX' THEN 'TAX_INVOICE' ELSE 'PROFORMA_INVOICE' END,
-               invoice_number, status, customer_snapshot->>'companyName', total_amount,
+               id, invoice_number, status, customer_snapshot->>'companyName', total_amount,
                invoice_date, created_at
           FROM sales.invoices
          WHERE organization_id = ${org} AND deleted_at IS NULL
@@ -198,6 +202,7 @@ export class DocumentFiguresRepository {
       })),
       recentActivity: recent.map((r) => ({
         documentType: r.document_type,
+        documentId: r.document_id,
         documentNumber: r.document_number,
         status: r.status,
         customerName: r.customer_name,

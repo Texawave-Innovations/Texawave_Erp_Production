@@ -5,6 +5,7 @@ import { RequirePermission } from "../../../common/decorators/require-permission
 import { QueryBalanceSheetDto } from "./dto/query-balance-sheet.dto.js";
 import { QueryCashBankSummaryDto } from "./dto/query-cash-bank-summary.dto.js";
 import { QueryGeneralLedgerDto } from "./dto/query-general-ledger.dto.js";
+import { QueryMonthlyTrendDto } from "./dto/query-monthly-trend.dto.js";
 import { QueryPeriodClosingDto } from "./dto/query-period-closing.dto.js";
 import { QueryProfitAndLossDto } from "./dto/query-profit-and-loss.dto.js";
 import { QueryTrialBalanceDto } from "./dto/query-trial-balance.dto.js";
@@ -23,6 +24,16 @@ export class ReportsController {
   })
   getProfitAndLoss(@Query() query: QueryProfitAndLossDto) {
     return this.reportsService.getProfitAndLoss(query);
+  }
+
+  @Get("monthly-trend")
+  @RequirePermission("finance.journal.read")
+  @ApiOperation({
+    summary:
+      "Revenue, expenses and net income per calendar month from posted journal lines",
+  })
+  getMonthlyTrend(@Query() query: QueryMonthlyTrendDto) {
+    return this.reportsService.getMonthlyTrend(query);
   }
 
   @Get("balance-sheet")

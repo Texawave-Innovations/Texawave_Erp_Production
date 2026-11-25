@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsIn, IsOptional, IsString, Length, Matches } from "class-validator";
 import { IsDateOnly } from "../../../../common/dates/date-only.js";
@@ -46,7 +47,7 @@ export class CreateInterviewDto {
   interviewDate!: string;
 
   @ApiProperty({ example: "14:30", description: "24-hour HH:MM" })
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+  @Matches(FIELD_FORMAT.time, {
     message: "interviewTime must be HH:MM",
   })
   interviewTime!: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { businessToday } from "@texawave-erp/core";
+import { businessToday, resolveErrorText } from "@texawave-erp/core";
 import {
   Button,
   Dialog,
@@ -9,8 +9,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useActivityCategories,
   useCreateCustomActivity,
@@ -60,7 +60,7 @@ export function CustomActivityDialog({
   defaultDate: string;
   editing: TimesheetRow | null;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const categories = useActivityCategories();
   const projects = useLinkableProjects();
   const create = useCreateCustomActivity();
@@ -129,18 +129,14 @@ export function CustomActivityDialog({
     try {
       if (editing) {
         await update.mutateAsync({ id: editing.id, input });
-        toast({ title: "Activity updated", variant: "success" });
+        notify("timesheets.activity.updated");
       } else {
         await create.mutateAsync(input);
-        toast({ title: "Activity added", variant: "success" });
+        notify("timesheets.activity.added");
       }
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save the activity. Please try again.",
-      );
+      setError(resolveErrorText(err, "timesheets.activity.saveFailed"));
     }
   }
 

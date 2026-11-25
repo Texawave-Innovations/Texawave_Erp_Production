@@ -12,6 +12,14 @@ import type { QueryPeriodClosingDto } from "./dto/query-period-closing.dto.js";
 import type { QueryProfitAndLossDto } from "./dto/query-profit-and-loss.dto.js";
 import type { QueryTrialBalanceDto } from "./dto/query-trial-balance.dto.js";
 import { ReportsRepository } from "./reports.repository.js";
+import { businessToday } from "../../../common/dates/business-date.js";
+import type { QueryMonthlyTrendDto } from "./dto/query-monthly-trend.dto.js";
+import {
+  bucketMonthlyPnl,
+  monthEnd,
+  trendMonths,
+  type MonthlyPnl,
+} from "./monthly-trend.js";
 import type {
   CashBankAccountSummaryItem,
   FinanceBalanceSheetReport,
@@ -38,6 +46,23 @@ export class ReportsService {
     private readonly repository: ReportsRepository,
     private readonly tenantContext: TenantContextService,
   ) {}
+
+  /**
+   * Revenue, expense and net income per calendar month (oldest first) from
+   * posted journal lines — each month equals that month's P&L.
+   */
+  async getMonthlyTrend(dto: QueryMonthlyTrendDto): Promise<MonthlyPnl[]> {
+    const scope = this.tenantContext.getOrgScope();
+    const months = trendMonths(businessToday(), dto.months ?? 7);
+    const lines = await this.repository.getPostedJournalLinesInDateRange(
+      scope,
+      new Date(`${months[0] as string}-01T00:00:00.000Z`),
+      new Date(
+        `${monthEnd(months[months.length - 1] as string)}T23:59:59.999Z`,
+      ),
+    );
+    return bucketMonthlyPnl(lines, months);
+  }
 
   /**
    * Profit & Loss Report

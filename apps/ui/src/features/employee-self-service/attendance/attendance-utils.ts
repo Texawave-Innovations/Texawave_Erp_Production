@@ -57,7 +57,10 @@ export function msToHM(ms: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** Punched time of one session. An auto-closed session counts nothing: its
+ * close time is the system's cut-off, not a verified check-out. */
 export function sessionMs(s: AttendanceSession, now: number): number {
+  if (s.autoClosed) return 0;
   const end = s.checkOutAt ? Date.parse(s.checkOutAt) : now;
   return Math.max(0, end - Date.parse(s.checkInAt));
 }
@@ -72,7 +75,7 @@ export function workedMs(row: AttendanceDayView | null, now: number): number {
 export function breakMs(sessions: readonly AttendanceSession[]): number {
   let total = 0;
   for (let i = 0; i < sessions.length - 1; i++) {
-    const out = sessions[i]!.checkOutAt;
+    const out = sessions[i]!.autoClosed ? null : sessions[i]!.checkOutAt;
     const nextIn = sessions[i + 1]!.checkInAt;
     if (out) total += Math.max(0, Date.parse(nextIn) - Date.parse(out));
   }
@@ -117,6 +120,7 @@ export type DayKind =
   | "present"
   | "half"
   | "absent"
+  | "unmarked"
   | "leave"
   | "holiday"
   | "weekoff"
@@ -127,7 +131,13 @@ export type DayKind =
  * What a day is. A day with an attendance record uses the API's effective
  * status. A day without one (the API lists only recorded days) is a holiday
  * or approved leave if the calendar says so, the weekend on a Sunday (the
- * legacy rule), absent if it is a past working day, and blank otherwise.
+ * legacy rule), and otherwise — if it is a past working day — "unmarked".
+ *
+ * "absent" is ONLY the API's ABSENT, i.e. HR recorded the day as absent. A
+ * past day with no check-in (or the API's NOT_MARKED, e.g. an auto-checkout
+ * awaiting HR) is "unmarked": HR shows it as "Not Marked", and whether it
+ * costs pay is decided by payroll's unmarked-days setting at month close, so
+ * the portal must not call it absent. Days before the joining date are blank.
  */
 export function classifyDay(
   ds: string,
@@ -136,6 +146,8 @@ export function classifyDay(
     today: string;
     holidays: ReadonlyMap<string, string>;
     leaveDays: ReadonlySet<string>;
+    /** YYYY-MM-DD; days before it are not working days for this employee. */
+    joinedOn?: string | null | undefined;
   },
 ): DayKind {
   if (row) {
@@ -153,13 +165,14 @@ export function classifyDay(
       case "ON_LEAVE":
         return "leave";
       case "NOT_MARKED":
-        return ds < ctx.today ? "absent" : "none";
+        return ds < ctx.today ? "unmarked" : "none";
     }
   }
+  if (ctx.joinedOn && ds < ctx.joinedOn) return "none";
   if (ctx.holidays.has(ds)) return "holiday";
   if (ctx.leaveDays.has(ds)) return "leave";
   if (new Date(`${ds}T00:00:00`).getDay() === 0) return "weekend";
-  return ds < ctx.today ? "absent" : "none";
+  return ds < ctx.today ? "unmarked" : "none";
 }
 
 export function isoDate(d: Date): string {

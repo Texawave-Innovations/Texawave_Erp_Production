@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   listEmployeeDocuments,
   removeEmployeeDocument,
+  replaceEmployeeDocument,
   uploadEmployeeDocument,
 } from "./api";
 
@@ -37,6 +38,15 @@ export function useUploadEmployeeDocument(employeeId: number) {
       file: File;
       documentType?: string;
     }) => uploadEmployeeDocument(employeeId, label, file, documentType),
+  );
+}
+
+export function useReplaceEmployeeDocument(employeeId: number) {
+  // A replaced PROFILE_PHOTO changes the avatar, so employee/profile data refreshes too.
+  return useOrgScopedMutation(
+    [KEY, "hr-employees", "hr-profiles"],
+    ({ id, file }: { id: number; file: File }) =>
+      replaceEmployeeDocument(employeeId, id, file),
   );
 }
 

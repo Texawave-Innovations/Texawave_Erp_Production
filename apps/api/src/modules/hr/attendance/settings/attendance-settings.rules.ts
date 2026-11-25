@@ -1,16 +1,22 @@
 /**
- * Organization attendance policy (HR master): the fixed automatic check-out.
+ * Organization attendance policy (HR master): the automatic check-out.
  * Pure — no I/O.
  *
- * Rule: when enabled, an open session is closed at the cut-off time (IST) of its
- * OWN business date. A session never runs past IST midnight, so a forgotten
- * check-out on one day cannot credit hours to the next. Sessions the system
- * closes are flagged `autoClosed`; the day stays pending until HR regularizes it.
+ * Rule (Docs/ATTENDANCE_ARCHITECTURE.md §7.7): a forgotten check-out is always
+ * closed at a cut-off on the session's OWN business date (IST) — the HR
+ * master's time when that setting is on, otherwise the end of the day
+ * (`END_OF_DAY_CUTOFF`). A session never runs past IST midnight, so a
+ * forgotten check-out on one day cannot credit hours to the next. Every
+ * session the system closes is flagged `autoClosed`: its close time is the
+ * system's, not the employee's, so it counts no worked time until HR
+ * regularizes it with the real check-out time.
  */
 
 export const DEFAULT_AUTO_CHECKOUT_TIME = "20:00";
+/** The cut-off used when the HR master's earlier cut-off is switched off. */
+export const END_OF_DAY_CUTOFF = "23:59";
 /** 24-hour `HH:mm`. Mirrors the database CHECK. */
-export const AUTO_CHECKOUT_TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+export const AUTO_CHECKOUT_TIME_PATTERN = FIELD_FORMAT.time;
 
 export interface AttendanceRules {
   autoCheckoutEnabled: boolean;
@@ -35,16 +41,24 @@ export function toRules(
   };
 }
 
+/** The cut-off actually applied: the HR master's time when it is switched on,
+ * otherwise the end of the day. There is always one, so no forgotten session
+ * stays open. */
+export function effectiveCutoffTime(rules: AttendanceRules): string {
+  return rules.autoCheckoutEnabled ? rules.autoCheckoutTime : END_OF_DAY_CUTOFF;
+}
+
 const IST_OFFSET = "+05:30";
 
 /**
  * The instant a session on `attendanceDate` (IST, `YYYY-MM-DD`) is closed by the
- * fixed cut-off, or null when it cannot be closed without running past the day.
+ * cut-off, or null when it cannot be closed without running past the day.
  *
  *  - Normal case: the cut-off instant on that date.
- *  - Checked in at or after the cut-off: the last minute of that IST day (the
+ *  - Checked in at or after the cut-off: the last instant of that IST day (the
  *    close time must be after the check-in and must stay on the same day).
- *  - Checked in within the last minute of the day: null — left open for HR.
+ *  - Checked in at the very last millisecond of the day: null (unreachable in
+ *    practice; the day has no later instant to close at).
  */
 export function fixedCloseAt(
   attendanceDate: string,
@@ -53,7 +67,7 @@ export function fixedCloseAt(
 ): Date | null {
   const cutoff = new Date(`${attendanceDate}T${cutoffTime}:00${IST_OFFSET}`);
   if (cutoff.getTime() > checkInAt.getTime()) return cutoff;
-  const dayEnd = new Date(`${attendanceDate}T23:59:00${IST_OFFSET}`);
+  const dayEnd = new Date(`${attendanceDate}T23:59:59.999${IST_OFFSET}`);
   return dayEnd.getTime() > checkInAt.getTime() ? dayEnd : null;
 }
 
@@ -99,3 +113,4 @@ export function planFixedCheckouts(
   }
   return plan;
 }
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";

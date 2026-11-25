@@ -1,3 +1,4 @@
+import { FIELD_FORMAT } from "../../../../common/dto/field-formats.js";
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
@@ -25,9 +26,8 @@ export const SUPPLIER_STATUSES = [
 export type SupplierStatus = (typeof SUPPLIER_STATUSES)[number];
 
 /** Same patterns legacy's `formValidators.ts` uses (a GSTIN embeds a PAN). */
-export const GSTIN_PATTERN =
-  /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-export const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+export const GSTIN_PATTERN = FIELD_FORMAT.gstin;
+export const PAN_PATTERN = FIELD_FORMAT.pan;
 
 /** Optional text fields arrive as "" from the form; "" means "clear it", so
  * format validators only run on a non-empty value. */

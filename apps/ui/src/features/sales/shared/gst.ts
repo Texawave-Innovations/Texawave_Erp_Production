@@ -1,3 +1,4 @@
+import { GSTIN_PATTERN } from "@texawave-erp/core";
 /**
  * GST reference data and formats for Sales forms (PAN, IFSC, pincode,
  * mobile and name formats are shared: packages/core/src/schemas/fields.ts). Mirrors
@@ -46,7 +47,7 @@ export const GST_STATES: ReadonlyArray<{ code: string; name: string }> = [
   { code: "97", name: "Other Territory" },
 ];
 
-export const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+export { GSTIN_PATTERN };
 export const CIN_PATTERN = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
 
 /** The state and PAN a GSTIN carries ("33ABCDE1234F1Z5" → 33, ABCDE1234F);
@@ -57,6 +58,54 @@ export function fromGstin(
   const value = gstin.trim().toUpperCase();
   if (!GSTIN_PATTERN.test(value)) return null;
   return { stateCode: value.slice(0, 2), pan: value.slice(2, 12) };
+}
+
+/** Two-letter abbreviation for a GST state code ("33" → "TN"), for display
+ * where the bare digits would be confused with the GSTIN's own prefix.
+ * Falls back to the code itself when unknown. */
+const STATE_ABBREVIATIONS: Readonly<Record<string, string>> = {
+  "01": "JK",
+  "02": "HP",
+  "03": "PB",
+  "04": "CH",
+  "05": "UK",
+  "06": "HR",
+  "07": "DL",
+  "08": "RJ",
+  "09": "UP",
+  "10": "BR",
+  "11": "SK",
+  "12": "AR",
+  "13": "NL",
+  "14": "MN",
+  "15": "MZ",
+  "16": "TR",
+  "17": "ML",
+  "18": "AS",
+  "19": "WB",
+  "20": "JH",
+  "21": "OD",
+  "22": "CG",
+  "23": "MP",
+  "24": "GJ",
+  "26": "DN",
+  "27": "MH",
+  "29": "KA",
+  "30": "GA",
+  "31": "LD",
+  "32": "KL",
+  "33": "TN",
+  "34": "PY",
+  "35": "AN",
+  "36": "TS",
+  "37": "AP",
+  "38": "LA",
+  "96": "OC",
+  "97": "OT",
+};
+
+export function stateAbbreviation(code: string): string {
+  return STATE_ABBREVIATIONS[code] ?? code;
 }
 
 export function stateName(code: string | null | undefined): string | null {

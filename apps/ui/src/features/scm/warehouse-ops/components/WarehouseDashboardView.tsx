@@ -52,6 +52,7 @@ export function WarehouseDashboardView() {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to warehouse operations"
         >

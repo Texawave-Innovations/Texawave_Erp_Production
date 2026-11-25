@@ -24,7 +24,7 @@ export function LogisticsReportView() {
       noun="shipments"
       query={query}
       getRowKey={(r) => r.shipmentNumber}
-      fileName="scm-logistics-report.csv"
+      fileName="scm-logistics-report.xlsx"
       emptyDescription="Shipments will appear here once fulfillments are packed and shipped."
       columns={[
         {
@@ -53,15 +53,27 @@ export function LogisticsReportView() {
         { header: "Dispatched", cell: (r) => formatDateTime(r.dispatchedAt) },
         { header: "Delivered", cell: (r) => formatDateTime(r.deliveredAt) },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Shipment Number", value: (r) => r.shipmentNumber },
         { header: "Customer", value: (r) => r.customer },
         { header: "Carrier", value: (r) => r.carrier },
         { header: "Status", value: (r) => r.status },
-        { header: "Packages", value: (r) => r.packages },
-        { header: "Shipping Cost", value: (r) => r.shippingCost },
-        { header: "Dispatched At", value: (r) => r.dispatchedAt },
-        { header: "Delivered At", value: (r) => r.deliveredAt },
+        { header: "Packages", value: (r) => r.packages, type: "integer" },
+        {
+          header: "Shipping Cost",
+          value: (r) => r.shippingCost,
+          type: "amount",
+        },
+        {
+          header: "Dispatched At",
+          value: (r) => r.dispatchedAt,
+          type: "datetime",
+        },
+        {
+          header: "Delivered At",
+          value: (r) => r.deliveredAt,
+          type: "datetime",
+        },
       ]}
     />
   );

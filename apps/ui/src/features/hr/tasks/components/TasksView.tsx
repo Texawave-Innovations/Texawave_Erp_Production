@@ -13,7 +13,6 @@ import {
   Pagination,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -34,6 +33,7 @@ import {
   Search,
   Table,
 } from "lucide-react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
@@ -61,6 +61,7 @@ import { CreateTaskDialog } from "./CreateTaskDialog";
 import { TaskDetailsDialog } from "./TaskDetailsDialog";
 import { ReassignTaskDialog } from "./ReassignTaskDialog";
 import { TaskPriorityBadge, TaskStatusBadge } from "./TaskStatusBadge";
+import { downloadWorkbook } from "@/lib/spreadsheet";
 
 const PAGE_SIZE = 10;
 
@@ -149,7 +150,7 @@ export function TasksView() {
   const setStatus = useSetTaskStatus();
   const approve = useApproveTask();
   const reopen = useReopenTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // Load employees for filter & code mapping
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -350,12 +351,10 @@ export function TasksView() {
         await setStatus.mutateAsync({ id: task.id, status: "DONE" });
         await approve.mutateAsync(task.id);
       }
-      toast({ title: "Request approved", variant: "success" });
+      notify("hr.task.requestApproved");
     } catch (error) {
-      toast({
-        title: "Could not approve request",
-        description: describeStatusError(error),
-        variant: "error",
+      notify("hr.task.requestApproveFailed", {
+        reason: describeStatusError(error),
       });
     }
   }
@@ -363,12 +362,10 @@ export function TasksView() {
   async function handleRejectRequest(task: TaskItem) {
     try {
       await setStatus.mutateAsync({ id: task.id, status: "CANCELLED" });
-      toast({ title: "Request rejected", variant: "success" });
+      notify("hr.task.requestRejected");
     } catch (error) {
-      toast({
-        title: "Could not reject request",
-        description: describeStatusError(error),
-        variant: "error",
+      notify("hr.task.requestRejectFailed", {
+        reason: describeStatusError(error),
       });
     }
   }
@@ -376,26 +373,18 @@ export function TasksView() {
   async function handleDirectApprove(task: TaskItem) {
     try {
       await approve.mutateAsync(task.id);
-      toast({ title: "Task approved", variant: "success" });
+      notify("hr.task.approved");
     } catch (error) {
-      toast({
-        title: "Could not approve",
-        description: describeStatusError(error),
-        variant: "error",
-      });
+      notify("hr.task.approveFailed", { reason: describeStatusError(error) });
     }
   }
 
   async function handleDirectReopen(task: TaskItem) {
     try {
       await reopen.mutateAsync(task.id);
-      toast({ title: "Task reopened", variant: "success" });
+      notify("hr.task.reopened");
     } catch (error) {
-      toast({
-        title: "Could not reopen",
-        description: describeStatusError(error),
-        variant: "error",
-      });
+      notify("hr.task.reopenFailed", { reason: describeStatusError(error) });
     }
   }
 
@@ -423,7 +412,7 @@ export function TasksView() {
   }
 
   // Export to Excel / CSV
-  function handleExport() {
+  async function handleExport() {
     const tasksToExport =
       activeTab === "assigned"
         ? allTasks.length > 0
@@ -432,56 +421,62 @@ export function TasksView() {
         : requestTasks;
 
     if (!tasksToExport || tasksToExport.length === 0) {
-      toast({ title: "No tasks to export", variant: "warning" });
+      notify("hr.task.nothingToExport");
       return;
     }
 
-    const headers = [
-      "Task ID",
-      "Task Title",
-      "Description",
-      "Priority",
-      "Status",
-      "Awaiting Approval",
-      "Admin Approved",
-      "Assignee Name",
-      "Assignee Code",
-      "Due Date",
-      "Created Date",
-    ];
-
-    const rows = tasksToExport.map((t) => [
-      t.id,
-      `"${(t.title || "").replace(/"/g, '""')}"`,
-      `"${(t.description || "").replace(/"/g, '""')}"`,
-      t.priority,
-      t.status,
-      t.awaitingApproval ? "Yes" : "No",
-      t.adminApproved ? "Yes" : "No",
-      `"${(t.assignee?.fullName || "").replace(/"/g, '""')}"`,
-      employeeCodeMap.get(t.assignee?.id) || "",
-      t.dueDate || "",
-      t.createdAt ? formatTaskDate(t.createdAt) : "",
-    ]);
-
-    const csvContent =
-      "\uFEFF" +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `texaone_tasks_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast({ title: "Tasks exported successfully", variant: "success" });
+    try {
+      await downloadWorkbook(
+        `texaone_tasks_${activeTab}_${new Date().toISOString().slice(0, 10)}`,
+        [
+          {
+            name: "Tasks",
+            rows: tasksToExport,
+            columns: [
+              { header: "Task ID", value: (t) => t.id, type: "integer" },
+              { header: "Task Title", value: (t) => t.title || "" },
+              { header: "Description", value: (t) => t.description || "" },
+              { header: "Priority", value: (t) => t.priority },
+              { header: "Status", value: (t) => t.status },
+              {
+                header: "Awaiting Approval",
+                value: (t) => (t.awaitingApproval ? "Yes" : "No"),
+              },
+              {
+                header: "Admin Approved",
+                value: (t) => (t.adminApproved ? "Yes" : "No"),
+              },
+              {
+                header: "Assignee Name",
+                value: (t) => t.assignee?.fullName || "",
+              },
+              {
+                header: "Assignee Code",
+                value: (t) => employeeCodeMap.get(t.assignee?.id) || "",
+              },
+              { header: "Due Date", value: (t) => t.dueDate, type: "date" },
+              {
+                header: "Created Date",
+                value: (t) => t.createdAt,
+                type: "date",
+              },
+            ],
+          },
+        ],
+      );
+      notify("hr.task.exported");
+    } catch {
+      notify("hr.task.exportFailed");
+    }
   }
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to tasks">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to tasks"
+      >
         Ask an administrator for the <code>hr.task.read</code> permission.
       </Alert>
     );
@@ -544,9 +539,9 @@ export function TasksView() {
 
             {/* Export Excel Button */}
             <Button
-              variant="secondary"
+              variant="glass"
               onClick={handleExport}
-              className="gap-1.5 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3.5 py-2 font-medium text-xs"
+              className="gap-1.5 rounded-xl px-3.5 py-2 font-medium text-xs"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export Excel</span>
@@ -555,9 +550,9 @@ export function TasksView() {
             {/* Self-service My tasks */}
             {canSelfService ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => router.push("/portal/tasks")}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-3.5 py-2 font-medium text-xs"
+                className="gap-2 rounded-xl px-3.5 py-2 font-medium text-xs"
               >
                 <span>My tasks</span>
               </Button>
@@ -865,7 +860,11 @@ export function TasksView() {
         )
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to tasks">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to tasks"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

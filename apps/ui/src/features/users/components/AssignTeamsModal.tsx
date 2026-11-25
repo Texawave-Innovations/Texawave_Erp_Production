@@ -1,6 +1,7 @@
 "use client";
 
-import { Checkbox, useToast } from "@texawave-erp/ui-kit";
+import { Checkbox } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import { AssignModalActions } from "./AssignModalActions";
 import { useAssignUserTeams } from "../hooks";
@@ -27,7 +28,7 @@ export function AssignTeamsModal({
   onClose,
 }: AssignTeamsModalProps) {
   const assignMutation = useAssignUserTeams();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [teamAssignments, setTeamAssignments] = useState<
     Map<number, { isLead: boolean }>
@@ -66,18 +67,11 @@ export function AssignTeamsModal({
         id: userId,
         input: { teams },
       });
-      toast({
-        title: `Updated teams for "${userName}"`,
-        variant: "success",
-      });
+      notify("users.teamsUpdated", { name: userName });
       onClose();
     } catch (error) {
       const description = userErrorDescription(error);
-      toast({
-        title: "Could not update teams",
-        ...(description ? { description } : {}),
-        variant: "error",
-      });
+      notify("users.teamsFailed", { reason: description });
     }
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useId, useMemo, useState } from "react";
 import type {
   CreateFinancePaymentReceivedInput,
@@ -224,9 +225,7 @@ function RecordPaymentReceivedForm({
       onClose();
     } catch (err: unknown) {
       setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to record payment received. Please check balances and try again.",
+        resolveErrorText(err, "finance.paymentReceived.recordFailed"),
       );
     } finally {
       setSubmitting(false);

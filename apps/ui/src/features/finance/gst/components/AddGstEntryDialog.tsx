@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useState } from "react";
 import type {
   CreateFinanceGstEntryInput,
@@ -13,8 +14,8 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { FilePlus2, Info } from "lucide-react";
 import { useCreateGstEntry } from "../hooks";
 import { createGstEntrySchema } from "../schema";
@@ -37,7 +38,7 @@ function AddGstEntryForm({
   onClose,
   onSuccess,
 }: AddGstEntryFormProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMutation = useCreateGstEntry();
 
   const [gstin, setGstin] = useState("");
@@ -213,16 +214,15 @@ function AddGstEntryForm({
     try {
       setSubmitting(true);
       await createMutation.mutateAsync(payload);
-      toast({
-        title: "GST Entry Recorded",
-        description: `Successfully recorded ${entryType === "OUTPUT_GST" ? "outward liability" : "input tax credit"} entry for period ${period}.`,
-        variant: "success",
+      notify("finance.gst.recorded", {
+        kind:
+          entryType === "OUTPUT_GST" ? "outward liability" : "input tax credit",
+        period,
       });
       onClose();
       onSuccess?.();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to record GST entry";
+      const message = resolveErrorText(err, "finance.gst.recordFailed");
       setSubmitError(message);
     } finally {
       setSubmitting(false);

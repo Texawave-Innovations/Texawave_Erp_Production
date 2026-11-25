@@ -14,7 +14,11 @@ import {
   mergeDraft,
 } from "./document-pricing.service.js";
 import { pickDefined, storedRates, todayDateOnly } from "./documents.rules.js";
-import type { SendDocumentEmailDto } from "./dto/document-parts.dto.js";
+import type {
+  DraftPreviewQueryDto,
+  ReopenDocumentDto,
+  SendDocumentEmailDto,
+} from "./dto/document-parts.dto.js";
 import type {
   CreateQuotationDto,
   QueryQuotationDto,
@@ -118,6 +122,17 @@ export class QuotationsService {
     return updated;
   }
 
+  /** The empty quotation the form previews before anything valid is typed. */
+  async template(query: DraftPreviewQueryDto) {
+    const day = parseDateOnly(query.date ?? todayDateOnly());
+    const { number } = await this.pricing.previewNumber("quotation", day);
+    return this.delivery.blankTemplate("quotation", number, day, {
+      customer: await this.pricing.draftCustomer(query.customerId),
+      validity: query.validity,
+      preparedBy: query.preparedBy,
+    });
+  }
+
   /**
    * Live preview of a quotation that is not saved yet: the same pricing as
    * create(), rendered with the same template as the PDF. Nothing is
@@ -186,6 +201,17 @@ export class QuotationsService {
       this.tenantContext.getUserId(),
     );
     if (!deleted) throw new ResourceNotFoundException("Quotation", id);
+  }
+
+  async reopen(id: number, dto: ReopenDocumentDto) {
+    const row = await this.repository.reopen(
+      this.tenantContext.getOrgScope(),
+      id,
+      dto.reason,
+      this.tenantContext.getUserId(),
+    );
+    if (!row) throw new ResourceNotFoundException("Quotation", id);
+    return row;
   }
 
   async pdf(id: number) {

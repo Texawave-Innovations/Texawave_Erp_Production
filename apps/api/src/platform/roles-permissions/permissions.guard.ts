@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import {
+  ANY_PERMISSION_KEY,
   PERMISSION_KEY,
   SCOPED_PERMISSION_KEY,
 } from "../../common/decorators/require-permission.decorator.js";
@@ -15,14 +16,15 @@ import type { AuthenticatedUser } from "../auth/authenticated-user.js";
 import { PermissionsService } from "./permissions.service.js";
 
 /**
- * Checks the permission set by `@RequirePermission()` (exact string) and/or
+ * Checks the permission set by `@RequirePermission()` (exact string),
+ * `@RequireAnyPermission()` (any one of several exact strings) and/or
  * `@RequireScopedPermission()` (any of `<prefix>.own|team|all`) against the
  * requesting user's resolved permission set (Docs/ARCHITECTURE.md §6 point
  * 4). Runs after `JwtAuthGuard` (Nest evaluates guards in the order they're
  * listed on `@UseGuards()` / the global guard list) — `request.user` is
  * required to be set already.
  *
- * If a route carries BOTH kinds of metadata, both must be satisfied — the
+ * If a route carries more than one kind of metadata, all must be satisfied — the
  * guard only ever adds requirements, never lets one requirement excuse
  * another. A route with neither is not permission-checked here (it is still
  * behind `JwtAuthGuard` unless marked `@Public()`).
@@ -44,7 +46,10 @@ export class PermissionsGuard implements CanActivate {
       SCOPED_PERMISSION_KEY,
       targets,
     );
-    if (!exact && !scopedPrefix) {
+    const anyOf = this.reflector.getAllAndOverride<
+      readonly string[] | undefined
+    >(ANY_PERMISSION_KEY, targets);
+    if (!exact && !scopedPrefix && !anyOf) {
       return true;
     }
 
@@ -62,6 +67,9 @@ export class PermissionsGuard implements CanActivate {
     );
     if (exact && !granted.includes(exact)) {
       throw new ForbiddenException(`Missing permission: ${exact}`);
+    }
+    if (anyOf && !anyOf.some((code) => granted.includes(code))) {
+      throw new ForbiddenException(`Missing permission: ${anyOf.join(" or ")}`);
     }
     if (
       scopedPrefix &&

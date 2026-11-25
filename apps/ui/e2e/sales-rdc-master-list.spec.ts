@@ -70,6 +70,7 @@ const rdc = (over: Record<string, unknown> = {}) => ({
   notes: "Returnable terms",
   status: "ISSUED",
   returnedDate: null,
+  reopenReason: null,
   overdueDays: 32,
   itemsCount: 1,
   lines: [{ lineNo: 1, description: "Demo control panel", quantity: "2" }],
@@ -152,13 +153,28 @@ const LAYOUT = [
   { field: "AUTHORIZED_SIGNATURE", hasImage: true, documentTypes: SEAL_DOCS },
 ];
 
+/** Whether the mock's RDC is returned (set per test, cleared on reopen). */
+let rdcReturned = false;
+const currentRdc = () =>
+  rdcReturned
+    ? rdc({
+        status: "RETURNED",
+        returnedDate: "2026-10-15T00:00:00.000Z",
+        overdueDays: null,
+      })
+    : rdc();
+
 function answer(req: MockRequest) {
   const { method, pathname } = req;
   if (method === "GET" && pathname === "/sales/returnable-dcs") {
-    return { body: page1([rdc()]) };
+    return { body: page1([currentRdc()]) };
   }
   if (method === "GET" && pathname === "/sales/returnable-dcs/41") {
-    return { body: { data: rdc() } };
+    return { body: { data: currentRdc() } };
+  }
+  if (method === "POST" && pathname === "/sales/returnable-dcs/41/reopen") {
+    rdcReturned = false;
+    return { body: { data: rdc({ reopenReason: "Marked by mistake" }) } };
   }
   if (method === "GET" && pathname === "/sales/returnable-dcs/41/pdf") {
     return { file: "%PDF-1.4", contentType: "application/pdf" };
@@ -177,6 +193,7 @@ function answer(req: MockRequest) {
     return { status: 201, body: { data: rdc() } };
   }
   if (method === "POST" && pathname === "/sales/returnable-dcs/41/return") {
+    rdcReturned = true;
     return {
       body: {
         data: rdc({
@@ -303,6 +320,37 @@ const PNG = Buffer.from(
 );
 
 test.describe("Sales returnable DCs", () => {
+  test.beforeEach(() => {
+    rdcReturned = false;
+  });
+
+  test("reopening a returned DC needs a reason", async ({ page }) => {
+    rdcReturned = true;
+    const { calls } = await signIn(page);
+    await open(page, "Documents", "Returnable DCs");
+    await page
+      .getByRole("button", { name: "Actions for TW/RDC/26-27/0101" })
+      .click();
+    // A returned DC is locked: no Edit, only Reopen.
+    await expect(page.getByRole("menuitem", { name: "Edit RDC" })).toHaveCount(
+      0,
+    );
+    await page.getByRole("menuitem", { name: "Reopen" }).click();
+    const dialog = page.getByRole("dialog");
+    const confirm = dialog.getByRole("button", { name: "Reopen" });
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel(/Reason for reopening/).fill("   ");
+    await expect(confirm).toBeDisabled();
+    await dialog.getByLabel(/Reason for reopening/).fill("Marked by mistake");
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect
+      .poll(() =>
+        calls.find((c) => c.startsWith("POST /sales/returnable-dcs/41/reopen")),
+      )
+      .toContain('"reason":"Marked by mistake"');
+  });
+
   test("new returnable DC: return-date bubble, server preview, save", async ({
     page,
   }) => {
@@ -350,7 +398,10 @@ test.describe("Sales returnable DCs", () => {
   test("mark an overdue returnable DC returned", async ({ page }) => {
     const { calls } = await signIn(page);
     await open(page, "Documents", "Returnable DCs");
-    await page.getByText("TW/RDC/26-27/0101").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/RDC/26-27/0101" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByText("Return overdue")).toBeVisible();
     await page.getByRole("button", { name: "Mark returned" }).click();
     const dialog = page.getByRole("dialog");
@@ -363,6 +414,26 @@ test.describe("Sales returnable DCs", () => {
       .toContain('"returnedDate":"2026-10-15"');
   });
 
+  test("the row actions menu lists the document actions", async ({ page }) => {
+    await signIn(page);
+    await open(page, "Documents", "Returnable DCs");
+    await page
+      .getByRole("button", { name: "Actions for TW/RDC/26-27/0101" })
+      .click();
+    for (const name of [
+      "View details",
+      "Download PDF",
+      "Send mail",
+      "Share WhatsApp",
+      "Mark returned",
+      "Edit RDC",
+      "Delete RDC",
+    ]) {
+      await expect(page.getByRole("menuitem", { name })).toBeVisible();
+    }
+    await expect(page.getByRole("menuitem", { name: "Reopen" })).toHaveCount(0);
+  });
+
   test("a returnable DC reader cannot create, edit or return", async ({
     page,
   }) => {
@@ -371,7 +442,10 @@ test.describe("Sales returnable DCs", () => {
     await expect(
       page.getByRole("button", { name: "New returnable DC" }),
     ).toHaveCount(0);
-    await page.getByText("TW/RDC/26-27/0101").click();
+    await page
+      .getByRole("button", { name: "Actions for TW/RDC/26-27/0101" })
+      .click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(
       page.getByRole("button", { name: "Download PDF" }),
     ).toBeVisible();

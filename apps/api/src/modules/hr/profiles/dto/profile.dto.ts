@@ -15,6 +15,10 @@ import {
 } from "class-validator";
 import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { Trim } from "../../../../common/dto/transforms.js";
+import {
+  FIELD_FORMAT,
+  FIELD_MESSAGE,
+} from "../../../../common/dto/field-formats.js";
 
 /** A postal address. Stored as a JSON object on the profile row. */
 export class AddressDto {
@@ -47,9 +51,7 @@ export class AddressDto {
 
   @Trim()
   @IsString()
-  @Matches(/^[0-9A-Za-z -]{3,10}$/, {
-    message: "pincode has an invalid format",
-  })
+  @Matches(FIELD_FORMAT.pincode, { message: FIELD_MESSAGE.pincode })
   pincode!: string;
 
   @Trim()
@@ -58,8 +60,6 @@ export class AddressDto {
   @Length(0, 100)
   country?: string;
 }
-
-const PHONE = /^[0-9+ ()-]{6,20}$/;
 
 /**
  * Personal, non-sensitive profile fields (legacy EmployeeForm / EmployeeProfileView /
@@ -142,7 +142,7 @@ export class UpdateEmployeeProfileDto {
   @IsOptional()
   @Trim()
   @IsString()
-  @Matches(PHONE, { message: "emergencyContactPhone has an invalid format" })
+  @Matches(FIELD_FORMAT.phone, { message: FIELD_MESSAGE.phone })
   emergencyContactPhone?: string | null;
 
   @ApiPropertyOptional()
@@ -203,28 +203,25 @@ export class UpdateEmployeeSensitiveDto {
   @ApiPropertyOptional({ example: "ABCDE1234F" })
   @IsOptional()
   @Trim()
-  @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, {
-    message: "panNumber must be 10 uppercase characters, e.g. ABCDE1234F",
-  })
+  @Matches(FIELD_FORMAT.pan, { message: FIELD_MESSAGE.pan })
   panNumber?: string | null;
 
   @ApiPropertyOptional({ example: "123412341234" })
   @IsOptional()
   @Trim()
-  @Matches(/^[0-9]{12}$/, { message: "aadhaarNumber must be 12 digits" })
+  @Matches(FIELD_FORMAT.aadhaar, { message: FIELD_MESSAGE.aadhaar })
   aadhaarNumber?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @Trim()
-  @Matches(/^[0-9]{10,17}$/, { message: "esiNumber must be 10 to 17 digits" })
+  @Matches(FIELD_FORMAT.esi, { message: FIELD_MESSAGE.esi })
   esiNumber?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @Trim()
-  @IsString()
-  @Length(5, 30)
+  @Matches(FIELD_FORMAT.uan, { message: FIELD_MESSAGE.uan })
   pfNumber?: string | null;
 
   @ApiPropertyOptional()
@@ -244,14 +241,14 @@ export class UpdateEmployeeSensitiveDto {
   @ApiPropertyOptional({ example: "123456789012" })
   @IsOptional()
   @Trim()
-  @Matches(/^[0-9]{6,20}$/, { message: "bankAccountNo must be 6 to 20 digits" })
+  @Matches(FIELD_FORMAT.accountNumber, {
+    message: FIELD_MESSAGE.accountNumber,
+  })
   bankAccountNo?: string | null;
 
   @ApiPropertyOptional({ example: "SBIN0001234" })
   @IsOptional()
   @Trim()
-  @Matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, {
-    message: "bankIfsc must be a valid IFSC, e.g. SBIN0001234",
-  })
+  @Matches(FIELD_FORMAT.ifsc, { message: FIELD_MESSAGE.ifsc })
   bankIfsc?: string | null;
 }

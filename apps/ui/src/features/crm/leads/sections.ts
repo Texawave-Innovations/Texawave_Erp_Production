@@ -1,3 +1,4 @@
+import { emailField } from "@texawave-erp/core";
 import type {
   CreateLeadInput,
   Lead,
@@ -167,7 +168,7 @@ const optCreate = (v: string): string | undefined => {
 export function validateLeadValues(v: LeadFormValues): string | null {
   if (!v.companyName.trim()) return "Name of the Company is required";
   if (!v.prospectName.trim()) return "Prospect / Lead Name is required";
-  if (v.email.trim() && !/^\S+@\S+\.\S+$/.test(v.email.trim()))
+  if (v.email.trim() && !emailField.safeParse(v.email).success)
     return "Enter a valid email";
   return null;
 }

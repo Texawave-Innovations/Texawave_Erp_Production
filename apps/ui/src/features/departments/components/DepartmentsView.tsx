@@ -14,8 +14,8 @@ import {
   SearchInput,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   Building2,
   Download,
@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { HrPageHeader } from "@/features/hr/components";
-import { downloadText } from "@/features/hr/payroll/download";
 import {
   useCreateDepartment,
   useDeleteDepartment,
@@ -43,6 +42,7 @@ import {
 import { DepartmentDialog } from "./DepartmentDialog";
 import { DepartmentCard } from "./DepartmentCard";
 
+import { downloadWorkbook } from "@/lib/spreadsheet";
 const PAGE_SIZE = 10;
 
 type SortOption = "name" | "code" | "recent";
@@ -51,7 +51,7 @@ type SortOption = "name" | "code" | "recent";
  * Enterprise HR Departments Management View.
  * Matches Image 1 reference specification with integrated toolbar,
  * clean Nunito Sans typography (zero font-mono), brand status badges,
- * CSV export, and Table/Card view modes.
+ * Excel export, and Table/Card view modes.
  */
 export function DepartmentsView() {
   const [page, setPage] = useState(1);
@@ -70,7 +70,7 @@ export function DepartmentsView() {
   const [deletingDepartment, setDeletingDepartment] =
     useState<Department | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const query = useDepartments({
     page,
@@ -122,20 +122,30 @@ export function DepartmentsView() {
     setPage(1);
   }
 
-  function handleExportCsv() {
-    const headers = ["Code", "Department Name", "Status", "Created At"];
-    const rows = filteredDepartments.map((dept) => [
-      `#${getDepartmentCode(dept.name, dept.customFields)}`,
-      dept.name,
-      dept.isActive ? "Active" : "Inactive",
-      formatDepartmentDate(dept.createdAt),
+  async function handleExportExcel() {
+    await downloadWorkbook("departments", [
+      {
+        name: "Departments",
+        rows: filteredDepartments,
+        columns: [
+          {
+            header: "Code",
+            value: (dept) =>
+              `#${getDepartmentCode(dept.name, dept.customFields)}`,
+          },
+          { header: "Department Name", value: (dept) => dept.name },
+          {
+            header: "Status",
+            value: (dept) => (dept.isActive ? "Active" : "Inactive"),
+          },
+          {
+            header: "Created At",
+            value: (dept) => dept.createdAt,
+            type: "date",
+          },
+        ],
+      },
     ]);
-    const csvContent = [headers, ...rows]
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-    downloadText("departments.csv", csvContent);
   }
 
   async function handleCreate(values: {
@@ -146,11 +156,9 @@ export function DepartmentsView() {
     try {
       await createMutation.mutateAsync(values);
       setCreateOpen(false);
-      toast({ title: "Department created", variant: "success" });
+      notify("departments.created");
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Could not create department";
-      toast({ title: msg, variant: "error" });
+      notifyError(err, "departments.createFailed");
       throw err;
     }
   }
@@ -167,11 +175,9 @@ export function DepartmentsView() {
         input: values,
       });
       setEditingDepartment(null);
-      toast({ title: "Department updated", variant: "success" });
+      notify("departments.updated");
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Could not update department";
-      toast({ title: msg, variant: "error" });
+      notifyError(err, "departments.updateFailed");
       throw err;
     }
   }
@@ -180,16 +186,10 @@ export function DepartmentsView() {
     if (!deletingDepartment) return;
     try {
       await deleteMutation.mutateAsync(deletingDepartment.id);
-      toast({
-        title: `Deleted "${deletingDepartment.name}"`,
-        variant: "success",
-      });
+      notify("departments.deleted", { name: deletingDepartment.name });
       setDeletingDepartment(null);
     } catch {
-      toast({
-        title: `Could not delete "${deletingDepartment.name}"`,
-        variant: "error",
-      });
+      notify("departments.deleteFailed", { name: deletingDepartment.name });
     }
   }
 
@@ -197,7 +197,7 @@ export function DepartmentsView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view departments.
         </Alert>
       );
@@ -221,9 +221,10 @@ export function DepartmentsView() {
         }
         action={
           <Button
+            variant="glass"
             size="sm"
             onClick={() => setCreateOpen(true)}
-            className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium cursor-pointer"
+            className="gap-2 rounded-xl px-4 py-2.5 font-medium cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>New Department</span>
@@ -286,14 +287,14 @@ export function DepartmentsView() {
             </Select>
           </div>
 
-          {/* Export CSV Button */}
+          {/* Export Excel Button */}
           <Button
             type="button"
             variant="secondary"
             size="sm"
-            onClick={handleExportCsv}
+            onClick={handleExportExcel}
             disabled={filteredDepartments.length === 0}
-            title="Export filtered departments to CSV"
+            title="Export filtered departments to Excel"
             className="h-10 gap-1.5 rounded-xl border-slate-200/90 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />

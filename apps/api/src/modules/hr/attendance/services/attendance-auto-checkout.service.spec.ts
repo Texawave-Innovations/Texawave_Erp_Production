@@ -1,63 +1,14 @@
 import {
   AttendanceAutoCheckoutService,
-  planAutoCheckouts,
+  autoCheckoutNotifications,
 } from "./attendance-auto-checkout.service.js";
 import { AttendanceAutoCheckoutScheduler } from "./attendance-auto-checkout.scheduler.js";
 
 const ASOF = new Date("2026-10-05T06:00:00Z"); // 11:30 IST on 2026-10-05
 const ORG = 7;
 const at = (iso: string) => new Date(iso);
-
-describe("planAutoCheckouts (pure rule)", () => {
-  it("closes a session at check-in plus the shift target, not at the run time", () => {
-    // Check-in 03:00Z + 480 min = 11:00Z. The run happens later, at 12:00Z.
-    const plan = planAutoCheckouts(
-      [{ id: 1, checkInAt: at("2026-10-05T03:00:00Z"), targetMinutes: 480 }],
-      at("2026-10-05T12:00:00Z"),
-    );
-    expect(plan.closes).toEqual([
-      { id: 1, checkOutAt: at("2026-10-05T11:00:00Z") },
-    ]);
-  });
-
-  it("leaves a session open while its target has not elapsed", () => {
-    const plan = planAutoCheckouts(
-      [{ id: 2, checkInAt: at("2026-10-05T05:00:00Z"), targetMinutes: 480 }],
-      ASOF,
-    );
-    expect(plan).toEqual({ closes: [], noTarget: 0, notDue: 1 });
-  });
-
-  it("leaves a session open when no shift target applies (never invents a duration)", () => {
-    const plan = planAutoCheckouts(
-      [{ id: 3, checkInAt: at("2026-10-04T03:00:00Z"), targetMinutes: null }],
-      ASOF,
-    );
-    expect(plan).toEqual({ closes: [], noTarget: 1, notDue: 0 });
-  });
-
-  it("handles several sessions with different outcomes independently", () => {
-    const plan = planAutoCheckouts(
-      [
-        { id: 1, checkInAt: at("2026-10-04T03:00:00Z"), targetMinutes: 240 },
-        { id: 2, checkInAt: at("2026-10-05T05:00:00Z"), targetMinutes: 480 },
-        { id: 3, checkInAt: at("2026-10-04T03:00:00Z"), targetMinutes: null },
-      ],
-      ASOF,
-    );
-    expect(plan.closes.map((c) => c.id)).toEqual([1]);
-    expect(plan.notDue).toBe(1);
-    expect(plan.noTarget).toBe(1);
-  });
-
-  it("with no eligible sessions, plans nothing", () => {
-    expect(planAutoCheckouts([], ASOF)).toEqual({
-      closes: [],
-      noTarget: 0,
-      notDue: 0,
-    });
-  });
-});
+// 23:59 IST on 2026-10-04: the end-of-day cut-off for a forgotten session.
+const END_OF_4_OCT = at("2026-10-04T18:29:00Z");
 
 interface Row {
   id: number;
@@ -87,7 +38,7 @@ function makeService(
           checkInAt: r.checkInAt,
           record: {
             attendanceDate: r.attendanceDate,
-            employee: { id: r.employeeId, teamId: 1, workLocationId: null },
+            employee: { employeeCode: `E${r.employeeId}`, fullName: "E" },
           },
         })),
       ),
@@ -102,59 +53,88 @@ function makeService(
     ),
   };
   const audit = { write: vi.fn().mockResolvedValue(undefined) };
-  const dayContext = {
-    load: vi.fn().mockResolvedValue({
-      holidays: [],
-      weeklyOffRules: [],
-      approvedLeaves: [],
-      shiftAssignments: [
-        {
-          employeeId: null,
-          teamId: 1,
-          effectiveFrom: "2026-01-01",
-          effectiveTo: null,
-          workingMinutes: 480,
-        },
-      ],
-    }),
-  };
   const notifications = { notify: vi.fn().mockResolvedValue(0) };
   const settings = { find: vi.fn().mockResolvedValue(opts.settings ?? null) };
   const service = new AttendanceAutoCheckoutService(
     prisma as never,
     audit as never,
-    dayContext as never,
     notifications as never,
     settings as never,
   );
-  return { service, prisma, tx, audit, dayContext, notifications, settings };
+  return { service, prisma, tx, audit, notifications, settings };
 }
 
-describe("AttendanceAutoCheckoutService", () => {
+describe("AttendanceAutoCheckoutService — end-of-day cut-off (default)", () => {
   const dueRow: Row = {
     id: 11,
-    checkInAt: at("2026-10-04T03:00:00Z"),
+    checkInAt: at("2026-10-04T03:30:00Z"), // 09:00 IST
     attendanceDate: at("2026-10-04T00:00:00Z"),
     employeeId: 1,
   };
 
-  it("closes an open session once due, and audits it as a system actor with no user", async () => {
+  it("closes a forgotten session at 23:59 IST of its own day, flagged unverified, and audits it as a system actor", async () => {
     const { service, tx, audit } = makeService([dueRow]);
     const result = await service.runForOrganization(ORG, ASOF);
 
     expect(result).toEqual({ closed: 1, noTarget: 0, notDue: 0 });
+    // Not check-in + shift target: the close is technical, so it is flagged.
     expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
       where: { id: 11, checkOutAt: null },
-      data: { checkOutAt: at("2026-10-04T11:00:00Z") },
+      data: { checkOutAt: END_OF_4_OCT, autoClosed: true },
     });
     const entry = audit.write.mock.calls[0]![1] as Record<string, unknown>;
     expect(entry).toMatchObject({
       entityType: "attendance_session",
       entityId: 11,
       action: "auto_checkout",
+      after: { checkOutAt: END_OF_4_OCT.toISOString() },
       system: { organizationId: ORG, label: "attendance.auto_checkout" },
     });
     expect(entry).not.toHaveProperty("userId");
+  });
+
+  it("the HR master setting switched off still closes at the end of the day (no shift-target rule)", async () => {
+    const { service, tx } = makeService([dueRow], {
+      settings: { autoCheckoutEnabled: false, autoCheckoutTime: "20:00" },
+    });
+    await service.runForOrganization(ORG, ASOF);
+    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, checkOutAt: null },
+      data: { checkOutAt: END_OF_4_OCT, autoClosed: true },
+    });
+  });
+
+  it("leaves today's session open until the end of the day", async () => {
+    const today: Row = {
+      id: 12,
+      checkInAt: at("2026-10-05T03:30:00Z"),
+      attendanceDate: at("2026-10-05T00:00:00Z"),
+      employeeId: 2,
+    };
+    // 23:58 IST on 5 Oct: one minute before the cut-off.
+    const { service, tx } = makeService([today]);
+    const result = await service.runForOrganization(
+      ORG,
+      at("2026-10-05T18:28:00Z"),
+    );
+    expect(result).toEqual({ closed: 0, noTarget: 0, notDue: 1 });
+    expect(tx.attendanceSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("closes today's session once IST midnight's eve passes (timezone boundary)", async () => {
+    const today: Row = {
+      id: 13,
+      checkInAt: at("2026-10-05T03:30:00Z"),
+      attendanceDate: at("2026-10-05T00:00:00Z"),
+      employeeId: 2,
+    };
+    // 00:00 IST on 6 Oct is still 5 Oct in UTC; the IST day decides.
+    const { service, tx } = makeService([today]);
+    await service.runForOrganization(ORG, at("2026-10-05T18:30:00Z"));
+    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 13, checkOutAt: null },
+      data: { checkOutAt: at("2026-10-05T18:29:00Z"), autoClosed: true },
+    });
   });
 
   it("repeated execution is idempotent: the conditional write matches nothing the second time", async () => {
@@ -169,11 +149,15 @@ describe("AttendanceAutoCheckoutService", () => {
     expect(second.audit.write).not.toHaveBeenCalled();
   });
 
-  it("a session closed by a concurrent instance is not audited twice", async () => {
-    const { service, audit } = makeService([dueRow], { updateCount: 0 });
+  it("a manual check-out that won the race is never overwritten, and not audited", async () => {
+    // The conditional update (check_out_at IS NULL) matches nothing.
+    const { service, audit, notifications } = makeService([dueRow], {
+      updateCount: 0,
+    });
     const result = await service.runForOrganization(ORG, ASOF);
     expect(result.closed).toBe(0);
     expect(audit.write).not.toHaveBeenCalled();
+    expect(notifications.notify).not.toHaveBeenCalled();
   });
 
   it("only open sessions are queried (already-closed sessions are never selected)", async () => {
@@ -208,12 +192,12 @@ describe("AttendanceAutoCheckoutService", () => {
     expect(audit.write).toHaveBeenCalledTimes(2);
   });
 
-  it("with no eligible sessions, writes nothing and loads no calendar", async () => {
-    const { service, audit, dayContext } = makeService([]);
+  it("with no eligible sessions, writes nothing and reads no settings", async () => {
+    const { service, audit, settings } = makeService([]);
     const result = await service.runForOrganization(ORG, ASOF);
     expect(result).toEqual({ closed: 0, noTarget: 0, notDue: 0 });
     expect(audit.write).not.toHaveBeenCalled();
-    expect(dayContext.load).not.toHaveBeenCalled();
+    expect(settings.find).not.toHaveBeenCalled();
   });
 
   it("runs across active organizations and isolates a failure to one organization", async () => {
@@ -228,7 +212,7 @@ describe("AttendanceAutoCheckoutService", () => {
   });
 });
 
-describe("AttendanceAutoCheckoutService — fixed cut-off (HR master)", () => {
+describe("AttendanceAutoCheckoutService — HR master's earlier cut-off", () => {
   const on = { autoCheckoutEnabled: true, autoCheckoutTime: "20:00" };
   // A forgotten check-out on Saturday 14 Nov, found on Monday 16 Nov.
   const forgotten: Row = {
@@ -254,12 +238,6 @@ describe("AttendanceAutoCheckoutService — fixed cut-off (HR master)", () => {
     });
   });
 
-  it("needs no shift target and loads no calendar", async () => {
-    const { service, dayContext } = makeService([forgotten], { settings: on });
-    await service.runForOrganization(ORG, monday);
-    expect(dayContext.load).not.toHaveBeenCalled();
-  });
-
   it("leaves today's session open until the cut-off", async () => {
     const today: Row = {
       id: 22,
@@ -275,24 +253,18 @@ describe("AttendanceAutoCheckoutService — fixed cut-off (HR master)", () => {
     expect(result).toEqual({ closed: 0, noTarget: 0, notDue: 1 });
     expect(tx.attendanceSession.updateMany).not.toHaveBeenCalled();
   });
+});
 
-  it("when switched off, keeps the shift rule and does not flag sessions", async () => {
-    const { service, tx } = makeService(
-      [
-        {
-          id: 11,
-          checkInAt: at("2026-10-04T03:00:00Z"),
-          attendanceDate: at("2026-10-04T00:00:00Z"),
-          employeeId: 1,
-        },
-      ],
-      { settings: { autoCheckoutEnabled: false, autoCheckoutTime: "20:00" } },
-    );
-    await service.runForOrganization(ORG, ASOF);
-    expect(tx.attendanceSession.updateMany).toHaveBeenCalledWith({
-      where: { id: 11, checkOutAt: null },
-      data: { checkOutAt: at("2026-10-04T11:00:00Z") },
+describe("autoCheckoutNotifications", () => {
+  it("tells the employee the close time is not their check-out and how to regularize", () => {
+    const [notice] = autoCheckoutNotifications(1, "2026-10-04", END_OF_4_OCT, {
+      userId: 5,
+      employeeCode: "E1",
+      fullName: "E",
     });
+    expect(notice?.body).toContain("23:59");
+    expect(notice?.body).toContain("not your check-out time");
+    expect(notice?.body).toContain("Missed check-out");
   });
 });
 

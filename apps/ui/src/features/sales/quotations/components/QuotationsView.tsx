@@ -2,13 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Plus } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Download,
+  Eye,
+  FileText,
+  Mail,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
 import {
+  ActionMenu,
   Alert,
   Button,
   DataTable,
-  DatePicker,
+  DateRangePicker,
+  DeleteConfirmDialog,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -17,63 +30,135 @@ import {
   TableSkeleton,
   TableToolbar,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useCustomers } from "../../customers/hooks";
 import { SALES_PERMISSIONS } from "../../permissions";
+import { ReasonActionDialog } from "../../shared/components/ReasonActionDialog";
+import { SendEmailDialog } from "../../shared/components/SendEmailDialog";
+import { downloadPdf, pdfFileName, whatsappLink } from "../../shared/documents";
 import { formatDate, formatInr } from "../../shared/format";
-import { useQuotations } from "../hooks";
+import { QUOTATIONS } from "../api";
+import {
+  useDeleteQuotation,
+  useQuotations,
+  useReopenQuotation,
+} from "../hooks";
 import type { Quotation, QuotationStatus } from "../types";
+import { ConvertQuotationDialog } from "./ConvertQuotationDialog";
 import { QuotationStatusBadge } from "./QuotationDetailView";
 
 const PAGE_SIZE = 20;
 
+type RowDialog = "email" | "convert" | "reopen" | "delete";
+
 export function QuotationsView() {
   const router = useRouter();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.quotationRead);
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
+  const canDelete = usePermission(SALES_PERMISSIONS.quotationDelete);
+  const canSend = usePermission(SALES_PERMISSIONS.quotationSend);
+  const canConvert = usePermission(SALES_PERMISSIONS.invoiceWrite);
+  const canPickCustomer = usePermission(SALES_PERMISSIONS.customerRead);
+  const remove = useDeleteQuotation();
+  const reopen = useReopenQuotation();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"" | QuotationStatus>("");
+  const [customerId, setCustomerId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [target, setTarget] = useState<{
+    quotation: Quotation;
+    dialog: RowDialog;
+  } | null>(null);
   const debounced = useDebouncedValue(search.trim(), 300);
 
+  const customers = useCustomers({ page: 1, limit: 100 }, canPickCustomer);
   const query = useQuotations({
     page,
     limit: PAGE_SIZE,
     ...(debounced ? { search: debounced } : {}),
     ...(status ? { status } : {}),
+    ...(customerId ? { customerId: Number(customerId) } : {}),
     ...(from ? { from } : {}),
     ...(to ? { to } : {}),
   });
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to quotations">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to quotations"
+      >
         Ask an administrator for the <code>sales.quotation.read</code>{" "}
         permission.
       </Alert>
     );
   }
 
-  const filtered = Boolean(debounced || status || from || to);
+  const filtered = Boolean(debounced || status || customerId || from || to);
   const reset = (fn: () => void) => {
     fn();
     setPage(1);
   };
   const newButton = canWrite ? (
-    <Button onClick={() => router.push("/sales/quotations/new")}>
+    <Button
+      variant="secondary"
+      onClick={() => router.push("/sales/quotations/new")}
+    >
       <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
       New quotation
     </Button>
   ) : null;
+
+  async function runPdf(q: Quotation) {
+    try {
+      await downloadPdf(
+        `${QUOTATIONS}/${q.id}/pdf`,
+        pdfFileName(q.quotationNumber),
+      );
+    } catch (e) {
+      notifyError(e, "sales.document.pdfFailed");
+    }
+  }
+
+  async function runWhatsapp(q: Quotation) {
+    try {
+      window.open(
+        await whatsappLink(`${QUOTATIONS}/${q.id}/whatsapp`),
+        "_blank",
+        "noopener",
+      );
+    } catch (e) {
+      notifyError(e, "sales.document.whatsappFailed");
+    }
+  }
+
+  async function handleDelete() {
+    if (!target) return;
+    const q = target.quotation;
+    try {
+      await remove.mutateAsync(q.id);
+      notify("sales.document.deleted", { number: q.quotationNumber });
+    } catch (e) {
+      notifyError(e, "sales.document.deleteFailed");
+    } finally {
+      setTarget(null);
+    }
+  }
+
+  const closeDialog = () => setTarget(null);
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         variant="banner"
         title="Quotations"
-        description="Quotes to customers; convert one to a proforma or tax invoice."
+        description="Quotes to customers; convert one to a proforma or tax invoice"
         icon={FileText}
         badge={
           query.data ? (
@@ -105,16 +190,32 @@ export function QuotationsView() {
               <option value="OPEN">Open</option>
               <option value="CONVERTED">Converted</option>
             </Select>
-            <DatePicker
-              aria-label="From date"
-              value={from}
-              onChange={(e) => reset(() => setFrom(e.target.value))}
-            />
-            <DatePicker
-              aria-label="To date"
-              value={to}
-              min={from || undefined}
-              onChange={(e) => reset(() => setTo(e.target.value))}
+            {canPickCustomer && customers.data ? (
+              <Select
+                aria-label="Filter by customer"
+                value={customerId}
+                onChange={(e) => reset(() => setCustomerId(e.target.value))}
+              >
+                <option value="">All customers</option>
+                {customers.data.data.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.companyName}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <DateRangePicker
+              value={{ from, to }}
+              fromAriaLabel="From date"
+              toAriaLabel="To date"
+              placeholder="Date range"
+              className="sm:w-64"
+              onChange={(r) =>
+                reset(() => {
+                  setFrom(r.from);
+                  setTo(r.to);
+                })
+              }
             />
           </div>
         }
@@ -123,6 +224,7 @@ export function QuotationsView() {
           reset(() => {
             setSearch("");
             setStatus("");
+            setCustomerId("");
             setFrom("");
             setTo("");
           })
@@ -131,10 +233,14 @@ export function QuotationsView() {
       />
 
       {query.isPending ? (
-        <TableSkeleton rowsCount={6} columnsCount={6} />
+        <TableSkeleton rowsCount={6} columnsCount={7} />
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to quotations">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to quotations"
+          >
             Your access has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -159,17 +265,15 @@ export function QuotationsView() {
             caption="Quotations"
             rows={query.data.data}
             getRowKey={(q) => String(q.id)}
-            onRowClick={(q) => router.push(`/sales/quotations/${q.id}`)}
             columns={[
               {
                 header: "Number",
                 cell: (q) => (
-                  <span className="font-mono text-theme-sm font-medium text-gray-900 dark:text-white/90">
+                  <span className="text-theme-sm font-semibold text-brand-700 dark:text-brand-400">
                     {q.quotationNumber}
                   </span>
                 ),
               },
-              { header: "Date", cell: (q) => formatDate(q.quotationDate) },
               {
                 header: "Customer",
                 cell: (q) => (
@@ -183,7 +287,7 @@ export function QuotationsView() {
                   </div>
                 ),
               },
-              { header: "Items", align: "right", cell: (q) => q.lines.length },
+              { header: "Date", cell: (q) => formatDate(q.quotationDate) },
               {
                 header: "Total",
                 align: "right",
@@ -193,9 +297,119 @@ export function QuotationsView() {
                   </span>
                 ),
               },
+              { header: "Prepared by", cell: (q) => q.preparedBy ?? "—" },
               {
                 header: "Status",
                 cell: (q) => <QuotationStatusBadge status={q.status} />,
+              },
+              {
+                header: "Actions",
+                align: "center",
+                cell: (q) => {
+                  const open = q.status === "OPEN";
+                  const cls = "h-4 w-4";
+                  return (
+                    <ActionMenu
+                      triggerIcon="horizontal"
+                      ariaLabel={`Actions for ${q.quotationNumber}`}
+                      items={[
+                        {
+                          label: "View details",
+                          icon: <Eye className={cls} aria-hidden="true" />,
+                          onClick: () =>
+                            router.push(`/sales/quotations/${q.id}`),
+                        },
+                        ...(canSend
+                          ? [
+                              {
+                                label: "Send email",
+                                icon: (
+                                  <Mail className={cls} aria-hidden="true" />
+                                ),
+                                onClick: () =>
+                                  setTarget({ quotation: q, dialog: "email" }),
+                              },
+                              {
+                                label: "Share WhatsApp",
+                                icon: (
+                                  <Share2 className={cls} aria-hidden="true" />
+                                ),
+                                onClick: () => void runWhatsapp(q),
+                              },
+                            ]
+                          : []),
+                        ...(canConvert && open
+                          ? [
+                              {
+                                label: "Convert to invoice",
+                                icon: (
+                                  <ArrowRightLeft
+                                    className={cls}
+                                    aria-hidden="true"
+                                  />
+                                ),
+                                onClick: () =>
+                                  setTarget({
+                                    quotation: q,
+                                    dialog: "convert",
+                                  }),
+                              },
+                            ]
+                          : []),
+                        ...(canWrite && !open
+                          ? [
+                              {
+                                label: "Reopen",
+                                icon: (
+                                  <RotateCcw
+                                    className={cls}
+                                    aria-hidden="true"
+                                  />
+                                ),
+                                onClick: () =>
+                                  setTarget({
+                                    quotation: q,
+                                    dialog: "reopen",
+                                  }),
+                              },
+                            ]
+                          : []),
+                        {
+                          label: "Export PDF",
+                          icon: <Download className={cls} aria-hidden="true" />,
+                          onClick: () => void runPdf(q),
+                        },
+                        ...(canWrite && open
+                          ? [
+                              {
+                                label: "Edit quotation",
+                                icon: (
+                                  <Pencil className={cls} aria-hidden="true" />
+                                ),
+                                separator: true,
+                                onClick: () =>
+                                  router.push(`/sales/quotations/${q.id}/edit`),
+                              },
+                            ]
+                          : []),
+                        ...(canDelete && open
+                          ? [
+                              {
+                                label: "Delete quotation",
+                                icon: (
+                                  <Trash2 className={cls} aria-hidden="true" />
+                                ),
+                                variant: "destructive" as const,
+                                separator: !(canWrite && open),
+                                onClick: () =>
+                                  setTarget({ quotation: q, dialog: "delete" }),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  );
+                },
               },
             ]}
           />
@@ -208,6 +422,54 @@ export function QuotationsView() {
           />
         </>
       )}
+
+      {target && canSend ? (
+        <SendEmailDialog
+          open={target.dialog === "email"}
+          onClose={closeDialog}
+          path={`${QUOTATIONS}/${target.quotation.id}/email`}
+          documentLabel={`Quotation ${target.quotation.quotationNumber}`}
+          customerEmail={target.quotation.customerSnapshot.email}
+        />
+      ) : null}
+      {target && canConvert ? (
+        <ConvertQuotationDialog
+          open={target.dialog === "convert"}
+          onClose={closeDialog}
+          quotationId={target.quotation.id}
+          quotationNumber={target.quotation.quotationNumber}
+        />
+      ) : null}
+      {target && canWrite && target.dialog === "reopen" ? (
+        <ReasonActionDialog
+          open
+          onClose={closeDialog}
+          title="Reopen quotation"
+          description={`${target.quotation.quotationNumber} becomes open again and can be edited or converted. The invoice already created from it is not changed.`}
+          reasonLabel="Reason for reopening"
+          reasonHint="Recorded on the quotation and in its history."
+          placeholder="e.g. Customer asked for a revised quote"
+          confirmLabel="Reopen"
+          onConfirm={async (reason) => {
+            await reopen.mutateAsync({ id: target.quotation.id, reason });
+            notify("sales.document.reopened", {
+              number: target.quotation.quotationNumber,
+            });
+            closeDialog();
+          }}
+        />
+      ) : null}
+      {canDelete ? (
+        <DeleteConfirmDialog
+          open={target?.dialog === "delete"}
+          onClose={closeDialog}
+          onConfirm={handleDelete}
+          title="Delete quotation"
+          itemName={target?.quotation.quotationNumber ?? ""}
+          description="Its number stays used; the next quotation gets the next number."
+          loading={remove.isPending}
+        />
+      ) : null}
     </div>
   );
 }

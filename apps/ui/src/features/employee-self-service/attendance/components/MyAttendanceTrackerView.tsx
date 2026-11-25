@@ -41,6 +41,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useMyEmployee } from "@/features/onboarding/hooks";
 import { useMyAttendance } from "@/features/hr/attendance/hooks";
 import { SELF_SERVICE_READ } from "@/features/hr/attendance/permissions";
+import { verifiedCheckOutAt } from "@/features/hr/attendance/status";
 import type { AttendanceDayView } from "@/features/hr/attendance/types";
 import { useHolidays } from "@/features/hr/holidays/hooks";
 import { READ as HOLIDAY_READ } from "@/features/hr/holidays/permissions";
@@ -71,13 +72,15 @@ import { DayDetailPanel } from "./DayDetailPanel";
 import { TimelineBar } from "./TimelineBar";
 
 type ViewMode = "daily" | "week" | "month";
-type StatusFilter = "all" | "Present" | "Absent" | "Leave" | "Holiday";
+type StatusFilter =
+  "all" | "Present" | "Absent" | "NotMarked" | "Leave" | "Holiday";
 type Tab = "summary" | "regularization";
 
 function passesFilter(kind: DayKind, filter: StatusFilter): boolean {
   if (filter === "all") return true;
   if (filter === "Present") return kind === "present" || kind === "half";
   if (filter === "Absent") return kind === "absent";
+  if (filter === "NotMarked") return kind === "unmarked";
   if (filter === "Leave") return kind === "leave";
   return kind === "holiday";
 }
@@ -230,7 +233,12 @@ export function MyAttendanceTrackerView() {
   const requestedDates = new Set(requests.map((r) => r.attendanceDate));
   const pendingCount = requests.filter((r) => r.status === "SUBMITTED").length;
 
-  const ctx = { today, holidays, leaveDays };
+  const ctx = {
+    today,
+    holidays,
+    leaveDays,
+    joinedOn: employee.data?.dateOfJoining?.slice(0, 10) ?? null,
+  };
   const kindOf = (ds: string) => classifyDay(ds, rows.get(ds) ?? null, ctx);
 
   const visibleDays =
@@ -297,7 +305,11 @@ export function MyAttendanceTrackerView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to attendance">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to attendance"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.attendance.read</code> permission.
       </Alert>
@@ -360,6 +372,7 @@ export function MyAttendanceTrackerView() {
               <option value="all">All Status</option>
               <option value="Present">Present</option>
               <option value="Absent">Absent</option>
+              <option value="NotMarked">Not marked</option>
               <option value="Leave">Leave</option>
               <option value="Holiday">Holiday</option>
             </Select>
@@ -587,14 +600,14 @@ export function MyAttendanceTrackerView() {
                   <>
                     <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                     Check Out&nbsp;
-                    <span className="font-mono">{live.totalElapsed}</span>
+                    <span className="tabular-nums">{live.totalElapsed}</span>
                     &nbsp;Hrs
                   </>
                 ) : (
                   <>
                     <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
                     Check in&nbsp;
-                    <span className="font-mono">{live.totalElapsed}</span>
+                    <span className="tabular-nums">{live.totalElapsed}</span>
                     &nbsp;Hrs
                   </>
                 )}
@@ -668,6 +681,7 @@ export function MyAttendanceTrackerView() {
               {(() => {
                 let present = 0;
                 let absent = 0;
+                let unmarked = 0;
                 let leaveHoli = 0;
                 let monthMs = 0;
                 for (const d of visibleDays) {
@@ -676,6 +690,7 @@ export function MyAttendanceTrackerView() {
                   monthMs += workedMs(rows.get(ds) ?? null, now);
                   if (k === "present" || k === "half") present++;
                   else if (k === "absent") absent++;
+                  else if (k === "unmarked") unmarked++;
                   else if (k === "leave" || k === "holiday") leaveHoli++;
                 }
                 const tiles = [
@@ -695,13 +710,18 @@ export function MyAttendanceTrackerView() {
                     cls: "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300",
                   },
                   {
+                    label: "Not Marked",
+                    value: `${unmarked} Days`,
+                    cls: "border-amber-300 bg-amber-50/70 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
+                  },
+                  {
                     label: "Leave / Holidays",
                     value: `${leaveHoli} Days`,
-                    cls: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
+                    cls: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300",
                   },
                 ];
                 return (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {tiles.map((t) => (
                       <div
                         key={t.label}
@@ -747,7 +767,7 @@ export function MyAttendanceTrackerView() {
                   const tone = isToday
                     ? "ring-2 ring-brand-500 border-brand-500 bg-brand-50/60 dark:bg-brand-950/30"
                     : kind === "holiday"
-                      ? "bg-purple-50/60 border-purple-200 dark:bg-purple-950/20 dark:border-purple-900"
+                      ? "bg-cyan-50/60 border-cyan-200 dark:bg-cyan-950/20 dark:border-cyan-900"
                       : kind === "leave"
                         ? "bg-amber-50/60 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900"
                         : kind === "weekoff" || kind === "weekend"
@@ -756,14 +776,17 @@ export function MyAttendanceTrackerView() {
                             ? "bg-brand-50/30 border-brand-200/60 dark:border-brand-900"
                             : kind === "absent"
                               ? "bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900"
-                              : "bg-white border-gray-200 hover:bg-slate-50 dark:bg-gray-900 dark:border-gray-800";
+                              : kind === "unmarked"
+                                ? "bg-amber-50/40 border-amber-200 border-dashed dark:bg-amber-950/10 dark:border-amber-900"
+                                : "bg-white border-gray-200 hover:bg-slate-50 dark:bg-gray-900 dark:border-gray-800";
                   const tag: Partial<Record<DayKind, [string, string]>> = {
-                    holiday: ["Holi", "text-purple-600 bg-purple-100"],
+                    holiday: ["Holi", "text-cyan-600 bg-cyan-100"],
                     leave: ["Leave", "text-amber-600 bg-amber-100"],
                     weekoff: ["WO", "text-gray-600 bg-gray-100"],
                     present: ["P", "text-brand-700 bg-brand-100"],
                     half: ["HD", "text-amber-700 bg-amber-100"],
                     absent: ["A", "text-red-600 bg-red-100"],
+                    unmarked: ["NM", "text-amber-700 bg-amber-100"],
                   };
                   const t = tag[kind];
                   return (
@@ -816,9 +839,10 @@ export function MyAttendanceTrackerView() {
                 const sessions = row?.sessions ?? [];
                 const ms = workedMs(row, now);
                 const firstIn = sessions[0];
+                // An auto-closed session has no verified check-out to show.
                 const lastClosed = [...sessions]
                   .reverse()
-                  .find((s) => s.checkOutAt);
+                  .find((s) => verifiedCheckOutAt(s));
                 const hasActive = row?.hasOpenSession ?? false;
                 const regularized = sessions.some(
                   (s) => s.source === "CORRECTION" || s.source === "HR",
@@ -852,7 +876,7 @@ export function MyAttendanceTrackerView() {
                       isWknd
                         ? "cursor-default bg-gray-50/70 dark:bg-gray-800/30"
                         : kind === "holiday"
-                          ? "cursor-default bg-purple-50/60 dark:bg-purple-950/20"
+                          ? "cursor-default bg-cyan-50/60 dark:bg-cyan-950/20"
                           : kind === "leave"
                             ? "cursor-default bg-amber-50/60 dark:bg-amber-950/20"
                             : kind === "weekoff"
@@ -872,14 +896,16 @@ export function MyAttendanceTrackerView() {
                           isToday && !isWknd
                             ? "bg-brand-500 text-white"
                             : kind === "holiday"
-                              ? "bg-purple-100 text-purple-700"
+                              ? "bg-cyan-100 text-cyan-700"
                               : kind === "leave"
                                 ? "bg-amber-100 text-amber-700"
                                 : kind === "weekoff"
                                   ? "bg-gray-200 text-gray-600"
                                   : kind === "absent"
                                     ? "bg-red-100 text-red-700"
-                                    : "text-gray-900 dark:text-white"
+                                    : kind === "unmarked"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "text-gray-900 dark:text-white"
                         }`}
                       >
                         {day.getDate()}
@@ -889,7 +915,7 @@ export function MyAttendanceTrackerView() {
                     {/* Check-in info */}
                     <div className="flex w-28 shrink-0 flex-col justify-center px-1 py-3">
                       {kind === "holiday" ? (
-                        <span className="text-[10px] font-semibold text-purple-600">
+                        <span className="text-[10px] font-semibold text-cyan-600">
                           🎉 Holiday
                         </span>
                       ) : kind === "leave" ? (
@@ -903,6 +929,10 @@ export function MyAttendanceTrackerView() {
                       ) : kind === "absent" ? (
                         <span className="text-[10px] font-semibold text-red-600">
                           ❌ Absent
+                        </span>
+                      ) : kind === "unmarked" && !firstIn ? (
+                        <span className="text-[10px] font-semibold text-amber-700">
+                          Not marked
                         </span>
                       ) : !isWknd && firstIn ? (
                         <>
@@ -936,8 +966,8 @@ export function MyAttendanceTrackerView() {
                       {kind === "holiday" ? (
                         offLine(
                           holidays.get(ds) ?? "Holiday",
-                          "bg-purple-200",
-                          "border-purple-200 bg-purple-100 text-purple-500",
+                          "bg-cyan-200",
+                          "border-cyan-200 bg-cyan-100 text-cyan-500",
                         )
                       ) : kind === "leave" ? (
                         offLine(
@@ -956,6 +986,12 @@ export function MyAttendanceTrackerView() {
                           "Absent",
                           "bg-red-200",
                           "border-red-200 bg-red-100 text-red-500",
+                        )
+                      ) : kind === "unmarked" && sessions.length === 0 ? (
+                        offLine(
+                          "Not marked — no check-in recorded",
+                          "bg-amber-200",
+                          "border-amber-200 bg-amber-50 text-amber-700",
                         )
                       ) : (
                         <TimelineBar
@@ -1070,7 +1106,7 @@ export function MyAttendanceTrackerView() {
                 {TL_LABELS.map((h) => (
                   <span
                     key={h}
-                    className="absolute top-1.5 -translate-x-1/2 font-mono text-[10px] text-gray-500"
+                    className="absolute top-1.5 -translate-x-1/2 tabular-nums text-[10px] text-gray-500"
                     style={{ left: `${hourPct(h)}%` }}
                   >
                     {hourLabel(h)}

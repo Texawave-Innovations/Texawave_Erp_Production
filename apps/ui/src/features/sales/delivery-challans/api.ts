@@ -9,6 +9,7 @@ export interface ChallanListQuery {
   limit: number;
   search?: string;
   status?: DcStatus;
+  customerId?: number;
   from?: string;
   to?: string;
 }
@@ -24,6 +25,18 @@ export function listChallans(
 export async function getChallan(id: number): Promise<DeliveryChallan> {
   const { data } = await withAuthRetry(() =>
     apiClient.get<DeliveryChallan>(`${CHALLANS}/${id}`),
+  );
+  return data;
+}
+
+/** The empty challan (letterhead, next number) for the form's default preview. */
+export async function getChallanTemplate(
+  params: Record<string, string | number>,
+): Promise<{ html: string }> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<{ html: string }>(`${CHALLANS}/template`, {
+      query: params,
+    }),
   );
   return data;
 }

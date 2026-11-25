@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   FinanceBankAccount,
@@ -13,8 +14,8 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Pencil } from "lucide-react";
 import { useAccounts } from "@/features/finance/coa/hooks";
 import { useUpdateBankAccount } from "../hooks";
@@ -38,7 +39,7 @@ function EditBankAccountForm({
   onClose,
   onSuccess,
 }: EditBankAccountFormProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const updateMutation = useUpdateBankAccount();
 
   const [accountName, setAccountName] = useState(account.accountName ?? "");
@@ -125,15 +126,11 @@ function EditBankAccountForm({
         id: account.id,
         input: payload,
       });
-      toast({
-        title: `Bank account ${updated.accountName} updated successfully`,
-        variant: "success",
-      });
+      notify("finance.bank.updated", { name: updated.accountName });
       onClose();
       onSuccess?.();
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to update bank account";
+      const msg = resolveErrorText(err, "finance.bank.updateFailed");
       setSubmitError(msg);
     } finally {
       setSubmitting(false);

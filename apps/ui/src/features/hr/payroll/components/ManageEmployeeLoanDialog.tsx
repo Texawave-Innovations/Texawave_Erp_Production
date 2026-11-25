@@ -24,9 +24,9 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ApiError } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, isoDate, money } from "../format";
@@ -71,7 +71,7 @@ export function ManageEmployeeLoanDialog({
   const [activeTab, setActiveTab] = useState<"manage" | "history">(initialTab);
   const canWrite = usePermission(LOAN_WRITE);
   const canApprove = usePermission(LOAN_APPROVE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // Queries for this employee
   const loansQuery = useLoans(
@@ -199,9 +199,9 @@ export function ManageEmployeeLoanDialog({
 
     try {
       const res = await createLoanMutation.mutateAsync(parsed.data);
-      toast({
-        title: `Loan ${res.loanNumber} created for ${employee.fullName} — awaiting review`,
-        variant: "success",
+      notify("payroll.loan.createdFor", {
+        number: res.loanNumber,
+        name: employee.fullName,
       });
       setPrincipal("");
       setMonths("6");
@@ -248,10 +248,7 @@ export function ManageEmployeeLoanDialog({
         loanId: selectedLoanIdForSkip,
         body: parsed.data,
       });
-      toast({
-        title: "EMI skip request submitted successfully",
-        variant: "success",
-      });
+      notify("payroll.loan.skipSubmitted");
       setSkipReason("");
       setSkipPeriodId(null);
     } catch (err) {

@@ -1,5 +1,6 @@
-import { PaymentsView } from "@/features/sales/payments/components/PaymentsView";
+import { redirect } from "next/navigation";
 
-export default function SalesPaymentsPage() {
-  return <PaymentsView />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectPayments() {
+  redirect("/sales?tab=payments");
 }

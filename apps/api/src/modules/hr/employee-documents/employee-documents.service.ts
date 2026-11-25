@@ -1,12 +1,16 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
-import { ResourceNotFoundException } from "../../../common/exceptions/business.exception.js";
+import {
+  BusinessRuleViolationException,
+  ResourceNotFoundException,
+} from "../../../common/exceptions/business.exception.js";
+import { isDocumentType } from "../../employee-self-service/profile/dto/onboarding-rules.js";
 import { TeamContextService } from "../../../platform/tenancy/team-context.service.js";
 import {
   detectFileType,
   FileStorageService,
   MAX_UPLOAD_BYTES,
+  sanitizeFileName,
 } from "../../../shared/file-storage/file-storage.service.js";
 import { EmployeesService } from "../employees/employees.service.js";
 import { EmployeeDocumentsRepository } from "./employee-documents.repository.js";
@@ -20,18 +24,10 @@ export interface UploadedDocument {
   originalname: string;
 }
 
-/** Keeps the uploader's own file name for display, minus any path or control
- * characters — copied from profile.service.ts's sanitizeFileName. */
-function sanitizeFileName(name: string): string {
-  const base = [...path.basename(name)]
-    .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
-    .join("")
-    .trim();
-  return (base || "document").slice(0, 255);
-}
-
 @Injectable()
 export class EmployeeDocumentsService {
+  private readonly logger = new Logger(EmployeeDocumentsService.name);
+
   constructor(
     private readonly repository: EmployeeDocumentsRepository,
     private readonly employees: EmployeesService,
@@ -55,11 +51,10 @@ export class EmployeeDocumentsService {
     return rows.map(({ storageKey: _omit, ...rest }) => rest);
   }
 
-  async uploadDocument(
-    employeeId: number,
-    dto: { label: string; documentType?: string },
-    file: UploadedDocument | undefined,
-  ) {
+  /** The checks every incoming file passes, whether it is a new upload or a
+   * replacement: present, within the size cap, and a real PDF/JPG/PNG by its
+   * own bytes (never the claimed name or type). */
+  private validateFile(file: UploadedDocument | undefined) {
     if (!file) throw new BadRequestException("Choose a file to upload.");
     if (file.size > MAX_UPLOAD_BYTES) {
       throw new BadRequestException("File must be 5 MB or smaller.");
@@ -70,8 +65,31 @@ export class EmployeeDocumentsService {
         "Only PDF, JPG, or PNG files are accepted.",
       );
     }
+    return { file, detected };
+  }
+
+  async uploadDocument(
+    employeeId: number,
+    dto: { label: string; documentType?: string },
+    uploaded: UploadedDocument | undefined,
+  ) {
+    const { file, detected } = this.validateFile(uploaded);
+
+    // A free-text label is stored as the type when none is given. Refuse one
+    // that spells a reserved onboarding type (PROFILE_PHOTO drives the avatar).
+    if (!dto.documentType && isDocumentType(dto.label.trim().toUpperCase())) {
+      throw new BadRequestException(
+        "That label is reserved for a standard document type. Pick it as the document type instead.",
+      );
+    }
 
     const { scope, employee } = await this.resolveTarget(employeeId, WRITE);
+    // `resolveTarget` located the employee with the employee-read scope; the
+    // caller's document-write scope may be narrower (a team writer with
+    // org-wide employee read must not upload into another team).
+    if (!(await this.repository.employeeInScope(scope, employeeId))) {
+      throw new ResourceNotFoundException("Employee", employeeId);
+    }
     const storageKey = `${employeeId}/hr/${randomUUID()}.${detected.extension}`;
 
     await this.files.save(storageKey, file.buffer);
@@ -95,14 +113,74 @@ export class EmployeeDocumentsService {
     }
   }
 
+  /** Swaps the file behind an existing document (onboarding or HR-uploaded),
+   * keeping its id, type, label and source. The new file is stored first and
+   * the old one removed only after the row points at the new one, so a failure
+   * never leaves a document without a file. */
+  async replaceDocument(
+    employeeId: number,
+    id: number,
+    uploaded: UploadedDocument | undefined,
+  ) {
+    const { file, detected } = this.validateFile(uploaded);
+
+    const { scope } = await this.resolveTarget(employeeId, WRITE);
+    const current = await this.repository.getById(scope, employeeId, id);
+    if (!current || current.deletedAt) {
+      throw new ResourceNotFoundException("Document", id);
+    }
+
+    const storageKey = `${employeeId}/hr/${randomUUID()}.${detected.extension}`;
+    await this.files.save(storageKey, file.buffer);
+    let row;
+    try {
+      row = await this.repository.replaceFile(scope, employeeId, id, {
+        fileName: sanitizeFileName(file.originalname),
+        storageKey,
+        mimeType: detected.mimeType,
+        sizeBytes: file.size,
+        previousMimeType: current.mimeType,
+        previousSizeBytes: current.sizeBytes,
+      });
+    } catch (error) {
+      await this.files.remove(storageKey);
+      throw error;
+    }
+    if (!row) {
+      await this.files.remove(storageKey);
+      throw new ResourceNotFoundException("Document", id);
+    }
+
+    if (current.storageKey) {
+      try {
+        await this.files.remove(current.storageKey);
+      } catch (error) {
+        // The record already points at the new file; an orphaned old file is
+        // harmless and must not fail the replacement.
+        this.logger.warn(
+          `Could not remove the replaced file for document ${id}: ${String(error)}`,
+        );
+      }
+    }
+    const { storageKey: _omit, ...metadata } = row;
+    return metadata;
+  }
+
   async downloadDocument(employeeId: number, id: number) {
     const { scope } = await this.resolveTarget(employeeId, READ);
     const row = await this.repository.getById(scope, employeeId, id);
     if (!row || row.deletedAt || !row.storageKey) {
       throw new ResourceNotFoundException("Document", id);
     }
+    const buffer = await this.files.read(row.storageKey);
+    await this.repository.recordDownload(scope, {
+      id: row.id,
+      employeeId,
+      documentType: row.documentType,
+      source: row.source,
+    });
     return {
-      buffer: await this.files.read(row.storageKey),
+      buffer,
       mimeType: row.mimeType ?? "application/octet-stream",
       fileName: row.fileName,
     };
@@ -114,7 +192,14 @@ export class EmployeeDocumentsService {
     if (!row || row.deletedAt) {
       throw new ResourceNotFoundException("Document", id);
     }
-    await this.repository.softDelete(scope, employeeId, id);
+    if (row.source !== "HR_UPLOADED") {
+      throw new BusinessRuleViolationException(
+        "Documents the employee submitted during onboarding cannot be deleted from here.",
+        "ONBOARDING_DOCUMENT_NOT_REMOVABLE",
+      );
+    }
+    const removed = await this.repository.softDelete(scope, employeeId, id);
+    if (!removed) throw new ResourceNotFoundException("Document", id);
     if (row.storageKey) await this.files.remove(row.storageKey);
   }
 }

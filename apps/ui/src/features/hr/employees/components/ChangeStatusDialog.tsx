@@ -9,8 +9,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { CORRECTIONS, STATUS_LABELS, TRANSITIONS } from "../status";
 import { useChangeEmployeeStatus } from "../hooks";
 import {
@@ -54,7 +54,7 @@ export function ChangeStatusDialog({
   >({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useChangeEmployeeStatus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -81,9 +81,8 @@ export function ChangeStatusDialog({
         correction,
         body: result.data,
       });
-      toast({
-        title: `Status changed to ${STATUS_LABELS[result.data.status as EmployeeStatus]}`,
-        variant: "success",
+      notify("hr.employee.statusChanged", {
+        status: STATUS_LABELS[result.data.status as EmployeeStatus],
       });
       onClose();
     } catch (error) {
@@ -99,7 +98,7 @@ export function ChangeStatusDialog({
   return (
     <Dialog open={open} onClose={onClose} title={title}>
       {targets.length === 0 ? (
-        <Alert variant="info" title="No status changes available">
+        <Alert dismissible variant="info" title="No status changes available">
           {employee.fullName} is {STATUS_LABELS[employee.status]}. No further
           changes are allowed from this status.
         </Alert>
@@ -178,6 +177,35 @@ export function ChangeStatusDialog({
               />
             )}
           </FormField>
+          {!correction &&
+          (values.status === "RESIGNED" || values.status === "TERMINATED") ? (
+            <Alert
+              dismissible
+              variant="warning"
+              title="Portal access ends when you save"
+            >
+              {employee.fullName}&apos;s login is disabled and signed out as
+              soon as this is saved, whatever the last working day. Save it on
+              or after their last day. Only a Super Admin can undo it.
+            </Alert>
+          ) : null}
+          {!correction && values.status === "INACTIVE" ? (
+            <Alert
+              dismissible
+              variant="warning"
+              title="Portal access pauses while inactive"
+            >
+              {employee.fullName}&apos;s login is disabled and signed out when
+              you save. It comes back automatically when you set them to Active
+              again — same password.
+            </Alert>
+          ) : null}
+          {!correction && values.status === "ACTIVE" ? (
+            <Alert dismissible variant="info" title="Portal access is restored">
+              {employee.fullName} can sign in again with their existing password
+              once you save.
+            </Alert>
+          ) : null}
           {serverError ? (
             <p
               role="alert"

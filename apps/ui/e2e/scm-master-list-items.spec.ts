@@ -171,9 +171,9 @@ async function openScmMaster(page: Page, extraPermissions: string[] = []) {
     permissions: ["hr.workspace.access", ...READ, ...extraPermissions],
     menu: [
       {
-        code: "sales-settings",
-        label: "Sales Settings",
-        path: "/settings/sales-settings",
+        code: "sales-master-list",
+        label: "Master List",
+        path: "/sales/master-list",
       },
     ],
     handler,

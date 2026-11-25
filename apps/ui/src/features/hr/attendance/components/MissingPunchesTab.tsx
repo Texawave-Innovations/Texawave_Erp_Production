@@ -102,7 +102,7 @@ export function MissingPunchesTab() {
       </div>
 
       {!valid ? (
-        <Alert variant="warning" title="Choose a valid date range">
+        <Alert dismissible variant="warning" title="Choose a valid date range">
           The start date must be on or before the end date (at most 62 days).
         </Alert>
       ) : list.isPending ? (
@@ -110,11 +110,12 @@ export function MissingPunchesTab() {
       ) : list.isError ? (
         list.error instanceof ApiError &&
         list.error.errorCode === "RANGE_TOO_LARGE" ? (
-          <Alert variant="warning" title="Date range too large">
+          <Alert dismissible variant="warning" title="Date range too large">
             {list.error.message}
           </Alert>
         ) : list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to attendance reports"
           >
@@ -192,7 +193,7 @@ export function MissingPunchesTab() {
                         : r.sessions
                             .map(
                               (s) =>
-                                `${formatTime(s.checkInAt)}–${s.checkOutAt ? formatTime(s.checkOutAt) : "?"}`,
+                                `${formatTime(s.checkInAt)}–${s.checkOutAt && !s.autoClosed ? formatTime(s.checkOutAt) : "?"}`,
                             )
                             .join(", ")}
                     </span>

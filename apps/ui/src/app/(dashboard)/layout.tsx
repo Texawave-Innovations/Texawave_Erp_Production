@@ -130,7 +130,13 @@ export default function DashboardLayout({
       <HorizontalNavbar onSignOut={() => void handleSignOut()} />
 
       {/* Page content — full width, no left offset */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+      {/* `relative` makes <main> the containing block for absolutely positioned
+          descendants (sr-only captions, tooltips). Without it they escape the
+          shell's overflow-hidden and make the whole document scroll, which
+          shows the browser's default scrollbar on both axes. */}
+      <main className="relative flex-1 overflow-y-auto p-4 lg:p-6">
+        {children}
+      </main>
 
       {/* SCM Copilot launcher — renders only on /scm screens. */}
       <AssistantWidget />

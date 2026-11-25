@@ -26,9 +26,9 @@ import {
   Skeleton,
   StatusBadge,
   type StatusColorToken,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useUploadEmployeeDocument } from "@/features/hr/employee-documents/hooks";
@@ -123,7 +123,7 @@ function ProfileSection({
         {action}
       </div>
       <div className="p-6">
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           {children}
         </div>
       </div>
@@ -232,7 +232,11 @@ function SensitiveSection({ id, canRead }: { id: number; canRead: boolean }) {
         </div>
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="Access to these details has changed">
+          <Alert
+            dismissible
+            variant="warning"
+            title="Access to these details has changed"
+          >
             Contact an administrator.
           </Alert>
         ) : (
@@ -282,6 +286,7 @@ export function ProfileView({ id }: { id: number }) {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to employee profiles"
       >
@@ -327,7 +332,11 @@ export function ProfileView({ id }: { id: number }) {
     }
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to this profile">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to this profile"
+        >
           Your access has changed. Contact an administrator.
         </Alert>
       );
@@ -367,7 +376,7 @@ function ProfileBody({
   const { employee: e, profile: p } = data;
   const hasRecord = p.updatedAt !== null;
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const uploadMutation = useUploadEmployeeDocument(id);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -379,20 +388,12 @@ function ProfileBody({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file format",
-        description: "Please select an image file (PNG, JPG, JPEG, or WebP).",
-        variant: "warning",
-      });
+      notify("hr.photo.invalidFormat");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Photo file size must not exceed 5MB.",
-        variant: "warning",
-      });
+      notify("hr.photo.tooLarge");
       return;
     }
 
@@ -404,18 +405,9 @@ function ProfileBody({
         documentType: "PROFILE_PHOTO",
       });
       await queryClient.invalidateQueries({ queryKey: ["hr-profiles", id] });
-      toast({
-        title: "Profile photo updated",
-        description:
-          "The employee profile photo has been updated successfully.",
-        variant: "success",
-      });
+      notify("hr.profile.photoUpdatedView");
     } catch {
-      toast({
-        title: "Upload failed",
-        description: "Could not upload the profile photo. Please try again.",
-        variant: "error",
-      });
+      notify("hr.photo.uploadFailed");
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) {
@@ -535,7 +527,11 @@ function ProfileBody({
       </div>
 
       {!hasRecord ? (
-        <Alert variant="info" title="No profile details recorded yet">
+        <Alert
+          dismissible
+          variant="info"
+          title="No profile details recorded yet"
+        >
           {canWrite
             ? "Personal, family, address and bank details have not been submitted. Use Edit profile to add them."
             : "Personal, family, address and bank details have not been submitted yet."}

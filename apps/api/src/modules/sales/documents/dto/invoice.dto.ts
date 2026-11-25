@@ -9,6 +9,7 @@ import { IsDateOnly } from "../../../../common/dates/date-only.js";
 import { Trim } from "../../../../common/dto/transforms.js";
 import {
   DocumentQueryDto,
+  DraftPreviewQueryDto,
   NextNumberQueryDto,
   PricedDocumentDto,
 } from "./document-parts.dto.js";
@@ -94,6 +95,13 @@ export class ConvertToDeliveryChallanDto {
 }
 
 export class NextInvoiceNumberQueryDto extends NextNumberQueryDto {
+  @ApiProperty({ enum: INVOICE_TYPES })
+  @IsIn(INVOICE_TYPES)
+  invoiceType!: InvoiceType;
+}
+
+/** `GET /sales/invoices/template`: the draft preview of a PI / tax invoice. */
+export class InvoiceDraftPreviewQueryDto extends DraftPreviewQueryDto {
   @ApiProperty({ enum: INVOICE_TYPES })
   @IsIn(INVOICE_TYPES)
   invoiceType!: InvoiceType;

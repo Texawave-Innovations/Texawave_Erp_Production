@@ -8,7 +8,7 @@ import type {
   MomSectionConfig,
   MomTemplate,
 } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, type MessageKey } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -22,7 +22,6 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -45,6 +44,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProjects } from "@/features/projects/hooks";
@@ -217,6 +217,7 @@ export function MomEditor({ mode, id }: MomEditorProps) {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Minutes of Meeting"
       >
@@ -232,6 +233,7 @@ export function MomEditor({ mode, id }: MomEditorProps) {
       if (err instanceof ApiError && err.isPermissionError) {
         return (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to Minutes of Meeting"
           >
@@ -241,7 +243,7 @@ export function MomEditor({ mode, id }: MomEditorProps) {
       }
       if (err instanceof ApiError && err.isNotFound) {
         return (
-          <Alert variant="warning" title="Meeting record not found">
+          <Alert dismissible variant="warning" title="Meeting record not found">
             It may have been deleted. Return to the register to pick another
             one.
           </Alert>
@@ -295,7 +297,7 @@ function EditorBody({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const userName = useAuthStore((s) => s.user?.fullName);
 
   const canWrite = usePermission(MOM_WRITE);
@@ -462,10 +464,7 @@ function EditorBody({
       ...(notes.length > 0 ? { notes } : {}),
       freeText: { ...defaultFreeText(sections), ...state.freeText },
     });
-    toast({
-      title: `Applied template "${t.name}" (V${t.version})`,
-      variant: "success",
-    });
+    notify("mom.template.applied", { name: t.name, version: t.version });
   }
 
   const selectedProject = projects.find((p) => p.id === state.projectId);
@@ -518,7 +517,7 @@ function EditorBody({
     return updated.id;
   }
 
-  function handleSaveError(err: unknown, fallback: string) {
+  function handleSaveError(err: unknown, fallback: MessageKey) {
     if (err instanceof ApiError && err.statusCode === 409) {
       setConflict(true);
       return;
@@ -578,24 +577,14 @@ function EditorBody({
         setErrors(unmapped);
       }
     }
-    toast({
-      title: fallback,
-      description: errorMessage(
-        err,
-        "Your changes are still in the editor — try again.",
-      ),
-      variant: "error",
-    });
+    notifyFailure(err, fallback);
   }
 
   async function handleSave(finalize: boolean) {
     if (attendeeManagerRef.current?.hasPendingDraft()) {
       const addedName = attendeeManagerRef.current.commitPendingDraft();
       if (addedName) {
-        toast({
-          title: "Participant added",
-          description: `${addedName} was still in the "Add Meeting Participant" row, so we added them before saving. Review the attendee list and save again.`,
-        });
+        notify("mom.attendee.addedBeforeSave", { name: addedName });
       }
       return;
     }
@@ -678,16 +667,16 @@ function EditorBody({
         }
       }
       setDirty(false);
-      toast({
-        title: finalize
+      notify(
+        finalize
           ? document?.workingRevision
-            ? `Revision ${document.workingRevision} finalized`
-            : "Meeting minutes finalized"
+            ? "mom.revisionFinalized"
+            : "mom.finalized"
           : document
-            ? "Draft saved"
-            : "Draft created",
-        variant: "success",
-      });
+            ? "mom.draftSaved"
+            : "mom.draftCreated",
+        { revision: document?.workingRevision },
+      );
       // A saved draft stays in the editor; a finalized one opens read-only.
       router.push(
         finalize ? `/projects/mom/${savedId}` : `/projects/mom/${savedId}/edit`,
@@ -695,9 +684,7 @@ function EditorBody({
     } catch (err) {
       handleSaveError(
         err,
-        finalize
-          ? "Could not finalize these minutes"
-          : "Could not save this draft",
+        finalize ? "mom.finalizeFailed" : "mom.saveDraftFailed",
       );
     } finally {
       setSaving(false);
@@ -712,17 +699,10 @@ function EditorBody({
         input: { reason },
       });
       setRevisionOpen(false);
-      toast({
-        title: `Revision ${document.currentRevision + 1} started`,
-        variant: "success",
-      });
+      notify("mom.revisionStarted", { revision: document.currentRevision + 1 });
       router.push(`/projects/mom/${document.id}/edit`);
     } catch (err) {
-      toast({
-        title: "Could not start a revision",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.revisionFailed");
     }
   }
 
@@ -731,14 +711,10 @@ function EditorBody({
     try {
       await archiveMutation.mutateAsync(document.id);
       setConfirm(null);
-      toast({ title: `${document.reference} archived`, variant: "success" });
+      notify("mom.archived", { reference: document.reference });
       router.push(`/projects/mom/${document.id}`);
     } catch (err) {
-      toast({
-        title: "Could not archive",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.archiveFailed");
     }
   }
 
@@ -746,13 +722,9 @@ function EditorBody({
     if (!document) return;
     try {
       await restoreMutation.mutateAsync(document.id);
-      toast({ title: `${document.reference} restored`, variant: "success" });
+      notify("mom.restored", { reference: document.reference });
     } catch (err) {
-      toast({
-        title: "Could not restore",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.restoreFailed");
     }
   }
 
@@ -761,14 +733,10 @@ function EditorBody({
     try {
       await deleteMutation.mutateAsync(document.id);
       setConfirm(null);
-      toast({ title: `${document.reference} deleted`, variant: "success" });
+      notify("mom.deleted", { reference: document.reference });
       router.push("/projects/mom");
     } catch (err) {
-      toast({
-        title: "Could not delete",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "mom.deleteFailed");
     }
   }
 
@@ -1006,7 +974,7 @@ function EditorBody({
       </div>
 
       {mode !== "view" && readOnly && document ? (
-        <Alert variant="info" title="This document is read-only">
+        <Alert dismissible variant="info" title="This document is read-only">
           {isArchived
             ? "Archived minutes must be restored before they can be edited."
             : status === "finalized"
@@ -1017,6 +985,7 @@ function EditorBody({
 
       {document?.workingRevision && !readOnly ? (
         <Alert
+          dismissible
           variant="warning"
           title={`Working revision ${document.workingRevision}`}
         >
@@ -1446,12 +1415,7 @@ function EditorBody({
               onClick={() => {
                 setConflict(false);
                 setVersionToken(null);
-                toast({
-                  title: "Overwrite enabled",
-                  description:
-                    "Save again to replace the server copy with your version.",
-                  variant: "info",
-                });
+                notify("mom.overwriteEnabled");
               }}
             >
               Keep my version

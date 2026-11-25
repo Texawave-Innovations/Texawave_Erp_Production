@@ -11,7 +11,7 @@ export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
 export const DAY_PORTIONS = ["FULL", "FIRST_HALF", "SECOND_HALF"] as const;
 export type DayPortion = (typeof DAY_PORTIONS)[number];
 
-/** FIRST = the reporting manager / a scoped approver; HR = the second
+/** FIRST = the team lead / a team lead's delegate / a scoped approver; HR = the second
  * approval of a two-level leave type (hr.leave.approve.all). */
 export type AwaitingStage = "FIRST" | "HR";
 
@@ -51,6 +51,17 @@ export interface LeaveRequestItem {
   approvalLevels: number;
   /** Who a PENDING request waits for; null once decided. */
   awaiting: AwaitingStage | null;
+  /** Only in the approval queue ("Waiting for me"): the step the caller
+   * decides. TEAM_LEAD = first approval (final on a one-level type); HR = the
+   * final decision. `override`: the caller decides as Admin in HR's place
+   * (reason required, audited). `escalated`: the team lead did not decide in
+   * time, so HR's decision replaces both steps. */
+  yourStep?: {
+    step: "TEAM_LEAD" | "HR";
+    final: boolean;
+    override: boolean;
+    escalated: boolean;
+  };
   /** The employee, or HR who applied on the employee's behalf. */
   requestedBy: DeciderRef;
   firstDecidedBy: DeciderRef | null;

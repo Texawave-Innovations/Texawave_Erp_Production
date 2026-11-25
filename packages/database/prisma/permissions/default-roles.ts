@@ -4,14 +4,19 @@
 // definitions exist so a fresh dev database has realistic HR roles, and so the
 // approved defaults are pinned by a test (default-roles.test.ts):
 //
-//  - Team Lead is READ-ONLY. It holds no write, approve, status or account
-//    permission (decision: "team leads are read-only by default; do not grant
-//    employee write permissions without approval").
+//  - Team Lead is READ-ONLY, with ONE deliberate exception: it gives the
+//    first approval of its team's timesheets and leave
+//    (`hr.timesheet.approve.team`, `hr.leave.approve.team`). Requests go to
+//    the employee's team lead, then HR; a team lead's own request goes to HR.
+//    Team Lead holds no other write, approve, status or account permission
+//    (decision: "team leads are read-only by default; do not grant employee
+//    write permissions without approval").
 //  - Nobody but Super Admin holds `hr.employee_status.correct` (the audited
 //    correction of a RESIGNED/TERMINATED status).
-//  - `.team`-scoped write/approve permissions are granted to no role: who
-//    among team leads approves leave, and whether team leads may edit
-//    employees, are open decisions.
+//  - `.team`-scoped write/approve permissions are granted to no role, except
+//    the decided team-lead first approval above (timesheets and leave: the
+//    employee's team lead approves first, then HR). Whether team leads may
+//    edit employees is still an open decision.
 //  - HR Manager submits a month of attendance (`hr.attendance_lock.finalize`)
 //    but does not approve it: approval is Super Admin's, the legacy "HR sends,
 //    Admin accepts" split. The service also refuses approval by the submitter.
@@ -200,8 +205,17 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
   },
   {
     name: "Team Lead",
-    description: "Read-only view of their own team (by default).",
+    description:
+      "Views their own team; gives the first approval of the team's timesheets and leave (HR gives the final one).",
     permissions: [
+      // The one approval exception (see the header): first approval only.
+      "hr.timesheet.approve.team",
+      "hr.leave.approve.team",
+      // The second approval-style exception: assign project tasks and
+      // milestones to the team's own employees (read access is needed to pick
+      // the project).
+      "projects.task_assignment.write.team",
+      "projects.project.read",
       "hr.employee.read.team",
       "hr.employee_document.read.team",
       "hr.shift_assignment.read.team",
@@ -241,6 +255,7 @@ export const DEFAULT_ROLES: readonly DefaultRole[] = [
       "employee_self_service.timesheet.read",
       "employee_self_service.timesheet.write",
       "employee_self_service.timesheet.submit",
+      "employee_self_service.work.write",
       "employee_self_service.work_permission.read",
       "employee_self_service.work_permission.create",
       "employee_self_service.payslip.read",

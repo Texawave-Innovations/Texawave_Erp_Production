@@ -13,9 +13,10 @@ export const REVIEW_READ_ANY_SCOPE = [
   "hr.timesheet.read.all",
 ] as const;
 
-/** Any level may decide: `.own` is the reporting-manager level (first
- * approval), `.team` also within scope, and only `.all` gives HR's second
- * approval — or decides alone when the employee has no reporting manager. */
+/** Any level may decide: `.team` is the team-lead level (first approval
+ * within their teams), `.own` only for days routed to a reporting manager
+ * before team-lead routing, and only `.all` gives HR's second approval — or
+ * decides alone (a team lead's own day, or a team with no lead). */
 export const REVIEW_APPROVE_ANY_SCOPE = [
   "hr.timesheet.approve.own",
   "hr.timesheet.approve.team",

@@ -2,7 +2,8 @@
 
 import type { ScmMasterListCategory } from "@texawave-erp/api-types";
 import { ApiError } from "@texawave-erp/core";
-import { MasterListCard, useToast } from "@texawave-erp/ui-kit";
+import { MasterListCard } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateMasterListItem,
@@ -27,7 +28,7 @@ interface CategoryCardProps {
 function CategoryCard({ category, title }: CategoryCardProps) {
   const canRead = usePermission(MASTER_LIST_ITEM_READ);
   const canWrite = usePermission(MASTER_LIST_ITEM_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useMasterListItems({ category, page: 1, limit: PAGE_SIZE });
   const createMutation = useCreateMasterListItem();
@@ -41,9 +42,8 @@ function CategoryCard({ category, title }: CategoryCardProps) {
   async function handleAdd(value: string) {
     const parsed = scmMasterListItemSchema.safeParse({ value });
     if (!parsed.success) {
-      toast({
-        title: parsed.error.issues[0]?.message ?? "Invalid input",
-        variant: "error",
+      notify("scm.master.invalid", {
+        reason: parsed.error.issues[0]?.message ?? "Invalid input",
       });
       return;
     }
@@ -53,13 +53,13 @@ function CategoryCard({ category, title }: CategoryCardProps) {
         value: parsed.data.value,
       });
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? `You don't have the ${MASTER_LIST_ITEM_WRITE} permission.`
-            : "Could not add this item",
-        variant: "error",
-      });
+      if (error instanceof ApiError && error.isPermissionError) {
+        notify("scm.master.permissionDenied", {
+          permission: MASTER_LIST_ITEM_WRITE,
+        });
+      } else {
+        notify("scm.master.addFailed");
+      }
     }
   }
 
@@ -67,7 +67,7 @@ function CategoryCard({ category, title }: CategoryCardProps) {
     try {
       await deleteMutation.mutateAsync(Number(id));
     } catch {
-      toast({ title: `Could not delete "${label}"`, variant: "error" });
+      notify("scm.master.deleteFailed", { label });
     }
   }
 

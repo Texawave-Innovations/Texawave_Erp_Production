@@ -11,8 +11,15 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronDown, LogOut, Sun, Moon } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, Sun, Moon } from "lucide-react";
 import { TexaLogo } from "@/features/auth/components/login_page/TexaLogo";
+import { workspaceHomeFor } from "@/features/auth/landing";
+import {
+  GlobalSearch,
+  keywordsFor,
+  type SearchEntry,
+} from "@/components/layout/GlobalSearch";
+import { usePortalNavGroups } from "@/features/employee-self-service/portal/nav";
 import { PortalSidebar } from "@/features/employee-self-service/portal/components/PortalSidebar";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { NavbarDateTimeCalendar } from "@/components/layout/NavbarDateTimeCalendar";
@@ -49,6 +56,7 @@ export default function EmployeePortalLayout({
   const me = useMe();
   const employee = useMyEmployee();
   const documents = useMyDocuments();
+  const portalNav = usePortalNavGroups();
   const [navOpen, setNavOpen] = useState(false);
 
   const photoDoc = documents.data?.find(
@@ -148,7 +156,11 @@ export default function EmployeePortalLayout({
     }
     if (!employee.data) return;
     if (isComplete && onOnboarding) {
-      router.replace("/portal");
+      // HR/Sales staff finishing onboarding belong in their workspace — the
+      // same rule the login redirect applies (features/auth/landing.ts).
+      // Wait for /auth/me, or an HR hire would be sent to the portal.
+      if (!me.data) return;
+      router.replace(workspaceHomeFor(me.data.permissions) ?? "/portal");
     } else if (!isComplete && !onOnboarding) {
       router.replace("/onboarding");
     }
@@ -159,6 +171,7 @@ export default function EmployeePortalLayout({
     employee.data,
     isComplete,
     onOnboarding,
+    me.data,
     router,
   ]);
 
@@ -251,6 +264,36 @@ export default function EmployeePortalLayout({
     );
   }
 
+  const workspaceHome = me.data ? workspaceHomeFor(me.data.permissions) : null;
+  const workspaceLabel =
+    workspaceHome === "/hr" ? "HR Workspace" : "Sales Workspace";
+
+  // Global search: exactly the portal pages this user's sidebar shows.
+  const searchEntries: SearchEntry[] = [
+    ...portalNav.groups.flatMap((group) =>
+      group.items.map((item): SearchEntry => ({
+        label: item.label,
+        path: item.path,
+        context: group.label.charAt(0) + group.label.slice(1).toLowerCase(),
+        kind: "page",
+        keywords: keywordsFor(item.path),
+        // Same icon as the item in the portal sidebar.
+        icon: item.icon,
+      })),
+    ),
+    ...(workspaceHome
+      ? [
+          {
+            label: workspaceLabel,
+            path: workspaceHome,
+            context: "Switch workspace",
+            kind: "action" as const,
+            icon: LayoutDashboard,
+          },
+        ]
+      : []),
+  ];
+
   const fullName = employee.data?.fullName || "Employee";
   const empCode = employee.data?.employeeCode || "";
   const initials = fullName
@@ -303,6 +346,26 @@ export default function EmployeePortalLayout({
 
         {/* Right Section: Interactive Calendar + Clock + Notifications + User Avatar Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <GlobalSearch
+            entries={searchEntries}
+            className="hidden w-44 transition-all duration-200 focus-within:w-64 md:block lg:w-56"
+          />
+          {/* Way back to the dashboard shell for HR/Sales staff, who also
+              hold the Employee role and so can be in the portal. */}
+          {workspaceHome ? (
+            <Link
+              href={workspaceHome}
+              title={workspaceLabel}
+              aria-label={workspaceLabel}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-200/80 bg-white/70 px-2.5 text-xs font-semibold text-[#0a3271] transition-colors hover:border-sky-300 hover:bg-white focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-sky-200 dark:hover:border-cyan-500/40 dark:hover:bg-slate-800"
+            >
+              <LayoutDashboard
+                className="h-4 w-4 shrink-0"
+                aria-hidden="true"
+              />
+              <span className="hidden md:inline">{workspaceLabel}</span>
+            </Link>
+          ) : null}
           <NavbarDateTimeCalendar />
           {/* Employee Portal Independent Theme Toggle */}
           <button
@@ -400,8 +463,14 @@ export default function EmployeePortalLayout({
           name={fullName}
           initials={initials}
         />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/60 dark:bg-gray-900/40">
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
+        {/* Solid (not translucent): PortalSidebar's active tab uses this exact
+            colour to join the page seamlessly. */}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 dark:bg-gray-dark">
+          {/* `relative`: keep absolutely positioned descendants (sr-only
+              captions, tooltips) inside this scroller instead of the document. */}
+          <div className="relative flex-1 overflow-y-auto p-4 lg:p-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

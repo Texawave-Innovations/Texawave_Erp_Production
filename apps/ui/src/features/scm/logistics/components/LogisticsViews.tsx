@@ -14,7 +14,6 @@ import {
   PageHeader,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertTriangle,
@@ -27,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useMasterListItems } from "../../master-list-items/hooks";
 import {
@@ -60,7 +60,11 @@ export function LogisticsDashboardView() {
     const err = shipments.error ?? shippable.error;
     if (err instanceof ApiError && err.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to logistics">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to logistics"
+        >
           Ask an administrator for the <code>scm.logistics.read</code>{" "}
           permission.
         </Alert>
@@ -170,7 +174,7 @@ export function LogisticsDashboardView() {
 export function DeliveriesView() {
   const query = useShippable();
   const create = useCreateShipment();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.logistics.write");
   const [busy, setBusy] = useState<number | null>(null);
 
@@ -181,12 +185,9 @@ export function DeliveriesView() {
         fulfillmentId: f.id,
         packingIds: f.unshippedPackings.map((p) => p.id),
       });
-      toast({ title: `${s.shipmentNumber} created`, variant: "success" });
+      notify("scm.shipment.created", { number: s.shipmentNumber });
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to create shipment"),
-        variant: "error",
-      });
+      notifyError(err, "scm.shipment.createFailed");
     } finally {
       setBusy(null);
     }
@@ -196,7 +197,11 @@ export function DeliveriesView() {
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to deliveries">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to deliveries"
+        >
           Ask an administrator for the <code>scm.logistics.read</code>{" "}
           permission.
         </Alert>
@@ -282,7 +287,7 @@ export function CarriersView() {
   const c = useListControls();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Carrier | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.logistics.write");
   const deletingRowRemove = useDeleteCarrier();
   const [deletingRow, setDeletingRow] = useState<Carrier | null>(null);
@@ -393,8 +398,8 @@ export function CarriersView() {
         }
         confirmText="Delete carrier"
         run={(r) => deletingRowRemove.mutateAsync(r.id)}
-        successMessage="Carrier deleted"
-        errorFallback="Failed to delete carrier"
+        successMessage="scm.carrier.deleted"
+        errorFallback="scm.carrier.deleteFailed"
       />
       <ScmFormDialog
         open={formOpen}
@@ -478,12 +483,9 @@ export function CarriersView() {
               input,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save carrier"));
+            throw new Error(errorText(err, "scm.carrier.saveFailed"));
           }
-          toast({
-            title: editing ? "Carrier updated" : "Carrier added",
-            variant: "success",
-          });
+          notify(editing ? "scm.carrier.updated" : "scm.carrier.added");
           setFormOpen(false);
           setEditing(null);
         }}

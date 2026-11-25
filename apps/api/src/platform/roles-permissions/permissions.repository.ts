@@ -13,7 +13,11 @@ export class PermissionsRepository {
    * `isActive` is checked at all three levels (`RolePermission`, `Role`,
    * `UserRole`) — each one independently disables the grant without
    * deleting it (apps/api/src/modules/settings/roles/), so a stale `true`
-   * at any single level would silently keep access alive. */
+   * at any single level would silently keep access alive.
+   *
+   * The user itself is checked too: access tokens are stateless, so a
+   * deactivated/deleted user (e.g. an employee marked RESIGNED) would
+   * otherwise keep every permission until the token expires. */
   async findPermissionCodesForUser(userId: number): Promise<string[]> {
     const rolePermissions = await this.prisma.rolePermission.findMany({
       where: {
@@ -21,7 +25,13 @@ export class PermissionsRepository {
         permission: { isActive: true },
         role: {
           isActive: true,
-          userRoles: { some: { userId, isActive: true } },
+          userRoles: {
+            some: {
+              userId,
+              isActive: true,
+              user: { isActive: true, deletedAt: null },
+            },
+          },
         },
       },
       select: { permission: { select: { code: true } } },

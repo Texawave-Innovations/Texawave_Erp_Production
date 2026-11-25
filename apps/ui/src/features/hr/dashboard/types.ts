@@ -32,6 +32,7 @@ export interface LeaveRequestRow {
   startDate: string;
   endDate: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  createdAt?: string;
 }
 
 export interface EmployeeRow {

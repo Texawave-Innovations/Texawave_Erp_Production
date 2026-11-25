@@ -18,9 +18,9 @@ import {
   type Icon3DName,
   Skeleton,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useUploadEmployeeDocument } from "@/features/hr/employee-documents/hooks";
@@ -87,7 +87,11 @@ export function describeSaveError(error: unknown): {
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to edit profiles">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to edit profiles"
+    >
       Ask an administrator for the <code>hr.employee_profile.write</code>{" "}
       permission.
     </Alert>
@@ -144,7 +148,7 @@ function EditCardSection({
         </div>
       </div>
       <div className="p-6">
-        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
           {children}
         </div>
       </div>
@@ -221,7 +225,7 @@ function ProfileEditForm({
   initialAvatarUrl?: string | null | undefined;
 }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const queryClient = useQueryClient();
   const updateMutation = useUpdateProfile();
   const uploadMutation = useUploadEmployeeDocument(id);
@@ -239,20 +243,12 @@ function ProfileEditForm({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file format",
-        description: "Please select an image file (PNG, JPG, JPEG, or WebP).",
-        variant: "warning",
-      });
+      notify("hr.photo.invalidFormat");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Photo file size must not exceed 5MB.",
-        variant: "warning",
-      });
+      notify("hr.photo.tooLarge");
       return;
     }
 
@@ -266,17 +262,9 @@ function ProfileEditForm({
       const newAvatarUrl = `/hr/employees/${id}/documents/${res.id}/file`;
       setCurrentAvatarUrl(newAvatarUrl);
       await queryClient.invalidateQueries({ queryKey: ["hr-profiles", id] });
-      toast({
-        title: "Profile photo updated",
-        description: "Employee profile photo has been uploaded and updated successfully.",
-        variant: "success",
-      });
+      notify("hr.profile.photoUpdated");
     } catch {
-      toast({
-        title: "Upload failed",
-        description: "Could not upload the profile photo. Please try again.",
-        variant: "error",
-      });
+      notify("hr.photo.uploadFailed");
     } finally {
       setIsUploadingPhoto(false);
       if (photoInputRef.current) photoInputRef.current.value = "";
@@ -323,13 +311,13 @@ function ProfileEditForm({
 
     const body = buildProfilePatch(initial, values);
     if (Object.keys(body).length === 0) {
-      toast({ title: "No changes to save", variant: "info" });
+      notify("hr.profile.noChanges");
       return;
     }
 
     try {
       await updateMutation.mutateAsync({ id, body });
-      toast({ title: "Profile saved", variant: "success" });
+      notify("hr.profile.saved");
       router.push(`/hr/employees/${id}/profile`);
     } catch (error) {
       setSaveError(error);
@@ -368,13 +356,18 @@ function ProfileEditForm({
             </div>
 
             <p className="max-w-2xl text-[12px] font-medium text-[#2f6396] dark:text-sky-300/80">
-              Update personal identity, family members, emergency contact, experience, and residential addresses.
+              Update personal identity, family members, emergency contact,
+              experience, and residential addresses.
             </p>
           </div>
 
           <div className="hidden sm:flex sm:items-center sm:gap-3">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-200/90 bg-white/95 p-2 shadow-[0_8px_20px_rgba(23,105,245,0.12)] ring-4 ring-white/70 dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-800/60">
-              <Semantic3DIcon name="edit" size={42} alt="Edit employee profile" />
+              <Semantic3DIcon
+                name="edit"
+                size={42}
+                alt="Edit employee profile"
+              />
             </div>
           </div>
         </div>
@@ -398,12 +391,13 @@ function ProfileEditForm({
                 Employee Profile Photo
               </h2>
               <p className="mt-0.5 text-[11px] font-medium text-[#2f6396] dark:text-sky-300/80">
-                Official employee photo. Reflected across HR profiles, employee documents, and system records.
+                Official employee photo. Reflected across HR profiles, employee
+                documents, and system records.
               </p>
             </div>
           </div>
           <div className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-slate-800/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-xl border border-sky-200/80 bg-linear-to-b from-[#f8fbff]/60 to-white p-5 shadow-2xs dark:border-slate-700/80 dark:bg-none dark:bg-slate-800/40">
               <div className="flex items-center gap-4">
                 <EmployeeIdentity
                   name={employeeName}
@@ -416,7 +410,9 @@ function ProfileEditForm({
                     {employeeName}
                   </h3>
                   <p className="text-xs font-semibold text-[#2f6396] dark:text-sky-300">
-                    {currentAvatarUrl ? "Custom profile photo is active" : "Default initials avatar"}
+                    {currentAvatarUrl
+                      ? "Custom profile photo is active"
+                      : "Default initials avatar"}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                     PNG, JPG, or WebP up to 5MB.
@@ -443,7 +439,11 @@ function ProfileEditForm({
                   ) : (
                     <Camera className="h-4 w-4 mr-1.5 text-brand-500" />
                   )}
-                  {isUploadingPhoto ? "Uploading..." : currentAvatarUrl ? "Change Photo" : "Upload Photo"}
+                  {isUploadingPhoto
+                    ? "Uploading..."
+                    : currentAvatarUrl
+                      ? "Change Photo"
+                      : "Upload Photo"}
                 </Button>
               </div>
             </div>
@@ -820,7 +820,7 @@ function StatutoryEditSection({ id }: { id: number }) {
 }
 
 function StatutoryEditForm({ id }: { id: number }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const query = useSensitive(id, true);
   const updateMutation = useUpdateSensitive();
   const [values, setValues] = useState<SensitiveFormValues | null>(null);
@@ -862,13 +862,13 @@ function StatutoryEditForm({ id }: { id: number }) {
     if (Object.keys(found).length > 0) return;
     const body = buildSensitivePatch(initial, current);
     if (Object.keys(body).length === 0) {
-      toast({ title: "No changes to save", variant: "info" });
+      notify("hr.profile.noChanges");
       return;
     }
     try {
       await updateMutation.mutateAsync({ id, body });
       setValues(null);
-      toast({ title: "Statutory and bank details saved", variant: "success" });
+      notify("hr.profile.statutorySaved");
     } catch (error) {
       setSaveError(error);
     }

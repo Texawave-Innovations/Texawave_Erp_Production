@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type { CreateQuotationInput, Rfq } from "@texawave-erp/api-types";
 import { Button } from "@texawave-erp/ui-kit";
 import { useMemo, useState } from "react";
@@ -215,11 +216,7 @@ function Body({
         })),
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save the quotation.",
-      );
+      setSubmitError(errorText(err, "scm.quotation.formFailed"));
     } finally {
       setSubmitting(false);
     }

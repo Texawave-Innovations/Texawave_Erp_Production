@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BellOff, Check } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
-import { useToast } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useSetDnd } from "../hooks";
 import {
   DND_OFF_REQUEST,
@@ -19,7 +18,7 @@ import type { DndState } from "../types";
  * count is hidden until it ends.
  */
 export function DoNotDisturbMenu({ state }: { state: DndState | undefined }) {
-  const { toast } = useToast();
+  const { notifyError } = useNotify();
   const setDnd = useSetDnd();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,13 +50,7 @@ export function DoNotDisturbMenu({ state }: { state: DndState | undefined }) {
     try {
       await setDnd.mutateAsync(body);
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError
-            ? error.message
-            : "Could not change Do Not Disturb",
-        variant: "error",
-      });
+      notifyError(error, "notifications.dnd.failed");
     }
   }
 

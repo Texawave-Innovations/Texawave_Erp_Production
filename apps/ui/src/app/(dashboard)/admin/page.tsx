@@ -1,5 +1,5 @@
-import { HrDashboardView } from "@/features/hr/dashboard/components/HrDashboardView";
+import { AdminDashboardView } from "@/features/admin-dashboard/components/AdminDashboardView";
 
 export default function AdminDashboardPage() {
-  return <HrDashboardView />;
+  return <AdminDashboardView />;
 }

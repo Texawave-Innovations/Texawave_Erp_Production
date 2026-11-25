@@ -24,7 +24,7 @@ export function ReturnsReportView() {
       noun="returns"
       query={query}
       getRowKey={(r) => r.returnNumber}
-      fileName="scm-returns-report.csv"
+      fileName="scm-returns-report.xlsx"
       emptyDescription="Returns will appear here once customers or vendors raise one."
       columns={[
         {
@@ -53,16 +53,28 @@ export function ReturnsReportView() {
         },
         { header: "Requested", cell: (r) => formatDate(r.requestedDate) },
       ]}
-      csvColumns={[
+      exportColumns={[
         { header: "Return Number", value: (r) => r.returnNumber },
         { header: "Type", value: (r) => r.type },
         { header: "Party", value: (r) => r.party },
         { header: "Reason", value: (r) => r.reasonCode },
         { header: "Status", value: (r) => r.status },
-        { header: "Lines", value: (r) => r.lines },
-        { header: "Dispositioned Qty", value: (r) => r.dispositionedQty },
-        { header: "Requested Date", value: (r) => r.requestedDate },
-        { header: "Completed At", value: (r) => r.completedAt },
+        { header: "Lines", value: (r) => r.lines, type: "integer" },
+        {
+          header: "Dispositioned Qty",
+          value: (r) => r.dispositionedQty,
+          type: "number",
+        },
+        {
+          header: "Requested Date",
+          value: (r) => r.requestedDate,
+          type: "date",
+        },
+        {
+          header: "Completed At",
+          value: (r) => r.completedAt,
+          type: "datetime",
+        },
       ]}
     />
   );

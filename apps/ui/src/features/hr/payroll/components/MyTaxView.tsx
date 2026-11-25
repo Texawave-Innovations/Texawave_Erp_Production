@@ -1,15 +1,9 @@
 "use client";
 
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  Button,
-  Card,
-  FormField,
-  Select,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, Button, Card, FormField, Select } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { describeError, recentFinancialYears, timestamp } from "../format";
 import { useMyDeclarations, useSaveMyDeclaration } from "../hooks";
@@ -42,7 +36,7 @@ function DeclarationForm({
 }) {
   const canWrite = usePermission(MY_TAX_DECLARATION_WRITE);
   const save = useSaveMyDeclaration();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [draft, setDraft] = useState(() => declarationDraft(current));
   const [error, setError] = useState<string | null>(null);
   const editable = canWrite && (!current || EDITABLE.has(current.status));
@@ -64,12 +58,11 @@ function DeclarationForm({
           submit,
         },
       });
-      toast({
-        title: submit
-          ? "Declaration submitted for verification"
-          : "Declaration saved as a draft",
-        variant: "success",
-      });
+      notify(
+        submit
+          ? "payroll.tax.declarationSubmitted"
+          : "payroll.tax.declarationDraftSaved",
+      );
     } catch (err) {
       setError(describeError(err));
     }
@@ -89,12 +82,12 @@ function DeclarationForm({
         </div>
       ) : null}
       {current?.status === "REJECTED" && current.verificationNote ? (
-        <Alert variant="warning" title="Returned by HR">
+        <Alert dismissible variant="warning" title="Returned by HR">
           {current.verificationNote} — correct it and submit again.
         </Alert>
       ) : null}
       {current && !EDITABLE.has(current.status) ? (
-        <Alert variant="info" title="Locked">
+        <Alert dismissible variant="info" title="Locked">
           A {current.status.toLowerCase()} declaration can no longer be changed.
           Ask HR if something is wrong.
         </Alert>
@@ -139,7 +132,7 @@ export function MyTaxView() {
 
   if (!canRead && !canForm16) {
     return (
-      <Alert variant="warning" title="No access">
+      <Alert dismissible variant="warning" title="No access">
         Ask HR for access to your tax declaration and Form 16.
       </Alert>
     );
@@ -149,7 +142,7 @@ export function MyTaxView() {
     query.error.errorCode === "NOT_AN_EMPLOYEE"
   ) {
     return (
-      <Alert variant="info" title="No employee record">
+      <Alert dismissible variant="info" title="No employee record">
         Your account is not linked to an employee record.
       </Alert>
     );

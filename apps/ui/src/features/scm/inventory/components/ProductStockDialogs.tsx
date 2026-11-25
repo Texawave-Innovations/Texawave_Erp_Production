@@ -4,7 +4,8 @@ import type {
   AdjustmentDirection,
   ScmWarehouse,
 } from "@texawave-erp/api-types";
-import { Button, Dialog, useToast } from "@texawave-erp/ui-kit";
+import { Button, Dialog } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import { SelectField, TextAreaField, TextField } from "../../shared/form-bits";
 import { useMasterListItems } from "../../master-list-items/hooks";
@@ -49,7 +50,7 @@ function AdjustBody({
   defaultWarehouseId,
   direction: initialDirection,
 }: StockAdjustDialogProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const apply = useApplyAdjustment();
   const [warehouseId, setWarehouseId] = useState(
     String(defaultWarehouseId ?? warehouses[0]?.id ?? ""),
@@ -90,10 +91,10 @@ function AdjustBody({
         reason: effectiveReason,
         notes: notes.trim() || undefined,
       });
-      toast({ title: "Stock updated", variant: "success" });
+      notify("scm.stock.updated");
       onClose();
     } catch (err) {
-      setError(errorText(err, "Failed to apply adjustment"));
+      setError(errorText(err, "scm.stock.adjustFailed"));
     }
   }
 
@@ -187,7 +188,7 @@ function ReserveBody({
   warehouses,
   defaultWarehouseId,
 }: BaseProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const reserve = useCreateReservation();
   const [warehouseId, setWarehouseId] = useState(
     String(defaultWarehouseId ?? warehouses[0]?.id ?? ""),
@@ -209,10 +210,10 @@ function ReserveBody({
         quantity: qty,
         notes: notes.trim() || undefined,
       });
-      toast({ title: "Stock reserved", variant: "success" });
+      notify("scm.stock.reserved");
       onClose();
     } catch (err) {
-      setError(errorText(err, "Failed to reserve stock"));
+      setError(errorText(err, "scm.stock.reserveFailed"));
     }
   }
 

@@ -33,10 +33,10 @@ import {
   Select,
   Semantic3DIcon,
   TableSkeleton,
-  useToast,
   cn,
   type FilterChipItem,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { exportEmployeesCsv, type EmployeeListQuery } from "../api";
@@ -132,7 +132,7 @@ export function EmployeesView() {
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canApprove = usePermission(ONBOARDING_APPROVE_TEAM_OR_ALL);
   const canDelete = usePermission(DELETE_EMPLOYEE);
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const { formatDate } = useRegionalFormatter();
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -160,11 +160,7 @@ export function EmployeesView() {
   ) => {
     e.stopPropagation();
     if (!canAccount && !canWrite) {
-      toast({
-        title: "Permission denied",
-        description: "You do not have permission to manage employee accounts.",
-        variant: "error",
-      });
+      notify("hr.employee.accountPermissionDenied");
       return;
     }
 
@@ -175,23 +171,9 @@ export function EmployeesView() {
           id: emp.id,
           body: { reason: "Unlinked via employee directory quick action" },
         });
-        toast({
-          title: "Account unlinked",
-          description: `${emp.fullName}'s login has been detached.`,
-          variant: "success",
-        });
+        notify("hr.employee.accountDetached", { name: emp.fullName });
       } catch (error) {
-        const message =
-          error instanceof ApiError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Failed to unlink employee account";
-        toast({
-          title: "Unlink failed",
-          description: message,
-          variant: "error",
-        });
+        notifyFailure(error, "hr.employee.accountDetachFailed");
       } finally {
         setUnlinkingEmployeeId(null);
       }
@@ -206,11 +188,7 @@ export function EmployeesView() {
   ) => {
     e.stopPropagation();
     if (!canWriteStatus && !canWrite) {
-      toast({
-        title: "Permission denied",
-        description: "You do not have permission to update employee status.",
-        variant: "error",
-      });
+      notify("hr.employee.statusPermissionDenied");
       return;
     }
 
@@ -234,23 +212,20 @@ export function EmployeesView() {
           reason: `Status changed to ${nextStatus === "ACTIVE" ? "Active" : "Inactive"} via employee directory quick action`,
         },
       });
-      toast({
-        title: `Status changed to ${STATUS_LABELS[nextStatus]}`,
-        description: `${emp.fullName} is now ${STATUS_LABELS[nextStatus].toLowerCase()}.`,
-        variant: "success",
-      });
+      notify(
+        emp.hasLogin
+          ? nextStatus === "INACTIVE"
+            ? "hr.employee.statusChangedPaused"
+            : "hr.employee.statusChangedReactivated"
+          : "hr.employee.statusChangedPlain",
+        {
+          status: STATUS_LABELS[nextStatus],
+          name: emp.fullName,
+          state: STATUS_LABELS[nextStatus].toLowerCase(),
+        },
+      );
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "Failed to update employee status";
-      toast({
-        title: "Status change failed",
-        description: message,
-        variant: "error",
-      });
+      notifyFailure(error, "hr.employee.statusChangeFailed");
     } finally {
       setUpdatingEmployeeId(null);
     }
@@ -260,20 +235,10 @@ export function EmployeesView() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      toast({
-        title: "Employee deleted",
-        description: `${deleteTarget.fullName}'s record has been permanently removed.`,
-        variant: "success",
-      });
+      notify("hr.employee.deleted", { name: deleteTarget.fullName });
       setDeleteTarget(null);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "Failed to delete employee";
-      toast({ title: "Delete failed", description: message, variant: "error" });
+      notifyFailure(error, "hr.employee.deleteFailed");
     }
   };
 
@@ -410,7 +375,11 @@ export function EmployeesView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to employees">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to employees"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );
@@ -427,18 +396,9 @@ export function EmployeesView() {
     try {
       const { page: _p, limit: _l, ...filtersOnly } = query;
       await exportEmployeesCsv(filtersOnly);
-      toast({
-        title: "Export complete",
-        description: "The employees CSV has been downloaded successfully.",
-        variant: "success",
-      });
+      notify("hr.employee.exported");
     } catch (error) {
-      toast({
-        title: "Export failed",
-        description:
-          error instanceof Error ? error.message : "Try again in a moment.",
-        variant: "error",
-      });
+      notifyFailure(error, "hr.employee.exportFailed");
     } finally {
       setExporting(false);
     }
@@ -463,10 +423,10 @@ export function EmployeesView() {
           <div className="flex flex-wrap items-center gap-2">
             {canExport ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => void handleExport()}
                 loading={exporting}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-medium"
               >
                 <Semantic3DIcon name="export" size={18} />
                 <span>Export CSV</span>
@@ -474,15 +434,15 @@ export function EmployeesView() {
             ) : null}
             {canWrite ? (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => setImportOpen(true)}
-                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30 rounded-xl px-4 py-2.5 font-medium"
+                className="gap-2 rounded-xl px-4 py-2.5 font-medium"
               >
                 <Semantic3DIcon name="import" size={18} />
                 <span>Import CSV</span>
               </Button>
             ) : null}
-            {canWrite ? (
+            {canWrite && canAccount ? (
               <Button
                 variant="primary"
                 onClick={() => router.push("/hr/employees/new")}
@@ -814,7 +774,11 @@ export function EmployeesView() {
         <TableSkeleton rowsCount={6} columnsCount={9} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to employees">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to employees"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -851,7 +815,7 @@ export function EmployeesView() {
               caption="Employees"
               tableClassName="w-full text-left text-theme-xs"
               density="compact"
-              className="overflow-x-auto lg:overflow-x-visible scrollbar-none [&::-webkit-scrollbar]:hidden"
+              className="scrollbar-none [&::-webkit-scrollbar]:hidden"
               rows={list.data.data}
               getRowKey={(e) => String(e.id)}
               columns={[
@@ -900,7 +864,7 @@ export function EmployeesView() {
                   className: "w-[95px] text-center whitespace-nowrap",
                   headerClassName: "w-[95px] text-center whitespace-nowrap",
                   cell: (e) => (
-                    <span className="font-mono text-[12px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[12px] text-gray-500 dark:text-gray-400">
                       {formatDate(e.dateOfJoining)}
                     </span>
                   ),

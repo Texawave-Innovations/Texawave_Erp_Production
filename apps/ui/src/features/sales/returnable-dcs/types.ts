@@ -22,6 +22,8 @@ export interface ReturnableDc {
   notes: string | null;
   status: RdcStatus;
   returnedDate: string | null;
+  /** Why it was last reopened; present while it is pending return again. */
+  reopenReason: string | null;
   /** Days past the expected return date while still out, else null. */
   overdueDays: number | null;
   itemsCount: number;

@@ -11,7 +11,11 @@ export class DocumentFiguresService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  figures(today: Date) {
-    return this.repository.figures(this.tenantContext.getOrgScope(), today);
+  figures(today: Date, year?: number) {
+    return this.repository.figures(
+      this.tenantContext.getOrgScope(),
+      today,
+      year,
+    );
   }
 }

@@ -168,8 +168,8 @@ export function Icon3dHumanResources({
           y2="26"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#818CF8" />
-          <stop offset="100%" stopColor="#4338CA" />
+          <stop offset="0%" stopColor="#12CFE3" />
+          <stop offset="100%" stopColor="#0284C7" />
         </linearGradient>
         <linearGradient
           id={`${id}-gold`}
@@ -822,8 +822,8 @@ export function Icon3dDepartments({
           y2="28"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#A78BFA" />
-          <stop offset="100%" stopColor="#6D28D9" />
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="100%" stopColor="#0284C7" />
         </linearGradient>
         <linearGradient
           id={`${id}-b2`}
@@ -833,8 +833,8 @@ export function Icon3dDepartments({
           y2="28"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#C4B5FD" />
-          <stop offset="100%" stopColor="#5B21B6" />
+          <stop offset="0%" stopColor="#7DD3FC" />
+          <stop offset="100%" stopColor="#0A3271" />
         </linearGradient>
       </defs>
       {/* Main Glass Tower */}
@@ -983,8 +983,8 @@ export function Icon3dOrgChart({
           y2="27"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#818CF8" />
-          <stop offset="100%" stopColor="#4F46E5" />
+          <stop offset="0%" stopColor="#12CFE3" />
+          <stop offset="100%" stopColor="#1769F5" />
         </linearGradient>
         <linearGradient
           id={`${id}-node3`}

@@ -290,18 +290,16 @@ export class AttendanceMonthLocksRepository {
           message: `This month is already ${from === "APPROVED" ? "approved" : "submitted"}`,
         } as const;
       }
-      const open = await tx.attendanceSession.findFirst({
-        where: {
-          checkOutAt: null,
-          record: {
-            organizationId: scope.organizationId,
-            employeeId: input.employeeId,
-            attendanceDate: {
-              gte: monthDate,
-              lte: parseDateOnly(lastDayOf(input.month)),
-            },
-          },
+      const inMonth = {
+        organizationId: scope.organizationId,
+        employeeId: input.employeeId,
+        attendanceDate: {
+          gte: monthDate,
+          lte: parseDateOnly(lastDayOf(input.month)),
         },
+      };
+      const open = await tx.attendanceSession.findFirst({
+        where: { checkOutAt: null, record: inMonth },
         select: { id: true },
       });
       if (open) {
@@ -310,6 +308,21 @@ export class AttendanceMonthLocksRepository {
           code: "OPEN_SESSION_IN_MONTH",
           message:
             "A session in this month is still open; close it before submitting",
+        } as const;
+      }
+      // An auto-closed session has no verified check-out; freezing it would
+      // approve the day as not marked (loss of pay when unmarked days count as
+      // absent). HR regularizes it first.
+      const pending = await tx.attendanceSession.findFirst({
+        where: { autoClosed: true, record: inMonth },
+        select: { id: true },
+      });
+      if (pending) {
+        return {
+          result: "skipped",
+          code: "PENDING_REGULARIZATION_IN_MONTH",
+          message:
+            "A session in this month was auto-closed and is pending regularization; regularize it before submitting",
         } as const;
       }
 

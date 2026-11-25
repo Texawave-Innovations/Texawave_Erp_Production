@@ -1,4 +1,16 @@
-import type { EffectiveStatus } from "./types";
+import type { AttendanceSession, EffectiveStatus } from "./types";
+
+/** The session's verified check-out, or null. An auto-closed session's
+ * `checkOutAt` is the system's cut-off, not the employee's check-out, so it is
+ * never shown or counted as one until HR regularizes it. */
+export function verifiedCheckOutAt(
+  s: Pick<AttendanceSession, "checkOutAt" | "autoClosed">,
+): string | null {
+  return s.autoClosed ? null : s.checkOutAt;
+}
+
+/** Label shown in place of the check-out of an auto-closed session. */
+export const AUTO_CLOSED_LABEL = "Not recorded (pending regularization)";
 import {
   formatTime as coreFormatTime,
   type FormatTimeOptions,

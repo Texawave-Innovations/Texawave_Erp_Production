@@ -15,8 +15,8 @@ import {
   Pagination,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
@@ -54,7 +54,7 @@ type Editing = {
 export function AllotmentSection() {
   const canWrite = usePermission(LEAVE_TYPE_WRITE);
   const canExport = usePermission(EXPORT_ANY_SCOPE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const [search, setSearch] = useState("");
@@ -80,13 +80,11 @@ export function AllotmentSection() {
         ...(debounced ? { search: debounced } : {}),
       });
     } catch (err) {
-      toast({
-        title: "Could not export",
-        description: leaveErrorMessage(
+      notify("hr.leave.exportFailed", {
+        reason: leaveErrorMessage(
           err,
           "You don't have permission to export leave.",
         ),
-        variant: "error",
       });
     } finally {
       setExporting(false);
@@ -165,6 +163,7 @@ export function AllotmentSection() {
       ) : report.isError ? (
         report.error instanceof ApiError && report.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to leave balances"
           >
@@ -187,7 +186,7 @@ export function AllotmentSection() {
           />
         </Card>
       ) : types.length === 0 ? (
-        <Alert variant="info" title="No active leave types">
+        <Alert dismissible variant="info" title="No active leave types">
           Create leave types first; their entitlements appear here.
         </Alert>
       ) : (

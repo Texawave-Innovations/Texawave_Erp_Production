@@ -11,7 +11,6 @@ import {
   Input,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ScrollText, Undo2 } from "lucide-react";
 import Link from "next/link";
@@ -24,8 +23,9 @@ import {
 } from "../../shared/format";
 import { WarehouseSelect } from "../../shared/masters";
 import { ScmListView } from "../../shared/ScmListView";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
-import { errorText, useListControls } from "../../shared/use-list-controls";
+import { useListControls } from "../../shared/use-list-controls";
 import { useLedger, useReverseLedgerEntry } from "../hooks";
 
 const IN_TYPES = new Set([
@@ -46,7 +46,7 @@ export function StockLedgerView() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [reversing, setReversing] = useState<LedgerEntry | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const reverse = useReverseLedgerEntry();
 
@@ -229,15 +229,9 @@ export function StockLedgerView() {
           if (!reversing) return;
           try {
             await reverse.mutateAsync(reversing.id);
-            toast({
-              title: "Entry reversed and stock balance adjusted",
-              variant: "success",
-            });
+            notify("scm.ledger.reversed");
           } catch (err) {
-            toast({
-              title: errorText(err, "Failed to reverse ledger entry"),
-              variant: "error",
-            });
+            notifyError(err, "scm.ledger.reverseFailed");
           }
           setReversing(null);
         }}

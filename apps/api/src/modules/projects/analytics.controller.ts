@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Patch } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../common/decorators/require-permission.decorator.js";
 import { ProjectsAnalyticsService } from "./analytics.service.js";
 import { UpdatePointsConfigDto } from "./dto/update-points-config.dto.js";
+import { QueryHoursTrendDto } from "./dto/query-hours-trend.dto.js";
 
 @ApiTags("Project Analytics & Gamification")
 @ApiBearerAuth()
@@ -25,6 +26,15 @@ export class ProjectsAnalyticsController {
   @ApiOperation({ summary: "Get executive dashboard KPIs (alias)" })
   getAnalyticsDashboard() {
     return this.service.getDashboardMetrics();
+  }
+
+  @Get("analytics/hours-trend")
+  @RequirePermission("projects.project.read")
+  @ApiOperation({
+    summary: "Hours logged per Monday-start week across every live project",
+  })
+  getHoursTrend(@Query() query: QueryHoursTrendDto) {
+    return this.service.getHoursTrend(query.weeks ?? 7);
   }
 
   @Get("analytics/resources")

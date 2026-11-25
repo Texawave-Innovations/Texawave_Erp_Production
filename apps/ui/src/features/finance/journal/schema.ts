@@ -1,3 +1,4 @@
+import { ISO_DATE_PATTERN } from "@texawave-erp/core";
 import { FINANCE_JOURNAL_ENTRY_TYPES } from "@texawave-erp/api-types";
 import { z } from "zod";
 
@@ -26,7 +27,7 @@ export const createJournalEntrySchema = z
       .optional(),
     entryDate: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+      .regex(ISO_DATE_PATTERN, "Date must be in YYYY-MM-DD format"),
     entryType: z.enum(FINANCE_JOURNAL_ENTRY_TYPES).default("MANUAL"),
     narration: z
       .string()
@@ -69,7 +70,7 @@ export type CreateJournalEntryFormValues = z.infer<
 export const reverseJournalEntrySchema = z.object({
   reversalDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+    .regex(ISO_DATE_PATTERN, "Date must be in YYYY-MM-DD format")
     .optional(),
   reason: z
     .string()

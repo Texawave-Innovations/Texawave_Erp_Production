@@ -53,6 +53,7 @@ function makeService(overrides?: {
   const defaultBatch = { id: 1, status: "PENDING", payments: [payment()] };
 
   const repository = {
+    recordBatchExport: vi.fn().mockResolvedValue(undefined),
     findBatches: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
     findBatchById: vi
       .fn()
@@ -276,6 +277,30 @@ describe("PaymentsService", () => {
       expect(lines[1]).toBe(
         '"EMP-007","Asha Rao","State Bank","123456781234","SBIN0001234",45000.5,"BANK_TRANSFER","PENDING",""',
       );
+    });
+
+    it("audits the export with only the batch id and payment count (PAY-8)", async () => {
+      const { service, repository } = makeService();
+      await service.exportBatchCsv(1);
+      expect(repository.recordBatchExport).toHaveBeenCalledTimes(1);
+      expect(repository.recordBatchExport).toHaveBeenCalledWith(SCOPE, 1, 1);
+    });
+
+    it("returns no file when the audit insert fails (fail-closed)", async () => {
+      const { service, repository } = makeService();
+      repository.recordBatchExport.mockRejectedValue(new Error("audit down"));
+      await expect(service.exportBatchCsv(1)).rejects.toThrow("audit down");
+    });
+
+    it("does not audit a refused export (team-level grant)", async () => {
+      const { service, repository } = makeService({
+        level: "team",
+        teamIds: [3],
+      });
+      await expect(service.exportBatchCsv(1)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(repository.recordBatchExport).not.toHaveBeenCalled();
     });
 
     it("neutralises spreadsheet formulas and quotes in employee names", async () => {
