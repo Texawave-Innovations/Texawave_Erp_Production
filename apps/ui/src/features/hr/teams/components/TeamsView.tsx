@@ -21,8 +21,8 @@ import {
   DeleteConfirmDialog,
   SearchInput,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { HrPageHeader } from "@/features/hr/components";
 import { useUsers } from "@/features/users/hooks";
 import type { TeamFormData, TeamItem, TeamStatusFilter } from "../types";
@@ -52,7 +52,7 @@ export function TeamsView() {
   const [selectedTeam, setSelectedTeam] = useState<TeamItem | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<TeamItem | null>(null);
 
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // Load users to correlate team leads and member assignments
   const usersQuery = useUsers({ page: 1, limit: 100 });
@@ -146,9 +146,8 @@ export function TeamsView() {
     );
     setTeams(updated);
     saveStoredTeams(updated);
-    toast({
-      title: `Team "${team.name}" ${team.isActive ? "deactivated" : "activated"}.`,
-      variant: "success",
+    notify(team.isActive ? "hr.team.deactivated" : "hr.team.activated", {
+      name: team.name,
     });
   }
 
@@ -161,10 +160,7 @@ export function TeamsView() {
     const updated = teams.filter((t) => t.id !== deletingTeam.id);
     setTeams(updated);
     saveStoredTeams(updated);
-    toast({
-      title: `Team "${deletingTeam.name}" deleted.`,
-      variant: "success",
-    });
+    notify("hr.team.deleted", { name: deletingTeam.name });
     setDeletingTeam(null);
   }
 
@@ -184,10 +180,7 @@ export function TeamsView() {
       setTeams(updated);
       saveStoredTeams(updated);
       setDialogOpen(false);
-      toast({
-        title: `Team "${data.name}" created successfully.`,
-        variant: "success",
-      });
+      notify("hr.team.created", { name: data.name });
     } else if (selectedTeam) {
       const updated = teams.map((t) =>
         t.id === selectedTeam.id
@@ -203,10 +196,7 @@ export function TeamsView() {
       setTeams(updated);
       saveStoredTeams(updated);
       setDialogOpen(false);
-      toast({
-        title: `Team "${data.name}" updated successfully.`,
-        variant: "success",
-      });
+      notify("hr.team.updated", { name: data.name });
     }
   }
 

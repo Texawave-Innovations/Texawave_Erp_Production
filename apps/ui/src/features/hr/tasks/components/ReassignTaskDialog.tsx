@@ -9,8 +9,8 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useDebouncedValue, useEmployees } from "@/features/hr/employees/hooks";
 import { useReassignTask } from "../hooks";
 import { reassignTaskSchema } from "../schema";
@@ -61,7 +61,7 @@ export function ReassignTaskDialog({
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
   });
   const mutation = useReassignTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -77,7 +77,7 @@ export function ReassignTaskDialog({
         id: task.id,
         assigneeId: Number(result.data.assigneeId),
       });
-      toast({ title: "Task reassigned", variant: "success" });
+      notify("hr.task.reassigned");
       setAssigneeId("");
       onClose();
     } catch (err) {

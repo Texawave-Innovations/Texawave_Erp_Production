@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ApiError } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -13,7 +12,6 @@ import {
   Pagination,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -30,6 +28,7 @@ import {
   Table,
   Ticket,
 } from "lucide-react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useEmployees } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
@@ -154,7 +153,7 @@ export function TicketsView() {
 
   const setStatusMutation = useSetTicketStatus();
   const addCommentMutation = useAddTicketComment();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
 
   // Load employees for code mapping
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -297,11 +296,7 @@ export function TicketsView() {
     const isStatusChanged = targetStatus !== ticket.status;
 
     if (!replyText && !isStatusChanged) {
-      toast({
-        title: "Nothing to update",
-        description: "Write a reply or change the status.",
-        variant: "warning",
-      });
+      notify("hr.ticket.nothingToUpdate");
       return;
     }
 
@@ -319,16 +314,14 @@ export function TicketsView() {
           status: targetStatus,
         });
       }
-      toast({ title: "Ticket updated successfully", variant: "success" });
+      notify("hr.ticket.updatedSuccess");
       setReplyDrafts((prev) => {
         const next = { ...prev };
         delete next[ticket.id];
         return next;
       });
     } catch (err) {
-      const msg =
-        err instanceof ApiError ? err.message : "Could not update ticket";
-      toast({ title: "Update failed", description: msg, variant: "error" });
+      notifyFailure(err, "hr.ticket.updateFailed");
     } finally {
       setSubmittingMap((prev) => ({ ...prev, [ticket.id]: false }));
     }
@@ -337,7 +330,7 @@ export function TicketsView() {
   // Export to Excel / CSV
   async function handleExport() {
     if (allTickets.length === 0) {
-      toast({ title: "No tickets to export", variant: "warning" });
+      notify("hr.ticket.nothingToExport");
       return;
     }
     try {
@@ -378,9 +371,9 @@ export function TicketsView() {
           },
         ],
       );
-      toast({ title: "Tickets exported successfully", variant: "success" });
+      notify("hr.ticket.exported");
     } catch {
-      toast({ title: "Could not export tickets", variant: "error" });
+      notify("hr.ticket.exportFailed");
     }
   }
 

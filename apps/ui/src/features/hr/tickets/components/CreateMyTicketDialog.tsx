@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateMyTicket } from "../hooks";
 import {
   createMyTicketSchema,
@@ -52,7 +52,7 @@ export function CreateMyTicketDialog({
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const create = useCreateMyTicket();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const submitting = create.isPending;
 
   async function handleSubmit(event: React.FormEvent) {
@@ -71,7 +71,7 @@ export function CreateMyTicketDialog({
     setServerError(null);
     try {
       await create.mutateAsync(result.data);
-      toast({ title: "Ticket raised", variant: "success" });
+      notify("hr.ticket.raised");
       setValues(EMPTY_CREATE_MY_TICKET_FORM);
       onClose();
     } catch (error) {

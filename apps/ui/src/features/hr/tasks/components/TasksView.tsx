@@ -13,7 +13,6 @@ import {
   Pagination,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -34,6 +33,7 @@ import {
   Search,
   Table,
 } from "lucide-react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
@@ -150,7 +150,7 @@ export function TasksView() {
   const setStatus = useSetTaskStatus();
   const approve = useApproveTask();
   const reopen = useReopenTask();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // Load employees for filter & code mapping
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -351,12 +351,10 @@ export function TasksView() {
         await setStatus.mutateAsync({ id: task.id, status: "DONE" });
         await approve.mutateAsync(task.id);
       }
-      toast({ title: "Request approved", variant: "success" });
+      notify("hr.task.requestApproved");
     } catch (error) {
-      toast({
-        title: "Could not approve request",
-        description: describeStatusError(error),
-        variant: "error",
+      notify("hr.task.requestApproveFailed", {
+        reason: describeStatusError(error),
       });
     }
   }
@@ -364,12 +362,10 @@ export function TasksView() {
   async function handleRejectRequest(task: TaskItem) {
     try {
       await setStatus.mutateAsync({ id: task.id, status: "CANCELLED" });
-      toast({ title: "Request rejected", variant: "success" });
+      notify("hr.task.requestRejected");
     } catch (error) {
-      toast({
-        title: "Could not reject request",
-        description: describeStatusError(error),
-        variant: "error",
+      notify("hr.task.requestRejectFailed", {
+        reason: describeStatusError(error),
       });
     }
   }
@@ -377,26 +373,18 @@ export function TasksView() {
   async function handleDirectApprove(task: TaskItem) {
     try {
       await approve.mutateAsync(task.id);
-      toast({ title: "Task approved", variant: "success" });
+      notify("hr.task.approved");
     } catch (error) {
-      toast({
-        title: "Could not approve",
-        description: describeStatusError(error),
-        variant: "error",
-      });
+      notify("hr.task.approveFailed", { reason: describeStatusError(error) });
     }
   }
 
   async function handleDirectReopen(task: TaskItem) {
     try {
       await reopen.mutateAsync(task.id);
-      toast({ title: "Task reopened", variant: "success" });
+      notify("hr.task.reopened");
     } catch (error) {
-      toast({
-        title: "Could not reopen",
-        description: describeStatusError(error),
-        variant: "error",
-      });
+      notify("hr.task.reopenFailed", { reason: describeStatusError(error) });
     }
   }
 
@@ -433,7 +421,7 @@ export function TasksView() {
         : requestTasks;
 
     if (!tasksToExport || tasksToExport.length === 0) {
-      toast({ title: "No tasks to export", variant: "warning" });
+      notify("hr.task.nothingToExport");
       return;
     }
 
@@ -476,9 +464,9 @@ export function TasksView() {
           },
         ],
       );
-      toast({ title: "Tasks exported successfully", variant: "success" });
+      notify("hr.task.exported");
     } catch {
-      toast({ title: "Could not export tasks", variant: "error" });
+      notify("hr.task.exportFailed");
     }
   }
 

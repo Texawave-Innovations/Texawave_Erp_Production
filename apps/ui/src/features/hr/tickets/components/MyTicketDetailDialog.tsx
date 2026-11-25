@@ -12,8 +12,8 @@ import {
   Select,
   Skeleton,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useAddMyTicketComment,
@@ -79,7 +79,7 @@ export function MyTicketDetailDialog({
   const ticket = useMyTicket(ticketId);
   const update = useUpdateMyTicket();
   const addComment = useAddMyTicketComment();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState({
@@ -121,7 +121,7 @@ export function MyTicketDetailDialog({
     setActionError(null);
     try {
       await update.mutateAsync({ id: ticketId, body: result.data });
-      toast({ title: "Ticket updated", variant: "success" });
+      notify("hr.ticket.updated");
       setEditing(false);
     } catch (err) {
       setActionError(describeError(err));
@@ -140,7 +140,7 @@ export function MyTicketDetailDialog({
     try {
       await addComment.mutateAsync({ id: ticketId, body: result.data.body });
       setReply("");
-      toast({ title: "Reply sent", variant: "success" });
+      notify("hr.ticket.replySent");
     } catch (err) {
       setActionError(describeError(err));
     }
