@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type { CreateFinanceExpenseInput } from "@texawave-erp/api-types";
 import {
@@ -142,9 +143,7 @@ function AddExpenseForm({
       await onSubmit(payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to record expense",
-      );
+      setSubmitError(resolveErrorText(err, "finance.expense.createFailed"));
     } finally {
       setSubmitting(false);
     }

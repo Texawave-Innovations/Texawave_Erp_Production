@@ -11,7 +11,6 @@ import type {
   UpdateFinanceExpenseInput,
 } from "@texawave-erp/api-types";
 import { FINANCE_EXPENSE_STATUSES } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Button,
@@ -24,7 +23,6 @@ import {
   Pagination,
   SearchInput,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   ArrowRight,
@@ -45,6 +43,7 @@ import { useMasterListItems } from "@/features/finance-settings/hooks";
 import { useExpenseClaims } from "@/features/hr/expense-approvals/hooks";
 import type { ExpenseClaimItem } from "@/features/hr/expense-approvals/types";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatDate, formatMoney } from "../../shared/format";
 import {
@@ -112,7 +111,7 @@ export function ExpensesView() {
   const [convertingClaim, setConvertingClaim] =
     useState<ExpenseClaimItem | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // Convert expenseMonth (YYYY-MM) to server-supported startDate and endDate
   const dateRange = useMemo(() => {
@@ -170,23 +169,14 @@ export function ExpensesView() {
   const handleCreateSubmit = async (values: CreateFinanceExpenseInput) => {
     try {
       await createMutation.mutateAsync(values);
-      toast({
-        title:
-          values.status === "PAID"
-            ? "Expense recorded & posted to General Ledger"
-            : "Expense saved as draft",
-        variant: "success",
-      });
+      notify(
+        values.status === "PAID"
+          ? "finance.expense.createdPaid"
+          : "finance.expense.createdDraft",
+      );
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Failed to record expense. Please check input values.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.createFailed");
       throw err;
     }
   };
@@ -197,19 +187,11 @@ export function ExpensesView() {
   ) => {
     try {
       await updateMutation.mutateAsync({ id, input: values });
-      toast({
-        title: "Expense updated successfully",
-        variant: "success",
-      });
+      notify("finance.expense.updated");
       setEditingExpense(null);
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError ? err.message : "Failed to update expense.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.updateFailed");
       throw err;
     }
   };
@@ -220,22 +202,14 @@ export function ExpensesView() {
   ) => {
     try {
       await payMutation.mutateAsync({ id, input: values });
-      toast({
-        title: "Payment disbursed & posted to General Ledger",
-        variant: "success",
-      });
+      notify("finance.expense.disbursed");
       setPayingExpense(null);
       if (selectedExpense?.id === id) {
         setSelectedExpense(null);
       }
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError ? err.message : "Failed to disburse payment.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.disburseFailed");
       throw err;
     }
   };
@@ -249,23 +223,13 @@ export function ExpensesView() {
         claimId,
         input: values,
       });
-      toast({
-        title: `Claim converted to expense #${created.expenseNumber}`,
-        variant: "success",
-      });
+      notify("finance.expense.converted", { number: created.expenseNumber });
       setConvertingClaim(null);
       void claimsQuery.refetch();
       void expensesQuery.refetch();
       setActiveTab("business");
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Failed to convert claim to expense.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.convertFailed");
       throw err;
     }
   };
@@ -274,17 +238,13 @@ export function ExpensesView() {
     if (!submittingExpense) return;
     try {
       await submitMutation.mutateAsync(submittingExpense.id);
-      toast({
-        title: `Expense ${submittingExpense.expenseNumber} submitted for approval`,
-        variant: "success",
+      notify("finance.expense.submitted", {
+        number: submittingExpense.expenseNumber,
       });
       setSubmittingExpense(null);
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to submit expense",
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.submitFailed");
     }
   };
 
@@ -292,17 +252,13 @@ export function ExpensesView() {
     if (!approvingExpense) return;
     try {
       await approveMutation.mutateAsync(approvingExpense.id);
-      toast({
-        title: `Expense ${approvingExpense.expenseNumber} approved`,
-        variant: "success",
+      notify("finance.expense.approved", {
+        number: approvingExpense.expenseNumber,
       });
       setApprovingExpense(null);
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to approve expense",
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.approveFailed");
     }
   };
 
@@ -310,9 +266,8 @@ export function ExpensesView() {
     if (!cancellingExpense) return;
     try {
       await cancelMutation.mutateAsync(cancellingExpense.id);
-      toast({
-        title: `Expense ${cancellingExpense.expenseNumber} cancelled`,
-        variant: "success",
+      notify("finance.expense.cancelled", {
+        number: cancellingExpense.expenseNumber,
       });
       setCancellingExpense(null);
       if (selectedExpense?.id === cancellingExpense.id) {
@@ -320,10 +275,7 @@ export function ExpensesView() {
       }
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to cancel expense",
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.cancelFailed");
     }
   };
 
@@ -331,17 +283,13 @@ export function ExpensesView() {
     if (!deletingExpense) return;
     try {
       await deleteMutation.mutateAsync(deletingExpense.id);
-      toast({
-        title: `Expense ${deletingExpense.expenseNumber} deleted`,
-        variant: "success",
+      notify("finance.expense.deleted", {
+        number: deletingExpense.expenseNumber,
       });
       setDeletingExpense(null);
       void expensesQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to delete expense",
-        variant: "error",
-      });
+      notifyError(err, "finance.expense.deleteFailed");
     }
   };
 

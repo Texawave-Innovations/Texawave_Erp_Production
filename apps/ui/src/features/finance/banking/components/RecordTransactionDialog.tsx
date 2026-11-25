@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   CreateFinanceBankTransactionInput,
@@ -13,8 +14,8 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { ArrowLeftRight, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useAccounts } from "@/features/finance/coa/hooks";
 import { useRecordBankTransaction } from "../hooks";
@@ -35,7 +36,7 @@ export function RecordTransactionDialog({
   defaultBankAccountId,
   onSuccess,
 }: RecordTransactionDialogProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const recordMutation = useRecordBankTransaction();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -129,18 +130,14 @@ export function RecordTransactionDialog({
     setSubmitting(true);
     try {
       const created = await recordMutation.mutateAsync(payload);
-      toast({
-        title: `Transaction recorded: ${created.transactionType} of ₹${Number(created.amount).toLocaleString("en-IN")}`,
-        variant: "success",
+      notify("finance.bank.transactionRecorded", {
+        type: created.transactionType,
+        amount: Number(created.amount).toLocaleString("en-IN"),
       });
       handleClose();
       onSuccess?.();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to record bank transaction",
-      );
+      setSubmitError(resolveErrorText(err, "finance.bank.transactionFailed"));
     } finally {
       setSubmitting(false);
     }

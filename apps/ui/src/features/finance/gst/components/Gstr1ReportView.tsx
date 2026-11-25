@@ -51,7 +51,11 @@ export function Gstr1ReportView({ period }: Gstr1ReportViewProps) {
     return (
       <div className="flex flex-col gap-4">
         {report && report.proformaExcludedCount > 0 && (
-          <Alert variant="info" title="Statutory Proforma Invoices Exclusion">
+          <Alert
+            dismissible
+            variant="info"
+            title="Statutory Proforma Invoices Exclusion"
+          >
             {report.proformaExcludedCount} proforma invoice
             {report.proformaExcludedCount > 1 ? "s were" : " was"} excluded from
             official GSTR-1 tax calculations in compliance with Indian GST
@@ -72,7 +76,11 @@ export function Gstr1ReportView({ period }: Gstr1ReportViewProps) {
     <div className="flex flex-col gap-5 relative focus-within:z-30">
       {/* Notice regarding Proforma Invoices */}
       {report.proformaExcludedCount > 0 && (
-        <Alert variant="info" title="Statutory Proforma Invoices Exclusion">
+        <Alert
+          dismissible
+          variant="info"
+          title="Statutory Proforma Invoices Exclusion"
+        >
           {report.proformaExcludedCount} proforma invoice
           {report.proformaExcludedCount > 1 ? "s were" : " was"} excluded from
           official GSTR-1 tax calculations in compliance with Indian GST

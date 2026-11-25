@@ -21,7 +21,6 @@ import {
   SearchInput,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   ArrowDownLeft,
@@ -38,6 +37,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatDate, formatMoney } from "../../shared/format";
 import {
@@ -60,7 +60,7 @@ const PAGE_SIZE = 15;
 export function BankingView() {
   const canRead = usePermission(FINANCE_BANKING_READ);
   const canWrite = usePermission(FINANCE_BANKING_WRITE);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // Active subtab: "accounts" | "transactions"
   const [activeTab, setActiveTab] = useState<"accounts" | "transactions">(
@@ -208,20 +208,11 @@ export function BankingView() {
     if (!deletingAccount) return;
     try {
       await deleteAccountMutation.mutateAsync(deletingAccount.id);
-      toast({
-        title: `Bank account ${deletingAccount.accountName} archived`,
-        variant: "success",
-      });
+      notify("finance.bank.archived", { name: deletingAccount.accountName });
       setDeletingAccount(null);
       void accountsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error
-            ? err.message
-            : "Failed to delete bank account. Accounts with recorded transactions cannot be deleted.",
-        variant: "error",
-      });
+      notifyError(err, "finance.bank.deleteFailed");
     }
   };
 
@@ -229,20 +220,11 @@ export function BankingView() {
     if (!unreconcilingTx) return;
     try {
       await unreconcileMutation.mutateAsync(unreconcilingTx.id);
-      toast({
-        title: `Transaction #${unreconcilingTx.id} unmarked from reconciliation`,
-        variant: "success",
-      });
+      notify("finance.bank.unreconciled", { id: unreconcilingTx.id });
       setUnreconcilingTx(null);
       void transactionsQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error
-            ? err.message
-            : "Failed to unreconcile transaction",
-        variant: "error",
-      });
+      notifyError(err, "finance.bank.unreconcileFailed");
     }
   };
 

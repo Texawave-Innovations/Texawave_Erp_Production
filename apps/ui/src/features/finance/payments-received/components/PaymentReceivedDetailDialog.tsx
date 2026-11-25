@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { FinancePaymentReceived } from "@texawave-erp/api-types";
-import { Button, Dialog, Input, useToast } from "@texawave-erp/ui-kit";
+import { Button, Dialog, Input } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Ban, Check, ExternalLink, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatDateTime, formatMoney } from "../../shared/format";
@@ -29,7 +30,7 @@ export function PaymentReceivedDetailDialog({
   onVoidClick,
   onRefetch,
 }: PaymentReceivedDetailDialogProps) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const [showAddAlloc, setShowAddAlloc] = useState(false);
   const [allocInvoiceRef, setAllocInvoiceRef] = useState("");
   const [allocAmount, setAllocAmount] = useState<number | "">("");
@@ -48,21 +49,17 @@ export function PaymentReceivedDetailDialog({
   const handleAddAllocation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!allocInvoiceRef.trim()) {
-      toast({ title: "Please specify an invoice reference", variant: "error" });
+      notify("finance.paymentReceived.invoiceRefRequired");
       return;
     }
     const numAmount = Number(allocAmount);
     if (!numAmount || numAmount <= 0) {
-      toast({
-        title: "Allocation amount must be greater than zero",
-        variant: "error",
-      });
+      notify("finance.paymentReceived.allocationNotPositive");
       return;
     }
     if (numAmount > unallocatedAmount) {
-      toast({
-        title: `Cannot allocate more than remaining unallocated balance (${formatMoney(unallocatedAmount)})`,
-        variant: "error",
+      notify("finance.paymentReceived.overAllocated", {
+        balance: formatMoney(unallocatedAmount),
       });
       return;
     }
@@ -76,21 +73,14 @@ export function PaymentReceivedDetailDialog({
           ...(allocNotes.trim() ? { notes: allocNotes.trim() } : {}),
         },
       });
-      toast({
-        title: "Invoice allocation recorded successfully",
-        variant: "success",
-      });
+      notify("finance.paymentReceived.allocated");
       setAllocInvoiceRef("");
       setAllocAmount("");
       setAllocNotes("");
       setShowAddAlloc(false);
       onRefetch?.();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error ? err.message : "Failed to record allocation",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.allocateFailed");
     }
   };
 
@@ -100,27 +90,17 @@ export function PaymentReceivedDetailDialog({
         id: payment.id,
         allocationId,
       });
-      toast({
-        title: "Allocation removed and balance restored",
-        variant: "success",
-      });
+      notify("finance.paymentReceived.deallocated");
       onRefetch?.();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error ? err.message : "Failed to remove allocation",
-        variant: "error",
-      });
+      notifyError(err, "finance.paymentReceived.deallocateFailed");
     }
   };
 
   const handlePrint = () => {
     const success = printPaymentReceipt(payment);
     if (!success) {
-      toast({
-        title: "Pop-up blocked. Please allow pop-ups to print payment receipt.",
-        variant: "error",
-      });
+      notify("finance.paymentReceived.popupBlocked");
     }
   };
 

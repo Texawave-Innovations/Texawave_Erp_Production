@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type { CreateFinancePaymentMadeInput } from "@texawave-erp/api-types";
 import {
@@ -207,11 +208,7 @@ function RecordPaymentMadeForm({
       await onSubmit(payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to record payment. Please check required fields and try again.",
-      );
+      setSubmitError(resolveErrorText(err, "finance.paymentMade.recordFailed"));
     } finally {
       setSubmitting(false);
     }

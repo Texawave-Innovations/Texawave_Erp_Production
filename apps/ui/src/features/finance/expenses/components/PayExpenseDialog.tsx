@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   FinanceExpense,
@@ -109,9 +110,7 @@ function PayExpenseForm({
       await onSubmit(expense.id, payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to disburse payment",
-      );
+      setSubmitError(resolveErrorText(err, "finance.expense.disburseFailed"));
     } finally {
       setSubmitting(false);
     }

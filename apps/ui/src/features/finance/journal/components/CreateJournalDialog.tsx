@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useId, useMemo, useState } from "react";
 import type {
   CreateFinanceJournalEntryInput,
@@ -188,11 +189,7 @@ function CreateJournalForm({
       await onSubmit(payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to record journal voucher. Please verify all lines and balances.",
-      );
+      setSubmitError(resolveErrorText(err, "finance.journal.recordFailed"));
     } finally {
       setSubmitting(false);
     }

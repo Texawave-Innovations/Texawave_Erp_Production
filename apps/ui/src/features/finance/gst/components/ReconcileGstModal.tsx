@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText, resolveMessage } from "@texawave-erp/core";
 import { useState } from "react";
 import type {
   CounterpartGstEntryInput,
@@ -13,8 +14,8 @@ import {
   FormField,
   Input,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { AlertTriangle, FileCheck2, RotateCcw } from "lucide-react";
 import { formatMoney } from "../../shared/format";
 import { useReconcileGst } from "../hooks";
@@ -66,7 +67,7 @@ export function ReconcileGstModal({
   defaultPeriod = "2026-10",
   onSuccess,
 }: ReconcileGstModalProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const reconcileMutation = useReconcileGst();
 
   const [period, setPeriod] = useState(defaultPeriod);
@@ -108,7 +109,7 @@ export function ReconcileGstModal({
     setError(null);
 
     if (!jsonInput.trim()) {
-      setError("Please paste GSTR-2B counterpart records or load sample data.");
+      setError(resolveMessage("finance.gst.reconcileInputRequired").title);
       return;
     }
 
@@ -168,17 +169,14 @@ export function ReconcileGstModal({
       setSubmitting(true);
       const res = await reconcileMutation.mutateAsync(payload);
       setResult(res);
-      toast({
-        title: "Reconciliation Complete",
-        description: `Compared ${res.totalBooksRecords} books records with ${res.totalPortalRecords} portal entries (${res.matchedCount} matched).`,
-        variant: "success",
+      notify("finance.gst.reconciled", {
+        books: res.totalBooksRecords,
+        portal: res.totalPortalRecords,
+        matched: res.matchedCount,
       });
       onSuccess?.();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Failed to perform GST reconciliation.";
+      const message = resolveErrorText(err, "finance.gst.reconcileFailed");
       setError(message);
     } finally {
       setSubmitting(false);

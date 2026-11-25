@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import {
   FINANCE_ACCOUNT_TYPES,
@@ -122,9 +123,7 @@ function AccountDialogForm({
         onClose();
       } catch (err: unknown) {
         setSubmitError(
-          err instanceof Error
-            ? err.message
-            : "Failed to update account. Please review details and try again.",
+          resolveErrorText(err, "finance.account.dialogUpdateFailed"),
         );
       } finally {
         setSubmitting(false);
@@ -158,9 +157,7 @@ function AccountDialogForm({
         onClose();
       } catch (err: unknown) {
         setSubmitError(
-          err instanceof Error
-            ? err.message
-            : "Failed to create account. Please ensure code is unique in your organization.",
+          resolveErrorText(err, "finance.account.dialogCreateFailed"),
         );
       } finally {
         setSubmitting(false);

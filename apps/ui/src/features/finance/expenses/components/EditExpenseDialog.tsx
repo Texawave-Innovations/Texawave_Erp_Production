@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   FinanceExpense,
@@ -155,9 +156,7 @@ function EditExpenseForm({
       await onSubmit(expense.id, payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to update expense",
-      );
+      setSubmitError(resolveErrorText(err, "finance.expense.updateFailed"));
     } finally {
       setSubmitting(false);
     }

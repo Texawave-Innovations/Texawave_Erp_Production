@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type { CreateExpenseFromClaimInput } from "@texawave-erp/api-types";
 import {
@@ -115,9 +116,7 @@ function ConvertClaimForm({
       await onSubmit(claim.id, payload);
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to convert claim",
-      );
+      setSubmitError(resolveErrorText(err, "finance.expense.convertFailed"));
     } finally {
       setSubmitting(false);
     }

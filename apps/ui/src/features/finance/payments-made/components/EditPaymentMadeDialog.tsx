@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveErrorText } from "@texawave-erp/core";
 import { useMemo, useState } from "react";
 import type {
   FinancePaymentMade,
@@ -13,8 +14,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Pencil } from "lucide-react";
 import { useSuppliers } from "@/features/scm/suppliers/hooks";
 import { useUpdatePaymentMade } from "../hooks";
@@ -37,7 +38,7 @@ function EditPaymentMadeForm({
   onClose,
   onSuccess,
 }: EditPaymentMadeFormProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const today = new Date().toISOString().slice(0, 10);
 
   const [paymentDate, setPaymentDate] = useState(
@@ -112,17 +113,14 @@ function EditPaymentMadeForm({
         id: payment.id,
         input: payload,
       });
-      toast({
-        title: `Draft payment ${payment.paymentNumber} updated successfully`,
-        variant: "success",
+      notify("finance.paymentMade.draftUpdated", {
+        number: payment.paymentNumber,
       });
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
       setSubmitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update draft payment. Please verify details and try again.",
+        resolveErrorText(err, "finance.paymentMade.draftUpdateFailed"),
       );
     } finally {
       setSubmitting(false);
@@ -279,7 +277,11 @@ export function EditPaymentMadeDialog({
         size="md"
       >
         <div className="flex flex-col gap-4">
-          <Alert variant="warning" title="Disbursement is Immutable">
+          <Alert
+            dismissible
+            variant="warning"
+            title="Disbursement is Immutable"
+          >
             Only DRAFT payment disbursements can be edited. This payment is{" "}
             <strong>{payment.status}</strong> and cannot be modified directly.
             If changes are required, void the disbursement to create an audit

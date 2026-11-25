@@ -12,7 +12,6 @@ import {
   FINANCE_JOURNAL_ENTRY_STATUSES,
   FINANCE_JOURNAL_ENTRY_TYPES,
 } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Button,
@@ -27,10 +26,10 @@ import {
   SearchInput,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { Check, Eye, Plus, RotateCcw, Scale, Trash2 } from "lucide-react";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatDate, formatMoney } from "../../shared/format";
 import { useAccounts } from "../../../finance/coa/hooks";
@@ -88,7 +87,7 @@ export function JournalVouchersView({
   const [deletingEntry, setDeletingEntry] =
     useState<FinanceJournalEntry | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const queryParams = useMemo(() => {
     return {
@@ -124,20 +123,10 @@ export function JournalVouchersView({
     try {
       const { createJournalEntry } = await import("../api");
       await createJournalEntry(values);
-      toast({
-        title: "Journal voucher created as draft",
-        variant: "success",
-      });
+      notify("finance.journal.created");
       void journalQuery.refetch();
     } catch (err: unknown) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Could not create journal voucher. Please verify balances and try again.";
-      toast({
-        title: msg,
-        variant: "error",
-      });
+      notifyError(err, "finance.journal.createFailed");
       throw err;
     }
   };
@@ -146,23 +135,14 @@ export function JournalVouchersView({
     if (!postingEntry) return;
     try {
       await postMutation.mutateAsync(postingEntry.id);
-      toast({
-        title: `Voucher ${postingEntry.entryNumber} posted to General Ledger`,
-        variant: "success",
-      });
+      notify("finance.journal.posted", { number: postingEntry.entryNumber });
       setPostingEntry(null);
       if (selectedEntry?.id === postingEntry.id) {
         setSelectedEntry(null);
       }
       void journalQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title:
-          err instanceof Error
-            ? err.message
-            : "Failed to post voucher to ledger",
-        variant: "error",
-      });
+      notifyError(err, "finance.journal.postFailed");
     }
   };
 
@@ -176,9 +156,8 @@ export function JournalVouchersView({
         id: reversingEntry.id,
         input: payload,
       });
-      toast({
-        title: `Voucher ${reversingEntry.entryNumber} reversed successfully`,
-        variant: "success",
+      notify("finance.journal.reversed", {
+        number: reversingEntry.entryNumber,
       });
       setReversingEntry(null);
       if (selectedEntry?.id === reversingEntry.id) {
@@ -186,10 +165,7 @@ export function JournalVouchersView({
       }
       void journalQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to reverse voucher",
-        variant: "error",
-      });
+      notifyError(err, "finance.journal.reverseFailed");
       throw err;
     }
   };
@@ -198,17 +174,11 @@ export function JournalVouchersView({
     if (!deletingEntry) return;
     try {
       await deleteMutation.mutateAsync(deletingEntry.id);
-      toast({
-        title: `Draft voucher ${deletingEntry.entryNumber} deleted`,
-        variant: "success",
-      });
+      notify("finance.journal.deleted", { number: deletingEntry.entryNumber });
       setDeletingEntry(null);
       void journalQuery.refetch();
     } catch (err: unknown) {
-      toast({
-        title: err instanceof Error ? err.message : "Failed to delete voucher",
-        variant: "error",
-      });
+      notifyError(err, "finance.journal.deleteFailed");
     }
   };
 
