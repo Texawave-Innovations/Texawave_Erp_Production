@@ -112,7 +112,7 @@ export function ApprovalQueueSection() {
         <TableSkeleton rowsCount={4} columnsCount={6} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You can't approve leave">
+          <Alert dismissible variant="warning" title="You can't approve leave">
             Your access has changed. Contact an administrator.
           </Alert>
         ) : (

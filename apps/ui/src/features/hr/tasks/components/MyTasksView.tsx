@@ -175,7 +175,11 @@ export function MyTasksView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to your tasks">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to your tasks"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.task.read</code> permission.
       </Alert>
@@ -330,7 +334,11 @@ export function MyTasksView() {
         </div>
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to your tasks">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to your tasks"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

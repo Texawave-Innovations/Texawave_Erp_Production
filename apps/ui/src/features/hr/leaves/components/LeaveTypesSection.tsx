@@ -54,7 +54,9 @@ export function LeaveTypesSection() {
   const canWrite = usePermission(LEAVE_TYPE_WRITE);
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"ALL" | "ACTIVE" | "PAID" | "UNPAID">("ALL");
+  const [filterMode, setFilterMode] = useState<
+    "ALL" | "ACTIVE" | "PAID" | "UNPAID"
+  >("ALL");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<LeaveTypeItem | null>(null);
@@ -363,7 +365,11 @@ export function LeaveTypesSection() {
         </div>
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to leave types">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to leave types"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -476,7 +482,9 @@ export function LeaveTypesSection() {
                 header: "Approval Flow",
                 cell: (t) => (
                   <span className="text-xs text-slate-600 dark:text-slate-300">
-                    {t.approvalLevels === 2 ? "2 Levels (Manager + HR)" : "1 Level (Manager)"}
+                    {t.approvalLevels === 2
+                      ? "2 Levels (Manager + HR)"
+                      : "1 Level (Manager)"}
                   </span>
                 ),
               },
@@ -503,7 +511,10 @@ export function LeaveTypesSection() {
                             title={`Set entitlement for ${t.name}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:border-brand-500 hover:bg-sky-50 hover:text-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-sky-400 dark:hover:bg-slate-700 dark:hover:text-sky-300 cursor-pointer"
                           >
-                            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                            <SlidersHorizontal
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
                           </button>
                           <button
                             type="button"
@@ -528,7 +539,10 @@ export function LeaveTypesSection() {
                             {t.isActive ? (
                               <Trash2 className="h-4 w-4" aria-hidden="true" />
                             ) : (
-                              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                              <CheckCircle2
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                              />
                             )}
                           </button>
                         </div>

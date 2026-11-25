@@ -394,19 +394,23 @@ export function AttendanceRecordsTab() {
 
       {/* Range Error Alert */}
       {rangeError ? (
-        <Alert variant="warning" title="Invalid date range">
+        <Alert dismissible variant="warning" title="Invalid date range">
           {rangeError}
         </Alert>
       ) : list.isPending ? (
         <TableSkeleton rowsCount={6} columnsCount={8} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to attendance">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to attendance"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : list.error instanceof ApiError &&
           list.error.errorCode === "RANGE_TOO_LARGE" ? (
-          <Alert variant="warning" title="Date range too large">
+          <Alert dismissible variant="warning" title="Date range too large">
             {list.error.message}
           </Alert>
         ) : (

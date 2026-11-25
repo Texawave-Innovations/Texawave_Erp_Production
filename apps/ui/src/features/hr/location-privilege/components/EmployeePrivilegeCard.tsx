@@ -74,6 +74,7 @@ export function EmployeePrivilegeCard({
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to location privilege"
         >

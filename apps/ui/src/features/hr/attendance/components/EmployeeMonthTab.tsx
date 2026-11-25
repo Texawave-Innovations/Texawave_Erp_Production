@@ -210,7 +210,11 @@ export function EmployeeMonthTab() {
       ) : statuses.isError || records.isError ? (
         (statuses.error ?? records.error) instanceof ApiError &&
         ((statuses.error ?? records.error) as ApiError).isPermissionError ? (
-          <Alert variant="warning" title="You can't view this employee's month">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You can't view this employee's month"
+          >
             This needs both the attendance read and attendance report
             permissions for their team.
           </Alert>

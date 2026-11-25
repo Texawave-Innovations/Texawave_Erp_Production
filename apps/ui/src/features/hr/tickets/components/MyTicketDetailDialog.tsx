@@ -163,7 +163,11 @@ export function MyTicketDetailDialog({
         </div>
       ) : ticket.isError ? (
         ticket.error instanceof ApiError && ticket.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to this ticket">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to this ticket"
+          >
             Your access to this ticket has changed. Contact an administrator.
           </Alert>
         ) : (

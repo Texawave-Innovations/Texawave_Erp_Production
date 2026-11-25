@@ -165,6 +165,7 @@ export function AllotmentSection() {
       ) : report.isError ? (
         report.error instanceof ApiError && report.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to leave balances"
           >
@@ -187,7 +188,7 @@ export function AllotmentSection() {
           />
         </Card>
       ) : types.length === 0 ? (
-        <Alert variant="info" title="No active leave types">
+        <Alert dismissible variant="info" title="No active leave types">
           Create leave types first; their entitlements appear here.
         </Alert>
       ) : (

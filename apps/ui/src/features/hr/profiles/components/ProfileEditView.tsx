@@ -87,7 +87,11 @@ export function describeSaveError(error: unknown): {
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to edit profiles">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to edit profiles"
+    >
       Ask an administrator for the <code>hr.employee_profile.write</code>{" "}
       permission.
     </Alert>

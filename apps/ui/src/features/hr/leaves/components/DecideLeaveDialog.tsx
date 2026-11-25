@@ -165,25 +165,33 @@ export function DecideLeaveDialog({
         </div>
 
         {override ? (
-          <Alert variant="warning" title="You are deciding as Admin, for HR">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You are deciding as Admin, for HR"
+          >
             Your decision is final. It is recorded in the audit log with your
             reason, and HR is notified.
           </Alert>
         ) : null}
         {step?.escalated ? (
-          <Alert variant="info" title="The team lead did not decide in time">
+          <Alert
+            dismissible
+            variant="info"
+            title="The team lead did not decide in time"
+          >
             The team lead has not acted for 2 working days, so this decision is
             final and replaces both approvals.
           </Alert>
         ) : null}
         {decision === "approve" && firstOfTwo ? (
-          <Alert variant="info" title="Two approvals needed">
+          <Alert dismissible variant="info" title="Two approvals needed">
             This leave type needs your approval and then an HR approver&apos;s.
             The request stays pending until HR approves it.
           </Alert>
         ) : null}
         {request.awaiting === "HR" && request.firstDecidedBy ? (
-          <Alert variant="info" title="First approval given">
+          <Alert dismissible variant="info" title="First approval given">
             Approved by {request.firstDecidedBy.fullName}
             {request.firstDecisionNote
               ? ` — “${request.firstDecisionNote}”`

@@ -209,14 +209,14 @@ export function ImportEmployeesDialog({
         ) : null}
 
         {checked ? (
-          <Alert variant="success" title="Ready to import">
+          <Alert dismissible variant="success" title="Ready to import">
             All {report.totalRows} row{report.totalRows === 1 ? "" : "s"} passed
             every check. Nothing has been saved yet.
           </Alert>
         ) : null}
 
         {committed ? (
-          <Alert variant="success" title="Import complete">
+          <Alert dismissible variant="success" title="Import complete">
             Created {report.created.length} employee
             {report.created.length === 1 ? "" : "s"}:{" "}
             {report.created.map((c) => c.employeeCode).join(", ")}.

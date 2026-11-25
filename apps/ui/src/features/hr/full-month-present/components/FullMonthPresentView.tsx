@@ -117,6 +117,7 @@ export function FullMonthPresentView() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Full Month Present"
       >
@@ -357,7 +358,7 @@ export function FullMonthPresentView() {
 
       {/* Main Content & States */}
       {!monthValid ? (
-        <Alert variant="warning" title="Invalid month">
+        <Alert dismissible variant="warning" title="Invalid month">
           Choose a calendar month in YYYY-MM format.
         </Alert>
       ) : list.isPending ? (
@@ -365,17 +366,18 @@ export function FullMonthPresentView() {
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to Full Month Present"
           >
             Your access to this report has changed. Contact an administrator.
           </Alert>
         ) : list.error instanceof ApiError && list.error.isValidationError ? (
-          <Alert variant="warning" title="Invalid filters">
+          <Alert dismissible variant="warning" title="Invalid filters">
             {list.error.message}
           </Alert>
         ) : list.error instanceof ApiError && list.error.isNotFound ? (
-          <Alert variant="warning" title="Not found">
+          <Alert dismissible variant="warning" title="Not found">
             {list.error.message}
           </Alert>
         ) : (

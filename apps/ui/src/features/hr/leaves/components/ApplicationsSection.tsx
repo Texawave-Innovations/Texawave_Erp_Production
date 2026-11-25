@@ -580,6 +580,7 @@ export function ApplicationsSection() {
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to leave requests"
           >

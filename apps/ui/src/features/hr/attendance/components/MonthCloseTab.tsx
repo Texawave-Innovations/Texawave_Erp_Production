@@ -286,20 +286,24 @@ export function MonthCloseTab() {
           </div>
           {canFinalize && !monthEnded ? (
             <p className="text-theme-xs text-amber-600 dark:text-amber-400 font-medium">
-              {month} has not ended yet. A month can be submitted from the 1st of
-              the next month.
+              {month} has not ended yet. A month can be submitted from the 1st
+              of the next month.
             </p>
           ) : null}
           {rows.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-              <span className="text-xs font-semibold text-gray-500">Breakdown:</span>
+              <span className="text-xs font-semibold text-gray-500">
+                Breakdown:
+              </span>
               {MONTH_LOCK_FILTERS.filter((s) => counts[s]).map((s) => (
                 <span
                   key={s}
                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <span>{STATUS_META[s].label}:</span>
-                  <span className="font-extrabold text-brand-600 dark:text-brand-400">{counts[s]}</span>
+                  <span className="font-extrabold text-brand-600 dark:text-brand-400">
+                    {counts[s]}
+                  </span>
                 </span>
               ))}
               {(list.data?.meta.totalPages ?? 1) > 1 ? (
@@ -317,6 +321,7 @@ export function MonthCloseTab() {
       ) : null}
       {outcome ? (
         <Alert
+          dismissible
           variant={outcome.skipped.length > 0 ? "warning" : "success"}
           title={`${outcome.title}: ${outcome.done}${outcome.skipped.length ? ` · skipped ${outcome.skipped.length}` : ""}`}
         >
@@ -339,7 +344,11 @@ export function MonthCloseTab() {
         <TableSkeleton rowsCount={6} columnsCount={6} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to month close">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to month close"
+          >
             Ask an administrator for the <code>hr.attendance_lock.read</code>{" "}
             permission.
           </Alert>

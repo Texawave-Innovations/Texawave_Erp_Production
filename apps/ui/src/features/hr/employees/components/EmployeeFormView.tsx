@@ -29,7 +29,11 @@ import { EmployeeForm } from "./EmployeeForm";
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to change employees">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to change employees"
+    >
       Ask an administrator for the <code>hr.employee.write</code> permission.
     </Alert>
   );

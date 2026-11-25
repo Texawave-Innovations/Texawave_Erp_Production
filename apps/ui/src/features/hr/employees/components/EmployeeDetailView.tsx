@@ -142,7 +142,11 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to this employee">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to this employee"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );

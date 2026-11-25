@@ -416,7 +416,11 @@ export function EmployeesView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to employees">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to employees"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );
@@ -820,7 +824,11 @@ export function EmployeesView() {
         <TableSkeleton rowsCount={6} columnsCount={9} />
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to employees">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to employees"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

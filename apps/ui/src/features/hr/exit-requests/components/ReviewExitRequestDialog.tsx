@@ -134,7 +134,11 @@ export function ReviewExitRequestDialog({
         </div>
 
         {isTerminal ? (
-          <Alert variant="info" title={STATUS_LABELS[request.status]}>
+          <Alert
+            dismissible
+            variant="info"
+            title={STATUS_LABELS[request.status]}
+          >
             This request is in a final state and can no longer change status.
           </Alert>
         ) : (

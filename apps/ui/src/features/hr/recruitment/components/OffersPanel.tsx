@@ -152,7 +152,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
     query.error.isPermissionError
   ) {
     return (
-      <Alert variant="warning" title="Access denied">
+      <Alert dismissible variant="warning" title="Access denied">
         You do not have permission to view offer letters.
       </Alert>
     );
@@ -167,7 +167,8 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
             Offer Letter Generator
           </h2>
           <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Generate, customize, and issue official candidate offer letters with live document preview.
+            Generate, customize, and issue official candidate offer letters with
+            live document preview.
           </p>
         </div>
 

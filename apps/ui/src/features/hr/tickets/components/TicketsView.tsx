@@ -391,7 +391,11 @@ export function TicketsView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to tickets">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to tickets"
+      >
         Ask an administrator for the <code>hr.ticket.read</code> permission.
       </Alert>
     );

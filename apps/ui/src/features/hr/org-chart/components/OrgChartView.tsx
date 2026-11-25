@@ -156,7 +156,11 @@ export function OrgChartView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to the org chart">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to the org chart"
+      >
         Ask an administrator for the <code>hr.employee.read</code> permission.
       </Alert>
     );
@@ -332,6 +336,7 @@ export function OrgChartView() {
           chart.error instanceof ApiError && chart.error.isPermissionError ? (
             <div className="p-8">
               <Alert
+                dismissible
                 variant="warning"
                 title="You don't have access to this part of the org chart"
               >

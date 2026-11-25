@@ -232,7 +232,11 @@ function SensitiveSection({ id, canRead }: { id: number; canRead: boolean }) {
         </div>
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="Access to these details has changed">
+          <Alert
+            dismissible
+            variant="warning"
+            title="Access to these details has changed"
+          >
             Contact an administrator.
           </Alert>
         ) : (
@@ -282,6 +286,7 @@ export function ProfileView({ id }: { id: number }) {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to employee profiles"
       >
@@ -327,7 +332,11 @@ export function ProfileView({ id }: { id: number }) {
     }
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to this profile">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to this profile"
+        >
           Your access has changed. Contact an administrator.
         </Alert>
       );
@@ -535,7 +544,11 @@ function ProfileBody({
       </div>
 
       {!hasRecord ? (
-        <Alert variant="info" title="No profile details recorded yet">
+        <Alert
+          dismissible
+          variant="info"
+          title="No profile details recorded yet"
+        >
           {canWrite
             ? "Personal, family, address and bank details have not been submitted. Use Edit profile to add them."
             : "Personal, family, address and bank details have not been submitted yet."}

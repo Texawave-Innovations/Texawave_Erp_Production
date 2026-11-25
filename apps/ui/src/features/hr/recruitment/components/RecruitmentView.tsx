@@ -70,7 +70,7 @@ export function RecruitmentView() {
       />
 
       {tabs.length === 0 ? (
-        <Alert variant="warning" title="No access">
+        <Alert dismissible variant="warning" title="No access">
           Your role does not include any Recruitment permissions. Ask an
           administrator to grant access.
         </Alert>

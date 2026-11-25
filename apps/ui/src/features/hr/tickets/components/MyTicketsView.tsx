@@ -115,7 +115,11 @@ export function MyTicketsView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to tickets">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to tickets"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.ticket.read</code> permission.
       </Alert>
@@ -266,7 +270,11 @@ export function MyTicketsView() {
         </div>
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to tickets">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to tickets"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

@@ -158,7 +158,11 @@ export function ImportEntitlementsDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-semibold text-slate-700 dark:text-slate-300">{e.row}</span>,
+                    cell: (e) => (
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {e.row}
+                      </span>
+                    ),
                   },
                   { header: "Problem", cell: (e) => e.message },
                 ]}
@@ -168,14 +172,14 @@ export function ImportEntitlementsDialog({
         ) : null}
 
         {checked ? (
-          <Alert variant="success" title="Ready to import">
+          <Alert dismissible variant="success" title="Ready to import">
             {report.validRows} row{report.validRows === 1 ? "" : "s"} will be
             saved. Nothing has been saved yet.
           </Alert>
         ) : null}
 
         {committed ? (
-          <Alert variant="success" title="Import complete">
+          <Alert dismissible variant="success" title="Import complete">
             Saved {report.imported} entitlement
             {report.imported === 1 ? "" : "s"}.
           </Alert>

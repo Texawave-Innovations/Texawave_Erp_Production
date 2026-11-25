@@ -72,7 +72,11 @@ export function ProfilesListView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to profiles">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to profiles"
+      >
         Ask an administrator for the <code>hr.employee_profile.read</code>{" "}
         permission.
       </Alert>
@@ -249,7 +253,11 @@ export function ProfilesListView() {
         )
       ) : list.isError ? (
         list.error instanceof ApiError && list.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to profiles">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to profiles"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (

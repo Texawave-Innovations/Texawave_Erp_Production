@@ -165,7 +165,11 @@ export function ImportAttendanceDialog({
                 columns={[
                   {
                     header: "Row",
-                    cell: (e) => <span className="font-semibold text-gray-800 dark:text-gray-200">{e.row}</span>,
+                    cell: (e) => (
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {e.row}
+                      </span>
+                    ),
                   },
                   { header: "Column", cell: (e) => e.field ?? "—" },
                   { header: "Problem", cell: (e) => e.message },
@@ -176,7 +180,7 @@ export function ImportAttendanceDialog({
         ) : null}
 
         {checked ? (
-          <Alert variant="success" title="Ready to import">
+          <Alert dismissible variant="success" title="Ready to import">
             {toAdd} new punch pair{toAdd === 1 ? "" : "s"} will be added
             {report.duplicates > 0
               ? `; ${report.duplicates} already recorded will be skipped`
@@ -186,7 +190,7 @@ export function ImportAttendanceDialog({
         ) : null}
 
         {committed ? (
-          <Alert variant="success" title="Import complete">
+          <Alert dismissible variant="success" title="Import complete">
             Added {report.imported} punch pair{report.imported === 1 ? "" : "s"}
             {report.duplicates > 0
               ? `; skipped ${report.duplicates} already recorded`

@@ -55,7 +55,11 @@ export function AttendanceView() {
 
   if (tab === null) {
     return (
-      <Alert variant="warning" title="You don't have access to attendance">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to attendance"
+      >
         Ask an administrator for the <code>hr.attendance.read</code> or{" "}
         <code>hr.attendance_report.read</code> permission.
       </Alert>

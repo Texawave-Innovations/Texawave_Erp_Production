@@ -524,7 +524,7 @@ export function InterviewsPanel({ canWrite }: InterviewsPanelProps) {
         </div>
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="Access denied">
+          <Alert dismissible variant="warning" title="Access denied">
             You do not have permission to view the interview schedule.
           </Alert>
         ) : (

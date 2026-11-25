@@ -99,7 +99,7 @@ export function ChangeStatusDialog({
   return (
     <Dialog open={open} onClose={onClose} title={title}>
       {targets.length === 0 ? (
-        <Alert variant="info" title="No status changes available">
+        <Alert dismissible variant="info" title="No status changes available">
           {employee.fullName} is {STATUS_LABELS[employee.status]}. No further
           changes are allowed from this status.
         </Alert>
@@ -180,7 +180,11 @@ export function ChangeStatusDialog({
           </FormField>
           {!correction &&
           (values.status === "RESIGNED" || values.status === "TERMINATED") ? (
-            <Alert variant="warning" title="Portal access ends when you save">
+            <Alert
+              dismissible
+              variant="warning"
+              title="Portal access ends when you save"
+            >
               {employee.fullName}&apos;s login is disabled and signed out as
               soon as this is saved, whatever the last working day. Save it on
               or after their last day. Only a Super Admin can undo it.
@@ -188,6 +192,7 @@ export function ChangeStatusDialog({
           ) : null}
           {!correction && values.status === "INACTIVE" ? (
             <Alert
+              dismissible
               variant="warning"
               title="Portal access pauses while inactive"
             >
@@ -197,7 +202,7 @@ export function ChangeStatusDialog({
             </Alert>
           ) : null}
           {!correction && values.status === "ACTIVE" ? (
-            <Alert variant="info" title="Portal access is restored">
+            <Alert dismissible variant="info" title="Portal access is restored">
               {employee.fullName} can sign in again with their existing password
               once you save.
             </Alert>

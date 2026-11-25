@@ -86,7 +86,11 @@ export function HrCancelLeaveDialog({
           · {request.leaveDays} day{request.leaveDays === 1 ? "" : "s"}
         </p>
         {started ? (
-          <Alert variant="warning" title="This leave has already started">
+          <Alert
+            dismissible
+            variant="warning"
+            title="This leave has already started"
+          >
             The whole request is cancelled: the days already passed lose their
             On leave status in attendance, and the balance is given back.
           </Alert>

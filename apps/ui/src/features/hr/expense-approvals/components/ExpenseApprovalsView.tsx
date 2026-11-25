@@ -516,7 +516,11 @@ export function ExpenseApprovalsView() {
 
   if (!canReadMine && !canReadAny) {
     return (
-      <Alert variant="warning" title="You don't have access to expense claims">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to expense claims"
+      >
         Ask an administrator for the <code>hr.expense_claim.read</code> or{" "}
         <code>employee_self_service.expense_claim.read</code> permission.
       </Alert>

@@ -43,7 +43,11 @@ export function OfficeNetworksCard() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to office networks">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to office networks"
+      >
         Ask an administrator for the <code>hr.office_network.read</code>{" "}
         permission.
       </Alert>

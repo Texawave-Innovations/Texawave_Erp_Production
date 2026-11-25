@@ -326,6 +326,7 @@ export function DailyAttendanceTab() {
       ) : report.isError ? (
         report.error instanceof ApiError && report.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to the daily roster"
             className="rounded-2xl"

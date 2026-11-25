@@ -366,7 +366,11 @@ export function LeavesView() {
 
   if (!active) {
     return (
-      <Alert variant="warning" title="You don't have access to leave">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to leave"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.leave_request.read</code> or{" "}
         <code>hr.leave_request.read</code> permission.

@@ -67,7 +67,7 @@ function ReadError({
 }) {
   if (error instanceof ApiError && error.isPermissionError) {
     return (
-      <Alert variant="warning" title="Access denied">
+      <Alert dismissible variant="warning" title="Access denied">
         You do not have permission to view {what}.
       </Alert>
     );
@@ -160,7 +160,7 @@ function EmployeeList({
   let body: React.ReactNode;
   if (!canRead) {
     body = (
-      <Alert variant="warning" title="Employee list unavailable">
+      <Alert dismissible variant="warning" title="Employee list unavailable">
         You do not have permission to view employees, so you cannot pick one
         here.
       </Alert>

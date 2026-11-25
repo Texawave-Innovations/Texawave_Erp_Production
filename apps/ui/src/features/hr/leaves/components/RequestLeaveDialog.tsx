@@ -99,7 +99,11 @@ export function RequestLeaveDialog({
     <Dialog open={open} onClose={onClose} title="Request leave" size="xl">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {!balances.isPending && types.length === 0 ? (
-          <Alert variant="warning" title="No active leave types configured">
+          <Alert
+            dismissible
+            variant="warning"
+            title="No active leave types configured"
+          >
             No active leave types are available. Ask HR or an administrator to
             set up leave types and entitlements before requesting leave.
           </Alert>

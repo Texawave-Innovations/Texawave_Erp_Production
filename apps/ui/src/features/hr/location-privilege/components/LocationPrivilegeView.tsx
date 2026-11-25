@@ -50,6 +50,7 @@ export function LocationPrivilegeView() {
   if (!canReadEmployees || !canReadPrivilege) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to location privilege"
       >
@@ -92,7 +93,8 @@ export function LocationPrivilegeView() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Desktop access only · Attendance restricted to configured office IP networks
+              Desktop access only · Attendance restricted to configured office
+              IP networks
             </p>
           </div>
         </div>
@@ -112,7 +114,8 @@ export function LocationPrivilegeView() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Mobile & desktop allowed · Punches permitted from any location / network
+              Mobile & desktop allowed · Punches permitted from any location /
+              network
             </p>
           </div>
         </div>
@@ -131,7 +134,8 @@ export function LocationPrivilegeView() {
                 </h2>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Toggle each employee between Office and Remote attendance mode in one click
+                Toggle each employee between Office and Remote attendance mode
+                in one click
               </p>
             </div>
 
@@ -162,6 +166,7 @@ export function LocationPrivilegeView() {
           ) : list.isError ? (
             list.error instanceof ApiError && list.error.isPermissionError ? (
               <Alert
+                dismissible
                 variant="warning"
                 title="You don't have access to employees"
               >

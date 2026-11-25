@@ -196,7 +196,11 @@ export function HolidaysView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to holidays">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to holidays"
+      >
         Ask an administrator for the <code>hr.holiday.read</code> permission.
       </Alert>
     );
@@ -569,7 +573,11 @@ export function HolidaysView() {
       ) : allYearQuery.isError ? (
         allYearQuery.error instanceof ApiError &&
         allYearQuery.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to holidays">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to holidays"
+          >
             Your access to this list has changed. Contact an administrator.
           </Alert>
         ) : (
