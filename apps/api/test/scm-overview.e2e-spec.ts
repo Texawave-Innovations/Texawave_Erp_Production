@@ -205,6 +205,42 @@ describe("scm overview, master data, barcode, advanced and assistant (e2e)", () 
     expect(row.recommendedQty).toBe(45);
   });
 
+  it("returns inbound/outbound stock per IST day, tenant-scoped and permission-gated", async () => {
+    await get(tokenNone, "/scm/overview/movement-trend").expect(403);
+    await get(tokenAll, "/scm/overview/movement-trend?days=32").expect(400);
+
+    const product = data<Id>(
+      await post(tokenAll, "/scm/products", {
+        productCode: `TRD-${randomUUID().slice(0, 6)}`,
+        name: "Trend Widget",
+      }).expect(201),
+    );
+    const before = data<{ date: string; inbound: number }[]>(
+      await get(tokenAll, "/scm/overview/movement-trend").expect(200),
+    );
+    await post(tokenAll, "/scm/inventory/opening-balance", {
+      productId: product.id,
+      warehouseId: wh.id,
+      quantity: 12,
+    }).expect(201);
+
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }).format(new Date());
+    const after = data<{ date: string; inbound: number; outbound: number }[]>(
+      await get(tokenAll, "/scm/overview/movement-trend").expect(200),
+    );
+    expect(after).toHaveLength(7);
+    expect(after[6]!.date).toBe(today);
+    expect(after[6]!.inbound - before[6]!.inbound).toBe(12);
+
+    const other = data<{ inbound: number; outbound: number }[]>(
+      await get(tokenB, "/scm/overview/movement-trend?days=3").expect(200),
+    );
+    expect(other).toHaveLength(3);
+    expect(other.every((d) => d.inbound === 0 && d.outbound === 0)).toBe(true);
+  });
+
   it("answers common assistant questions from live data", async () => {
     const low = data<{ answer: string }>(
       await post(tokenAll, "/scm/assistant/ask", {

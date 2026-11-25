@@ -141,3 +141,10 @@ export interface BarcodeProductRow {
   };
   lastUpdated: string;
 }
+
+/** GET /scm/overview/movement-trend: stock ledger quantity per IST day, oldest first. */
+export interface StockMovementTrendDay {
+  date: string;
+  inbound: number;
+  outbound: number;
+}

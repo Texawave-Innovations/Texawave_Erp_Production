@@ -9,6 +9,7 @@ import {
 } from "./calculations/project-calculations.js";
 import type { UpdatePointsConfigDto } from "./dto/update-points-config.dto.js";
 import { ProjectsRepository } from "./projects.repository.js";
+import { bucketWeeklyHours, weekStarts } from "./hours-trend.js";
 
 function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -45,6 +46,15 @@ export class ProjectsAnalyticsService {
     let totalExpectedHours = 0;
     let totalLoggedHours = 0;
     let upcomingMilestonesCount = 0;
+    // Open milestones due inside the window, for the admin dashboard reminder.
+    const upcomingMilestones: {
+      id: number;
+      title: string;
+      targetDate: string;
+      projectId: number;
+      projectCode: string;
+      projectName: string;
+    }[] = [];
     let openTasksCount = 0;
     let overHoursProjects = 0;
     let overBudgetProjects = 0;
@@ -116,7 +126,17 @@ export class ProjectsAnalyticsService {
           milestoneHealth.delayed++;
         } else {
           milestoneHealth.onTrack++;
-          if (target <= windowEndIso) upcomingMilestonesCount++;
+          if (target <= windowEndIso) {
+            upcomingMilestonesCount++;
+            upcomingMilestones.push({
+              id: m.id,
+              title: m.title,
+              targetDate: target,
+              projectId: p.id,
+              projectCode: p.projectCode,
+              projectName: p.name,
+            });
+          }
         }
       }
       openTasksCount += p.tasks.filter((t) => t.status !== "completed").length;
@@ -134,6 +154,10 @@ export class ProjectsAnalyticsService {
       delayedProjects: delayedCount,
       onTrackProjects: onTrackCount,
       upcomingMilestonesCount,
+      /** Soonest first, capped at 5; `upcomingMilestonesCount` is the full count. */
+      upcomingMilestones: upcomingMilestones
+        .sort((a, b) => a.targetDate.localeCompare(b.targetDate) || a.id - b.id)
+        .slice(0, 5),
       openTasksCount,
       overHoursProjects,
       overBudgetProjects,
@@ -154,6 +178,17 @@ export class ProjectsAnalyticsService {
           Math.round((totalExpectedHours - totalLoggedHours) * 100) / 100,
       },
     };
+  }
+
+  /** Hours logged per Monday-start week across every live project, oldest first. */
+  async getHoursTrend(weeks: number) {
+    const scope = this.tenantContext.getOrgScope();
+    const starts = weekStarts(businessDateOf(new Date()), weeks);
+    const rows = await this.repository.timeEntriesSince(
+      scope,
+      new Date(`${starts[0] as string}T00:00:00.000Z`),
+    );
+    return bucketWeeklyHours(rows, starts);
   }
 
   /** Per-employee capacity over every live project, including the

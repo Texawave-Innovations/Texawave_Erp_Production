@@ -49,6 +49,27 @@ export function msToHM(ms: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function describePunchError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.errorCode === "ALREADY_CHECKED_IN") {
+      return "You are already checked in.";
+    }
+    if (error.errorCode === "NOT_CHECKED_IN") return "You are not checked in.";
+    if (error.isPermissionError) {
+      return "You don't have permission to punch attendance.";
+    }
+    return error.message;
+  }
+  return "Failed to save attendance. Please try again.";
+}
+
+export interface TimelineSession {
+  start: number;
+  /** null while the session is still open. */
+  end: number | null;
+  counted: boolean;
+}
+
 export interface TodaySession {
   checkIn: string;
   checkOut: string | null;
@@ -111,9 +132,9 @@ export function useTodayAttendance() {
     return () => clearInterval(id);
   }, [openStart]);
 
-  const totalElapsed = msToHMS(
-    completedMs + (openStart ? Math.max(0, now - Date.parse(openStart)) : 0),
-  );
+  const totalMs =
+    completedMs + (openStart ? Math.max(0, now - Date.parse(openStart)) : 0);
+  const totalElapsed = msToHMS(totalMs);
 
   const sessions: TodaySession[] = rawSessions.map((s) => {
     const out = verifiedCheckOutAt(s);
@@ -123,6 +144,14 @@ export function useTodayAttendance() {
       durationMs: out ? Date.parse(out) - Date.parse(s.checkInAt) : null,
     };
   });
+
+  // Today's sessions as epoch ms for the day timeline. `counted` is false for
+  // a system auto-close (its end is the cut-off, not a verified check-out).
+  const timeline: TimelineSession[] = rawSessions.map((s) => ({
+    start: Date.parse(s.checkInAt),
+    end: s.checkOutAt ? Date.parse(s.checkOutAt) : null,
+    counted: !s.checkOutAt || verifiedCheckOutAt(s) !== null,
+  }));
 
   const summary = useMemo(() => {
     let present = 0;
@@ -176,7 +205,12 @@ export function useTodayAttendance() {
     staleOpenDate,
     pendingDates,
     sessions,
+    timeline,
     totalElapsed,
+    /** Same total as `totalElapsed`, in ms (ticks every second while working). */
+    totalMs,
+    /** Today's target from the HR master; null until today has a row / none set. */
+    targetMinutes: todayRow?.targetMinutes ?? null,
     summary,
     checkingIn: checkIn.isPending,
     checkingOut: checkOut.isPending,

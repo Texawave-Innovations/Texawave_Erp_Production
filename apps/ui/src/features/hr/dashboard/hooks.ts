@@ -9,6 +9,8 @@ import {
   listDailyAttendance,
   listEmployees,
   listHolidays,
+  listLatestLeaveRequests,
+  listOpenTasks,
   listRecentExpenseClaims,
   listRecentTickets,
 } from "./api";
@@ -238,6 +240,113 @@ export function useGlanceSupport(todayDate: string, enabled: boolean) {
         listEmployees(),
       ]);
       return { holidays, employees };
+    },
+  });
+}
+
+/** Employees who have left: resigned + terminated, for the Workforce category. */
+export function useSeparationCount(enabled: boolean) {
+  const org = useOrgKey("separations");
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: async () => {
+      const [resigned, terminated] = await Promise.all([
+        countRows("/hr/employees", { status: "RESIGNED" }),
+        countRows("/hr/employees", { status: "TERMINATED" }),
+      ]);
+      return resigned + terminated;
+    },
+  });
+}
+
+export function useOpenTaskCount(enabled: boolean) {
+  const org = useOrgKey("open-tasks-count");
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: async () => {
+      const [pending, inProgress, overdue] = await Promise.all([
+        countRows("/hr/tasks", { status: "PENDING" }),
+        countRows("/hr/tasks", { status: "IN_PROGRESS" }),
+        countRows("/hr/tasks", { overdue: true }),
+      ]);
+      return { open: pending + inProgress, overdue };
+    },
+  });
+}
+
+export function useOpenExitCount(enabled: boolean) {
+  const org = useOrgKey("open-exits-count");
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: async () => {
+      const [submitted, review] = await Promise.all([
+        countRows("/hr/exit-requests", { status: "SUBMITTED" }),
+        countRows("/hr/exit-requests", { status: "UNDER_REVIEW" }),
+      ]);
+      return submitted + review;
+    },
+  });
+}
+
+/**
+ * Daily attendance for the last seven calendar days (oldest first). Shares the
+ * `attendance-daily` keys with `useDailyAttendance`, so today is fetched once.
+ */
+export function useWeekAttendance(todayDate: string, enabled: boolean) {
+  const org = useOrgKey();
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(todayDate, i - 6));
+  const queries = useQueries({
+    queries: dates.map((date) => ({
+      queryKey: org.keyFor("attendance-daily", date),
+      enabled: enabled && org.enabled,
+      queryFn: () => listDailyAttendance(date),
+    })),
+  });
+  return {
+    // isLoading, not isPending: a disabled query stays "pending" forever.
+    isLoading: queries.some((q) => q.isLoading),
+    isError: queries.some((q) => q.isError),
+    hasData: queries.every((q) => q.data !== undefined),
+    refetch: () => queries.forEach((q) => void q.refetch()),
+    days: dates.map((date, i) => {
+      const rows = queries[i]?.data ?? [];
+      return { date, total: rows.length, ...countAttendance(rows) };
+    }),
+  };
+}
+
+export function useLatestLeaveRequests(enabled: boolean) {
+  const org = useOrgKey("latest-leaves");
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: () => listLatestLeaveRequests(4),
+  });
+}
+
+export function useOpenTasks(enabled: boolean) {
+  const org = useOrgKey("open-tasks");
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: () => listOpenTasks(5),
+  });
+}
+
+/** Active holidays in the next 60 days, soonest first. */
+export function useUpcomingHolidays(todayDate: string, enabled: boolean) {
+  const org = useOrgKey("upcoming-holidays", todayDate);
+  return useQuery({
+    queryKey: org.key,
+    enabled: enabled && org.enabled,
+    queryFn: async () => {
+      const rows = await listHolidays(todayDate, addDays(todayDate, 60));
+      return [...rows].sort((a, b) =>
+        a.holidayDate.localeCompare(b.holidayDate),
+      );
     },
   });
 }

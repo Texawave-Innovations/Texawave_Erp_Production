@@ -1,5 +1,6 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString, Length } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import { IsInt, IsOptional, IsString, Length, Max, Min } from "class-validator";
 import { Trim } from "../../../../common/dto/transforms.js";
 
 export class SearchDto {
@@ -27,4 +28,19 @@ export class AskDto {
   @IsString()
   @Length(1, 500)
   question!: string;
+}
+
+export class MovementTrendDto {
+  @ApiPropertyOptional({
+    description: "Number of IST days ending today",
+    minimum: 1,
+    maximum: 31,
+    default: 7,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  days?: number;
 }

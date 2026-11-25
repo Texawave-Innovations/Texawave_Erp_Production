@@ -111,7 +111,7 @@ export function AttendanceClockCard({
               />
             ) : null}
             <span
-              className={`font-mono font-bold tracking-tight ${
+              className={`font-bold tracking-tight tabular-nums ${
                 hasAnySession ? "text-5xl" : "text-4xl"
               }`}
             >

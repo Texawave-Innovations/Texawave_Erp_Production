@@ -597,6 +597,35 @@ describe("Projects Module (e2e)", () => {
       expect(resData.data.resources).toBeInstanceOf(Array);
     });
 
+    it("returns hours per Monday-start week, tenant-scoped and permission-gated", async () => {
+      type Week = { weekStart: string; hours: number; entries: number };
+      const res = await request(app.getHttpServer())
+        .get("/projects/analytics/hours-trend")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(200);
+      const weeks = (res.body as ApiResponse<Week[]>).data;
+      expect(weeks).toHaveLength(7);
+      expect(new Date(`${weeks[6]!.weekStart}T00:00:00Z`).getUTCDay()).toBe(1);
+      // The timer test above logged an entry today.
+      expect(weeks[6]!.entries).toBeGreaterThanOrEqual(1);
+
+      await request(app.getHttpServer())
+        .get("/projects/analytics/hours-trend?weeks=27")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(400);
+      await request(app.getHttpServer())
+        .get("/projects/analytics/hours-trend")
+        .set("Authorization", `Bearer ${tokenNoPerm}`)
+        .expect(403);
+
+      const otherRes = await request(app.getHttpServer())
+        .get("/projects/analytics/hours-trend?weeks=2")
+        .set("Authorization", `Bearer ${tokenB}`)
+        .expect(200);
+      const other = (otherRes.body as ApiResponse<Week[]>).data;
+      expect(other.every((w) => w.entries === 0)).toBe(true);
+    });
+
     it("enforces tenant boundary — Org B cannot view Org A project", async () => {
       await request(app.getHttpServer())
         .get(`/projects/${createdProjectId}`)

@@ -279,6 +279,105 @@ describe("finance expenses (e2e)", () => {
       expect(body.journalEntryId).toBeDefined();
     });
 
+    it("GET /finance/reports/monthly-trend matches the P&L month by month", async () => {
+      // Seed its own posted journal so this test does not depend on the
+      // expense lifecycle above: revenue 5000 and an expense of 800 in Oct 2026.
+      const account = (accountCode: string) =>
+        prisma.financeAccount.findFirstOrThrow({
+          where: { organizationId: orgA.id, accountCode },
+          select: { id: true },
+        });
+      const bank = await account("1020");
+      const expense = await account("5020");
+      const revenue = await prisma.financeAccount.create({
+        data: {
+          organizationId: orgA.id,
+          accountCode: "4010",
+          accountName: "Service Revenue",
+          accountType: "REVENUE",
+          currency: "INR",
+        },
+        select: { id: true },
+      });
+      const line = (accountId: number, debit: number, credit: number) => ({
+        organizationId: orgA.id,
+        accountId,
+        debit,
+        credit,
+      });
+      await prisma.financeJournalEntry.create({
+        data: {
+          organizationId: orgA.id,
+          entryNumber: `JV-TREND-${randomUUID().slice(0, 8)}`,
+          entryDate: new Date("2026-10-15T00:00:00.000Z"),
+          narration: "Monthly trend fixture",
+          totalDebit: 5800,
+          totalCredit: 5800,
+          status: "POSTED",
+          lines: {
+            create: [
+              line(bank.id, 5000, 0),
+              line(revenue.id, 0, 5000),
+              line(expense.id, 800, 0),
+              line(bank.id, 0, 800),
+            ],
+          },
+        },
+      });
+
+      const trendRes = await request(app.getHttpServer())
+        .get("/finance/reports/monthly-trend?months=24")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(200);
+      type Month = {
+        month: string;
+        revenue: number;
+        expenses: number;
+        netIncome: number;
+      };
+      const trend = (trendRes.body as { data: Month[] }).data;
+      expect(trend).toHaveLength(24);
+      const october = trend.find((m) => m.month === "2026-10");
+      expect(october).toBeDefined();
+      expect(october!.revenue).toBeGreaterThanOrEqual(5000);
+      expect(october!.expenses).toBeGreaterThanOrEqual(800);
+
+      const pnlRes = await request(app.getHttpServer())
+        .get(
+          "/finance/reports/profit-and-loss?startDate=2026-10-01&endDate=2026-10-31",
+        )
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(200);
+      const pnl = (
+        pnlRes.body as {
+          data: {
+            revenue: { total: number };
+            expenses: { total: number };
+            netIncome: number;
+          };
+        }
+      ).data;
+      expect(october).toMatchObject({
+        revenue: pnl.revenue.total,
+        expenses: pnl.expenses.total,
+        netIncome: pnl.netIncome,
+      });
+
+      await request(app.getHttpServer())
+        .get("/finance/reports/monthly-trend?months=25")
+        .set("Authorization", `Bearer ${tokenA}`)
+        .expect(400);
+
+      const otherRes = await request(app.getHttpServer())
+        .get("/finance/reports/monthly-trend?months=24")
+        .set("Authorization", `Bearer ${tokenB}`)
+        .expect(200);
+      const other = (otherRes.body as { data: Month[] }).data;
+      expect(other.every((m) => m.revenue === 0 && m.expenses === 0)).toBe(
+        true,
+      );
+    });
+
     it("PATCH /finance/expenses/:id rejects edits on a PAID expense", async () => {
       await request(app.getHttpServer())
         .patch(`/finance/expenses/${createdExpenseId}`)

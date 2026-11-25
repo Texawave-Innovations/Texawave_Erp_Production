@@ -17,6 +17,7 @@ import type {
   ProjectTask,
   ResourceTracking,
   TaskTimeEntry,
+  WeeklyHours,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -409,6 +410,16 @@ export async function updatePointsConfig(
 ): Promise<PointsConfig> {
   const { data } = await withAuthRetry(() =>
     apiClient.patch<PointsConfig>("/projects/points/config", input),
+  );
+  return data;
+}
+
+/** Hours logged per Monday-start week across every live project, oldest first. */
+export async function getHoursTrend(weeks = 7): Promise<WeeklyHours[]> {
+  const { data } = await withAuthRetry(() =>
+    apiClient.get<WeeklyHours[]>("/projects/analytics/hours-trend", {
+      query: { weeks },
+    }),
   );
   return data;
 }

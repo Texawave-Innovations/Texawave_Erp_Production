@@ -403,7 +403,7 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 | `Checkbox`                              | standard input checkbox props                                                                                                                                                                                                                                                             | Disabled, checked, focus ring                                                                                                                                                                                                       |
 | `FormField`                             | `label`, `error`, `hint`, `required`, `labelAction`, `errorVariant` (`text` default, `bubble`), render-prop `children`                                                                                                                                                                    | Wires `aria-describedby`, `aria-invalid`, and `<label htmlFor>` automatically; `bubble` shows the error in a callout with a pointer under the control (in the layout flow, `role="alert"`, ✕ glyph, error-700 on error-50 = 6.05:1) |
 | `Card`                                  | `tone` (`default`, `success`, `warning`, `error`, `info`), standard `HTMLAttributes<HTMLDivElement>`                                                                                                                                                                                      | Light/dark surface, rounded-2xl, shadow, full-perimeter gradient borders                                                                                                                                                            |
-| `StatCard`                              | `headingId`, `label`, `value`, `note`, `tone` (`neutral`, `brand`, `info`, `warning`, `error`, `success`), `icon`, `trend`, `href`                                                                                                                                                        | Metric card with accessible `aria-labelledby`, count-up animation, hover elevation, focus-visible stretched link                                                                                                                    |
+| `StatCard`                              | `headingId`, `label`, `value`, `note`, `tone` (`neutral`, `brand`, `info`, `warning`, `error`, `success`), `icon`, `trend`, `href`, `variant` (`standard` / `kpi` / `dashboard`)                                                                                                          | Metric card with accessible `aria-labelledby`, count-up animation, hover elevation, focus-visible stretched link                                                                                                                    |
 | `AnimatedNumber`                        | `value`, `duration` (ms), `formatter`                                                                                                                                                                                                                                                     | Accessible count-up transition, cubic ease-out, immediate render on `prefers-reduced-motion`                                                                                                                                        |
 | `MetricTrend`                           | `value`, `direction` (`up`, `down`, `neutral`), `label`, `isPositive`, `className`                                                                                                                                                                                                        | Semantic trend badge with distinct directional glyphs and non-color `aria-label` description                                                                                                                                        |
 | `TableSkeleton`                         | `rowsCount`, `columnsCount`, `className`                                                                                                                                                                                                                                                  | High-fidelity table loading skeleton with `role="status"` and `aria-label`, respects reduced motion                                                                                                                                 |
@@ -470,10 +470,15 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - `label: string` (Card metric title, rendered uppercase tracking-wider)
   - `value: string | number` (Primary numeric or formatted metric string)
   - `note: string` (Secondary contextual note / comparison baseline)
-  - `tone?: StatCardTone` (`"neutral" | "brand" | "info" | "warning" | "error" | "success"`; default `"neutral"`)
+  - `tone?: StatCardTone` (`"neutral" | "brand" | "info" | "warning" | "error" | "success" | "blue" | "cyan" | "emerald" | "amber"`; default `"neutral"`. `"purple"` is a legacy alias that renders cyan — the brand forbids purple; don't use it in new code)
   - `icon?: ComponentType<{ className?: string }>` (Rendered in tonally-matched squircle container)
   - `trend?: MetricTrendProps` (Optional directional trend badge)
   - `href?: string` (Optional destination with stretched overlay link `<a aria-label="...">`)
+  - `variant?: StatCardVariant` (`"standard" | "kpi" | "dashboard"`; default `"dashboard"`)
+    - `standard` — the original look: tinted card, tone hairline on top, uppercase label, divider above the note. Opt in explicitly.
+    - `kpi` — horizontal card with a large gradient icon tile.
+    - `dashboard` (default) — the admin dashboard's KPI card (`features/admin-dashboard`): white `rounded-3xl` card edged by the soft `card-light-shadow` (no border in light mode; a faint border in dark mode, where shadows barely show), title-case label, large tone-coloured figure, a corner badge (the `icon`, or an arrow that turns 45° on hover when the card links somewhere), a soft radial tone tint just inside the top-right corner (a gradient, not a blurred element, so it fades before the rounded edge), the note with a tone dot (wraps, never truncated), lift on hover. The figure uses `AnimatedValue`, so formatted values such as `"42h 48m"` count up too. Values longer than 5 characters step down one size to fit 6-up grids.
+    - **Rollout:** `dashboard` became the default after design approval, so every `StatCard` without an explicit `variant` uses it; the `kpi` cards keep their own look.
   - `className?: string`
 - **Accessibility Guarantees:** Semantic `<section aria-labelledby={headingId}>`, `<h3 id={headingId}>`, and full accessible link text `${label}: ${value}. ${note}`.
 - **Backward Compatibility:** `apps/ui/src/features/hr/components/StatCard.tsx` re-exports `StatCard`, `StatCardProps`, and `StatCardTone` from `@texawave-erp/ui-kit`.
@@ -489,6 +494,15 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
   - Inspects `window.matchMedia("(prefers-reduced-motion: reduce)").matches`.
   - When reduced motion is requested or `value === 0`, cancels animation frames and renders the target value immediately.
   - Implements smooth cubic ease-out curve (`1 - (1 - t)^3`) via `requestAnimationFrame`.
+
+#### 3a. `AnimatedValue`
+
+- **Location:** `packages/ui-kit/src/components/stat-card/animated-value.tsx`
+- **Public API:**
+  - `value: string | number` (A number, or formatted text such as `"42h 48m"`, `"₹3.2L"`, `"1,20,000"`)
+  - `duration?: number` (Count-up duration in ms; default: `900`)
+- **Behaviour:** Runs every number inside the text through `AnimatedNumber`; units, currency symbols and separators stay put. Keeps decimals, comma grouping (en-IN) and leading zeros (`"08"`). Numbers are formatted with `toLocaleString("en-IN")`.
+- **Accessibility & Motion:** Renders one copy in place, like `AnimatedNumber`, so the settled text is exactly the value. Reduced motion is honoured through `AnimatedNumber` (the value appears immediately).
 
 #### 4. `MetricTrend`
 
@@ -715,6 +729,21 @@ Every generic primitive resides under `packages/ui-kit/src/components/<name>/ind
 - **Verified Migrated Consumers:**
   - Direct UI Kit imports: `RolesHeader.tsx`, `UsersView.tsx`, `MenuView.tsx`.
   - HR banner instances via `HrPageHeader`: `EmployeesView`, `DepartmentsView`, `AttendanceView`, `LeavesView`, `HolidaysView`, `TasksView`, `TicketsView`, `TeamsView`, `RecruitmentView`, `OrgChartView`, `ProfilesListView`, `RegularizationView`, `ExpenseApprovalsView`, `ExitRequestsView`, `LocationPrivilegeView`, `FullMonthPresentView`, `EmployeeDocumentsListView`, `HrDashboardView`, `PayrollView`, `ComplianceView`.
+
+#### 3. `Tabs`
+
+- **Location:** `packages/ui-kit/src/components/tabs/index.tsx`
+- **Use for:** switching content **within one page** (the URL does not change). It is a WAI-ARIA tab list (`role="tablist"`/`"tab"`/`"tabpanel"`, arrow keys / Home / End). For moving **between pages** use links in a navigation landmark instead, not `Tabs`.
+- **Public API:**
+  - `label: string` (accessible name of the tab list), `idPrefix: string` (unique per page)
+  - `tabs: readonly { id; label: ReactNode }[]`, `value`, `onChange(id)`
+  - `children?: ReactNode` (the selected tab's panel), `className?: string`
+  - `variant?: TabsVariant` (`"default" | "capsule"`; default `"capsule"`)
+- **Variants:**
+  - `default` — the original boxed tab bar (`rounded-xl`, sky tint) with the sliding `tab-prime-pill`. Opt in explicitly; it keeps the old double-highlight and layout-property animation.
+  - `capsule` (default) — fully rounded capsule (`rounded-full`, white, soft drop shadow) with a fully rounded `tab-prime-pill` that glides between tabs. Only the pill moves: it animates `transform`/`width` over 300 ms with `ease-spring-glide`, labels only change colour (never weight, so nothing re-measures mid-slide), and the selected tab paints no background of its own. No transition before the first measurement, so the pill appears in place on load. Single line; scrolls sideways on narrow screens and keeps the selected tab in view. Reduced motion: no transitions.
+  - **Rollout:** `capsule` became the default after design approval, so every `Tabs` without an explicit `variant` uses it.
+  - **CRM legacy tabs:** the CRM screens use the Radix-based `apps/ui/src/components/legacy-ui/tabs.tsx` (`Tabs`/`TabsList`/`TabsTrigger`/`TabsContent`), not this component. Its `TabsList`/`TabsTrigger` render the same capsule and gliding pill, and enforce the capsule shape, white active text, readable dark-mode inactive text and "no icons" (`[&>svg]:hidden`) after the caller's `className`, so per-screen overrides cannot fight the pill. New CRM work should prefer the ui-kit `Tabs`.
 
 ---
 
