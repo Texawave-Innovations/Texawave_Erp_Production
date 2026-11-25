@@ -33,7 +33,7 @@ export function SectionCard({
       )}
       {...rest}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-linear-135 from-[#38bdf8] via-[#0ea5e9] to-[#2dd4bf] px-5 py-3.5 text-white dark:bg-linear-to-r dark:from-[#131722] dark:via-[#0E111A] dark:to-[#08090D] dark:text-[#F8FAFC]">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl bg-linear-135 from-[#38bdf8] via-[#0ea5e9] to-[#2dd4bf] px-5 py-3.5 text-white dark:bg-linear-to-r dark:from-[#131722] dark:via-[#0E111A] dark:to-[#08090D] dark:text-[#F8FAFC]">
         <div className="min-w-0">
           <h2 id={headingId} className="text-theme-lg font-bold">
             {title}

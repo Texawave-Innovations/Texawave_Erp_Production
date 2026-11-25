@@ -1191,7 +1191,7 @@ The section is read-only without `hr.payroll_settings.write`. It has five sub-ta
   - **Form 16** with the PDF download.
   - Self-service routes only.
 
-**Error codes** of the statutory engine are shown in words (`format.ts` `describeError`): `ATTENDANCE_NOT_APPROVED`, `TAX_REGIME_NOT_CONFIGURED`, `LOAN_OVER_LIMIT`, `PAYROLL_ALREADY_PAID` and the rest of §4.10–§4.16.
+**Error codes** of the statutory engine are shown in words (`format.ts` `describeError`; the wording is in `packages/core/src/messages/messages.json` under `payroll.error.*`): `ATTENDANCE_NOT_APPROVED`, `TAX_REGIME_NOT_CONFIGURED`, `LOAN_OVER_LIMIT`, `PAYROLL_ALREADY_PAID` and the rest of §4.10–§4.16.
 
 **Payments** (`components/PaymentsPanel.tsx`)
 
@@ -1232,7 +1232,7 @@ A button shows only when the API would actually allow the action, not merely whe
 - `Tabs` — `packages/ui-kit/src/components/tabs` (Docs/DESIGN_SYSTEM.md §2).
 - `EmployeePicker` — `apps/ui/src/components/widgets/EmployeePicker.tsx` (search + select over `GET /hr/employees`, scope-filtered server-side).
 - `OpenPeriodSelect` (periods that are not finalized or cancelled), `PeriodFilterSelect` ("All periods" filter without cancelled periods), `download.ts` (`downloadBlob` / `downloadText`), `DialogParts` (`ServerError`, `DialogActions`), `StatusPill` (loan, repayment, skip, bonus and contribution statuses).
-- Feature internals: `api.ts` / `hooks.ts` (query key root `hr-payroll`; every mutation invalidates it), `types.ts`, `schema.ts` (zod), `format.ts` (`money`, `periodLabel`, `describeError` — business error codes mapped to plain-English messages), `permissions.ts`, `QueryState.tsx` (loading / no access / error-with-retry).
+- Feature internals: `api.ts` / `hooks.ts` (query key root `hr-payroll`; every mutation invalidates it), `types.ts`, `schema.ts` (zod), `format.ts` (`money`, `periodLabel`, `describeError` — business error codes mapped to plain-English messages, worded in the message catalogue under `payroll.error.*`), `permissions.ts`, `QueryState.tsx` (loading / no access / error-with-retry).
 - **Known ui-kit bug:** `Dialog` uses a fixed `id="dialog-title"`, so two mounted dialogs share one accessible name. Payroll mounts each dialog only while open; fix `Dialog` with `useId()` in a separate PR.
 
 ### 5.1 Target Screens & Layout Hierarchy

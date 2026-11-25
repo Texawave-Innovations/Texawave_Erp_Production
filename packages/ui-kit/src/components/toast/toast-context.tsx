@@ -39,7 +39,7 @@ const VARIANT_CLASSES: Record<AlertVariant, string> = {
 };
 
 const MAX_TOASTS = 5;
-const AUTO_DISMISS_MS = 2500;
+const AUTO_DISMISS_MS = 5000;
 
 /** App-wide toast host — mount once near the root (Docs/DESIGN_SYSTEM.md
  * "Forms/tables/navigation"). `useToast()` anywhere below it to fire one. */

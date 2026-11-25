@@ -240,18 +240,41 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       if (!triggerRef.current) return;
       const rect = triggerRef.current.getBoundingClientRect();
 
+      // The menu is fixed to the viewport, so it would float over the app
+      // header when the page content scrolls beneath it. Keep it inside the
+      // visible part of the trigger's scroll area, and close it once the
+      // trigger itself has scrolled out of view.
+      let clipTop = 0;
+      let clipBottom = window.innerHeight;
+      for (
+        let el = triggerRef.current.parentElement;
+        el && el !== document.body;
+        el = el.parentElement
+      ) {
+        const overflowY = getComputedStyle(el).overflowY;
+        if (overflowY === "auto" || overflowY === "scroll") {
+          const r = el.getBoundingClientRect();
+          clipTop = Math.max(clipTop, r.top);
+          clipBottom = Math.min(clipBottom, r.bottom);
+        }
+      }
+      if (rect.bottom <= clipTop || rect.top >= clipBottom) {
+        setIsOpen(false);
+        return;
+      }
+
       const estimatedMenuHeight = Math.min(
         Math.max(options.length * 36 + 16, 60) + (searchable ? 52 : 0),
         332,
       );
-      const viewportHeight = window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceBelow = clipBottom - rect.bottom;
+      const spaceAbove = rect.top - clipTop;
       const openAbove =
-        spaceBelow < estimatedMenuHeight && rect.top > estimatedMenuHeight;
+        spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
 
       const top = openAbove
-        ? Math.max(8, rect.top - estimatedMenuHeight - 4)
-        : Math.min(viewportHeight - 20, rect.bottom + 4);
+        ? Math.max(clipTop + 4, rect.top - estimatedMenuHeight - 4)
+        : Math.min(clipBottom - 20, rect.bottom + 4);
 
       const width = rect.width;
       const left = Math.max(

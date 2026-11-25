@@ -409,9 +409,10 @@ const HR_CATEGORIES: NavCategory[] = [
 ];
 
 /**
- * Sales Navigation. Each entry shows only when `getMyMenu()` returns its
- * `menuCode` (packages/database/prisma/menu/catalog.ts, gated by the page's
- * read permission). Entries are added as their screens ship.
+ * Sales Navigation — Overview plus one flat entry per tab of the `/sales`
+ * workspace (features/sales/components/SalesWorkspaceView), switched via the
+ * `tab` query param like Purchases. Each entry shows only when `getMyMenu()`
+ * returns its `menuCode` (packages/database/prisma/menu/catalog.ts).
  */
 const SALES_CATEGORIES: NavCategory[] = [
   {
@@ -429,74 +430,62 @@ const SALES_CATEGORIES: NavCategory[] = [
     icon: Building2,
     icon3d: "departments",
     iconColor: "text-blue-600",
-    path: "/sales/customers",
+    path: "/sales?tab=customers",
     menuCode: "sales-customers",
   },
   {
-    id: "sales-documents",
-    label: "Documents",
+    id: "sales-quotations",
+    label: "Quotations",
     icon: FileText,
     icon3d: "documents",
-    iconColor: "text-indigo-500",
-    children: [
-      {
-        id: "sales-quotations",
-        label: "Quotations",
-        path: "/sales/quotations",
-        icon: FileText,
-        icon3d: "documents",
-        menuCode: "sales-quotations",
-      },
-      {
-        id: "sales-proforma-invoices",
-        label: "Proforma Invoices",
-        path: "/sales/proforma-invoices",
-        icon: Receipt,
-        icon3d: "documents",
-        menuCode: "sales-proforma-invoices",
-      },
-      {
-        id: "sales-tax-invoices",
-        label: "Tax Invoices",
-        path: "/sales/tax-invoices",
-        icon: Receipt,
-        icon3d: "documents",
-        menuCode: "sales-tax-invoices",
-      },
-      {
-        id: "sales-delivery-challans",
-        label: "Delivery Challans",
-        path: "/sales/delivery-challans",
-        icon: Truck,
-        icon3d: "inventory-scm",
-        menuCode: "sales-delivery-challans",
-      },
-      {
-        id: "sales-returnable-dcs",
-        label: "Returnable DCs",
-        path: "/sales/returnable-dcs",
-        icon: PackageCheck,
-        icon3d: "inventory-scm",
-        menuCode: "sales-returnable-dcs",
-      },
-    ],
+    iconColor: "text-sky-500",
+    path: "/sales?tab=quotations",
+    menuCode: "sales-quotations",
   },
   {
-    id: "sales-collections",
-    label: "Collections",
+    id: "sales-proforma-invoices",
+    label: "Proforma Invoices",
+    icon: Receipt,
+    icon3d: "documents",
+    iconColor: "text-sky-500",
+    path: "/sales?tab=proforma-invoices",
+    menuCode: "sales-proforma-invoices",
+  },
+  {
+    id: "sales-tax-invoices",
+    label: "Tax Invoices",
+    icon: Receipt,
+    icon3d: "documents",
+    iconColor: "text-blue-600",
+    path: "/sales?tab=tax-invoices",
+    menuCode: "sales-tax-invoices",
+  },
+  {
+    id: "sales-delivery-challans",
+    label: "Delivery Challans",
+    icon: Truck,
+    icon3d: "inventory-scm",
+    iconColor: "text-sky-500",
+    path: "/sales?tab=delivery-challans",
+    menuCode: "sales-delivery-challans",
+  },
+  {
+    id: "sales-returnable-dcs",
+    label: "Returnable DCs",
+    icon: PackageCheck,
+    icon3d: "inventory-scm",
+    iconColor: "text-blue-600",
+    path: "/sales?tab=returnable-dcs",
+    menuCode: "sales-returnable-dcs",
+  },
+  {
+    id: "sales-payments",
+    label: "Payments Received",
     icon: Wallet,
     icon3d: "payroll",
     iconColor: "text-emerald-600",
-    children: [
-      {
-        id: "sales-payments",
-        label: "Payments Received",
-        path: "/sales/payments",
-        icon: Wallet,
-        icon3d: "payroll",
-        menuCode: "sales-payments",
-      },
-    ],
+    path: "/sales?tab=payments",
+    menuCode: "sales-payments",
   },
 ];
 
@@ -2188,6 +2177,9 @@ function findRouteNavigationState(pathname: string) {
         : null,
       leafId: null,
     };
+  }
+  if (pathname === "/sales" || pathname.startsWith("/sales/")) {
+    return { moduleId: "sales", categoryId: null, leafId: null };
   }
   if (pathname.startsWith("/purchases")) {
     return { moduleId: "purchases", categoryId: null, leafId: null };

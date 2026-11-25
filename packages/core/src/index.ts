@@ -23,3 +23,4 @@ export * from "./schemas/scm-supplier.schema";
 export * from "./schemas/crm-quotation.schema";
 export * from "./schemas/crm-quota.schema";
 export * from "./formatting/index";
+export * from "./messages/index";

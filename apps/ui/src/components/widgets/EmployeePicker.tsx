@@ -39,7 +39,7 @@ export function EmployeePicker({
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="Employee list unavailable">
+      <Alert dismissible variant="warning" title="Employee list unavailable">
         Your role cannot view employees, so you cannot pick one here.
       </Alert>
     );
