@@ -9,12 +9,13 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
 import { useEmployees } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useCreateTask, usePointsConfig, useUpdateTask } from "../hooks";
-import { errorMessage, formatDate, toDateInput, todayInput } from "../format";
+import { formatDate, toDateInput, todayInput } from "../format";
 import type { Project, ProjectTask, TaskPriority, TaskStatus } from "../types";
 import { ReopenReasonField, isReopen } from "./ReopenReason";
 
@@ -113,7 +114,7 @@ function TaskForm({
   initialMilestoneId,
   taskToEdit,
 }: TaskModalProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const pointsConfig = usePointsConfig();
@@ -372,7 +373,7 @@ function TaskForm({
             dependencyTargetName,
           },
         });
-        toast({ title: "Task updated successfully", variant: "success" });
+        notify("projects.task.updated");
       } else {
         await createTask.mutateAsync({
           projectId: project.id,
@@ -391,11 +392,11 @@ function TaskForm({
               : {}),
           },
         });
-        toast({ title: "New task created successfully", variant: "success" });
+        notify("projects.task.created");
       }
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to save task"));
+      setFormError(resolveErrorText(err, "projects.task.saveFailed"));
     }
   }
 

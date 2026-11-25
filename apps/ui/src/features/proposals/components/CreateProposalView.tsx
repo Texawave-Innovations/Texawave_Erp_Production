@@ -10,15 +10,15 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ArrowLeft, CheckCircle2, FileText, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, todayInput } from "@/features/projects/format";
+import { todayInput } from "@/features/projects/format";
 import { useCreateProposalDocument, useProposalTemplates } from "../hooks";
 import { PROPOSALS_WRITE } from "../permissions";
 import { createProposalDocumentSchema } from "../schema";
@@ -36,7 +36,7 @@ function plusDays(days: number): string {
 export function CreateProposalView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canWrite = usePermission(PROPOSALS_WRITE);
   const templatesQuery = useProposalTemplates();
   const projectsQuery = useProjects({ limit: 100 });
@@ -99,23 +99,16 @@ export function CreateProposalView() {
     if (!result.success || Object.keys(fieldErrors).length > 0) return;
     try {
       const created = await createMutation.mutateAsync(result.data);
-      toast({
-        title: `Proposal ${created.proposalNumber} created`,
-        variant: "success",
-      });
+      notify("proposals.created", { number: created.proposalNumber });
       router.push(`/projects/proposals/${created.id}`);
     } catch (err) {
-      toast({
-        title: "Could not create the proposal",
-        description: errorMessage(err, "Your entries are kept — try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.createFailed");
     }
   }
 
   if (!canWrite) {
     return (
-      <Alert variant="warning" title="You can't create proposals">
+      <Alert dismissible variant="warning" title="You can't create proposals">
         Ask an administrator for the <code>{PROPOSALS_WRITE}</code> permission.
       </Alert>
     );
@@ -149,7 +142,7 @@ export function CreateProposalView() {
               <Skeleton className="h-20 w-full" />
             </div>
           ) : templates.length === 0 ? (
-            <Alert variant="info" title="No published templates">
+            <Alert dismissible variant="info" title="No published templates">
               The proposal will be created without structured sections.{" "}
               <Link
                 href="/projects/proposals/templates"

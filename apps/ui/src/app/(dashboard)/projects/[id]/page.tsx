@@ -37,8 +37,9 @@ import {
   StatusBadge as KitStatusBadge,
   Tabs,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useActiveTimer,
   useAddProjectMember,
@@ -132,7 +133,7 @@ export default function ProjectDetailPage({
 }) {
   const resolvedParams = use(params);
   const projectId = Number(resolvedParams.id);
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
 
   const projectQuery = useProject(projectId);
   const project = projectQuery.data;
@@ -256,24 +257,20 @@ export default function ProjectDetailPage({
     try {
       if (pendingDelete.kind === "milestone") {
         await deleteMilestone.mutateAsync(pendingDelete.id);
-        toast({ title: "Milestone removed", variant: "success" });
+        notify("projects.milestone.removed");
       } else if (pendingDelete.kind === "task") {
         await deleteTask.mutateAsync(pendingDelete.id);
-        toast({ title: "Task removed", variant: "success" });
+        notify("projects.task.removed");
       } else {
         await removeMember.mutateAsync({
           projectId,
           employeeId: pendingDelete.id,
         });
-        toast({ title: "Team member removed", variant: "success" });
+        notify("projects.team.removed");
       }
       setPendingDelete(null);
     } catch (err) {
-      toast({
-        title: "Delete failed",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.deleteFailed");
     }
   }
 
@@ -281,23 +278,13 @@ export default function ProjectDetailPage({
     try {
       if (activeTimer?.taskId === task.id) {
         await stopTimer.mutateAsync({ taskId: task.id });
-        toast({
-          title: `Timer stopped for ${task.taskCode}`,
-          variant: "success",
-        });
+        notify("projects.task.timerStoppedFor", { code: task.taskCode });
       } else {
         await startTimer.mutateAsync(task.id);
-        toast({
-          title: `Timer started for ${task.taskCode}`,
-          variant: "success",
-        });
+        notify("projects.task.timerStartedFor", { code: task.taskCode });
       }
     } catch (err) {
-      toast({
-        title: "Timer action failed",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.task.timerFailed");
     }
   }
 
@@ -321,11 +308,7 @@ export default function ProjectDetailPage({
       });
       setReopenTarget(null);
     } catch (err) {
-      toast({
-        title: "Could not update task status",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.task.statusFailed");
     }
   }
 
@@ -1346,7 +1329,7 @@ function AddMemberForm({
   onClose: () => void;
   project: Project;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const addMember = useAddProjectMember();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
   const [employeeId, setEmployeeId] = useState("");
@@ -1377,10 +1360,10 @@ function AddMemberForm({
           estimatedHours: Number(estimatedHours) || 0,
         },
       });
-      toast({ title: "Team member added", variant: "success" });
+      notify("projects.team.added");
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to add team member"));
+      setFormError(resolveErrorText(err, "projects.team.addFailed"));
     }
   }
 
@@ -1487,7 +1470,7 @@ function AddExpenseForm({
   onClose: () => void;
   project: Project;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createExpense = useCreateExpense();
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(todayInput());
@@ -1518,10 +1501,10 @@ function AddExpenseForm({
           ...(notes.trim() ? { notes: notes.trim() } : {}),
         },
       });
-      toast({ title: "Expense recorded", variant: "success" });
+      notify("projects.project.expenseRecorded");
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to record expense"));
+      setFormError(resolveErrorText(err, "projects.expense.recordFailed"));
     }
   }
 

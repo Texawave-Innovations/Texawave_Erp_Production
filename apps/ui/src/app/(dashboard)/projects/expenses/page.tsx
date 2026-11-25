@@ -27,10 +27,11 @@ import {
   StatusBadge,
   TableToolbar,
   Textarea,
-  useToast,
   type DataTableColumn,
   type StatusColorToken,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useCreateExpense,
   useDeleteExpense,
@@ -41,7 +42,6 @@ import {
   useUpdateExpense,
 } from "@/features/projects/hooks";
 import {
-  errorMessage,
   formatCurrency,
   formatDate,
   toDateInput,
@@ -89,7 +89,7 @@ function emptyForm(projectId: number): ExpenseForm {
 }
 
 export default function ExpensesPage() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const expensesQuery = useExpenses();
   const { data: projectsData } = useProjects({ limit: 100 });
   const vendorsQuery = useExpenseVendors();
@@ -341,20 +341,22 @@ export default function ExpensesPage() {
           expenseId: editingExpense.id,
           input,
         });
-        toast({ title: "Project expense updated", variant: "success" });
+        notify("projects.expense.updated");
       } else {
         await createExpenseMutation.mutateAsync({
           projectId: form.projectId,
           input,
         });
-        toast({ title: "Project expense recorded", variant: "success" });
+        notify("projects.expense.recorded");
       }
       closeModal();
     } catch (err: unknown) {
       setFormError(
-        errorMessage(
+        resolveErrorText(
           err,
-          `Failed to ${editingExpense ? "update" : "record"} expense`,
+          editingExpense
+            ? "projects.expense.updateFailed"
+            : "projects.expense.recordFailed",
         ),
       );
     }
@@ -364,13 +366,10 @@ export default function ExpensesPage() {
     if (!deleteTarget) return;
     try {
       await deleteExpenseMutation.mutateAsync(deleteTarget.id);
-      toast({ title: "Expense record deleted", variant: "success" });
+      notify("projects.expense.deleted");
       setDeleteTarget(null);
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to delete expense"),
-        variant: "error",
-      });
+      notifyError(err, "projects.expense.deleteFailed");
     }
   };
 
@@ -381,15 +380,11 @@ export default function ExpensesPage() {
         expenseId: exp.id,
         input: { status: nextStatus },
       });
-      toast({
-        title: `Marked as ${STATUS_LABELS[nextStatus]}`,
-        variant: "success",
+      notify("projects.expense.statusChanged", {
+        status: STATUS_LABELS[nextStatus],
       });
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to update expense status"),
-        variant: "error",
-      });
+      notifyError(err, "projects.expense.statusFailed");
     }
   };
 

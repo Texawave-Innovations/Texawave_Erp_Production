@@ -17,7 +17,6 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   ArrowLeft,
@@ -33,13 +32,10 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProjects } from "@/features/projects/hooks";
-import {
-  errorMessage,
-  formatDate,
-  toDateInput,
-} from "@/features/projects/format";
+import { formatDate, toDateInput } from "@/features/projects/format";
 import {
   useDuplicateProposalDocument,
   useExtendProposalFollowup,
@@ -91,6 +87,7 @@ export function ProposalDetailView({ id }: ProposalDetailViewProps) {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Proposal Documents"
       >
@@ -111,6 +108,7 @@ export function ProposalDetailView({ id }: ProposalDetailViewProps) {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to Proposal Documents"
         >
@@ -120,7 +118,7 @@ export function ProposalDetailView({ id }: ProposalDetailViewProps) {
     }
     if (error instanceof ApiError && error.isNotFound) {
       return (
-        <Alert variant="warning" title="Proposal not found">
+        <Alert dismissible variant="warning" title="Proposal not found">
           It may have been deleted.{" "}
           <Link href="/projects/proposals">Back to proposals</Link>
         </Alert>
@@ -139,7 +137,7 @@ export function ProposalDetailView({ id }: ProposalDetailViewProps) {
 
 function Editor({ proposal }: { proposal: ProposalDocument }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canWrite = usePermission(PROPOSALS_WRITE);
   const canSend = usePermission(PROPOSALS_SEND);
   const projectsQuery = useProjects({ limit: 100 });
@@ -190,8 +188,7 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
     async (silent: boolean, returnToList = false): Promise<boolean> => {
       if (savingRef.current) return false;
       if (title.trim().length < 2) {
-        if (!silent)
-          toast({ title: "Proposal title is required", variant: "error" });
+        if (!silent) notify("proposals.titleRequired");
         return false;
       }
       savingRef.current = true;
@@ -214,20 +211,16 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
         setDirty(false);
         setLastSaved(new Date());
         setNow(Date.now());
-        if (!silent) toast({ title: "Proposal saved", variant: "success" });
+        if (!silent) notify("proposals.saved");
         if (returnToList) {
           router.push("/projects/proposals");
         }
         return true;
       } catch (err) {
-        toast({
-          title: silent ? "Autosave failed" : "Could not save the proposal",
-          description: errorMessage(
-            err,
-            "Your changes are still on this page.",
-          ),
-          variant: "error",
-        });
+        notifyFailure(
+          err,
+          silent ? "proposals.autosaveFailed" : "proposals.saveFailed",
+        );
         return false;
       } finally {
         savingRef.current = false;
@@ -243,7 +236,8 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
       proposalDate,
       router,
       title,
-      toast,
+      notify,
+      notifyFailure,
       updateMutation,
       values,
     ],
@@ -310,34 +304,23 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
         input: { action, comments },
       });
       setWorkflowTarget(null);
-      toast({
-        title: `${proposal.proposalNumber}: ${WORKFLOW_ACTION_META[action].label}`,
-        variant: "success",
+      notify("proposals.workflowDone", {
+        number: proposal.proposalNumber,
+        action: WORKFLOW_ACTION_META[action].label,
       });
       router.push("/projects/proposals");
     } catch (err) {
-      toast({
-        title: "Could not update the status",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.statusUpdateFailed");
     }
   }
 
   async function handleDuplicate() {
     try {
       const copy = await duplicateMutation.mutateAsync(proposal.id);
-      toast({
-        title: `Duplicated as ${copy.proposalNumber}`,
-        variant: "success",
-      });
+      notify("proposals.duplicated", { number: copy.proposalNumber });
       router.push(`/projects/proposals/${copy.id}`);
     } catch (err) {
-      toast({
-        title: "Could not duplicate",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.duplicateFailed");
     }
   }
 
@@ -429,7 +412,11 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
       />
 
       {!editable && proposal.status !== "archived" ? (
-        <Alert variant="info" title={`Content locked — ${statusMeta.label}`}>
+        <Alert
+          dismissible
+          variant="info"
+          title={`Content locked — ${statusMeta.label}`}
+        >
           <span className="inline-flex items-center gap-1">
             <Lock className="h-3.5 w-3.5" />
             {canWrite
@@ -471,12 +458,8 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
                       action === "submit_for_review" &&
                       completeness.issues.length > 0
                     ) {
-                      toast({
-                        title: "Complete the proposal before submitting",
-                        description: completeness.issues
-                          .slice(0, 3)
-                          .join(" · "),
-                        variant: "warning",
+                      notify("proposals.incomplete", {
+                        issues: completeness.issues.slice(0, 3).join(" · "),
                       });
                       return;
                     }
@@ -765,17 +748,10 @@ function Editor({ proposal }: { proposal: ProposalDocument }) {
               id: proposal.id,
               input: { dueDate, reason },
             });
-            toast({
-              title: `Follow-up set to ${formatDate(dueDate)}`,
-              variant: "success",
-            });
+            notify("proposals.followUpSet", { date: formatDate(dueDate) });
             setExtendOpen(false);
           } catch (err) {
-            toast({
-              title: "Could not update the follow-up",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.followUpFailed");
           }
         }}
       />

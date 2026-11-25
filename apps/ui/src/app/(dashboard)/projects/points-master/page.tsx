@@ -19,14 +19,14 @@ import {
   FormField,
   Input,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   usePointsConfig,
   usePointsLeaderboard,
   useUpdatePointsConfig,
 } from "@/features/projects/hooks";
-import { errorMessage } from "@/features/projects/format";
 import { PageBanner } from "@/features/projects/components/PageBanner";
 import type { PointsConfig } from "@/features/projects/types";
 
@@ -80,7 +80,7 @@ function PriorityConfigForm({
 }: {
   initialConfig?: PointsConfig | undefined;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const updateConfigMutation = useUpdatePointsConfig();
 
   const [points, setPoints] = useState<Record<PriorityKey, number>>({
@@ -161,12 +161,9 @@ function PriorityConfigForm({
         onTimeBonus: Math.max(0, Math.trunc(Number(bonus) || 0)),
         graceMinutes: Math.max(0, Math.trunc(Number(grace) || 0)),
       });
-      toast({
-        title: "Points master rules saved successfully",
-        variant: "success",
-      });
+      notify("projects.pointsMaster.saved");
     } catch (err: unknown) {
-      setFormError(errorMessage(err, "Failed to save points rules"));
+      setFormError(resolveErrorText(err, "projects.pointsMaster.saveFailed"));
     }
   };
 

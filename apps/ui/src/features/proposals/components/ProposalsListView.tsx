@@ -27,7 +27,6 @@ import {
   StatusBadge,
   TableSkeleton,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -50,10 +49,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, formatDate } from "@/features/projects/format";
+import { formatDate } from "@/features/projects/format";
 import {
   useDeleteProposalDocument,
   useDuplicateProposalDocument,
@@ -98,7 +98,7 @@ type HubTab = "proposals" | "history";
  * actions, and the "Workflow & Audit History" tab. */
 export function ProposalsListView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(PROPOSALS_READ);
   const canWrite = usePermission(PROPOSALS_WRITE);
   const canSend = usePermission(PROPOSALS_SEND);
@@ -173,6 +173,7 @@ export function ProposalsListView() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Proposal Documents"
       >
@@ -184,17 +185,10 @@ export function ProposalsListView() {
   async function handleDuplicate(p: ProposalDocument) {
     try {
       const copy = await duplicateMutation.mutateAsync(p.id);
-      toast({
-        title: `Duplicated as ${copy.proposalNumber}`,
-        variant: "success",
-      });
+      notify("proposals.duplicated", { number: copy.proposalNumber });
       router.push(`/projects/proposals/${copy.id}`);
     } catch (err) {
-      toast({
-        title: "Could not duplicate",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.duplicateFailed");
     }
   }
 
@@ -496,6 +490,7 @@ export function ProposalsListView() {
               query.error instanceof ApiError &&
               query.error.isPermissionError ? (
                 <Alert
+                  dismissible
                   variant="warning"
                   title="You don't have access to Proposal Documents"
                 >
@@ -677,17 +672,13 @@ export function ProposalsListView() {
               id: extendTarget.id,
               input: { dueDate, reason },
             });
-            toast({
-              title: `Follow-up for ${extendTarget.proposalNumber} set to ${formatDate(dueDate)}`,
-              variant: "success",
+            notify("proposals.followUpSetFor", {
+              number: extendTarget.proposalNumber,
+              date: formatDate(dueDate),
             });
             setExtendTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not update the follow-up",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.followUpFailed");
           }
         }}
       />
@@ -703,17 +694,13 @@ export function ProposalsListView() {
               id: proposal.id,
               input: { action, comments },
             });
-            toast({
-              title: `${proposal.proposalNumber}: ${WORKFLOW_ACTION_META[action].label}`,
-              variant: "success",
+            notify("proposals.workflowDone", {
+              number: proposal.proposalNumber,
+              action: WORKFLOW_ACTION_META[action].label,
             });
             setWorkflowTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not update the status",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.statusUpdateFailed");
           }
         }}
       />
@@ -724,17 +711,12 @@ export function ProposalsListView() {
           if (!deleteTarget) return;
           try {
             await deleteMutation.mutateAsync(deleteTarget.id);
-            toast({
-              title: `${deleteTarget.proposalNumber} deleted`,
-              variant: "success",
+            notify("proposals.deleted", {
+              number: deleteTarget.proposalNumber,
             });
             setDeleteTarget(null);
           } catch (err) {
-            toast({
-              title: "Could not delete",
-              description: errorMessage(err, ""),
-              variant: "error",
-            });
+            notifyFailure(err, "proposals.deleteFailed");
           }
         }}
         title="Delete this draft proposal?"

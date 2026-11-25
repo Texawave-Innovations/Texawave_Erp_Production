@@ -1,7 +1,11 @@
 "use client";
 
 import type { MomDocument, MomSortField } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
+import {
+  ApiError,
+  type MessageKey,
+  type MessageParams,
+} from "@texawave-erp/core";
 import {
   PageHeader,
   ActionMenu,
@@ -20,7 +24,6 @@ import {
   StatCard,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Archive,
@@ -41,10 +44,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useProjects } from "@/features/projects/hooks";
-import { errorMessage, formatDate } from "@/features/projects/format";
+import { formatDate } from "@/features/projects/format";
 import {
   useArchiveMomDocument,
   useDeleteMomDocument,
@@ -87,7 +91,7 @@ type PendingAction =
  * archive/restore, delete). */
 export function MomRegisterView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(MOM_READ);
   const canWrite = usePermission(MOM_WRITE);
   const canDelete = usePermission(MOM_DELETE);
@@ -144,25 +148,23 @@ export function MomRegisterView() {
 
   async function run(
     action: () => Promise<unknown>,
-    success: string,
-    failure: string,
+    success: MessageKey,
+    failure: MessageKey,
+    params?: MessageParams,
   ) {
     try {
       await action();
-      toast({ title: success, variant: "success" });
+      notify(success, params);
       setPending(null);
     } catch (err) {
-      toast({
-        title: failure,
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, failure, params);
     }
   }
 
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Minutes of Meeting"
       >
@@ -228,8 +230,9 @@ export function MomRegisterView() {
         onClick: () =>
           void run(
             () => restoreMutation.mutateAsync(m.id),
-            `${m.reference} restored`,
-            "Could not restore",
+            "mom.restored",
+            "mom.restoreFailed",
+            { reference: m.reference },
           ),
       });
     }
@@ -387,6 +390,7 @@ export function MomRegisterView() {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to Minutes of Meeting"
           >
@@ -576,11 +580,7 @@ export function MomRegisterView() {
               setPending(null);
               router.push(`/projects/mom/${doc.id}/edit`);
             } catch (err) {
-              toast({
-                title: "Could not start a revision",
-                description: errorMessage(err, "Please try again."),
-                variant: "error",
-              });
+              notifyFailure(err, "mom.revisionFailed");
             }
           }}
         />
@@ -593,8 +593,9 @@ export function MomRegisterView() {
           const doc = pending.doc;
           return run(
             () => archiveMutation.mutateAsync(doc.id),
-            `${doc.reference} archived`,
-            "Could not archive",
+            "mom.archived",
+            "mom.archiveFailed",
+            { reference: doc.reference },
           );
         }}
         title="Archive meeting minutes?"
@@ -614,8 +615,9 @@ export function MomRegisterView() {
           const doc = pending.doc;
           return run(
             () => deleteMutation.mutateAsync(doc.id),
-            `${doc.reference} deleted`,
-            "Could not delete",
+            "mom.deleted",
+            "mom.deleteFailed",
+            { reference: doc.reference },
           );
         }}
         title="Delete this draft?"

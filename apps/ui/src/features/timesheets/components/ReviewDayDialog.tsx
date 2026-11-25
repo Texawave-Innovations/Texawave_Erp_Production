@@ -9,8 +9,8 @@ import {
   FormField,
   Skeleton,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useDecideDay, useReviewDay } from "../hooks";
 import {
   ATTENDANCE_CLASS,
@@ -62,7 +62,7 @@ export function ReviewDayDialog({
     includeDrafts,
   );
   const decide = useDecideDay();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const [mode, setMode] = useState<"approve" | "return" | null>(null);
   const [note, setNote] = useState("");
 
@@ -76,24 +76,16 @@ export function ReviewDayDialog({
         decision,
         ...(text ? { note: text } : {}),
       });
-      toast({
-        title:
-          decision === "reject"
-            ? "Day returned to the employee"
-            : result.status === "APPROVED"
-              ? "Day approved"
-              : "First approval given — it now waits for HR",
-        variant: "success",
-      });
+      notify(
+        decision === "reject"
+          ? "timesheets.review.returned"
+          : result.status === "APPROVED"
+            ? "timesheets.review.approved"
+            : "timesheets.review.firstApproval",
+      );
       onClose();
     } catch (err) {
-      toast({
-        title:
-          err instanceof Error && err.message
-            ? err.message
-            : "Could not save the decision",
-        variant: "error",
-      });
+      notifyError(err, "timesheets.review.decisionFailed");
     }
   }
 

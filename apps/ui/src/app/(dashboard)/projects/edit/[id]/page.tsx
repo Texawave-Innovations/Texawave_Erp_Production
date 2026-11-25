@@ -12,8 +12,9 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useAddProjectMember,
   useProject,
@@ -22,13 +23,12 @@ import {
 } from "@/features/projects/hooks";
 import type { Project } from "@/features/projects/types";
 import { ProjectForm } from "@/features/projects/components/ProjectForm";
-import { errorMessage } from "@/features/projects/format";
 import { useEmployees } from "@/features/hr/employees/hooks";
 
 /** Team-member allocation (hours/rate tracking rows) — a new-module
  * addition kept below the legacy-parity edit form. */
 function TeamMembersCard({ project }: { project: Project }) {
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const addMemberMutation = useAddProjectMember();
   const removeMemberMutation = useRemoveProjectMember();
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -51,7 +51,7 @@ function TeamMembersCard({ project }: { project: Project }) {
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
     if (!newEmployeeId) {
-      toast({ title: "Please select an employee", variant: "warning" });
+      notify("projects.team.selectEmployee");
       return;
     }
     try {
@@ -64,15 +64,11 @@ function TeamMembersCard({ project }: { project: Project }) {
           estimatedHours: Number(newEstimatedHours) || 0,
         },
       });
-      toast({ title: "Team member assigned", variant: "success" });
+      notify("projects.team.assigned");
       setShowAddMember(false);
       setNewEmployeeId("");
     } catch (err) {
-      toast({
-        title: "Failed to add member",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.team.assignFailed");
     }
   }
 
@@ -83,14 +79,10 @@ function TeamMembersCard({ project }: { project: Project }) {
         projectId: project.id,
         employeeId: pendingRemove.employeeId,
       });
-      toast({ title: "Team member removed", variant: "success" });
+      notify("projects.team.removed");
       setPendingRemove(null);
     } catch (err) {
-      toast({
-        title: "Failed to remove member",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.team.removeFailed");
     }
   }
 
@@ -285,7 +277,7 @@ export default function EditProjectPage({
   const resolvedParams = use(params);
   const projectId = Number(resolvedParams.id);
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const projectQuery = useProject(projectId);
   const updateMutation = useUpdateProject();
   const [error, setError] = useState<string | null>(null);
@@ -321,10 +313,10 @@ export default function EditProjectPage({
     setError(null);
     try {
       await updateMutation.mutateAsync({ id: projectId, input: payload });
-      toast({ title: "Project updated successfully", variant: "success" });
+      notify("projects.project.updated");
       router.push(`/projects/${projectId}`);
     } catch (err) {
-      setError(errorMessage(err, "Failed to update project"));
+      setError(resolveErrorText(err, "projects.project.updateFailed"));
     }
   }
 

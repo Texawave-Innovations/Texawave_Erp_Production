@@ -40,8 +40,8 @@ import {
   SpringGlideSegmentedControl,
   StatCard,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   useActiveTimer,
   useCreateManualTimeEntry,
@@ -54,6 +54,7 @@ import {
   useStopTimer,
   useUpdateTask,
 } from "@/features/projects/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { MyPointsPanel } from "./MyPointsPanel";
 import {
@@ -63,12 +64,7 @@ import {
 import { TaskTimeLogsModal } from "@/features/projects/components/TaskTimeLogsModal";
 import { EmployeeTaskUpdateModal } from "@/features/projects/components/EmployeeTaskUpdateModal";
 import { PageBanner } from "@/features/projects/components/PageBanner";
-import {
-  errorMessage,
-  formatDate,
-  isPastDue,
-  todayInput,
-} from "@/features/projects/format";
+import { formatDate, isPastDue, todayInput } from "@/features/projects/format";
 import type { ProjectTask } from "@/features/projects/types";
 
 /** Links to the project page only for users who can open it. Employees in the
@@ -158,7 +154,7 @@ function minutesLabel(minutes: number): string {
 }
 
 export function MyWorkView() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canReview = usePermission("projects.work.review");
   const inPortal = (usePathname() ?? "").startsWith("/portal");
   const [viewEmployeeId, setViewEmployeeId] = useState<number | null>(null);
@@ -333,27 +329,20 @@ export function MyWorkView() {
   const handleStartTimer = async (taskId: number) => {
     try {
       await startTimerMutation.mutateAsync(taskId);
-      toast({ title: "Stopwatch started", variant: "success" });
+      notify("projects.work.timerStarted");
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to start stopwatch"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.timerStartFailed");
     }
   };
 
   const handleStopTimer = async (taskId: number) => {
     try {
       const stopped = await stopTimerMutation.mutateAsync({ taskId });
-      toast({
-        title: `Stopwatch stopped — ${stopped.durationMinutes} min logged`,
-        variant: "success",
+      notify("projects.work.timerStopped", {
+        minutes: stopped.durationMinutes,
       });
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to stop stopwatch"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.timerStopFailed");
     }
   };
 
@@ -365,15 +354,9 @@ export function MyWorkView() {
         taskId: task.id,
         pause: true,
       });
-      toast({
-        title: `Task paused — ${paused.durationMinutes ?? 0} min logged. It is now on hold.`,
-        variant: "success",
-      });
+      notify("projects.work.paused", { minutes: paused.durationMinutes ?? 0 });
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to pause task"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.pauseFailed");
     }
   };
 
@@ -392,10 +375,7 @@ export function MyWorkView() {
 
       if (willComplete) celebrate(task);
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to update task status"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.statusFailed");
     }
   };
 
@@ -418,10 +398,7 @@ export function MyWorkView() {
       }
       await handleStatusChange(task, "completed");
     } catch (err: unknown) {
-      toast({
-        title: errorMessage(err, "Failed to finish task"),
-        variant: "error",
-      });
+      notifyError(err, "projects.work.finishFailed");
     }
   };
 
@@ -444,12 +421,12 @@ export function MyWorkView() {
           ...(manualNotes.trim() ? { notes: manualNotes.trim() } : {}),
         },
       });
-      toast({ title: "Time entry logged", variant: "success" });
+      notify("projects.work.timeLogged");
       setLogModalTask(null);
       setManualHours(1);
       setManualNotes("");
     } catch (err: unknown) {
-      setManualError(errorMessage(err, "Failed to log time"));
+      setManualError(resolveErrorText(err, "projects.work.logFailed"));
     }
   };
 
@@ -481,7 +458,7 @@ export function MyWorkView() {
       />
 
       {viewingOther && otherWork.data ? (
-        <Alert variant="info" title="Read-only view">
+        <Alert dismissible variant="info" title="Read-only view">
           Viewing {otherWork.data.employee.fullName} (
           {otherWork.data.employee.employeeCode}
           {otherWork.data.employee.department
@@ -506,6 +483,7 @@ export function MyWorkView() {
           </div>
         ) : (
           <Alert
+            dismissible
             variant="warning"
             title={
               attendance.hasRecordToday

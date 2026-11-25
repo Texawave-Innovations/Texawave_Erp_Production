@@ -9,9 +9,9 @@ import {
   FormField,
   Input,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProjectCodeMaster, useUpdateProjectCodeMaster } from "../hooks";
 import {
@@ -24,7 +24,7 @@ import { projectCodeMasterSchema } from "../schema";
  * mounts per fetched row rather than syncing state in an effect. */
 function ProjectCodeMasterForm({ initial }: { initial: ProjectCodeMaster }) {
   const canWrite = usePermission(PROJECT_CODE_MASTER_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const update = useUpdateProjectCodeMaster();
 
   const [companyPrefix, setCompanyPrefix] = useState(initial.companyPrefix);
@@ -69,9 +69,9 @@ function ProjectCodeMasterForm({ initial }: { initial: ProjectCodeMaster }) {
     setErrors({});
     try {
       await update.mutateAsync(result.data);
-      toast({ title: "Project code format saved", variant: "success" });
+      notify("projects.master.codeFormatSaved");
     } catch {
-      toast({ title: "Could not save the code format", variant: "error" });
+      notify("projects.master.codeFormatFailed");
     }
   }
 
@@ -180,6 +180,7 @@ export function ProjectCodeMasterTab() {
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Project Code Master"
       >

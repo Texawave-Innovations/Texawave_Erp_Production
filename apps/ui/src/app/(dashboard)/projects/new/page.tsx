@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useToast } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateProject } from "@/features/projects/hooks";
 import { ProjectForm } from "@/features/projects/components/ProjectForm";
-import { errorMessage } from "@/features/projects/format";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMutation = useCreateProject();
   const [error, setError] = useState<string | null>(null);
 
@@ -17,13 +17,10 @@ export default function NewProjectPage() {
     setError(null);
     try {
       const created = await createMutation.mutateAsync(payload);
-      toast({
-        title: `Project ${created.projectCode} created successfully`,
-        variant: "success",
-      });
+      notify("projects.project.created", { code: created.projectCode });
       router.push(`/projects/${created.id}`);
     } catch (err) {
-      setError(errorMessage(err, "Failed to create project"));
+      setError(resolveErrorText(err, "projects.project.createFailed"));
     }
   }
 

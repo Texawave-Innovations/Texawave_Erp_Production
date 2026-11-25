@@ -17,7 +17,11 @@ import {
   Timer,
   Trash2,
 } from "lucide-react";
-import { addBusinessDays, businessToday } from "@texawave-erp/core";
+import {
+  addBusinessDays,
+  businessToday,
+  resolveMessage,
+} from "@texawave-erp/core";
 import {
   Button,
   ConfirmDialog,
@@ -30,6 +34,7 @@ import {
   StatCard,
   useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useActivityCategories,
@@ -302,6 +307,7 @@ export function MyTimesheetView() {
   const { data, isLoading, isError, refetch } = useMyDay(date);
   const monthQuery = useMyMonth(month);
   const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission(TIMESHEET_WRITE);
   const canSubmit = usePermission(TIMESHEET_SUBMIT);
   const submitDay = useSubmitDay();
@@ -670,32 +676,30 @@ export function MyTimesheetView() {
             if (confirmSubmit === "week") {
               const result = await submitWeek.mutateAsync(date);
               toast({
-                title:
-                  result.submitted.length > 0
-                    ? `Submitted ${result.submitted.length} day${result.submitted.length === 1 ? "" : "s"}`
-                    : "Nothing to submit this week",
+                ...resolveMessage(
+                  result.submitted.length === 0
+                    ? "timesheets.week.nothingToSubmit"
+                    : result.submitted.length === 1
+                      ? "timesheets.week.submittedOne"
+                      : "timesheets.week.submittedMany",
+                  { count: result.submitted.length },
+                ),
                 ...(result.skipped.length > 0
                   ? {
                       description: result.skipped
                         .map((d) => `${d.date}: ${d.reason}`)
                         .join(" "),
+                      variant: "error" as const,
                     }
                   : {}),
-                variant: result.skipped.length > 0 ? "error" : "success",
               });
             } else {
               await submitDay.mutateAsync(date);
-              toast({ title: "Day submitted", variant: "success" });
+              notify("timesheets.day.submitted");
             }
             setConfirmSubmit(null);
           } catch (err) {
-            toast({
-              title:
-                err instanceof Error && err.message
-                  ? err.message
-                  : "Could not submit",
-              variant: "error",
-            });
+            notifyError(err, "timesheets.day.submitFailed");
             setConfirmSubmit(null);
           }
         }}
@@ -714,16 +718,10 @@ export function MyTimesheetView() {
           if (!toDelete) return;
           try {
             await deleteActivity.mutateAsync(toDelete.id);
-            toast({ title: "Activity deleted", variant: "success" });
+            notify("timesheets.activity.deleted");
             setToDelete(null);
           } catch (err) {
-            toast({
-              title:
-                err instanceof Error && err.message
-                  ? err.message
-                  : "Could not delete the activity",
-              variant: "error",
-            });
+            notifyError(err, "timesheets.activity.deleteFailed");
           }
         }}
       />

@@ -9,12 +9,12 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
 import { useEmployees } from "@/features/hr/employees/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useProject, useProjectTasks, useUpdateTask } from "../hooks";
-import { errorMessage } from "../format";
 import type { ProjectTask, TaskStatus } from "../types";
 import { ReopenReasonField, isReopen } from "./ReopenReason";
 
@@ -53,7 +53,7 @@ export function EmployeeTaskUpdateModal({
   task,
   onFinished,
 }: EmployeeTaskUpdateModalProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const updateTask = useUpdateTask();
   const projectId = open && task ? task.projectId : undefined;
   // Employees in the portal hold neither the org-wide project read nor an HR
@@ -191,20 +191,14 @@ export function EmployeeTaskUpdateModal({
         },
       });
       if (willComplete) {
-        toast({
-          title: `Task marked completed! +${task.points} points awarded`,
-          variant: "success",
-        });
+        notify("projects.task.completedPoints", { points: task.points });
         onFinished?.({ ...task, status, completionPercent: effectivePercent });
       } else {
-        toast({
-          title: "Task progress updated successfully",
-          variant: "success",
-        });
+        notify("projects.task.progressUpdated");
       }
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to update task progress"));
+      setFormError(resolveErrorText(err, "projects.task.progressFailed"));
     }
   }
 

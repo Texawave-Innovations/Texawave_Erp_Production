@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { downloadReportCsv } from "../api";
 import { useEmployeeMonth, useEmployeeReport } from "../hooks";
@@ -141,7 +141,7 @@ export function TimesheetReport({
   const [team, setTeam] = useState("ALL");
   const [openId, setOpenId] = useState<number | null>(null);
   const canExport = usePermission(REVIEW_EXPORT_ANY_SCOPE);
-  const { toast } = useToast();
+  const { notifyError } = useNotify();
   const [downloading, setDownloading] = useState<"employees" | "days" | null>(
     null,
   );
@@ -169,13 +169,7 @@ export function TimesheetReport({
     try {
       await downloadReportCsv(kind, { from, to });
     } catch (err) {
-      toast({
-        title:
-          err instanceof Error && err.message
-            ? err.message
-            : "Could not download the report",
-        variant: "error",
-      });
+      notifyError(err, "timesheets.report.downloadFailed");
     } finally {
       setDownloading(null);
     }

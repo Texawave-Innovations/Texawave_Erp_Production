@@ -8,7 +8,7 @@ import type {
   SignatureFieldDef,
   TableColumnDef,
 } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, type MessageKey } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -19,14 +19,14 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ArrowLeft, Copy, GitBranch, Lock, Save, Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
-import { errorMessage, todayInput } from "@/features/projects/format";
+import { todayInput } from "@/features/projects/format";
 import {
   useCreateProposalTemplateVersion,
   useDuplicateProposalTemplate,
@@ -121,6 +121,7 @@ export function ProposalTemplateBuilderView({
   if (!canRead) {
     return (
       <Alert
+        dismissible
         variant="warning"
         title="You don't have access to Proposal Templates"
       >
@@ -141,6 +142,7 @@ export function ProposalTemplateBuilderView({
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to Proposal Templates"
         >
@@ -150,7 +152,7 @@ export function ProposalTemplateBuilderView({
     }
     if (error instanceof ApiError && error.isNotFound) {
       return (
-        <Alert variant="warning" title="Template not found">
+        <Alert dismissible variant="warning" title="Template not found">
           It may have been deleted.{" "}
           <Link href="/projects/proposals/templates">Back to templates</Link>
         </Alert>
@@ -168,7 +170,7 @@ export function ProposalTemplateBuilderView({
 
 function Builder({ template }: { template: ProposalTemplate }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canManage = usePermission(PROPOSALS_MANAGE_TEMPLATES);
   const settings = useProposalSettings();
   const updateMutation = useUpdateProposalTemplate();
@@ -217,11 +219,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
       });
       return true;
     } catch (err) {
-      toast({
-        title: "Could not save the template",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.template.saveFailed");
       return false;
     }
   }
@@ -229,20 +227,12 @@ function Builder({ template }: { template: ProposalTemplate }) {
   async function handlePublish() {
     if (isBusy) return;
     if (sections.length === 0) {
-      toast({
-        title: "Add at least one section before publishing",
-        variant: "warning",
-      });
+      notify("proposals.template.needsSection");
       return;
     }
     const hasEmptyTitle = sections.some((s) => !s.title || !s.title.trim());
     if (hasEmptyTitle) {
-      toast({
-        title: "Section title missing",
-        description:
-          "Please provide a title for all sections before publishing.",
-        variant: "warning",
-      });
+      notify("proposals.template.sectionTitleMissing");
       return;
     }
 
@@ -253,10 +243,10 @@ function Builder({ template }: { template: ProposalTemplate }) {
           if (val) {
             const err = getFieldValidationError(f.type ?? "text", val);
             if (err) {
-              toast({
-                title: "Invalid default value",
-                description: `Field "${f.label || "Untitled"}" in section "${s.title}": ${err}`,
-                variant: "error",
+              notify("proposals.template.invalidDefault", {
+                field: f.label || "Untitled",
+                section: s.title,
+                reason: err,
               });
               return;
             }
@@ -269,36 +259,26 @@ function Builder({ template }: { template: ProposalTemplate }) {
     if (!saved) return;
     try {
       await publishMutation.mutateAsync(template.id);
-      toast({
-        title: `V${template.version} published`,
-        description: "This version is now locked.",
-        variant: "success",
+      notify("proposals.template.publishedLocked", {
+        version: template.version,
       });
       router.push("/projects/proposals/templates");
     } catch (err) {
-      toast({
-        title: "Could not publish",
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, "proposals.template.publishFailed");
     }
   }
 
   async function navigateTo(
     fn: () => Promise<ProposalTemplate>,
-    success: string,
-    failure: string,
+    success: MessageKey,
+    failure: MessageKey,
   ) {
     try {
       const created = await fn();
-      toast({ title: success, variant: "success" });
+      notify(success);
       router.push(`/projects/proposals/templates/${created.id}/builder`);
     } catch (err) {
-      toast({
-        title: failure,
-        description: errorMessage(err, ""),
-        variant: "error",
-      });
+      notifyFailure(err, failure);
     }
   }
 
@@ -348,8 +328,8 @@ function Builder({ template }: { template: ProposalTemplate }) {
               onClick={() =>
                 void navigateTo(
                   () => duplicateMutation.mutateAsync(template.id),
-                  "Template duplicated",
-                  "Could not duplicate",
+                  "proposals.template.duplicated",
+                  "proposals.template.duplicateFailed",
                 )
               }
             >
@@ -364,8 +344,8 @@ function Builder({ template }: { template: ProposalTemplate }) {
                 onClick={() =>
                   void navigateTo(
                     () => versionMutation.mutateAsync(template.id),
-                    "New draft version created",
-                    "Could not create a version",
+                    "proposals.template.versionCreated",
+                    "proposals.template.versionFailed",
                   )
                 }
               >
@@ -381,12 +361,7 @@ function Builder({ template }: { template: ProposalTemplate }) {
                   loading={updateMutation.isPending}
                   onClick={() =>
                     void save().then(
-                      (ok) =>
-                        ok &&
-                        toast({
-                          title: "Template draft saved",
-                          variant: "success",
-                        }),
+                      (ok) => ok && notify("proposals.template.draftSaved"),
                     )
                   }
                 >
@@ -409,7 +384,11 @@ function Builder({ template }: { template: ProposalTemplate }) {
       </div>
 
       {locked ? (
-        <Alert variant="info" title={`V${template.version} is locked`}>
+        <Alert
+          dismissible
+          variant="info"
+          title={`V${template.version} is locked`}
+        >
           <span className="inline-flex items-center gap-1">
             <Lock className="h-3.5 w-3.5" />
             Proposals created from this version keep their snapshot. Use Create

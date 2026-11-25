@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import { Flag } from "lucide-react";
-import {
-  Button,
-  Dialog,
-  FormField,
-  Input,
-  Select,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Dialog, FormField, Input, Select } from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateMilestone, useUpdateMilestone } from "../hooks";
-import { errorMessage, toDateInput, todayInput } from "../format";
+import { toDateInput, todayInput } from "../format";
 import type { MilestoneStatus, ProjectMilestone } from "../types";
 
 export interface MilestoneModalProps {
@@ -60,7 +55,7 @@ function MilestoneForm({
   milestoneToEdit,
   currentMilestoneCount = 0,
 }: MilestoneModalProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMilestone = useCreateMilestone();
   const updateMilestone = useUpdateMilestone();
 
@@ -108,17 +103,17 @@ function MilestoneForm({
             ...(effectiveActual ? { actualDate: effectiveActual } : {}),
           },
         });
-        toast({ title: "Milestone updated", variant: "success" });
+        notify("projects.milestone.updated");
       } else {
         await createMilestone.mutateAsync({
           projectId,
           input: { title: title.trim(), targetDate, order: Number(order) || 1 },
         });
-        toast({ title: "Milestone added", variant: "success" });
+        notify("projects.milestone.added");
       }
       onClose();
     } catch (err) {
-      setFormError(errorMessage(err, "Failed to save milestone"));
+      setFormError(resolveErrorText(err, "projects.milestone.saveFailed"));
     }
   }
 

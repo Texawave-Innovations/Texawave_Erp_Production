@@ -1,13 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  FormField,
-  Input,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, FormField, Input, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useCorrectSession, useReopenDay } from "../hooks";
 
 const NOTE_MAX = 500;
@@ -24,7 +19,7 @@ export function ReopenPanel({
   onDone: () => void;
 }) {
   const reopen = useReopenDay();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
 
@@ -41,16 +36,10 @@ export function ReopenPanel({
   async function submit() {
     try {
       await reopen.mutateAsync({ employeeId, date, note: note.trim() });
-      toast({ title: "Day reopened for the employee", variant: "success" });
+      notify("timesheets.review.reopened");
       onDone();
     } catch (err) {
-      toast({
-        title:
-          err instanceof Error && err.message
-            ? err.message
-            : "Could not reopen the day",
-        variant: "error",
-      });
+      notifyError(err, "timesheets.review.reopenFailed");
     }
   }
 
@@ -105,7 +94,7 @@ export function SessionFix({
   onDone: () => void;
 }) {
   const correct = useCorrectSession();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const [open, setOpen] = useState(false);
   const [endTime, setEndTime] = useState("");
   const [reason, setReason] = useState("");
@@ -129,19 +118,10 @@ export function SessionFix({
         endTime,
         reason: reason.trim(),
       });
-      toast({
-        title: `Timer corrected: ${result.minutes} min counted`,
-        variant: "success",
-      });
+      notify("timesheets.review.timerCorrected", { minutes: result.minutes });
       onDone();
     } catch (err) {
-      toast({
-        title:
-          err instanceof Error && err.message
-            ? err.message
-            : "Could not correct the timer",
-        variant: "error",
-      });
+      notifyError(err, "timesheets.review.timerCorrectFailed");
     }
   }
 

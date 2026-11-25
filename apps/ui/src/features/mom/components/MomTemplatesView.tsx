@@ -1,7 +1,11 @@
 "use client";
 
 import type { MomTemplate } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
+import {
+  ApiError,
+  type MessageKey,
+  type MessageParams,
+} from "@texawave-erp/core";
 import {
   PageHeader,
   Button,
@@ -18,7 +22,6 @@ import {
   Select,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   Archive,
@@ -34,8 +37,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
-import { errorMessage } from "@/features/projects/format";
 import {
   useCreateMomTemplate,
   useCreateMomTemplateVersion,
@@ -68,7 +71,7 @@ const STATUS_LABEL: Record<MomTemplate["status"], string> = {
  * set default, archive, and delete drafts. */
 export function MomTemplatesView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const canRead = usePermission(MOM_READ);
   const canManage = usePermission(MOM_MANAGE_TEMPLATES);
 
@@ -102,19 +105,16 @@ export function MomTemplatesView() {
 
   async function act<T>(
     fn: () => Promise<T>,
-    success: string,
-    failure: string,
+    success: MessageKey,
+    failure: MessageKey,
+    params?: MessageParams,
   ): Promise<T | undefined> {
     try {
       const result = await fn();
-      toast({ title: success, variant: "success" });
+      notify(success, params);
       return result;
     } catch (err) {
-      toast({
-        title: failure,
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, failure, params);
       return undefined;
     }
   }
@@ -122,10 +122,7 @@ export function MomTemplatesView() {
   async function handleCreate(values: CreateMomTemplateFormValues) {
     const created = await createMutation.mutateAsync(values);
     setCreateOpen(false);
-    toast({
-      title: `Template "${created.name}" created as a draft`,
-      variant: "success",
-    });
+    notify("mom.template.created", { name: created.name });
     router.push(`/projects/mom/templates/${created.id}/builder`);
   }
 
@@ -146,8 +143,9 @@ export function MomTemplatesView() {
         onClick: () =>
           void act(
             () => publishMutation.mutateAsync(t.id),
-            `"${t.name}" V${t.version} published`,
-            "Could not publish",
+            "mom.template.published",
+            "mom.template.publishFailed",
+            { name: t.name, version: t.version },
           ),
       });
     } else {
@@ -157,8 +155,8 @@ export function MomTemplatesView() {
         onClick: () =>
           void act(
             () => versionMutation.mutateAsync(t.id),
-            "New draft version created",
-            "Could not create a version",
+            "mom.template.versionCreated",
+            "mom.template.versionFailed",
           ).then((created) => {
             if (created)
               router.push(`/projects/mom/templates/${created.id}/builder`);
@@ -171,8 +169,9 @@ export function MomTemplatesView() {
       onClick: () =>
         void act(
           () => duplicateMutation.mutateAsync(t.id),
-          `Duplicated "${t.name}"`,
-          "Could not duplicate",
+          "mom.template.duplicatedNamed",
+          "mom.template.duplicateFailed",
+          { name: t.name },
         ).then((created) => {
           if (created)
             router.push(`/projects/mom/templates/${created.id}/builder`);
@@ -189,8 +188,9 @@ export function MomTemplatesView() {
                 id: t.id,
                 input: { isDefault: true },
               }),
-            `"${t.name}" is now the default template`,
-            "Could not set the default",
+            "mom.template.defaultSet",
+            "mom.template.defaultFailed",
+            { name: t.name },
           ),
       });
     }
@@ -215,7 +215,11 @@ export function MomTemplatesView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to MoM Templates">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to MoM Templates"
+      >
         Ask an administrator for the <code>{MOM_READ}</code> permission.
       </Alert>
     );
@@ -274,6 +278,7 @@ export function MomTemplatesView() {
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
           <Alert
+            dismissible
             variant="warning"
             title="You don't have access to MoM Templates"
           >
@@ -394,8 +399,9 @@ export function MomTemplatesView() {
                 id: t.id,
                 input: { status: "archived", isDefault: false },
               }),
-            `"${t.name}" archived`,
-            "Could not archive",
+            "mom.template.archived",
+            "mom.template.archiveFailed",
+            { name: t.name },
           );
           setConfirm(null);
         }}
@@ -414,8 +420,9 @@ export function MomTemplatesView() {
           const t = confirm.template;
           await act(
             () => deleteMutation.mutateAsync(t.id),
-            `"${t.name}" deleted`,
-            "Could not delete",
+            "mom.template.deleted",
+            "mom.template.deleteFailed",
+            { name: t.name },
           );
           setConfirm(null);
         }}

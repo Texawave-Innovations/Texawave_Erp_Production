@@ -25,9 +25,9 @@ import {
   SpringGlideSegmentedControl,
   TableToolbar,
   Tabs,
-  useToast,
   type DataTableColumn,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useDeleteProject, useProjects } from "@/features/projects/hooks";
 import {
   HealthBadge,
@@ -84,7 +84,7 @@ export default function ProjectsListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
 
   // URL is the source of truth so dashboard links (?status= / ?filter=)
   // apply even when this page is already mounted.
@@ -146,14 +146,10 @@ export default function ProjectsListPage() {
     if (!pendingDelete) return;
     try {
       await deleteProjectMutation.mutateAsync(pendingDelete.id);
-      toast({ title: "Project deleted", variant: "success" });
+      notify("projects.project.deleted");
       setPendingDelete(null);
     } catch (err) {
-      toast({
-        title: "Failed to delete project",
-        description: errorMessage(err, "Please try again."),
-        variant: "error",
-      });
+      notifyFailure(err, "projects.project.deleteFailed");
     }
   }
 
