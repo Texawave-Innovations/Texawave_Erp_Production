@@ -11,11 +11,12 @@ import {
   Input,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { FileText, GitCompareArrows, Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -68,7 +69,7 @@ export function RequisitionsView() {
   );
   const [tracing, setTracing] = useState<PurchaseRequisition | null>(null);
   const [deleting, setDeleting] = useState<PurchaseRequisition | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.procurement.write");
   const canApprove = usePermission("scm.procurement.approve");
   const create = useCreateRequisition();
@@ -88,16 +89,20 @@ export function RequisitionsView() {
   async function run(
     r: PurchaseRequisition,
     action: "submit" | "approve" | "cancel",
-    success: string,
+    success: MessageKey,
   ) {
     try {
       await act.mutateAsync({ id: r.id, action });
-      toast({ title: success, variant: "success" });
+      notify(success);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} requisition`),
-        variant: "error",
-      });
+      notifyError(
+        err,
+        action === "submit"
+          ? "scm.requisition.submitFailed"
+          : action === "approve"
+            ? "scm.requisition.approveFailed"
+            : "scm.requisition.cancelFailed",
+      );
     }
   }
 
@@ -106,12 +111,9 @@ export function RequisitionsView() {
       if (editing) await update.mutateAsync({ id: editing.id, input: payload });
       else await create.mutateAsync(payload);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to save requisition"));
+      throw new Error(errorText(err, "scm.requisition.saveFailed"));
     }
-    toast({
-      title: editing ? "Requisition updated" : "Requisition saved as draft",
-      variant: "success",
-    });
+    notify(editing ? "scm.requisition.updated" : "scm.requisition.savedDraft");
     setFormOpen(false);
     setEditing(null);
   }
@@ -267,11 +269,7 @@ export function RequisitionsView() {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      void run(
-                        r,
-                        "submit",
-                        "Requisition submitted for approval",
-                      )
+                      void run(r, "submit", "scm.requisition.submitted")
                     }
                   >
                     Submit
@@ -284,7 +282,7 @@ export function RequisitionsView() {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      void run(r, "approve", "Requisition approved")
+                      void run(r, "approve", "scm.requisition.approved")
                     }
                   >
                     Approve
@@ -373,9 +371,9 @@ export function RequisitionsView() {
               reason: v.reason as string,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to reject requisition"));
+            throw new Error(errorText(err, "scm.requisition.rejectFailed"));
           }
-          toast({ title: "Requisition rejected", variant: "success" });
+          notify("scm.requisition.rejected");
           setRejecting(null);
         }}
       />
@@ -388,7 +386,7 @@ export function RequisitionsView() {
         variant="destructive"
         onConfirm={async () => {
           if (cancelling)
-            await run(cancelling, "cancel", "Requisition cancelled");
+            await run(cancelling, "cancel", "scm.requisition.cancelled");
           setCancelling(null);
         }}
       />
@@ -403,12 +401,9 @@ export function RequisitionsView() {
           if (!deleting) return;
           try {
             await remove.mutateAsync(deleting.id);
-            toast({ title: "Requisition deleted", variant: "success" });
+            notify("scm.requisition.deleted");
           } catch (err) {
-            toast({
-              title: errorText(err, "Failed to delete requisition"),
-              variant: "error",
-            });
+            notifyError(err, "scm.requisition.deleteFailed");
           }
           setDeleting(null);
         }}

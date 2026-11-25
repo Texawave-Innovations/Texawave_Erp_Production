@@ -6,10 +6,10 @@ import {
   ConfirmDialog,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatMoney, formatQty } from "../../shared/format";
 import { ScmFormDialog, type ScmFormValues } from "../../shared/ScmFormDialog";
@@ -57,7 +57,7 @@ export function ProductsView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ScmProduct | null>(null);
   const [deleting, setDeleting] = useState<ScmProduct | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.product.write");
   const create = useCreateScmProduct();
   const update = useUpdateScmProduct();
@@ -383,7 +383,7 @@ export function ProductsView() {
               });
             }
           } catch (err) {
-            throw new Error(errorText(err, "Failed to save product"));
+            throw new Error(errorText(err, "scm.product.saveFailed"));
           }
           const openingQty = Number(v.openingQuantity ?? 0);
           if (createdProduct && openingQty > 0 && v.openingWarehouseId) {
@@ -400,25 +400,19 @@ export function ProductsView() {
                     : Number(v.openingUnitCost),
               });
             } catch (err) {
-              toast({
-                title: errorText(
-                  err,
-                  "Product created, but opening stock failed to post",
-                ),
-                variant: "error",
-              });
+              notifyError(err, "scm.product.openingStockPostFailed");
               closeForm();
               return;
             }
           }
-          toast({
-            title: editing
-              ? "Product updated"
+          notify(
+            editing
+              ? "scm.product.updated"
               : openingQty > 0
-                ? `Product created with ${openingQty} opening stock`
-                : "Product created",
-            variant: "success",
-          });
+                ? "scm.product.createdWithStock"
+                : "scm.product.created",
+            { qty: openingQty },
+          );
           closeForm();
         }}
       />
@@ -433,12 +427,9 @@ export function ProductsView() {
           if (!deleting) return;
           try {
             await remove.mutateAsync(deleting.id);
-            toast({ title: `Deleted "${deleting.name}"`, variant: "success" });
+            notify("scm.product.deletedNamed", { name: deleting.name });
           } catch (err) {
-            toast({
-              title: errorText(err, "Could not delete product"),
-              variant: "error",
-            });
+            notifyError(err, "scm.product.deleteFailed");
           }
           setDeleting(null);
         }}

@@ -73,6 +73,7 @@ export function ScmListView<T>(props: ScmListViewProps<T>) {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title={`You don't have access to ${props.noun}`}
         >

@@ -4,11 +4,12 @@ import type {
   CreateGoodsReceiptInput,
   GoodsReceipt,
 } from "@texawave-erp/api-types";
-import { Button, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, StatusBadge } from "@texawave-erp/ui-kit";
 import { PackageCheck, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -40,7 +41,7 @@ export function GoodsReceiptsView() {
   const [formOpen, setFormOpen] = useState(Boolean(fromPo));
   const [viewingId, setViewingId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<GoodsReceipt | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.procurement.write");
   const create = useCreateGoodsReceipt();
   const remove = useDeleteGoodsReceipt();
@@ -58,12 +59,9 @@ export function GoodsReceiptsView() {
     try {
       created = await create.mutateAsync(input);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to post goods receipt"));
+      throw new Error(errorText(err, "scm.grn.postFailed"));
     }
-    toast({
-      title: `${created.grnNumber} posted — stock updated`,
-      variant: "success",
-    });
+    notify("scm.grn.posted", { number: created.grnNumber });
     closeForm();
   }
 
@@ -166,8 +164,8 @@ export function GoodsReceiptsView() {
         }
         confirmText="Delete receipt"
         run={(g) => remove.mutateAsync(g.id)}
-        successMessage="Goods receipt deleted"
-        errorFallback="Failed to delete goods receipt"
+        successMessage="scm.grn.deleted"
+        errorFallback="scm.grn.deleteFailed"
       />
       <ScmDetailDialog
         open={viewingId !== null}

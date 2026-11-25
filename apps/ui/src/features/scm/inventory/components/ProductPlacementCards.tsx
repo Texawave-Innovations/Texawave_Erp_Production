@@ -5,7 +5,8 @@ import type {
   ScmProduct,
   ScmWarehouse,
 } from "@texawave-erp/api-types";
-import { Button, Card, Checkbox, Input, useToast } from "@texawave-erp/ui-kit";
+import { Button, Card, Checkbox, Input } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Pencil, Save, X } from "lucide-react";
 import { useState } from "react";
 import { useUpdateScmProduct } from "../../products/hooks";
@@ -16,7 +17,6 @@ import {
   type ProductExpiryInfo,
 } from "../../shared/expiry";
 import { ProductBinFields } from "../../shared/ProductBinFields";
-import { errorText } from "../../shared/use-list-controls";
 
 export interface ProductBinCardProps {
   product: ScmProduct;
@@ -41,7 +41,7 @@ export function ProductBinCard({
   canEdit,
   lotTracked,
 }: ProductBinCardProps) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const update = useUpdateScmProduct();
   const [warehouseOverride, setWarehouseOverride] = useState<string | null>(
     null,
@@ -63,10 +63,7 @@ export function ProductBinCard({
 
   async function save() {
     if (!warehouseId) {
-      toast({
-        title: "Select a warehouse before assigning a bin",
-        variant: "error",
-      });
+      notify("scm.bin.warehouseRequired");
       return;
     }
     try {
@@ -77,14 +74,11 @@ export function ProductBinCard({
           binLocationId: binLocationId ? Number(binLocationId) : null,
         },
       });
-      toast({ title: "Bin location saved", variant: "success" });
+      notify("scm.bin.saved");
       setWarehouseOverride(null);
       setBinOverride(null);
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to save bin location"),
-        variant: "error",
-      });
+      notifyError(err, "scm.bin.saveFailed");
     }
   }
 
@@ -140,7 +134,7 @@ export function ProductExpiryCard({
   expiryInfo,
   canEdit,
 }: ProductExpiryCardProps) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const update = useUpdateScmProduct();
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState("");
@@ -166,13 +160,10 @@ export function ProductExpiryCard({
           expiryNotApplicable: draftNotApplicable,
         },
       });
-      toast({ title: "Expiry date saved", variant: "success" });
+      notify("scm.expiry.saved");
       setEditing(false);
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to save expiry date"),
-        variant: "error",
-      });
+      notifyError(err, "scm.expiry.saveFailed");
     }
   }
 

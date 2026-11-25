@@ -10,11 +10,12 @@ import {
   ConfirmDialog,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -44,12 +45,20 @@ import { PurchaseOrderForm } from "./PurchaseOrderForm";
 
 type Action = "submit" | "approve" | "send" | "cancel" | "close";
 
-const SUCCESS: Record<Action, string> = {
-  submit: "Purchase order submitted for approval",
-  approve: "Purchase order approved — incoming stock raised",
-  send: "Purchase order marked as sent",
-  cancel: "Purchase order cancelled",
-  close: "Purchase order closed",
+const SUCCESS: Record<Action, MessageKey> = {
+  submit: "scm.po.submitted",
+  approve: "scm.po.approved",
+  send: "scm.po.sent",
+  cancel: "scm.po.cancelled",
+  close: "scm.po.closed",
+};
+
+const FAILED: Record<Action, MessageKey> = {
+  submit: "scm.po.submitFailed",
+  approve: "scm.po.approveFailed",
+  send: "scm.po.sendFailed",
+  cancel: "scm.po.cancelFailed",
+  close: "scm.po.closeFailed",
 };
 
 /** Legacy `ScmPurchaseOrders`. `?fromQuotation=<id>` opens the form for a
@@ -72,7 +81,7 @@ export function PurchaseOrdersView() {
     action: "cancel" | "close";
   } | null>(null);
   const [deleting, setDeleting] = useState<PurchaseOrder | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.procurement.write");
   const canApprove = usePermission("scm.procurement.approve");
   const quotation = useQuotation(
@@ -94,12 +103,9 @@ export function PurchaseOrdersView() {
   async function run(po: PurchaseOrder, action: Action) {
     try {
       await act.mutateAsync({ id: po.id, action });
-      toast({ title: SUCCESS[action], variant: "success" });
+      notify(SUCCESS[action]);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} purchase order`),
-        variant: "error",
-      });
+      notifyError(err, FAILED[action]);
     }
   }
 
@@ -115,7 +121,7 @@ export function PurchaseOrdersView() {
     try {
       created = await create.mutateAsync(input);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to create purchase order"));
+      throw new Error(errorText(err, "scm.po.createFailed"));
     }
     // Client-demo auto-issues a fresh PO straight through to the supplier —
     // there's no separate approval step to walk through in a demo. Stops
@@ -134,11 +140,8 @@ export function PurchaseOrdersView() {
         // Already at the furthest status this user/org state allows — fine.
       }
     }
-    toast({
-      title: autoSent
-        ? `Purchase order ${created.poNumber} created and sent to the supplier`
-        : `Purchase order ${created.poNumber} created as draft`,
-      variant: "success",
+    notify(autoSent ? "scm.po.createdSent" : "scm.po.createdDraft", {
+      number: created.poNumber,
     });
     closeForm();
   }
@@ -383,17 +386,14 @@ export function PurchaseOrdersView() {
           if (!deleting) return;
           try {
             const result = await remove.mutateAsync(deleting.id);
-            toast({
-              title: result.receiptsRemoved
-                ? `Purchase order and ${result.receiptsRemoved} goods receipt(s) deleted`
-                : "Purchase order deleted",
-              variant: "success",
-            });
+            notify(
+              result.receiptsRemoved
+                ? "scm.po.deletedWithReceipts"
+                : "scm.po.deleted",
+              { count: result.receiptsRemoved },
+            );
           } catch (err) {
-            toast({
-              title: errorText(err, "Failed to delete purchase order"),
-              variant: "error",
-            });
+            notifyError(err, "scm.po.deleteFailed");
           }
           setDeleting(null);
         }}

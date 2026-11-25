@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { resolveMessage, type MessageKey } from "@texawave-erp/core";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 
 /** Page + debounced search state every SCM list shares. */
@@ -21,6 +22,10 @@ export function useListControls(pageSize = 10) {
   };
 }
 
-export function errorText(err: unknown, fallback: string): string {
-  return err instanceof Error && err.message ? err.message : fallback;
+/** An error's own message (SCM views rethrow the API's message as a plain
+ * `Error`), else the catalogue wording for `fallback`. */
+export function errorText(err: unknown, fallback: MessageKey): string {
+  return err instanceof Error && err.message
+    ? err.message
+    : resolveMessage(fallback).title;
 }

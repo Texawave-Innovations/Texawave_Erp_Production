@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "./use-list-controls";
 import {
   Button,
   FormField,
@@ -142,11 +143,7 @@ function FormBody({
     try {
       await onSubmit(out);
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save. Try again.",
-      );
+      setSubmitError(errorText(err, "scm.common.saveFailed"));
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type {
   PurchaseRequisition,
   RequisitionPayload,
@@ -168,11 +169,7 @@ function Body({
         })),
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not save the requisition.",
-      );
+      setSubmitError(errorText(err, "scm.requisition.formFailed"));
     } finally {
       setSubmitting(false);
     }

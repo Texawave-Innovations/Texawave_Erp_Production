@@ -10,11 +10,12 @@ import {
   ConfirmDialog,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { Plus, ReceiptText } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -52,7 +53,7 @@ export function QuotationsView() {
   const [rejecting, setRejecting] = useState<SupplierQuotation | null>(null);
   const [cancelling, setCancelling] = useState<SupplierQuotation | null>(null);
   const [deleting, setDeleting] = useState<SupplierQuotation | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.procurement.write");
   const create = useCreateQuotation();
   const act = useQuotationAction();
@@ -68,16 +69,18 @@ export function QuotationsView() {
   async function run(
     q: SupplierQuotation,
     action: "reject" | "cancel",
-    success: string,
+    success: MessageKey,
   ) {
     try {
       await act.mutateAsync({ id: q.id, action });
-      toast({ title: success, variant: "success" });
+      notify(success);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} quotation`),
-        variant: "error",
-      });
+      notifyError(
+        err,
+        action === "reject"
+          ? "scm.quotation.rejectFailed"
+          : "scm.quotation.cancelFailed",
+      );
     }
   }
 
@@ -92,12 +95,9 @@ export function QuotationsView() {
     try {
       created = await create.mutateAsync(input);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to save quotation"));
+      throw new Error(errorText(err, "scm.quotation.saveFailed"));
     }
-    toast({
-      title: `Quotation ${created.quotationNumber} recorded`,
-      variant: "success",
-    });
+    notify("scm.quotation.recorded", { number: created.quotationNumber });
     closeForm();
   }
 
@@ -264,7 +264,8 @@ export function QuotationsView() {
         confirmText="Reject"
         variant="destructive"
         onConfirm={async () => {
-          if (rejecting) await run(rejecting, "reject", "Quotation rejected");
+          if (rejecting)
+            await run(rejecting, "reject", "scm.quotation.rejected");
           setRejecting(null);
         }}
       />
@@ -277,7 +278,7 @@ export function QuotationsView() {
         variant="destructive"
         onConfirm={async () => {
           if (cancelling)
-            await run(cancelling, "cancel", "Quotation cancelled");
+            await run(cancelling, "cancel", "scm.quotation.cancelled");
           setCancelling(null);
         }}
       />
@@ -290,8 +291,8 @@ export function QuotationsView() {
         }
         confirmText="Delete quotation"
         run={(q) => remove.mutateAsync(q.id)}
-        successMessage="Quotation deleted"
-        errorFallback="Failed to delete quotation"
+        successMessage="scm.quotation.deleted"
+        errorFallback="scm.quotation.deleteFailed"
       />
       <ScmDetailDialog
         open={Boolean(viewing)}

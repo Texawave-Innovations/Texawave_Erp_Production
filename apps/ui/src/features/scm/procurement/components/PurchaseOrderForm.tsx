@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "../../shared/use-list-controls";
 import type {
   CreatePurchaseOrderInput,
   SupplierQuotation,
@@ -236,11 +237,7 @@ function Body({
         })),
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Could not create the purchase order.",
-      );
+      setSubmitError(errorText(err, "scm.po.formFailed"));
     } finally {
       setSubmitting(false);
     }

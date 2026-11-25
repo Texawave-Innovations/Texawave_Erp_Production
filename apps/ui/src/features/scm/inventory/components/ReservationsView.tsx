@@ -1,9 +1,10 @@
 "use client";
 
 import type { ScmReservation } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDateTime,
@@ -30,7 +31,7 @@ export function ReservationsView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateReservation();
   const release = useReleaseReservation();
@@ -49,12 +50,9 @@ export function ReservationsView() {
   ) {
     try {
       await release.mutateAsync({ id: r.id, status: to });
-      toast({ title: `Reservation ${to.toLowerCase()}`, variant: "success" });
+      notify("scm.reservation.statusChanged", { status: to.toLowerCase() });
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to release reservation"),
-        variant: "error",
-      });
+      notifyError(err, "scm.reservation.releaseFailed");
     }
   }
 
@@ -176,8 +174,8 @@ export function ReservationsView() {
         }
         confirmText="Delete reservation"
         run={(r) => remove.mutateAsync(r.id)}
-        successMessage="Reservation deleted"
-        errorFallback="Failed to delete reservation"
+        successMessage="scm.reservation.deleted"
+        errorFallback="scm.reservation.deleteFailed"
       />
       <ScmFormDialog
         open={open}
@@ -223,9 +221,9 @@ export function ReservationsView() {
               notes: v.notes as string | undefined,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to reserve stock"));
+            throw new Error(errorText(err, "scm.stock.reserveFailed"));
           }
-          toast({ title: "Stock reserved", variant: "success" });
+          notify("scm.stock.reserved");
           setOpen(false);
         }}
       />

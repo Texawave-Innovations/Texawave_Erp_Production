@@ -90,7 +90,11 @@ export function InventoryProductDetail({ productId }: { productId: number }) {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to inventory">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to inventory"
+        >
           Ask an administrator for the <code>scm.inventory.read</code>{" "}
           permission.
         </Alert>

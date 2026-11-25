@@ -7,11 +7,12 @@ import {
   ConfirmDialog,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { type MessageKey } from "@texawave-erp/core";
 import { Plus, Send } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -51,7 +52,7 @@ export function RfqsView() {
   const [viewing, setViewing] = useState<Rfq | null>(null);
   const [cancelling, setCancelling] = useState<Rfq | null>(null);
   const [deleting, setDeleting] = useState<Rfq | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.procurement.write");
   const requisition = useRequisition(fromId ? Number(fromId) : null);
   const create = useCreateRfq();
@@ -68,16 +69,20 @@ export function RfqsView() {
   async function run(
     r: Rfq,
     action: "issue" | "close" | "cancel",
-    success: string,
+    success: MessageKey,
   ) {
     try {
       await act.mutateAsync({ id: r.id, action });
-      toast({ title: success, variant: "success" });
+      notify(success);
     } catch (err) {
-      toast({
-        title: errorText(err, `Failed to ${action} RFQ`),
-        variant: "error",
-      });
+      notifyError(
+        err,
+        action === "issue"
+          ? "scm.rfq.issueFailed"
+          : action === "close"
+            ? "scm.rfq.closeFailed"
+            : "scm.rfq.cancelFailed",
+      );
     }
   }
 
@@ -93,12 +98,9 @@ export function RfqsView() {
     try {
       created = await create.mutateAsync(input);
     } catch (err) {
-      throw new Error(errorText(err, "Failed to create RFQ"));
+      throw new Error(errorText(err, "scm.rfq.createFailed"));
     }
-    toast({
-      title: `RFQ ${created.rfqNumber} created as draft`,
-      variant: "success",
-    });
+    notify("scm.rfq.created", { number: created.rfqNumber });
     closeForm();
   }
 
@@ -205,9 +207,7 @@ export function RfqsView() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      void run(r, "issue", "RFQ issued to suppliers")
-                    }
+                    onClick={() => void run(r, "issue", "scm.rfq.issued")}
                   >
                     Issue
                   </Button>
@@ -233,7 +233,7 @@ export function RfqsView() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => void run(r, "close", "RFQ closed")}
+                      onClick={() => void run(r, "close", "scm.rfq.closed")}
                     >
                       Close
                     </Button>
@@ -273,7 +273,7 @@ export function RfqsView() {
         confirmText="Cancel RFQ"
         variant="destructive"
         onConfirm={async () => {
-          if (cancelling) await run(cancelling, "cancel", "RFQ cancelled");
+          if (cancelling) await run(cancelling, "cancel", "scm.rfq.cancelled");
           setCancelling(null);
         }}
       />
@@ -286,8 +286,8 @@ export function RfqsView() {
         }
         confirmText="Delete RFQ"
         run={(r) => remove.mutateAsync(r.id)}
-        successMessage="RFQ deleted"
-        errorFallback="Failed to delete RFQ"
+        successMessage="scm.rfq.deleted"
+        errorFallback="scm.rfq.deleteFailed"
       />
       <ScmDetailDialog
         open={Boolean(viewing)}

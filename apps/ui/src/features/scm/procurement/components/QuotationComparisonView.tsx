@@ -12,11 +12,11 @@ import {
   Select,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { Scale } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { TextField } from "../../shared/form-bits";
 import {
@@ -26,7 +26,6 @@ import {
   scmStatusToken,
 } from "../../shared/format";
 import { purchasesAwarePath } from "../../shared/purchases-aware-path";
-import { errorText } from "../../shared/use-list-controls";
 import {
   useComparison,
   useRfqsWithQuotations,
@@ -45,7 +44,7 @@ export function QuotationComparisonView() {
   );
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [remarks, setRemarks] = useState("");
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canDecide = usePermission("scm.procurement.approve");
   const canWrite = usePermission("scm.procurement.write");
   const rfqs = useRfqsWithQuotations();
@@ -79,13 +78,10 @@ export function QuotationComparisonView() {
         ...(selectedId !== null ? { selectedQuotationId: selectedId } : {}),
         ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
       });
-      toast({ title: "Comparison saved", variant: "success" });
+      notify("scm.quotation.comparisonSaved");
       setSelectedId(null);
     } catch (err) {
-      toast({
-        title: errorText(err, "Failed to save comparison"),
-        variant: "error",
-      });
+      notifyError(err, "scm.quotation.comparisonFailed");
     }
   }
 
@@ -130,7 +126,11 @@ export function QuotationComparisonView() {
       ) : comparison.isError ? (
         comparison.error instanceof ApiError &&
         comparison.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to procurement">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to procurement"
+          >
             Ask an administrator for the <code>scm.procurement.read</code>{" "}
             permission.
           </Alert>

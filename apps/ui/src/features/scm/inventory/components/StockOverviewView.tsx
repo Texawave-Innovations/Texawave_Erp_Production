@@ -2,16 +2,11 @@
 
 import type { InventoryRow, StockStatus } from "@texawave-erp/api-types";
 import { STOCK_STATUSES } from "@texawave-erp/api-types";
-import {
-  Button,
-  Select,
-  StatCard,
-  StatusBadge,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Select, StatCard, StatusBadge } from "@texawave-erp/ui-kit";
 import { LayoutGrid, PackagePlus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { formatMoney, formatQty, scmStatusToken } from "../../shared/format";
 import { useDeleteScmProduct } from "../../products/hooks";
@@ -43,7 +38,7 @@ export function StockOverviewView() {
   const warehouseOptions = useWarehouseOptions();
   const productOptions = useProductOptions();
   const removeProduct = useDeleteScmProduct();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const canProductWrite = usePermission("scm.product.write");
   const post = usePostOpeningBalance();
@@ -87,19 +82,11 @@ export function StockOverviewView() {
             className="gap-2"
             onClick={() => {
               if ((warehouseOptions.data ?? []).length === 0) {
-                toast({
-                  title:
-                    "Create a warehouse first (Warehouse → Warehouses) before posting an opening balance.",
-                  variant: "error",
-                });
+                notify("scm.opening.warehouseRequired");
                 return;
               }
               if ((productOptions.data ?? []).length === 0) {
-                toast({
-                  title:
-                    "No products in the catalog yet — add a product first, then post its opening balance.",
-                  variant: "error",
-                });
+                notify("scm.opening.productRequired");
                 return;
               }
               setOpeningOpen(true);
@@ -315,8 +302,8 @@ export function StockOverviewView() {
         }
         confirmText="Delete product"
         run={(r) => removeProduct.mutateAsync(r.productId)}
-        successMessage="Product deleted"
-        errorFallback="Could not delete product"
+        successMessage="scm.product.deleted"
+        errorFallback="scm.product.deleteFailed"
       />
       <ScmFormDialog
         open={openingOpen}
@@ -373,12 +360,9 @@ export function StockOverviewView() {
               notes: v.notes as string | undefined,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to post opening balance"));
+            throw new Error(errorText(err, "scm.opening.postFailed"));
           }
-          toast({
-            title: "Opening balance posted to the stock ledger",
-            variant: "success",
-          });
+          notify("scm.opening.posted");
           setOpeningOpen(false);
         }}
       />

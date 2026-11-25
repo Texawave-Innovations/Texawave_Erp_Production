@@ -2,9 +2,10 @@
 
 import type { ScmBatch } from "@texawave-erp/api-types";
 import { BATCH_STATUSES } from "@texawave-erp/api-types";
-import { Button, Select, StatusBadge, useToast } from "@texawave-erp/ui-kit";
+import { Button, Select, StatusBadge } from "@texawave-erp/ui-kit";
 import { Layers, Plus } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   formatDate,
@@ -29,7 +30,7 @@ export function BatchesView() {
   const c = useListControls();
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission("scm.inventory.write");
   const create = useCreateBatch();
   const setBatchStatus = useSetBatchStatus();
@@ -123,17 +124,9 @@ export function BatchesView() {
                 onChange={(e) => {
                   setBatchStatus
                     .mutateAsync({ id: b.id, status: e.target.value })
-                    .then(() =>
-                      toast({
-                        title: "Batch status updated",
-                        variant: "success",
-                      }),
-                    )
+                    .then(() => notify("scm.batch.statusUpdated"))
                     .catch((err: unknown) =>
-                      toast({
-                        title: errorText(err, "Failed to update batch"),
-                        variant: "error",
-                      }),
+                      notifyError(err, "scm.batch.updateFailed"),
                     );
                 }}
               >
@@ -175,8 +168,8 @@ export function BatchesView() {
         }
         confirmText="Delete batch"
         run={(b) => remove.mutateAsync(b.id)}
-        successMessage="Batch deleted"
-        errorFallback="Failed to delete batch"
+        successMessage="scm.batch.deleted"
+        errorFallback="scm.batch.deleteFailed"
       />
       <ScmFormDialog
         open={open}
@@ -231,9 +224,9 @@ export function BatchesView() {
               expiryDate: v.expiryDate as string | undefined,
             });
           } catch (err) {
-            throw new Error(errorText(err, "Failed to create batch"));
+            throw new Error(errorText(err, "scm.batch.createFailed"));
           }
-          toast({ title: "Batch registered", variant: "success" });
+          notify("scm.batch.registered");
           setOpen(false);
         }}
       />
