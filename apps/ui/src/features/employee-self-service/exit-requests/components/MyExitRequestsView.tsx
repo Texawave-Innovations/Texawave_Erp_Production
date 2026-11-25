@@ -14,9 +14,9 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
-import { ApiError } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import { HrPageHeader } from "@/features/hr/components";
 import {
   Calendar,
@@ -57,7 +57,7 @@ function formatDate(dateStr: string) {
 
 function NewExitRequestForm({ onClose }: { onClose: () => void }) {
   const createMutation = useCreateMyExitRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [reason, setReason] = useState("");
   const [preferredLastWorkingDate, setPreferredLastWorkingDate] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -67,14 +67,10 @@ function NewExitRequestForm({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await createMutation.mutateAsync({ reason, preferredLastWorkingDate });
-      toast({ title: "Exit request submitted", variant: "success" });
+      notify("selfService.exit.submitted");
       onClose();
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Could not submit this request. Check the fields and try again.",
-      );
+      setError(resolveErrorText(err, "selfService.exit.submitFailed"));
     }
   }
 
@@ -187,7 +183,11 @@ export function MyExitRequestsView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="You don't have access to exit requests">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You don't have access to exit requests"
+        >
           Ask an administrator for permission to access exit requests.
         </Alert>
       );

@@ -14,8 +14,8 @@ import {
   SearchInput,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   Building2,
   Download,
@@ -70,7 +70,7 @@ export function DepartmentsView() {
   const [deletingDepartment, setDeletingDepartment] =
     useState<Department | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const query = useDepartments({
     page,
@@ -156,11 +156,9 @@ export function DepartmentsView() {
     try {
       await createMutation.mutateAsync(values);
       setCreateOpen(false);
-      toast({ title: "Department created", variant: "success" });
+      notify("departments.created");
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Could not create department";
-      toast({ title: msg, variant: "error" });
+      notifyError(err, "departments.createFailed");
       throw err;
     }
   }
@@ -177,11 +175,9 @@ export function DepartmentsView() {
         input: values,
       });
       setEditingDepartment(null);
-      toast({ title: "Department updated", variant: "success" });
+      notify("departments.updated");
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Could not update department";
-      toast({ title: msg, variant: "error" });
+      notifyError(err, "departments.updateFailed");
       throw err;
     }
   }
@@ -190,16 +186,10 @@ export function DepartmentsView() {
     if (!deletingDepartment) return;
     try {
       await deleteMutation.mutateAsync(deletingDepartment.id);
-      toast({
-        title: `Deleted "${deletingDepartment.name}"`,
-        variant: "success",
-      });
+      notify("departments.deleted", { name: deletingDepartment.name });
       setDeletingDepartment(null);
     } catch {
-      toast({
-        title: `Could not delete "${deletingDepartment.name}"`,
-        variant: "error",
-      });
+      notify("departments.deleteFailed", { name: deletingDepartment.name });
     }
   }
 
@@ -207,7 +197,7 @@ export function DepartmentsView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view departments.
         </Alert>
       );

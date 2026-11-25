@@ -75,7 +75,11 @@ export function RoleNavigationPanel({
   if (menu.isPending) return <Skeleton className="h-72 w-full" />;
   if (menu.isError) {
     return menu.error instanceof ApiError && menu.error.isPermissionError ? (
-      <Alert variant="warning" title="You can't view navigation items">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You can't view navigation items"
+      >
         Navigation access needs the <code>menu.item.read</code> permission.
       </Alert>
     ) : (

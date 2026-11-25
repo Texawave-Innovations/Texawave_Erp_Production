@@ -305,7 +305,11 @@ export function MyAttendanceTrackerView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to attendance">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to attendance"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.attendance.read</code> permission.
       </Alert>

@@ -5,6 +5,7 @@ import type { Department } from "@texawave-erp/api-types";
 import {
   createDepartmentSchema,
   type CreateDepartmentFormValues,
+  resolveErrorText,
 } from "@texawave-erp/core";
 import {
   Alert,
@@ -77,11 +78,7 @@ function DepartmentDialogForm({
       await onSubmit(result.data);
       onClose();
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Could not save department. Please verify the name and try again.";
-      setSubmitError(msg);
+      setSubmitError(resolveErrorText(err, "departments.saveFailed"));
     } finally {
       setSubmitting(false);
     }

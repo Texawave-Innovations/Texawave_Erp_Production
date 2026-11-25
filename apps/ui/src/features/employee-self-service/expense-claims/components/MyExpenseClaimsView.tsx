@@ -14,9 +14,9 @@ import {
   Select,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
-import { ApiError } from "@texawave-erp/core";
+import { useNotify } from "@/hooks/useNotify";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import { HrPageHeader } from "@/features/hr/components";
 import {
   Calendar,
@@ -65,7 +65,7 @@ function formatDate(dateStr: string) {
 
 function NewExpenseClaimForm({ onClose }: { onClose: () => void }) {
   const createMutation = useCreateMyExpenseClaim();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [expenseType, setExpenseType] = useState<
     (typeof EXPENSE_TYPES)[number]
   >(EXPENSE_TYPES[0]);
@@ -86,14 +86,10 @@ function NewExpenseClaimForm({ onClose }: { onClose: () => void }) {
         expenseDate,
         description,
       });
-      toast({ title: "Expense claim submitted", variant: "success" });
+      notify("selfService.claim.submitted");
       onClose();
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Could not submit this claim. Check the fields and try again.",
-      );
+      setError(resolveErrorText(err, "selfService.claim.submitFailed"));
     }
   }
 
@@ -270,6 +266,7 @@ export function MyExpenseClaimsView() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to expense claims"
         >

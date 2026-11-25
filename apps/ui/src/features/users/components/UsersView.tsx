@@ -21,8 +21,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   Plus,
   Pencil,
@@ -73,7 +73,7 @@ export function UsersView() {
   const [credentialsFor, setCredentialsFor] = useState<User | null>(null);
   const [credentials, setCredentials] = useState<string | null>(null);
 
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   const query = useUsers({
     page,
@@ -91,13 +91,7 @@ export function UsersView() {
       setCredentialsFor(user);
       setCredentials(result.temporaryPassword);
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError
-            ? error.message
-            : "Failed to reset password",
-        variant: "error",
-      });
+      notifyError(error, "users.resetPasswordFailed");
     }
   }
 
@@ -180,9 +174,9 @@ export function UsersView() {
         password: v.password,
       });
       setCreateOpen(false);
-      toast({ title: "User created", variant: "success" });
+      notify("users.created");
     } catch {
-      toast({ title: "Could not create user", variant: "error" });
+      notify("users.createFailed");
     }
   }
 
@@ -203,14 +197,10 @@ export function UsersView() {
         input,
       });
       setEditingUser(null);
-      toast({ title: "User updated", variant: "success" });
+      notify("users.updated");
     } catch (error) {
       const description = userErrorDescription(error);
-      toast({
-        title: "Could not update user",
-        ...(description ? { description } : {}),
-        variant: "error",
-      });
+      notify("users.updateFailed", { reason: description });
     }
   }
 
@@ -218,17 +208,13 @@ export function UsersView() {
     if (!deletingUser) return;
     try {
       await deleteMutation.mutateAsync(deletingUser.id);
-      toast({
-        title: `Deleted "${deletingUser.fullName}"`,
-        variant: "success",
-      });
+      notify("users.deleted", { name: deletingUser.fullName });
       setDeletingUser(null);
     } catch (error) {
       const description = userErrorDescription(error);
-      toast({
-        title: `Could not delete "${deletingUser.fullName}"`,
-        ...(description ? { description } : {}),
-        variant: "error",
+      notify("users.deleteFailed", {
+        name: deletingUser.fullName,
+        reason: description,
       });
     }
   }
@@ -251,7 +237,7 @@ export function UsersView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view users.
         </Alert>
       );

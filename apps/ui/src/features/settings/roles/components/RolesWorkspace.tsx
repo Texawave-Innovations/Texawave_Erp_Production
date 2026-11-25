@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Pencil, ShieldCheck } from "lucide-react";
 import type { Permission, RoleListItem, User } from "@texawave-erp/api-types";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveMessage } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -14,8 +14,8 @@ import {
   Skeleton,
   StatusBadge,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -49,15 +49,13 @@ const sameSet = (a: ReadonlySet<number>, b: ReadonlySet<number>) =>
 function saveError(error: unknown): Error {
   if (error instanceof ApiError) {
     if (error.errorCode === "VERSION_CONFLICT") {
-      return new Error(
-        "Someone else changed this role while you were editing. Their version is now loaded underneath and your edits are kept — review the changes again.",
-      );
+      return new Error(resolveMessage("roles.save.versionConflict").title);
     }
     if (error.errorCode === "ACCESS_LOCKOUT") return new Error(error.message);
   }
   return error instanceof Error
     ? error
-    : new Error("Saving failed. Try again.");
+    : new Error(resolveMessage("roles.save.failed").title);
 }
 
 /**
@@ -80,7 +78,7 @@ export function RolesWorkspace({
 }) {
   const canWrite = usePermission("settings.role.write");
   const myUserId = useAuthStore((s) => s.user?.userId ?? null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const sections = useMemo<AccessSection[]>(
     () => buildAccessModel(catalog),
     [catalog],
@@ -220,7 +218,7 @@ export function RolesWorkspace({
     }
     setDraft(null);
     setReviewing(false);
-    toast({ title: `Saved “${selected.name}”`, variant: "success" });
+    notify("roles.saved", { name: selected.name });
   }
 
   const createDialog = (
@@ -236,10 +234,7 @@ export function RolesWorkspace({
           setSelectedId(created.id);
           setDraft(null);
           setDialog(null);
-          toast({
-            title: `Role “${created.name}” created — choose its permissions`,
-            variant: "success",
-          });
+          notify("roles.createdChoosePermissions", { name: created.name });
         }}
       />
     </Dialog>
@@ -352,7 +347,7 @@ export function RolesWorkspace({
         </Card>
 
         {!selected.isActive ? (
-          <Alert variant="warning" title="This role is inactive">
+          <Alert dismissible variant="warning" title="This role is inactive">
             An inactive role grants nothing. Reactivate it from “Edit details”.
           </Alert>
         ) : null}
@@ -504,7 +499,7 @@ export function RolesWorkspace({
               setSelectedId(copy.id);
               setDraft(null);
               setDialog(null);
-              toast({ title: `Created “${copy.name}”`, variant: "success" });
+              notify("roles.cloned", { name: copy.name });
             }}
           />
         </Dialog>
@@ -548,7 +543,7 @@ export function RolesWorkspace({
                 throw error;
               }
               setDialog(null);
-              toast({ title: "Role updated", variant: "success" });
+              notify("roles.updated");
             }}
           />
         </Dialog>

@@ -33,13 +33,17 @@ export function RoleMembersPanel({
   return (
     <div className="flex flex-col gap-3">
       {partial ? (
-        <Alert variant="info" title="Showing members among the first 100 users">
+        <Alert
+          dismissible
+          variant="info"
+          title="Showing members among the first 100 users"
+        >
           The organization has more users than one page; manage everyone from
           Admin → Users.
         </Alert>
       ) : null}
       {withoutTeams.length > 0 ? (
-        <Alert variant="warning" title="Team scope with no team">
+        <Alert dismissible variant="warning" title="Team scope with no team">
           {withoutTeams.length} member
           {withoutTeams.length === 1 ? " has" : "s have"} no team, so this
           role's Team-scoped permissions show them nothing. Assign teams in

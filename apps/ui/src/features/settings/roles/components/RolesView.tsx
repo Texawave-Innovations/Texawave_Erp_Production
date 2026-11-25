@@ -44,7 +44,11 @@ export function RolesView() {
   if (roles.isError || catalog.isError) {
     const error = roles.error ?? catalog.error;
     return error instanceof ApiError && error.isPermissionError ? (
-      <Alert variant="warning" title="You don't have access to roles">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to roles"
+      >
         Ask an administrator for the <code>settings.role.read</code> permission.
       </Alert>
     ) : (
@@ -76,7 +80,7 @@ export function RolesView() {
         </p>
       </div>
       {users.isError && canReadUsers ? (
-        <Alert variant="warning" title="Users could not be loaded">
+        <Alert dismissible variant="warning" title="Users could not be loaded">
           Member counts and “Who has access” are unavailable until users load.
         </Alert>
       ) : null}

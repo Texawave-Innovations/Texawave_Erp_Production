@@ -97,7 +97,11 @@ export function MyPayslipsView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to payslips">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to payslips"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.payslip.read</code> permission.
       </Alert>
@@ -138,7 +142,7 @@ export function MyPayslipsView() {
       ) : query.isError ? (
         query.error instanceof ApiError &&
         query.error.errorCode === "NOT_AN_EMPLOYEE" ? (
-          <Alert variant="warning" title="No employee record">
+          <Alert dismissible variant="warning" title="No employee record">
             Payslips are issued to employees only.
           </Alert>
         ) : (

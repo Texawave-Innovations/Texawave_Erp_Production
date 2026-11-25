@@ -1,8 +1,8 @@
 "use client";
 
 import { ApiError } from "@texawave-erp/core";
-import { useToast } from "@texawave-erp/ui-kit";
 import { useEffect, useMemo, useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCheckIn,
@@ -49,20 +49,6 @@ export function msToHM(ms: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function describePunchError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.errorCode === "ALREADY_CHECKED_IN") {
-      return "You are already checked in.";
-    }
-    if (error.errorCode === "NOT_CHECKED_IN") return "You are not checked in.";
-    if (error.isPermissionError) {
-      return "You don't have permission to punch attendance.";
-    }
-    return error.message;
-  }
-  return "Failed to save attendance. Please try again.";
-}
-
 export interface TodaySession {
   checkIn: string;
   checkOut: string | null;
@@ -79,7 +65,7 @@ export interface TodaySession {
 export function useTodayAttendance() {
   const canRead = usePermission(SELF_SERVICE_READ);
   const canPunch = usePermission(SELF_SERVICE_PUNCH);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const checkIn = useCheckIn();
   const checkOut = useCheckOut();
 
@@ -150,27 +136,34 @@ export function useTodayAttendance() {
     return { present, absent, leave };
   }, [rows]);
 
+  /** A failed punch: a dedicated message for known API codes (see `errorCodes`), else the API's own. */
+  function notifyPunchError(error: unknown) {
+    if (error instanceof ApiError && error.isPermissionError) {
+      notify("selfService.punch.permissionDenied");
+    } else {
+      notifyError(error, "selfService.punch.failed");
+    }
+  }
+
   async function handleCheckIn() {
     try {
       const res = await checkIn.mutateAsync();
-      toast({
-        title: `Checked in at ${formatTime(res.checkInAt)}`,
-        variant: "success",
+      notify("selfService.attendance.checkedIn", {
+        time: formatTime(res.checkInAt),
       });
     } catch (error) {
-      toast({ title: describePunchError(error), variant: "error" });
+      notifyPunchError(error);
     }
   }
 
   async function handleCheckOut() {
     try {
       const res = await checkOut.mutateAsync();
-      toast({
-        title: `Checked out at ${formatTime(res.checkOutAt)}`,
-        variant: "success",
+      notify("selfService.attendance.checkedOut", {
+        time: formatTime(res.checkOutAt),
       });
     } catch (error) {
-      toast({ title: describePunchError(error), variant: "error" });
+      notifyPunchError(error);
     }
   }
 

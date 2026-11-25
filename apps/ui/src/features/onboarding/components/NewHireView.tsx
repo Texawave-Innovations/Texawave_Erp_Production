@@ -211,7 +211,7 @@ export function NewHireView() {
   if (!canWriteEmployees || !canWriteAccounts) {
     return (
       <div className="mx-auto max-w-3xl pb-12">
-        <Alert variant="warning" title="You can't add employees">
+        <Alert dismissible variant="warning" title="You can't add employees">
           Adding a new hire also creates their login, which needs both the
           Employees edit permission and the Login accounts permission. Ask an
           administrator for access.

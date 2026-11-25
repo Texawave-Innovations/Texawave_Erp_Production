@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveMessage } from "@texawave-erp/core";
 import { Alert, Button, Checkbox, Dialog } from "@texawave-erp/ui-kit";
 import { levelLabel, type GrantChange } from "../utils/access-model";
 
@@ -16,11 +16,14 @@ export interface ReviewWarning {
 function describeSaveError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.isPermissionError)
-      return "You don't have permission to change roles.";
-    if (error.statusCode === 404) return "This role no longer exists.";
+      return resolveMessage("roles.save.permissionDenied").title;
+    if (error.statusCode === 404)
+      return resolveMessage("roles.save.notFound").title;
     return error.message;
   }
-  return error instanceof Error ? error.message : "Saving failed. Try again.";
+  return error instanceof Error
+    ? error.message
+    : resolveMessage("roles.save.failed").title;
 }
 
 /**
@@ -85,7 +88,7 @@ export function ReviewChangesDialog({
         </p>
 
         {warnings.length > 0 ? (
-          <Alert variant="warning" title="Check before saving">
+          <Alert dismissible variant="warning" title="Check before saving">
             <ul className="list-disc pl-4">
               {warnings.map((w) => (
                 <li key={w.id}>{w.text}</li>

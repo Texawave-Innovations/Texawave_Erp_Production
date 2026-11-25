@@ -16,8 +16,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Plus } from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
 import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
@@ -47,7 +47,7 @@ export function TagsView() {
   const [sortColumn, setSortColumn] = useState<string | undefined>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useTags({
     page,
@@ -80,15 +80,15 @@ export function TagsView() {
   }) {
     await createMutation.mutateAsync(values);
     setCreateOpen(false);
-    toast({ title: "Tag created", variant: "success" });
+    notify("tags.created");
   }
 
   async function handleDelete(tag: Tag) {
     try {
       await deleteMutation.mutateAsync(tag.id);
-      toast({ title: `Deleted "${tag.name}"`, variant: "success" });
+      notify("tags.deleted", { name: tag.name });
     } catch {
-      toast({ title: `Could not delete "${tag.name}"`, variant: "error" });
+      notify("tags.deleteFailed", { name: tag.name });
     }
   }
 
@@ -111,6 +111,7 @@ export function TagsView() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to reference tags"
         >

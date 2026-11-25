@@ -1,7 +1,8 @@
 "use client";
 
 import { Copy } from "lucide-react";
-import { Button, Dialog, useToast } from "@texawave-erp/ui-kit";
+import { Button, Dialog } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 
 export interface PortalCredentialsDialogProps {
   open: boolean;
@@ -22,7 +23,7 @@ export function PortalCredentialsDialog({
   username,
   password,
 }: PortalCredentialsDialogProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const loginUrl =
     typeof window !== "undefined" ? `${window.location.origin}/login` : "";
 
@@ -30,9 +31,9 @@ export function PortalCredentialsDialog({
     const text = `Login URL: ${loginUrl}\nUsername: ${username}\nPassword: ${password}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast({ title: "Credentials copied", variant: "success" });
+      notify("users.credentialsCopied");
     } catch {
-      toast({ title: "Could not copy to clipboard", variant: "error" });
+      notify("users.credentialsCopyFailed");
     }
   }
 

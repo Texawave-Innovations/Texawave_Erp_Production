@@ -15,7 +15,11 @@ export function WebCheckinView() {
 
   if (!attendance.canPunch) {
     return (
-      <Alert variant="warning" title="You don't have access to check in">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to check in"
+      >
         Ask an administrator for the{" "}
         <code>employee_self_service.attendance.punch</code> permission.
       </Alert>

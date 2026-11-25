@@ -149,14 +149,18 @@ export function EmployeeDashboardView() {
       </div>
 
       {attendance.canRead && attendance.staleOpenDate ? (
-        <Alert variant="warning" title="You did not check out earlier">
+        <Alert
+          dismissible
+          variant="warning"
+          title="You did not check out earlier"
+        >
           Your session from {attendance.staleOpenDate} is still open, so a new
           check-in is refused. Ask HR to close it, or check out and raise an
           attendance correction.
         </Alert>
       ) : null}
       {attendance.canRead && attendance.pendingDates.length > 0 ? (
-        <Alert variant="info" title="Waiting for HR">
+        <Alert dismissible variant="info" title="Waiting for HR">
           You were checked out automatically on{" "}
           {attendance.pendingDates.join(", ")}. HR needs to regularize{" "}
           {attendance.pendingDates.length === 1 ? "that day" : "those days"}{" "}

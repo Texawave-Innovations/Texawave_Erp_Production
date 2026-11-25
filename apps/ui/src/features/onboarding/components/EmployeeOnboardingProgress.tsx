@@ -20,7 +20,6 @@ import {
   Semantic3DIcon,
   type Icon3DName,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -29,6 +28,7 @@ import {
 } from "@/features/hr/employees/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { OnboardingReviewPanel } from "@/features/hr/employees/components/OnboardingReviewPanel";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   ONBOARDING_APPROVE_TEAM_OR_ALL,
@@ -149,7 +149,7 @@ export function EmployeeOnboardingProgress({
   const [editingSection, setEditingSection] =
     useState<EditableSectionId | null>(null);
   const [forceApproveOpen, setForceApproveOpen] = useState(false);
-  const { toast } = useToast();
+  const { notify, notifyFailure } = useNotify();
   const reviewMutation = useReviewOnboarding();
   const empQuery = useEmployee(employeeId);
   const onboardingQuery = useQuery({
@@ -165,25 +165,10 @@ export function EmployeeOnboardingProgress({
         note: "Force-approved by HR before onboarding was submitted/complete",
         force: true,
       });
-      toast({
-        title: "Onboarding approved",
-        description:
-          "This was approved even though it isn't fully submitted — an explicit HR override.",
-        variant: "success",
-      });
+      notify("onboarding.forceApproved");
       setForceApproveOpen(false);
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "Failed to approve onboarding";
-      toast({
-        title: "Approve failed",
-        description: message,
-        variant: "error",
-      });
+      notifyFailure(error, "onboarding.forceApproveFailed");
     }
   };
 
@@ -206,7 +191,7 @@ export function EmployeeOnboardingProgress({
     const error = onboardingQuery.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view this employee&apos;s onboarding.
         </Alert>
       );

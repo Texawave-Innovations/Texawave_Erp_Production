@@ -101,7 +101,7 @@ export function FamilyExperienceStep({
   return (
     <div className="flex flex-col gap-6">
       {blockedMessage && (
-        <Alert variant="warning" title="Incomplete Form Input">
+        <Alert dismissible variant="warning" title="Incomplete Form Input">
           {blockedMessage}
         </Alert>
       )}

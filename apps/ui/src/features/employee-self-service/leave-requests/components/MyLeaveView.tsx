@@ -8,7 +8,6 @@ import {
   ErrorState,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { ApiError } from "@texawave-erp/core";
 import {
@@ -23,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useHolidays } from "@/features/hr/holidays/hooks";
 import { READ as HOLIDAY_READ } from "@/features/hr/holidays/permissions";
@@ -203,7 +203,7 @@ function ApplicationRow({
   onCancel: () => void;
 }) {
   const resubmit = useResubmitMyLeaveRequest();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const reviewer = app.decidedBy ?? app.firstDecidedBy;
   const reviewedAt = app.decidedAt ?? app.firstDecidedAt;
   const note = app.decisionNote ?? app.firstDecisionNote;
@@ -211,13 +211,9 @@ function ApplicationRow({
   async function handleResubmit() {
     try {
       await resubmit.mutateAsync(app.id);
-      toast({ title: "Leave request resubmitted", variant: "success" });
+      notify("selfService.leave.resubmitted");
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError ? err.message : "Could not resubmit request",
-        variant: "error",
-      });
+      notifyError(err, "selfService.leave.resubmitFailed");
     }
   }
 
@@ -407,6 +403,7 @@ export function MyLeaveView() {
     if (error instanceof ApiError && error.isPermissionError) {
       return (
         <Alert
+          dismissible
           variant="warning"
           title="You don't have access to leave requests"
         />

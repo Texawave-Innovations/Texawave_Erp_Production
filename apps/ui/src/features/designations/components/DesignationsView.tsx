@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import {
   useCreateDesignation,
@@ -31,7 +31,7 @@ export function DesignationsView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingDesignation, setEditingDesignation] =
     useState<Designation | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useDesignations({ page, limit: PAGE_SIZE });
   const createMutation = useCreateDesignation();
@@ -52,7 +52,7 @@ export function DesignationsView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view designations.
         </Alert>
       );
@@ -71,9 +71,9 @@ export function DesignationsView() {
         ...(values.description ? { description: values.description } : {}),
       });
       setCreateOpen(false);
-      toast({ title: "Designation created", variant: "success" });
+      notify("designations.created");
     } catch {
-      toast({ title: "Could not create designation", variant: "error" });
+      notify("designations.createFailed");
     }
   }
 
@@ -86,9 +86,9 @@ export function DesignationsView() {
         input: { name: values.name, description: values.description ?? "" },
       });
       setEditingDesignation(null);
-      toast({ title: "Designation updated", variant: "success" });
+      notify("designations.updated");
     } catch {
-      toast({ title: "Could not update designation", variant: "error" });
+      notify("designations.updateFailed");
     }
   }
 
@@ -99,15 +99,12 @@ export function DesignationsView() {
         id: designation.id,
         isActive: nextActive,
       });
-      toast({
-        title: `${nextActive ? "Activated" : "Deactivated"} "${designation.name}"`,
-        variant: "success",
-      });
+      notify(
+        nextActive ? "designations.activated" : "designations.deactivated",
+        { name: designation.name },
+      );
     } catch {
-      toast({
-        title: `Could not update "${designation.name}"`,
-        variant: "error",
-      });
+      notify("designations.toggleFailed", { name: designation.name });
     }
   }
 

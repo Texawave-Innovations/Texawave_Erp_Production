@@ -17,8 +17,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { ManagementToolbar } from "@/components/layout/ManagementToolbar";
 import { FilterSelect, type FilterOption } from "@/components/ui/FilterSelect";
@@ -54,7 +54,7 @@ export function MenuView() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
 
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const query = useMenuItems({
     page,
@@ -140,9 +140,9 @@ export function MenuView() {
         parentId: values.parentId ?? null,
       });
       setCreateOpen(false);
-      toast({ title: "Menu item created", variant: "success" });
+      notify("menu.created");
     } catch {
-      toast({ title: "Could not create menu item", variant: "error" });
+      notify("menu.createFailed");
     }
   }
 
@@ -157,9 +157,9 @@ export function MenuView() {
         },
       });
       setEditingItem(null);
-      toast({ title: "Menu item updated", variant: "success" });
+      notify("menu.updated");
     } catch {
-      toast({ title: "Could not update menu item", variant: "error" });
+      notify("menu.updateFailed");
     }
   }
 
@@ -167,13 +167,10 @@ export function MenuView() {
     if (!deletingItem) return;
     try {
       await deleteMutation.mutateAsync(deletingItem.id);
-      toast({ title: `Deleted "${deletingItem.label}"`, variant: "success" });
+      notify("menu.deleted", { label: deletingItem.label });
       setDeletingItem(null);
     } catch {
-      toast({
-        title: `Could not delete "${deletingItem.label}"`,
-        variant: "error",
-      });
+      notify("menu.deleteFailed", { label: deletingItem.label });
     }
   }
 
@@ -195,7 +192,7 @@ export function MenuView() {
     const error = query.error;
     if (error instanceof ApiError && error.isPermissionError) {
       return (
-        <Alert variant="warning" title="Access Denied">
+        <Alert dismissible variant="warning" title="Access Denied">
           You do not have permission to view menu items.
         </Alert>
       );

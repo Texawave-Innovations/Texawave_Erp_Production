@@ -60,7 +60,7 @@ export function ForgotPasswordForm() {
           </div>
 
           <div className="flex-1 flex flex-col justify-center">
-            <Alert variant="success" title="Link Sent">
+            <Alert dismissible variant="success" title="Link Sent">
               If an account exists for that email, we&apos;ve sent a secure link
               to reset your password.
             </Alert>

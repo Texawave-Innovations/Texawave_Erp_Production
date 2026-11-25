@@ -524,6 +524,7 @@ export function OnboardingWizard() {
 
           {sentBackNote && (
             <Alert
+              dismissible
               variant="warning"
               title="HR requested updates to your details"
               className="mt-1"
