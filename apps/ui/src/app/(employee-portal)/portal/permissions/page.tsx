@@ -13,14 +13,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Card,
-  EmptyState,
-  TableSkeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { resolveErrorText } from "@texawave-erp/core";
+import { Button, Card, EmptyState, TableSkeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import {
   useMyWorkPermissions,
@@ -368,7 +363,7 @@ function RequestDialog({ onClose }: { onClose: () => void }) {
   const [toTime, setToTime] = useState("12:00");
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const mutation = useCreateMyWorkPermission();
 
   const durationMins = (() => {
@@ -396,13 +391,11 @@ function RequestDialog({ onClose }: { onClose: () => void }) {
         toTime,
         reason: reason.trim(),
       });
-      toast({ title: "Permission request submitted", variant: "success" });
+      notify("selfService.permission.submitted");
       onClose();
     } catch (err) {
       setFormError(
-        err instanceof ApiError
-          ? err.message
-          : "Failed to submit. Please try again.",
+        resolveErrorText(err, "selfService.permission.submitFailed"),
       );
     }
   }
