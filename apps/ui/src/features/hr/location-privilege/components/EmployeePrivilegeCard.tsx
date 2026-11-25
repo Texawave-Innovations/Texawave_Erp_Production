@@ -22,8 +22,8 @@ import {
   Select,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import {
@@ -51,7 +51,7 @@ export function EmployeePrivilegeCard({
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<LocationMode>("OFFICE");
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const canWrite = usePermission(LOCATION_PRIVILEGE_WRITE);
   const query = useEmployeeLocationPrivilege(employee.id);
@@ -102,18 +102,12 @@ export function EmployeePrivilegeCard({
         mode: pendingMode,
       });
       setEditOpen(false);
-      toast({ title: "Location privilege updated", variant: "success" });
+      notify("hr.location.updated");
     } catch (error) {
       if (error instanceof ApiError && error.isPermissionError) {
-        toast({
-          title: "You may not change your own location privilege",
-          variant: "error",
-        });
+        notify("hr.location.ownChangeForbiddenCard");
       } else {
-        toast({
-          title: "Could not update location privilege",
-          variant: "error",
-        });
+        notify("hr.location.updateFailed");
       }
     }
   }

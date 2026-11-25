@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import { Button, Card, Checkbox, Input, useToast } from "@texawave-erp/ui-kit";
+import { Button, Card, Checkbox, Input } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useAttendanceSettings,
@@ -24,7 +25,7 @@ function AutoCheckoutForm({
   settings: AttendanceSettings;
   canWrite: boolean;
 }) {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const update = useUpdateAttendanceSettings();
   const [enabled, setEnabled] = useState(settings.autoCheckoutEnabled);
   const [time, setTime] = useState(settings.autoCheckoutTime);
@@ -41,17 +42,13 @@ function AutoCheckoutForm({
         autoCheckoutEnabled: enabled,
         autoCheckoutTime: time,
       });
-      toast({ title: "Auto check-out saved", variant: "success" });
+      notify("hr.master.autoCheckoutSaved");
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError && error.isPermissionError
-            ? "You don't have permission to change attendance settings."
-            : error instanceof ApiError
-              ? error.message
-              : "Could not save the auto check-out setting",
-        variant: "error",
-      });
+      if (error instanceof ApiError && error.isPermissionError) {
+        notify("hr.master.attendanceSettingsDenied");
+      } else {
+        notifyError(error, "hr.master.autoCheckoutFailed");
+      }
     }
   }
 

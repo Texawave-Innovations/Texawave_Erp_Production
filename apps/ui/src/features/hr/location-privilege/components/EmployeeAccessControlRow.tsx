@@ -2,7 +2,8 @@
 
 import { Building2, Loader2, Wifi } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
-import { cn, useToast } from "@texawave-erp/ui-kit";
+import { cn } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   useEmployeeLocationPrivilege,
   useSetEmployeeLocationPrivilege,
@@ -26,7 +27,7 @@ export function EmployeeAccessControlRow({
   employee,
   canWrite,
 }: EmployeeAccessControlRowProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const privilegeQuery = useEmployeeLocationPrivilege(employee.id);
   const setMutation = useSetEmployeeLocationPrivilege();
 
@@ -42,21 +43,15 @@ export function EmployeeAccessControlRow({
         employeeId: employee.id,
         mode,
       });
-      toast({
-        title: `Updated ${employee.fullName} to ${mode === "OFFICE" ? "Office" : "Remote"} access`,
-        variant: "success",
+      notify("hr.location.updatedFor", {
+        name: employee.fullName,
+        mode: mode === "OFFICE" ? "Office" : "Remote",
       });
     } catch (error) {
       if (error instanceof ApiError && error.isPermissionError) {
-        toast({
-          title: "You cannot change your own location privilege",
-          variant: "error",
-        });
+        notify("hr.location.ownChangeForbidden");
       } else {
-        toast({
-          title: "Could not update location privilege",
-          variant: "error",
-        });
+        notify("hr.location.updateFailed");
       }
     }
   }

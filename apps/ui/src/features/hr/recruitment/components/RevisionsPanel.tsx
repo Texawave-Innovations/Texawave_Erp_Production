@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   ArrowLeft,
   Download,
@@ -195,7 +195,7 @@ function RevisionWorkspace({
   editLetter: RevisionLetterView | null;
   onBack: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const createMutation = useCreateRevision();
   const updateMutation = useUpdateRevision();
 
@@ -260,7 +260,7 @@ function RevisionWorkspace({
 
   async function handleIssue(input: CreateRevisionLetterInput) {
     await createMutation.mutateAsync(input);
-    toast({ title: "Revision letter issued", variant: "success" });
+    notify("hr.revision.issued");
     onBack();
   }
 
@@ -268,7 +268,7 @@ function RevisionWorkspace({
     if (!editLetter) return;
     const { employeeId: _empId, ...changes } = input;
     await updateMutation.mutateAsync({ id: editLetter.id, input: changes });
-    toast({ title: "Revision letter updated", variant: "success" });
+    notify("hr.revision.updated");
     onBack();
   }
 

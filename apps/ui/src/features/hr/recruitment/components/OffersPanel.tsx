@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   FileText,
   List,
@@ -51,7 +51,7 @@ export interface OffersPanelProps {
 }
 
 export function OffersPanel({ canWrite }: OffersPanelProps) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [activeSubTab, setActiveSubTab] = useState<"generator" | "history">(
     "generator",
   );
@@ -115,7 +115,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
 
   async function handleCreate(input: CreateOfferLetterInput) {
     await createMutation.mutateAsync(input);
-    toast({ title: "Offer letter generated", variant: "success" });
+    notify("hr.offer.generated");
     setFormState(emptyOfferValues());
     setActiveSubTab("history");
     setPage(1);
@@ -125,7 +125,7 @@ export function OffersPanel({ canWrite }: OffersPanelProps) {
     if (!editingOffer) return;
     await updateMutation.mutateAsync({ id: editingOffer.id, input });
     setEditingOffer(null);
-    toast({ title: "Offer letter updated", variant: "success" });
+    notify("hr.offer.updated");
   }
 
   function shareViaWhatsApp(item: OfferLetterView) {

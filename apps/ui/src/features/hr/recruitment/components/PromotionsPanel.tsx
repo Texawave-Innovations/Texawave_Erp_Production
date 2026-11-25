@@ -13,8 +13,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import {
   useCreatePromotion,
@@ -131,7 +131,7 @@ function EmployeeList({
   canRead: boolean;
   formProps: FormPermissionProps;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -154,7 +154,7 @@ function EmployeeList({
     if (designationId === undefined) return;
     await createMutation.mutateAsync({ ...input, designationId });
     setIssueFor(null);
-    toast({ title: "Promotion letter issued", variant: "success" });
+    notify("hr.promotion.issued");
   }
 
   let body: React.ReactNode;
@@ -328,7 +328,7 @@ function PromotionLetters({
   canWrite: boolean;
   formProps: FormPermissionProps;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -344,7 +344,7 @@ function PromotionLetters({
     const { employeeId: _employeeId, ...changes } = input;
     await updateMutation.mutateAsync({ id: editId, input: changes });
     setEditId(null);
-    toast({ title: "Promotion letter updated", variant: "success" });
+    notify("hr.promotion.updated");
   }
 
   let body: React.ReactNode;
