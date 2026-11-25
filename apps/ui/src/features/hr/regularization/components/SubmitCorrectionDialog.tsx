@@ -11,8 +11,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useSubmitCorrection } from "../hooks";
 import {
   EMPTY_SUBMIT_FORM,
@@ -104,7 +104,7 @@ export function SubmitCorrectionDialog({
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useSubmitCorrection();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const allowed = ALLOWED_TIMES[values.correctionType];
 
@@ -198,7 +198,7 @@ export function SubmitCorrectionDialog({
           ? { requestedCheckOutAt: toIso(result.data.requestedCheckOutAt) }
           : {}),
       });
-      toast({ title: "Correction requested successfully", variant: "success" });
+      notify("hr.correction.requested");
       setValues({ ...EMPTY_SUBMIT_FORM, attendanceDate: today() });
       onClose();
     } catch (error) {

@@ -7,8 +7,8 @@ import {
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useApproveLeaveRequest, useRejectLeaveRequest } from "../hooks";
 import { LEAVE_OVERRIDE } from "../permissions";
@@ -65,7 +65,7 @@ export function DecideLeaveDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const approve = useApproveLeaveRequest();
   const reject = useRejectLeaveRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // An Admin only ever decides at HR's step (unless standing in as a team
   // lead's delegate, which the server reports), so the reason is asked for.
@@ -118,15 +118,13 @@ export function DecideLeaveDialog({
           body: { note: result.data.note },
         });
       }
-      toast({
-        title:
-          decision === "reject"
-            ? "Leave rejected"
-            : firstOfTwo
-              ? "First approval given — the request now waits for HR"
-              : "Leave approved",
-        variant: "success",
-      });
+      notify(
+        decision === "reject"
+          ? "hr.leave.rejected"
+          : firstOfTwo
+            ? "hr.leave.firstApproval"
+            : "hr.leave.approved",
+      );
       setNote("");
       onClose();
     } catch (err) {

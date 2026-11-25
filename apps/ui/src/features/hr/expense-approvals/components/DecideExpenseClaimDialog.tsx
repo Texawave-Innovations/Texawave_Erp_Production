@@ -2,13 +2,8 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Dialog,
-  FormField,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Dialog, FormField, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useDecideExpenseClaim } from "../hooks";
 import { decideExpenseClaimSchema } from "../schema";
 import type { ExpenseClaimItem } from "../types";
@@ -62,7 +57,7 @@ export function DecideExpenseClaimDialog({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const decide = useDecideExpenseClaim();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = decide.isPending;
   const title =
@@ -85,13 +80,9 @@ export function DecideExpenseClaimDialog({
           ...(result.data.note ? { note: result.data.note } : {}),
         },
       });
-      toast({
-        title:
-          decision === "APPROVED"
-            ? "Expense claim approved"
-            : "Expense claim rejected",
-        variant: "success",
-      });
+      notify(
+        decision === "APPROVED" ? "hr.expense.approved" : "hr.expense.rejected",
+      );
       setNote("");
       onClose();
     } catch (err) {

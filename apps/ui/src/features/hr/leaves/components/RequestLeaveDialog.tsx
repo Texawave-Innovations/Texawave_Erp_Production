@@ -10,8 +10,8 @@ import {
   FormField,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { leaveErrorMessage } from "../errors";
 import { useCreateMyLeaveRequest, useMyLeaveBalances } from "../hooks";
 import { EMPTY_REQUEST_FORM, requestLeaveSchema } from "../schema";
@@ -66,7 +66,7 @@ export function RequestLeaveDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const balances = useMyLeaveBalances();
   const mutation = useCreateMyLeaveRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = mutation.isPending;
   const types = balances.data ?? [];
@@ -87,7 +87,7 @@ export function RequestLeaveDialog({
     setServerError(null);
     try {
       await mutation.mutateAsync(result.data);
-      toast({ title: "Leave requested", variant: "success" });
+      notify("hr.leave.requested");
       setValues(EMPTY_REQUEST_FORM);
       onClose();
     } catch (err) {

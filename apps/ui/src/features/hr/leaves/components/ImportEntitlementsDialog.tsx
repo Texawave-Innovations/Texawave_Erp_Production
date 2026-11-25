@@ -9,8 +9,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadText } from "@/features/hr/payroll/download";
 import { leaveErrorMessage } from "../errors";
 import { useImportLeaveEntitlements } from "../hooks";
@@ -41,7 +41,7 @@ export function ImportEntitlementsDialog({
   const [report, setReport] = useState<EntitlementImportReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useImportLeaveEntitlements();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const busy = mutation.isPending;
 
   const checked = report?.dryRun === true && report.errors.length === 0;
@@ -70,10 +70,12 @@ export function ImportEntitlementsDialog({
       const result = await mutation.mutateAsync({ file, dryRun });
       setReport(result);
       if (!dryRun && result.errors.length === 0) {
-        toast({
-          title: `${result.imported} entitlement${result.imported === 1 ? "" : "s"} saved`,
-          variant: "success",
-        });
+        notify(
+          result.imported === 1
+            ? "hr.leave.entitlementsImportedOne"
+            : "hr.leave.entitlementsImportedMany",
+          { count: result.imported },
+        );
       }
     } catch (error) {
       setReport(null);

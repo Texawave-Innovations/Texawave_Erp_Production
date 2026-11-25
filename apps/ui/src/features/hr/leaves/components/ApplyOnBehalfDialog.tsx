@@ -9,8 +9,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import {
   EmployeePicker,
   type EmployeeOption,
@@ -40,7 +40,7 @@ export function ApplyOnBehalfDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const balances = useHrLeaveBalances(employee?.id ?? null);
   const mutation = useCreateLeaveOnBehalf();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const submitting = mutation.isPending;
   const types = balances.data ?? [];
 
@@ -63,11 +63,7 @@ export function ApplyOnBehalfDialog({
     setServerError(null);
     try {
       await mutation.mutateAsync({ ...result.data, employeeId: employee.id });
-      toast({
-        title: `Leave applied for ${employee.fullName}`,
-        description: "It now waits for approval.",
-        variant: "success",
-      });
+      notify("hr.leave.applied", { name: employee.fullName });
       onClose();
     } catch (err) {
       setServerError(

@@ -9,8 +9,8 @@ import {
   FormField,
   Input,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateMyExitRequest } from "../hooks";
 import { EMPTY_SUBMIT_FORM, submitExitRequestSchema } from "../schema";
 
@@ -51,7 +51,7 @@ export function SubmitExitRequestDialog({
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCreateMyExitRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = mutation.isPending;
 
@@ -101,7 +101,7 @@ export function SubmitExitRequestDialog({
           ? { additionalNotes: result.data.additionalNotes }
           : {}),
       });
-      toast({ title: "Exit request submitted", variant: "success" });
+      notify("hr.exit.submitted");
       setValues(EMPTY_SUBMIT_FORM);
       onClose();
     } catch (err) {
@@ -110,17 +110,8 @@ export function SubmitExitRequestDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Raise exit request"
-      size="lg"
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-4"
-        noValidate
-      >
+    <Dialog open={open} onClose={onClose} title="Raise exit request" size="lg">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <FormField label="Reason" required error={errors.reason}>
           {(f) => (
             <Textarea

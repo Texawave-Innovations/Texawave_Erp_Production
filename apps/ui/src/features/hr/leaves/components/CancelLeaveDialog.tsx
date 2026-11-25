@@ -2,13 +2,8 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Dialog,
-  FormField,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Dialog, FormField, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { leaveErrorMessage } from "../errors";
 import { useCancelMyLeaveRequest } from "../hooks";
 import { cancelLeaveSchema } from "../schema";
@@ -53,7 +48,7 @@ export function CancelLeaveDialog({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCancelMyLeaveRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = mutation.isPending;
 
@@ -71,7 +66,7 @@ export function CancelLeaveDialog({
         id: request.id,
         body: result.data.note ? { note: result.data.note } : {},
       });
-      toast({ title: "Leave request cancelled", variant: "success" });
+      notify("hr.leave.cancelled");
       setNote("");
       onClose();
     } catch (err) {

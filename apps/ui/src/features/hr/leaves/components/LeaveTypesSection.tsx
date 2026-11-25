@@ -29,8 +29,8 @@ import {
   Pagination,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   useCreateLeaveType,
@@ -62,7 +62,7 @@ export function LeaveTypesSection() {
   const [editing, setEditing] = useState<LeaveTypeItem | null>(null);
   const [settingEntitlement, setSettingEntitlement] =
     useState<LeaveTypeItem | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // Load all leave types for instant search & metrics
   const list = useLeaveTypes({ page: 1, limit: 100 });
@@ -122,13 +122,9 @@ export function LeaveTypesSection() {
         approvalLevels: v.approvalLevels,
       });
       setCreateOpen(false);
-      toast({ title: "Leave type created", variant: "success" });
+      notify("hr.leaveType.created");
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError ? err.message : "Could not create leave type",
-        variant: "error",
-      });
+      notifyError(err, "hr.leaveType.createFailed");
     }
   }
 
@@ -150,13 +146,9 @@ export function LeaveTypesSection() {
         },
       });
       setEditing(null);
-      toast({ title: "Leave type updated", variant: "success" });
+      notify("hr.leaveType.updated");
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError ? err.message : "Could not update leave type",
-        variant: "error",
-      });
+      notifyError(err, "hr.leaveType.updateFailed");
     }
   }
 
@@ -164,18 +156,12 @@ export function LeaveTypesSection() {
     const nextActive = !type.isActive;
     try {
       await activeMutation.mutateAsync({ id: type.id, isActive: nextActive });
-      toast({
-        title: `${nextActive ? "Activated" : "Deactivated"} "${type.name}"`,
-        variant: "success",
-      });
+      notify(
+        nextActive ? "hr.leaveType.activated" : "hr.leaveType.deactivated",
+        { name: type.name },
+      );
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError
-            ? err.message
-            : `Could not update "${type.name}"`,
-        variant: "error",
-      });
+      notifyError(err, "hr.leaveType.toggleFailed", { name: type.name });
     }
   }
 

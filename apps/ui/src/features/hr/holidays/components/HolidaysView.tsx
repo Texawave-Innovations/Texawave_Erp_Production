@@ -35,8 +35,8 @@ import {
   Select,
   StatusBadge,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import {
@@ -111,7 +111,7 @@ function formatHolidayDate(dateStr: string) {
 export function HolidaysView() {
   const canRead = usePermission(READ);
   const canWrite = usePermission(WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [page, setPage] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
@@ -216,7 +216,7 @@ export function HolidaysView() {
         : {}),
     });
     setCreateOpen(false);
-    toast({ title: "Holiday created", variant: "success" });
+    notify("hr.holiday.created");
   }
 
   async function handleUpdate(values: HolidayFormSubmitValues) {
@@ -238,7 +238,7 @@ export function HolidaysView() {
     });
 
     setEditingHoliday(null);
-    toast({ title: "Holiday updated", variant: "success" });
+    notify("hr.holiday.updated");
   }
 
   async function handleToggleActive(holiday: Holiday) {
@@ -248,15 +248,11 @@ export function HolidaysView() {
         id: holiday.id,
         isActive: nextActive,
       });
-      toast({
-        title: `${nextActive ? "Activated" : "Deactivated"} "${holiday.name}"`,
-        variant: "success",
+      notify(nextActive ? "hr.holiday.activated" : "hr.holiday.deactivated", {
+        name: holiday.name,
       });
     } catch {
-      toast({
-        title: `Could not update "${holiday.name}"`,
-        variant: "error",
-      });
+      notify("hr.holiday.toggleFailed", { name: holiday.name });
     }
   }
 

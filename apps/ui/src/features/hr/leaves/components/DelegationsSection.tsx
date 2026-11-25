@@ -16,8 +16,8 @@ import {
   Select,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { TableSkeleton } from "@/features/hr/components/TableSkeleton";
 import { useDebouncedValue } from "@/features/hr/employees/hooks";
 import { useAuthStore } from "@/stores/auth-store";
@@ -43,7 +43,7 @@ function NewDelegationDialog({ onClose }: { onClose: () => void }) {
   // One request after typing pauses, not one per keystroke.
   const candidates = useDelegationCandidates(useDebouncedValue(search.trim()));
   const mutation = useCreateLeaveDelegation();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -64,7 +64,7 @@ function NewDelegationDialog({ onClose }: { onClose: () => void }) {
         endDate,
         ...(trimmed ? { reason: trimmed } : {}),
       });
-      toast({ title: "Delegation created", variant: "success" });
+      notify("hr.leave.delegationCreated");
       onClose();
     } catch (err) {
       setError(
@@ -184,21 +184,19 @@ export function DelegationsSection() {
   const list = useLeaveDelegations({ page, limit: PAGE_SIZE });
   const revoke = useRevokeLeaveDelegation();
   const [revokingId, setRevokingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleRevoke(d: LeaveDelegationItem) {
     setRevokingId(d.id);
     try {
       await revoke.mutateAsync(d.id);
-      toast({ title: "Delegation revoked", variant: "success" });
+      notify("hr.leave.delegationRevoked");
     } catch (err) {
-      toast({
-        title: "Could not revoke",
-        description: leaveErrorMessage(
+      notify("hr.leave.delegationRevokeFailed", {
+        reason: leaveErrorMessage(
           err,
           "You can revoke only your own delegations.",
         ),
-        variant: "error",
       });
     }
   }

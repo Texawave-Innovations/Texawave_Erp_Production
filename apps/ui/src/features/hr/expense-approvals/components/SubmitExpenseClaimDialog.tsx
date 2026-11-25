@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useCreateMyExpenseClaim } from "../hooks";
 import { EMPTY_SUBMIT_FORM, submitExpenseClaimSchema } from "../schema";
 import { EXPENSE_TYPES } from "../types";
@@ -50,7 +50,7 @@ export function SubmitExpenseClaimDialog({
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useCreateMyExpenseClaim();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = mutation.isPending;
 
@@ -78,7 +78,7 @@ export function SubmitExpenseClaimDialog({
           ? { receiptRef: result.data.receiptRef }
           : {}),
       });
-      toast({ title: "Expense claim submitted", variant: "success" });
+      notify("hr.expense.submitted");
       setValues({
         ...EMPTY_SUBMIT_FORM,
         expenseDate: todayStr(),

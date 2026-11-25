@@ -10,8 +10,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadText } from "@/features/hr/payroll/download";
 import { useImportAttendance } from "../hooks";
 import type { AttendanceImportReport } from "../types";
@@ -50,7 +50,7 @@ export function ImportAttendanceDialog({
   const [report, setReport] = useState<AttendanceImportReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useImportAttendance();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const busy = mutation.isPending;
 
   const checked = report?.dryRun === true && report.errors.length === 0;
@@ -80,10 +80,12 @@ export function ImportAttendanceDialog({
       const result = await mutation.mutateAsync({ file, dryRun });
       setReport(result);
       if (!dryRun && result.errors.length === 0) {
-        toast({
-          title: `${result.imported} session${result.imported === 1 ? "" : "s"} imported`,
-          variant: "success",
-        });
+        notify(
+          result.imported === 1
+            ? "hr.attendance.importedOne"
+            : "hr.attendance.importedMany",
+          { count: result.imported },
+        );
       }
     } catch (error) {
       setReport(null);

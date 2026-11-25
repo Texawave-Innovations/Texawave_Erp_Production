@@ -1,40 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, type MessageKey } from "@texawave-erp/core";
 import {
   Alert,
   Button,
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import type { MonthDecision } from "../api";
 import { useDecideMonth } from "../hooks";
 import type { MonthLockRow } from "../types";
 
 const COPY: Record<
   MonthDecision,
-  { title: string; action: string; hint: string; done: string }
+  { title: string; action: string; hint: string; done: MessageKey }
 > = {
   approve: {
     title: "Approve attendance month",
     action: "Approve",
     hint: "Approving locks the month: no punch, status or correction in it can change until it is reopened.",
-    done: "Month approved",
+    done: "hr.attendance.monthApproved",
   },
   return: {
     title: "Return attendance month",
     action: "Return",
     hint: "The month becomes editable again. Say what needs fixing; the person who submitted it is notified.",
-    done: "Month returned",
+    done: "hr.attendance.monthReturned",
   },
   reopen: {
     title: "Reopen approved month",
     action: "Reopen",
     hint: "The month becomes editable and must be submitted and approved again. Give the reason; the submitter is notified.",
-    done: "Month reopened",
+    done: "hr.attendance.monthReopened",
   },
 };
 
@@ -75,7 +75,7 @@ export function MonthDecisionDialog({
   const [noteError, setNoteError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useDecideMonth();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const copy = COPY[decision];
   const required = decision !== "approve";
 
@@ -96,7 +96,7 @@ export function MonthDecisionDialog({
         decision,
         note: trimmed,
       });
-      toast({ title: copy.done, variant: "success" });
+      notify(copy.done);
       onClose();
     } catch (error) {
       setServerError(describeMonthError(error));

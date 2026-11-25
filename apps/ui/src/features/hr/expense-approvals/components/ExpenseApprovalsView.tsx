@@ -13,7 +13,6 @@ import {
   Pagination,
   Select,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   AlertCircle,
@@ -41,6 +40,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import { useEmployees } from "@/features/hr/employees/hooks";
@@ -195,7 +195,7 @@ export function ExpenseApprovalsView() {
   const [decision, setDecision] = useState<DecisionState>(null);
 
   const decideMutation = useDecideExpenseClaim();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   // Load employees for code lookup
   const employeesQuery = useEmployees({ page: 1, limit: 100 });
@@ -419,27 +419,23 @@ export function ExpenseApprovalsView() {
           ...(note ? { decisionNote: note } : {}),
         },
       });
-      toast({
-        title:
-          decisionChoice === "APPROVED"
-            ? "Expense claim approved"
-            : "Expense claim rejected",
-        variant: "success",
-      });
+      notify(
+        decisionChoice === "APPROVED"
+          ? "hr.expense.approved"
+          : "hr.expense.rejected",
+      );
       setDecisionNotes((prev) => {
         const next = { ...prev };
         delete next[claim.id];
         return next;
       });
     } catch (error) {
-      toast({
-        title:
-          decisionChoice === "APPROVED"
-            ? "Could not approve claim"
-            : "Could not reject claim",
-        description: describeDecideError(error),
-        variant: "error",
-      });
+      notify(
+        decisionChoice === "APPROVED"
+          ? "hr.expense.approveFailed"
+          : "hr.expense.rejectFailed",
+        { reason: describeDecideError(error) },
+      );
     } finally {
       setIsSubmittingMap((prev) => ({ ...prev, [claim.id]: false }));
     }
@@ -449,7 +445,7 @@ export function ExpenseApprovalsView() {
   async function handleExport() {
     const claimsToExport = activeTab === "mine" ? myClaimsAll : teamClaimsAll;
     if (claimsToExport.length === 0) {
-      toast({ title: "No expense claims to export", variant: "warning" });
+      notify("hr.expense.nothingToExport");
       return;
     }
     try {
@@ -505,12 +501,9 @@ export function ExpenseApprovalsView() {
           },
         ],
       );
-      toast({
-        title: "Expense claims exported successfully",
-        variant: "success",
-      });
+      notify("hr.expense.exported");
     } catch {
-      toast({ title: "Could not export expense claims", variant: "error" });
+      notify("hr.expense.exportFailed");
     }
   }
 

@@ -10,8 +10,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useUpdateExitRequest } from "../hooks";
 import { decideExitRequestSchema } from "../schema";
 import { SETTLEMENT_LABELS, STATUS_LABELS } from "../status";
@@ -78,7 +78,7 @@ export function ReviewExitRequestDialog({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const update = useUpdateExitRequest();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const submitting = update.isPending;
   const isTerminal = nextStatuses.length === 0;
@@ -112,7 +112,7 @@ export function ReviewExitRequestDialog({
             : {}),
         },
       });
-      toast({ title: "Exit request updated", variant: "success" });
+      notify("hr.exit.updated");
       onClose();
     } catch (err) {
       setServerError(describeReviewError(err));

@@ -14,8 +14,8 @@ import {
   Pagination,
   Tabs,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { HrPageHeader } from "@/features/hr/components/HrPageHeader";
 import {
@@ -66,7 +66,7 @@ function MySection() {
   const list = useMyLeaveRequests({ page, limit: PAGE_SIZE });
   const resubmit = useResubmitMyLeaveRequest();
   const [resubmittingId, setResubmittingId] = useState<number | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
 
   // `canRead` only means the account holds the self-service permission, not
   // that it's actually linked to an employee — an admin/HR account can hold
@@ -96,15 +96,9 @@ function MySection() {
     setResubmittingId(id);
     try {
       await resubmit.mutateAsync(id);
-      toast({ title: "Leave request resubmitted", variant: "success" });
+      notify("hr.leave.resubmitted");
     } catch (err) {
-      toast({
-        title:
-          err instanceof ApiError
-            ? err.message
-            : "Could not resubmit the request",
-        variant: "error",
-      });
+      notifyError(err, "hr.leave.resubmitFailed");
     }
   }
 

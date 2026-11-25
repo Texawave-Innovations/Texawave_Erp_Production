@@ -32,8 +32,8 @@ import {
   Pagination,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import {
   EMPLOYEE_READ_ANY_SCOPE,
@@ -341,7 +341,7 @@ export function ApplicationsSection() {
   const canCancel = usePermission(HR_CANCEL_SCOPE);
   const canExport = usePermission(EXPORT_ANY_SCOPE);
   const canReadTypes = usePermission(LEAVE_TYPE_READ);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"" | LeaveStatus>("");
@@ -390,13 +390,11 @@ export function ApplicationsSection() {
         ...(status ? { status } : {}),
       });
     } catch (err) {
-      toast({
-        title: "Could not export",
-        description: leaveErrorMessage(
+      notify("hr.leave.exportFailed", {
+        reason: leaveErrorMessage(
           err,
           "You don't have permission to export leave.",
         ),
-        variant: "error",
       });
     } finally {
       setExporting(false);

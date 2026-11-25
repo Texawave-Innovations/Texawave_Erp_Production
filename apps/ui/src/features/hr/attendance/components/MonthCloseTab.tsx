@@ -14,8 +14,8 @@ import {
   Pagination,
   Select,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
@@ -102,7 +102,7 @@ export function MonthCloseTab() {
     row: MonthLockRow;
     decision: MonthDecision;
   } | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const list = useMonthLocks({
     page,
@@ -160,9 +160,8 @@ export function MonthCloseTab() {
       });
       setSelected(new Set());
       if (report.submitted.length > 0) {
-        toast({
-          title: `${report.submitted.length} submitted`,
-          variant: "success",
+        notify("hr.attendance.monthsSubmitted", {
+          count: report.submitted.length,
         });
       }
     } catch (error) {
@@ -187,9 +186,8 @@ export function MonthCloseTab() {
       });
       setSelected(new Set());
       if (report.approved.length > 0) {
-        toast({
-          title: `${report.approved.length} approved`,
-          variant: "success",
+        notify("hr.attendance.monthsApproved", {
+          count: report.approved.length,
         });
       }
     } catch (error) {
