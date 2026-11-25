@@ -12,9 +12,9 @@ import {
   ErrorState,
   Semantic3DIcon,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
 import { useUploadEmployeeDocument } from "@/features/hr/employee-documents/hooks";
@@ -41,7 +41,7 @@ function NoWriteAccess() {
 
 export function EmployeeEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(WRITE_TEAM_OR_ALL);
   const query = useEmployee(id);
   const updateMutation = useUpdateEmployee();
@@ -97,20 +97,12 @@ export function EmployeeEditView({ id }: { id: number }) {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file format",
-        description: "Please select an image file (PNG, JPG, JPEG, or WebP).",
-        variant: "warning",
-      });
+      notify("hr.photo.invalidFormat");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Photo file size must not exceed 5MB.",
-        variant: "warning",
-      });
+      notify("hr.photo.tooLarge");
       return;
     }
 
@@ -124,18 +116,9 @@ export function EmployeeEditView({ id }: { id: number }) {
       const newAvatarUrl = `/hr/employees/${id}/documents/${res.id}/file`;
       setUploadedAvatarUrl(newAvatarUrl);
       await queryClient.invalidateQueries({ queryKey: ["hr-employees", id] });
-      toast({
-        title: "Profile photo updated",
-        description:
-          "Employee photo has been uploaded and updated successfully.",
-        variant: "success",
-      });
+      notify("hr.employee.photoUpdated");
     } catch {
-      toast({
-        title: "Upload failed",
-        description: "Could not upload the profile photo. Please try again.",
-        variant: "error",
-      });
+      notify("hr.photo.uploadFailed");
     } finally {
       setIsUploadingPhoto(false);
       if (photoInputRef.current) photoInputRef.current.value = "";
@@ -150,7 +133,7 @@ export function EmployeeEditView({ id }: { id: number }) {
       return;
     }
     await updateMutation.mutateAsync({ id, body });
-    toast({ title: "Employee updated", variant: "success" });
+    notify("hr.employee.updated");
     router.push(`/hr/employees/${id}`);
   }
 

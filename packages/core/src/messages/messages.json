@@ -3006,6 +3006,684 @@
     "payroll.error.generic": {
       "variant": "error",
       "title": "Something went wrong. Try again."
+    },
+    "hr.photo.invalidFormat": {
+      "variant": "warning",
+      "title": "Invalid file format",
+      "description": "Please select an image file (PNG, JPG, JPEG, or WebP)."
+    },
+    "hr.photo.tooLarge": {
+      "variant": "warning",
+      "title": "File too large",
+      "description": "Photo file size must not exceed 5MB."
+    },
+    "hr.photo.uploadFailed": {
+      "variant": "error",
+      "title": "Upload failed",
+      "description": "Could not upload the profile photo. Please try again."
+    },
+    "hr.employee.photoUpdated": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "Employee photo has been uploaded and updated successfully."
+    },
+    "hr.employee.updated": {
+      "variant": "success",
+      "title": "Employee updated"
+    },
+    "hr.employee.statusChanged": {
+      "variant": "success",
+      "title": "Status changed to {status}"
+    },
+    "hr.employee.statusChangedPaused": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is now inactive — their portal login is paused until they're made active again."
+    },
+    "hr.employee.statusChangedReactivated": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is active again and can sign in to the portal."
+    },
+    "hr.employee.statusChangedPlain": {
+      "variant": "success",
+      "title": "Status changed to {status}",
+      "description": "{name} is now {state}."
+    },
+    "hr.employee.statusChangeFailed": {
+      "variant": "error",
+      "title": "Status change failed",
+      "description": "Failed to update employee status"
+    },
+    "hr.employee.accountPermissionDenied": {
+      "variant": "error",
+      "title": "Permission denied",
+      "description": "You do not have permission to manage employee accounts."
+    },
+    "hr.employee.statusPermissionDenied": {
+      "variant": "error",
+      "title": "Permission denied",
+      "description": "You do not have permission to update employee status."
+    },
+    "hr.employee.accountLinked": {
+      "variant": "success",
+      "title": "Login account linked"
+    },
+    "hr.employee.accountUnlinked": {
+      "variant": "success",
+      "title": "Login account unlinked"
+    },
+    "hr.employee.accountDetached": {
+      "variant": "success",
+      "title": "Account unlinked",
+      "description": "{name}'s login has been detached."
+    },
+    "hr.employee.accountDetachFailed": {
+      "variant": "error",
+      "title": "Unlink failed",
+      "description": "Failed to unlink employee account"
+    },
+    "hr.employee.passwordResetFailed": {
+      "variant": "error",
+      "title": "Failed to reset password"
+    },
+    "hr.employee.portalPasswordUpdated": {
+      "variant": "success",
+      "title": "Password updated"
+    },
+    "hr.employee.portalPasswordFailed": {
+      "variant": "error",
+      "title": "Failed to set password",
+      "description": "Try again."
+    },
+    "hr.employee.deleted": {
+      "variant": "success",
+      "title": "Employee deleted",
+      "description": "{name}'s record has been permanently removed."
+    },
+    "hr.employee.deleteFailed": {
+      "variant": "error",
+      "title": "Delete failed",
+      "description": "Failed to delete employee"
+    },
+    "hr.employee.exported": {
+      "variant": "success",
+      "title": "Export complete",
+      "description": "The employees CSV has been downloaded successfully."
+    },
+    "hr.employee.exportFailed": {
+      "variant": "error",
+      "title": "Export failed",
+      "description": "Try again in a moment."
+    },
+    "hr.employee.pdfDownloaded": {
+      "variant": "success",
+      "title": "Profile PDF downloaded",
+      "description": "Saved report for {name}."
+    },
+    "hr.employee.pdfFailed": {
+      "variant": "error",
+      "title": "Could not create the PDF",
+      "description": "Try again in a moment."
+    },
+    "hr.employee.importedOne": {
+      "variant": "success",
+      "title": "1 employee imported"
+    },
+    "hr.employee.importedMany": {
+      "variant": "success",
+      "title": "{count} employees imported"
+    },
+    "hr.employee.onboardingSentBack": {
+      "variant": "success",
+      "title": "Profile sent back to {name}"
+    },
+    "hr.employee.onboardingApproved": {
+      "variant": "success",
+      "title": "{name}'s onboarding approved"
+    },
+    "hr.profile.noChanges": {
+      "variant": "info",
+      "title": "No changes to save"
+    },
+    "hr.profile.saved": {
+      "variant": "success",
+      "title": "Profile saved"
+    },
+    "hr.profile.statutorySaved": {
+      "variant": "success",
+      "title": "Statutory and bank details saved"
+    },
+    "hr.profile.photoUpdated": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "Employee profile photo has been uploaded and updated successfully."
+    },
+    "hr.profile.photoUpdatedView": {
+      "variant": "success",
+      "title": "Profile photo updated",
+      "description": "The employee profile photo has been updated successfully."
+    },
+    "hr.leave.exportFailed": {
+      "variant": "error",
+      "title": "Could not export",
+      "description": "{reason}"
+    },
+    "hr.leave.applied": {
+      "variant": "success",
+      "title": "Leave applied for {name}",
+      "description": "It now waits for approval."
+    },
+    "hr.leave.cancelled": {
+      "variant": "success",
+      "title": "Leave request cancelled"
+    },
+    "hr.leave.rejected": {
+      "variant": "success",
+      "title": "Leave rejected"
+    },
+    "hr.leave.firstApproval": {
+      "variant": "success",
+      "title": "First approval given — the request now waits for HR"
+    },
+    "hr.leave.approved": {
+      "variant": "success",
+      "title": "Leave approved"
+    },
+    "hr.leave.delegationCreated": {
+      "variant": "success",
+      "title": "Delegation created"
+    },
+    "hr.leave.delegationRevoked": {
+      "variant": "success",
+      "title": "Delegation revoked"
+    },
+    "hr.leave.delegationRevokeFailed": {
+      "variant": "error",
+      "title": "Could not revoke",
+      "description": "{reason}"
+    },
+    "hr.leave.hrCancelled": {
+      "variant": "success",
+      "title": "Leave cancelled"
+    },
+    "hr.leave.entitlementsImportedOne": {
+      "variant": "success",
+      "title": "1 entitlement saved"
+    },
+    "hr.leave.entitlementsImportedMany": {
+      "variant": "success",
+      "title": "{count} entitlements saved"
+    },
+    "hr.leave.resubmitted": {
+      "variant": "success",
+      "title": "Leave request resubmitted"
+    },
+    "hr.leave.resubmitFailed": {
+      "variant": "error",
+      "title": "Could not resubmit the request"
+    },
+    "hr.leave.requested": {
+      "variant": "success",
+      "title": "Leave requested"
+    },
+    "hr.leave.entitlementDefault": {
+      "variant": "success",
+      "title": "Back to the leave type default"
+    },
+    "hr.leave.entitlementSaved": {
+      "variant": "success",
+      "title": "Entitlement saved"
+    },
+    "hr.leave.permissionApproved": {
+      "variant": "success",
+      "title": "Permission approved"
+    },
+    "hr.leave.permissionRejected": {
+      "variant": "success",
+      "title": "Permission rejected"
+    },
+    "hr.leave.permissionActionFailed": {
+      "variant": "error",
+      "title": "Action failed. Please try again."
+    },
+    "hr.leaveType.created": {
+      "variant": "success",
+      "title": "Leave type created"
+    },
+    "hr.leaveType.createFailed": {
+      "variant": "error",
+      "title": "Could not create leave type"
+    },
+    "hr.leaveType.updated": {
+      "variant": "success",
+      "title": "Leave type updated"
+    },
+    "hr.leaveType.updateFailed": {
+      "variant": "error",
+      "title": "Could not update leave type"
+    },
+    "hr.leaveType.activated": {
+      "variant": "success",
+      "title": "Activated \"{name}\""
+    },
+    "hr.leaveType.deactivated": {
+      "variant": "success",
+      "title": "Deactivated \"{name}\""
+    },
+    "hr.leaveType.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update \"{name}\""
+    },
+    "hr.attendance.exported": {
+      "variant": "success",
+      "title": "Attendance exported"
+    },
+    "hr.attendance.importedOne": {
+      "variant": "success",
+      "title": "1 session imported"
+    },
+    "hr.attendance.importedMany": {
+      "variant": "success",
+      "title": "{count} sessions imported"
+    },
+    "hr.attendance.monthsSubmitted": {
+      "variant": "success",
+      "title": "{count} submitted"
+    },
+    "hr.attendance.monthsApproved": {
+      "variant": "success",
+      "title": "{count} approved"
+    },
+    "hr.attendance.monthApproved": {
+      "variant": "success",
+      "title": "Month approved"
+    },
+    "hr.attendance.monthReturned": {
+      "variant": "success",
+      "title": "Month returned"
+    },
+    "hr.attendance.monthReopened": {
+      "variant": "success",
+      "title": "Month reopened"
+    },
+    "hr.correction.approved": {
+      "variant": "success",
+      "title": "Correction approved successfully"
+    },
+    "hr.correction.rejected": {
+      "variant": "success",
+      "title": "Correction rejected"
+    },
+    "hr.correction.requested": {
+      "variant": "success",
+      "title": "Correction requested successfully"
+    },
+    "hr.holiday.created": {
+      "variant": "success",
+      "title": "Holiday created"
+    },
+    "hr.holiday.updated": {
+      "variant": "success",
+      "title": "Holiday updated"
+    },
+    "hr.holiday.activated": {
+      "variant": "success",
+      "title": "Activated \"{name}\""
+    },
+    "hr.holiday.deactivated": {
+      "variant": "success",
+      "title": "Deactivated \"{name}\""
+    },
+    "hr.holiday.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update \"{name}\""
+    },
+    "hr.exit.cardUpdated": {
+      "variant": "success",
+      "title": "Exit request updated",
+      "description": "Status and decision details saved successfully."
+    },
+    "hr.exit.updated": {
+      "variant": "success",
+      "title": "Exit request updated"
+    },
+    "hr.exit.submitted": {
+      "variant": "success",
+      "title": "Exit request submitted"
+    },
+    "hr.expense.approved": {
+      "variant": "success",
+      "title": "Expense claim approved"
+    },
+    "hr.expense.rejected": {
+      "variant": "success",
+      "title": "Expense claim rejected"
+    },
+    "hr.expense.approveFailed": {
+      "variant": "error",
+      "title": "Could not approve claim",
+      "description": "{reason}"
+    },
+    "hr.expense.rejectFailed": {
+      "variant": "error",
+      "title": "Could not reject claim",
+      "description": "{reason}"
+    },
+    "hr.expense.nothingToExport": {
+      "variant": "warning",
+      "title": "No expense claims to export"
+    },
+    "hr.expense.exported": {
+      "variant": "success",
+      "title": "Expense claims exported successfully"
+    },
+    "hr.expense.exportFailed": {
+      "variant": "error",
+      "title": "Could not export expense claims"
+    },
+    "hr.expense.submitted": {
+      "variant": "success",
+      "title": "Expense claim submitted"
+    },
+    "hr.task.sentToAdmin": {
+      "variant": "success",
+      "title": "Task sent to admin/HR"
+    },
+    "hr.task.created": {
+      "variant": "success",
+      "title": "Task created"
+    },
+    "hr.task.assigned": {
+      "variant": "success",
+      "title": "Task assigned"
+    },
+    "hr.task.updated": {
+      "variant": "success",
+      "title": "Task updated"
+    },
+    "hr.task.updateFailed": {
+      "variant": "error",
+      "title": "Could not update task",
+      "description": "{reason}"
+    },
+    "hr.task.reassigned": {
+      "variant": "success",
+      "title": "Task reassigned"
+    },
+    "hr.task.updatedSuccess": {
+      "variant": "success",
+      "title": "Task updated successfully"
+    },
+    "hr.task.approved": {
+      "variant": "success",
+      "title": "Task approved"
+    },
+    "hr.task.reopened": {
+      "variant": "success",
+      "title": "Task reopened"
+    },
+    "hr.task.requestApproved": {
+      "variant": "success",
+      "title": "Request approved"
+    },
+    "hr.task.requestApproveFailed": {
+      "variant": "error",
+      "title": "Could not approve request",
+      "description": "{reason}"
+    },
+    "hr.task.requestRejected": {
+      "variant": "success",
+      "title": "Request rejected"
+    },
+    "hr.task.requestRejectFailed": {
+      "variant": "error",
+      "title": "Could not reject request",
+      "description": "{reason}"
+    },
+    "hr.task.approveFailed": {
+      "variant": "error",
+      "title": "Could not approve",
+      "description": "{reason}"
+    },
+    "hr.task.reopenFailed": {
+      "variant": "error",
+      "title": "Could not reopen",
+      "description": "{reason}"
+    },
+    "hr.task.nothingToExport": {
+      "variant": "warning",
+      "title": "No tasks to export"
+    },
+    "hr.task.exported": {
+      "variant": "success",
+      "title": "Tasks exported successfully"
+    },
+    "hr.task.exportFailed": {
+      "variant": "error",
+      "title": "Could not export tasks"
+    },
+    "hr.ticket.raised": {
+      "variant": "success",
+      "title": "Ticket raised"
+    },
+    "hr.ticket.updated": {
+      "variant": "success",
+      "title": "Ticket updated"
+    },
+    "hr.ticket.replySent": {
+      "variant": "success",
+      "title": "Reply sent"
+    },
+    "hr.ticket.created": {
+      "variant": "success",
+      "title": "Ticket created successfully"
+    },
+    "hr.ticket.statusUpdated": {
+      "variant": "success",
+      "title": "Ticket status updated"
+    },
+    "hr.ticket.nothingToUpdate": {
+      "variant": "warning",
+      "title": "Nothing to update",
+      "description": "Write a reply or change the status."
+    },
+    "hr.ticket.updatedSuccess": {
+      "variant": "success",
+      "title": "Ticket updated successfully"
+    },
+    "hr.ticket.updateFailed": {
+      "variant": "error",
+      "title": "Update failed",
+      "description": "Could not update ticket"
+    },
+    "hr.ticket.nothingToExport": {
+      "variant": "warning",
+      "title": "No tickets to export"
+    },
+    "hr.ticket.exported": {
+      "variant": "success",
+      "title": "Tickets exported successfully"
+    },
+    "hr.ticket.exportFailed": {
+      "variant": "error",
+      "title": "Could not export tickets"
+    },
+    "hr.team.deactivated": {
+      "variant": "success",
+      "title": "Team \"{name}\" deactivated."
+    },
+    "hr.team.activated": {
+      "variant": "success",
+      "title": "Team \"{name}\" activated."
+    },
+    "hr.team.deleted": {
+      "variant": "success",
+      "title": "Team \"{name}\" deleted."
+    },
+    "hr.team.created": {
+      "variant": "success",
+      "title": "Team \"{name}\" created successfully."
+    },
+    "hr.team.updated": {
+      "variant": "success",
+      "title": "Team \"{name}\" updated successfully."
+    },
+    "hr.interview.scheduled": {
+      "variant": "success",
+      "title": "Interview scheduled successfully"
+    },
+    "hr.interview.statusSet": {
+      "variant": "success",
+      "title": "Status set to {status}"
+    },
+    "hr.interview.statusFailed": {
+      "variant": "error",
+      "title": "Could not update the status"
+    },
+    "hr.offer.generated": {
+      "variant": "success",
+      "title": "Offer letter generated"
+    },
+    "hr.offer.updated": {
+      "variant": "success",
+      "title": "Offer letter updated"
+    },
+    "hr.promotion.issued": {
+      "variant": "success",
+      "title": "Promotion letter issued"
+    },
+    "hr.promotion.updated": {
+      "variant": "success",
+      "title": "Promotion letter updated"
+    },
+    "hr.revision.issued": {
+      "variant": "success",
+      "title": "Revision letter issued"
+    },
+    "hr.revision.updated": {
+      "variant": "success",
+      "title": "Revision letter updated"
+    },
+    "hr.location.updatedFor": {
+      "variant": "success",
+      "title": "Updated {name} to {mode} access"
+    },
+    "hr.location.ownChangeForbidden": {
+      "variant": "error",
+      "title": "You cannot change your own location privilege"
+    },
+    "hr.location.ownChangeForbiddenCard": {
+      "variant": "error",
+      "title": "You may not change your own location privilege"
+    },
+    "hr.location.updateFailed": {
+      "variant": "error",
+      "title": "Could not update location privilege"
+    },
+    "hr.location.updated": {
+      "variant": "success",
+      "title": "Location privilege updated"
+    },
+    "hr.network.added": {
+      "variant": "success",
+      "title": "Office network added"
+    },
+    "hr.network.addFailed": {
+      "variant": "error",
+      "title": "Could not add office network"
+    },
+    "hr.network.deactivated": {
+      "variant": "success",
+      "title": "Address deactivated"
+    },
+    "hr.network.activated": {
+      "variant": "success",
+      "title": "Address activated"
+    },
+    "hr.network.toggleFailed": {
+      "variant": "error",
+      "title": "Could not update address"
+    },
+    "hr.master.autoCheckoutSaved": {
+      "variant": "success",
+      "title": "Auto check-out saved"
+    },
+    "hr.master.attendanceSettingsDenied": {
+      "variant": "error",
+      "title": "You don't have permission to change attendance settings."
+    },
+    "hr.master.autoCheckoutFailed": {
+      "variant": "error",
+      "title": "Could not save the auto check-out setting"
+    },
+    "hr.master.permissionMissing": {
+      "variant": "error",
+      "title": "You don't have the {permission} permission."
+    },
+    "hr.master.departmentAdded": {
+      "variant": "success",
+      "title": "Department added"
+    },
+    "hr.master.departmentAddFailed": {
+      "variant": "error",
+      "title": "Could not add this department"
+    },
+    "hr.master.departmentRemoved": {
+      "variant": "success",
+      "title": "Department removed"
+    },
+    "hr.master.designationAdded": {
+      "variant": "success",
+      "title": "Designation added"
+    },
+    "hr.master.designationAddFailed": {
+      "variant": "error",
+      "title": "Could not add this designation"
+    },
+    "hr.master.designationRemoved": {
+      "variant": "success",
+      "title": "Designation removed"
+    },
+    "hr.master.locationAdded": {
+      "variant": "success",
+      "title": "Office location added"
+    },
+    "hr.master.locationAddFailed": {
+      "variant": "error",
+      "title": "Could not add this office location"
+    },
+    "hr.master.locationRemoved": {
+      "variant": "success",
+      "title": "Office location removed"
+    },
+    "hr.master.leaveTypeAdded": {
+      "variant": "success",
+      "title": "Leave type added"
+    },
+    "hr.master.leaveTypeAddFailed": {
+      "variant": "error",
+      "title": "Could not add this leave type"
+    },
+    "hr.master.leaveTypeRemoved": {
+      "variant": "success",
+      "title": "Leave type removed"
+    },
+    "hr.master.shiftAdded": {
+      "variant": "success",
+      "title": "Shift added"
+    },
+    "hr.master.shiftAddFailed": {
+      "variant": "error",
+      "title": "Could not add this shift"
+    },
+    "hr.master.shiftRemoved": {
+      "variant": "success",
+      "title": "Shift removed"
+    },
+    "hr.master.removeFailed": {
+      "variant": "error",
+      "title": "Could not remove \"{name}\""
     }
   },
   "errorCodes": {

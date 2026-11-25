@@ -34,11 +34,11 @@ import {
   Pagination,
   Semantic3DIcon,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { downloadProfilePdf } from "../api";
 import { LinkAccountDialog } from "./LinkAccountDialog";
 import { OnboardingReviewPanel } from "./OnboardingReviewPanel";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useRegionalFormatter } from "@/features/settings/preferences/hooks";
 import { PROFILE_READ_ANY_SCOPE } from "@/features/hr/profiles/permissions";
@@ -118,7 +118,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
     username: string;
     password: string;
   } | null>(null);
-  const { toast } = useToast();
+  const { notify, notifyError, notifyFailure } = useNotify();
   const { formatDate } = useRegionalFormatter();
   const dateOnly = (v: string | null) => (v ? formatDate(v) : "—");
 
@@ -130,13 +130,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
         password: result.temporaryPassword,
       });
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError
-            ? error.message
-            : "Failed to reset password",
-        variant: "error",
-      });
+      notifyError(error, "hr.employee.passwordResetFailed");
     }
   }
 
@@ -197,11 +191,7 @@ export function EmployeeDetailView({ id }: { id: number }) {
 
   async function handleAccountAction() {
     if (!canAccount && !canWrite) {
-      toast({
-        title: "Permission denied",
-        description: "You do not have permission to manage employee accounts.",
-        variant: "error",
-      });
+      notify("hr.employee.accountPermissionDenied");
       return;
     }
     if (e.hasLogin) {
@@ -210,23 +200,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
           id: e.id,
           body: { reason: "Unlinked via employee detail quick action" },
         });
-        toast({
-          title: "Account unlinked",
-          description: `${e.fullName}'s login has been detached.`,
-          variant: "success",
-        });
+        notify("hr.employee.accountDetached", { name: e.fullName });
       } catch (error) {
-        const message =
-          error instanceof ApiError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Failed to unlink employee account";
-        toast({
-          title: "Unlink failed",
-          description: message,
-          variant: "error",
-        });
+        notifyFailure(error, "hr.employee.accountDetachFailed");
       }
     } else {
       setLinkDialogOpen(true);
@@ -237,18 +213,9 @@ export function EmployeeDetailView({ id }: { id: number }) {
     setDownloadingPdf(true);
     try {
       await downloadProfilePdf(id, e.fullName);
-      toast({
-        title: "Profile PDF downloaded",
-        description: `Saved report for ${e.fullName}.`,
-        variant: "success",
-      });
+      notify("hr.employee.pdfDownloaded", { name: e.fullName });
     } catch (error) {
-      toast({
-        title: "Could not create the PDF",
-        description:
-          error instanceof Error ? error.message : "Try again in a moment.",
-        variant: "error",
-      });
+      notifyFailure(error, "hr.employee.pdfFailed");
     } finally {
       setDownloadingPdf(false);
     }
@@ -704,17 +671,12 @@ export function EmployeeDetailView({ id }: { id: number }) {
                             password: portalPassword,
                           });
                           setPortalPasswordSaved(true);
-                          toast({
-                            title: "Password updated",
-                            variant: "success",
-                          });
+                          notify("hr.employee.portalPasswordUpdated");
                         } catch (err) {
-                          toast({
-                            title: "Failed to set password",
-                            description:
-                              err instanceof Error ? err.message : "Try again.",
-                            variant: "error",
-                          });
+                          notifyFailure(
+                            err,
+                            "hr.employee.portalPasswordFailed",
+                          );
                         }
                       }}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200/90 bg-brand-500 px-3.5 py-2 text-xs font-bold text-white shadow-2xs transition-all hover:bg-brand-600 disabled:opacity-60"

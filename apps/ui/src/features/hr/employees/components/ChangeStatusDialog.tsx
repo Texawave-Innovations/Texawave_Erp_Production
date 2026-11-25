@@ -9,8 +9,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { CORRECTIONS, STATUS_LABELS, TRANSITIONS } from "../status";
 import { useChangeEmployeeStatus } from "../hooks";
 import {
@@ -54,7 +54,7 @@ export function ChangeStatusDialog({
   >({});
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useChangeEmployeeStatus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -81,9 +81,8 @@ export function ChangeStatusDialog({
         correction,
         body: result.data,
       });
-      toast({
-        title: `Status changed to ${STATUS_LABELS[result.data.status as EmployeeStatus]}`,
-        variant: "success",
+      notify("hr.employee.statusChanged", {
+        status: STATUS_LABELS[result.data.status as EmployeeStatus],
       });
       onClose();
     } catch (error) {

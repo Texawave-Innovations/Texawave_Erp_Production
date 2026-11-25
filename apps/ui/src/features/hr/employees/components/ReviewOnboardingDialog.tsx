@@ -2,13 +2,8 @@
 
 import { useState } from "react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Button,
-  Dialog,
-  FormField,
-  Textarea,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Button, Dialog, FormField, Textarea } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useReviewOnboarding } from "../hooks";
 
 export type ReviewDecision = "approve" | "send_back";
@@ -56,7 +51,7 @@ export function ReviewOnboardingDialog({
   const [noteError, setNoteError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useReviewOnboarding();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const sendBack = decision === "send_back";
 
   async function handleSubmit(event: React.FormEvent) {
@@ -74,12 +69,12 @@ export function ReviewOnboardingDialog({
     setServerError(null);
     try {
       await mutation.mutateAsync({ id: employee.id, decision, note: trimmed });
-      toast({
-        title: sendBack
-          ? `Profile sent back to ${employee.fullName}`
-          : `${employee.fullName}'s onboarding approved`,
-        variant: "success",
-      });
+      notify(
+        sendBack
+          ? "hr.employee.onboardingSentBack"
+          : "hr.employee.onboardingApproved",
+        { name: employee.fullName },
+      );
       onClose();
     } catch (error) {
       setServerError(describeReviewError(error));

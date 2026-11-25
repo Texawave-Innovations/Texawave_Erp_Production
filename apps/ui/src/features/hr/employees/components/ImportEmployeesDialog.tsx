@@ -10,8 +10,8 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadText } from "@/features/hr/payroll/download";
 import { useImportEmployees } from "../hooks";
 import type { EmployeeImportReport } from "../types";
@@ -83,7 +83,7 @@ export function ImportEmployeesDialog({
   const [report, setReport] = useState<EmployeeImportReport | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const mutation = useImportEmployees();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const busy = mutation.isPending;
 
   const checked = report?.dryRun === true && report.errors.length === 0;
@@ -110,10 +110,12 @@ export function ImportEmployeesDialog({
       const result = await mutation.mutateAsync({ file, dryRun });
       setReport(result);
       if (!dryRun && result.created.length > 0) {
-        toast({
-          title: `${result.created.length} employee${result.created.length === 1 ? "" : "s"} imported`,
-          variant: "success",
-        });
+        notify(
+          result.created.length === 1
+            ? "hr.employee.importedOne"
+            : "hr.employee.importedMany",
+          { count: result.created.length },
+        );
       }
     } catch (error) {
       setReport(null);

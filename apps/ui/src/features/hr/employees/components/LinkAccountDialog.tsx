@@ -7,8 +7,8 @@ import {
   FormField,
   Input,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useUsers } from "@/features/users/hooks";
 import { EmployeeIdentity } from "@/features/hr/components/EmployeeIdentity";
@@ -61,7 +61,7 @@ export function LinkAccountDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const linkMutation = useLinkEmployeeUser();
   const unlinkMutation = useUnlinkEmployeeUser();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const employeeDetail = useEmployee(mode === "link" ? employee.id : 0);
   const canSearchUsers = usePermission("users.user.read");
@@ -115,14 +115,14 @@ export function LinkAccountDialog({
             ...(data.reason ? { reason: data.reason } : {}),
           },
         });
-        toast({ title: "Login account linked", variant: "success" });
+        notify("hr.employee.accountLinked");
       } else {
         const data = result.data as UnlinkAccountValues;
         await unlinkMutation.mutateAsync({
           id: employee.id,
           body: data.reason ? { reason: data.reason } : {},
         });
-        toast({ title: "Login account unlinked", variant: "success" });
+        notify("hr.employee.accountUnlinked");
       }
       onClose();
     } catch (error) {
