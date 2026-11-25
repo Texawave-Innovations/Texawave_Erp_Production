@@ -1,16 +1,12 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  ErrorState,
-  PageHeader,
-  Skeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, ErrorState, PageHeader, Skeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { BackArrow } from "../../customers/components/CustomerFormView";
@@ -33,11 +29,15 @@ import { INVOICE_LABEL, type InvoiceType } from "../types";
 type Bank = (choice: string) => BankDetails | null;
 
 export const listPathOf = (t: InvoiceType) =>
-  t === "PROFORMA" ? "/sales/proforma-invoices" : "/sales/tax-invoices";
+  salesTabHref(t === "PROFORMA" ? "proforma-invoices" : "tax-invoices");
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to change invoices">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to change invoices"
+    >
       Ask an administrator for the <code>sales.invoice.write</code> permission.
     </Alert>
   );
@@ -49,7 +49,7 @@ export function InvoiceCreateView({
   invoiceType: InvoiceType;
 }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const create = useCreateInvoice();
   const preview = useCallback(
@@ -90,9 +90,9 @@ export function InvoiceCreateView({
         })}
         onSubmit={async (v, bank) => {
           const created = await create.mutateAsync(formToCreateBody(v, bank));
-          toast({
-            title: `${INVOICE_LABEL[created.invoiceType]} ${created.invoiceNumber} saved`,
-            variant: "success",
+          notify("sales.document.saved", {
+            label: INVOICE_LABEL[created.invoiceType],
+            number: created.invoiceNumber,
           });
           router.push(`/sales/invoices/${created.id}`);
         }}
@@ -105,7 +105,7 @@ export function InvoiceCreateView({
 
 export function InvoiceEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const query = useInvoice(id);
   const update = useUpdateInvoice();
@@ -119,7 +119,7 @@ export function InvoiceEditView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Invoice not found">
+      <Alert dismissible variant="warning" title="Invoice not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -130,6 +130,7 @@ export function InvoiceEditView({ id }: { id: number }) {
   if (inv.status === "CONVERTED") {
     return (
       <Alert
+        dismissible
         variant="info"
         title={`${inv.invoiceNumber} can no longer be edited`}
       >
@@ -150,7 +151,7 @@ export function InvoiceEditView({ id }: { id: number }) {
         }
       />
       {Number(inv.amountReceived) > 0 ? (
-        <Alert variant="info" title="Payments already received">
+        <Alert dismissible variant="info" title="Payments already received">
           The total cannot go below {inv.amountReceived} already received.
         </Alert>
       ) : null}
@@ -166,7 +167,10 @@ export function InvoiceEditView({ id }: { id: number }) {
         preview={preview}
         onSubmit={async (v, bank) => {
           await update.mutateAsync({ id, body: formToUpdateBody(v, bank) });
-          toast({ title: `${inv.invoiceNumber} saved`, variant: "success" });
+          notify("sales.document.saved", {
+            label: INVOICE_LABEL[inv.invoiceType],
+            number: inv.invoiceNumber,
+          });
           router.push(`/sales/invoices/${id}`);
         }}
         onCancel={() => router.push(`/sales/invoices/${id}`)}

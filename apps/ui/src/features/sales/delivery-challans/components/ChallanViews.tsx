@@ -1,5 +1,6 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,8 +33,8 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { BackArrow } from "../../customers/components/CustomerFormView";
@@ -68,7 +69,11 @@ export function ChallanStatusBadge({ status }: { status: DcStatus }) {
 
 function NoAccess({ code, what }: { code: string; what: string }) {
   return (
-    <Alert variant="warning" title={`You don't have access to ${what}`}>
+    <Alert
+      dismissible
+      variant="warning"
+      title={`You don't have access to ${what}`}
+    >
       Ask an administrator for the <code>{code}</code> permission.
     </Alert>
   );
@@ -78,7 +83,7 @@ type RowDialog = "email" | "delete";
 
 export function ChallansView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.deliveryChallanRead);
   const canWrite = usePermission(SALES_PERMISSIONS.deliveryChallanWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.deliveryChallanDelete);
@@ -125,10 +130,7 @@ export function ChallansView() {
     try {
       await downloadPdf(`${CHALLANS}/${d.id}/pdf`, pdfFileName(d.dcNumber));
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not download the PDF",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.pdfFailed");
     }
   }
 
@@ -140,10 +142,7 @@ export function ChallansView() {
         "noopener",
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.whatsappFailed");
     }
   }
 
@@ -152,12 +151,9 @@ export function ChallansView() {
     const d = target.challan;
     try {
       await remove.mutateAsync(d.id);
-      toast({ title: `${d.dcNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: d.dcNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setTarget(null);
     }
@@ -414,7 +410,7 @@ export function ChallansView() {
 
 export function ChallanCreateView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.deliveryChallanWrite);
   const create = useCreateChallan();
   if (!canWrite) {
@@ -431,20 +427,25 @@ export function ChallanCreateView() {
         variant="banner"
         title="New delivery challan"
         description="Items and quantities only, with no prices. The preview updates as you type."
-        icon={<BackArrow href={LIST} label="Back to delivery challans" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("delivery-challans")}
+            label="Back to delivery challans"
+          />
+        }
       />
       <ChallanForm
         mode="create"
         initialValues={emptyChallanForm(todayIst())}
         onSubmit={async (body) => {
           const dc = await create.mutateAsync(body);
-          toast({
-            title: `Delivery challan ${dc.dcNumber} saved`,
-            variant: "success",
+          notify("sales.document.saved", {
+            label: "Delivery challan",
+            number: dc.dcNumber,
           });
           router.push(`${LIST}/${dc.id}`);
         }}
-        onCancel={() => router.push(LIST)}
+        onCancel={() => router.push(salesTabHref("delivery-challans"))}
       />
     </div>
   );
@@ -452,7 +453,7 @@ export function ChallanCreateView() {
 
 export function ChallanEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.deliveryChallanWrite);
   const query = useChallan(id);
   const update = useUpdateChallan();
@@ -484,7 +485,10 @@ export function ChallanEditView({ id }: { id: number }) {
         customerLabel={`${dc.customerSnapshot.customerCode} — ${dc.customerSnapshot.companyName}`}
         onSubmit={async (body) => {
           await update.mutateAsync({ id, body });
-          toast({ title: `${dc.dcNumber} saved`, variant: "success" });
+          notify("sales.document.saved", {
+            label: "Delivery challan",
+            number: dc.dcNumber,
+          });
           router.push(`${LIST}/${id}`);
         }}
         onCancel={() => router.push(`${LIST}/${id}`)}
@@ -504,7 +508,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function ChallanDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.deliveryChallanRead);
   const canWrite = usePermission(SALES_PERMISSIONS.deliveryChallanWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.deliveryChallanDelete);
@@ -522,7 +526,7 @@ export function ChallanDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Delivery challan not found">
+      <Alert dismissible variant="warning" title="Delivery challan not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -545,10 +549,7 @@ export function ChallanDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "That did not work",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.actionFailed");
     } finally {
       setBusy(null);
     }
@@ -560,7 +561,12 @@ export function ChallanDetailView({ id }: { id: number }) {
         variant="banner"
         title={dc.dcNumber}
         description={`${dc.customerSnapshot.companyName} · ${formatDate(dc.dcDate)}`}
-        icon={<BackArrow href={LIST} label="Back to delivery challans" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("delivery-challans")}
+            label="Back to delivery challans"
+          />
+        }
         badge={<ChallanStatusBadge status={dc.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -655,14 +661,11 @@ export function ChallanDetailView({ id }: { id: number }) {
           onConfirm={async () => {
             try {
               await remove.mutateAsync(dc.id);
-              toast({ title: `${dc.dcNumber} deleted`, variant: "success" });
-              router.push(LIST);
+              notify("sales.document.deleted", { number: dc.dcNumber });
+              router.push(salesTabHref("delivery-challans"));
             } catch (e) {
               setDialog(null);
-              toast({
-                title: e instanceof ApiError ? e.message : "Could not delete",
-                variant: "error",
-              });
+              notifyError(e, "sales.document.deleteFailed");
             }
           }}
           title="Delete delivery challan"

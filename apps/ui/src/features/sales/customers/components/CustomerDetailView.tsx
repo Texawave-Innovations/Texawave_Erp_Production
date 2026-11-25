@@ -1,5 +1,6 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,8 +17,8 @@ import {
   Skeleton,
   StatusBadge,
   Tabs,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { formatDate } from "../../shared/format";
@@ -69,7 +70,7 @@ function AddressCard({ a }: { a: CustomerAddress }) {
 
 function BankAccount({ customer }: { customer: Customer }) {
   const canReveal = usePermission(SALES_PERMISSIONS.customerBankReveal);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [full, setFull] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -80,7 +81,7 @@ function BankAccount({ customer }: { customer: Customer }) {
     try {
       setFull(await revealBankAccount(customer.id));
     } catch {
-      toast({ title: "Could not reveal the account number", variant: "error" });
+      notify("sales.customer.revealFailed");
     } finally {
       setLoading(false);
     }
@@ -107,7 +108,7 @@ function BankAccount({ customer }: { customer: Customer }) {
 
 export function CustomerDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.customerRead);
   const canWrite = usePermission(SALES_PERMISSIONS.customerWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.customerDelete);
@@ -121,7 +122,11 @@ export function CustomerDetailView({ id }: { id: number }) {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to customers">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to customers"
+      >
         Ask an administrator for the <code>sales.customer.read</code>{" "}
         permission.
       </Alert>
@@ -130,9 +135,9 @@ export function CustomerDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Customer not found">
+      <Alert dismissible variant="warning" title="Customer not found">
         It may have been deleted.{" "}
-        <Link href="/sales/customers">Back to customers</Link>
+        <Link href={salesTabHref("customers")}>Back to customers</Link>
       </Alert>
     ) : (
       <ErrorState onRetry={() => void query.refetch()} />
@@ -143,17 +148,12 @@ export function CustomerDetailView({ id }: { id: number }) {
   async function handleDelete() {
     try {
       await remove.mutateAsync(c.id);
-      toast({ title: `${c.companyName} deleted`, variant: "success" });
-      router.push("/sales/customers");
+      notify("sales.customer.deleted", { name: c.companyName });
+      router.push(salesTabHref("customers"));
     } catch (error) {
       setConfirmDelete(false);
-      toast({
-        title:
-          error instanceof ApiError &&
-          error.errorCode === "CUSTOMER_HAS_DOCUMENTS"
-            ? `${c.companyName} has documents and cannot be deleted`
-            : `Could not delete ${c.companyName}`,
-        variant: "error",
+      notifyError(error, "sales.customer.deleteFailed", {
+        name: c.companyName,
       });
     }
   }
@@ -169,7 +169,12 @@ export function CustomerDetailView({ id }: { id: number }) {
         variant="banner"
         title={c.companyName}
         description={`${c.customerCode} · added ${formatDate(c.createdAt)}`}
-        icon={<BackArrow href="/sales/customers" label="Back to customers" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("customers")}
+            label="Back to customers"
+          />
+        }
         badge={
           <StatusBadge
             label={c.status === "ACTIVE" ? "Active" : "Inactive"}

@@ -1,5 +1,6 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,8 +35,8 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { BackArrow } from "../../customers/components/CustomerFormView";
@@ -78,7 +79,11 @@ export function RdcStatusBadge({ rdc }: { rdc: ReturnableDc }) {
 
 function NoAccess({ code, what }: { code: string; what: string }) {
   return (
-    <Alert variant="warning" title={`You don't have access to ${what}`}>
+    <Alert
+      dismissible
+      variant="warning"
+      title={`You don't have access to ${what}`}
+    >
       Ask an administrator for the <code>{code}</code> permission.
     </Alert>
   );
@@ -99,7 +104,7 @@ type RowDialog = "email" | "delete" | "return" | "reopen";
 
 export function RdcsView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.returnableDcRead);
   const canWrite = usePermission(SALES_PERMISSIONS.returnableDcWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.returnableDcDelete);
@@ -146,10 +151,7 @@ export function RdcsView() {
     try {
       await downloadPdf(`${RDCS}/${r.id}/pdf`, pdfFileName(r.rdcNumber));
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not download the PDF",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.pdfFailed");
     }
   }
 
@@ -161,10 +163,7 @@ export function RdcsView() {
         "noopener",
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.whatsappFailed");
     }
   }
 
@@ -173,12 +172,9 @@ export function RdcsView() {
     const r = target.rdc;
     try {
       await remove.mutateAsync(r.id);
-      toast({ title: `${r.rdcNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: r.rdcNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setTarget(null);
     }
@@ -458,10 +454,7 @@ export function RdcsView() {
               id: current.id,
               returnedDate: date,
             });
-            toast({
-              title: `${current.rdcNumber} returned`,
-              variant: "success",
-            });
+            notify("sales.rdc.returned", { number: current.rdcNumber });
             closeDialog();
           }}
         />
@@ -478,10 +471,7 @@ export function RdcsView() {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: current.id, reason });
-            toast({
-              title: `${current.rdcNumber} is pending return again`,
-              variant: "success",
-            });
+            notify("sales.rdc.pendingAgain", { number: current.rdcNumber });
             closeDialog();
           }}
         />
@@ -511,7 +501,7 @@ export function RdcsView() {
 
 export function RdcCreateView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.returnableDcWrite);
   const create = useCreateRdc();
   if (!canWrite) {
@@ -525,20 +515,25 @@ export function RdcCreateView() {
         variant="banner"
         title="New returnable DC"
         description="Goods lent out and expected back. The preview updates as you type."
-        icon={<BackArrow href={LIST} label="Back to returnable DCs" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("returnable-dcs")}
+            label="Back to returnable DCs"
+          />
+        }
       />
       <RdcForm
         mode="create"
         initialValues={emptyRdcForm(todayIst())}
         onSubmit={async (body) => {
           const rdc = await create.mutateAsync(body);
-          toast({
-            title: `Returnable DC ${rdc.rdcNumber} saved`,
-            variant: "success",
+          notify("sales.document.saved", {
+            label: "Returnable DC",
+            number: rdc.rdcNumber,
           });
           router.push(`${LIST}/${rdc.id}`);
         }}
-        onCancel={() => router.push(LIST)}
+        onCancel={() => router.push(salesTabHref("returnable-dcs"))}
       />
     </div>
   );
@@ -546,7 +541,7 @@ export function RdcCreateView() {
 
 export function RdcEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.returnableDcWrite);
   const query = useRdc(id);
   const update = useUpdateRdc();
@@ -562,7 +557,11 @@ export function RdcEditView({ id }: { id: number }) {
     return (
       <div className="flex flex-col gap-5">
         <BackLink href={`${LIST}/${id}`} label="Back to returnable DC" />
-        <Alert variant="info" title={`${rdc.rdcNumber} has been returned`}>
+        <Alert
+          dismissible
+          variant="info"
+          title={`${rdc.rdcNumber} has been returned`}
+        >
           Reopen it from its page to make changes.
         </Alert>
       </div>
@@ -587,7 +586,10 @@ export function RdcEditView({ id }: { id: number }) {
         customerLabel={`${rdc.customerSnapshot.customerCode} — ${rdc.customerSnapshot.companyName}`}
         onSubmit={async (body) => {
           await update.mutateAsync({ id, body });
-          toast({ title: `${rdc.rdcNumber} saved`, variant: "success" });
+          notify("sales.document.saved", {
+            label: "Returnable DC",
+            number: rdc.rdcNumber,
+          });
           router.push(`${LIST}/${id}`);
         }}
         onCancel={() => router.push(`${LIST}/${id}`)}
@@ -607,7 +609,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function RdcDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.returnableDcRead);
   const canWrite = usePermission(SALES_PERMISSIONS.returnableDcWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.returnableDcDelete);
@@ -627,7 +629,7 @@ export function RdcDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Returnable DC not found">
+      <Alert dismissible variant="warning" title="Returnable DC not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -651,10 +653,7 @@ export function RdcDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "That did not work",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.actionFailed");
     } finally {
       setBusy(null);
     }
@@ -666,7 +665,12 @@ export function RdcDetailView({ id }: { id: number }) {
         variant="banner"
         title={rdc.rdcNumber}
         description={`${rdc.customerSnapshot.companyName} · ${formatDate(rdc.issueDate)}`}
-        icon={<BackArrow href={LIST} label="Back to returnable DCs" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("returnable-dcs")}
+            label="Back to returnable DCs"
+          />
+        }
         badge={<RdcStatusBadge rdc={rdc} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -775,7 +779,7 @@ export function RdcDetailView({ id }: { id: number }) {
           confirmLabel="Mark returned"
           onConfirm={async (date) => {
             await markReturned.mutateAsync({ id: rdc.id, returnedDate: date });
-            toast({ title: `${rdc.rdcNumber} returned`, variant: "success" });
+            notify("sales.rdc.returned", { number: rdc.rdcNumber });
             setDialog(null);
           }}
         />
@@ -792,10 +796,7 @@ export function RdcDetailView({ id }: { id: number }) {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: rdc.id, reason });
-            toast({
-              title: `${rdc.rdcNumber} is pending return again`,
-              variant: "success",
-            });
+            notify("sales.rdc.pendingAgain", { number: rdc.rdcNumber });
             setDialog(null);
           }}
         />
@@ -816,14 +817,11 @@ export function RdcDetailView({ id }: { id: number }) {
           onConfirm={async () => {
             try {
               await remove.mutateAsync(rdc.id);
-              toast({ title: `${rdc.rdcNumber} deleted`, variant: "success" });
-              router.push(LIST);
+              notify("sales.document.deleted", { number: rdc.rdcNumber });
+              router.push(salesTabHref("returnable-dcs"));
             } catch (e) {
               setDialog(null);
-              toast({
-                title: e instanceof ApiError ? e.message : "Could not delete",
-                variant: "error",
-              });
+              notifyError(e, "sales.document.deleteFailed");
             }
           }}
           title="Delete returnable DC"

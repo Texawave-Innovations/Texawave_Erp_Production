@@ -1,6 +1,11 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { SalesWorkspaceView } from "@/features/sales/components/SalesWorkspaceView";
 
-// /sales has no screen of its own; the Sales workspace opens on its dashboard.
+// `app/` stays thin — routing only (Docs/CODING_STANDARDS.md §4).
 export default function SalesPage() {
-  redirect("/sales/dashboard");
+  return (
+    <Suspense>
+      <SalesWorkspaceView />
+    </Suspense>
+  );
 }

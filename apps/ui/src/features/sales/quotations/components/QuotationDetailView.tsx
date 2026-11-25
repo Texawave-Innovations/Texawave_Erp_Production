@@ -1,5 +1,6 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,8 +23,8 @@ import {
   SectionCard,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
@@ -55,7 +56,7 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function QuotationDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.quotationRead);
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.quotationDelete);
@@ -71,7 +72,11 @@ export function QuotationDetailView({ id }: { id: number }) {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to quotations">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to quotations"
+      >
         Ask an administrator for the <code>sales.quotation.read</code>{" "}
         permission.
       </Alert>
@@ -80,9 +85,9 @@ export function QuotationDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Quotation not found">
+      <Alert dismissible variant="warning" title="Quotation not found">
         It may have been deleted.{" "}
-        <Link href="/sales/quotations">Back to quotations</Link>
+        <Link href={salesTabHref("quotations")}>Back to quotations</Link>
       </Alert>
     ) : (
       <ErrorState onRetry={() => void query.refetch()} />
@@ -105,15 +110,12 @@ export function QuotationDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title:
-          e instanceof ApiError
-            ? e.message
-            : kind === "pdf"
-              ? "Could not download the PDF"
-              : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(
+        e,
+        kind === "pdf"
+          ? "sales.document.pdfFailed"
+          : "sales.document.whatsappFailed",
+      );
     } finally {
       setBusy(null);
     }
@@ -122,14 +124,11 @@ export function QuotationDetailView({ id }: { id: number }) {
   async function handleDelete() {
     try {
       await remove.mutateAsync(q.id);
-      toast({ title: `${q.quotationNumber} deleted`, variant: "success" });
-      router.push("/sales/quotations");
+      notify("sales.document.deleted", { number: q.quotationNumber });
+      router.push(salesTabHref("quotations"));
     } catch (e) {
       setDialog(null);
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     }
   }
 
@@ -139,7 +138,12 @@ export function QuotationDetailView({ id }: { id: number }) {
         variant="banner"
         title={q.quotationNumber}
         description={`${q.customerSnapshot.companyName} · ${formatDate(q.quotationDate)}`}
-        icon={<BackArrow href="/sales/quotations" label="Back to quotations" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("quotations")}
+            label="Back to quotations"
+          />
+        }
         badge={<QuotationStatusBadge status={q.status} />}
         action={
           <div className="flex flex-wrap gap-2">
@@ -202,7 +206,7 @@ export function QuotationDetailView({ id }: { id: number }) {
       />
 
       {!open ? (
-        <Alert variant="info" title="Converted to an invoice">
+        <Alert dismissible variant="info" title="Converted to an invoice">
           This quotation is locked
           {q.convertedAt ? ` since ${formatDate(q.convertedAt)}` : ""}.
         </Alert>
@@ -291,10 +295,7 @@ export function QuotationDetailView({ id }: { id: number }) {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: q.id, reason });
-            toast({
-              title: `${q.quotationNumber} is open again`,
-              variant: "success",
-            });
+            notify("sales.document.reopened", { number: q.quotationNumber });
             setDialog(null);
           }}
         />

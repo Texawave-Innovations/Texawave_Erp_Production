@@ -29,7 +29,11 @@ export function MasterListView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to the master list">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to the master list"
+      >
         Ask an administrator for the <code>sales.master.read</code> permission.
       </Alert>
     );

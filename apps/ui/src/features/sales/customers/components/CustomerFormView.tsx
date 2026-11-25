@@ -1,16 +1,12 @@
 "use client";
 
+import { salesTabHref } from "@/features/sales/shared/tabs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ApiError } from "@texawave-erp/core";
-import {
-  Alert,
-  ErrorState,
-  PageHeader,
-  Skeleton,
-  useToast,
-} from "@texawave-erp/ui-kit";
+import { Alert, ErrorState, PageHeader, Skeleton } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { useCreateCustomer, useCustomer, useUpdateCustomer } from "../hooks";
@@ -25,7 +21,11 @@ import { CustomerForm } from "./CustomerForm";
 
 function NoWriteAccess() {
   return (
-    <Alert variant="warning" title="You don't have access to change customers">
+    <Alert
+      dismissible
+      variant="warning"
+      title="You don't have access to change customers"
+    >
       Ask an administrator for the <code>sales.customer.write</code> permission.
     </Alert>
   );
@@ -46,7 +46,7 @@ export function BackArrow({ href, label }: { href: string; label: string }) {
 
 export function CustomerCreateView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.customerWrite);
   const create = useCreateCustomer();
 
@@ -57,9 +57,9 @@ export function CustomerCreateView() {
       keepBankAccount: false,
     });
     const created = await create.mutateAsync(body);
-    toast({
-      title: `${created.companyName} added as ${created.customerCode}`,
-      variant: "success",
+    notify("sales.customer.created", {
+      name: created.companyName,
+      code: created.customerCode,
     });
     router.push(`/sales/customers/${created.id}`);
   }
@@ -70,13 +70,18 @@ export function CustomerCreateView() {
         variant="banner"
         title="New customer"
         description="Company, tax, bank and address details."
-        icon={<BackArrow href="/sales/customers" label="Back to customers" />}
+        icon={
+          <BackArrow
+            href={salesTabHref("customers")}
+            label="Back to customers"
+          />
+        }
       />
       <CustomerForm
         mode="create"
         initialValues={EMPTY_CUSTOMER_FORM}
         onSubmit={handleSubmit}
-        onCancel={() => router.push("/sales/customers")}
+        onCancel={() => router.push(salesTabHref("customers"))}
       />
     </div>
   );
@@ -84,7 +89,7 @@ export function CustomerCreateView() {
 
 export function CustomerEditView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.customerWrite);
   const query = useCustomer(id);
   const update = useUpdateCustomer();
@@ -96,8 +101,9 @@ export function CustomerEditView({ id }: { id: number }) {
   }
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Customer not found">
-        It may have been deleted. <Link href="/sales/customers">Back</Link>
+      <Alert dismissible variant="warning" title="Customer not found">
+        It may have been deleted.{" "}
+        <Link href={salesTabHref("customers")}>Back</Link>
       </Alert>
     ) : (
       <ErrorState onRetry={() => void query.refetch()} />
@@ -110,7 +116,7 @@ export function CustomerEditView({ id }: { id: number }) {
       keepBankAccount: true,
     });
     await update.mutateAsync({ id, body });
-    toast({ title: `${customer.companyName} saved`, variant: "success" });
+    notify("sales.customer.saved", { name: customer.companyName });
     router.push(`/sales/customers/${id}`);
   }
 

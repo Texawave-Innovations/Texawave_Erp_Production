@@ -29,8 +29,8 @@ import {
   Select,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useCustomers } from "../../customers/hooks";
@@ -55,7 +55,7 @@ type RowDialog = "email" | "convert" | "reopen" | "delete";
 
 export function QuotationsView() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.quotationRead);
   const canWrite = usePermission(SALES_PERMISSIONS.quotationWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.quotationDelete);
@@ -89,7 +89,11 @@ export function QuotationsView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to quotations">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to quotations"
+      >
         Ask an administrator for the <code>sales.quotation.read</code>{" "}
         permission.
       </Alert>
@@ -118,10 +122,7 @@ export function QuotationsView() {
         pdfFileName(q.quotationNumber),
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not download the PDF",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.pdfFailed");
     }
   }
 
@@ -133,10 +134,7 @@ export function QuotationsView() {
         "noopener",
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.whatsappFailed");
     }
   }
 
@@ -145,12 +143,9 @@ export function QuotationsView() {
     const q = target.quotation;
     try {
       await remove.mutateAsync(q.id);
-      toast({ title: `${q.quotationNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: q.quotationNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setTarget(null);
     }
@@ -241,7 +236,11 @@ export function QuotationsView() {
         <TableSkeleton rowsCount={6} columnsCount={7} />
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to quotations">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to quotations"
+          >
             Your access has changed. Contact an administrator.
           </Alert>
         ) : (
@@ -453,9 +452,8 @@ export function QuotationsView() {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: target.quotation.id, reason });
-            toast({
-              title: `${target.quotation.quotationNumber} is open again`,
-              variant: "success",
+            notify("sales.document.reopened", {
+              number: target.quotation.quotationNumber,
             });
             closeDialog();
           }}

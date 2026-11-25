@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -154,9 +154,7 @@ export function RdcForm({
       ) {
         setServerErrors({ expectedReturnDate: e.message });
       }
-      setServerError(
-        e instanceof ApiError ? e.message : "Could not save the returnable DC.",
-      );
+      setServerError(resolveErrorText(e, "sales.rdc.saveFailed"));
     } finally {
       setSubmitting(false);
     }

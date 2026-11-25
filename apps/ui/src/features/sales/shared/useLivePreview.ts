@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 /**
@@ -41,8 +41,7 @@ export function useLivePreview<V, P>(
         setResult({
           key,
           preview: null,
-          error:
-            e instanceof ApiError ? e.message : "The preview could not load.",
+          error: resolveErrorText(e, "sales.preview.loadFailed"),
         });
       });
   }, [debounced, key, valid, request]);

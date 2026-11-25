@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -150,9 +150,7 @@ export function ChallanForm({
       if (e instanceof ApiError && e.errorCode === "CUSTOMER_INACTIVE") {
         setServerErrors({ customerId: e.message });
       }
-      setServerError(
-        e instanceof ApiError ? e.message : "Could not save the challan.",
-      );
+      setServerError(resolveErrorText(e, "sales.challan.saveFailed"));
     } finally {
       setSubmitting(false);
     }

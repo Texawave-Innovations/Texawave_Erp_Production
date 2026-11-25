@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { Check, Plus, Trash2 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { type MessageKey, resolveErrorText } from "@texawave-erp/core";
 import {
   Button,
-  Card,
   DatePicker,
   ErrorState,
   FormField,
   Input,
+  SectionCard,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { formatDate, todayIst } from "../../shared/format";
@@ -28,7 +28,7 @@ import {
 export function SalesChecklist() {
   const canRead = usePermission(SALES_PERMISSIONS.actionItemRead);
   const canWrite = usePermission(SALES_PERMISSIONS.actionItemWrite);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const query = useOpenActionItems(canRead);
   const create = useCreateActionItem();
   const setDone = useSetActionItemDone();
@@ -56,29 +56,27 @@ export function SalesChecklist() {
       setTitle("");
       setDueDate("");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not add the item");
+      setError(resolveErrorText(e, "sales.checklist.addFailed"));
     }
   }
 
-  async function act(fn: () => Promise<unknown>, failed: string) {
+  async function act(fn: () => Promise<unknown>, failed: MessageKey) {
     try {
       await fn();
     } catch {
-      toast({ title: failed, variant: "error" });
+      notify(failed);
     }
   }
 
   return (
-    <Card className="flex flex-col gap-4">
-      <h2 className="text-theme-lg font-semibold text-gray-900 dark:text-white/90">
-        Follow-up checklist
-      </h2>
+    <SectionCard
+      id="sales-checklist"
+      title="Follow-up checklist"
+      // The date popover opens below the field; the card must not clip it.
+      className="overflow-visible"
+    >
       {canWrite ? (
-        <form
-          onSubmit={handleAdd}
-          className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end"
-          noValidate
-        >
+        <form onSubmit={handleAdd} className="flex flex-col gap-3" noValidate>
           <FormField label="New follow-up" error={error ?? undefined}>
             {(f) => (
               <Input
@@ -90,19 +88,22 @@ export function SalesChecklist() {
               />
             )}
           </FormField>
-          <FormField label="Due date">
-            {(f) => (
-              <DatePicker
-                {...f}
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            )}
-          </FormField>
-          <Button type="submit" loading={create.isPending}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
-            Add
-          </Button>
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <FormField label="Due date">
+              {(f) => (
+                <DatePicker
+                  {...f}
+                  placement="bottom"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              )}
+            </FormField>
+            <Button type="submit" loading={create.isPending}>
+              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+              Add
+            </Button>
+          </div>
         </form>
       ) : null}
 
@@ -150,7 +151,7 @@ export function SalesChecklist() {
                           void act(
                             () =>
                               setDone.mutateAsync({ id: item.id, done: true }),
-                            "Could not complete the item",
+                            "sales.checklist.completeFailed",
                           )
                         }
                       >
@@ -163,7 +164,7 @@ export function SalesChecklist() {
                         onClick={() =>
                           void act(
                             () => remove.mutateAsync(item.id),
-                            "Could not delete the item",
+                            "sales.checklist.deleteFailed",
                           )
                         }
                       >
@@ -177,6 +178,6 @@ export function SalesChecklist() {
           })}
         </ul>
       )}
-    </Card>
+    </SectionCard>
   );
 }

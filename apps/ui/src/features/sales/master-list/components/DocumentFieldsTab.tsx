@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -16,9 +16,9 @@ import {
   Skeleton,
   StatusBadge,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useFormValidation } from "@/hooks/useFormValidation";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { useMasterOptions } from "../../shared/hooks";
@@ -61,7 +61,7 @@ function OptionDialog({
   option: MasterOption | null;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const create = useCreateOption();
   const update = useUpdateOption();
   const schema = useMemo(() => optionSchema(field), [field]);
@@ -123,13 +123,10 @@ function OptionDialog({
     try {
       if (option) await update.mutateAsync({ id: option.id, body });
       else await create.mutateAsync({ field, ...body });
-      toast({
-        title: option ? "Option saved" : "Option added",
-        variant: "success",
-      });
+      notify(option ? "sales.option.saved" : "sales.option.added");
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save.");
+      setError(resolveErrorText(err, "sales.common.saveFailed"));
     }
   }
 
@@ -333,7 +330,7 @@ function OptionRow({
  * an option is added once. Issued documents keep what they copied.
  */
 export function DocumentFieldsTab() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.masterWrite);
   const layout = useFieldLayout();
   const options = useMasterOptions();
@@ -442,12 +439,9 @@ export function DocumentFieldsTab() {
           if (!deleting) return;
           try {
             await remove.mutateAsync(deleting.id);
-            toast({ title: "Option deleted", variant: "success" });
+            notify("sales.option.deleted");
           } catch (e) {
-            toast({
-              title: e instanceof ApiError ? e.message : "Could not delete",
-              variant: "error",
-            });
+            notifyError(e, "sales.option.deleteFailed");
           } finally {
             setDeleting(null);
           }

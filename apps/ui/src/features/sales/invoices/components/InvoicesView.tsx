@@ -16,7 +16,6 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Alert,
@@ -32,8 +31,8 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useCustomers } from "../../customers/hooks";
@@ -83,7 +82,7 @@ const TITLE: Record<
 /** The proforma or tax invoice list (one screen, filtered by type). */
 export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.invoiceRead);
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.invoiceDelete);
@@ -125,7 +124,11 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to invoices">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to invoices"
+      >
         Ask an administrator for the <code>sales.invoice.read</code> permission.
       </Alert>
     );
@@ -156,10 +159,7 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
         pdfFileName(i.invoiceNumber),
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not download the PDF",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.pdfFailed");
     }
   }
 
@@ -171,10 +171,7 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
         "noopener",
       );
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not open WhatsApp",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.whatsappFailed");
     }
   }
 
@@ -183,12 +180,9 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
     const i = target.invoice;
     try {
       await remove.mutateAsync(i.id);
-      toast({ title: `${i.invoiceNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: i.invoiceNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setTarget(null);
     }
@@ -535,9 +529,9 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
               id: current.id,
               invoiceDate: date,
             });
-            toast({
-              title: `Tax invoice ${tax.invoiceNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Tax invoice",
+              number: tax.invoiceNumber,
             });
             router.push(`/sales/invoices/${tax.id}`);
           }}
@@ -555,9 +549,8 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: current.id, reason });
-            toast({
-              title: `${current.invoiceNumber} is open again`,
-              variant: "success",
+            notify("sales.document.reopened", {
+              number: current.invoiceNumber,
             });
             closeDialog();
           }}
@@ -576,9 +569,9 @@ export function InvoicesView({ invoiceType }: { invoiceType: InvoiceType }) {
               id: current.id,
               dcDate: date,
             });
-            toast({
-              title: `Delivery challan ${dc.dcNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Delivery challan",
+              number: dc.dcNumber,
             });
             router.push(`/sales/delivery-challans/${dc.id}`);
           }}

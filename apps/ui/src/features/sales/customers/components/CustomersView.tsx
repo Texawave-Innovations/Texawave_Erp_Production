@@ -26,8 +26,8 @@ import {
   StatusBadge,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SALES_PERMISSIONS } from "../../permissions";
@@ -44,7 +44,7 @@ export function CustomersView() {
   const canRead = usePermission(SALES_PERMISSIONS.customerRead);
   const canWrite = usePermission(SALES_PERMISSIONS.customerWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.customerDelete);
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const remove = useDeleteCustomer();
   const [toDelete, setToDelete] = useState<Customer | null>(null);
   const canSeeInvoices = usePermission(SALES_PERMISSIONS.invoiceRead);
@@ -64,7 +64,11 @@ export function CustomersView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to customers">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to customers"
+      >
         Ask an administrator for the <code>sales.customer.read</code>{" "}
         permission.
       </Alert>
@@ -76,15 +80,10 @@ export function CustomersView() {
     const c = toDelete;
     try {
       await remove.mutateAsync(c.id);
-      toast({ title: `${c.companyName} deleted`, variant: "success" });
+      notify("sales.customer.deleted", { name: c.companyName });
     } catch (error) {
-      toast({
-        title:
-          error instanceof ApiError &&
-          error.errorCode === "CUSTOMER_HAS_DOCUMENTS"
-            ? `${c.companyName} has documents and cannot be deleted`
-            : `Could not delete ${c.companyName}`,
-        variant: "error",
+      notifyError(error, "sales.customer.deleteFailed", {
+        name: c.companyName,
       });
     } finally {
       setToDelete(null);
@@ -156,7 +155,11 @@ export function CustomersView() {
         <TableSkeleton rowsCount={6} columnsCount={6} />
       ) : query.isError ? (
         query.error instanceof ApiError && query.error.isPermissionError ? (
-          <Alert variant="warning" title="You don't have access to customers">
+          <Alert
+            dismissible
+            variant="warning"
+            title="You don't have access to customers"
+          >
             Your access has changed. Contact an administrator.
           </Alert>
         ) : (

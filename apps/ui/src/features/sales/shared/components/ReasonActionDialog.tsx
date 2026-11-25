@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "@texawave-erp/core";
+import { resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -57,7 +57,7 @@ export function ReasonActionDialog({
       await onConfirm(trimmed);
       setReason("");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "That did not work.");
+      setError(resolveErrorText(e, "sales.document.actionFailed"));
     } finally {
       setBusy(false);
     }

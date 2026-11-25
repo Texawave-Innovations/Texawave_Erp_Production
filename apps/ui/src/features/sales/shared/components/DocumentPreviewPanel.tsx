@@ -43,7 +43,7 @@ export function DocumentPreviewPanel({
         </span>
       </div>
       {error ? (
-        <Alert variant="warning" title="Preview not updated">
+        <Alert dismissible variant="warning" title="Preview not updated">
           {error}
         </Alert>
       ) : null}

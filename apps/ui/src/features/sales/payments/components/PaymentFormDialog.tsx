@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -12,8 +12,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { CustomerPicker } from "../../shared/components/CustomerPicker";
 import { formatInr, todayIst } from "../../shared/format";
@@ -100,7 +100,7 @@ export function PaymentFormDialog({
   /** Edit this payment (its invoice cannot change). */
   payment?: Payment | undefined;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const create = useCreatePayment();
   const update = useUpdatePayment();
   const modes = useMasterOptions("PAYMENT_RECEIVED").byField("PAYMENT_MODE");
@@ -195,19 +195,17 @@ export function PaymentFormDialog({
       const saved = editing
         ? await update.mutateAsync({ id: payment.id, body })
         : await create.mutateAsync({ ...body, invoiceId: Number(v.invoiceId) });
-      toast({
-        title: `Payment ${saved.paymentNumber} ${editing ? "saved" : "recorded"}`,
-        description: `Balance on ${saved.invoice.invoiceNumber}: ${formatInr(saved.invoice.balance)}`,
-        variant: "success",
+      notify(editing ? "sales.payment.saved" : "sales.payment.recorded", {
+        number: saved.paymentNumber,
+        invoice: saved.invoice.invoiceNumber,
+        balance: formatInr(saved.invoice.balance),
       });
       onClose();
     } catch (e) {
       if (e instanceof ApiError && e.errorCode === "PAYMENT_EXCEEDS_BALANCE") {
         setServerErrors({ amount: e.message });
       }
-      setError(
-        e instanceof ApiError ? e.message : "Could not save the payment.",
-      );
+      setError(resolveErrorText(e, "sales.payment.saveFailed"));
     } finally {
       setSaving(false);
     }

@@ -10,7 +10,6 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
 import {
   ActionMenu,
   Alert,
@@ -25,8 +24,8 @@ import {
   Pagination,
   TableSkeleton,
   TableToolbar,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { SALES_PERMISSIONS } from "../../permissions";
@@ -42,7 +41,7 @@ import { PaymentFormDialog } from "./PaymentFormDialog";
 const PAGE_SIZE = 20;
 
 export function PaymentsView() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.paymentRead);
   const canWrite = usePermission(SALES_PERMISSIONS.invoicePaymentWrite);
   const [page, setPage] = useState(1);
@@ -76,7 +75,11 @@ export function PaymentsView() {
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to payments">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to payments"
+      >
         Ask an administrator for the <code>sales.payment.read</code> permission.
       </Alert>
     );
@@ -94,7 +97,7 @@ export function PaymentsView() {
     try {
       await downloadPdf(receiptPath(p.id), pdfFileName(p.paymentNumber));
     } catch {
-      toast({ title: "Could not download the receipt", variant: "error" });
+      notify("sales.payment.receiptFailed");
     }
   }
 
@@ -102,12 +105,9 @@ export function PaymentsView() {
     if (!deleting) return;
     try {
       await remove.mutateAsync(deleting.id);
-      toast({ title: `${deleting.paymentNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: deleting.paymentNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setDeleting(null);
     }
@@ -118,7 +118,7 @@ export function PaymentsView() {
   return (
     <div className="flex flex-col gap-5">
       {a && a.overduePayments > 0 ? (
-        <Alert variant="warning" title="Due date intimation">
+        <Alert dismissible variant="warning" title="Due date intimation">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>
               {a.overduePayments} overdue payment

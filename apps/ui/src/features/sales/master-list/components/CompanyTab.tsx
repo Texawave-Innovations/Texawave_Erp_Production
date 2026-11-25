@@ -13,9 +13,9 @@ import {
   Select,
   Skeleton,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useFormValidation } from "@/hooks/useFormValidation";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import { GST_STATES } from "../../shared/gst";
@@ -43,7 +43,7 @@ function CompanyForm({
   profile: CompanyProfile | null;
   canWrite: boolean;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const save = useSaveCompanyProfile();
   const [values, setValues] = useState<CompanyValues>(() =>
     companyToForm(profile),
@@ -70,7 +70,7 @@ function CompanyForm({
     setError(null);
     try {
       await save.mutateAsync(companyToBody(values));
-      toast({ title: "Company details saved", variant: "success" });
+      notify("sales.company.saved");
     } catch (err) {
       if (err instanceof ApiError && err.errorCode === "INVALID_STATE_CODE") {
         setServerErrors({ stateCode: err.message });
@@ -213,7 +213,7 @@ function CompanyForm({
 
 /** The seller block printed on every Sales document, and its logo. */
 export function CompanyTab() {
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canWrite = usePermission(SALES_PERMISSIONS.masterWrite);
   const query = useCompanyProfile();
   const upload = useUploadCompanyLogo();
@@ -230,7 +230,7 @@ export function CompanyTab() {
           Company details
         </h2>
         {!profile ? (
-          <Alert variant="warning" title="Not set up yet">
+          <Alert dismissible variant="warning" title="Not set up yet">
             Documents cannot be printed until the company details are saved.
           </Alert>
         ) : null}
@@ -268,13 +268,9 @@ export function CompanyTab() {
                 onClick={async () => {
                   try {
                     await remove.mutateAsync();
-                    toast({ title: "Logo removed", variant: "success" });
+                    notify("sales.company.logoRemoved");
                   } catch (e) {
-                    toast({
-                      title:
-                        e instanceof ApiError ? e.message : "Could not remove",
-                      variant: "error",
-                    });
+                    notifyError(e, "sales.company.logoRemoveFailed");
                   }
                 }}
               >

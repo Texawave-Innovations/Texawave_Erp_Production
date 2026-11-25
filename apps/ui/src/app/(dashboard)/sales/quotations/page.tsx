@@ -1,6 +1,6 @@
-import { QuotationsView } from "@/features/sales/quotations/components/QuotationsView";
+import { redirect } from "next/navigation";
 
-// `app/` stays thin — routing only (Docs/CODING_STANDARDS.md §4).
-export default function SalesQuotationsPage() {
-  return <QuotationsView />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectQuotations() {
+  redirect("/sales?tab=quotations");
 }

@@ -1,6 +1,7 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
+import { SalesDashboardQueryDto } from "./dto/dashboard.dto.js";
 import { SalesDashboardService } from "./dashboard.service.js";
 
 @ApiTags("sales-dashboard")
@@ -14,7 +15,7 @@ export class SalesDashboardController {
     summary:
       "Sales dashboard: KPIs, pipeline, trends, receivables, attention items",
   })
-  get() {
-    return this.dashboard.get();
+  get(@Query() query: SalesDashboardQueryDto) {
+    return this.dashboard.get(query.year ? Number(query.year) : undefined);
   }
 }

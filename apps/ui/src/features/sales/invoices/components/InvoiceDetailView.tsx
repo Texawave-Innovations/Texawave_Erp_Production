@@ -25,8 +25,8 @@ import {
   PageHeader,
   SectionCard,
   Skeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { BackArrow } from "../../customers/components/CustomerFormView";
 import { SALES_PERMISSIONS } from "../../permissions";
@@ -70,7 +70,7 @@ type DialogKind =
 
 export function InvoiceDetailView({ id }: { id: number }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { notify, notifyError } = useNotify();
   const canRead = usePermission(SALES_PERMISSIONS.invoiceRead);
   const canWrite = usePermission(SALES_PERMISSIONS.invoiceWrite);
   const canDelete = usePermission(SALES_PERMISSIONS.invoiceDelete);
@@ -84,11 +84,16 @@ export function InvoiceDetailView({ id }: { id: number }) {
   const toChallan = useCreateChallanFromInvoice();
   const removePayment = useDeletePayment();
   const [dialog, setDialog] = useState<DialogKind | null>(null);
+  const [lockedNoticeOpen, setLockedNoticeOpen] = useState(true);
   const [busy, setBusy] = useState<"pdf" | "whatsapp" | null>(null);
 
   if (!canRead) {
     return (
-      <Alert variant="warning" title="You don't have access to invoices">
+      <Alert
+        dismissible
+        variant="warning"
+        title="You don't have access to invoices"
+      >
         Ask an administrator for the <code>sales.invoice.read</code> permission.
       </Alert>
     );
@@ -96,7 +101,7 @@ export function InvoiceDetailView({ id }: { id: number }) {
   if (query.isPending) return <Skeleton className="h-96 w-full" />;
   if (query.isError) {
     return query.error instanceof ApiError && query.error.isNotFound ? (
-      <Alert variant="warning" title="Invoice not found">
+      <Alert dismissible variant="warning" title="Invoice not found">
         It may have been deleted.
       </Alert>
     ) : (
@@ -122,10 +127,7 @@ export function InvoiceDetailView({ id }: { id: number }) {
         );
       }
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "That did not work",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.actionFailed");
     } finally {
       setBusy(null);
     }
@@ -134,26 +136,20 @@ export function InvoiceDetailView({ id }: { id: number }) {
   async function handleDelete() {
     try {
       await remove.mutateAsync(inv.id);
-      toast({ title: `${inv.invoiceNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: inv.invoiceNumber });
       router.push(listPathOf(inv.invoiceType));
     } catch (e) {
       setDialog(null);
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     }
   }
 
   async function handleDeletePayment(p: InvoicePayment) {
     try {
       await removePayment.mutateAsync(p.id);
-      toast({ title: `${p.paymentNumber} deleted`, variant: "success" });
+      notify("sales.document.deleted", { number: p.paymentNumber });
     } catch (e) {
-      toast({
-        title: e instanceof ApiError ? e.message : "Could not delete",
-        variant: "error",
-      });
+      notifyError(e, "sales.document.deleteFailed");
     } finally {
       setDialog(null);
     }
@@ -238,8 +234,12 @@ export function InvoiceDetailView({ id }: { id: number }) {
         }
       />
 
-      {!live ? (
-        <Alert variant="info" title="Moved to a tax invoice">
+      {!live && lockedNoticeOpen ? (
+        <Alert
+          variant="info"
+          title="Moved to a tax invoice"
+          onClose={() => setLockedNoticeOpen(false)}
+        >
           This proforma is locked.{" "}
           {inv.convertedTo ? (
             <Link href={`/sales/invoices/${inv.convertedTo.id}`}>
@@ -413,9 +413,9 @@ export function InvoiceDetailView({ id }: { id: number }) {
               id: inv.id,
               invoiceDate: date,
             });
-            toast({
-              title: `Tax invoice ${tax.invoiceNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Tax invoice",
+              number: tax.invoiceNumber,
             });
             router.push(`/sales/invoices/${tax.id}`);
           }}
@@ -433,10 +433,7 @@ export function InvoiceDetailView({ id }: { id: number }) {
           confirmLabel="Reopen"
           onConfirm={async (reason) => {
             await reopen.mutateAsync({ id: inv.id, reason });
-            toast({
-              title: `${inv.invoiceNumber} is open again`,
-              variant: "success",
-            });
+            notify("sales.document.reopened", { number: inv.invoiceNumber });
             setDialog(null);
           }}
         />
@@ -454,9 +451,9 @@ export function InvoiceDetailView({ id }: { id: number }) {
               id: inv.id,
               dcDate: date,
             });
-            toast({
-              title: `Delivery challan ${dc.dcNumber} created`,
-              variant: "success",
+            notify("sales.document.created", {
+              label: "Delivery challan",
+              number: dc.dcNumber,
             });
             router.push(`/sales/delivery-challans/${dc.id}`);
           }}

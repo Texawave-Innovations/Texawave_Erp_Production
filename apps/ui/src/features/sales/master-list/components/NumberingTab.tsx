@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Hash, Pencil } from "lucide-react";
-import { ApiError } from "@texawave-erp/core";
+import { ApiError, resolveErrorText } from "@texawave-erp/core";
 import {
   Alert,
   Button,
@@ -12,9 +12,9 @@ import {
   FormField,
   Input,
   TableSkeleton,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useFormValidation } from "@/hooks/useFormValidation";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { SALES_PERMISSIONS } from "../../permissions";
 import {
@@ -48,7 +48,7 @@ function FormatDialog({
   format: CodeFormat;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const update = useUpdateCodeFormat();
   const schema = useMemo(
     () => codeFormatSchema(format.codeType),
@@ -78,16 +78,16 @@ function FormatDialog({
           padding: Number(values.padding),
         },
       });
-      toast({
-        title: `${CODE_TYPE_LABEL[format.codeType]} format saved — next: ${saved.example}`,
-        variant: "success",
+      notify("sales.numbering.formatSaved", {
+        type: CODE_TYPE_LABEL[format.codeType],
+        example: saved.example,
       });
       onClose();
     } catch (err) {
       if (err instanceof ApiError && err.errorCode === "INVALID_PREFIX") {
         setServerErrors({ prefix: err.message });
       }
-      setError(err instanceof ApiError ? err.message : "Could not save.");
+      setError(resolveErrorText(err, "sales.common.saveFailed"));
     }
   }
 
@@ -162,7 +162,7 @@ function NumberDialog({
   running: RunningNumber;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const set = useSetRunningNumber();
   const [values, setValues] = useState<RunningNumberValues>({
     lastNumber: String(running.lastNumber),
@@ -184,10 +184,7 @@ function NumberDialog({
           fiscalYear: running.fiscalYear,
         },
       });
-      toast({
-        title: `${label}: next number is ${saved.nextCode}`,
-        variant: "success",
-      });
+      notify("sales.numbering.nextSet", { label, code: saved.nextCode });
       onClose();
     } catch (err) {
       if (
@@ -196,7 +193,7 @@ function NumberDialog({
       ) {
         setServerErrors({ lastNumber: err.message });
       }
-      setError(err instanceof ApiError ? err.message : "Could not save.");
+      setError(resolveErrorText(err, "sales.common.saveFailed"));
     }
   }
 

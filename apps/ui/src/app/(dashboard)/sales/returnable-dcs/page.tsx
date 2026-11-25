@@ -1,5 +1,6 @@
-import { RdcsView } from "@/features/sales/returnable-dcs/components/RdcViews";
+import { redirect } from "next/navigation";
 
-export default function SalesReturnableDcsPage() {
-  return <RdcsView />;
+// List screens live in the Sales workspace tabs (/sales?tab=…).
+export default function RedirectRdcs() {
+  redirect("/sales?tab=returnable-dcs");
 }
