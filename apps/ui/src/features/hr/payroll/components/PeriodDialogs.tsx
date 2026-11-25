@@ -6,8 +6,8 @@ import {
   Input,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { useState } from "react";
 import {
   EmployeePicker,
@@ -45,7 +45,7 @@ export function CreatePeriodDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const create = useCreatePeriod();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,10 +68,7 @@ export function CreatePeriodDialog({
     setServerError(null);
     try {
       const period = await create.mutateAsync(parsed.data);
-      toast({
-        title: `Payroll period ${periodLabel(period)} created`,
-        variant: "success",
-      });
+      notify("payroll.period.created", { period: periodLabel(period) });
       onCreated(period);
       onClose();
     } catch (err) {
@@ -228,7 +225,7 @@ export function RunPayrollDialog({
   period: PayrollPeriod;
 }) {
   const run = useCreateRun();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [scope, setScope] = useState<"all" | "selected">("all");
   const [picking, setPicking] = useState<EmployeeOption | null>(null);
   const [selected, setSelected] = useState<EmployeeOption[]>([]);
@@ -266,10 +263,7 @@ export function RunPayrollDialog({
           : {}),
         ...(parsed.data.notes ? { notes: parsed.data.notes } : {}),
       });
-      toast({
-        title: `Run #${created.runNumber} processed`,
-        variant: "success",
-      });
+      notify("payroll.run.processed", { number: created.runNumber });
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -391,7 +385,7 @@ export function ApproveRunDialog({
   run: PayrollRun;
 }) {
   const approve = useApproveRun();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   return (
     <NotesDialog
       open={open}
@@ -409,7 +403,7 @@ export function ApproveRunDialog({
       }
       onSubmit={async (notes) => {
         await approve.mutateAsync({ id: run.id, ...(notes ? { notes } : {}) });
-        toast({ title: `Run #${run.runNumber} approved`, variant: "success" });
+        notify("payroll.run.approved", { number: run.runNumber });
       }}
     />
   );
@@ -432,7 +426,7 @@ export function ConfirmPeriodDialog({
   const cancel = useCancelPeriod();
   const mutation = action === "finalize" ? finalize : cancel;
   const [serverError, setServerError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const label = periodLabel(period);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -440,13 +434,12 @@ export function ConfirmPeriodDialog({
     setServerError(null);
     try {
       await mutation.mutateAsync(period.id);
-      toast({
-        title:
-          action === "finalize"
-            ? `${label} finalized — payslips generated`
-            : `${label} cancelled`,
-        variant: "success",
-      });
+      notify(
+        action === "finalize"
+          ? "payroll.period.finalized"
+          : "payroll.period.cancelled",
+        { period: label },
+      );
       onClose();
     } catch (err) {
       setServerError(describeError(err));

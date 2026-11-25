@@ -26,8 +26,8 @@ import {
   EmptyState,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { currentFinancialYear, describeError, money } from "../format";
 import { useStatutoryBonus } from "../hooks";
@@ -54,7 +54,7 @@ const MONTHS = [
 export function YearlyBonusMatrix() {
   const canWriteAll = usePermission(BONUS_WRITE_ALL);
   const statutoryMutation = useStatutoryBonus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [financialYear, setFinancialYear] = useState(currentFinancialYear());
   const [result, setResult] = useState<StatutoryBonusResult | null>(null);
@@ -78,9 +78,8 @@ export function YearlyBonusMatrix() {
       });
       setResult(res);
       if (create) {
-        toast({
-          title: `${res.createdBonusIds.length} statutory bonus(es) raised — awaiting maker-checker approval`,
-          variant: "success",
+        notify("payroll.bonus.yearlyRaised", {
+          count: res.createdBonusIds.length,
         });
       }
     } catch (err) {

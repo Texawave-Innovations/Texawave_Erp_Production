@@ -11,7 +11,6 @@ import {
   FormField,
   Input,
   Select,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useMemo, useState } from "react";
 import {
@@ -43,6 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { useWorkLocations } from "@/features/hr/holidays/hooks";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import type { TaxRegimeBody } from "../api";
 import {
@@ -757,7 +757,7 @@ function RegimeDialog({
   onClose: () => void;
 }) {
   const save = useSaveTaxRegime();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [amounts, setAmounts] = useState<Record<AmountField, string>>(() => {
     const out = {} as Record<AmountField, string>;
     for (const [k] of AMOUNT_FIELDS) {
@@ -828,10 +828,7 @@ function RegimeDialog({
         rate: String(s.ratePercent),
       })),
     );
-    toast({
-      title: `Populated Finance Act standard slabs for ${regime} regime`,
-      variant: "success",
-    });
+    notify("payroll.tax.slabsPopulated", { regime });
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -868,10 +865,7 @@ function RegimeDialog({
     setError(null);
     try {
       await save.mutateAsync(body);
-      toast({
-        title: `${regime} regime for FY ${financialYear} saved successfully`,
-        variant: "success",
-      });
+      notify("payroll.tax.regimeSaved", { regime, year: financialYear });
       onClose();
     } catch (err) {
       setError(describeError(err));
@@ -1384,7 +1378,7 @@ export function TaxRegimesSection() {
 
 function PtSlabDialog({ onClose }: { onClose: () => void }) {
   const create = useCreatePtSlab();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [stateCode, setStateCode] = useState("TN");
   const [min, setMin] = useState("");
   const [max, setMax] = useState("");
@@ -1406,9 +1400,9 @@ function PtSlabDialog({ onClose }: { onClose: () => void }) {
       if (s0.specialAmount) setSpecialAmount(String(s0.specialAmount));
       if (s0.applicableMonths) setMonths(s0.applicableMonths);
     }
-    toast({
-      title: `Selected ${p.stateName} (${p.stateCode}) statutory profile`,
-      variant: "success",
+    notify("payroll.statutory.profileSelected", {
+      state: p.stateName,
+      code: p.stateCode,
     });
   };
 
@@ -1442,7 +1436,7 @@ function PtSlabDialog({ onClose }: { onClose: () => void }) {
         ...(months.length ? { applicableMonths: months } : {}),
         effectiveFrom: from,
       });
-      toast({ title: `PT slab added for ${code}`, variant: "success" });
+      notify("payroll.pt.slabAdded", { code });
       onClose();
     } catch (err) {
       setError(describeError(err));
@@ -1663,7 +1657,7 @@ function LocationStates({ canWrite }: { canWrite: boolean }) {
   const locations = useWorkLocations(true);
   const states = usePtLocationStates();
   const setState = useSetPtLocationState();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -1681,10 +1675,7 @@ function LocationStates({ canWrite }: { canWrite: boolean }) {
     setError(null);
     try {
       await setState.mutateAsync({ workLocationId, stateCode: code });
-      toast({
-        title: `Mapped ${code} PT jurisdiction to location`,
-        variant: "success",
-      });
+      notify("payroll.pt.mapped", { code });
     } catch (err) {
       setError(describeError(err));
     }
@@ -1821,7 +1812,7 @@ export function ProfessionalTaxSection() {
   const canWrite = usePermission(PAYROLL_SETTINGS_WRITE);
   const query = usePtSlabs();
   const update = useUpdatePtSlab();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [creating, setCreating] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1874,7 +1865,7 @@ export function ProfessionalTaxSection() {
     setError(null);
     try {
       await update.mutateAsync({ id: slab.id, body: { isActive: false } });
-      toast({ title: "PT slab deactivated", variant: "success" });
+      notify("payroll.pt.slabDeactivated");
     } catch (err) {
       setError(describeError(err));
     }

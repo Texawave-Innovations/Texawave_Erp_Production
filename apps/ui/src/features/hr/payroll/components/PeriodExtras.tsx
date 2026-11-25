@@ -6,9 +6,9 @@ import {
   Dialog,
   FormField,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { downloadPayrollReport } from "../api";
 import { downloadBlob } from "../download";
@@ -37,7 +37,7 @@ export function ReopenPeriodDialog({
   onClose: () => void;
 }) {
   const reopen = useReopenPeriod();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -53,10 +53,7 @@ export function ReopenPeriodDialog({
     setServerError(null);
     try {
       await reopen.mutateAsync({ id: period.id, reason: reason.trim() });
-      toast({
-        title: `${label} reopened — the run needs a fresh approval`,
-        variant: "success",
-      });
+      notify("payroll.period.reopened", { period: label });
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -104,7 +101,11 @@ export function ReopenPeriodDialog({
 export function ReopenedNotice({ period }: { period: PayrollPeriod }) {
   if (!period.reopenCount || !period.reopenReason) return null;
   return (
-    <Alert variant="warning" title={`Reopened ${period.reopenCount} time(s)`}>
+    <Alert
+      dismissible
+      variant="warning"
+      title={`Reopened ${period.reopenCount} time(s)`}
+    >
       Last on {timestamp(period.reopenedAt)}: {period.reopenReason}
     </Alert>
   );

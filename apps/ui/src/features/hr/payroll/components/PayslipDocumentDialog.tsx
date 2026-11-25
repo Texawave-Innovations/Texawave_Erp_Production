@@ -13,7 +13,8 @@ import {
   User,
   X,
 } from "lucide-react";
-import { Button, Dialog, useToast } from "@texawave-erp/ui-kit";
+import { Button, Dialog } from "@texawave-erp/ui-kit";
+import { useNotify } from "@/hooks/useNotify";
 import { downloadPayslipPdf } from "../api";
 import { downloadBlob } from "../download";
 import { days, describeError, isoDate, money, periodLabel } from "../format";
@@ -36,7 +37,7 @@ export function PayslipDocumentDialog({
   onClose: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const printRef = useRef<HTMLDivElement>(null);
 
   const bank = p.employee.bankDetails;
@@ -48,16 +49,9 @@ export function PayslipDocumentDialog({
     try {
       const pdf = await downloadPayslipPdf(p.id, selfService);
       downloadBlob(`${p.payslipNumber}.pdf`, pdf);
-      toast({
-        title: "Payslip downloaded successfully",
-        variant: "success",
-      });
+      notify("payroll.payslip.downloaded");
     } catch (err) {
-      toast({
-        title: "Could not download the payslip PDF",
-        description: describeError(err),
-        variant: "error",
-      });
+      notify("payroll.payslip.pdfFailed", { reason: describeError(err) });
     } finally {
       setDownloading(false);
     }

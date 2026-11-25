@@ -8,13 +8,13 @@ import {
   Dialog,
   FormField,
   Input,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import { useState } from "react";
 import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { currentFinancialYear, describeError, money } from "../format";
 import { useCreateGratuity, useGratuity, useStatutoryBonus } from "../hooks";
@@ -32,7 +32,7 @@ import { OpenPeriodSelect } from "./OpenPeriodSelect";
  */
 export function StatutoryBonusDialog({ onClose }: { onClose: () => void }) {
   const run = useStatutoryBonus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [financialYear, setFinancialYear] = useState(currentFinancialYear());
   const [result, setResult] = useState<StatutoryBonusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +49,8 @@ export function StatutoryBonusDialog({ onClose }: { onClose: () => void }) {
       const res = await run.mutateAsync({ financialYear, create });
       setResult(res);
       if (create) {
-        toast({
-          title: `${res.createdBonusIds.length} statutory bonus(es) raised — awaiting approval`,
-          variant: "success",
+        notify("payroll.bonus.statutoryRaised", {
+          count: res.createdBonusIds.length,
         });
       }
     } catch (err) {
@@ -116,7 +115,7 @@ export function StatutoryBonusDialog({ onClose }: { onClose: () => void }) {
               {money(result.rules.calculationCeiling)} · {result.rules.percent}%
             </p>
             {result.employees.length === 0 ? (
-              <Alert variant="info" title="No finalized payroll">
+              <Alert dismissible variant="info" title="No finalized payroll">
                 No period of {result.financialYear} is finalized yet.
               </Alert>
             ) : (
@@ -173,7 +172,7 @@ export function StatutoryBonusDialog({ onClose }: { onClose: () => void }) {
 export function GratuityDialog({ onClose }: { onClose: () => void }) {
   const canWrite = usePermission(BONUS_WRITE);
   const create = useCreateGratuity();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [asOf, setAsOf] = useState("");
   const [periodId, setPeriodId] = useState<number | null>(null);
@@ -190,9 +189,9 @@ export function GratuityDialog({ onClose }: { onClose: () => void }) {
         asOf: g.asOf,
         payrollPeriodId: periodId ?? undefined,
       });
-      toast({
-        title: `Gratuity of ${money(g.amount)} raised for ${employee.fullName} — awaiting approval`,
-        variant: "success",
+      notify("payroll.bonus.gratuityRaised", {
+        amount: money(g.amount),
+        name: employee.fullName,
       });
       onClose();
     } catch (err) {
@@ -250,7 +249,7 @@ export function GratuityDialog({ onClose }: { onClose: () => void }) {
           </dl>
         ) : null}
         {g && !g.eligible ? (
-          <Alert variant="info" title="Not eligible">
+          <Alert dismissible variant="info" title="Not eligible">
             {g.reason}
           </Alert>
         ) : null}

@@ -34,7 +34,11 @@ export function QueryState({
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.isPermissionError) {
       return (
-        <Alert variant="warning" title={`You don't have access to ${area}`}>
+        <Alert
+          dismissible
+          variant="warning"
+          title={`You don't have access to ${area}`}
+        >
           Ask an administrator to grant the permission.
         </Alert>
       );

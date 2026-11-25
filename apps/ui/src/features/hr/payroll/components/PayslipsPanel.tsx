@@ -39,12 +39,12 @@ import {
   Pagination,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { downloadPayslipPdf } from "../api";
 import { downloadBlob } from "../download";
@@ -80,7 +80,7 @@ export function DownloadPdfButton({
   selfService: boolean;
   size?: "sm" | "md";
 }) {
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [busy, setBusy] = useState(false);
 
   async function handleClick() {
@@ -89,11 +89,7 @@ export function DownloadPdfButton({
       const pdf = await downloadPayslipPdf(payslip.id, selfService);
       downloadBlob(`${payslip.payslipNumber}.pdf`, pdf);
     } catch (err) {
-      toast({
-        title: "Could not download the payslip",
-        description: describeError(err),
-        variant: "error",
-      });
+      notify("payroll.payslip.downloadFailed", { reason: describeError(err) });
     } finally {
       setBusy(false);
     }
@@ -118,7 +114,7 @@ export function DownloadPdfButton({
 function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
   const generate = useGeneratePayslips();
   const periods = usePeriods({ page: 1, limit: 100 });
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -140,10 +136,12 @@ function GeneratePayslipsDialog({ onClose }: { onClose: () => void }) {
         payrollPeriodId: periodId,
         ...(reason.trim() ? { reason: reason.trim() } : {}),
       });
-      toast({
-        title: `${rows.length} payslip${rows.length === 1 ? "" : "s"} generated successfully`,
-        variant: "success",
-      });
+      notify(
+        rows.length === 1
+          ? "payroll.payslip.generatedOne"
+          : "payroll.payslip.generatedMany",
+        { count: rows.length },
+      );
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -460,7 +458,7 @@ export function MyPayslipsSection() {
 function HrPayslipsSection() {
   const canRead = usePermission(PAYSLIP_READ);
   const canGenerate = usePermission(PAYROLL_WRITE);
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [page, setPage] = useState(1);
   const [periodId, setPeriodId] = useState<number | null>(null);
@@ -585,28 +583,25 @@ function HrPayslipsSection() {
 
   const handleExportCsv = () => {
     if (allPayslips.length === 0) {
-      toast({ title: "No payslips available to export", variant: "warning" });
+      notify("payroll.payslip.nothingToExport");
       return;
     }
     exportPayslipsCsv(allPayslips, activePeriodTitle);
     setExportOpen(false);
-    toast({ title: "CSV export generated successfully", variant: "success" });
+    notify("payroll.payslip.csvExported");
   };
 
   const handleExportExcel = async () => {
     if (allPayslips.length === 0) {
-      toast({ title: "No payslips available to export", variant: "warning" });
+      notify("payroll.payslip.nothingToExport");
       return;
     }
     setExportOpen(false);
     try {
       await exportPayslipsExcel(allPayslips, activePeriodTitle);
-      toast({
-        title: "Excel (.xlsx) export generated successfully",
-        variant: "success",
-      });
+      notify("payroll.payslip.excelExported");
     } catch {
-      toast({ title: "Could not generate the Excel export", variant: "error" });
+      notify("payroll.payslip.excelFailed");
     }
   };
 

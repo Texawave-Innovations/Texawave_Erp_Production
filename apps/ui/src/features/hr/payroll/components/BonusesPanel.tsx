@@ -25,12 +25,12 @@ import {
   Pagination,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import { describeError, money, periodLabel } from "../format";
@@ -72,7 +72,7 @@ const MANUAL_TYPES = BONUS_TYPES.filter((t) => t !== "GRATUITY");
 
 function NewBonusDialog({ onClose }: { onClose: () => void }) {
   const create = useCreateBonus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
   const [bonusType, setBonusType] = useState<BonusType | "">("");
   const [amount, setAmount] = useState("");
@@ -98,10 +98,7 @@ function NewBonusDialog({ onClose }: { onClose: () => void }) {
     setServerError(null);
     try {
       await create.mutateAsync(parsed.data);
-      toast({
-        title: `Bonus created for ${employee?.fullName} — awaiting approval`,
-        variant: "success",
-      });
+      notify("payroll.bonus.created", { name: employee?.fullName });
       onClose();
     } catch (err) {
       setServerError(describeError(err));
@@ -191,7 +188,7 @@ function DecideBonusDialog({
   onClose: () => void;
 }) {
   const decide = useDecideBonus();
-  const { toast } = useToast();
+  const { notify } = useNotify();
   const [note, setNote] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
   const approving = decision === "APPROVED";
@@ -205,10 +202,7 @@ function DecideBonusDialog({
         decision,
         note: note.trim() || undefined,
       });
-      toast({
-        title: approving ? "Bonus approved" : "Bonus rejected",
-        variant: "success",
-      });
+      notify(approving ? "payroll.bonus.approved" : "payroll.bonus.rejected");
       onClose();
     } catch (err) {
       setServerError(describeError(err));

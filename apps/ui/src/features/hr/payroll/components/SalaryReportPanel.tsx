@@ -410,7 +410,7 @@ export function SalaryReportPanel() {
       </div>
 
       {run && run.status !== "APPROVED" && (
-        <Alert variant="warning" title="Run Not Yet Approved">
+        <Alert dismissible variant="warning" title="Run Not Yet Approved">
           This payroll run is in processed status. Figures are provisional until
           final HR/Admin approval.
         </Alert>

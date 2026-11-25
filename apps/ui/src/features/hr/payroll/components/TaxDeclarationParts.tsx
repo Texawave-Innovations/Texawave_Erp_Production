@@ -419,7 +419,7 @@ export function Form16View({
 
   if (query.isError) {
     return (
-      <Alert variant="info" title="No Form 16 Available Yet">
+      <Alert dismissible variant="info" title="No Form 16 Available Yet">
         {describeError(query.error)}
       </Alert>
     );

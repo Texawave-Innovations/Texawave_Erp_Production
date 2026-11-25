@@ -37,12 +37,12 @@ import {
   Pagination,
   Select,
   Textarea,
-  useToast,
 } from "@texawave-erp/ui-kit";
 import {
   type EmployeeOption,
   EmployeePicker,
 } from "@/components/widgets/EmployeePicker";
+import { useNotify } from "@/hooks/useNotify";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -98,7 +98,7 @@ function VerifyDialog({
   onClose: () => void;
 }) {
   const verify = useVerifyDeclaration();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [accepted, setAccepted] = useState<Record<VerifiedField, string>>(
     () => {
@@ -151,13 +151,12 @@ function VerifyDialog({
           ...(decision === "VERIFIED" ? body : {}),
         },
       });
-      toast({
-        title:
-          decision === "VERIFIED"
-            ? `Declaration for ${d.employee.fullName} verified`
-            : `Declaration rejected`,
-        variant: "success",
-      });
+      notify(
+        decision === "VERIFIED"
+          ? "payroll.tax.declarationVerified"
+          : "payroll.tax.declarationRejected",
+        { name: d.employee.fullName },
+      );
       onClose();
     } catch (err) {
       setError(describeError(err));
@@ -316,7 +315,7 @@ function OnBehalfDialog({
   onClose: () => void;
 }) {
   const save = useSaveDeclarationForEmployee();
-  const { toast } = useToast();
+  const { notify } = useNotify();
 
   const [employee, setEmployee] = useState<EmployeeOption | null>(
     existing
@@ -350,12 +349,12 @@ function OnBehalfDialog({
           submit,
         },
       });
-      toast({
-        title: submit
-          ? `Declaration submitted for ${employee.fullName}`
-          : `Declaration draft saved for ${employee.fullName}`,
-        variant: "success",
-      });
+      notify(
+        submit
+          ? "payroll.tax.declarationSubmittedFor"
+          : "payroll.tax.declarationDraftSavedFor",
+        { name: employee.fullName },
+      );
       onClose();
     } catch (err) {
       setError(describeError(err));
