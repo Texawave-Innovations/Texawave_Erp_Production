@@ -243,6 +243,15 @@ export interface DashboardMetrics {
   delayedProjects: number;
   onTrackProjects: number;
   upcomingMilestonesCount: number;
+  /** Open milestones due within the window, soonest first (max 5). */
+  upcomingMilestones: {
+    id: number;
+    title: string;
+    targetDate: string;
+    projectId: number;
+    projectCode: string;
+    projectName: string;
+  }[];
   openTasksCount: number;
   /** Projects whose logged hours exceed expected hours. */
   overHoursProjects: number;
@@ -331,4 +340,12 @@ export interface PointsConfig {
   high: number;
   urgent: number;
   customRules: Record<string, unknown>;
+}
+
+/** GET /projects/analytics/hours-trend: hours per Monday-start week, oldest first. */
+export interface WeeklyHours {
+  /** Monday of the week, `YYYY-MM-DD`. */
+  weekStart: string;
+  hours: number;
+  entries: number;
 }

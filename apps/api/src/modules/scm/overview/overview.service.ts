@@ -5,6 +5,8 @@ import { AssistantRepository } from "./assistant.repository.js";
 import { buildReply, detectIntent } from "./assistant.intents.js";
 import { OverviewRepository } from "./overview.repository.js";
 import { ScanRepository } from "./scan.repository.js";
+import { businessToday } from "../../../common/dates/business-date.js";
+import { bucketMovements, istDayStart, trendDates } from "./movement-trend.js";
 
 @Injectable()
 export class OverviewService {
@@ -21,6 +23,15 @@ export class OverviewService {
 
   overview() {
     return this.repo.overview(this.scope);
+  }
+  /** Inbound vs outbound stock quantity per IST day, oldest first. */
+  async movementTrend(days: number) {
+    const dates = trendDates(businessToday(), days);
+    const rows = await this.repo.movementsSince(
+      this.scope,
+      istDayStart(dates[0] as string),
+    );
+    return bucketMovements(rows, dates);
   }
   search(q: string) {
     return this.repo.search(this.scope, q);

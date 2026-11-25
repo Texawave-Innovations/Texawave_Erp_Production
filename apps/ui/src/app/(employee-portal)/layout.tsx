@@ -463,7 +463,9 @@ export default function EmployeePortalLayout({
           name={fullName}
           initials={initials}
         />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50/60 dark:bg-gray-900/40">
+        {/* Solid (not translucent): PortalSidebar's active tab uses this exact
+            colour to join the page seamlessly. */}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 dark:bg-gray-dark">
           {/* `relative`: keep absolutely positioned descendants (sr-only
               captions, tooltips) inside this scroller instead of the document. */}
           <div className="relative flex-1 overflow-y-auto p-4 lg:p-6">

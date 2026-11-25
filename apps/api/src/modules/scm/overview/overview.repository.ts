@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@texawave-erp/database";
 import { OrgScoped } from "../../../common/decorators/org-scoped.decorator.js";
 import type { OrgScope } from "../../../common/tenancy/org-scope.js";
+import { tenantWhere } from "../../../common/tenancy/tenant-where.js";
 import { PrismaService } from "../../../shared/prisma/prisma.service.js";
 
 const num = (d: Prisma.Decimal | number | bigint | null | undefined) =>
@@ -438,6 +439,15 @@ export class OverviewRepository {
 
   /** Deterministic exceptions, not a learned model: the same hand-rolled
    * rules the legacy exception engine used, just computed server-side. */
+  /** Stock ledger quantities since `from` (inclusive), for the movement trend. */
+  @OrgScoped()
+  movementsSince(scope: OrgScope, from: Date) {
+    return this.prisma.scmStockLedgerEntry.findMany({
+      where: tenantWhere(scope, { transactionDate: { gte: from } }),
+      select: { transactionDate: true, quantityIn: true, quantityOut: true },
+    });
+  }
+
   @OrgScoped()
   async controlTowerExceptions(scope: OrgScope) {
     const org = scope.organizationId;

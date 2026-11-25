@@ -1,9 +1,11 @@
 import type { ComponentType } from "react";
 import { cn } from "../../lib/cn";
 import { AnimatedNumber } from "./animated-number";
+import { AnimatedValue } from "./animated-value";
 import { MetricTrend, type MetricTrendProps } from "./metric-trend";
 
 export * from "./animated-number";
+export * from "./animated-value";
 export * from "./metric-trend";
 
 export type StatCardTone =
@@ -19,7 +21,15 @@ export type StatCardTone =
   | "emerald"
   | "amber";
 
-export type StatCardVariant = "standard" | "kpi";
+/**
+ * `standard` — tinted card with a tone hairline (the original look).
+ * `kpi` — horizontal card with a large gradient icon tile.
+ * `dashboard` (the default) — the admin dashboard's KPI card: large count-up figure, a
+ *   corner arrow (or the icon), tone glow, lift on hover. Edged by the
+ *   app's soft `card-light-shadow` rather than a border in light mode (a
+ *   faint border stays in dark mode, where shadows barely show).
+ */
+export type StatCardVariant = "standard" | "kpi" | "dashboard";
 
 export interface StatCardProps {
   headingId: string;
@@ -187,6 +197,77 @@ const KPI_ICON_GRADIENTS: Record<
 };
 
 /**
+ * `dashboard` variant: the soft tint near the top-right corner, per tone.
+ * Centred just inside the corner so it fades out before the rounded edge
+ * (a tint sitting on the edge makes that one corner read heavier than the
+ * other three). A radial-gradient background, not a blurred blob: a blur filter is cut to a
+ * hard-edged rectangle, and Chrome can leak a blurred/transformed child past
+ * a rounded `overflow-hidden` corner. Full literals so Tailwind sees them.
+ */
+const DASHBOARD_GLOW: Record<StatCardTone, string> = {
+  neutral:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-slate-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-slate-500)_22%,transparent),transparent_70%)]",
+  brand:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-sky-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-sky-500)_22%,transparent),transparent_70%)]",
+  info: "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-500)_22%,transparent),transparent_70%)]",
+  warning:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-amber-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-amber-500)_22%,transparent),transparent_70%)]",
+  error:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-rose-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-rose-500)_22%,transparent),transparent_70%)]",
+  success:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-emerald-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-emerald-500)_22%,transparent),transparent_70%)]",
+  blue: "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-blue-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-blue-500)_22%,transparent),transparent_70%)]",
+  cyan: "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-500)_22%,transparent),transparent_70%)]",
+  purple:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-cyan-500)_22%,transparent),transparent_70%)]",
+  emerald:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-emerald-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-emerald-500)_22%,transparent),transparent_70%)]",
+  amber:
+    "bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-amber-200)_55%,transparent),transparent_70%)] dark:bg-[radial-gradient(95%_85%_at_82%_12%,color-mix(in_oklab,var(--color-amber-500)_22%,transparent),transparent_70%)]",
+};
+
+/** `dashboard` variant: the corner badge (arrow or icon), per tone. */
+const DASHBOARD_BADGE: Record<StatCardTone, string> = {
+  neutral:
+    "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300",
+  brand:
+    "border-sky-200 bg-sky-50 text-[#0284c7] dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300",
+  info: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800/60 dark:bg-cyan-950/40 dark:text-cyan-300",
+  warning:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300",
+  error:
+    "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300",
+  success:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  blue: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-300",
+  cyan: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800/60 dark:bg-cyan-950/40 dark:text-cyan-300",
+  purple:
+    "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800/60 dark:bg-cyan-950/40 dark:text-cyan-300",
+  emerald:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  amber:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300",
+};
+
+function ArrowUpRightIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4.5 w-4.5"
+      aria-hidden="true"
+    >
+      <path d="M7 17 17 7" />
+      <path d="M7 7h10v10" />
+    </svg>
+  );
+}
+
+/**
  * Reusable Enterprise StatCard component conforming to TEXA Design System.
  * Supports standard enterprise cards and rich KPI horizontal cards.
  */
@@ -201,7 +282,7 @@ export function StatCard({
   href,
   onClick,
   LinkComponent,
-  variant = "standard",
+  variant = "dashboard",
   className = "",
 }: StatCardProps) {
   const valueClass = TONE_VALUE_CLASS[tone];
@@ -217,6 +298,91 @@ export function StatCard({
       : !isNaN(Number(value)) && String(value).trim() !== ""
         ? Number(value)
         : null;
+
+  if (variant === "dashboard") {
+    const interactive = Boolean(href || onClick);
+    return (
+      <section
+        aria-labelledby={headingId}
+        className={cn(
+          "group relative flex min-h-[150px] flex-col overflow-hidden rounded-3xl border border-transparent bg-white p-5 text-[#0a3271] card-light-shadow transition-all duration-300 dark:border-[#1C2029] dark:bg-[#0D1117] dark:text-sky-100 motion-reduce:transition-none",
+          interactive &&
+            "hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
+          className,
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-[inherit] opacity-80 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:transition-none",
+            DASHBOARD_GLOW[tone],
+          )}
+        />
+
+        <div className="relative flex items-start justify-between gap-3">
+          <h3 id={headingId} className="text-base font-semibold leading-tight">
+            {label}
+          </h3>
+          {(Icon || interactive) && (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 motion-reduce:transition-none",
+                !Icon && "group-hover:rotate-45",
+                Icon && "group-hover:scale-105",
+                DASHBOARD_BADGE[tone],
+              )}
+            >
+              {Icon ? <Icon className="h-4.5 w-4.5" /> : <ArrowUpRightIcon />}
+            </span>
+          )}
+        </div>
+
+        <p
+          className={cn(
+            "relative mt-3 font-semibold leading-none tracking-tight tabular-nums",
+            // Long formatted values ("42h 48m") step down so they fit narrow grids.
+            String(value).length > 5 ? "text-[1.9rem]" : "text-[2.4rem]",
+            tone === "neutral" ? "" : valueClass,
+          )}
+        >
+          <AnimatedValue value={value} />
+        </p>
+
+        <div className="relative mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
+          <p className="flex min-w-0 items-start gap-1.5 text-xs font-medium leading-snug text-gray-500 dark:text-gray-400">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "mt-[0.3rem] h-1.5 w-1.5 shrink-0 rounded-full",
+                edgeClass,
+              )}
+            />
+            {/* Wraps rather than truncating: notes carry real detail. */}
+            <span>{note}</span>
+          </p>
+          {trend && <MetricTrend {...trend} />}
+        </div>
+
+        {interactive &&
+          (LinkComponent && href ? (
+            <LinkComponent
+              href={href}
+              {...(onClick ? { onClick } : {})}
+              aria-label={`${label}: ${value}. ${note}`}
+              className="absolute inset-0 z-10 rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            />
+          ) : (
+            <a
+              href={href || "#"}
+              {...(onClick ? { onClick } : {})}
+              aria-label={`${label}: ${value}. ${note}`}
+              className="absolute inset-0 z-10 rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            />
+          ))}
+      </section>
+    );
+  }
 
   if (variant === "kpi") {
     return (

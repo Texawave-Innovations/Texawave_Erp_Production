@@ -417,4 +417,26 @@ export interface ProcurementDashboardSummary {
   purchaseOrders: Record<string, number>;
   goodsReceipts: number;
   openPurchaseOrderValue: number;
+  /** Open POs with a delivery date, soonest (including overdue) first, max 5. */
+  upcomingDeliveries: Array<{
+    id: number;
+    poNumber: string;
+    vendorName: string;
+    expectedDeliveryDate: string | null;
+    total: number;
+    status: PoStatus;
+  }>;
+  /** Open POs whose expected delivery date is before today (IST). */
+  overdueDeliveries: number;
+  /** Committed (approved onwards) PO value per month of PO date, last 7 months, oldest first. */
+  monthlySpend: Array<{ month: string; total: number; orders: number }>;
+  /** Submitted requisitions and POs pending approval, oldest first, max 5. */
+  awaitingApproval: Array<{
+    type: "REQUISITION" | "PURCHASE_ORDER";
+    id: number;
+    number: string;
+    party: string;
+    date: string;
+    total: number;
+  }>;
 }

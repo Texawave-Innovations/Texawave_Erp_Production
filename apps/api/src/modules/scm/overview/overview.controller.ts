@@ -1,7 +1,12 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { RequirePermission } from "../../../common/decorators/require-permission.decorator.js";
-import { AskDto, ResolveCodeDto, SearchDto } from "./dto/overview.dto.js";
+import {
+  AskDto,
+  MovementTrendDto,
+  ResolveCodeDto,
+  SearchDto,
+} from "./dto/overview.dto.js";
 import { OverviewService } from "./overview.service.js";
 
 /** Legacy `ScmOverview` / `ScmMasterData` / `ScmBarcodeDashboard` /
@@ -17,6 +22,15 @@ export class OverviewController {
   @RequirePermission("scm.overview.read")
   overview() {
     return this.svc.overview();
+  }
+
+  @Get("movement-trend")
+  @RequirePermission("scm.overview.read")
+  @ApiOperation({
+    summary: "Inbound vs outbound stock quantity per IST day (stock ledger)",
+  })
+  movementTrend(@Query() query: MovementTrendDto) {
+    return this.svc.movementTrend(query.days ?? 7);
   }
 }
 

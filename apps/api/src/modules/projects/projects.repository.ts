@@ -125,6 +125,18 @@ export class ProjectsRepository {
    * analytics aggregates need — deliberately NOT paginated, so org-wide KPIs
    * cover all projects rather than the first page (Docs: legacy dashboards
    * summed the full project list). Selects are narrow to keep it cheap. */
+  /** Time entries on live tasks of live projects since `from` (entry date). */
+  @OrgScoped()
+  timeEntriesSince(scope: OrgScope, from: Date) {
+    return this.prisma.projectTimeEntry.findMany({
+      where: tenantWhere(scope, {
+        entryDate: { gte: from },
+        task: { deletedAt: null, project: { deletedAt: null } },
+      }),
+      select: { entryDate: true, durationMinutes: true },
+    });
+  }
+
   @OrgScoped()
   findAllForAnalytics(scope: OrgScope) {
     return this.prisma.project.findMany({
@@ -156,7 +168,13 @@ export class ProjectsRepository {
         },
         milestones: {
           where: { deletedAt: null },
-          select: { targetDate: true, actualDate: true, status: true },
+          select: {
+            id: true,
+            title: true,
+            targetDate: true,
+            actualDate: true,
+            status: true,
+          },
         },
         tasks: {
           where: { deletedAt: null },

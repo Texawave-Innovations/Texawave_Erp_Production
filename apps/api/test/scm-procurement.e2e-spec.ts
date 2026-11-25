@@ -541,6 +541,68 @@ describe("scm procurement pipeline (e2e)", () => {
     expect(Number(item.receivedQuantity)).toBe(8);
   });
 
+  it("reports committed monthly spend and the oldest documents awaiting approval", async () => {
+    const istToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }).format(new Date());
+    type Summary = {
+      monthlySpend: { month: string; total: number; orders: number }[];
+      awaitingApproval: { type: string; id: number; number: string }[];
+    };
+    const before = data<Summary>(
+      await get(tokenAll, `${P}/dashboard`).expect(200),
+    );
+    expect(before.monthlySpend).toHaveLength(7);
+    expect(before.monthlySpend[6]!.month).toBe(istToday.slice(0, 7));
+
+    // A sent PO dated today counts toward this month's committed spend...
+    const committed = data<Doc>(
+      await post(tokenAll, `${P}/purchase-orders`, {
+        supplierId: sup1.id,
+        poDate: istToday,
+        warehouseId: wh.id,
+        items: [{ productId: plain.id, quantity: 4, unitPrice: 25 }],
+      }).expect(201),
+    );
+    await post(tokenAll, `${P}/purchase-orders/${committed.id}/submit`).expect(
+      201,
+    );
+    await post(tokenAll, `${P}/purchase-orders/${committed.id}/approve`).expect(
+      201,
+    );
+    // ...while a PO only submitted (pending approval) does not, and joins the
+    // approval queue — dated long ago, so it is the longest waiting.
+    const pending = data<Doc>(
+      await post(tokenAll, `${P}/purchase-orders`, {
+        supplierId: sup1.id,
+        poDate: "2001-01-02",
+        warehouseId: wh.id,
+        items: [{ productId: plain.id, quantity: 1, unitPrice: 999 }],
+      }).expect(201),
+    );
+    await post(tokenAll, `${P}/purchase-orders/${pending.id}/submit`).expect(
+      201,
+    );
+
+    const after = data<Summary>(
+      await get(tokenAll, `${P}/dashboard`).expect(200),
+    );
+    const month = (s: Summary) => s.monthlySpend[6]!;
+    expect(month(after).orders - month(before).orders).toBe(1);
+    expect(month(after).total - month(before).total).toBe(100);
+    expect(after.awaitingApproval[0]).toMatchObject({
+      type: "PURCHASE_ORDER",
+      id: pending.id,
+    });
+    expect(after.awaitingApproval.length).toBeLessThanOrEqual(5);
+
+    const other = data<Summary>(
+      await get(tokenB, `${P}/dashboard`).expect(200),
+    );
+    expect(other.awaitingApproval).toHaveLength(0);
+    expect(other.monthlySpend.every((m) => m.total === 0)).toBe(true);
+  });
+
   it("enforces read-only access and tenant isolation", async () => {
     await get(tokenReadOnly, `${P}/purchase-orders`).expect(200);
     await post(tokenReadOnly, `${P}/requisitions`, {
